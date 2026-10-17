@@ -1,10 +1,10 @@
 ///|
 fn cmd_input_reuse_identity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nan : Bool,
   reference : Bool,
-  clean? : Bool = false,
+  clean~ : Bool = false,
 ) -> Unit {
   let body = if clean {
     let instructions : Array[@lib.Instruction] = []
@@ -45,8 +45,14 @@ fn cmd_input_reuse_identity_bench(
     )
   @validate.validate_module(mod_).unwrap()
   let before = @binary.encode_module(mod_).unwrap()
-  if should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, false, mod_, mod_) !=
-    (!nan || clean) {
+  if should_reuse_input_wasm_bytes(
+      CliInputFormat::wasm(),
+      1,
+      false,
+      false,
+      mod_,
+    ) !=
+    clean {
     abort("input reuse did not preserve encoding cleanup admission")
   }
   it.bench(fn() {
@@ -58,7 +64,7 @@ fn cmd_input_reuse_identity_bench(
           CliInputFormat::wasm(),
           1,
           false,
-          mod_,
+          false,
           mod_,
         )
       },

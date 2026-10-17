@@ -5,7 +5,7 @@ test "command local cse treats waitqueue synchronization as nested reuse barrier
   )
   let output = cmd_deep_audit_run_module(input, "local-cse")
   assert_true(@validate.validate_module(output) is Ok(_))
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   for idx = 0; idx < 3; idx = idx + 1 {
     counts.push(
       cmd_deep_audit_count(cmd_deep_audit_body(output, index=idx), fn(instr) {

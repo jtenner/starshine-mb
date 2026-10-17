@@ -1,7 +1,7 @@
 ///|
 fn parse_ok(
   args : Array[String],
-  starshine_input? : String? = None,
+  starshine_input~ : String? = None,
 ) -> CliParseResult {
   match parse_cli_args(args, starshine_input~) {
     Ok(parsed) => parsed
@@ -12,7 +12,7 @@ fn parse_ok(
 ///|
 fn parse_err(
   args : Array[String],
-  starshine_input? : String? = None,
+  starshine_input~ : String? = None,
 ) -> CliParseError {
   match parse_cli_args(args, starshine_input~) {
     Ok(parsed) => abort("expected parser error but succeeded with \{parsed}")

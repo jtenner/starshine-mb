@@ -2,18 +2,18 @@
 pub struct DifferentialAdapters {
   wasm_tools_validate : (Bytes) -> Result[Bool, String]
   binaryen_validate : (Bytes) -> Result[Bool, String]
-  per_case_timeout_ms : Int?
+  per_case_timeout_ms : Int32?
 }
 
 ///|
 pub fn DifferentialAdapters::new(
-  wasm_tools_validate? : (Bytes) -> Result[Bool, String] = fn(_) {
+  wasm_tools_validate~ : (Bytes) -> Result[Bool, String] = fn(_) {
     Err("wasm-tools differential validator unavailable")
   },
-  binaryen_validate? : (Bytes) -> Result[Bool, String] = fn(_) {
+  binaryen_validate~ : (Bytes) -> Result[Bool, String] = fn(_) {
     Err("binaryen differential validator unavailable")
   },
-  per_case_timeout_ms? : Int? = None,
+  per_case_timeout_ms~ : Int32? = None,
 ) -> DifferentialAdapters {
   { wasm_tools_validate, binaryen_validate, per_case_timeout_ms, }
 }
@@ -41,7 +41,7 @@ fn encode_text_matrix_module(mod : Module) -> Result[Bytes, String] {
 ///|
 pub fn run_local_text_parse_print_lower_matrix(
   source : String,
-  filename? : String = "fuzz-text.wat",
+  filename~ : String = "fuzz-text.wat",
 ) -> TextParsePrintLowerReport {
   let adapter_name = "starshine-local"
   let parsed = match @wast.wast_to_module(source, filename~) {
@@ -218,7 +218,7 @@ pub fn TextAggregateClassification::adapter_unavailable() -> TextAggregateClassi
 ///|
 pub fn TextAggregateAdapterResult::external_accepted(
   adapter_name : String,
-  validates_ok? : Bool? = None,
+  validates_ok~ : Bool? = None,
 ) -> TextAggregateAdapterResult {
   TextAggregateAdapterResult::{
     adapter_name,
@@ -286,7 +286,7 @@ pub fn TextAggregateAdapterResult::external_unavailable(
 ///|
 pub fn text_aggregate_local_result(
   report : TextParsePrintLowerReport,
-  validates_ok? : Bool? = None,
+  validates_ok~ : Bool? = None,
 ) -> TextAggregateAdapterResult {
   let lowered_bytes_equal = match
     (report.original_lowered_bytes, report.reparsed_lowered_bytes) {
@@ -462,9 +462,9 @@ pub fn persist_text_differential_artifacts(
   external_results : Array[TextAggregateAdapterResult],
   classification : TextAggregateClassification,
   io : FuzzFailurePersistIO,
-  repro_dir? : String = "text-repros",
-  seed? : UInt64 = 0UL,
-  attempt? : Int = 0,
+  repro_dir~ : String = "text-repros",
+  seed~ : UInt64 = 0UL,
+  attempt~ : Int32 = 0,
 ) -> Result[TextDifferentialArtifactPaths, String] {
   let trimmed = repro_dir.trim().to_owned()
   let base_dir = if trimmed.length() == 0 { "text-repros" } else { trimmed }
@@ -776,15 +776,15 @@ pub fn BinaryDifferentialSmokeAdapter::new(
 ///|
 pub struct BinaryDifferentialSmokeReport {
   suite : String
-  cases : Int
-  agree_valid : Int
-  agree_invalid : Int
-  proposal_gap : Int
-  decoder_stage_disagreement : Int
-  validator_stage_disagreement : Int
-  tool_failure : Int
-  unsupported_feature : Int
-  adapter_unavailable : Int
+  cases : Int32
+  agree_valid : Int32
+  agree_invalid : Int32
+  proposal_gap : Int32
+  decoder_stage_disagreement : Int32
+  validator_stage_disagreement : Int32
+  tool_failure : Int32
+  unsupported_feature : Int32
+  adapter_unavailable : Int32
   external_adapters : Array[String]
 } derive(Eq, Debug)
 
@@ -826,7 +826,7 @@ fn binary_differential_starshine_result(
 ///|
 pub fn run_binary_differential_smoke(
   corpus : Array[Bytes],
-  external_adapters? : Array[BinaryDifferentialSmokeAdapter] = [],
+  external_adapters~ : Array[BinaryDifferentialSmokeAdapter] = [],
 ) -> BinaryDifferentialSmokeReport {
   let external_names : Array[String] = []
   for adapter in external_adapters {
@@ -922,7 +922,7 @@ pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
   binaryen_valid : Bool?
-  per_case_timeout_ms : Int?
+  per_case_timeout_ms : Int32?
   wasm_tools_timeout : Bool
   binaryen_timeout : Bool
 } derive(Eq, Debug)
@@ -1030,12 +1030,12 @@ pub fn classify_binary_canonicality_differential(
 
 ///|
 pub struct BinaryCanonicalitySummary {
-  total : Int
-  canonical : Int
-  accepted_noncanonical : Int
-  malformed_rejected : Int
-  external_policy_disagreements : Int
-  decoder_bug_disagreements : Int
+  total : Int32
+  canonical : Int32
+  accepted_noncanonical : Int32
+  malformed_rejected : Int32
+  external_policy_disagreements : Int32
+  decoder_bug_disagreements : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -1120,12 +1120,12 @@ pub struct ExportInvocationComparisonReport {
 
 ///|
 pub struct ExportInvocationMatrixSummary {
-  total : Int
-  equal_results : Int
-  equal_traps : Int
-  unsupported_runtimes : Int
-  nondeterministic_imports : Int
-  semantic_mismatches : Int
+  total : Int32
+  equal_results : Int32
+  equal_traps : Int32
+  unsupported_runtimes : Int32
+  nondeterministic_imports : Int32
+  semantic_mismatches : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -1338,16 +1338,16 @@ pub fn export_invocation_matrix_should_fail(
 
 ///|
 pub struct CmdFuzzStats {
-  attempts : Int
-  generated_valid : Int
-  generated_invalid : Int
-  pipeline_validated : Int
-  optimized : Int
-  roundtripped : Int
-  differential_checked : Int
-  optimize_idempotence_checked : Int
-  encode_decode_idempotence_checked : Int
-  optimizer_determinism_checked : Int
+  attempts : Int32
+  generated_valid : Int32
+  generated_invalid : Int32
+  pipeline_validated : Int32
+  optimized : Int32
+  roundtripped : Int32
+  differential_checked : Int32
+  optimize_idempotence_checked : Int32
+  encode_decode_idempotence_checked : Int32
+  optimizer_determinism_checked : Int32
   generator_profile : String
   pass_profile : String
 } derive(Eq, Debug)
@@ -1359,18 +1359,18 @@ pub impl Show for CmdFuzzStats with fn output(self, logger) {
 
 ///|
 pub fn CmdFuzzStats::new(
-  attempts? : Int = 0,
-  generated_valid? : Int = 0,
-  generated_invalid? : Int = 0,
-  pipeline_validated? : Int = 0,
-  optimized? : Int = 0,
-  roundtripped? : Int = 0,
-  differential_checked? : Int = 0,
-  optimize_idempotence_checked? : Int = 0,
-  encode_decode_idempotence_checked? : Int = 0,
-  optimizer_determinism_checked? : Int = 0,
-  generator_profile? : String = "natural-wide",
-  pass_profile? : String = "custom",
+  attempts~ : Int32 = 0,
+  generated_valid~ : Int32 = 0,
+  generated_invalid~ : Int32 = 0,
+  pipeline_validated~ : Int32 = 0,
+  optimized~ : Int32 = 0,
+  roundtripped~ : Int32 = 0,
+  differential_checked~ : Int32 = 0,
+  optimize_idempotence_checked~ : Int32 = 0,
+  encode_decode_idempotence_checked~ : Int32 = 0,
+  optimizer_determinism_checked~ : Int32 = 0,
+  generator_profile~ : String = "natural-wide",
+  pass_profile~ : String = "custom",
 ) -> CmdFuzzStats {
   {
     attempts,
@@ -1391,8 +1391,8 @@ pub fn CmdFuzzStats::new(
 ///|
 pub struct FuzzFailureReport {
   seed : UInt64
-  attempt : Int
-  generated_valid : Int
+  attempt : Int32
+  generated_valid : Int32
   stage : String
   message : String
   optimize_passes : Array[String]
@@ -1400,20 +1400,20 @@ pub struct FuzzFailureReport {
   generator_profile : String
   pass_profile : String
   generator_config_label : String
-  generated_attempts : Int
+  generated_attempts : Int32
   feature_facts : String
   wasm : Bytes?
   reduced_wasm : Bytes?
-  reduction_original_size : Int?
-  reduction_final_size : Int?
-  reduction_predicate_evaluations : Int?
+  reduction_original_size : Int32?
+  reduction_final_size : Int32?
+  reduction_predicate_evaluations : Int32?
   reduction_steps : Array[FuzzReductionStep]
 } derive(Eq, Debug)
 
 ///|
 pub struct FuzzCorpusSource {
   seed : UInt64
-  attempt : Int
+  attempt : Int32
   generator_profile : String
   pass_profile : String
   stage : String
@@ -1422,7 +1422,7 @@ pub struct FuzzCorpusSource {
 ///|
 pub fn FuzzCorpusSource::new(
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
   generator_profile : String,
   pass_profile : String,
   stage : String,
@@ -1454,7 +1454,7 @@ struct FuzzCorpusDedupHashEntry {
 ///|
 pub struct FuzzCorpusDedupIndex {
   entries : Array[FuzzCorpusDedupHashEntry]
-  positions : @hashmap.HashMap[String, Int]
+  positions : @hashmap.HashMap[String, Int32]
 } derive(Debug)
 
 ///|
@@ -1470,23 +1470,23 @@ pub impl Show for FuzzFailureReport with fn output(self, logger) {
 ///|
 pub fn FuzzFailureReport::new(
   seed : UInt64,
-  attempt : Int,
-  generated_valid : Int,
+  attempt : Int32,
+  generated_valid : Int32,
   stage : String,
   message : String,
-  optimize_passes? : Array[String] = [],
-  minimized_passes? : Array[String] = [],
-  generator_profile? : String = "natural-wide",
-  pass_profile? : String = "custom",
-  generator_config_label? : String = "unknown",
-  generated_attempts? : Int = 0,
-  feature_facts? : String = "unknown",
-  wasm? : Bytes? = None,
-  reduced_wasm? : Bytes? = None,
-  reduction_original_size? : Int? = None,
-  reduction_final_size? : Int? = None,
-  reduction_predicate_evaluations? : Int? = None,
-  reduction_steps? : Array[FuzzReductionStep] = [],
+  optimize_passes~ : Array[String] = [],
+  minimized_passes~ : Array[String] = [],
+  generator_profile~ : String = "natural-wide",
+  pass_profile~ : String = "custom",
+  generator_config_label~ : String = "unknown",
+  generated_attempts~ : Int32 = 0,
+  feature_facts~ : String = "unknown",
+  wasm~ : Bytes? = None,
+  reduced_wasm~ : Bytes? = None,
+  reduction_original_size~ : Int32? = None,
+  reduction_final_size~ : Int32? = None,
+  reduction_predicate_evaluations~ : Int32? = None,
+  reduction_steps~ : Array[FuzzReductionStep] = [],
 ) -> FuzzFailureReport {
   {
     seed,
@@ -1518,10 +1518,10 @@ pub struct FuzzFailurePersistIO {
 
 ///|
 pub fn FuzzFailurePersistIO::new(
-  ensure_dir? : (String) -> Result[Unit, String] = fn(path) {
+  ensure_dir~ : (String) -> Result[Unit, String] = fn(path) {
     Err("ensure_dir not configured: \{path}")
   },
-  write_file? : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
+  write_file~ : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
     Err("write_file not configured: \{path}")
   },
 ) -> FuzzFailurePersistIO {
@@ -1540,18 +1540,18 @@ fn fuzz_clone_passes(values : Array[String]) -> Array[String] {
 ///|
 pub struct FuzzReductionStep {
   kind : String
-  start : Int
-  len : Int
-  before_size : Int
-  after_size : Int
+  start : Int32
+  len : Int32
+  before_size : Int32
+  after_size : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct FuzzReductionReport[T] {
   result : T
-  original_size : Int
-  final_size : Int
-  predicate_evaluations : Int
+  original_size : Int32
+  final_size : Int32
+  predicate_evaluations : Int32
   steps : Array[FuzzReductionStep]
 } derive(Debug)
 
@@ -1567,8 +1567,8 @@ fn[T] fuzz_clone_sequence(values : Array[T]) -> Array[T] {
 ///|
 fn[T] fuzz_without_sequence_range(
   values : Array[T],
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
 ) -> Array[T] {
   let out = Array::new(capacity=values.length())
   let end = start + len
@@ -1654,7 +1654,7 @@ pub fn[T] reduce_fuzz_sequence_by_deletion(
 }
 
 ///|
-fn fuzz_without_byte_range(bytes : Bytes, start : Int, len : Int) -> Bytes {
+fn fuzz_without_byte_range(bytes : Bytes, start : Int32, len : Int32) -> Bytes {
   let out = @buffer.new(size_hint=bytes.length())
   let end = start + len
   let mut i = 0
@@ -1744,12 +1744,12 @@ pub fn reduce_fuzz_bytes_by_slice_deletion(
 }
 
 ///|
-fn fuzz_text_is_space(c : Int) -> Bool {
+fn fuzz_text_is_space(c : Int32) -> Bool {
   c == 0x20 || c == 0x0a || c == 0x0d || c == 0x09
 }
 
 ///|
-fn fuzz_text_slice(text : String, start : Int, end : Int) -> String {
+fn fuzz_text_slice(text : String, start : Int32, end : Int32) -> String {
   let len = end - start
   let chars : Array[Char] = Array::make(len, '\u{00}')
   for i = 0; i < len; i = i + 1 {
@@ -1869,7 +1869,7 @@ pub fn minimize_fuzz_passes(
 
 ///|
 pub struct CmdFuzzHarnessProfileConfig {
-  valid_target : Int
+  valid_target : Int32
   generator_profile : String
   generator_config : GenValidConfig
   pass_profile : String
@@ -2186,7 +2186,7 @@ fn fuzz_slug(value : String) -> String {
 }
 
 ///|
-fn fuzz_reduction_option_int_text(value : Int?) -> String {
+fn fuzz_reduction_option_int_text(value : Int32?) -> String {
   match value {
     Some(v) => "\{v}"
     None => ""
@@ -2219,8 +2219,8 @@ fn fuzz_reduction_log_text(report : FuzzFailureReport) -> String {
 ///|
 fn fuzz_failure_meta_text(
   report : FuzzFailureReport,
-  reduced_wasm_path? : String? = None,
-  reduction_log_path? : String? = None,
+  reduced_wasm_path~ : String? = None,
+  reduction_log_path~ : String? = None,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("seed=\{report.seed}\n")
@@ -2261,7 +2261,7 @@ fn fuzz_failure_meta_text(
 pub fn persist_fuzz_failure_report(
   report : FuzzFailureReport,
   io : FuzzFailurePersistIO,
-  corpus_dir? : String = "fuzz-corpus",
+  corpus_dir~ : String = "fuzz-corpus",
 ) -> Result[(String, String?), String] {
   let trimmed = corpus_dir.trim().to_owned()
   let dir = if trimmed.length() == 0 { "fuzz-corpus" } else { trimmed }
@@ -2495,7 +2495,7 @@ fn differential_adapter_error_is_timeout(msg : String) -> Bool {
 ///|
 pub fn differential_validate_wasm(
   bytes : Bytes,
-  adapters? : DifferentialAdapters = default_differential_adapters(),
+  adapters~ : DifferentialAdapters = default_differential_adapters(),
 ) -> Result[DifferentialValidationReport, String] {
   let internal_valid = match decode_then_validate(bytes) {
     Ok(v) => v
@@ -2548,18 +2548,18 @@ pub fn differential_validate_wasm(
 
 ///|
 pub fn run_cmd_fuzz_harness(
-  valid_target : Int,
-  seed? : UInt64 = 0x5eedUL,
-  optimize_passes? : Array[String] = [],
-  generator_profile? : String = "natural-wide",
-  generator_config? : GenValidConfig? = None,
-  pass_profile? : String = "custom",
-  check_optimize_idempotence? : Bool = false,
-  check_encode_decode_idempotence? : Bool = false,
-  check_optimizer_determinism? : Bool = false,
-  differential_adapters? : DifferentialAdapters? = None,
-  differential_every? : Int = 0,
-  on_failure? : ((FuzzFailureReport) -> Result[Unit, String])? = None,
+  valid_target : Int32,
+  seed~ : UInt64 = 0x5eedUL,
+  optimize_passes~ : Array[String] = [],
+  generator_profile~ : String = "natural-wide",
+  generator_config~ : GenValidConfig? = None,
+  pass_profile~ : String = "custom",
+  check_optimize_idempotence~ : Bool = false,
+  check_encode_decode_idempotence~ : Bool = false,
+  check_optimizer_determinism~ : Bool = false,
+  differential_adapters~ : DifferentialAdapters? = None,
+  differential_every~ : Int32 = 0,
+  on_failure~ : ((FuzzFailureReport) -> Result[Unit, String])? = None,
 ) -> Result[CmdFuzzStats, String] {
   let pass_names = fuzz_clone_passes(optimize_passes)
   let gen_config = match generator_config {

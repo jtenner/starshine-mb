@@ -96,7 +96,7 @@ test "command coalesce-locals keeps resume-throw handler successor writes live" 
 fn simplify_locals_command_resume_throw_sequence(
   throw_ref : Bool,
   cont : @lib.TypeIdx,
-  label : UInt,
+  label : UInt32,
 ) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   if throw_ref {

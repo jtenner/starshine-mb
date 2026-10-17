@@ -427,7 +427,7 @@ fn cmd_optimizer_limits_parts(
 fn cmd_optimizer_memory_json(
   module_name : String,
   field_name : String,
-  index : Int,
+  index : Int32,
   memory_type : @lib.MemType,
 ) -> String {
   let @lib.MemType(limits, shared) = memory_type
@@ -442,7 +442,7 @@ fn cmd_optimizer_memory_json(
 fn cmd_optimizer_table_json(
   module_name : String,
   field_name : String,
-  index : Int,
+  index : Int32,
   table_type : @lib.TableType,
 ) -> String {
   let @lib.TableType(ref_type, limits) = table_type

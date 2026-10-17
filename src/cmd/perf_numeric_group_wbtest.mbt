@@ -10,8 +10,8 @@ test "command OI groups compressed numeric declarations without moving parameter
     @lib.LocalRun::new(2U, @lib.ValType::i32()),
     @lib.LocalRun::new(2U, @lib.ValType::f64()),
   ])
-  let reads : Array[UInt] = []
-  let calls : Array[UInt] = []
+  let reads : Array[UInt32] = []
+  let calls : Array[UInt32] = []
   for instr in body {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) => reads.push(raw)

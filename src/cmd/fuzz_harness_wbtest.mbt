@@ -1,5 +1,5 @@
 ///|
-fn encode_fixture_module(value : Int) -> Bytes {
+fn encode_fixture_module(value : Int32) -> Bytes {
   let text = "(module (func (result i32) i32.const \{value}))"
   let mod = match @wast.wast_to_binary_module(text, filename="fixture.wat") {
     Ok(v) => v

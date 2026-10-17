@@ -13,17 +13,17 @@ test "memory argument bridge preserves alignment and a 64-bit offset" {
 ///|
 // Use the provider's own optional-memory representation. Raw FFI callers must
 // not manufacture the numeric encoding of MemIdx::None.
-pub fn memory_argument(align : UInt, offset : UInt64) -> @lib.MemArg {
+pub fn memory_argument(align : UInt32, offset : UInt64) -> @lib.MemArg {
   @lib.MemArg::new(@lib.U32::new(align), None, @lib.U64::new(offset))
 }
 
 ///|
-fn starshine_memory_argument(align : UInt) -> @lib.MemArg {
+fn starshine_memory_argument(align : UInt32) -> @lib.MemArg {
   memory_argument(align, 0UL)
 }
 
 ///|
-pub fn instruction_memory_builtin(opcode : Int) -> @lib.Instruction {
+pub fn instruction_memory_builtin(opcode : Int32) -> @lib.Instruction {
   match opcode {
     0 => @lib.Instruction::i32_load8s(starshine_memory_argument(0U))
     1 => @lib.Instruction::i32_store8(starshine_memory_argument(0U))

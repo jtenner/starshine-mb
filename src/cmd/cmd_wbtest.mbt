@@ -28,7 +28,7 @@ fn bytes_to_ascii_string(bytes : Bytes) -> String {
 }
 
 ///|
-fn bytes_from_ints(values : Array[Int]) -> Bytes {
+fn bytes_from_ints(values : Array[Int32]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
     out.write_byte(value.to_byte())
@@ -60,7 +60,7 @@ fn assert_strings_appear_in_order(
 ) -> Unit raise {
   let mut start = 0
   for needle in needles {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let limit = text.length() - needle.length()
     let mut i = start
     while i <= limit {
@@ -145,7 +145,7 @@ fn assert_encoding_pipeline_roundtrip_valid(mod_ : Module) -> Module raise {
 }
 
 ///|
-fn count_substring(text : String, needle : String) -> Int {
+fn count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -164,7 +164,7 @@ fn count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
-fn module_with_label_names(mod_ : Module, label_count : Int) -> Module {
+fn module_with_label_names(mod_ : Module, label_count : Int32) -> Module {
   let label_entries : Array[@lib.NameAssoc] = []
   for i = 0; i < label_count; i = i + 1 {
     label_entries.push(
@@ -185,7 +185,7 @@ fn module_with_label_names(mod_ : Module, label_count : Int) -> Module {
 ///|
 fn name_map_order_error(label : String, names : @lib.NameMap) -> String? {
   let @lib.NameMap(entries) = names
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   for entry in entries {
     let @lib.NameAssoc(idx, _) = entry
     match prev_idx {
@@ -203,7 +203,7 @@ fn indirect_name_map_order_error(
   names : @lib.IndirectNameMap,
 ) -> String? {
   let @lib.IndirectNameMap(entries) = names
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   for entry in entries {
     let @lib.IndirectNameAssoc(idx, inner) = entry
     match prev_idx {
@@ -297,7 +297,7 @@ fn module_name_section_order_error(mod : Module) -> String? {
 }
 
 ///|
-fn fixture_i32_const_module(value : Int) -> Module {
+fn fixture_i32_const_module(value : Int32) -> Module {
   let t_i32 = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
   )
@@ -316,7 +316,7 @@ fn fixture_i32_const_module(value : Int) -> Module {
 
 ///|
 fn fixture_f32_nan_module() -> Module {
-  let nan_bits : UInt = 0x7FC00001
+  let nan_bits : UInt32 = 0x7FC00001
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   let t_f32 = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::f32()])),
@@ -610,7 +610,7 @@ fn fixture_extract_functions_module() -> Module {
 }
 
 ///|
-fn fixture_hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
+fn fixture_hso_struct_fields(field_count : Int32) -> Array[@lib.FieldType] {
   let fields : Array[@lib.FieldType] = []
   for _ in 0..<field_count {
     fields.push(
@@ -1547,12 +1547,7 @@ fn fixture_rume_noop_module() -> Module {
     ]),
   )
   .with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new([@lib.Instruction::nop()]),
-      ),
-    ]),
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
   )
 }
 
@@ -1560,7 +1555,7 @@ fn fixture_rume_noop_module() -> Module {
 fn run_optimize_wat_fixture_regression(
   path : String,
   wat_text : String,
-  lowered_wasm? : Bytes? = None,
+  lowered_wasm~ : Bytes? = None,
 ) -> Unit raise {
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -1910,7 +1905,7 @@ test "O4z size portfolio selects the shortest encoded candidate stably" {
 }
 
 ///|
-test "O4z automatic candidates preserve host identities without filtering closed modules" {
+test "O4z automatic candidates admit guarded DFE and filter DIE at host boundaries" {
   let roster = [
     "duplicate-function-elimination", "vacuum", "duplicate-import-elimination",
   ]
@@ -1923,11 +1918,11 @@ test "O4z automatic candidates preserve host identities without filtering closed
   let closed = @passes.pass_test_module_from_wat("(module (func))")
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(exported, roster),
-    ["vacuum"],
+    ["duplicate-function-elimination", "vacuum"],
   )
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(imported, roster),
-    ["vacuum"],
+    ["duplicate-function-elimination", "vacuum"],
   )
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(closed, roster),
@@ -2275,7 +2270,7 @@ test "O4z size portfolio preserves host identities while considering global-refi
   match optimized.export_sec {
     Some(@lib.ExportSec(exports)) => {
       @debug.assert_eq(exports.length(), 4)
-      let targets : Array[UInt] = []
+      let targets : Array[UInt32] = []
       for export_ in exports {
         match export_ {
           @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target))) => {
@@ -3982,7 +3977,7 @@ test "O4z size portfolio detects observable AssemblyScript memory modules" {
 
 ///|
 test "O4z size portfolio rejects measured unsafe pre-canonical finish shapes" {
-  let make_module = fn(count : Int) {
+  let make_module = fn(count : Int32) {
     let wat = StringBuilder::new()
     wat.write_string(
       "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
@@ -4221,12 +4216,12 @@ test "O4z ifs final canonicalization fuses block and sign-extension cleanup" {
 }
 
 ///|
-fn eval_o4z_test_i32_body(mod_ : @lib.Module, args : Array[Int]) -> Int {
+fn eval_o4z_test_i32_body(mod_ : @lib.Module, args : Array[Int32]) -> Int32 {
   let instrs = match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => instrs
     other => abort("expected one test function, got \{other}")
   }
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
@@ -4290,7 +4285,7 @@ test "O4z ifs boolean xor fusion requires an exact one-bit mask" {
 
 ///|
 test "O4z ifs final canonicalization admits only the exact 50-function stateful family" {
-  let make_module = fn(count : Int) {
+  let make_module = fn(count : Int32) {
     let wat = StringBuilder::new()
     wat.write_string(
       "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
@@ -4362,7 +4357,7 @@ test "O4z size portfolio detects zero-memory dense i64 runtime hazards" {
 
 ///|
 test "O4z size portfolio recognizes only the exact urem regalloc continuation family" {
-  let make_module = fn(memory_pages : Int) {
+  let make_module = fn(memory_pages : Int32) {
     let wat = StringBuilder::new()
     wat.write_string(
       "(module (memory \{memory_pages}) (global (mut i32) (i32.const 0)) (export \"__stack_pointer\" (global 0)) (func (export \"fill_blocks\") (param i32 i32 i32 i32) (result i32) ",
@@ -4616,6 +4611,132 @@ test "run_cmd_with_adapter applies full ssa to non-merge wasm inputs" {
   @debug.assert_eq(summary.resolved_passes, ["ssa"])
   @debug.assert_eq(writes.length(), 1)
   ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+test "run_cmd_with_adapter precompute folds an observable constant select" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      (
+        #|(module
+        #|  (global $checksum (export "checksum") (mut i32) (i32.const 0))
+        #|  (func (export "run")
+        #|    (global.set $checksum
+        #|      (i32.add
+        #|        (select
+        #|          (i32.const 2)
+        #|          (i32.const 3)
+        #|          (i32.const 1))
+        #|        (global.get $checksum)))))
+      ),
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["select.wasm"] },
+    file_exists=fn(path) { path == "select.wasm" },
+    read_file=fn(path) {
+      if path == "select.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--precompute", "--out", "out.wasm", "select.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) => fail("unexpected observable precompute run failure: \{err}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["precompute"])
+  @debug.assert_eq(writes.length(), 1)
+  let output = decode_module_bytes(writes[0].1)
+  ignore(@validate.validate_module(output).unwrap())
+  let pretty = output.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "run_cmd_with_adapter simplify-locals-nostructure removes a dead tee carrier across inert control" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      (
+        #|(module
+        #|  (func (param f64) (local i32 i32 i32 i32 i32 i64 f32 f64)
+        #|    i32.const 40
+        #|    local.tee 1
+        #|    drop
+        #|    block
+        #|      nop
+        #|    end
+        #|    local.get 1
+        #|    drop
+        #|    i32.const 41
+        #|    local.set 2
+        #|    i32.const 0
+        #|    if
+        #|      nop
+        #|    end
+        #|    local.get 2
+        #|    drop))
+      ),
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tee-control.wasm"] },
+    file_exists=fn(path) { path == "tee-control.wasm" },
+    read_file=fn(path) {
+      if path == "tee-control.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--simplify-locals-nostructure", "--out", "out.wasm", "tee-control.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) => fail("unexpected dead tee-carrier cleanup failure: \{err}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["simplify-locals-nostructure"])
+  @debug.assert_eq(writes.length(), 1)
+  let output = decode_module_bytes(writes[0].1)
+  ignore(@validate.validate_module(output).unwrap())
+  let @lib.CodeSec(funcs) = output.code_sec.unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+  assert_eq(
+    body
+    .filter(fn(instr) {
+      instr is @lib.LocalGet(@lib.LocalIdx(1U)) ||
+      instr is @lib.LocalSet(@lib.LocalIdx(1U)) ||
+      instr is @lib.LocalTee(@lib.LocalIdx(1U))
+    })
+    .length(),
+    0,
+  )
+  assert_eq(body.filter(fn(instr) { instr is @lib.Block(_, _) }).length(), 0)
+  assert_eq(
+    body
+    .filter(fn(instr) { instr == @lib.Instruction::i32_const(@lib.I32(40)) })
+    .length(),
+    1,
+  )
 }
 
 ///|
@@ -5316,15 +5437,29 @@ test "run_cmd_with_adapter tuple-optimization keeps host tee repro outputs scala
   }
   @debug.assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
-  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(
-    pretty.contains(
-      "(local.get (Local 4))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
-    ),
-    msg=pretty,
-  )
-  @debug.assert_eq(count_substring(pretty, "local.tee"), 0, msg=pretty)
+  let @lib.Func(body_locals, @lib.Expr(body)) = out.code_sec.unwrap().0[0]
+  assert_eq(body_locals.length(), 6)
+  let mut local_ops = 0
+  for instr in body {
+    match instr {
+      @lib.LocalGet(_) | @lib.LocalSet(_) => local_ops += 1
+      @lib.LocalTee(_) => fail("the host tee should remain scalarized")
+      _ => ()
+    }
+  }
+  assert_eq(local_ops, 10)
+  let input = decode_module_bytes(wasm)
+  for lanes in [[11, 100, 999], [-7, 10000, 42], [-2147483648, 2147483647, 0]] {
+    let expected = lanes[0] + lanes[1] + lanes[2]
+    assert_eq(
+      tuple_cmd_host_tee_execute(input.code_sec.unwrap().0[0], lanes),
+      expected,
+    )
+    assert_eq(
+      tuple_cmd_host_tee_execute(out.code_sec.unwrap().0[0], lanes),
+      expected,
+    )
+  }
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) =>
@@ -8051,6 +8186,31 @@ test "run_cmd_with_adapter applies coalesce-locals to wasm inputs" {
 ///|
 test "run_cmd_with_adapter reuses original wasm bytes when RUME is unchanged" {
   let wasm = encode_module_bytes(fixture_rume_noop_module())
+  let decoded = decode_module_bytes(wasm)
+  assert_eq(
+    resolve_effective_pass_flags(["remove-unused-module-elements"], 0, 0),
+    ["remove-unused-module-elements"],
+  )
+  assert_false(cmd_input_identity_has_encoding_cleanup_candidate(decoded))
+  let direct = @passes.rume_run_module_pass(decoded)
+  assert_true(physical_equal(direct, decoded))
+  let pipelined = optimize_module_with_pass_flags(
+    decoded,
+    ["remove-unused-module-elements"],
+    OptimizeOptions::new(),
+    validate_final_module=false,
+  ).unwrap()
+  assert_true(physical_equal(pipelined, decoded))
+  let segment = run_pipeline_pass_segment(
+    CmdIO::new(),
+    "a.wasm",
+    decoded,
+    ["remove-unused-module-elements"],
+    OptimizeOptions::new(),
+    false,
+    None,
+  ).unwrap()
+  assert_false(segment.changed)
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm"] },
@@ -8114,6 +8274,47 @@ test "run_cmd_with_adapter still encodes changed RUME outputs" {
   }
   @debug.assert_eq(summary.output_files, ["out.wasm"])
   @debug.assert_eq(writes, [("out.wasm", b"encoded-changed-rume")])
+}
+
+///|
+test "run_cmd_with_adapter remembers changes before an unchanged final segment" {
+  let wasm = encode_module_bytes(fixture_remove_unused_module_elements_module())
+  let mut encode_count = 0
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) {
+      encode_count = encode_count + 1
+      Ok(b"encoded-across-segments")
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--remove-unused-module-elements", "--validate", "--remove-unused-module-elements",
+        "--out", "out.wasm", "a.wasm",
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected segmented RUME success, got \{e}")
+  }
+
+  @debug.assert_eq(summary.output_files, ["out.wasm"])
+  @debug.assert_eq(encode_count, 1)
+  @debug.assert_eq(writes, [("out.wasm", b"encoded-across-segments")])
 }
 
 ///|
@@ -9115,11 +9316,15 @@ extern "c" fn native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fclose(stream : UInt64) -> Int = "fclose"
+extern "c" fn native_fclose(stream : UInt64) -> Int32 = "fclose"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fseek(stream : UInt64, offset : Int, whence : Int) -> Int = "fseek"
+extern "c" fn native_fseek(
+  stream : UInt64,
+  offset : Int32,
+  whence : Int32,
+) -> Int32 = "fseek"
 
 ///|
 #cfg(target="native")
@@ -9148,49 +9353,53 @@ extern "c" fn native_fwrite(
 ///|
 #cfg(target="native")
 #borrow(path)
-extern "c" fn native_remove(path : Bytes) -> Int = "remove"
+extern "c" fn native_remove(path : Bytes) -> Int32 = "remove"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_dup(fd : Int) -> Int = "dup"
+extern "c" fn native_dup(fd : Int32) -> Int32 = "dup"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_dup2(old_fd : Int, new_fd : Int) -> Int = "dup2"
+extern "c" fn native_dup2(old_fd : Int32, new_fd : Int32) -> Int32 = "dup2"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_close(fd : Int) -> Int = "close"
+extern "c" fn native_close(fd : Int32) -> Int32 = "close"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fflush(stream : UInt64) -> Int = "fflush"
+extern "c" fn native_fflush(stream : UInt64) -> Int32 = "fflush"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_fork() -> Int = "fork"
+extern "c" fn native_fork() -> Int32 = "fork"
 
 ///|
 #cfg(target="native")
 #borrow(status)
-extern "c" fn native_waitpid(pid : Int, status : Bytes, options : Int) -> Int = "waitpid"
+extern "c" fn native_waitpid(
+  pid : Int32,
+  status : Bytes,
+  options : Int32,
+) -> Int32 = "waitpid"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_exit(code : Int) -> Unit = "quick_exit"
+extern "c" fn native_exit(code : Int32) -> Unit = "quick_exit"
 
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+extern "c" fn native_gettimeofday(tv : Bytes, tz : UInt64) -> Int32 = "gettimeofday"
 
 ///|
 #cfg(target="native")
-extern "c" fn native_usleep(usec : UInt) -> Int = "usleep"
+extern "c" fn native_usleep(usec : UInt32) -> Int32 = "usleep"
 
 ///|
 #cfg(target="native")
-fn native_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+fn native_read_u64_timeval(bytes : Bytes, start : Int32) -> UInt64 {
   let mut out = 0UL
   let mut i = 0
   while i < 8 {
@@ -9388,7 +9597,7 @@ fn native_unset_env(name : String) -> Unit {
 
 ///|
 #cfg(target="native")
-fn native_wait_status_raw(status : Bytes) -> Int {
+fn native_wait_status_raw(status : Bytes) -> Int32 {
   let mut raw = 0
   let mut shift = 0
   let mut i = 0
@@ -9402,7 +9611,7 @@ fn native_wait_status_raw(status : Bytes) -> Int {
 
 ///|
 #cfg(target="native")
-fn native_run_cmd_exit_status(args : Array[String]) -> (Bool, Int) {
+fn native_run_cmd_exit_status(args : Array[String]) -> (Bool, Int32) {
   let pid = native_fork()
   if pid < 0 {
     abort("failed to fork child process for run_cmd integration test")
@@ -11317,8 +11526,8 @@ test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact
 }
 
 ///|
-#cfg(target="wasm")
-test "run_cmd uses wasm default io to read and write wasm files" {
+#cfg(any(target="wasm", target="wasm-gc"))
+test "run_cmd uses wasm and wasm-gc default io to read and write wasm files" {
   let dir = "tmp-starshine-cmd-wasm-default-io-\{@env.now()}"
   let input_path = "\{dir}/in.wasm"
   let output_path = "\{dir}/out.wasm"
@@ -11329,18 +11538,24 @@ test "run_cmd uses wasm default io to read and write wasm files" {
     Ok(_) => ()
     Err(e) => fail("expected wasm default io test dir creation, got \{e}")
   }
-  let wasm = encode_module_bytes(fixture_i32_const_module(77))
+  let wasm = @wast.wast_to_binary_module(
+    "(module (func (export \"run\") (result i32) i32.const 40 i32.const 2 i32.add))",
+  ).unwrap()
+  let wasm = encode_module_bytes(wasm)
   match @sfs.write_file_bytes(input_path, wasm) {
     Ok(_) => ()
     Err(e) => fail("expected wasm default io input write, got \{e}")
   }
 
-  let code = run_cmd_exit_code(["--out", output_path, input_path])
+  let code = run_cmd_exit_code([
+    "--optimize-instructions", "--out", output_path, input_path,
+  ])
   @debug.assert_eq(code, 0)
   match @sfs.read_file_bytes(output_path) {
     Ok(bytes) => {
-      let _decoded = decode_module_bytes(bytes)
-      assert_true(bytes.length() > 0)
+      let decoded = decode_module_bytes(bytes)
+      let @lib.Func(_, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
+      @debug.assert_eq(body, [@lib.Instruction::i32_const(42)])
     }
     Err(e) => fail("expected wasm default io output read, got \{e}")
   }
@@ -11383,8 +11598,8 @@ test "phase tracing emits compact pass transitions" {
   )
   trace("pipeline:done changed=true")
   @debug.assert_eq(lines, [
-    "pipeline:start requested=1", "phase pass=merge-blocks", "phase pass=coalesce-locals-cfg",
-    "pipeline:done changed=true",
+    "pipeline:start requested=1", "phase pass=merge-blocks", "perf:timer name=pass:merge-blocks elapsed_us=10 total_us=10",
+    "phase pass=coalesce-locals-cfg", "pipeline:done changed=true",
   ])
 }
 
@@ -11455,6 +11670,10 @@ test "memory-packing dispatcher preserves active runtime source traps" {
     Err(err) => fail(err.to_string())
   }
   assert_eq(writes.length(), 1)
+  assert_true(
+    writes[0].length() < encode_module_bytes(input).length(),
+    msg="active runtime trap lowering must save complete encoded bytes",
+  )
   let output = decode_module_bytes(writes[0])
   match @validate.validate_module(output) {
     Ok(_) => ()

@@ -17,7 +17,7 @@ test "command coalesce preserves distinct simultaneously live loop inputs" {
   for argument in [-2, 0, 9] {
     let values = Array::make(locals.length() + 1, 0)
     values[0] = argument
-    let stack : Array[Int] = []
+    let stack : Array[Int32] = []
     fn execute(instructions : Array[@lib.Instruction]) -> Unit {
       for instruction in instructions {
         match instruction {

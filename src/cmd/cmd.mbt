@@ -68,27 +68,27 @@ pub struct CmdIO {
 
 ///|
 pub fn CmdIO::new(
-  get_env? : (String) -> String? = fn(_) { None },
-  file_exists? : (String) -> Bool = fn(_) { false },
-  read_file? : (String) -> Result[Bytes, String] = fn(_) {
+  get_env~ : (String) -> String? = fn(_) { None },
+  file_exists~ : (String) -> Bool = fn(_) { false },
+  read_file~ : (String) -> Result[Bytes, String] = fn(_) {
     Err("read_file not configured")
   },
-  encode_module? : (Module) -> Result[Bytes, CmdEncodeError] = fn(mod) {
+  encode_module~ : (Module) -> Result[Bytes, CmdEncodeError] = fn(mod) {
     match encode_module(mod) {
       Ok(bytes) => Ok(bytes)
       Err(err) => Err(CmdEncodeError::encode(err))
     }
   },
-  print_text_module? : (Module) -> Result[Bytes, String] = fn(_) {
+  print_text_module~ : (Module) -> Result[Bytes, String] = fn(_) {
     Err("text module printing not configured")
   },
-  write_file? : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
+  write_file~ : (String, Bytes) -> Result[Unit, String] = fn(_, _) {
     Err("write_file not configured")
   },
-  write_stdout? : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
-  write_stderr? : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
-  list_candidates? : () -> Array[String] = fn() { [] },
-  lower_text_module? : (String, CliInputFormat, Bytes) -> Result[Bytes, String] = fn(
+  write_stdout~ : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
+  write_stderr~ : (Bytes) -> Result[Unit, String] = fn(_) { Ok(()) },
+  list_candidates~ : () -> Array[String] = fn() { [] },
+  lower_text_module~ : (String, CliInputFormat, Bytes) -> Result[Bytes, String] = fn(
     path,
     format,
     _,
@@ -115,11 +115,11 @@ pub struct CmdRunSummary {
   input_files : Array[String]
   output_files : Array[String]
   resolved_passes : Array[String]
-  optimize_level : Int
-  shrink_level : Int
+  optimize_level : Int32
+  shrink_level : Int32
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
-  monomorphize_min_benefit : Int
+  monomorphize_min_benefit : Int32
   closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
@@ -132,17 +132,17 @@ pub impl Show for CmdRunSummary with fn output(self, logger) {
 
 ///|
 pub fn CmdRunSummary::new(
-  input_files? : Array[String] = [],
-  output_files? : Array[String] = [],
-  resolved_passes? : Array[String] = [],
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  traps_never_happen? : Bool = false,
-  ignore_implicit_traps? : Bool = false,
-  monomorphize_min_benefit? : Int = 5,
-  closed_world? : Bool = false,
-  low_memory_unused? : Bool = false,
-  low_memory_bound? : UInt64 = 1024UL,
+  input_files~ : Array[String] = [],
+  output_files~ : Array[String] = [],
+  resolved_passes~ : Array[String] = [],
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  traps_never_happen~ : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
+  monomorphize_min_benefit~ : Int32 = 5,
+  closed_world~ : Bool = false,
+  low_memory_unused~ : Bool = false,
+  low_memory_bound~ : UInt64 = 1024UL,
 ) -> CmdRunSummary {
   {
     input_files,
@@ -208,7 +208,7 @@ fn cmd_phase_trace_pass_name(line : String) -> String? {
 fn cmd_phase_trace_callback(trace : (String) -> Unit) -> (String) -> Unit {
   let mut active_pass = ""
   fn(line) {
-    if line.has_prefix("pipeline:") {
+    if line.has_prefix("pipeline:") || line.has_prefix("perf:timer name=pass:") {
       trace(line)
       return
     }
@@ -230,14 +230,14 @@ enum CmdPipelineDumpFormat {
 
 ///|
 enum CmdPipelinePrintSelector {
-  Index(UInt)
+  Index(UInt32)
   Name(String)
 }
 
 ///|
 enum CmdPipelineStep {
   PipelinePass(String)
-  ExtractFunctions(Array[UInt])
+  ExtractFunctions(Array[UInt32])
   Dump(String, CmdPipelineDumpFormat)
   Print(String, CmdPipelinePrintSelector)
   Validate
@@ -266,12 +266,12 @@ pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
 
 ///|
 pub struct InliningOptions {
-  always_inline_max_size : Int
-  one_caller_inline_max_size : Int
-  flexible_inline_max_size : Int
-  max_combined_binary_size : Int
+  always_inline_max_size : Int32
+  one_caller_inline_max_size : Int32
+  flexible_inline_max_size : Int32
+  max_combined_binary_size : Int32
   allow_functions_with_loops : Bool
-  partial_inlining_ifs : Int
+  partial_inlining_ifs : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -281,12 +281,12 @@ pub impl Show for InliningOptions with fn output(self, logger) {
 
 ///|
 pub fn InliningOptions::new(
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  partial_inlining_ifs? : Int = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  partial_inlining_ifs~ : Int32 = 0,
 ) -> InliningOptions {
   {
     always_inline_max_size,
@@ -300,10 +300,10 @@ pub fn InliningOptions::new(
 
 ///|
 pub struct OptimizeOptions {
-  optimize_level : Int
-  shrink_level : Int
+  optimize_level : Int32
+  shrink_level : Int32
   inlining : InliningOptions
-  monomorphize_min_benefit : Int
+  monomorphize_min_benefit : Int32
   closed_world : Bool
   zero_filled_memory : Bool
   fast_math : Bool
@@ -323,20 +323,20 @@ pub impl Show for OptimizeOptions with fn output(self, logger) {
 
 ///|
 pub fn OptimizeOptions::new(
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  inlining? : InliningOptions = InliningOptions::new(),
-  monomorphize_min_benefit? : Int = 5,
-  closed_world? : Bool = false,
-  zero_filled_memory? : Bool = false,
-  fast_math? : Bool = false,
-  low_memory_unused? : Bool = false,
-  low_memory_bound? : UInt64 = 1024UL,
-  traps_never_happen? : Bool = false,
-  ignore_implicit_traps? : Bool = false,
-  compiler_fact_policy? : @passes.CompilerFactUsePolicy = @passes.CompilerFactUsePolicy::ignore(),
-  validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
-  stack_function_passes? : Bool = true,
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  inlining~ : InliningOptions = InliningOptions::new(),
+  monomorphize_min_benefit~ : Int32 = 5,
+  closed_world~ : Bool = false,
+  zero_filled_memory~ : Bool = false,
+  fast_math~ : Bool = false,
+  low_memory_unused~ : Bool = false,
+  low_memory_bound~ : UInt64 = 1024UL,
+  traps_never_happen~ : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
+  compiler_fact_policy~ : @passes.CompilerFactUsePolicy = @passes.CompilerFactUsePolicy::ignore(),
+  validation_policy~ : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
+  stack_function_passes~ : Bool = true,
 ) -> OptimizeOptions {
   {
     optimize_level,
@@ -377,7 +377,7 @@ fn is_ascii_space(c : UInt16) -> Bool {
 }
 
 ///|
-fn trimmed_bounds(input : String) -> (Int, Int) {
+fn trimmed_bounds(input : String) -> (Int32, Int32) {
   let mut start = 0
   let mut end = input.length()
   while start < end && is_ascii_space(input[start]) {
@@ -398,8 +398,8 @@ fn trimmed_string(input : String) -> String {
 ///|
 fn ascii_lower_eq_at_bounds(
   input : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   expected : String,
 ) -> Bool {
   if end - start != expected.length() {
@@ -899,7 +899,7 @@ fn parse_pass_list(raw : String) -> Array[String] {
 }
 
 ///|
-fn parse_non_negative_decimal(raw : String) -> Int? {
+fn parse_non_negative_decimal(raw : String) -> Int32? {
   let (start, end) = trimmed_bounds(raw)
   if start == end {
     return None
@@ -918,7 +918,7 @@ fn parse_non_negative_decimal(raw : String) -> Int? {
 }
 
 ///|
-fn parse_json_non_negative_int(value : Json) -> Int? {
+fn parse_json_non_negative_int(value : Json) -> Int32? {
   match value {
     Number(n, ..) => {
       let int_value = n.to_int()
@@ -934,7 +934,7 @@ fn parse_json_non_negative_int(value : Json) -> Int? {
 }
 
 ///|
-fn parse_json_non_negative_or_minus_one(value : Json) -> Int? {
+fn parse_json_non_negative_or_minus_one(value : Json) -> Int32? {
   match value {
     Number(n, ..) if n == -1.0 => Some(-1)
     String(raw) if trimmed_string(raw) == "-1" => Some(-1)
@@ -969,13 +969,13 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
   let mut ignore_implicit_traps = false
-  let mut monomorphize_min_benefit : Int? = None
-  let mut inlining_always_inline_max_size : Int? = None
-  let mut inlining_one_caller_inline_max_size : Int? = None
-  let mut inlining_flexible_inline_max_size : Int? = None
-  let mut inlining_max_combined_binary_size : Int? = None
+  let mut monomorphize_min_benefit : Int32? = None
+  let mut inlining_always_inline_max_size : Int32? = None
+  let mut inlining_one_caller_inline_max_size : Int32? = None
+  let mut inlining_flexible_inline_max_size : Int32? = None
+  let mut inlining_max_combined_binary_size : Int32? = None
   let mut inlining_allow_functions_with_loops : Bool? = None
-  let mut inlining_partial_inlining_ifs : Int? = None
+  let mut inlining_partial_inlining_ifs : Int32? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
   let mut closed_world : Bool? = None
@@ -1402,7 +1402,7 @@ fn parse_env_overlay(
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
   let mut ignore_implicit_traps = false
-  let mut monomorphize_min_benefit : Int? = None
+  let mut monomorphize_min_benefit : Int32? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
   let mut closed_world : Bool? = None
@@ -1896,7 +1896,7 @@ fn resolve_input_files_with_glob(
 }
 
 ///|
-fn max_int(a : Int, b : Int) -> Int {
+fn max_int(a : Int32, b : Int32) -> Int32 {
   if a > b {
     a
   } else {
@@ -1907,7 +1907,9 @@ fn max_int(a : Int, b : Int) -> Int {
 ///|
 /// Compute effective optimize/shrink levels as maxima across explicit `-O` flags and
 /// preset shortcuts, matching precedence rules used later by explicit pipeline flags.
-fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
+fn resolve_optimize_levels(
+  flags : Array[CliOptimizationFlag],
+) -> (Int32, Int32) {
   let mut optimize_level = 0
   let mut shrink_level = 0
   for flag in flags {
@@ -1953,8 +1955,8 @@ test "shrink preset resolves to Binaryen Oz levels" {
 /// (`shrink` preferred over `optimize`) from the highest requested levels.
 fn resolve_effective_pass_flags(
   resolved_passes : Array[String],
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> Array[String] {
   if resolved_passes.length() > 0 {
     return resolved_passes
@@ -1970,12 +1972,12 @@ fn resolve_effective_pass_flags(
 
 ///|
 fn default_inlining_options(
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  partial_inlining_ifs? : Int = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  partial_inlining_ifs~ : Int32 = 0,
 ) -> InliningOptions {
   InliningOptions::new(
     always_inline_max_size~,
@@ -2000,17 +2002,17 @@ fn resolve_compiler_fact_policy(
 
 ///|
 fn make_optimize_options(
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
   traps_never_happen : Bool,
   ignore_implicit_traps : Bool,
-  monomorphize_min_benefit : Int,
-  inlining_always_inline_max_size : Int,
-  inlining_one_caller_inline_max_size : Int,
-  inlining_flexible_inline_max_size : Int,
-  inlining_max_combined_binary_size : Int,
+  monomorphize_min_benefit : Int32,
+  inlining_always_inline_max_size : Int32,
+  inlining_one_caller_inline_max_size : Int32,
+  inlining_flexible_inline_max_size : Int32,
+  inlining_max_combined_binary_size : Int32,
   inlining_allow_functions_with_loops : Bool,
-  inlining_partial_inlining_ifs : Int,
+  inlining_partial_inlining_ifs : Int32,
   closed_world : Bool,
   zero_filled_memory : Bool,
   fast_math : Bool,
@@ -2051,8 +2053,8 @@ fn make_optimize_options(
 ///|
 fn optimize_options_to_hot_pipeline_options(
   options : OptimizeOptions,
-  validate_final_module? : Bool = true,
-  trace? : ((String) -> Unit)? = None,
+  validate_final_module~ : Bool = true,
+  trace~ : ((String) -> Unit)? = None,
 ) -> @passes.HotPipelineOptions {
   @passes.HotPipelineOptions::new(
     verify_policy=match options.validation_policy {
@@ -2095,7 +2097,7 @@ fn optimize_module_with_pass_flags(
   mod : Module,
   pass_flags : Array[String],
   options : OptimizeOptions,
-  validate_final_module? : Bool = true,
+  validate_final_module~ : Bool = true,
 ) -> Result[Module, String] {
   @passes.run_hot_pipeline(
     mod,
@@ -2110,8 +2112,8 @@ fn optimize_module_with_pass_flags_trace(
   pass_flags : Array[String],
   options : OptimizeOptions,
   trace : (String) -> Unit,
-  validate_final_module? : Bool = true,
-  trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
+  validate_final_module~ : Bool = true,
+  trace_level~ : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
   let effective_trace = match trace_level {
     Phase => cmd_phase_trace_callback(trace)
@@ -2261,8 +2263,8 @@ fn cmd_extract_functions_pass_target(flag : String) -> String? {
 }
 
 ///|
-fn cmd_parse_function_index_list(raw : String) -> Array[UInt]? {
-  let out : Array[UInt] = []
+fn cmd_parse_function_index_list(raw : String) -> Array[UInt32]? {
+  let out : Array[UInt32] = []
   for part in raw.split(",") {
     match parse_non_negative_decimal(part.to_owned()) {
       Some(idx) => out.push(idx.reinterpret_as_uint())
@@ -2337,7 +2339,7 @@ fn cmd_parse_print_selector(raw : String) -> CmdPipelinePrintSelector? {
 }
 
 ///|
-fn cmd_pipeline_step_optimize_count(steps : Array[CmdPipelineStep]) -> Int {
+fn cmd_pipeline_step_optimize_count(steps : Array[CmdPipelineStep]) -> Int32 {
   let mut count = 0
   for step in steps {
     match step {
@@ -2454,7 +2456,7 @@ fn cmd_to_optimize_trace_level(level : CliTracingLevel) -> OptimizeTracingLevel 
 }
 
 ///|
-fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int? {
+fn cmd_trace_optimize_max_passes(io : CmdIO) -> Int32? {
   match (io.get_env)("STARSHINE_OPTIMIZE_MAX_PASSES") {
     Some(raw) => parse_non_negative_decimal(raw)
     None => None
@@ -2474,7 +2476,7 @@ fn cmd_resolve_optimize_trace_level(
 ///|
 fn limit_pass_flags_by_max_passes(
   pass_flags : Array[String],
-  max_passes : Int?,
+  max_passes : Int32?,
 ) -> (Array[String], Bool) {
   match max_passes {
     Some(limit) =>
@@ -2578,7 +2580,7 @@ fn write_pipeline_dump(
 ///|
 fn run_extract_functions_step(
   mod : Module,
-  indices : Array[UInt],
+  indices : Array[UInt32],
 ) -> Result[Module, CmdError] {
   let roots : Array[@lib.FuncIdx] = []
   for idx in indices {
@@ -2597,7 +2599,7 @@ fn cmd_name_to_string(name : @lib.Name) -> String {
 }
 
 ///|
-fn cmd_lookup_name_map_index(names : @lib.NameMap?, target : String) -> UInt? {
+fn cmd_lookup_name_map_index(names : @lib.NameMap?, target : String) -> UInt32? {
   match names {
     Some(@lib.NameMap(entries)) =>
       for entry in entries {
@@ -2614,7 +2616,7 @@ fn cmd_lookup_name_map_index(names : @lib.NameMap?, target : String) -> UInt? {
 ///|
 fn cmd_lookup_name_map_name(
   names : @lib.NameMap?,
-  target_idx : UInt,
+  target_idx : UInt32,
 ) -> String? {
   match names {
     Some(@lib.NameMap(entries)) =>
@@ -2762,7 +2764,11 @@ fn cmd_module_item_names(mod : Module, kind : String) -> @lib.NameMap? {
 }
 
 ///|
-fn cmd_print_label(kind : String, idx : UInt, name? : String? = None) -> String {
+fn cmd_print_label(
+  kind : String,
+  idx : UInt32,
+  name~ : String? = None,
+) -> String {
   match name {
     Some(name) if name.length() > 0 =>
       "\{cmd_print_kind_label(kind)}[\{idx} \{name}]"
@@ -2775,8 +2781,8 @@ fn cmd_resolve_named_section_index(
   mod : Module,
   kind : String,
   selector : CmdPipelinePrintSelector,
-  count : Int,
-) -> Result[(UInt, String?), CmdError] {
+  count : Int32,
+) -> Result[(UInt32, String?), CmdError] {
   let names = cmd_module_item_names(mod, kind)
   match selector {
     Index(idx) => {
@@ -2797,8 +2803,8 @@ fn cmd_resolve_named_section_index(
 fn cmd_lookup_import_index(
   imports : Array[@lib.Import],
   target : String,
-) -> UInt? {
-  let mut field_match : UInt? = None
+) -> UInt32? {
+  let mut field_match : UInt32? = None
   let mut i = 0
   while i < imports.length() {
     let @lib.Import(module_name, field_name, _) = imports[i]
@@ -2819,7 +2825,7 @@ fn cmd_lookup_import_index(
 fn cmd_lookup_export_index(
   exports : Array[@lib.Export],
   target : String,
-) -> UInt? {
+) -> UInt32? {
   let mut i = 0
   while i < exports.length() {
     let @lib.Export(name, _) = exports[i]
@@ -2835,7 +2841,7 @@ fn cmd_lookup_export_index(
 fn cmd_resolve_import_index(
   selector : CmdPipelinePrintSelector,
   imports : Array[@lib.Import],
-) -> Result[(UInt, String?), CmdError] {
+) -> Result[(UInt32, String?), CmdError] {
   match selector {
     Index(idx) => {
       if idx.reinterpret_as_int() >= imports.length() {
@@ -2873,7 +2879,7 @@ fn cmd_resolve_import_index(
 fn cmd_resolve_export_index(
   selector : CmdPipelinePrintSelector,
   exports : Array[@lib.Export],
-) -> Result[(UInt, String?), CmdError] {
+) -> Result[(UInt32, String?), CmdError] {
   match selector {
     Index(idx) => {
       if idx.reinterpret_as_int() >= exports.length() {
@@ -2917,7 +2923,7 @@ fn cmd_indent_print_body(text : String) -> String {
 fn cmd_write_pipeline_print_log(
   io : CmdIO,
   input_path : String,
-  entry_idx : Int,
+  entry_idx : Int32,
   label : String,
   body : String,
   write_header : Bool,
@@ -3140,6 +3146,13 @@ fn cmd_resolve_pipeline_print_entry(
 }
 
 ///|
+#valtype
+priv struct CmdPassSegmentResult {
+  module_ : Module
+  changed : Bool
+}
+
+///|
 fn run_pipeline_pass_segment(
   io : CmdIO,
   input_path : String,
@@ -3148,9 +3161,9 @@ fn run_pipeline_pass_segment(
   options : OptimizeOptions,
   trace_optimize : Bool,
   trace_level : OptimizeTracingLevel?,
-) -> Result[Module, CmdError] {
+) -> Result[CmdPassSegmentResult, CmdError] {
   if pass_flags.length() == 0 {
-    return Ok(mod)
+    return Ok({ module_: mod, changed: false, })
   }
   if trace_optimize {
     let resolved_trace_level = match trace_level {
@@ -3166,7 +3179,7 @@ fn run_pipeline_pass_segment(
         validate_final_module=false,
         trace_level=resolved_trace_level,
       ) {
-      Ok(out) => Ok(out)
+      Ok(out) => Ok({ module_: out, changed: !physical_equal(out, mod), })
       Err(e) => Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
     }
   } else {
@@ -3177,7 +3190,7 @@ fn run_pipeline_pass_segment(
         options,
         validate_final_module=false,
       ) {
-      Ok(out) => Ok(out)
+      Ok(out) => Ok({ module_: out, changed: !physical_equal(out, mod), })
       Err(e) => Err(CmdError::OptimizeFailed("\{input_path}: \{e}"))
     }
   }
@@ -3189,11 +3202,11 @@ fn cmd_post_encode_repro_note(
   mod : Module,
   pass_flags : Array[String],
   options : OptimizeOptions,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
   traps_never_happen : Bool,
   ignore_implicit_traps : Bool,
-  monomorphize_min_benefit : Int,
+  monomorphize_min_benefit : Int32,
   closed_world : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
@@ -4043,7 +4056,7 @@ fn parse_spec_cmd_args(
 ///|
 fn spec_failed_preview(
   summary : @wast.WastSpecRunSummary,
-  limit : Int,
+  limit : Int32,
 ) -> String {
   let out : Array[String] = []
   for report in summary.files {
@@ -4170,7 +4183,7 @@ fn decode_module_for_pipeline(
 ///|
 fn cmd_label_escapes_control_shell_for_encoding(
   label : @lib.LabelIdx,
-  control_depth : Int,
+  control_depth : Int32,
 ) -> Bool {
   let @lib.LabelIdx(raw) = label
   raw >= control_depth.reinterpret_as_uint()
@@ -4179,7 +4192,7 @@ fn cmd_label_escapes_control_shell_for_encoding(
 ///|
 fn cmd_catch_escapes_control_shell_for_encoding(
   catch_ : @lib.Catch,
-  control_depth : Int,
+  control_depth : Int32,
 ) -> Bool {
   let label = match catch_ {
     @lib.Catch(_, label)
@@ -4193,7 +4206,7 @@ fn cmd_catch_escapes_control_shell_for_encoding(
 ///|
 fn cmd_resume_handlers_escape_control_shell_for_encoding(
   handlers : Array[@lib.ResumeHandler],
-  control_depth : Int,
+  control_depth : Int32,
 ) -> Bool {
   for handler in handlers {
     match handler {
@@ -4210,7 +4223,7 @@ fn cmd_resume_handlers_escape_control_shell_for_encoding(
 ///|
 fn cmd_instrs_reference_control_shell_for_encoding(
   instrs : Array[@lib.Instruction],
-  control_depth? : Int = 0,
+  control_depth~ : Int32 = 0,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -4298,7 +4311,7 @@ fn cmd_instrs_reference_control_shell_for_encoding(
 ///|
 fn cmd_copy_instruction_prefix_for_encoding(
   instrs : Array[@lib.Instruction],
-  end : Int,
+  end : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
   for idx = 0; idx < end; idx = idx + 1 {
@@ -4449,7 +4462,7 @@ fn cmd_strip_nops_in_instrs_for_encoding(
 ///|
 fn cmd_copy_func_prefix_for_encoding(
   funcs : Array[@lib.Func],
-  end : Int,
+  end : Int32,
 ) -> Array[@lib.Func] {
   let out : Array[@lib.Func] = Array::new(capacity=funcs.length())
   for idx = 0; idx < end; idx = idx + 1 {
@@ -4493,10 +4506,13 @@ fn cmd_strip_nops_for_encoding(mod : Module) -> Module {
 }
 
 ///|
-fn cmd_strip_terminal_returns_for_encoding(mod : Module) -> Module {
+fn cmd_strip_terminal_returns_for_encoding(
+  mod : Module,
+  copied_rows~ : Array[Int32]? = None,
+) -> Module {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut rewritten : Array[@lib.Func]? = None
       let candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
       let imported_funcs = match mod.import_sec {
         Some(@lib.ImportSec(imports)) => {
@@ -4511,50 +4527,74 @@ fn cmd_strip_terminal_returns_for_encoding(mod : Module) -> Module {
         }
         None => 0
       }
-      let mut changed = false
       for code_idx, func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
         match instrs.last() {
           Some(@lib.Return) => {
+            let out = match rewritten {
+              Some(out) => out
+              None => {
+                match copied_rows {
+                  Some(count) => count[0] += code_idx
+                  None => ()
+                }
+                cmd_copy_func_prefix_for_encoding(funcs, code_idx)
+              }
+            }
             let body : Array[@lib.Instruction] = Array::new(
               capacity=instrs.length() - 1,
             )
             for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
               body.push(instrs[idx])
             }
-            rewritten.push(@lib.Func::new(locals, @lib.Expr::new(body)))
+            out.push(@lib.Func::new(locals, @lib.Expr::new(body)))
+            match copied_rows {
+              Some(count) => count[0] += 1
+              None => ()
+            }
             candidates.push(
               (
                 @lib.FuncIdx::new(
                   (imported_funcs + code_idx).reinterpret_as_uint(),
                 ),
-                rewritten[code_idx],
+                out[code_idx],
               ),
             )
-            changed = true
+            rewritten = Some(out)
           }
-          _ => rewritten.push(func)
+          _ =>
+            match rewritten {
+              Some(out) => {
+                out.push(func)
+                match copied_rows {
+                  Some(count) => count[0] += 1
+                  None => ()
+                }
+              }
+              None => ()
+            }
         }
       }
-      if changed {
-        // Removing return is valid only if fallthrough leaves exactly the
-        // function results. Build the validation environment once for the batch.
-        let failures = match
-          @validate.validate_defined_funcs_against_module(mod, candidates) {
-          Ok(failures) => failures
-          Err(error) =>
-            abort(
-              "cannot validate encoding terminal-return candidates: \{error}",
-            )
+      match rewritten {
+        Some(rewritten) => {
+          // Removing return is valid only if fallthrough leaves exactly the
+          // function results. Build the validation environment once for the batch.
+          let failures = match
+            @validate.validate_defined_funcs_against_module(mod, candidates) {
+            Ok(failures) => failures
+            Err(error) =>
+              abort(
+                "cannot validate encoding terminal-return candidates: \{error}",
+              )
+          }
+          for failure in failures {
+            let (@lib.FuncIdx(raw), _) = failure
+            let code_idx = raw.reinterpret_as_int() - imported_funcs
+            rewritten[code_idx] = funcs[code_idx]
+          }
+          mod.with_code_sec(@lib.CodeSec::new(rewritten))
         }
-        for failure in failures {
-          let (@lib.FuncIdx(raw), _) = failure
-          let code_idx = raw.reinterpret_as_int() - imported_funcs
-          rewritten[code_idx] = funcs[code_idx]
-        }
-        mod.with_code_sec(@lib.CodeSec::new(rewritten))
-      } else {
-        mod
+        None => mod
       }
     }
     None => mod
@@ -4684,7 +4724,7 @@ fn cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
   if candidates.length() == 0 {
     abort("size portfolio requires at least one valid encoded candidate")
   }
-  let ordered : Array[Int] = []
+  let ordered : Array[Int32] = []
   for idx = 0; idx < candidates.length(); idx = idx + 1 {
     let mut insert_at = ordered.length()
     for pos = 0; pos < ordered.length(); pos = pos + 1 {
@@ -4714,11 +4754,19 @@ fn cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
 ///|
 fn cmd_choose_smallest_valid_encoded_candidate(
   candidates : Array[(String, Bytes)],
+  prevalidated_labels~ : Array[String] = [],
+  is_valid~ : ((String, Bytes) -> Bool)? = None,
 ) -> (String, Bytes) {
-  cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
-    candidates,
-    [],
-  )
+  match is_valid {
+    Some(check) =>
+      cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+        candidates, prevalidated_labels, check,
+      )
+    None =>
+      cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
+        candidates, prevalidated_labels,
+      )
+  }
 }
 
 ///|
@@ -4801,8 +4849,8 @@ fn cmd_module_has_caught_try_table(mod_ : @lib.Module) -> Bool {
 ///|
 fn cmd_o4z_size_portfolio_enabled(
   format : CliInputFormat,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
   resolved_passes : Array[String],
 ) -> Bool {
   format == CliInputFormat::wasm() &&
@@ -4814,9 +4862,9 @@ fn cmd_o4z_size_portfolio_enabled(
 
 ///|
 fn cmd_o4z_late_cleanup_candidate_enabled(
-  input_size : Int,
-  optimized_size : Int,
-  defined_func_count : Int,
+  input_size : Int32,
+  optimized_size : Int32,
+  defined_func_count : Int32,
 ) -> Bool {
   defined_func_count < 2000 &&
   (optimized_size >= 10000 || input_size <= optimized_size * 4)
@@ -4870,8 +4918,9 @@ fn cmd_o4z_host_identity_safe_candidate_passes(
   }
   let safe : Array[String] = []
   for pass in passes {
-    if pass != "duplicate-function-elimination" &&
-      pass != "duplicate-import-elimination" {
+    // DFE protects exported and address-materialized functions at each merge.
+    // Private functions can still merge within this full O4z size portfolio.
+    if pass != "duplicate-import-elimination" {
       safe.push(pass)
     }
   }
@@ -5102,7 +5151,7 @@ fn cmd_o4z_stateful_finish_cleanup_passes() -> Array[String] {
 
 ///|
 fn cmd_o4z_stateful_plain_inlining_cleanup_passes(
-  defined_func_count : Int,
+  defined_func_count : Int32,
 ) -> Array[String] {
   if defined_func_count == 50 {
     [
@@ -5164,8 +5213,8 @@ fn cmd_o4z_post_fixed_point_finish_passes() -> Array[String] {
 ///|
 fn optimize_options_with_levels(
   options : OptimizeOptions,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> OptimizeOptions {
   OptimizeOptions::new(
     optimize_level~,
@@ -5318,22 +5367,17 @@ fn cmd_input_identity_has_encoding_cleanup_candidate(mod : Module) -> Bool {
 ///|
 fn should_reuse_input_wasm_bytes(
   format : CliInputFormat,
-  pass_count : Int,
+  pass_count : Int32,
   debug_serial_passes : Bool,
-  input_mod : Module,
+  pipeline_changed : Bool,
   optimized_mod : Module,
 ) -> Bool {
   match format {
     Wasm =>
       pass_count > 0 &&
       !should_validate_encoded_module_after_encode(debug_serial_passes) &&
-      (
-        (
-          physical_equal(optimized_mod, input_mod) &&
-          !cmd_input_identity_has_encoding_cleanup_candidate(optimized_mod)
-        ) ||
-        optimized_mod == input_mod
-      )
+      !pipeline_changed &&
+      !cmd_input_identity_has_encoding_cleanup_candidate(optimized_mod)
     Wat | Wast => false
   }
 }
@@ -5508,7 +5552,7 @@ fn cmd_try_trivial_startup_exit(
 pub fn run_cmd_with_adapter(
   args : Array[String],
   io : CmdIO,
-  config_json? : String? = None,
+  config_json~ : String? = None,
 ) -> Result[CmdRunSummary, CmdError] {
   match cmd_try_trivial_startup_exit(args, io) {
     Some(result) => return result
@@ -5972,12 +6016,13 @@ pub fn run_cmd_with_adapter(
     let main_pipeline_start_us = cmd_trace_timer_start(trace_optimize)
     let pending_passes : Array[String] = []
     let mut optimized = mod
+    let mut pipeline_changed = false
     let mut print_log_entries = 0
     for step in pipeline_steps {
       match step {
         PipelinePass(flag) => pending_passes.push(flag)
         ExtractFunctions(indices) => {
-          optimized = match
+          let segment = match
             run_pipeline_pass_segment(
               io, input_path, optimized, pending_passes, options, trace_optimize,
               trace_level,
@@ -5985,16 +6030,21 @@ pub fn run_cmd_with_adapter(
             Ok(out) => out
             Err(err) => return Err(err)
           }
+          optimized = segment.module_
+          pipeline_changed = pipeline_changed || segment.changed
           pending_passes.clear()
           cmd_trace_emit(
             io,
             trace_optimize,
             "input \{input_path}:extract-functions:start roots=\{indices.length()}",
           )
+          let before_extract = optimized
           optimized = match run_extract_functions_step(optimized, indices) {
             Ok(out) => out
             Err(err) => return Err(err)
           }
+          pipeline_changed = pipeline_changed ||
+            !physical_equal(optimized, before_extract)
           cmd_trace_emit(
             io,
             trace_optimize,
@@ -6002,7 +6052,7 @@ pub fn run_cmd_with_adapter(
           )
         }
         Dump(path, format) => {
-          optimized = match
+          let segment = match
             run_pipeline_pass_segment(
               io, input_path, optimized, pending_passes, options, trace_optimize,
               trace_level,
@@ -6010,6 +6060,8 @@ pub fn run_cmd_with_adapter(
             Ok(out) => out
             Err(err) => return Err(err)
           }
+          optimized = segment.module_
+          pipeline_changed = pipeline_changed || segment.changed
           pending_passes.clear()
           cmd_trace_emit(
             io,
@@ -6027,7 +6079,7 @@ pub fn run_cmd_with_adapter(
           )
         }
         Print(kind, selector) => {
-          optimized = match
+          let segment = match
             run_pipeline_pass_segment(
               io, input_path, optimized, pending_passes, options, trace_optimize,
               trace_level,
@@ -6035,6 +6087,8 @@ pub fn run_cmd_with_adapter(
             Ok(out) => out
             Err(err) => return Err(err)
           }
+          optimized = segment.module_
+          pipeline_changed = pipeline_changed || segment.changed
           pending_passes.clear()
           cmd_trace_emit(
             io,
@@ -6066,7 +6120,7 @@ pub fn run_cmd_with_adapter(
           )
         }
         Validate => {
-          optimized = match
+          let segment = match
             run_pipeline_pass_segment(
               io, input_path, optimized, pending_passes, options, trace_optimize,
               trace_level,
@@ -6074,6 +6128,8 @@ pub fn run_cmd_with_adapter(
             Ok(out) => out
             Err(err) => return Err(err)
           }
+          optimized = segment.module_
+          pipeline_changed = pipeline_changed || segment.changed
           pending_passes.clear()
           cmd_trace_emit(
             io,
@@ -6092,13 +6148,15 @@ pub fn run_cmd_with_adapter(
         }
       }
     }
-    optimized = match
+    let final_segment = match
       run_pipeline_pass_segment(
         io, input_path, optimized, pending_passes, options, trace_optimize, trace_level,
       ) {
       Ok(out) => out
       Err(err) => return Err(err)
     }
+    optimized = final_segment.module_
+    pipeline_changed = pipeline_changed || final_segment.changed
     cmd_trace_timer_stop(
       io, trace_optimize, "main-pipeline", main_pipeline_start_us,
     )
@@ -6128,7 +6186,7 @@ pub fn run_cmd_with_adapter(
       format,
       effective_pass_count,
       merged.debug_serial_passes,
-      mod,
+      pipeline_changed,
       optimized,
     )
     cmd_trace_timer_stop(
@@ -6212,7 +6270,7 @@ pub fn run_cmd_with_adapter(
       ) {
       portfolio_candidates.push(("optimized", normal_out_bytes))
     }
-    if size_portfolio_enabled {
+    if size_portfolio_enabled && !caught_try_table_boundary {
       match original_for_portfolio {
         Some(original) => {
           match validate_module(original) {
@@ -6975,6 +7033,7 @@ pub fn run_cmd_with_adapter(
       portfolio_candidates.push(("optimized", normal_out_bytes))
     }
     if size_portfolio_enabled &&
+      !caught_try_table_boundary &&
       !unsafe_emscripten_main_runtime &&
       !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
         optimized,
@@ -6987,6 +7046,7 @@ pub fn run_cmd_with_adapter(
       cmd_o4z_post_selection_local_cleanup_enabled(optimized) {
       let (_, provisional_bytes) = cmd_choose_smallest_valid_encoded_candidate(
         portfolio_candidates,
+        prevalidated_labels=prevalidated_portfolio_labels,
       )
       match decode_module_for_pipeline(input_path, provisional_bytes) {
         Ok(provisional) =>
@@ -7018,6 +7078,7 @@ pub fn run_cmd_with_adapter(
       if cmd_o4z_post_selection_control_cleanup_enabled(optimized) {
         let (_, control_input_bytes) = cmd_choose_smallest_valid_encoded_candidate(
           portfolio_candidates,
+          prevalidated_labels=prevalidated_portfolio_labels,
         )
         match decode_module_for_pipeline(input_path, control_input_bytes) {
           Ok(control_input) =>
@@ -7049,6 +7110,7 @@ pub fn run_cmd_with_adapter(
       }
       let (_, urem_input_bytes) = cmd_choose_smallest_valid_encoded_candidate(
         portfolio_candidates,
+        prevalidated_labels=prevalidated_portfolio_labels,
       )
       match decode_module_for_pipeline(input_path, urem_input_bytes) {
         Ok(urem_input) if cmd_o4z_has_urem_regalloc_runtime(urem_input) => {
@@ -7082,12 +7144,23 @@ pub fn run_cmd_with_adapter(
       )
     }
     let (selected_candidate, out_bytes) = if caught_try_table_boundary {
-      cmd_trace_emit(
-        io,
-        trace_optimize,
-        "input \{input_path}:candidate force=input reason=caught-try-table",
-      )
-      ("input", wasm_bytes)
+      if compiler_fact_policy ==
+        @passes.CompilerFactUsePolicy::trust_assertions() &&
+        !physical_equal(mod, optimized) {
+        cmd_trace_emit(
+          io,
+          trace_optimize,
+          "input \{input_path}:candidate force=prepared-input reason=caught-try-table",
+        )
+        ("prepared-input", normal_out_bytes)
+      } else {
+        cmd_trace_emit(
+          io,
+          trace_optimize,
+          "input \{input_path}:candidate force=input reason=caught-try-table",
+        )
+        ("input", wasm_bytes)
+      }
     } else if size_portfolio_enabled {
       cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
         portfolio_candidates, prevalidated_portfolio_labels,
@@ -7211,15 +7284,15 @@ extern "c" fn cmd_native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_fclose(stream : UInt64) -> Int = "fclose"
+extern "c" fn cmd_native_fclose(stream : UInt64) -> Int32 = "fclose"
 
 ///|
 #cfg(target="native")
 extern "c" fn cmd_native_fseek(
   stream : UInt64,
-  offset : Int,
-  whence : Int,
-) -> Int = "fseek"
+  offset : Int32,
+  whence : Int32,
+) -> Int32 = "fseek"
 
 ///|
 #cfg(target="native")
@@ -7238,7 +7311,7 @@ extern "c" fn cmd_native_fread(
 ///|
 #cfg(target="native")
 #borrow(path)
-extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
+extern "c" fn cmd_native_access(path : Bytes, mode : Int32) -> Int32 = "access"
 
 ///|
 #cfg(target="native")
@@ -7247,11 +7320,11 @@ extern "c" fn cmd_native_popen(command : Bytes, mode : Bytes) -> UInt64 = "popen
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_pclose(pipe : UInt64) -> Int = "pclose"
+extern "c" fn cmd_native_pclose(pipe : UInt64) -> Int32 = "pclose"
 
 ///|
 #cfg(target="native")
-fn cmd_native_system(command : Bytes) -> Int {
+fn cmd_native_system(command : Bytes) -> Int32 {
   // Avoid binding directly to libc `system`: MoonBit emits an incompatible C
   // prototype for borrowed `Bytes`, which conflicts with `<stdlib.h>` on native
   // release builds. `popen`/`pclose` still execute through the shell and return
@@ -7266,35 +7339,39 @@ fn cmd_native_system(command : Bytes) -> Int {
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_getpid() -> Int = "getpid"
+extern "c" fn cmd_native_getpid() -> Int32 = "getpid"
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_fork() -> Int = "fork"
+extern "c" fn cmd_native_fork() -> Int32 = "fork"
 
 ///|
 #cfg(target="native")
 #borrow(status)
 extern "c" fn cmd_native_waitpid(
-  pid : Int,
+  pid : Int32,
   status : Bytes,
-  options : Int,
-) -> Int = "waitpid"
+  options : Int32,
+) -> Int32 = "waitpid"
 
 ///|
 #cfg(target="native")
 #borrow(ptr)
-extern "c" fn cmd_native_write(fd : Int, ptr : Bytes, count : UInt64) -> Int = "write"
+extern "c" fn cmd_native_write(
+  fd : Int32,
+  ptr : Bytes,
+  count : UInt64,
+) -> Int32 = "write"
 
 ///|
 #cfg(target="native")
 #borrow(buf)
-extern "c" fn cmd_native_getrlimit(resource : Int, buf : Bytes) -> Int = "getrlimit"
+extern "c" fn cmd_native_getrlimit(resource : Int32, buf : Bytes) -> Int32 = "getrlimit"
 
 ///|
 #cfg(target="native")
 #borrow(buf)
-extern "c" fn cmd_native_setrlimit(resource : Int, buf : Bytes) -> Int = "setrlimit"
+extern "c" fn cmd_native_setrlimit(resource : Int32, buf : Bytes) -> Int32 = "setrlimit"
 
 ///|
 #cfg(target="native")
@@ -7546,7 +7623,7 @@ fn cmd_native_write_stderr(bytes : Bytes) -> Result[Unit, String] {
 
 ///|
 #cfg(target="native")
-fn cmd_native_read_u64_le(bytes : Bytes, start : Int) -> UInt64 {
+fn cmd_native_read_u64_le(bytes : Bytes, start : Int32) -> UInt64 {
   let mut out : UInt64 = 0UL
   let mut i = 0
   while i < 8 {
@@ -7601,11 +7678,11 @@ fn cmd_native_shell_quote(text : String) -> String {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn cmd_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+extern "c" fn cmd_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int32 = "gettimeofday"
 
 ///|
 #cfg(target="native")
-fn cmd_native_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+fn cmd_native_read_u64_timeval(bytes : Bytes, start : Int32) -> UInt64 {
   let mut out = 0UL
   let mut i = 0
   while i < 8 {
@@ -7649,7 +7726,7 @@ fn cmd_run_independent_encoded_candidate_jobs_serial(
 
 ///|
 #cfg(target="native")
-fn cmd_native_wait_exit_code(pid : Int) -> Int? {
+fn cmd_native_wait_exit_code(pid : Int32) -> Int32? {
   let status = Bytes::new(4)
   if cmd_native_waitpid(pid, status, 0) != pid {
     return None
@@ -7677,7 +7754,7 @@ fn cmd_run_independent_encoded_candidate_jobs(
     return cmd_run_independent_encoded_candidate_jobs_serial(jobs)
   }
   let base = cmd_native_tmp_path("o4z-portfolio", "")
-  let pids : Array[Int] = []
+  let pids : Array[Int32] = []
   let paths : Array[String] = []
   for idx = 0; idx < jobs.length(); idx = idx + 1 {
     let path = "\{base}-\{idx}.wasm"
@@ -7914,14 +7991,6 @@ fn default_cmd_io() -> CmdIO {
 }
 
 ///|
-#cfg(target="wasm-gc")
-fn default_cmd_io() -> CmdIO {
-  let _ = @sfs.remove_file
-  let _ = cmd_default_list_candidates
-  CmdIO::new()
-}
-
-///|
 pub fn run_cmd(args : Array[String]) -> Result[CmdRunSummary, CmdError] {
   run_cmd_with_adapter(args, default_cmd_io())
 }
@@ -7930,8 +7999,8 @@ pub fn run_cmd(args : Array[String]) -> Result[CmdRunSummary, CmdError] {
 pub fn run_cmd_exit_code_with_adapter(
   args : Array[String],
   io : CmdIO,
-  config_json? : String? = None,
-) -> Int {
+  config_json~ : String? = None,
+) -> Int32 {
   match run_cmd_with_adapter(args, io, config_json~) {
     Ok(_) => 0
     Err(err) => {
@@ -7942,7 +8011,7 @@ pub fn run_cmd_exit_code_with_adapter(
 }
 
 ///|
-pub fn run_cmd_exit_code(args : Array[String]) -> Int {
+pub fn run_cmd_exit_code(args : Array[String]) -> Int32 {
   run_cmd_exit_code_with_adapter(args, default_cmd_io())
 }
 
@@ -7963,7 +8032,7 @@ fn trim_program_name(argv : Array[String]) -> Array[String] {
 
 ///|
 #cfg(target="wasm")
-fn cmd_wasm_proc_exit(code : UInt) -> Unit = "wasi_snapshot_preview1" "proc_exit"
+fn cmd_wasm_proc_exit(code : UInt32) -> Unit = "wasi_snapshot_preview1" "proc_exit"
 
 ///|
 #cfg(target="wasm")
@@ -7977,12 +8046,12 @@ fn main {
 ///|
 #cfg(target="wasm-gc")
 fn main {
-  ignore(run_cmd_exit_code(@env.args()))
+  ignore(run_cmd_exit_code(trim_program_name(@env.args())))
 }
 
 ///|
 #cfg(target="native")
-extern "c" fn cmd_native_exit(code : Int) -> Unit = "quick_exit"
+extern "c" fn cmd_native_exit(code : Int32) -> Unit = "quick_exit"
 
 ///|
 #cfg(target="native")
@@ -8048,7 +8117,7 @@ fn cmd_wasm_begin_read_string(s : CmdExternString) -> CmdStringReadHandle = "__m
 
 ///|
 #cfg(target="wasm")
-fn cmd_wasm_string_read_char(handle : CmdStringReadHandle) -> Int = "__moonbit_fs_unstable" "string_read_char"
+fn cmd_wasm_string_read_char(handle : CmdStringReadHandle) -> Int32 = "__moonbit_fs_unstable" "string_read_char"
 
 ///|
 #cfg(target="wasm")
@@ -8071,14 +8140,13 @@ fn cmd_wasm_string_from_extern(extern_str : CmdExternString) -> String {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_list_candidates() -> Array[String] {
-  let _ = cmd_wasm_string_from_extern
   cmd_default_list_candidates()
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_file_exists(path : String) -> Bool {
   match @sfs.list_files_recursive(path) {
     Ok(files) => files.length() > 0
@@ -8087,19 +8155,19 @@ fn cmd_wasm_file_exists(path : String) -> Bool {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_read_file(path : String) -> Result[Bytes, String] {
   @sfs.read_file_bytes(path)
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
   @sfs.write_file_bytes(path, bytes)
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_stdout(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
@@ -8108,7 +8176,7 @@ fn cmd_wasm_write_stdout(bytes : Bytes) -> Result[Unit, String] {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_stderr(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
@@ -8117,7 +8185,7 @@ fn cmd_wasm_write_stderr(bytes : Bytes) -> Result[Unit, String] {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
   CmdIO::new(
@@ -8249,7 +8317,10 @@ test "Binaryen 132 constraint analysis command dispatch folds an implied predica
     Ok(value) => value
     Err(err) => fail(err)
   }
-  fn count(instrs : Array[@lib.Instruction], wanted : @lib.Instruction) -> Int {
+  fn count(
+    instrs : Array[@lib.Instruction],
+    wanted : @lib.Instruction,
+  ) -> Int32 {
     let mut found = 0
     for instr in instrs {
       if instr == wanted {
@@ -9591,7 +9662,7 @@ fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
 ///|
 fn cmd_deep_audit_body(
   mod_ : @lib.Module,
-  index? : Int = 0,
+  index~ : Int32 = 0,
 ) -> Array[@lib.Instruction] {
   let @lib.Func(_, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index]
   body
@@ -9601,7 +9672,7 @@ fn cmd_deep_audit_body(
 fn cmd_deep_audit_count(
   body : Array[@lib.Instruction],
   predicate : (@lib.Instruction) -> Bool,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     if predicate(instr) {
@@ -9731,6 +9802,42 @@ fn cmd_deep_audit_rume_input(kind : String) -> @lib.Module {
 }
 
 ///|
+test "full O4z command presets merge private helpers across host boundaries" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "host" "tick" (func $tick (param i32) (result i32)))
+      #|  (func $first (param i32) (result i32) local.get 0 call $tick local.get 0 i32.mul local.get 0 i32.add)
+      #|  (func $second (param i32) (result i32) local.get 0 call $tick local.get 0 i32.mul local.get 0 i32.add)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0 call $first local.get 0 call $second i32.add))
+    ),
+  )
+  let options = OptimizeOptions::new(
+    optimize_level=4,
+    shrink_level=4,
+    inlining=default_inlining_options(
+      always_inline_max_size=0,
+      one_caller_inline_max_size=0,
+      flexible_inline_max_size=0,
+    ),
+  )
+  for preset in ["optimize", "shrink"] {
+    let output = optimize_module_with_pass_flags(input, [preset], options).unwrap()
+    assert_true(@validate.validate_module(output).is_ok())
+    let funcs = match output.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => fail("expected private helper and exported caller")
+    }
+    @debug.assert_eq(funcs.length(), 2)
+    assert_true(
+      @binary.encode_module(output).unwrap().length() <
+      @binary.encode_module(input).unwrap().length(),
+    )
+  }
+}
+
+///|
 test "direct DFE preserves distinct host-exported function identities" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (export \"a\") (result i32) i32.const 7) (func (export \"b\") (result i32) i32.const 7))",
@@ -9833,16 +9940,16 @@ test "unchanged NaN input reuses its exact encoded bytes after an optimizer pass
   )
   let bytes = @binary.encode_module(mod_).unwrap()
   assert_true(
-    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, false, mod_, mod_),
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, false, false, mod_),
   )
   assert_false(
-    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, true, mod_, mod_),
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, true, false, mod_),
   )
   assert_false(
-    should_reuse_input_wasm_bytes(CliInputFormat::wat(), 1, false, mod_, mod_),
+    should_reuse_input_wasm_bytes(CliInputFormat::wat(), 1, false, false, mod_),
   )
   assert_false(
-    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 0, false, mod_, mod_),
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 0, false, false, mod_),
   )
   let changed = @passes.pass_test_module_from_wat(
     "(module (func (result f32) f32.const nan:0x400002))",
@@ -9852,8 +9959,18 @@ test "unchanged NaN input reuses its exact encoded bytes after an optimizer pass
       CliInputFormat::wasm(),
       1,
       false,
-      mod_,
+      true,
       changed,
+    ),
+  )
+  let rebuilt = @binary.decode_module(bytes).unwrap()
+  assert_false(
+    should_reuse_input_wasm_bytes(
+      CliInputFormat::wasm(),
+      1,
+      false,
+      true,
+      rebuilt,
     ),
   )
   @validate.validate_module(mod_).unwrap()
@@ -10801,7 +10918,7 @@ test "dae2 optimizing retains ordered calls across scalar and nop runs" {
 ///|
 fn cmd_test_collect_simd_effect_order(
   body : Array[@lib.Instruction],
-  events : Array[Int],
+  events : Array[Int32],
 ) -> Unit {
   for instr in body {
     match instr {
@@ -10857,7 +10974,7 @@ test "direct pass dispatcher keeps SIMD stores after earlier memory reads" {
     OptimizeOptions::new(),
   ).unwrap()
   let @lib.Func(_, @lib.Expr(merge_body)) = merge_output.code_sec.unwrap().0[1]
-  let merge_events : Array[Int] = []
+  let merge_events : Array[Int32] = []
   cmd_test_collect_simd_effect_order(merge_body, merge_events)
   assert_eq(merge_events, [1, 2])
 
@@ -10870,7 +10987,7 @@ test "direct pass dispatcher keeps SIMD stores after earlier memory reads" {
     OptimizeOptions::new(ignore_implicit_traps=true),
   ).unwrap()
   let @lib.Func(_, @lib.Expr(push_body)) = push_output.code_sec.unwrap().0[0]
-  let push_events : Array[Int] = []
+  let push_events : Array[Int32] = []
   cmd_test_collect_simd_effect_order(push_body, push_events)
   assert_eq(push_events, [3, 2])
 }
@@ -10934,6 +11051,30 @@ test "dae2 variants preserve recursive type prefixes while removing dead argumen
     let env = @validate.Env::new().with_module(output)
     assert_eq(
       env.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "command DAE2 modes preserve nonfallthrough scalar result typing" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $h (param i32 i32) (result i32) block (result i32) local.get 0 return end) (func (export \"run\") (param i32) (result i32) local.get 0 i32.const 99 call $h))",
+  )
+  @validate.validate_module(input).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = match
+      optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()) {
+      Ok(output) => output
+      Err(error) => fail("nonfallthrough scalar command failed: \{error}")
+    }
+    @validate.validate_module(output).unwrap()
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
       Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
     )
     assert_eq(@binary.encode_module(input).unwrap(), saved)

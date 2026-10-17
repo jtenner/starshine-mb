@@ -15,8 +15,8 @@ priv struct CompiledGlobPath {
 priv struct CompiledGlobPattern {
   path : CompiledGlobPath
   first_segment_literal : String?
-  min_segment_count : Int
-  max_segment_count : Int?
+  min_segment_count : Int32
+  max_segment_count : Int32?
 }
 
 ///|
@@ -100,7 +100,7 @@ fn compile_glob_pattern(pattern : String) -> CompiledGlobPattern {
     }
   }
   let mut min_segment_count = 0
-  let mut max_segment_count : Int? = Some(path.segments.length())
+  let mut max_segment_count : Int32? = Some(path.segments.length())
   for segment in path.segments {
     if segment == "**" {
       max_segment_count = None
@@ -146,9 +146,9 @@ fn wildcard_segment_match(pattern : String, text : String) -> Bool {
 ///|
 fn glob_match_segments(
   pattern_segments : Array[String],
-  pattern_index : Int,
+  pattern_index : Int32,
   path_segments : Array[String],
-  path_index : Int,
+  path_index : Int32,
 ) -> Bool {
   if pattern_index == pattern_segments.length() {
     return path_index == path_segments.length()
@@ -216,7 +216,7 @@ fn compiled_glob_pattern_matches_candidate(
 }
 
 ///|
-fn is_dot_or_dotdot_segment(path : String, start : Int, end : Int) -> Bool {
+fn is_dot_or_dotdot_segment(path : String, start : Int32, end : Int32) -> Bool {
   let length = end - start
   (length == 1 && path[start] == '.') ||
   (length == 2 && path[start] == '.' && path[start + 1] == '.')

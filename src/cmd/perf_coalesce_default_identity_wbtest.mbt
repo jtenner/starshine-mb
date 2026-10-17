@@ -10,7 +10,7 @@ test "command coalesce preserves live parameters beside implicit and explicit de
     let values = Array::make(locals.length() + 2, 0)
     values[0] = a
     values[1] = b
-    let stack : Array[Int] = []
+    let stack : Array[Int32] = []
     fn execute(instructions : Array[@lib.Instruction]) -> Unit {
       for instruction in instructions {
         match instruction {

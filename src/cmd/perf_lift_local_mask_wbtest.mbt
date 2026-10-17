@@ -13,7 +13,7 @@ test "command hot passes preserve a compound carried read across local writes" {
     for argument in [-7, 0, 11] {
       let values = Array::make(locals.length() + 1, 0)
       values[0] = argument
-      let stack : Array[Int] = []
+      let stack : Array[Int32] = []
       fn execute(instructions : Array[@lib.Instruction]) -> Unit {
         for instruction in instructions {
           match instruction {

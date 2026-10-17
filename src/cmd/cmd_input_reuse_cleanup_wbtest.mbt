@@ -48,7 +48,7 @@ test "NaN identity admission retains nested and terminal encoding cleanup" {
         CliInputFormat::wasm(),
         1,
         false,
-        input,
+        false,
         input,
       ),
     )
@@ -72,7 +72,7 @@ test "NaN identity admission retains nested and terminal encoding cleanup" {
       CliInputFormat::wasm(),
       1,
       false,
-      empty_data,
+      false,
       empty_data,
     ),
   )

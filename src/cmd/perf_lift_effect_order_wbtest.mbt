@@ -9,7 +9,7 @@ test "command HOT passes preserve carried calls before later region effects" {
       pass,
     )
     @validate.validate_module(output).unwrap()
-    let calls : Array[Int] = []
+    let calls : Array[Int32] = []
     fn collect(body : Array[@lib.Instruction]) -> Unit {
       for instr in body {
         match instr {

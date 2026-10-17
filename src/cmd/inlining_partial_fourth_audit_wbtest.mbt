@@ -1,7 +1,7 @@
 ///|
 fn cmd_fourth_partial_run(
   text : String,
-  names : Array[(UInt, String)],
+  names : Array[(UInt32, String)],
   passes : Array[String],
   options : OptimizeOptions,
 ) -> @lib.Module raise {

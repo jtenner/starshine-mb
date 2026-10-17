@@ -29,7 +29,7 @@ test "cmd_native_get_env reads process environment without shelling out" {
 fn cnw_assert_occurs_in_order(text : String, needles : Array[String]) -> Unit {
   let mut start = 0
   for needle in needles {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let mut i = start
     while i + needle.length() <= text.length() {
       if text.sub(start=i, end=i + needle.length()).to_string() == needle {
@@ -48,14 +48,14 @@ fn cnw_assert_occurs_in_order(text : String, needles : Array[String]) -> Unit {
 
 ///|
 #cfg(target="native")
-fn cnw_count_substring(text : String, needle : String) -> Int {
+fn cnw_count_substring(text : String, needle : String) -> Int32 {
   if needle.is_empty() {
     return 0
   }
   let mut count = 0
   let mut start = 0
   while start + needle.length() <= text.length() {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let mut i = start
     while i + needle.length() <= text.length() {
       if text.sub(start=i, end=i + needle.length()).to_string() == needle {
@@ -84,7 +84,7 @@ fn cnw_starts_with(text : String, prefix : String) -> Bool {
 
 ///|
 #cfg(target="native")
-fn cnw_starts_with_at(text : String, start : Int, prefix : String) -> Bool {
+fn cnw_starts_with_at(text : String, start : Int32, prefix : String) -> Bool {
   start >= 0 &&
   start + prefix.length() <= text.length() &&
   text.sub(start~, end=start + prefix.length()).to_string() == prefix
@@ -93,7 +93,7 @@ fn cnw_starts_with_at(text : String, start : Int, prefix : String) -> Bool {
 ///|
 #cfg(target="native")
 fn cmd_native_wbtest_canonicalize_body_locals(body : String) -> String {
-  let local_ids : @hashmap.HashMap[Int, Int] = @hashmap.new(capacity=32)
+  let local_ids : @hashmap.HashMap[Int32, Int32] = @hashmap.new(capacity=32)
   let out = StringBuilder::new()
   let mut next_local = 0
   let mut i = 0
@@ -127,7 +127,7 @@ fn cmd_native_wbtest_canonicalize_body_locals(body : String) -> String {
 
 ///|
 #cfg(target="native")
-fn cmd_native_wbtest_token_local_id(token : String) -> Int? {
+fn cmd_native_wbtest_token_local_id(token : String) -> Int32? {
   let marker = "(Local "
   let mut i = 0
   while i + marker.length() <= token.length() {
@@ -333,7 +333,7 @@ fn cmd_native_wbtest_print_wasm_bytes(bytes : Bytes) -> String {
 #cfg(target="native")
 fn cmd_native_wbtest_normalize_func_by_index(
   bytes : Bytes,
-  func_idx : Int,
+  func_idx : Int32,
 ) -> String {
   if func_idx < 0 {
     abort("expected non-negative function index")
@@ -370,7 +370,7 @@ fn cmd_native_wbtest_normalize_func_by_index(
 #cfg(target="native")
 fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
   bytes : Bytes,
-  func_idx : Int,
+  func_idx : Int32,
 ) -> String {
   if func_idx < 0 {
     abort("expected non-negative function index")
@@ -406,7 +406,7 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
 
 ///|
 #cfg(target="native")
-fn cmd_native_wbtest_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
+fn cmd_native_wbtest_write_u32_leb(buf : @buffer.Buffer, value : Int32) -> Unit {
   let mut x = value.to_uint64()
   while true {
     let payload = x & 0x7fUL
@@ -421,7 +421,7 @@ fn cmd_native_wbtest_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
 
 ///|
 #cfg(target="native")
-fn cmd_native_wbtest_deep_nested_block_module_bytes(depth : Int) -> Bytes {
+fn cmd_native_wbtest_deep_nested_block_module_bytes(depth : Int32) -> Bytes {
   let type_payload = @buffer.new()
   cmd_native_wbtest_write_u32_leb(type_payload, 1)
   type_payload.write_byte(0x60)

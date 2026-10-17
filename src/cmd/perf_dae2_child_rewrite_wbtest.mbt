@@ -21,7 +21,7 @@ test "command DAE2 removes an argument while retaining kept and discarded call o
     _ => abort("expected helper function signature")
   }
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
-  let calls : Array[UInt] = []
+  let calls : Array[UInt32] = []
   for instr in body {
     match instr {
       @lib.Call(@lib.FuncIdx(raw)) => calls.push(raw)

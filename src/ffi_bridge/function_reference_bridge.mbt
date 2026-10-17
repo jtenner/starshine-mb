@@ -11,7 +11,7 @@ pub fn function_reference_builder_new() -> FunctionReferenceBuilder {
 ///|
 pub fn FunctionReferenceBuilder::push(
   self : FunctionReferenceBuilder,
-  function_index : Int,
+  function_index : Int32,
 ) -> Unit {
   self.functions.push(@lib.FuncIdx::new(function_index.reinterpret_as_uint()))
 }

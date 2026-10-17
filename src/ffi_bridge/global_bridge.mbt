@@ -9,7 +9,7 @@ pub fn global_builder_new() -> GlobalBuilder {
 }
 
 ///|
-pub fn GlobalBuilder::push(self : GlobalBuilder, carrier : Int) -> Unit {
+pub fn GlobalBuilder::push(self : GlobalBuilder, carrier : Int32) -> Unit {
   let value_type = match carrier {
     0 => @lib.ValType::i32()
     1 => @lib.ValType::i64()
@@ -55,7 +55,7 @@ pub fn module_with_globals(
 ///|
 pub fn module_with_start_function(
   module_ : @lib.Module,
-  function_index : Int,
+  function_index : Int32,
 ) -> @lib.Module {
   module_.with_start_sec(
     @lib.StartSec::new(@lib.FuncIdx::new(function_index.reinterpret_as_uint())),
@@ -65,7 +65,7 @@ pub fn module_with_start_function(
 ///|
 pub fn module_with_compiler_exports(
   module_ : @lib.Module,
-  main_function_index : Int,
+  main_function_index : Int32,
 ) -> @lib.Module {
   module_.with_export_sec(
     @lib.ExportSec::new([

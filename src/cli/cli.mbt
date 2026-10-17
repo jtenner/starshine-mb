@@ -50,7 +50,7 @@ pub enum CliOptimizationFlag {
   OptimizePreset
   OptimizeSizePreset
   ShrinkPreset
-  OLevel(Int, Bool)
+  OLevel(Int32, Bool)
 } derive(Eq, Debug)
 
 ///|
@@ -70,7 +70,7 @@ pub fn CliOptimizationFlag::shrink() -> CliOptimizationFlag {
 
 ///|
 pub fn CliOptimizationFlag::olevel(
-  level : Int,
+  level : Int32,
   size_bias : Bool,
 ) -> CliOptimizationFlag {
   OLevel(level, size_bias)
@@ -258,13 +258,13 @@ pub struct CliParseResult {
   optimize_flags : Array[CliOptimizationFlag]
   mut trap_mode : TrapMode?
   mut ignore_implicit_traps : Bool
-  mut monomorphize_min_benefit : Int?
-  mut inlining_always_inline_max_size : Int?
-  mut inlining_one_caller_inline_max_size : Int?
-  mut inlining_flexible_inline_max_size : Int?
-  mut inlining_max_combined_binary_size : Int?
+  mut monomorphize_min_benefit : Int32?
+  mut inlining_always_inline_max_size : Int32?
+  mut inlining_one_caller_inline_max_size : Int32?
+  mut inlining_flexible_inline_max_size : Int32?
+  mut inlining_max_combined_binary_size : Int32?
   mut inlining_allow_functions_with_loops : Bool?
-  mut inlining_partial_inlining_ifs : Int?
+  mut inlining_partial_inlining_ifs : Int32?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
@@ -274,31 +274,31 @@ pub struct CliParseResult {
 
 ///|
 pub fn CliParseResult::new(
-  config_path? : String? = None,
-  input_globs? : Array[String] = [],
-  glob_enabled? : Bool = false,
-  help_requested? : Bool = false,
-  version_requested? : Bool = false,
-  debug_serial_passes? : Bool = false,
-  read_stdin? : Bool = false,
-  input_format? : CliInputFormat? = None,
-  output_targets? : Array[CliOutputTarget] = [],
-  pass_flags? : Array[String] = [],
-  optimize_flags? : Array[CliOptimizationFlag] = [],
-  trap_mode? : TrapMode? = None,
-  ignore_implicit_traps? : Bool = false,
-  monomorphize_min_benefit? : Int? = None,
-  inlining_always_inline_max_size? : Int? = None,
-  inlining_one_caller_inline_max_size? : Int? = None,
-  inlining_flexible_inline_max_size? : Int? = None,
-  inlining_max_combined_binary_size? : Int? = None,
-  inlining_allow_functions_with_loops? : Bool? = None,
-  inlining_partial_inlining_ifs? : Int? = None,
-  low_memory_unused? : Bool? = None,
-  low_memory_bound? : UInt64? = None,
-  closed_world? : Bool? = None,
-  compiler_facts_policy? : String? = None,
-  tracing? : CliTracingLevel? = None,
+  config_path~ : String? = None,
+  input_globs~ : Array[String] = [],
+  glob_enabled~ : Bool = false,
+  help_requested~ : Bool = false,
+  version_requested~ : Bool = false,
+  debug_serial_passes~ : Bool = false,
+  read_stdin~ : Bool = false,
+  input_format~ : CliInputFormat? = None,
+  output_targets~ : Array[CliOutputTarget] = [],
+  pass_flags~ : Array[String] = [],
+  optimize_flags~ : Array[CliOptimizationFlag] = [],
+  trap_mode~ : TrapMode? = None,
+  ignore_implicit_traps~ : Bool = false,
+  monomorphize_min_benefit~ : Int32? = None,
+  inlining_always_inline_max_size~ : Int32? = None,
+  inlining_one_caller_inline_max_size~ : Int32? = None,
+  inlining_flexible_inline_max_size~ : Int32? = None,
+  inlining_max_combined_binary_size~ : Int32? = None,
+  inlining_allow_functions_with_loops~ : Bool? = None,
+  inlining_partial_inlining_ifs~ : Int32? = None,
+  low_memory_unused~ : Bool? = None,
+  low_memory_bound~ : UInt64? = None,
+  closed_world~ : Bool? = None,
+  compiler_facts_policy~ : String? = None,
+  tracing~ : CliTracingLevel? = None,
 ) -> CliParseResult {
   {
     config_path,
@@ -347,7 +347,7 @@ fn ascii_lower_u16(c : UInt16) -> UInt16 {
 }
 
 ///|
-fn trimmed_bounds(input : String) -> (Int, Int) {
+fn trimmed_bounds(input : String) -> (Int32, Int32) {
   let mut start = 0
   let mut end = input.length()
   while start < end && is_ascii_space(input[start]) {
@@ -600,7 +600,7 @@ fn parse_opt_level_flag(
 }
 
 ///|
-fn parse_non_negative_decimal(raw : String) -> Int? {
+fn parse_non_negative_decimal(raw : String) -> Int32? {
   let (start, end) = trimmed_bounds(raw)
   if start == end {
     return None
@@ -621,9 +621,9 @@ fn parse_non_negative_decimal(raw : String) -> Int? {
 ///|
 fn parse_short_option_cluster(
   args : Array[String],
-  index : Int,
+  index : Int32,
   parsed : CliParseResult,
-) -> Result[Int, CliParseError] {
+) -> Result[Int32, CliParseError] {
   let token = args[index]
   let mut i = 1
   while i < token.length() {
@@ -784,10 +784,10 @@ pub fn cli_config_schema_json() -> String {
 ///|
 fn inlining_flag_value(
   args : Array[String],
-  index : Int,
+  index : Int32,
   inline_value : String?,
   flag : String,
-  allow_minus_one? : Bool = false,
+  allow_minus_one~ : Bool = false,
 ) -> Result[(String, Bool), CliParseError] {
   match inline_value {
     Some(v) if v.length() > 0 => Ok((v, false))
@@ -808,8 +808,8 @@ fn inlining_flag_value(
 ///|
 fn parse_inlining_non_negative_or_minus_one(
   value : String,
-  allow_minus_one? : Bool = false,
-) -> Int? {
+  allow_minus_one~ : Bool = false,
+) -> Int32? {
   if allow_minus_one && trimmed_string(value) == "-1" {
     Some(-1)
   } else {
@@ -843,7 +843,7 @@ fn expand_inlining_short_alias(arg : String) -> String {
 ///|
 pub fn parse_cli_args(
   args : Array[String],
-  starshine_input? : String? = None,
+  starshine_input~ : String? = None,
 ) -> Result[CliParseResult, CliParseError] {
   let parsed = CliParseResult::new()
   let mut index = 0
@@ -1500,7 +1500,7 @@ pub fn resolve_pass_flags(parsed : CliParseResult) -> Array[String] {
 ///|
 pub fn resolve_traps_never_happen(
   parsed : CliParseResult,
-  default? : Bool = false,
+  default~ : Bool = false,
 ) -> Bool {
   match parsed.trap_mode {
     Some(Never) => true
@@ -1517,7 +1517,7 @@ pub fn resolve_ignore_implicit_traps(parsed : CliParseResult) -> Bool {
 ///|
 pub fn resolve_closed_world(
   parsed : CliParseResult,
-  default? : Bool = false,
+  default~ : Bool = false,
 ) -> Bool {
   match parsed.closed_world {
     Some(value) => value

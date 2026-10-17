@@ -1,7 +1,7 @@
 ///|
 fn balanced_range_command_calls(
   instrs : Array[@lib.Instruction],
-  calls : Array[UInt],
+  calls : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {

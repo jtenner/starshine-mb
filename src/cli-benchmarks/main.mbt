@@ -1,17 +1,17 @@
 ///|
 pub struct CliBenchmarkArgs {
-  iterations : Int
-  warmup : Int
+  iterations : Int32
+  warmup : Int32
   jsonl : Bool
   target_args : Array[String]
 } derive(Eq, Debug)
 
 ///|
 pub fn CliBenchmarkArgs::new(
-  iterations? : Int = 10000,
-  warmup? : Int = 100,
-  jsonl? : Bool = false,
-  target_args? : Array[String] = [],
+  iterations~ : Int32 = 10000,
+  warmup~ : Int32 = 100,
+  jsonl~ : Bool = false,
+  target_args~ : Array[String] = [],
 ) -> CliBenchmarkArgs {
   {
     iterations,
@@ -33,18 +33,18 @@ pub enum CliBenchmarkCommand {
 
 ///|
 pub struct CliBenchmarkResult {
-  iterations : Int
-  warmup : Int
-  target_arg_count : Int
+  iterations : Int32
+  warmup : Int32
+  target_arg_count : Int32
   parse_total_us : UInt64
   parse_avg_us : UInt64
   setup_total_us : UInt64
   setup_avg_us : UInt64
-  parse_sink : Int
-  setup_sink : Int
-  optimize_level : Int
-  shrink_level : Int
-  effective_pass_count : Int
+  parse_sink : Int32
+  setup_sink : Int32
+  optimize_level : Int32
+  shrink_level : Int32
+  effective_pass_count : Int32
   resolved_passes : Array[String]
 } derive(Eq, Debug)
 
@@ -53,19 +53,19 @@ struct CliPipelineSetupSummary {
   input_files : Array[String]
   scheduled_passes : Array[String]
   resolved_passes : Array[String]
-  optimize_level : Int
-  shrink_level : Int
-  effective_pass_count : Int
+  optimize_level : Int32
+  shrink_level : Int32
+  effective_pass_count : Int32
 } derive(Eq, Debug)
 
 ///|
 fn CliPipelineSetupSummary::new(
-  input_files? : Array[String] = [],
-  scheduled_passes? : Array[String] = [],
-  resolved_passes? : Array[String] = [],
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  effective_pass_count? : Int = 0,
+  input_files~ : Array[String] = [],
+  scheduled_passes~ : Array[String] = [],
+  resolved_passes~ : Array[String] = [],
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  effective_pass_count~ : Int32 = 0,
 ) -> CliPipelineSetupSummary {
   {
     input_files,
@@ -88,7 +88,7 @@ fn cli_benchmark_usage_text() -> String {
 }
 
 ///|
-fn cli_benchmark_tail_string(input : String, start : Int) -> String {
+fn cli_benchmark_tail_string(input : String, start : Int32) -> String {
   let out = StringBuilder::new()
   let mut i = start
   while i < input.length() {
@@ -99,7 +99,7 @@ fn cli_benchmark_tail_string(input : String, start : Int) -> String {
 }
 
 ///|
-fn cli_benchmark_parse_non_negative_int(raw : String, label : String) -> Int {
+fn cli_benchmark_parse_non_negative_int(raw : String, label : String) -> Int32 {
   let text = raw.trim().to_owned()
   if text.length() == 0 {
     abort("\{label} must not be empty")
@@ -115,7 +115,7 @@ fn cli_benchmark_parse_non_negative_int(raw : String, label : String) -> Int {
 }
 
 ///|
-fn cli_benchmark_parse_positive_int(raw : String, label : String) -> Int {
+fn cli_benchmark_parse_positive_int(raw : String, label : String) -> Int32 {
   let value = cli_benchmark_parse_non_negative_int(raw, label)
   if value <= 0 {
     abort("\{label} must be positive")
@@ -248,7 +248,7 @@ pub fn parse_cli_benchmark_command(args : Array[String]) -> CliBenchmarkCommand 
 }
 
 ///|
-fn cli_benchmark_max_int(a : Int, b : Int) -> Int {
+fn cli_benchmark_max_int(a : Int32, b : Int32) -> Int32 {
   if a > b {
     a
   } else {
@@ -259,7 +259,7 @@ fn cli_benchmark_max_int(a : Int, b : Int) -> Int {
 ///|
 fn cli_benchmark_resolve_optimize_levels(
   flags : Array[@cli.CliOptimizationFlag],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut optimize_level = 0
   let mut shrink_level = 0
   for flag in flags {
@@ -288,8 +288,8 @@ fn cli_benchmark_resolve_optimize_levels(
 ///|
 fn cli_benchmark_effective_pass_flags(
   pass_flags : Array[String],
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> Array[String] {
   if pass_flags.length() > 0 {
     return pass_flags
@@ -314,7 +314,7 @@ fn cli_benchmark_is_pipeline_control_flag(flag : String) -> Bool {
 ///|
 fn cli_benchmark_count_optimizer_passes(
   flags : Array[String],
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   let mut count = 0
   for flag in flags {
     if cli_benchmark_is_pipeline_control_flag(flag) {
@@ -386,7 +386,7 @@ fn cli_benchmark_setup_pipeline(
 }
 
 ///|
-fn cli_benchmark_parse_sink(parsed : @cli.CliParseResult) -> Int {
+fn cli_benchmark_parse_sink(parsed : @cli.CliParseResult) -> Int32 {
   let mut sink = parsed.input_globs.length() +
     parsed.output_targets.length() +
     parsed.pass_flags.length() +
@@ -407,7 +407,7 @@ fn cli_benchmark_parse_sink(parsed : @cli.CliParseResult) -> Int {
 }
 
 ///|
-fn cli_benchmark_setup_sink(summary : CliPipelineSetupSummary) -> Int {
+fn cli_benchmark_setup_sink(summary : CliPipelineSetupSummary) -> Int32 {
   summary.input_files.length() +
   summary.scheduled_passes.length() +
   summary.resolved_passes.length() +
@@ -417,7 +417,7 @@ fn cli_benchmark_setup_sink(summary : CliPipelineSetupSummary) -> Int {
 }
 
 ///|
-fn cli_benchmark_avg_us(total_us : UInt64, iterations : Int) -> UInt64 {
+fn cli_benchmark_avg_us(total_us : UInt64, iterations : Int32) -> UInt64 {
   if iterations <= 0 {
     0UL
   } else {

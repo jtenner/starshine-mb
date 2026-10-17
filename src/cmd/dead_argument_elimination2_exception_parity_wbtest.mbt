@@ -1,5 +1,5 @@
 ///|
-fn cmd_dae2_exception_parity_dispatch(body : Array[@lib.Instruction]) -> Int {
+fn cmd_dae2_exception_parity_dispatch(body : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {

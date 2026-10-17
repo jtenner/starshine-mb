@@ -2,10 +2,10 @@
 /// A bounded, declarative description of one Preview 1 marshalling node.
 pub(all) enum WasiMarshalNode {
   WasiI32
-  WasiInputBytes(Int)
-  WasiOutputBytes(Int)
+  WasiInputBytes(Int32)
+  WasiOutputBytes(Int32)
   WasiPointer(Array[WasiMarshalNode])
-  WasiList(WasiMarshalNode, Int)
+  WasiList(WasiMarshalNode, Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -13,16 +13,16 @@ pub(all) struct WasiPreview1Schema {
   module_name : String
   field : String
   parameters : Array[WasiMarshalNode]
-  maximum_depth : Int
-  maximum_nodes : Int
+  maximum_depth : Int32
+  maximum_nodes : Int32
 } derive(Eq, Debug)
 
 ///|
 priv struct WasiScratchLayout {
-  iovec_address : Int
-  result_address : Int
-  scratch_address : Int
-  scratch_capacity : Int
+  iovec_address : Int32
+  result_address : Int32
+  scratch_address : Int32
+  scratch_capacity : Int32
 }
 
 ///|
@@ -77,7 +77,7 @@ pub fn validate_wasi_preview1_schema(
   if schema.maximum_nodes < 1 || schema.maximum_nodes > 1024 {
     return Err("WASI marshalling node bound must be in 1..1024")
   }
-  let nodes : Array[(WasiMarshalNode, Int)] = []
+  let nodes : Array[(WasiMarshalNode, Int32)] = []
   for parameter in schema.parameters {
     nodes.push((parameter, 1))
   }

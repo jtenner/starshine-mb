@@ -12,10 +12,10 @@ pub struct EncodedEngineStateCase {
   error : Bytes
   root_seed : UInt64
   case_seed : UInt64
-  case_index : Int
+  case_index : Int32
   selected_profile : Bytes
-  generator_attempts : Int
-  static_instruction_count : Int
+  generator_attempts : Int32
+  static_instruction_count : Int32
   expects_trap : Bool
   outcome_kind : Bytes
   trap_family : Bytes
@@ -25,7 +25,7 @@ pub struct EncodedEngineStateCase {
 let validation_error_bytes : Ref[Bytes] = Ref::new(Bytes::from_array([]))
 
 ///|
-let validation_error_function_index_cache : Ref[Int] = Ref::new(-1)
+let validation_error_function_index_cache : Ref[Int32] = Ref::new(-1)
 
 ///|
 fn validation_message_bytes(message : String) -> Bytes {
@@ -68,7 +68,7 @@ pub fn field_types_push(
 }
 
 ///|
-pub fn instruction_ref_test_nominal(type_index : Int) -> @lib.Instruction {
+pub fn instruction_ref_test_nominal(type_index : Int32) -> @lib.Instruction {
   @lib.Instruction::ref_test(
     false,
     @lib.HeapType::new(@lib.TypeIdx::new(type_index.reinterpret_as_uint())),
@@ -76,7 +76,7 @@ pub fn instruction_ref_test_nominal(type_index : Int) -> @lib.Instruction {
 }
 
 ///|
-pub fn instruction_ref_cast_nominal(type_index : Int) -> @lib.Instruction {
+pub fn instruction_ref_cast_nominal(type_index : Int32) -> @lib.Instruction {
   @lib.Instruction::ref_cast(
     false,
     @lib.HeapType::new(@lib.TypeIdx::new(type_index.reinterpret_as_uint())),
@@ -84,7 +84,7 @@ pub fn instruction_ref_cast_nominal(type_index : Int) -> @lib.Instruction {
 }
 
 ///|
-pub fn nominal_ref_type(type_index : Int, nullable : Bool) -> @lib.ValType {
+pub fn nominal_ref_type(type_index : Int32, nullable : Bool) -> @lib.ValType {
   @lib.ValType::ref_type(
     @lib.RefType::new(
       nullable,
@@ -150,11 +150,11 @@ pub fn imports_new() -> Array[@lib.Import] {
 pub struct ImportBuilder {
   module_name : Array[Byte]
   field_name : Array[Byte]
-  type_index : Int
+  type_index : Int32
 }
 
 ///|
-pub fn import_builder_new(type_index : Int) -> ImportBuilder {
+pub fn import_builder_new(type_index : Int32) -> ImportBuilder {
   { module_name: [], field_name: [], type_index, }
 }
 
@@ -244,17 +244,17 @@ pub fn validate_module(module_ : @lib.Module) -> Bool {
 }
 
 ///|
-pub fn validation_error_byte_length() -> UInt {
+pub fn validation_error_byte_length() -> UInt32 {
   validation_error_bytes.val.length().reinterpret_as_uint()
 }
 
 ///|
-pub fn validation_error_byte_at(index : UInt) -> Byte {
+pub fn validation_error_byte_at(index : UInt32) -> Byte {
   validation_error_bytes.val[index.reinterpret_as_int()]
 }
 
 ///|
-pub fn validation_error_function_index() -> Int {
+pub fn validation_error_function_index() -> Int32 {
   validation_error_function_index_cache.val
 }
 
@@ -272,7 +272,7 @@ pub fn EncodedModule::is_ok(self : EncodedModule) -> Bool {
 }
 
 ///|
-pub fn EncodedModule::byte_length(self : EncodedModule) -> UInt {
+pub fn EncodedModule::byte_length(self : EncodedModule) -> UInt32 {
   match self.bytes {
     Some(bytes) => bytes.length().reinterpret_as_uint()
     None => 0U
@@ -280,7 +280,7 @@ pub fn EncodedModule::byte_length(self : EncodedModule) -> UInt {
 }
 
 ///|
-pub fn EncodedModule::byte_at(self : EncodedModule, index : UInt) -> Byte {
+pub fn EncodedModule::byte_at(self : EncodedModule, index : UInt32) -> Byte {
   match self.bytes {
     Some(bytes) => bytes[index.reinterpret_as_int()]
     None => abort("cannot read failed Starshine module encoding")
@@ -290,10 +290,10 @@ pub fn EncodedModule::byte_at(self : EncodedModule, index : UInt) -> Byte {
 ///|
 fn failed_engine_state_case(
   root_seed : UInt64,
-  case_index : Int,
+  case_index : Int32,
   case_seed : UInt64,
   selected_profile : String,
-  generator_attempts : Int,
+  generator_attempts : Int32,
   message : String,
 ) -> EncodedEngineStateCase {
   {
@@ -317,7 +317,7 @@ fn failed_engine_state_case(
 ///|
 pub fn generate_engine_state_case(
   root_seed : UInt64,
-  case_index : Int,
+  case_index : Int32,
 ) -> EncodedEngineStateCase {
   if case_index <= 0 {
     return failed_engine_state_case(
@@ -512,21 +512,23 @@ pub fn EncodedEngineStateCase::case_seed(
 }
 
 ///|
-pub fn EncodedEngineStateCase::case_index(self : EncodedEngineStateCase) -> Int {
+pub fn EncodedEngineStateCase::case_index(
+  self : EncodedEngineStateCase,
+) -> Int32 {
   self.case_index
 }
 
 ///|
 pub fn EncodedEngineStateCase::generator_attempts(
   self : EncodedEngineStateCase,
-) -> Int {
+) -> Int32 {
   self.generator_attempts
 }
 
 ///|
 pub fn EncodedEngineStateCase::static_instruction_count(
   self : EncodedEngineStateCase,
-) -> Int {
+) -> Int32 {
   self.static_instruction_count
 }
 
@@ -540,14 +542,14 @@ pub fn EncodedEngineStateCase::expects_trap(
 ///|
 pub fn EncodedEngineStateCase::module_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.encoded.byte_length()
 }
 
 ///|
 pub fn EncodedEngineStateCase::module_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.encoded.byte_at(index)
 }
@@ -555,14 +557,14 @@ pub fn EncodedEngineStateCase::module_byte_at(
 ///|
 pub fn EncodedEngineStateCase::support_module_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.support_encoded.byte_length()
 }
 
 ///|
 pub fn EncodedEngineStateCase::support_module_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.support_encoded.byte_at(index)
 }
@@ -570,23 +572,23 @@ pub fn EncodedEngineStateCase::support_module_byte_at(
 ///|
 pub fn EncodedEngineStateCase::support_module_count(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.support_encodeds.length().reinterpret_as_uint()
 }
 
 ///|
 pub fn EncodedEngineStateCase::support_module_indexed_byte_length(
   self : EncodedEngineStateCase,
-  module_index : UInt,
-) -> UInt {
+  module_index : UInt32,
+) -> UInt32 {
   self.support_encodeds[module_index.reinterpret_as_int()].byte_length()
 }
 
 ///|
 pub fn EncodedEngineStateCase::support_module_indexed_byte_at(
   self : EncodedEngineStateCase,
-  module_index : UInt,
-  byte_index : UInt,
+  module_index : UInt32,
+  byte_index : UInt32,
 ) -> Byte {
   self.support_encodeds[module_index.reinterpret_as_int()].byte_at(byte_index)
 }
@@ -594,14 +596,14 @@ pub fn EncodedEngineStateCase::support_module_indexed_byte_at(
 ///|
 pub fn EncodedEngineStateCase::comparison_module_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.comparison_encoded.byte_length()
 }
 
 ///|
 pub fn EncodedEngineStateCase::comparison_module_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.comparison_encoded.byte_at(index)
 }
@@ -609,14 +611,14 @@ pub fn EncodedEngineStateCase::comparison_module_byte_at(
 ///|
 pub fn EncodedEngineStateCase::selected_profile_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.selected_profile.length().reinterpret_as_uint()
 }
 
 ///|
 pub fn EncodedEngineStateCase::selected_profile_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.selected_profile[index.reinterpret_as_int()]
 }
@@ -624,21 +626,21 @@ pub fn EncodedEngineStateCase::selected_profile_byte_at(
 ///|
 pub fn EncodedEngineStateCase::trap_family_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.trap_family.length().reinterpret_as_uint()
 }
 
 ///|
 pub fn EncodedEngineStateCase::outcome_kind_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.outcome_kind.length().reinterpret_as_uint()
 }
 
 ///|
 pub fn EncodedEngineStateCase::outcome_kind_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.outcome_kind[index.reinterpret_as_int()]
 }
@@ -646,7 +648,7 @@ pub fn EncodedEngineStateCase::outcome_kind_byte_at(
 ///|
 pub fn EncodedEngineStateCase::trap_family_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.trap_family[index.reinterpret_as_int()]
 }
@@ -654,14 +656,14 @@ pub fn EncodedEngineStateCase::trap_family_byte_at(
 ///|
 pub fn EncodedEngineStateCase::error_byte_length(
   self : EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   self.error.length().reinterpret_as_uint()
 }
 
 ///|
 pub fn EncodedEngineStateCase::error_byte_at(
   self : EncodedEngineStateCase,
-  index : UInt,
+  index : UInt32,
 ) -> Byte {
   self.error[index.reinterpret_as_int()]
 }

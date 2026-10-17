@@ -6,7 +6,7 @@ test "command OI retains zero fold and first effect before intervening select" {
   )
   @validate.validate_module(output).unwrap()
   let body = cmd_deep_audit_body(output, index=1)
-  let arguments : Array[Int] = []
+  let arguments : Array[Int32] = []
   fn walk(body : Array[@lib.Instruction]) -> Unit {
     let mut constant = -1
     for instr in body {

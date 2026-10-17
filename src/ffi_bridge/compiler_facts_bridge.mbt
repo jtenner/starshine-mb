@@ -5,7 +5,7 @@
 pub fn module_with_dewdrop_compiler_facts(module_ : @lib.Module) -> @lib.Module {
   let builder = @representation.OptimizationFactsBuilder::new()
   builder.set_producer(@representation.ProducerInfo::new("dewdrop", "0.1.0"))
-  let exported_functions : Map[UInt, Bool] = Map::default()
+  let exported_functions : Map[UInt32, Bool] = Map::default()
   let mut host_can_call_exports = false
   let mut host_can_mutate_exported_state = false
   match module_.export_sec {

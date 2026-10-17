@@ -23,7 +23,7 @@ test "command DAE2 discarded typed block results retain one entry import evaluat
       pass,
     )
     @validate.validate_module(output).unwrap()
-    let calls : Array[UInt] = []
+    let calls : Array[UInt32] = []
     balanced_range_command_calls(cmd_deep_audit_body(output), calls)
     assert_eq(calls, [0U])
     assert_eq(cmd_deep_audit_body(output), [

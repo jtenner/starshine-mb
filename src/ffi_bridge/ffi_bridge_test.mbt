@@ -141,7 +141,7 @@ test "ffi bridge carries deterministic cross-instance support bytes" {
 fn ffi_test_engine_state_case_index(
   root_seed : UInt64,
   profile_name : String,
-) -> Int {
+) -> Int32 {
   for index in 1..<=136 {
     if @validate.gen_valid_profile_name(
         @validate.gen_valid_profile_leaf_for_case(

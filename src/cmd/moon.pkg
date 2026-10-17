@@ -16,6 +16,10 @@ import {
   "moonbitlang/core/quickcheck/splitmix",
 }
 
+import {
+  "jtenner/starshine/representation",
+} for "wbtest"
+
 pkgtype(kind: "executable")
 
 options(

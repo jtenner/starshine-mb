@@ -7,8 +7,8 @@ test "command simplify-locals keeps multi-instruction statement prefixes in orde
   @validate.validate_module(output).unwrap()
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   let values = Array::make(locals.length(), 0)
-  let stack : Array[Int] = []
-  let observed : Array[Int] = []
+  let stack : Array[Int32] = []
+  let observed : Array[Int32] = []
   for instr in body {
     match instr {
       @lib.I32Const(@lib.I32(value)) => stack.push(value)
