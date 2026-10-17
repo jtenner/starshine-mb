@@ -11135,3 +11135,91 @@ test "command package consumer preserves exact host-root function indices" {
   ])
   @debug.assert_eq(@validate.validate_module(output), Ok(()))
 }
+
+///|
+test "DAE command fact reuse preserves result cascades and overwritten parameters" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #| (import "host" "effect" (func $effect))
+      #| (func $leaf (param i32 i32) (result i32)
+      #|   call $effect i32.const 9 local.set 0 local.get 0 local.get 1 i32.add)
+      #| (func $middle (result i32) i32.const 7 i32.const 11 call $leaf)
+      #| (func $outer (result i32) call $middle)
+      #| (func (export "run") call $outer drop))
+    ),
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass_name in ["dae", "dae-optimizing", "dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass_name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body.filter(fn(instr) { instr is @lib.Call(_) }), [
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ])
+    assert_eq(output.export_sec, input.export_sec)
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([], [])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "DAE command body exposure keeps unseen signatures and private candidate effects" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #| (import "host" "effect" (func $effect (result i32)))
+      #| (global funcref (ref.func $module))
+      #| (elem declare func $escaped $module)
+      #| (func $target (param i32 i32) (result i32)
+      #|   call $effect drop local.get 0)
+      #| (func $escaped (param i32 i32) (result i32) local.get 0)
+      #| (func $module (param i32 i32) (result i32) local.get 0)
+      #| (func (export "run") (param i32) (result i32)
+      #|   ref.func $escaped drop
+      #|   local.get 0 i32.const 20 call $target)
+      #| (func (export "inactive") unreachable ref.func $escaped drop))
+    ),
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass_name in ["dae", "dae-optimizing", "dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass_name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let env = @validate.Env::new().with_module(output)
+    assert_eq(
+      env.get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    for unseen in [2U, 3U] {
+      assert_eq(
+        env.get_functype_by_funcidx(@lib.FuncIdx::new(unseen)),
+        Some(
+          @lib.FuncType::new([@lib.ValType::i32(), @lib.ValType::i32()], [
+            @lib.ValType::i32(),
+          ]),
+        ),
+      )
+    }
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body.filter(fn(instr) { instr is @lib.Call(_) }), [
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ])
+    assert_eq(output.global_sec, input.global_sec)
+    assert_eq(output.elem_sec, input.elem_sec)
+    assert_eq(output.export_sec, input.export_sec)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

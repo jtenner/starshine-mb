@@ -3406,7 +3406,13 @@ fn dae_incoming_parameter_liveness(
   mod_ : @lib.Module,
   callee_abs : Int32,
   param_count : Int32,
+  syntactic_use~ : DaeLocalUse? = None,
+  liveness_work~ : Array[Int32]? = None,
 ) -> Array[Bool] {
+  match liveness_work {
+    Some(work) => work[0] += 1
+    None => ()
+  }
   if param_count <= 0 {
     return []
   }
@@ -3422,24 +3428,34 @@ fn dae_incoming_parameter_liveness(
       // incoming use. This fail-closed supplement covers nested result carriers
       // that the current HOT projection can flatten away, while still allowing
       // write-before-read parameters to be removed when HOT proves them dead.
-      let syntactic_use = match mod_.code_sec {
-        Some(@lib.CodeSec(funcs)) => {
-          let def_idx = callee_abs - dae_imported_func_count(mod_)
-          if def_idx >= 0 && def_idx < funcs.length() {
-            let @lib.Func(locals, _) = funcs[def_idx]
-            Some(
-              dae_local_use_for_callee(
-                funcs[def_idx],
-                param_count + locals.length(),
-                callee_abs,
-                param_count,
-              ),
-            )
-          } else {
-            None
+      // Supplied facts belong to this unchanged function and still contain
+      // syntactic gets; callers replace those gets only after this returns.
+      let syntactic_use = match syntactic_use {
+        Some(usage) => Some(usage)
+        None =>
+          match mod_.code_sec {
+            Some(@lib.CodeSec(funcs)) => {
+              let def_idx = callee_abs - dae_imported_func_count(mod_)
+              if def_idx >= 0 && def_idx < funcs.length() {
+                let @lib.Func(locals, _) = funcs[def_idx]
+                match liveness_work {
+                  Some(work) => work[1] += 1
+                  None => ()
+                }
+                Some(
+                  dae_local_use_for_callee(
+                    funcs[def_idx],
+                    param_count + locals.length(),
+                    callee_abs,
+                    param_count,
+                  ),
+                )
+              } else {
+                None
+              }
+            }
+            None => None
           }
-        }
-        None => None
       }
       let out = Array::make(param_count, true)
       let mut idx = 0
@@ -7028,8 +7044,13 @@ fn dae_mark_ref_func_exposure_instrs(
   instrs : Array[@lib.Instruction],
   exposure : Array[DaeFunctionExposure],
   from_module_code : Bool,
+  walk_visits~ : Array[Int32]? = None,
 ) -> Unit {
   for instr in instrs {
+    match walk_visits {
+      Some(visits) => visits[0] += 1
+      None => ()
+    }
     match instr {
       @lib.RefFunc(func_idx) => {
         let slot = dae_func_idx_slot(func_idx)
@@ -7044,25 +7065,53 @@ fn dae_mark_ref_func_exposure_instrs(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        dae_mark_ref_func_exposure_instrs(body, exposure, from_module_code)
+        dae_mark_ref_func_exposure_instrs(
+          body,
+          exposure,
+          from_module_code,
+          walk_visits~,
+        )
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        dae_mark_ref_func_exposure_instrs(body, exposure, from_module_code)
+        dae_mark_ref_func_exposure_instrs(
+          body,
+          exposure,
+          from_module_code,
+          walk_visits~,
+        )
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(_, @lib.Expr(catch_body))
             | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
               dae_mark_ref_func_exposure_instrs(
-                catch_body, exposure, from_module_code,
+                catch_body,
+                exposure,
+                from_module_code,
+                walk_visits~,
               )
           }
         }
       }
       @lib.If(_, then_body, Some(else_body)) => {
-        dae_mark_ref_func_exposure_instrs(then_body, exposure, from_module_code)
-        dae_mark_ref_func_exposure_instrs(else_body, exposure, from_module_code)
+        dae_mark_ref_func_exposure_instrs(
+          then_body,
+          exposure,
+          from_module_code,
+          walk_visits~,
+        )
+        dae_mark_ref_func_exposure_instrs(
+          else_body,
+          exposure,
+          from_module_code,
+          walk_visits~,
+        )
       }
       @lib.If(_, then_body, None) =>
-        dae_mark_ref_func_exposure_instrs(then_body, exposure, from_module_code)
+        dae_mark_ref_func_exposure_instrs(
+          then_body,
+          exposure,
+          from_module_code,
+          walk_visits~,
+        )
       _ => ()
     }
   }
@@ -7108,6 +7157,8 @@ fn dae_collect_original_exposure(
   mod_ : @lib.Module,
   total_funcs : Int32,
   type_indices : Array[@lib.TypeIdx],
+  body_ref_walk_visits~ : Array[Int32]? = None,
+  include_body~ : Bool = true,
 ) -> Array[DaeFunctionExposure] {
   let exposure : Array[DaeFunctionExposure] = []
   let mut idx = 0
@@ -7145,13 +7196,20 @@ fn dae_collect_original_exposure(
     }
     None => ()
   }
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for func in funcs {
-        let @lib.Func(_, @lib.Expr(body)) = func
-        dae_mark_ref_func_exposure_instrs(body, exposure, false)
-      }
-    None => ()
+  if include_body {
+    match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for func in funcs {
+          let @lib.Func(_, @lib.Expr(body)) = func
+          dae_mark_ref_func_exposure_instrs(
+            body,
+            exposure,
+            false,
+            walk_visits=body_ref_walk_visits,
+          )
+        }
+      None => ()
+    }
   }
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
@@ -7297,6 +7355,7 @@ fn dae_scan_current_call_facts_instrs(
   caller_seen_stamps : Array[Int32],
   active : Bool,
   topology_out~ : DaeCurrentTopologyExtras? = None,
+  body_exposure_out~ : Array[DaeFunctionExposure]? = None,
   stable_path~ : DaeStablePath? = None,
 ) -> Bool {
   let mut idx = 0
@@ -7476,6 +7535,11 @@ fn dae_scan_current_call_facts_instrs(
         let slot = dae_func_idx_slot(func_idx)
         if slot >= 0 && slot < escaped.length() {
           escaped[slot] = true
+          match body_exposure_out {
+            Some(exposure) if slot < exposure.length() =>
+              exposure[slot].ref_func_body = true
+            _ => ()
+          }
           if slot < function_infos.length() {
             function_infos[slot].has_unseen_calls = true
           }
@@ -7498,6 +7562,7 @@ fn dae_scan_current_call_facts_instrs(
           caller_seen_stamps,
           current_active,
           topology_out~,
+          body_exposure_out~,
           stable_path~,
         )
         // A singleton Block chain ending in Unreachable contains no calls;
@@ -7536,6 +7601,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7558,6 +7624,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7578,6 +7645,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7600,6 +7668,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7621,6 +7690,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7642,6 +7712,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            body_exposure_out~,
             stable_path~,
           ),
         )
@@ -7667,6 +7738,7 @@ fn dae_scan_current_call_facts_instrs(
                   caller_seen_stamps,
                   current_active,
                   topology_out~,
+                  body_exposure_out~,
                   stable_path~,
                 ),
               )
@@ -7739,6 +7811,7 @@ fn dae_collect_current_function_analysis(
   total_funcs : Int32,
   perf~ : HotPerfSession? = None,
   call_fact_rebuilds~ : Array[Int32]? = None,
+  exposure_body_walk_visits~ : Array[Int32]? = None,
   topology_out~ : DaeCurrentTopologyExtras? = None,
 ) -> DaeFunctionAnalysis {
   ignore(call_fact_rebuilds)
@@ -7750,10 +7823,18 @@ fn dae_collect_current_function_analysis(
   let exposure_start_us = perf_start_timer_opt(
     perf, "detail:dae:boundary-snapshot:exposure",
   )
-  let exposure = dae_collect_original_exposure(mod_, total_funcs, type_indices)
+  // The required body scanner records body refs into these fresh rows.
+  let exposure = dae_collect_original_exposure(
+    mod_,
+    total_funcs,
+    type_indices,
+    body_ref_walk_visits=exposure_body_walk_visits,
+    include_body=false,
+  )
   perf_stop_timer_opt(
     perf, "detail:dae:boundary-snapshot:exposure", exposure_start_us,
   )
+  let body_exposure_out = Some(exposure)
   let escaped = dae_exposure_to_escaped(exposure)
   let function_infos = dae_make_function_infos(total_funcs, escaped)
   let caller_seen_stamps = Array::make(total_funcs, -1)
@@ -7781,6 +7862,7 @@ fn dae_collect_current_function_analysis(
             caller_seen_stamps,
             true,
             topology_out~,
+            body_exposure_out~,
             stable_path=Some(DaeStablePath::empty()),
           ),
         )
@@ -23182,6 +23264,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
   effects : DaeCommitEffects,
   type_indices : Array[@lib.TypeIdx],
   defined_function_types : Array[@lib.FuncType?],
+  scan_function_infos_out~ : Array[Array[DaeFunctionInfo]]? = None,
 ) -> Bool {
   let imported = graph.snapshot.imported
   let defined = graph.snapshot.defined
@@ -23217,10 +23300,9 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
     }
     callee_abs += 1
   }
-  let refreshed_infos = dae_make_function_infos(
-    graph.snapshot.total,
-    graph.snapshot.call_facts.escaped,
-  )
+  // This scan only updates aggregate counts. Stable callsite records remain
+  // owned by the original graph and are not consumed from this scan.
+  let refreshed_infos : Array[DaeFunctionInfo] = []
   let refreshed_direct_calls = Array::make(graph.snapshot.total, 0)
   let refreshed_tail_calls = Array::make(graph.snapshot.total, false)
   let refreshed_direct_callers = dae_make_direct_callers(graph.snapshot.total)
@@ -23244,10 +23326,13 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
           refreshed_infos,
           caller_seen_stamps,
           true,
-          stable_path=Some(DaeStablePath::empty()),
         ),
       )
     }
+  }
+  match scan_function_infos_out {
+    Some(out) => out.push(refreshed_infos)
+    None => ()
   }
   callee_abs = 0
   while callee_abs < graph.snapshot.total {
@@ -24419,6 +24504,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   direct_caller_defs : Array[Int32],
   callee_source~ : @lib.Func? = None,
   entry_live~ : Array[Bool]? = None,
+  liveness_work~ : Array[Int32]? = None,
   materialized_params~ : Array[@lib.Instruction?]? = None,
   verified_materialized_suffix~ : Array[@lib.Instruction]? = None,
   traps_never_happen~ : Bool = false,
@@ -24482,7 +24568,13 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     let active_entry_live = match entry_live {
       Some(entry_live) if entry_live.length() == params.length() => entry_live
       Some(_) => return None
-      None => dae_incoming_parameter_liveness(mod_, callee_abs, params.length())
+      None =>
+        dae_incoming_parameter_liveness(
+          mod_,
+          callee_abs,
+          params.length(),
+          liveness_work~,
+        )
     }
     match
       dae_classify_unused_parameter_actions_from_function_infos(
@@ -25608,6 +25700,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   direct_caller_defs : Array[Int32],
   callee_source~ : @lib.Func? = None,
   entry_live~ : Array[Bool]? = None,
+  liveness_work~ : Array[Int32]? = None,
   traps_never_happen~ : Bool = false,
   allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeRewritePlanApplication {
@@ -25623,6 +25716,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
       direct_caller_defs,
       callee_source~,
       entry_live~,
+      liveness_work~,
       traps_never_happen~,
       allow_stack_carried_void_effects~,
     ) {
@@ -25644,6 +25738,7 @@ fn dae_try_rewrite_candidate(
   original~ : DaeOriginalBoundarySnapshot? = None,
   graph~ : DaeCurrentBoundaryGraph? = None,
   entry_live~ : Array[Bool]? = None,
+  liveness_work~ : Array[Int32]? = None,
   checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
   rewrite_validation_counts~ : Array[Int32]? = None,
   scalar_validation_chain~ : DaeScalarValidationChain? = None,
@@ -25668,6 +25763,7 @@ fn dae_try_rewrite_candidate(
       direct_call_count,
       direct_caller_defs,
       entry_live~,
+      liveness_work~,
       materialized_params=Some(const_params),
       allow_stack_carried_void_effects~,
     ) {
@@ -32567,6 +32663,7 @@ fn dae_run_core_once(
   boundary_facts_override~ : DaeCallBoundaryFacts? = None,
   dependencies~ : DaeBoundaryDependencyGraph? = None,
   producer_effects_report~ : Array[DaeCommitEffects] = [],
+  liveness_work~ : Array[Int32]? = None,
   committed_application_report~ : Array[DaeCoreResultApplication] = [],
   checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
   scalar_validation_chain~ : DaeScalarValidationChain? = None,
@@ -33364,11 +33461,13 @@ fn dae_run_core_once(
     let mut rewrite_mod = mod_
     let mut has_rewrite_mod = false
     // Shared incoming-parameter live-in analysis ([O4Z-DAE-BOUNDARY]001).
-    // Syntactic local.get scanning remains only for write/repair facts.
+    // Reuse the unchanged source scan before gets becomes the live-in mask.
     let entry_live = dae_incoming_parameter_liveness(
       mod_,
       callee_abs,
       params.length(),
+      syntactic_use=Some(local_use),
+      liveness_work~,
     )
     if params.length() > 0 {
       let mut found_entry_dead_param = false
@@ -33503,6 +33602,7 @@ fn dae_run_core_once(
           direct_callers[callee_abs],
           callee_source~,
           entry_live=Some(entry_live),
+          liveness_work~,
           traps_never_happen~,
         )
         if planned.applied {
@@ -33528,6 +33628,7 @@ fn dae_run_core_once(
         original=Some(original),
         graph=Some(current_graph),
         entry_live=Some(entry_live),
+        liveness_work~,
         checked_candidate_report~,
         scalar_validation_chain~,
         scalar_validation_work~,
@@ -34668,6 +34769,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   original~ : DaeOriginalBoundarySnapshot? = None,
   graph~ : DaeCurrentBoundaryGraph? = None,
   producer_effects_report~ : Array[DaeCommitEffects] = [],
+  liveness_work~ : Array[Int32]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -34745,6 +34847,8 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       mod_,
       callee_abs,
       params.length(),
+      syntactic_use=Some(local_use),
+      liveness_work~,
     )
     let mut param_idx = 0
     while param_idx < params.length() {
@@ -34778,6 +34882,8 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
             boundary_candidate.direct_call_count,
             boundary_candidate.direct_callers,
             allow_stack_carried_void_effects~,
+            entry_live=Some(entry_live),
+            liveness_work~,
           )
           if planned.applied {
             if !require_localization_retry ||
@@ -34804,6 +34910,8 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
         local_use,
         boundary_candidate.direct_call_count,
         boundary_candidate.direct_callers,
+        entry_live=Some(entry_live),
+        liveness_work~,
       )
       if result.changed && !require_localization_retry {
         return result
@@ -34833,6 +34941,8 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
           boundary_candidate.direct_call_count,
           boundary_candidate.direct_callers,
           allow_stack_carried_void_effects=true,
+          entry_live=Some(entry_live),
+          liveness_work~,
         )
         if stack_carried.changed {
           return stack_carried
@@ -53855,6 +53965,7 @@ fn dae_scan_current_call_facts_child(
   caller_seen_stamps : Array[Int32],
   active : Bool,
   topology_out~ : DaeCurrentTopologyExtras? = None,
+  body_exposure_out~ : Array[DaeFunctionExposure]? = None,
   stable_path~ : DaeStablePath? = None,
 ) -> Bool {
   let parent_length = path.length()
@@ -53882,6 +53993,7 @@ fn dae_scan_current_call_facts_child(
     caller_seen_stamps,
     active,
     topology_out~,
+    body_exposure_out~,
     stable_path=child_stable_path,
   )
   if collect_paths {
@@ -53907,4 +54019,430 @@ test "DAE retains entry parameter carried out by a branch before a later write" 
     )
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
+}
+
+///|
+test "DAE lightweight result cascade retains full refresh facts and output without discarded call records" {
+  fn dae_result_refresh_candidate_mask(
+    exposure : Array[DaeFunctionExposure],
+    graph : DaeCurrentBoundaryGraph,
+  ) -> Array[Bool] {
+    let candidates : Array[Bool] = []
+    for def_idx in 0..<graph.snapshot.defined {
+      candidates.push(
+        dae_can_remove_function_result_with_exposure(
+          exposure,
+          graph,
+          graph.snapshot.imported + def_idx,
+        ),
+      )
+    }
+    candidates
+  }
+
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "host" "effect" (func $effect))
+      #|  (elem declare func $escaped)
+      #|  (func $leaf (result i32) call $effect i32.const 7)
+      #|  (func $middle (result i32) call $leaf)
+      #|  (func $outer (result i32) call $middle)
+      #|  (func (export "run") call $outer drop)
+      #|  (func $escaped (result i32) i32.const 13)
+      #|  (func $tail (result i32) i32.const 17)
+      #|  (func (export "tail") (result i32) return_call $tail)
+      #|  (func (export "inactive") unreachable call $tail drop))
+    ),
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let original = dae_collect_original_boundary_snapshot(input)
+  let graph = dae_current_boundary_graph_new(input)
+  let original_infos = graph.snapshot.function_infos
+  let original_paths = original_infos[1].calls.map(fn(call) {
+    call.path.to_array()
+  })
+  let observed : Array[Array[DaeFunctionInfo]] = []
+  let mut current = input
+  let mut touched : Array[Bool] = []
+  for wave in 0..<3 {
+    let reference_graph = dae_current_boundary_graph_new(current)
+    let before = @binary.encode_module(current).unwrap()
+    let reference = dae_apply_dropped_result_batch_transaction_on_graph(
+      original.exposure,
+      current,
+      touched,
+      wave > 0,
+      reference_graph,
+      retain_post_graph=true,
+    )
+    let actual = dae_apply_dropped_result_batch_transaction_on_graph(
+      original.exposure,
+      current,
+      touched,
+      wave > 0,
+      graph,
+    )
+    assert_true(actual.applied)
+    assert_eq(actual.primary_def, 2 - wave)
+    assert_eq(actual.primary_def, reference.primary_def)
+    assert_eq(actual.touched, reference.touched)
+    assert_eq(actual.effects.result_changed, reference.effects.result_changed)
+    assert_eq(actual.effects.result_removed, reference.effects.result_removed)
+    assert_eq(
+      actual.effects.structurally_touched,
+      reference.effects.structurally_touched,
+    )
+    let indices = dae_collect_func_type_indices(actual.mod_out)
+    assert_true(
+      dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
+        graph,
+        actual.mod_out,
+        actual.effects,
+        indices,
+        dae_collect_defined_function_types(
+          actual.mod_out,
+          graph.snapshot.imported,
+          graph.snapshot.defined,
+          indices,
+        ),
+        scan_function_infos_out=Some(observed),
+      ),
+    )
+    let fresh = dae_current_boundary_graph_new(actual.mod_out)
+    assert_true(
+      dae_current_call_facts_equal(
+        graph.snapshot.call_facts,
+        fresh.snapshot.call_facts,
+      ),
+    )
+    assert_eq(graph.snapshot.type_indices, fresh.snapshot.type_indices)
+    assert_eq(graph.snapshot.function_types, fresh.snapshot.function_types)
+    assert_eq(
+      dae_result_refresh_candidate_mask(original.exposure, graph),
+      dae_result_refresh_candidate_mask(original.exposure, fresh),
+    )
+    assert_true(physical_equal(graph.snapshot.function_infos, original_infos))
+    assert_true(physical_equal(graph.mod_, actual.mod_out))
+    assert_eq(
+      @binary.encode_module(actual.mod_out).unwrap(),
+      @binary.encode_module(reference.mod_out).unwrap(),
+    )
+    @validate.validate_module(actual.mod_out).unwrap()
+    assert_eq(@binary.encode_module(current).unwrap(), before)
+    current = actual.mod_out
+    touched = actual.touched
+  }
+  assert_eq(touched, [true, true, true, true, false, false, false, false])
+  assert_eq(graph.snapshot.call_facts.direct_calls[0], 1)
+  assert_eq(graph.snapshot.call_facts.tail_calls[6], true)
+  assert_true(graph.snapshot.call_facts.escaped[5])
+  assert_eq(
+    original_infos[1].calls.map(fn(call) { call.path.to_array() }),
+    original_paths,
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+  let final_wave = dae_apply_dropped_result_batch_transaction_on_graph(
+    original.exposure,
+    current,
+    touched,
+    true,
+    graph,
+  )
+  assert_false(final_wave.applied)
+  assert_eq(observed.length(), 3)
+  // These are the actual scanner records, including their owned call paths.
+  // Count-only result refresh must not construct records that it discards.
+  for infos in observed {
+    assert_eq(infos.length(), 0)
+  }
+}
+
+///|
+test "DAE raw and HOT liveness reuse syntax facts before replacing read masks" {
+  fn dae_liveness_handoff_fixture(hot : Bool, reads : Int32) -> @lib.Module {
+    let read = if hot {
+      "block (result i32) local.get 0 br 0 end"
+    } else {
+      "local.get 0"
+    }
+    let prefix = StringBuilder::new()
+    for _ in 0..<reads {
+      prefix.write_string("local.get 1 drop ")
+    }
+    pass_test_module_from_wat(
+      "(module (func $target (param i32 i32) (result i32) \{prefix.to_string()}i32.const 9 local.set 0 \{read} local.get 1 i32.add) (func (export \"run\") (result i32) i32.const 7 i32.const 11 call $target))",
+    ).with_custom_secs([
+      @lib.CustomSec::new(@lib.Name::new("liveness.keep"), b"kept"),
+    ])
+  }
+
+  for hot in [false, true] {
+    let input = dae_liveness_handoff_fixture(hot, 0)
+    @validate.validate_module(input).unwrap()
+    let saved = @binary.encode_module(input).unwrap()
+    let graph = dae_current_boundary_graph_new(input)
+    let syntax = dae_local_use_for_callee(graph.snapshot.funcs[0], 2, 0, 2)
+    assert_eq(syntax.gets, [true, true])
+    assert_eq(syntax.writes, [true, false])
+    assert_eq(dae_fast_param_entry_liveness(input, 0, 2) is None, hot)
+    let fresh_work = [0, 0]
+    let expected = dae_incoming_parameter_liveness(
+      input,
+      0,
+      2,
+      liveness_work=Some(fresh_work),
+    )
+    let reused_work = [0, 0]
+    let actual = dae_incoming_parameter_liveness(
+      input,
+      0,
+      2,
+      syntactic_use=Some(syntax),
+      liveness_work=Some(reused_work),
+    )
+    assert_eq(actual, [false, true])
+    assert_eq(actual, expected)
+    assert_eq(syntax.gets, [true, true])
+    assert_eq(syntax.writes, [true, false])
+    assert_eq(fresh_work, [1, 1])
+    assert_eq(reused_work, [1, 0])
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "DAE fused body exposure preserves candidate facts effects paths and ownership without a second body walk" {
+  fn dae_fused_exposure_assert_equal(
+    actual : Array[DaeFunctionExposure],
+    expected : Array[DaeFunctionExposure],
+  ) -> Unit raise {
+    assert_eq(actual.length(), expected.length())
+    for index in 0..<actual.length() {
+      let a = actual[index]
+      let b = expected[index]
+      assert_eq(a.imported, b.imported)
+      assert_eq(a.exported, b.exported)
+      assert_eq(a.start, b.start)
+      assert_eq(a.ref_func_body, b.ref_func_body)
+      assert_eq(a.ref_func_module, b.ref_func_module)
+      assert_eq(a.active_element, b.active_element)
+      assert_eq(a.passive_element, b.passive_element)
+      assert_eq(a.declarative_element, b.declarative_element)
+    }
+  }
+
+  fn dae_fused_exposure_candidate(
+    input : @lib.Module,
+    graph : DaeCurrentBoundaryGraph,
+  ) -> DaePassResult {
+    let target = graph.snapshot.funcs[0]
+    let @lib.Func(locals, _) = target
+    dae_try_rewrite_candidate(
+      input,
+      1,
+      [false, true],
+      [None, None],
+      dae_local_use_for_callee(target, 2 + locals.length(), 1, 2),
+      graph.snapshot.call_facts.direct_calls[1],
+      graph.snapshot.call_facts.direct_callers[1],
+      original=Some(dae_collect_original_boundary_snapshot(input)),
+      graph=Some(graph),
+    )
+  }
+
+  let direct =
+    #|(module
+    #|  (import "host" "effect" (func $effect (result i32)))
+    #|  (func $target (param i32 i32) (result i32)
+    #|    call $effect drop local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10 i32.const 20 call $target))
+  let references =
+    #|(module
+    #|  (import "host" "effect" (func $effect (result i32)))
+    #|  (table 1 funcref)
+    #|  (global funcref (ref.func $module))
+    #|  (elem declare func $escaped $inactive $module)
+    #|  (elem (i32.const 0) $module)
+    #|  (elem funcref (ref.func $module))
+    #|  (func $target (param i32 i32) (result i32)
+    #|    call $effect drop local.get 0)
+    #|  (func $escaped (result i32) i32.const 2)
+    #|  (func $inactive (result i32) i32.const 3)
+    #|  (func $module (result i32) i32.const 4)
+    #|  (func $tail (result i32) i32.const 5)
+    #|  (func (export "run") (result i32)
+    #|    ref.func $escaped drop
+    #|    i32.const 10 i32.const 20 call $target)
+    #|  (func (export "tail") (result i32) return_call $tail)
+    #|  (func (export "inactive") unreachable ref.func $inactive drop)
+    #|  (func (export "nested")
+    #|    i32.const 1 if
+    #|      block ref.func $escaped drop end
+    #|    else
+    #|      loop ref.func $module drop end
+    #|    end)
+    #|  (func (export "catch")
+    #|    (try (do ref.func $escaped drop)
+    #|      (catch_all ref.func $inactive drop))))
+  let extra_body_walks = [0]
+  for source in [direct, references] {
+    let input = pass_test_module_from_wat(source)
+    @validate.validate_module(input).unwrap()
+    let saved = @binary.encode_module(input).unwrap()
+    let total = dae_imported_func_count(input) + dae_defined_func_count(input)
+    let indices = dae_collect_func_type_indices(input)
+    let expected_exposure = dae_collect_original_exposure(input, total, indices)
+    let expected_facts = dae_collect_current_call_facts(input, total)
+    let actual = dae_collect_current_function_analysis(
+      input,
+      total,
+      exposure_body_walk_visits=Some(extra_body_walks),
+    )
+    dae_fused_exposure_assert_equal(actual.exposure, expected_exposure)
+    assert_true(dae_current_call_facts_equal(actual.call_facts, expected_facts))
+    assert_eq(actual.call_facts.direct_calls[0], 1)
+    assert_false(actual.exposure[1].ref_func_body)
+    assert_false(actual.exposure[1].ref_func_module)
+    if source == references {
+      assert_true(actual.exposure[2].ref_func_body)
+      assert_true(actual.exposure[3].ref_func_body)
+      assert_true(actual.exposure[4].ref_func_body)
+      assert_true(actual.exposure[4].ref_func_module)
+      assert_true(actual.exposure[4].active_element)
+      assert_true(actual.exposure[4].passive_element)
+      assert_true(actual.exposure[4].declarative_element)
+      assert_eq(actual.call_facts.tail_calls[5], true)
+      for target in [2, 3, 4] {
+        assert_true(actual.call_facts.escaped[target])
+        assert_true(actual.function_infos[target].has_unseen_calls)
+      }
+    }
+    let graph = dae_current_boundary_graph_new(input)
+    let previous = graph.snapshot
+    graph.snapshot = {
+      ..previous,
+      call_facts: actual.call_facts,
+      boundary_facts: dae_call_boundary_facts_from_current(actual.call_facts),
+      function_infos: actual.function_infos,
+      exposure: actual.exposure,
+      parameter_loop_free: actual.parameter_loop_free,
+    }
+    let reference = dae_current_boundary_graph_new(input)
+    reference.snapshot = {
+      ..reference.snapshot,
+      call_facts: expected_facts,
+      boundary_facts: dae_call_boundary_facts_from_current(expected_facts),
+      exposure: expected_exposure,
+    }
+    let original = dae_collect_original_boundary_snapshot(input)
+    for target in 0..<total {
+      assert_eq(
+        dae_can_remove_function_result_with_exposure(
+          original.exposure,
+          graph,
+          target,
+        ),
+        dae_can_remove_function_result_with_exposure(
+          original.exposure,
+          reference,
+          target,
+        ),
+      )
+    }
+    let candidate = dae_fused_exposure_candidate(input, graph)
+    let expected = dae_fused_exposure_candidate(input, reference)
+    assert_true(candidate.changed)
+    assert_eq(candidate.changed, expected.changed)
+    assert_eq(candidate.touched, expected.touched)
+    assert_eq(candidate.primary_def, expected.primary_def)
+    match
+      @validate.Env::new()
+      .with_module(candidate.mod_out)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)) {
+      Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+      None => fail("expected rewritten private helper signature")
+    }
+    assert_eq(
+      @binary.encode_module(candidate.mod_out).unwrap(),
+      @binary.encode_module(expected.mod_out).unwrap(),
+    )
+    let after = dae_collect_current_call_facts(candidate.mod_out, total)
+    assert_eq(after.direct_calls[0], 1)
+    assert_eq(after.escaped, expected_facts.escaped)
+    assert_eq(after.tail_calls, expected_facts.tail_calls)
+    @validate.validate_module(candidate.mod_out).unwrap()
+    assert_true(physical_equal(graph.mod_, input))
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+    dae_fused_exposure_assert_equal(previous.exposure, expected_exposure)
+  }
+  // This guards real removed work after behavior and candidate checks pass.
+  assert_eq(extra_body_walks[0], 0)
+}
+
+///|
+test "DAE fused exposure collects a unique body reference through every structured path" {
+  let visits = [0]
+  for
+    body in [
+      "ref.func $target drop", "block ref.func $target drop end", "loop ref.func $target drop end",
+      "i32.const 1 if ref.func $target drop else nop end", "i32.const 1 if nop else ref.func $target drop end",
+      "(try (do ref.func $target drop) (catch_all))", "(try (do nop) (catch $tag ref.func $target drop))",
+      "(try (do nop) (catch_all ref.func $target drop))", "block try_table (catch_all 0) ref.func $target drop end end",
+      "unreachable ref.func $target drop",
+    ] {
+    let input = pass_test_module_from_wat(
+      "(module (tag $tag) (elem declare func $target) (func $target) (func $unseen) (func (export \"run\") \{body}))",
+    )
+    @validate.validate_module(input).unwrap()
+    let saved = @binary.encode_module(input).unwrap()
+    let expected = dae_collect_original_exposure(
+      input,
+      3,
+      dae_collect_func_type_indices(input),
+    )
+    let actual = dae_collect_current_function_analysis(
+      input,
+      3,
+      exposure_body_walk_visits=Some(visits),
+    )
+    assert_true(actual.exposure[0].ref_func_body, msg=body)
+    assert_false(actual.exposure[1].ref_func_body, msg=body)
+    assert_true(actual.function_infos[0].has_unseen_calls, msg=body)
+    assert_true(
+      dae_current_call_facts_equal(
+        actual.call_facts,
+        dae_collect_current_call_facts(input, 3),
+      ),
+    )
+    for index in 0..<3 {
+      let a = actual.exposure[index]
+      let e = expected[index]
+      assert_eq(
+        [
+          a.imported,
+          a.exported,
+          a.start,
+          a.ref_func_body,
+          a.ref_func_module,
+          a.active_element,
+          a.passive_element,
+          a.declarative_element,
+        ],
+        [
+          e.imported,
+          e.exported,
+          e.start,
+          e.ref_func_body,
+          e.ref_func_module,
+          e.active_element,
+          e.passive_element,
+          e.declarative_element,
+        ],
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+  assert_eq(visits[0], 0)
 }
