@@ -1,8 +1,8 @@
 ///|
 fn dae_code_snapshot_identity_bench(
   it : @bench.T,
-  count : Int,
-  mode : Int,
+  count : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let left : Array[@lib.Func] = []

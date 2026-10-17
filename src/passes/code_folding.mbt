@@ -19,76 +19,76 @@ pub fn code_folding_summary() -> String {
 ///|
 priv struct CodeFoldingExitTail {
   region_ref : @ir.HotRegionRef
-  end_idx : Int
+  end_idx : Int32
 }
 
 ///|
 priv struct CodeFoldingExitIndex {
-  tails : @hashmap.HashMap[Int, Array[CodeFoldingExitTail]]?
+  tails : @hashmap.HashMap[Int32, Array[CodeFoldingExitTail]]?
   embedded_visited : Array[Bool]
   structured_visited : Array[Bool]
   visited_control_bodies : Array[Bool]
-  fallthrough_epochs : Array[Int]
+  fallthrough_epochs : Array[Int32]
   fallthrough_values : Array[Bool]
-  mut movement_suffix_marks : Array[Int]
-  mut movement_out_of_marks : Array[Int]
-  mut movement_visited_marks : Array[Int]
-  mut movement_epoch : Int
-  mut facts_epoch : Int
+  mut movement_suffix_marks : Array[Int32]
+  mut movement_out_of_marks : Array[Int32]
+  mut movement_visited_marks : Array[Int32]
+  mut movement_epoch : Int32
+  mut facts_epoch : Int32
   mut invalidated : Bool
 }
 
 ///|
 priv struct CodeFoldingValueExitTail {
   region_ref : @ir.HotRegionRef
-  tail_end_idx : Int
-  branch_id : Int
-  target_label : Int
-  payload_roots : Array[Int]
-  result_arity : Int
+  tail_end_idx : Int32
+  branch_id : Int32
+  target_label : Int32
+  payload_roots : Array[Int32]
+  result_arity : Int32
   fallthrough : Bool
   movement_safe : Bool
-  suffix_len : Int
-  profitability : Int
+  suffix_len : Int32
+  profitability : Int32
 }
 
 ///|
 priv struct CodeFoldingRegionRemoval {
   region_ref : @ir.HotRegionRef
-  start_idx : Int
-  remove_count : Int
+  start_idx : Int32
+  remove_count : Int32
 }
 
 ///|
 priv struct CodeFoldingTerminatingTail {
   region_ref : @ir.HotRegionRef
-  end_idx : Int
-  terminal_kind : Int
-  suffix_len : Int
-  profitability : Int
+  end_idx : Int32
+  terminal_kind : Int32
+  suffix_len : Int32
+  profitability : Int32
 }
 
 ///|
 priv struct CodeFoldingLabelMap {
-  left_labels : Array[Int]
-  right_labels : Array[Int]
-  left_indices : @hashmap.HashMap[Int, Int]
-  right_indices : @hashmap.HashMap[Int, Int]
+  left_labels : Array[Int32]
+  right_labels : Array[Int32]
+  left_indices : @hashmap.HashMap[Int32, Int32]
+  right_indices : @hashmap.HashMap[Int32, Int32]
 }
 
 ///|
 priv struct CodeFoldingTerminatingFacts {
-  fallthrough_state : Array[Int]
-  measure_values : Array[Int]
-  may_throw_state : Array[Int]
-  has_eh_state : Array[Int]
-  external_break_state : Array[Int]
+  fallthrough_state : Array[Int32]
+  measure_values : Array[Int32]
+  may_throw_state : Array[Int32]
+  has_eh_state : Array[Int32]
+  external_break_state : Array[Int32]
   mut shallow_hash_ready : Array[Bool]
-  mut shallow_hash_values : Array[Int]
+  mut shallow_hash_values : Array[Int32]
   has_any_branch_target : Bool
-  suffix_marks : Array[Int]
-  visited_marks : Array[Int]
-  mut mark_epoch : Int
+  suffix_marks : Array[Int32]
+  visited_marks : Array[Int32]
+  mut mark_epoch : Int32
   mut root_has_eh_ready : Bool
   mut root_has_eh_value : Bool
 }
@@ -127,7 +127,7 @@ fn CodeFoldingTerminatingFacts::new(
 ///|
 fn CodeFoldingTerminatingFacts::next_mark_epoch(
   self : CodeFoldingTerminatingFacts,
-) -> Int {
+) -> Int32 {
   self.mark_epoch += 1
   self.mark_epoch
 }
@@ -143,18 +143,18 @@ fn code_folding_label_map_new() -> CodeFoldingLabelMap {
 }
 
 ///|
-fn code_folding_worth_adding_block_threshold() -> Int {
+fn code_folding_worth_adding_block_threshold() -> Int32 {
   3
 }
 
 ///|
 fn code_folding_value_exit_tail_branch(
   region_ref : @ir.HotRegionRef,
-  branch_idx : Int,
-  branch_id : Int,
-  target_label : Int,
-  payload_roots : Array[Int],
-  result_arity : Int,
+  branch_idx : Int32,
+  branch_id : Int32,
+  target_label : Int32,
+  payload_roots : Array[Int32],
+  result_arity : Int32,
 ) -> CodeFoldingValueExitTail {
   {
     region_ref,
@@ -173,10 +173,10 @@ fn code_folding_value_exit_tail_branch(
 ///|
 fn code_folding_value_exit_tail_fallthrough(
   region_ref : @ir.HotRegionRef,
-  end_idx : Int,
-  target_label : Int,
-  payload_id : Int,
-  result_arity : Int,
+  end_idx : Int32,
+  target_label : Int32,
+  payload_id : Int32,
+  result_arity : Int32,
 ) -> CodeFoldingValueExitTail {
   {
     region_ref,
@@ -195,8 +195,8 @@ fn code_folding_value_exit_tail_fallthrough(
 ///|
 fn code_folding_value_exit_tail_with_plan(
   tail : CodeFoldingValueExitTail,
-  suffix_len : Int,
-  profitability : Int,
+  suffix_len : Int32,
+  profitability : Int32,
 ) -> CodeFoldingValueExitTail {
   {
     region_ref: tail.region_ref,
@@ -215,7 +215,7 @@ fn code_folding_value_exit_tail_with_plan(
 ///|
 fn code_folding_node_has_control_or_exit(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
@@ -260,8 +260,8 @@ fn code_folding_node_has_control_or_exit(
 ///|
 fn CodeFoldingExitIndex::begin_movement_query(
   self : CodeFoldingExitIndex,
-  node_count : Int,
-) -> Int {
+  node_count : Int32,
+) -> Int32 {
   if self.movement_suffix_marks.length() != node_count {
     self.movement_suffix_marks = Array::make(node_count, 0)
     self.movement_out_of_marks = Array::make(node_count, 0)
@@ -274,9 +274,9 @@ fn CodeFoldingExitIndex::begin_movement_query(
 ///|
 fn code_folding_mark_contained_nodes(
   func : @ir.HotFunc,
-  node_id : Int,
-  marks : Array[Int],
-  epoch : Int,
+  node_id : Int32,
+  marks : Array[Int32],
+  epoch : Int32,
 ) -> Unit {
   if node_id < 0 ||
     node_id >= marks.length() ||
@@ -300,8 +300,8 @@ fn code_folding_mark_contained_nodes(
 fn code_folding_branch_target_survives_hoist_in_marks(
   func : @ir.HotFunc,
   index : CodeFoldingExitIndex,
-  epoch : Int,
-  label_id : Int,
+  epoch : Int32,
+  label_id : Int32,
 ) -> Bool {
   if label_id < 0 || label_id >= func.labels.length() {
     return false
@@ -319,8 +319,8 @@ fn code_folding_branch_target_survives_hoist_in_marks(
 fn code_folding_branch_targets_survive_hoist_in_marks(
   func : @ir.HotFunc,
   index : CodeFoldingExitIndex,
-  epoch : Int,
-  node_id : Int,
+  epoch : Int32,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     node_id >= index.movement_visited_marks.length() ||
@@ -398,9 +398,9 @@ fn code_folding_branch_targets_survive_hoist_in_marks(
 ///|
 fn code_folding_branch_targets_survive_hoist(
   func : @ir.HotFunc,
-  suffix_root_id : Int,
-  out_of_id : Int,
-  node_id : Int,
+  suffix_root_id : Int32,
+  out_of_id : Int32,
+  node_id : Int32,
   index : CodeFoldingExitIndex,
 ) -> Bool {
   let epoch = index.begin_movement_query(@ir.hot_node_count(func))
@@ -424,8 +424,8 @@ fn code_folding_branch_targets_survive_hoist(
 ///|
 fn code_folding_node_is_hoistable_suffix(
   func : @ir.HotFunc,
-  node_id : Int,
-  out_of_id : Int,
+  node_id : Int32,
+  out_of_id : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -462,7 +462,7 @@ fn code_folding_node_is_hoistable_suffix(
 ///|
 fn code_folding_node_is_if_terminal_suffix(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -485,20 +485,20 @@ fn code_folding_node_is_if_terminal_suffix(
 }
 
 ///|
-fn code_folding_terminal_tail_kind_return() -> Int {
+fn code_folding_terminal_tail_kind_return() -> Int32 {
   1
 }
 
 ///|
-fn code_folding_terminal_tail_kind_unreachable() -> Int {
+fn code_folding_terminal_tail_kind_unreachable() -> Int32 {
   2
 }
 
 ///|
 fn code_folding_terminal_tail_kind_of_node(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -515,7 +515,7 @@ fn code_folding_terminal_tail_kind_of_node(
 ///|
 fn code_folding_node_exits_to_own_block_label(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -556,7 +556,7 @@ fn code_folding_node_exits_to_own_block_label(
 ///|
 fn code_folding_terminating_node_prevents_fallthrough(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   if node_id < 0 ||
@@ -633,9 +633,9 @@ fn code_folding_terminating_node_prevents_fallthrough(
 ///|
 fn code_folding_terminating_collect_child_nodes(
   func : @ir.HotFunc,
-  node_id : Int,
-  marks : Array[Int],
-  epoch : Int,
+  node_id : Int32,
+  marks : Array[Int32],
+  epoch : Int32,
 ) -> Unit {
   if node_id < 0 ||
     node_id >= marks.length() ||
@@ -658,7 +658,7 @@ fn code_folding_terminating_collect_child_nodes(
 ///|
 fn code_folding_terminating_node_may_throw(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   if node_id < 0 ||
@@ -705,7 +705,7 @@ fn code_folding_terminating_node_may_throw(
 ///|
 fn code_folding_terminating_node_has_eh_control(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   if node_id < 0 ||
@@ -794,7 +794,7 @@ fn code_folding_terminating_node_has_eh_control(
 ///|
 fn code_folding_terminating_out_of_has_eh_control(
   func : @ir.HotFunc,
-  out_of_id : Int,
+  out_of_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   if out_of_id >= 0 {
@@ -823,8 +823,8 @@ fn code_folding_terminating_out_of_has_eh_control(
 ///|
 fn code_folding_terminating_can_move_eh_effects(
   func : @ir.HotFunc,
-  node_id : Int,
-  out_of_id : Int,
+  node_id : Int32,
+  out_of_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   !code_folding_terminating_node_may_throw(func, node_id, facts) ||
@@ -834,7 +834,7 @@ fn code_folding_terminating_can_move_eh_effects(
 ///|
 fn code_folding_terminal_tail_item_allows_following(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   !code_folding_terminating_node_prevents_fallthrough(func, node_id, facts) ||
@@ -844,8 +844,8 @@ fn code_folding_terminal_tail_item_allows_following(
 ///|
 fn code_folding_terminal_tail_item_is_hoistable_suffix(
   func : @ir.HotFunc,
-  node_id : Int,
-  out_of_id : Int,
+  node_id : Int32,
+  out_of_id : Int32,
   label_used : @bitset.BitSet,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
@@ -884,8 +884,8 @@ fn code_folding_terminal_tail_item_is_hoistable_suffix(
 fn code_folding_terminal_tail_item_is_movable(
   func : @ir.HotFunc,
   tail : CodeFoldingTerminatingTail,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
   label_used : @bitset.BitSet,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
@@ -911,8 +911,8 @@ fn code_folding_terminal_tail_item_is_movable(
 fn code_folding_terminating_branch_target_is_internal(
   func : @ir.HotFunc,
   facts : CodeFoldingTerminatingFacts,
-  epoch : Int,
-  label_id : Int,
+  epoch : Int32,
+  label_id : Int32,
 ) -> Bool {
   if label_id < 0 || label_id >= func.labels.length() {
     return false
@@ -927,8 +927,8 @@ fn code_folding_terminating_branch_target_is_internal(
 fn code_folding_terminating_branch_targets_are_internal(
   func : @ir.HotFunc,
   facts : CodeFoldingTerminatingFacts,
-  epoch : Int,
-  node_id : Int,
+  epoch : Int32,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     node_id >= facts.visited_marks.length() ||
@@ -1007,7 +1007,7 @@ fn code_folding_terminating_branch_targets_are_internal(
 fn code_folding_terminal_tail_item_has_external_break_target(
   func : @ir.HotFunc,
   _tail : CodeFoldingTerminatingTail,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Bool {
   if !facts.has_any_branch_target {
@@ -1041,8 +1041,8 @@ fn code_folding_terminal_tail_item_has_external_break_target(
 ///|
 fn code_folding_node_is_if_hoistable_suffix(
   func : @ir.HotFunc,
-  node_id : Int,
-  if_id : Int,
+  node_id : Int32,
+  if_id : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -1058,8 +1058,8 @@ fn code_folding_node_is_if_hoistable_suffix(
 ///|
 fn code_folding_label_map_lookup_left(
   label_map : CodeFoldingLabelMap,
-  left_label : Int,
-) -> Int {
+  left_label : Int32,
+) -> Int32 {
   match label_map.left_indices.get(left_label) {
     Some(idx) => idx
     None => -1
@@ -1069,8 +1069,8 @@ fn code_folding_label_map_lookup_left(
 ///|
 fn code_folding_label_map_lookup_right(
   label_map : CodeFoldingLabelMap,
-  right_label : Int,
-) -> Int {
+  right_label : Int32,
+) -> Int32 {
   match label_map.right_indices.get(right_label) {
     Some(idx) => idx
     None => -1
@@ -1080,8 +1080,8 @@ fn code_folding_label_map_lookup_right(
 ///|
 fn code_folding_label_map_add(
   label_map : CodeFoldingLabelMap,
-  left_label : Int,
-  right_label : Int,
+  left_label : Int32,
+  right_label : Int32,
 ) -> Bool {
   if left_label == right_label {
     return true
@@ -1101,8 +1101,8 @@ fn code_folding_label_map_add(
 
 ///|
 fn code_folding_labels_equal_with_map(
-  left_label : Int,
-  right_label : Int,
+  left_label : Int32,
+  right_label : Int32,
   label_map : CodeFoldingLabelMap,
 ) -> Bool {
   if left_label == right_label {
@@ -1113,7 +1113,7 @@ fn code_folding_labels_equal_with_map(
 }
 
 ///|
-fn code_folding_exact_payload_field(op : @ir.HotOp) -> Int {
+fn code_folding_exact_payload_field(op : @ir.HotOp) -> Int32 {
   match op {
     @ir.HotOp::Select
     | @ir.HotOp::Heap
@@ -1140,8 +1140,8 @@ fn code_folding_exact_payload_field(op : @ir.HotOp) -> Int {
 ///|
 fn code_folding_nodes_equal_with_label_map(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
   label_used : @bitset.BitSet,
   label_map : CodeFoldingLabelMap,
 ) -> Bool {
@@ -1245,8 +1245,8 @@ fn code_folding_nodes_equal_with_label_map(
 ///|
 fn code_folding_nodes_equal_exact_labels(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
 ) -> Bool {
   if left_id == right_id {
     return true
@@ -1321,8 +1321,8 @@ fn code_folding_nodes_equal_exact_labels(
 ///|
 fn code_folding_nodes_equal(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
   label_used : @bitset.BitSet,
 ) -> Bool {
   code_folding_nodes_equal_exact_labels(func, left_id, right_id) ||
@@ -1339,7 +1339,7 @@ fn code_folding_nodes_equal(
 fn code_folding_region_prefix_has_exit(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  end_idx : Int,
+  end_idx : Int32,
 ) -> Bool {
   for idx = 0; idx < end_idx; idx = idx + 1 {
     if code_folding_node_has_control_or_exit(
@@ -1355,12 +1355,12 @@ fn code_folding_region_prefix_has_exit(
 ///|
 fn code_folding_common_suffix_len(
   func : @ir.HotFunc,
-  if_id : Int,
+  if_id : Int32,
   then_ref : @ir.HotRegionRef,
   else_ref : @ir.HotRegionRef,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
-) -> Int {
+) -> Int32 {
   let then_count = @ir.hot_region_root_count(func, then_ref)
   let else_count = @ir.hot_region_root_count(func, else_ref)
   let limit = if then_count < else_count { then_count } else { else_count }
@@ -1385,7 +1385,7 @@ fn code_folding_common_suffix_len(
 }
 
 ///|
-fn code_folding_node_measure(func : @ir.HotFunc, node_id : Int) -> Int {
+fn code_folding_node_measure(func : @ir.HotFunc, node_id : Int32) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -1403,9 +1403,9 @@ fn code_folding_node_measure(func : @ir.HotFunc, node_id : Int) -> Int {
 fn code_folding_suffix_measure(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  start_idx : Int,
-  suffix_len : Int,
-) -> Int {
+  start_idx : Int32,
+  suffix_len : Int32,
+) -> Int32 {
   let mut total = 0
   let end_idx = start_idx + suffix_len
   for idx = start_idx; idx < end_idx; idx = idx + 1 {
@@ -1421,9 +1421,9 @@ fn code_folding_suffix_measure(
 fn code_folding_suffix_matches_result_arity(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  start_idx : Int,
-  suffix_len : Int,
-  result_arity : Int,
+  start_idx : Int32,
+  suffix_len : Int32,
+  result_arity : Int32,
 ) -> Bool {
   if suffix_len <= 0 {
     return false
@@ -1449,8 +1449,8 @@ fn code_folding_suffix_matches_result_arity(
 fn code_folding_suffix_has_if_terminal(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  start_idx : Int,
-  suffix_len : Int,
+  start_idx : Int32,
+  suffix_len : Int32,
 ) -> Bool {
   let end_idx = start_idx + suffix_len
   for idx = start_idx; idx < end_idx; idx = idx + 1 {
@@ -1469,10 +1469,10 @@ fn code_folding_full_value_if_common_suffix_allowed(
   func : @ir.HotFunc,
   then_ref : @ir.HotRegionRef,
   else_ref : @ir.HotRegionRef,
-  then_start : Int,
-  else_start : Int,
-  suffix_len : Int,
-  result_arity : Int,
+  then_start : Int32,
+  else_start : Int32,
+  suffix_len : Int32,
+  result_arity : Int32,
 ) -> Bool {
   if result_arity == 0 || then_start != 0 || else_start != 0 {
     return true
@@ -1498,7 +1498,7 @@ fn code_folding_full_value_if_common_suffix_allowed(
 ///|
 fn code_folding_heap_parent_accepts_embedded_value_wrapper(
   func : @ir.HotFunc,
-  parent_id : Int,
+  parent_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, parent_id) {
     Some(@lib.Instruction::StructNew(_))
@@ -1532,7 +1532,7 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
 ///|
 fn code_folding_parent_accepts_embedded_value_wrapper(
   func : @ir.HotFunc,
-  parent_id : Int,
+  parent_id : Int32,
 ) -> Bool {
   if parent_id < 0 || !@ir.hot_node_is_live(func, parent_id) {
     return false
@@ -1581,9 +1581,9 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
 fn code_folding_try_fold_embedded_value_if_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  parent_id : Int,
-  child_slot : Int,
-  if_id : Int,
+  parent_id : Int32,
+  child_slot : Int32,
+  if_id : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -1679,7 +1679,7 @@ fn code_folding_try_fold_embedded_value_if_child(
 }
 
 ///|
-fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -1757,7 +1757,7 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
 ///|
 fn code_folding_node_is_noop_before_unreachable(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   label_used : @bitset.BitSet,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -1795,7 +1795,7 @@ fn code_folding_try_remove_dead_block_before_unreachable_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
 ) -> Bool {
   // Keep this byte-level cleanup out of large artifact functions until CF-L
@@ -1889,7 +1889,7 @@ fn code_folding_try_flatten_exiting_block_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
 ) -> Bool {
   let block_id = @ir.hot_region_get(func, region_ref, idx)
@@ -1928,8 +1928,8 @@ fn code_folding_try_flatten_exiting_block_at_region(
   if !code_folding_node_always_exits(func, block_id) {
     return false
   }
-  let roots : Array[Int] = []
-  let append_body_root = fn(body_idx : Int) -> Bool {
+  let roots : Array[Int32] = []
+  let append_body_root = fn(body_idx : Int32) -> Bool {
     let root_id = @ir.hot_region_get(func, body_ref, body_idx)
     if body_idx != unreachable_idx &&
       @ir.hot_node_result_arity(func, root_id) > 1 {
@@ -1979,7 +1979,7 @@ fn code_folding_try_flatten_exiting_block_at_region(
 fn code_folding_region_has_trailing_value_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let count = @ir.hot_region_root_count(func, region_ref)
   for next_idx = idx + 1; next_idx < count; next_idx = next_idx + 1 {
@@ -1998,7 +1998,7 @@ fn code_folding_try_remove_unreachable_after_exit_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   preserve_bottom_tail : Bool,
 ) -> Bool {
   if idx <= 0 {
@@ -2053,7 +2053,7 @@ fn code_folding_try_remove_drop_unreachable_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let node_id = @ir.hot_region_get(func, region_ref, idx)
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -2094,7 +2094,7 @@ fn CodeFoldingExitIndex::invalidate_facts(self : CodeFoldingExitIndex) -> Unit {
 ///|
 fn code_folding_node_prevents_fallthrough_with_index(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   index : CodeFoldingExitIndex,
 ) -> Bool {
   if node_id < 0 ||
@@ -2170,8 +2170,8 @@ fn code_folding_node_prevents_fallthrough_with_index(
 ///|
 fn code_folding_branch_table_has_target(
   func : @ir.HotFunc,
-  table_id : Int,
-  target_label : Int,
+  table_id : Int32,
+  target_label : Int32,
 ) -> Bool {
   if @ir.hot_branch_table_default_target(func, table_id) == target_label {
     return true
@@ -2187,7 +2187,7 @@ fn code_folding_branch_table_has_target(
 ///|
 fn code_folding_node_has_embedded_eh_control(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2271,7 +2271,7 @@ fn code_folding_region_has_embedded_eh_control(
 ///|
 fn code_folding_out_of_has_eh_control(
   func : @ir.HotFunc,
-  out_of_id : Int,
+  out_of_id : Int32,
 ) -> Bool {
   if out_of_id < 0 {
     code_folding_region_has_embedded_eh_control(func, @ir.HotRegionRef::root())
@@ -2283,7 +2283,7 @@ fn code_folding_out_of_has_eh_control(
 ///|
 fn code_folding_node_may_throw_for_eh_move(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2316,8 +2316,8 @@ fn code_folding_node_may_throw_for_eh_move(
 ///|
 fn code_folding_can_move_eh_effects(
   func : @ir.HotFunc,
-  node_id : Int,
-  out_of_id : Int,
+  node_id : Int32,
+  out_of_id : Int32,
 ) -> Bool {
   !code_folding_node_may_throw_for_eh_move(func, node_id) ||
   !code_folding_out_of_has_eh_control(func, out_of_id)
@@ -2326,14 +2326,14 @@ fn code_folding_can_move_eh_effects(
 ///|
 fn code_folding_value_exit_tail_payload_count(
   tail : CodeFoldingValueExitTail,
-) -> Int {
+) -> Int32 {
   tail.payload_roots.length()
 }
 
 ///|
 fn code_folding_value_exit_tail_logical_len(
   tail : CodeFoldingValueExitTail,
-) -> Int {
+) -> Int32 {
   if tail.fallthrough {
     tail.tail_end_idx
   } else {
@@ -2345,8 +2345,8 @@ fn code_folding_value_exit_tail_logical_len(
 fn code_folding_value_exit_tail_item_at_depth(
   func : @ir.HotFunc,
   tail : CodeFoldingValueExitTail,
-  depth : Int,
-) -> Int {
+  depth : Int32,
+) -> Int32 {
   if depth < 0 {
     return -1
   }
@@ -2365,8 +2365,8 @@ fn code_folding_value_exit_tail_item_at_depth(
 ///|
 fn code_folding_value_exit_tail_region_roots_to_move(
   tail : CodeFoldingValueExitTail,
-  suffix_len : Int,
-) -> Int {
+  suffix_len : Int32,
+) -> Int32 {
   if tail.fallthrough {
     suffix_len
   } else {
@@ -2414,9 +2414,9 @@ fn code_folding_value_exit_tail_still_at_site(
 fn code_folding_value_exit_tail_suffix_roots(
   func : @ir.HotFunc,
   tail : CodeFoldingValueExitTail,
-  suffix_len : Int,
-) -> Array[Int] {
-  let roots : Array[Int] = []
+  suffix_len : Int32,
+) -> Array[Int32] {
+  let roots : Array[Int32] = []
   let region_root_count = code_folding_value_exit_tail_region_roots_to_move(
     tail, suffix_len,
   )
@@ -2435,9 +2435,9 @@ fn code_folding_value_exit_tail_suffix_roots(
 ///|
 fn code_folding_collect_value_block_exit_tails_in_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  target_label : Int,
-  result_arity : Int,
+  node_id : Int32,
+  target_label : Int32,
+  result_arity : Int32,
   tails : Array[CodeFoldingValueExitTail],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -2496,8 +2496,8 @@ fn code_folding_collect_value_block_exit_tails_in_node(
 fn code_folding_collect_value_block_exit_tails(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  target_label : Int,
-  result_arity : Int,
+  target_label : Int32,
+  result_arity : Int32,
   tails : Array[CodeFoldingValueExitTail],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -2512,7 +2512,7 @@ fn code_folding_collect_value_block_exit_tails(
           if result_arity <= 0 || node.child_count != result_arity {
             return false
           }
-          let payload_roots : Array[Int] = []
+          let payload_roots : Array[Int32] = []
           for slot = 0; slot < node.child_count; slot = slot + 1 {
             payload_roots.push(@ir.hot_child_get(func, node_id, slot))
           }
@@ -2590,9 +2590,9 @@ fn code_folding_collect_value_block_exit_tails(
 
 ///|
 fn code_folding_value_exit_usable_suffix_len(
-  suffix_len : Int,
-  result_arity : Int,
-) -> Int {
+  suffix_len : Int32,
+  result_arity : Int32,
+) -> Int32 {
   if suffix_len >= result_arity {
     suffix_len
   } else {
@@ -2602,9 +2602,9 @@ fn code_folding_value_exit_usable_suffix_len(
 
 ///|
 fn code_folding_value_exit_expected_item_arity(
-  depth : Int,
-  result_arity : Int,
-) -> Int {
+  depth : Int32,
+  result_arity : Int32,
+) -> Int32 {
   if depth < result_arity {
     1
   } else {
@@ -2615,13 +2615,13 @@ fn code_folding_value_exit_expected_item_arity(
 ///|
 fn code_folding_common_value_block_exit_suffix_len(
   func : @ir.HotFunc,
-  block_id : Int,
-  target_label : Int,
-  result_arity : Int,
+  block_id : Int32,
+  target_label : Int32,
+  result_arity : Int32,
   tails : Array[CodeFoldingValueExitTail],
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
-) -> Int {
+) -> Int32 {
   if result_arity <= 0 || tails.length() < 2 {
     return 0
   }
@@ -2692,9 +2692,9 @@ fn code_folding_common_value_block_exit_suffix_len(
 fn code_folding_value_block_exit_suffix_profitability(
   func : @ir.HotFunc,
   tail : CodeFoldingValueExitTail,
-  suffix_len : Int,
-  duplicate_count : Int,
-) -> Int {
+  suffix_len : Int32,
+  duplicate_count : Int32,
+) -> Int32 {
   let roots = code_folding_value_exit_tail_suffix_roots(func, tail, suffix_len)
   let mut measure = 0
   for root_id in roots {
@@ -2729,7 +2729,7 @@ fn code_folding_append_value_exit_tail_removal(
 fn code_folding_region_removal_order(
   lhs : CodeFoldingRegionRemoval,
   rhs : CodeFoldingRegionRemoval,
-) -> Int {
+) -> Int32 {
   if lhs.region_ref.holder == rhs.region_ref.holder {
     rhs.start_idx - lhs.start_idx
   } else {
@@ -2742,7 +2742,7 @@ fn code_folding_try_fold_value_block_exit_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -2863,7 +2863,7 @@ fn code_folding_try_fold_value_block_exit_at_region(
 
 ///|
 fn CodeFoldingExitIndex::new(
-  node_count : Int,
+  node_count : Int32,
   build_block_exit_index : Bool,
   visit_control_bodies : Bool,
 ) -> CodeFoldingExitIndex {
@@ -2898,7 +2898,7 @@ fn CodeFoldingExitIndex::new(
 ///|
 fn CodeFoldingExitIndex::mark_unoptimizable(
   self : CodeFoldingExitIndex,
-  label : Int,
+  label : Int32,
 ) -> Unit {
   if label >= 0 {
     match self.tails {
@@ -2911,7 +2911,7 @@ fn CodeFoldingExitIndex::mark_unoptimizable(
 ///|
 fn CodeFoldingExitIndex::add_tail(
   self : CodeFoldingExitIndex,
-  label : Int,
+  label : Int32,
   tail : CodeFoldingExitTail,
 ) -> Unit {
   match self.tails {
@@ -2927,7 +2927,7 @@ fn CodeFoldingExitIndex::add_tail(
 ///|
 fn CodeFoldingExitIndex::mark_active_unoptimizable(
   self : CodeFoldingExitIndex,
-  active_block_labels : Array[Int],
+  active_block_labels : Array[Int32],
 ) -> Unit {
   for label in active_block_labels {
     self.mark_unoptimizable(label)
@@ -2937,8 +2937,8 @@ fn CodeFoldingExitIndex::mark_active_unoptimizable(
 ///|
 fn code_folding_index_block_exit_embedded_controls(
   func : @ir.HotFunc,
-  node_id : Int,
-  active_block_labels : Array[Int],
+  node_id : Int32,
+  active_block_labels : Array[Int32],
   index : CodeFoldingExitIndex,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -2982,11 +2982,11 @@ fn code_folding_index_block_exit_embedded_controls(
 ///|
 fn code_folding_index_block_exit_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   region_ref : @ir.HotRegionRef?,
-  region_idx : Int,
+  region_idx : Int32,
   final_region_root : Bool,
-  active_block_labels : Array[Int],
+  active_block_labels : Array[Int32],
   index : CodeFoldingExitIndex,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -3121,7 +3121,7 @@ fn code_folding_index_block_exit_node(
 fn code_folding_index_block_exit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  active_block_labels : Array[Int],
+  active_block_labels : Array[Int32],
   index : CodeFoldingExitIndex,
 ) -> Unit {
   let count = @ir.hot_region_root_count(func, region_ref)
@@ -3184,8 +3184,8 @@ fn code_folding_build_block_exit_index(
 ///|
 fn code_folding_collect_block_exit_tails_in_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  target_label : Int,
+  node_id : Int32,
+  target_label : Int32,
   tails : Array[CodeFoldingExitTail],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -3264,7 +3264,7 @@ fn code_folding_collect_block_exit_tails_in_node(
 fn code_folding_collect_block_exit_tails(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  target_label : Int,
+  target_label : Int32,
   tails : Array[CodeFoldingExitTail],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -3349,7 +3349,7 @@ fn code_folding_collect_block_exit_tails(
 fn code_folding_exit_tail_regions_are_unique(
   tails : Array[CodeFoldingExitTail],
 ) -> Bool {
-  let seen : @hashmap.HashMap[Int, Bool] = @hashmap.new(
+  let seen : @hashmap.HashMap[Int32, Bool] = @hashmap.new(
     capacity=tails.length() * 2 + 1,
   )
   for tail in tails {
@@ -3365,11 +3365,11 @@ fn code_folding_exit_tail_regions_are_unique(
 ///|
 fn code_folding_common_block_exit_suffix_len(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
   tails : Array[CodeFoldingExitTail],
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
-) -> Int {
+) -> Int32 {
   if tails.length() < 2 {
     return 0
   }
@@ -3420,7 +3420,7 @@ fn code_folding_try_fold_block_exit_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -3542,7 +3542,7 @@ fn code_folding_region_single_unused_block(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   label_used : @bitset.BitSet,
-) -> Int {
+) -> Int32 {
   if @ir.hot_region_root_count(func, region_ref) != 1 {
     return -1
   }
@@ -3564,13 +3564,13 @@ fn code_folding_region_single_unused_block(
 ///|
 fn code_folding_block_suffix_matches_region(
   func : @ir.HotFunc,
-  if_id : Int,
+  if_id : Int32,
   block_body_ref : @ir.HotRegionRef,
-  block_start : Int,
+  block_start : Int32,
   other_ref : @ir.HotRegionRef,
-  other_start : Int,
-  suffix_len : Int,
-  result_arity : Int,
+  other_start : Int32,
+  suffix_len : Int32,
+  result_arity : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -3615,11 +3615,11 @@ fn code_folding_try_fold_one_block_if_arm(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  if_id : Int,
+  idx : Int32,
+  if_id : Int32,
   block_region_ref : @ir.HotRegionRef,
   other_ref : @ir.HotRegionRef,
-  result_arity : Int,
+  result_arity : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -3693,11 +3693,11 @@ fn code_folding_try_fold_two_block_if_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  if_id : Int,
+  idx : Int32,
+  if_id : Int32,
   then_ref : @ir.HotRegionRef,
   else_ref : @ir.HotRegionRef,
-  result_arity : Int,
+  result_arity : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -3777,11 +3777,11 @@ fn code_folding_try_fold_one_block_if_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  if_id : Int,
+  idx : Int32,
+  if_id : Int32,
   then_ref : @ir.HotRegionRef,
   else_ref : @ir.HotRegionRef,
-  result_arity : Int,
+  result_arity : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -3798,8 +3798,8 @@ fn code_folding_try_fold_one_block_if_at_region(
 ///|
 fn code_folding_terminating_tail(
   region_ref : @ir.HotRegionRef,
-  end_idx : Int,
-  terminal_kind : Int,
+  end_idx : Int32,
+  terminal_kind : Int32,
 ) -> CodeFoldingTerminatingTail {
   { region_ref, end_idx, terminal_kind, suffix_len: 0, profitability: 0, }
 }
@@ -3807,8 +3807,8 @@ fn code_folding_terminating_tail(
 ///|
 fn code_folding_terminating_tail_with_plan(
   tail : CodeFoldingTerminatingTail,
-  suffix_len : Int,
-  profitability : Int,
+  suffix_len : Int32,
+  profitability : Int32,
 ) -> CodeFoldingTerminatingTail {
   {
     region_ref: tail.region_ref,
@@ -3823,8 +3823,8 @@ fn code_folding_terminating_tail_with_plan(
 fn code_folding_terminating_tail_item_at_depth(
   func : @ir.HotFunc,
   tail : CodeFoldingTerminatingTail,
-  depth : Int,
-) -> Int {
+  depth : Int32,
+) -> Int32 {
   if depth < 0 || tail.end_idx <= depth {
     return -1
   }
@@ -3918,9 +3918,9 @@ fn code_folding_collect_terminating_tails(
 ///|
 fn code_folding_terminating_node_measure(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
-) -> Int {
+) -> Int32 {
   if node_id < 0 ||
     node_id >= facts.measure_values.length() ||
     !@ir.hot_node_is_live(func, node_id) {
@@ -3951,9 +3951,9 @@ fn code_folding_terminating_node_measure(
 fn code_folding_terminating_suffix_measure(
   func : @ir.HotFunc,
   tail : CodeFoldingTerminatingTail,
-  suffix_len : Int,
+  suffix_len : Int32,
   facts : CodeFoldingTerminatingFacts,
-) -> Int {
+) -> Int32 {
   if suffix_len <= 0 || tail.end_idx < suffix_len {
     return 0
   }
@@ -3972,7 +3972,7 @@ fn code_folding_terminating_suffix_measure(
 ///|
 fn code_folding_node_is_simple_tail_call_operand(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3991,7 +3991,7 @@ fn code_folding_node_is_simple_tail_call_operand(
 fn code_folding_terminating_suffix_is_tail_call_operands_only(
   func : @ir.HotFunc,
   tail : CodeFoldingTerminatingTail,
-  suffix_len : Int,
+  suffix_len : Int32,
 ) -> Bool {
   let terminal_id = code_folding_terminating_tail_item_at_depth(func, tail, 0)
   if terminal_id < 0 || !@ir.hot_node_is_live(func, terminal_id) {
@@ -4020,8 +4020,8 @@ fn code_folding_terminating_suffix_is_tail_call_operands_only(
 ///|
 fn code_folding_terminating_node_imm0_hash(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   if code_folding_exact_payload_field(node.op) == 1 {
     return match @ir.hot_node_exact_instr(func, node_id) {
@@ -4056,8 +4056,8 @@ fn code_folding_terminating_node_imm0_hash(
 ///|
 fn code_folding_terminating_node_imm1_hash(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   if code_folding_exact_payload_field(node.op) == 2 {
     return match @ir.hot_node_exact_instr(func, node_id) {
@@ -4071,9 +4071,9 @@ fn code_folding_terminating_node_imm1_hash(
 ///|
 fn code_folding_terminating_node_shallow_hash(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   facts : CodeFoldingTerminatingFacts,
-) -> Int {
+) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -4118,7 +4118,7 @@ fn code_folding_terminating_node_shallow_hash(
 fn code_folding_plan_terminating_tail_group(
   func : @ir.HotFunc,
   tails : Array[CodeFoldingTerminatingTail],
-  suffix_len : Int,
+  suffix_len : Int32,
   facts : CodeFoldingTerminatingFacts,
 ) -> Array[CodeFoldingTerminatingTail] {
   if suffix_len <= 0 || tails.length() < 2 {
@@ -4219,14 +4219,14 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
 fn code_folding_pick_terminating_tail_group_at_depth(
   func : @ir.HotFunc,
   tails : Array[CodeFoldingTerminatingTail],
-  depth : Int,
+  depth : Int32,
   label_used : @bitset.BitSet,
   facts : CodeFoldingTerminatingFacts,
 ) -> Array[CodeFoldingTerminatingTail] {
   if tails.length() < 2 {
     return []
   }
-  let bucket_lookup : @hashmap.HashMap[Int, Int] = @hashmap.new(
+  let bucket_lookup : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
     capacity=tails.length() * 2 + 1,
   )
   let buckets : Array[Array[CodeFoldingTerminatingTail]] = []
@@ -4298,7 +4298,7 @@ fn code_folding_pick_terminating_tail_group_at_depth(
 ///|
 fn code_folding_pick_terminating_tail_group(
   func : @ir.HotFunc,
-  desired_kind : Int,
+  desired_kind : Int32,
   all_tails : Array[CodeFoldingTerminatingTail],
   label_used : @bitset.BitSet,
   facts : CodeFoldingTerminatingFacts,
@@ -4333,10 +4333,10 @@ fn code_folding_splice_terminating_region_unmarked(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  remove_count : Int,
-  node_ids : Array[Int],
-) -> Array[Int] {
+  idx : Int32,
+  remove_count : Int32,
+  node_ids : Array[Int32],
+) -> Array[Int32] {
   let removed = @ir.hot_region_splice(
     func, region_ref, idx, remove_count, node_ids,
   )
@@ -4520,12 +4520,12 @@ fn code_folding_try_fold_terminating_tails(
 ///|
 fn code_folding_terminal_suffix_matches_following(
   func : @ir.HotFunc,
-  if_id : Int,
+  if_id : Int32,
   then_ref : @ir.HotRegionRef,
-  then_start : Int,
+  then_start : Int32,
   region_ref : @ir.HotRegionRef,
-  following_start : Int,
-  suffix_len : Int,
+  following_start : Int32,
+  suffix_len : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -4576,10 +4576,10 @@ fn code_folding_try_fold_if_then_fallthrough_terminal_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  if_id : Int,
+  idx : Int32,
+  if_id : Int32,
   then_ref : @ir.HotRegionRef,
-  result_arity : Int,
+  result_arity : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -4633,7 +4633,7 @@ fn code_folding_try_fold_if_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -4735,7 +4735,7 @@ fn code_folding_try_fold_if_at_eh_body_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -4828,7 +4828,7 @@ fn code_folding_visit_eh_body_if_suffixes(
 fn code_folding_visit_embedded_eh_body_if_suffixes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {
@@ -4913,7 +4913,7 @@ fn code_folding_visit_embedded_eh_body_if_suffixes(
 fn CodeFoldingExitIndex::begin_control_body_visit(
   self : CodeFoldingExitIndex,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     node_id >= self.visited_control_bodies.length() ||
@@ -4940,7 +4940,7 @@ fn CodeFoldingExitIndex::begin_control_body_visit(
 fn code_folding_visit_embedded_controls(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   label_used : @bitset.BitSet,
   exit_index : CodeFoldingExitIndex,
 ) -> Bool {

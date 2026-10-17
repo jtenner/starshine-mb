@@ -1,5 +1,5 @@
 ///|
-fn dae2_analysis_bench(it : @bench.T, count : Int) -> Unit {
+fn dae2_analysis_bench(it : @bench.T, count : Int32) -> Unit {
   let input = dae2_retention_fixture(count)
   @validate.validate_module(input).unwrap()
   @validate.validate_module(dae2_run_module_pass(input, false).unwrap()).unwrap()

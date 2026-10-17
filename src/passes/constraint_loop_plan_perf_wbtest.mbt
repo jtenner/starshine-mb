@@ -1,5 +1,5 @@
 ///|
-fn ca_loop_plan_perf_fixture(loop_count : Int) -> @lib.Module {
+fn ca_loop_plan_perf_fixture(loop_count : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<loop_count {
     body.push(@lib.Instruction::i32_const(@lib.I32(1)))
@@ -31,7 +31,7 @@ fn ca_loop_plan_perf_fixture(loop_count : Int) -> @lib.Module {
 }
 
 ///|
-fn ca_loop_plan_perf_bench(it : @bench.T, loop_count : Int) -> Unit {
+fn ca_loop_plan_perf_bench(it : @bench.T, loop_count : Int32) -> Unit {
   let fixture = ca_loop_plan_perf_fixture(loop_count)
   if @validate.validate_module(fixture).is_err() {
     abort("ConstraintAnalysis typed-loop fixture is invalid")

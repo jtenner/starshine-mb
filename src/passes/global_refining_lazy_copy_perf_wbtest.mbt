@@ -1,5 +1,5 @@
 ///|
-fn gr_lazy_copy_perf_bench(it : @bench.T, instruction_count : Int) -> Unit {
+fn gr_lazy_copy_perf_bench(it : @bench.T, instruction_count : Int32) -> Unit {
   let instrs : Array[@lib.Instruction] = []
   for idx in 0..<instruction_count {
     instrs.push(@lib.Instruction::i32_const(@lib.I32(idx)))

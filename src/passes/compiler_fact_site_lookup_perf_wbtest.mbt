@@ -1,6 +1,6 @@
 ///|
-fn compiler_fact_site_lookup_fixture(count : Int) -> CompilerFactQuery {
-  let entries : Array[(UInt, @lib.Instruction)] = []
+fn compiler_fact_site_lookup_fixture(count : Int32) -> CompilerFactQuery {
+  let entries : Array[(UInt32, @lib.Instruction)] = []
   for idx in 0..<count {
     entries.push(
       ((idx * 2).to_uint(), @lib.Instruction::i32_const(@lib.I32(idx))),
@@ -17,7 +17,7 @@ fn compiler_fact_site_lookup_fixture(count : Int) -> CompilerFactQuery {
 }
 
 ///|
-fn compiler_fact_site_lookup_bench(it : @bench.T, count : Int) -> Unit {
+fn compiler_fact_site_lookup_bench(it : @bench.T, count : Int32) -> Unit {
   let query = compiler_fact_site_lookup_fixture(count)
   for idx in 0..<count {
     if !query.site_resolves(

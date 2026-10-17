@@ -1,9 +1,9 @@
 ///|
 fn dae2_raw_producers_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
-  mode : Int,
+  helpers : Int32,
+  width : Int32,
+  mode : Int32,
 ) -> Unit {
   let wat = ["(module (type $s (struct (field i32)))"]
   for index in 0..<helpers {

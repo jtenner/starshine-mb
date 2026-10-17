@@ -1,7 +1,7 @@
 ///|
 fn oi_directize_storage_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   rewrite : Bool,
 ) -> Unit {
   let body : Array[@lib.Instruction] = []

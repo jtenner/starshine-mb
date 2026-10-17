@@ -101,7 +101,7 @@ test "descriptor branches terminate straight-line local ownership proofs" {
 test "descriptor branches rebase outer targets when an unused wrapper disappears" {
   let ref_ = @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U)))
   for fail_branch in [false, true] {
-    let branch = fn(depth : UInt) {
+    let branch = fn(depth : UInt32) {
       if fail_branch {
         @lib.Instruction::br_on_cast_desc_eq_fail(
           @lib.LabelIdx::new(depth),

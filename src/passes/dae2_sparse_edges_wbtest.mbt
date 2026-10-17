@@ -46,8 +46,8 @@ test "dae2 dependency insertion order and repeated observations stay stable" {
 }
 
 ///|
-fn dae2_test_dependencies(graph : Dae2Graph, consumer : Int) -> Array[Int] {
-  let out : Array[Int] = []
+fn dae2_test_dependencies(graph : Dae2Graph, consumer : Int32) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut edge = graph.first_edge[consumer]
   while edge >= 0 {
     out.push(graph.edges[edge])

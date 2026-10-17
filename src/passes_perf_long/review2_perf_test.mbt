@@ -28,7 +28,7 @@ fn review2_preflight(fixture : @lib.Module, pass : String) -> @lib.Module {
 }
 
 ///|
-fn review2_untee(count : Int, grouped : Bool) -> @lib.Module {
+fn review2_untee(count : Int32, grouped : Bool) -> @lib.Module {
   let runs = []
   if grouped {
     runs.push(@lib.LocalRun::new(count.to_uint(), @lib.ValType::i32()))
@@ -57,7 +57,7 @@ fn review2_untee(count : Int, grouped : Bool) -> @lib.Module {
 }
 
 ///|
-fn review2_memory(count : Int) -> @lib.Module {
+fn review2_memory(count : Int32) -> @lib.Module {
   let types = []
   for _ in 0..<count {
     types.push(
@@ -92,7 +92,7 @@ fn review2_memory(count : Int) -> @lib.Module {
 }
 
 ///|
-fn review2_cse(count : Int) -> @lib.Module {
+fn review2_cse(count : Int32) -> @lib.Module {
   let body = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -119,7 +119,7 @@ fn review2_cse(count : Int) -> @lib.Module {
 }
 
 ///|
-fn review2_vacuum(count : Int) -> @lib.Module {
+fn review2_vacuum(count : Int32) -> @lib.Module {
   let body = []
   for _ in 0..<count {
     body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))

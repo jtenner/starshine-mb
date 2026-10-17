@@ -1,8 +1,8 @@
 ///|
-fn h2l_detached_cleanup_perf_bench(it : @bench.T, node_count : Int) -> Unit {
+fn h2l_detached_cleanup_perf_bench(it : @bench.T, node_count : Int32) -> Unit {
   it.bench(fn() {
     let func = @ir.HotFunc::new()
-    let detached : Array[Int] = []
+    let detached : Array[Int32] = []
     for idx in 0..<node_count {
       detached.push(@ir.hot_build_const_i32(func, @lib.I32(idx)))
     }

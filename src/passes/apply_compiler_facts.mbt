@@ -23,41 +23,41 @@ pub fn CompilerFactUsePolicy::trust_assertions() -> CompilerFactUsePolicy {
 
 ///|
 pub struct CompilerFactMaterializationStats {
-  mut fact_sections_seen : Int
-  mut function_bodies_with_facts : Int
-  mut function_facts_seen : Int
-  mut signature_facts_seen : Int
-  mut type_facts_seen : Int
-  mut global_facts_seen : Int
-  mut table_facts_seen : Int
-  mut value_facts_seen : Int
-  mut relation_facts_seen : Int
-  mut call_facts_seen : Int
-  mut branch_facts_seen : Int
-  mut loop_facts_seen : Int
-  mut allocation_facts_seen : Int
-  mut access_facts_seen : Int
-  mut numeric_operation_facts_seen : Int
-  mut hint_facts_seen : Int
-  mut trusted_assertion_facts : Int
-  mut hint_only_facts : Int
-  mut candidate_rewrites : Int
-  mut exact_call_target_facts_seen : Int
-  mut exact_call_target_facts_accepted : Int
-  mut call_ref_converted : Int
-  mut return_call_ref_converted : Int
-  mut integer_comparisons_folded : Int
-  mut integer_zero_checks_folded : Int
-  mut reference_null_checks_folded : Int
-  mut structurally_incompatible_rejected : Int
-  mut stale_or_unresolved_sites : Int
-  mut type_mismatches : Int
-  mut invalid_referenced_indices : Int
-  mut unsupported_versions : Int
-  mut malformed_or_impossible_facts : Int
-  mut facts_blocked_by_trust : Int
-  mut valid_facts_without_rewrite : Int
-  mut ignored_untrusted_assertions : Int
+  mut fact_sections_seen : Int32
+  mut function_bodies_with_facts : Int32
+  mut function_facts_seen : Int32
+  mut signature_facts_seen : Int32
+  mut type_facts_seen : Int32
+  mut global_facts_seen : Int32
+  mut table_facts_seen : Int32
+  mut value_facts_seen : Int32
+  mut relation_facts_seen : Int32
+  mut call_facts_seen : Int32
+  mut branch_facts_seen : Int32
+  mut loop_facts_seen : Int32
+  mut allocation_facts_seen : Int32
+  mut access_facts_seen : Int32
+  mut numeric_operation_facts_seen : Int32
+  mut hint_facts_seen : Int32
+  mut trusted_assertion_facts : Int32
+  mut hint_only_facts : Int32
+  mut candidate_rewrites : Int32
+  mut exact_call_target_facts_seen : Int32
+  mut exact_call_target_facts_accepted : Int32
+  mut call_ref_converted : Int32
+  mut return_call_ref_converted : Int32
+  mut integer_comparisons_folded : Int32
+  mut integer_zero_checks_folded : Int32
+  mut reference_null_checks_folded : Int32
+  mut structurally_incompatible_rejected : Int32
+  mut stale_or_unresolved_sites : Int32
+  mut type_mismatches : Int32
+  mut invalid_referenced_indices : Int32
+  mut unsupported_versions : Int32
+  mut malformed_or_impossible_facts : Int32
+  mut facts_blocked_by_trust : Int32
+  mut valid_facts_without_rewrite : Int32
+  mut ignored_untrusted_assertions : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -118,8 +118,8 @@ fn compiler_fact_stats_summary(
 /// Read-only, nonserialized index built once per optimization invocation.
 pub struct CompilerFactIndex {
   facts : @representation.OptimizationFactsSec
-  functions : @hashmap.HashMap[UInt, @representation.FunctionFacts]
-  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts]
+  functions : @hashmap.HashMap[UInt32, @representation.FunctionFacts]
+  bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts]
   values : @hashmap.HashMap[
     @representation.ValueSite,
     @representation.ValueFacts,
@@ -128,16 +128,16 @@ pub struct CompilerFactIndex {
     @representation.CodeSite,
     @representation.CallSiteFacts,
   ]
-  signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts]
-  types : @hashmap.HashMap[UInt, @representation.TypeFacts]
-  globals : @hashmap.HashMap[UInt, @representation.GlobalFacts]
-  tables : @hashmap.HashMap[UInt, @representation.TableFacts]
+  signatures : @hashmap.HashMap[UInt32, @representation.SignatureFacts]
+  types : @hashmap.HashMap[UInt32, @representation.TypeFacts]
+  globals : @hashmap.HashMap[UInt32, @representation.GlobalFacts]
+  tables : @hashmap.HashMap[UInt32, @representation.TableFacts]
 } derive(Debug)
 
 ///|
 fn compiler_fact_index_value_map(
   facts : @representation.OptimizationFactsSec,
-  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts],
+  bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts],
 ) -> @hashmap.HashMap[@representation.ValueSite, @representation.ValueFacts] {
   let values : @hashmap.HashMap[
     @representation.ValueSite,
@@ -160,7 +160,7 @@ fn compiler_fact_index_value_map(
 ///|
 fn compiler_fact_index_call_map(
   facts : @representation.OptimizationFactsSec,
-  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts],
+  bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts],
 ) -> @hashmap.HashMap[@representation.CodeSite, @representation.CallSiteFacts] {
   let calls : @hashmap.HashMap[
     @representation.CodeSite,
@@ -183,27 +183,27 @@ fn compiler_fact_index_call_map(
 pub fn CompilerFactIndex::new(
   facts : @representation.OptimizationFactsSec,
 ) -> CompilerFactIndex {
-  let functions : @hashmap.HashMap[UInt, @representation.FunctionFacts] = @hashmap.new()
+  let functions : @hashmap.HashMap[UInt32, @representation.FunctionFacts] = @hashmap.new()
   for value in facts.functions {
     functions.set(value.function, value)
   }
-  let bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts] = @hashmap.new()
+  let bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts] = @hashmap.new()
   for value in facts.bodies {
     bodies.set(value.function, value)
   }
-  let signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts] = @hashmap.new()
+  let signatures : @hashmap.HashMap[UInt32, @representation.SignatureFacts] = @hashmap.new()
   for value in facts.signatures {
     signatures.set(value.signature, value)
   }
-  let types : @hashmap.HashMap[UInt, @representation.TypeFacts] = @hashmap.new()
+  let types : @hashmap.HashMap[UInt32, @representation.TypeFacts] = @hashmap.new()
   for value in facts.types {
     types.set(value.type_, value)
   }
-  let globals : @hashmap.HashMap[UInt, @representation.GlobalFacts] = @hashmap.new()
+  let globals : @hashmap.HashMap[UInt32, @representation.GlobalFacts] = @hashmap.new()
   for value in facts.globals {
     globals.set(value.global, value)
   }
-  let tables : @hashmap.HashMap[UInt, @representation.TableFacts] = @hashmap.new()
+  let tables : @hashmap.HashMap[UInt32, @representation.TableFacts] = @hashmap.new()
   for value in facts.tables {
     tables.set(value.table, value)
   }
@@ -225,8 +225,8 @@ fn compiler_fact_index_bounded(
   facts : @representation.OptimizationFactsSec,
   env : @validate.Env,
 ) -> CompilerFactIndex {
-  let functions : @hashmap.HashMap[UInt, @representation.FunctionFacts] = @hashmap.new()
-  let bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts] = @hashmap.new()
+  let functions : @hashmap.HashMap[UInt32, @representation.FunctionFacts] = @hashmap.new()
+  let bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts] = @hashmap.new()
   for value in facts.functions {
     let slot = value.function.reinterpret_as_int()
     if slot >= 0 && slot < env.funcs.length() {
@@ -240,7 +240,7 @@ fn compiler_fact_index_bounded(
     }
   }
 
-  let signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts] = @hashmap.new()
+  let signatures : @hashmap.HashMap[UInt32, @representation.SignatureFacts] = @hashmap.new()
   for value in facts.signatures {
     let slot = value.signature.reinterpret_as_int()
     if slot >= 0 && slot < env.global_types.length() {
@@ -248,7 +248,7 @@ fn compiler_fact_index_bounded(
     }
   }
 
-  let types : @hashmap.HashMap[UInt, @representation.TypeFacts] = @hashmap.new()
+  let types : @hashmap.HashMap[UInt32, @representation.TypeFacts] = @hashmap.new()
   for value in facts.types {
     let slot = value.type_.reinterpret_as_int()
     if slot >= 0 && slot < env.global_types.length() {
@@ -256,7 +256,7 @@ fn compiler_fact_index_bounded(
     }
   }
 
-  let globals : @hashmap.HashMap[UInt, @representation.GlobalFacts] = @hashmap.new()
+  let globals : @hashmap.HashMap[UInt32, @representation.GlobalFacts] = @hashmap.new()
   for value in facts.globals {
     let slot = value.global.reinterpret_as_int()
     if slot >= 0 && slot < env.globals.length() {
@@ -264,7 +264,7 @@ fn compiler_fact_index_bounded(
     }
   }
 
-  let tables : @hashmap.HashMap[UInt, @representation.TableFacts] = @hashmap.new()
+  let tables : @hashmap.HashMap[UInt32, @representation.TableFacts] = @hashmap.new()
   for value in facts.tables {
     let slot = value.table.reinterpret_as_int()
     if slot >= 0 && slot < env.tables.length() {
@@ -422,7 +422,7 @@ pub fn CompilerFactIndex::hints_for_site(
 ///|
 fn compiler_fact_exact_target_from_value_facts(
   facts : @representation.ValueFacts,
-) -> UInt? {
+) -> UInt32? {
   let from_values = match facts.possible_values {
     Some(
       @representation.ClosedValueSet([@representation.RefFuncValue(function)])
@@ -452,8 +452,8 @@ fn compiler_fact_exact_target_from_value_facts(
 pub fn CompilerFactIndex::compiler_fact_exact_call_target(
   self : CompilerFactIndex,
   site : @representation.CodeSite,
-  target_value_site? : @representation.ValueSite? = None,
-) -> UInt? {
+  target_value_site~ : @representation.ValueSite? = None,
+) -> UInt32? {
   let call_target = match self.call_facts(site) {
     Some(facts) => facts.direct_target
     None => None
@@ -477,7 +477,7 @@ pub fn CompilerFactIndex::compiler_fact_exact_call_target(
 ///|
 fn compiler_fact_count_exact_targets(
   facts : @representation.OptimizationFactsSec,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for body in facts.bodies {
     for call in body.calls {
@@ -498,7 +498,7 @@ fn compiler_fact_count_exact_targets(
 fn compiler_fact_materializer_result_arity(
   instruction : @lib.Instruction,
   env : @validate.Env,
-) -> UInt? {
+) -> UInt32? {
   match instruction {
     @lib.Call(function) =>
       match env.get_functype_by_funcidx(function) {
@@ -580,9 +580,9 @@ fn compiler_fact_materializer_result_arity(
 
 ///|
 priv struct CompilerFactRewriteContext {
-  function : UInt
-  sites : Array[(UInt, @lib.Instruction)]
-  cursor : Ref[Int]
+  function : UInt32
+  sites : Array[(UInt32, @lib.Instruction)]
+  cursor : Ref[Int32]
   query : CompilerFactQuery
   stats : CompilerFactMaterializationStats
 }
@@ -697,7 +697,7 @@ fn compiler_fact_truth_instruction(
 fn compiler_fact_operand_pop_count(
   instruction : @lib.Instruction,
   env : @validate.Env,
-) -> Int? {
+) -> Int32? {
   match instruction {
     @lib.Call(function) =>
       match env.get_functype_by_funcidx(function) {
@@ -748,7 +748,7 @@ fn compiler_fact_integer_operand_domain(
 ///|
 fn compiler_fact_push_folded_predicate(
   out : Array[@lib.Instruction],
-  drops : Int,
+  drops : Int32,
   truth : CompilerFactTruth,
 ) -> Bool {
   let constant = match compiler_fact_truth_instruction(truth) {
@@ -934,7 +934,7 @@ fn compiler_fact_rewrite_region(
 ///|
 fn apply_compiler_facts_trusted(
   module_ : @lib.Module,
-  version : UInt,
+  version : UInt32,
   index : CompilerFactIndex,
   stats : CompilerFactMaterializationStats,
 ) -> Result[@lib.Module, String] {
@@ -990,10 +990,97 @@ fn apply_compiler_facts_trusted(
 }
 
 ///|
+fn compiler_fact_materialize_function_inline_policies(
+  module_ : @lib.Module,
+  facts : @representation.OptimizationFactsSec,
+) -> @lib.Module {
+  let mut has_concrete_policy = false
+  for function in facts.functions {
+    match function.inline_policy {
+      Some(@representation.NeverInline) | Some(@representation.AlwaysInline) => {
+        has_concrete_policy = true
+        break
+      }
+      _ => ()
+    }
+  }
+  if !has_concrete_policy {
+    return module_
+  }
+  let imported = directize_imported_func_count(module_)
+  let defined = match module_.func_sec {
+    Some(@lib.FuncSec(functions)) => functions.length()
+    None => 0
+  }
+  let total = imported + defined
+  let desired = Array::make(total, -1)
+  for function in facts.functions {
+    let raw = function.function.reinterpret_as_int()
+    if raw < 0 || raw >= total {
+      continue
+    }
+    match function.inline_policy {
+      Some(@representation.NeverInline) => desired[raw] = 0
+      Some(@representation.AlwaysInline) => desired[raw] = 1
+      // The inliner has no intermediate profitability tier. Keep Default and
+      // Prefer inert instead of silently strengthening either policy.
+      Some(@representation.DefaultInlinePolicy)
+      | Some(@representation.PreferInline)
+      | None => ()
+    }
+  }
+  let entries : Array[@lib.FuncAnnotationAssoc] = []
+  let original_entries = match module_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) => entries
+    None => []
+  }
+  for entry in original_entries {
+    let @lib.FuncAnnotationAssoc(function, annotations) = entry
+    let raw = function.reinterpret_as_int()
+    if raw < 0 || raw >= total || desired[raw] < 0 {
+      entries.push(entry)
+      continue
+    }
+    let retained : Array[@lib.FuncAnnotation] = []
+    for annotation in annotations {
+      let mut recognized_policy = false
+      if annotation.name == "binaryen.inline" && !annotation.args.is_empty() {
+        let arg = annotation.args[annotation.args.length() - 1]
+        recognized_policy = arg == "\"\\00\"" ||
+          arg == "\"\\7f\"" ||
+          arg == "\"\\7F\""
+      }
+      if !recognized_policy {
+        retained.push(annotation)
+      }
+    }
+    if !retained.is_empty() {
+      entries.push(@lib.FuncAnnotationAssoc::new(function, retained))
+    }
+  }
+  for raw = 0; raw < total; raw = raw + 1 {
+    if desired[raw] >= 0 {
+      let arg = if desired[raw] == 0 { "\"\\00\"" } else { "\"\\7f\"" }
+      entries.push(
+        @lib.FuncAnnotationAssoc::new(raw.reinterpret_as_uint(), [
+          @lib.FuncAnnotation::new("binaryen.inline", args=[arg]),
+        ]),
+      )
+    }
+  }
+  if module_.func_annotation_sec is Some(_) || !entries.is_empty() {
+    return module_.with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new(entries),
+    )
+  }
+  module_
+}
+
+///|
 fn compiler_fact_record_inventory(
   facts : @representation.OptimizationFactsSec,
   stats : CompilerFactMaterializationStats,
-) -> Int {
+) -> Int32 {
   stats.function_bodies_with_facts = facts.bodies.length()
   stats.function_facts_seen = facts.functions.length()
   stats.signature_facts_seen = facts.signatures.length()
@@ -1049,7 +1136,7 @@ fn compiler_fact_record_inventory(
 fn compiler_fact_count_invalid_top_level_indices(
   facts : @representation.OptimizationFactsSec,
   env : @validate.Env,
-) -> Int {
+) -> Int32 {
   let mut invalid = 0
   for value in facts.functions {
     if !env.has_func(@lib.FuncIdx::new(value.function)) {
@@ -1101,7 +1188,7 @@ pub fn apply_compiler_facts(
   stats.fact_sections_seen = 1
   let assertion_count = compiler_fact_record_inventory(section.facts, stats)
   match policy {
-    IgnoreFacts | HintsOnly => {
+    IgnoreFacts => {
       stats.hint_only_facts = stats.hint_facts_seen
       stats.facts_blocked_by_trust = assertion_count
       stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(
@@ -1109,6 +1196,14 @@ pub fn apply_compiler_facts(
       )
       stats.ignored_untrusted_assertions = stats.exact_call_target_facts_seen
       return Ok({ module_, stats, })
+    }
+    HintsOnly => {
+      stats.hint_only_facts = stats.hint_facts_seen
+      stats.facts_blocked_by_trust = assertion_count
+      stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(
+        section.facts,
+      )
+      stats.ignored_untrusted_assertions = stats.exact_call_target_facts_seen
     }
     TrustAssertions => stats.trusted_assertion_facts = assertion_count
   }
@@ -1123,6 +1218,18 @@ pub fn apply_compiler_facts(
   )
   if stats.invalid_referenced_indices > 0 {
     return Ok({ module_, stats, })
+  }
+  if policy == HintsOnly {
+    if pass_module_has_offset_sensitive_metadata(module_) {
+      return Ok({ module_, stats, })
+    }
+    return Ok({
+      module_: compiler_fact_materialize_function_inline_policies(
+        module_,
+        section.facts,
+      ),
+      stats,
+    })
   }
   let imported = directize_imported_func_count(module_)
   let defined = match module_.code_sec {
@@ -1140,7 +1247,14 @@ pub fn apply_compiler_facts(
     section.facts,
   )
   match apply_compiler_facts_trusted(module_, section.version, index, stats) {
-    Ok(module_) => Ok({ module_, stats, })
+    Ok(module_) =>
+      Ok({
+        module_: compiler_fact_materialize_function_inline_policies(
+          module_,
+          section.facts,
+        ),
+        stats,
+      })
     Err(err) => Err(err)
   }
 }

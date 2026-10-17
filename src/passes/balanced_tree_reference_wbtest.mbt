@@ -4,7 +4,7 @@
 fn sl_balanced_tree_reference_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -135,7 +135,7 @@ fn sl_balanced_tree_reference_flat(
 fn sl_balanced_tree_reference(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {

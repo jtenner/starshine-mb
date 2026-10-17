@@ -5,7 +5,7 @@ fn cl_branch_live_storage_result(
   labels : Array[Array[Bool]],
   exception_live : Array[Bool],
   reference : Bool,
-) -> (Array[Bool], Array[Bool], FixedArray[UInt64], Int, Int) {
+) -> (Array[Bool], Array[Bool], FixedArray[UInt64], Int32, Int32) {
   let actions : Array[CLAction] = []
   cl_collect_instrs(body, actions, live_after.length())
   let effective = Array::make(actions.length(), false)

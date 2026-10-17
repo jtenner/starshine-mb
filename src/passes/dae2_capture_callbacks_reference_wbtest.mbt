@@ -2,8 +2,8 @@
 // Frozen V34 traversal, including its instruction-scoped callback.
 fn callback_reference_pass_lower_count_locals(
   instrs : Array[@lib.Instruction],
-  gets : Array[Int],
-  writes : Array[Int],
+  gets : Array[Int32],
+  writes : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -25,10 +25,10 @@ fn callback_reference_pass_lower_count_locals(
 // Frozen V34 traversal, including its instruction-scoped callback.
 fn callback_reference_pass_lower_remove_balanced_captures(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  gets : Array[Int],
-  writes : Array[Int],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
+  start : Int32,
+  gets : Array[Int32],
+  writes : Array[Int32],
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let removed = Array::make(instrs.length(), false)
@@ -124,7 +124,7 @@ fn callback_reference_pass_lower_remove_balanced_captures(
 // Frozen V34 traversal, including its instruction-scoped callback.
 fn callback_reference_pass_lower_remap_locals(
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   instrs.map(fn(instr) {
     match instr {
@@ -154,8 +154,8 @@ fn callback_reference_pass_lower_compact_captures_with_map(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
-) -> (@lib.Func, Array[Int]) {
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
+) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
   if locals.length() <= original_locals.length() {
@@ -265,7 +265,7 @@ fn callback_reference_pass_lower_flatten_branchless_blocks_into(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   out : Array[@lib.Instruction],
-  label_keep? : Array[Bool]? = None,
+  label_keep~ : Array[Bool]? = None,
 ) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
@@ -380,7 +380,7 @@ fn callback_reference_pass_lower_flatten_branchless_blocks_into(
 fn callback_reference_pass_lower_flatten_branchless_blocks(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-  label_keep? : Array[Bool]? = None,
+  label_keep~ : Array[Bool]? = None,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let (changed, branchless) = callback_reference_pass_lower_flatten_branchless_blocks_into(

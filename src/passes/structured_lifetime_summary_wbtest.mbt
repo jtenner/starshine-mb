@@ -1,5 +1,7 @@
 ///|
-fn structured_lifetime_summary_fixture(count : Int) -> Array[@lib.Instruction] {
+fn structured_lifetime_summary_fixture(
+  count : Int32,
+) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   for local in 0..<count {
     body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
@@ -60,7 +62,7 @@ test "structured lifetime summaries bound candidate-rich prefixes without losing
 
 ///|
 fn structured_lifetime_candidate_free_fixture(
-  count : Int,
+  count : Int32,
 ) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   for local in 0..<count {

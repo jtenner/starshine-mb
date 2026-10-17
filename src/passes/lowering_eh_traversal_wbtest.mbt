@@ -1,5 +1,8 @@
 ///|
-fn lowering_eh_count_opcode(expr : @lib.Expr, opcode : @lib.Instruction) -> Int {
+fn lowering_eh_count_opcode(
+  expr : @lib.Expr,
+  opcode : @lib.Instruction,
+) -> Int32 {
   let @lib.Expr(instrs) = expr
   let mut count = 0
   for instr in instrs {

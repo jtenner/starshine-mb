@@ -5,13 +5,13 @@
 // Flat insertion-ordered adjacency avoids an empty heap array per location.
 // first/last link only actual edges; solve preserves the original queue order.
 priv struct Dae2Graph {
-  edges : Array[Int]
-  next_edge : Array[Int]
-  first_edge : Array[Int]
-  last_edge : Array[Int]
+  edges : Array[Int32]
+  next_edge : Array[Int32]
+  first_edge : Array[Int32]
+  last_edge : Array[Int32]
   used : Array[Bool]
-  work : Array[Int]
-  mut cursor : Int
+  work : Array[Int32]
+  mut cursor : Int32
 }
 
 ///|
@@ -43,7 +43,7 @@ fn Dae2Graph::new() -> Dae2Graph {
 }
 
 ///|
-fn Dae2Graph::location(self : Dae2Graph) -> Int {
+fn Dae2Graph::location(self : Dae2Graph) -> Int32 {
   let id = self.used.length()
   self.first_edge.push(-1)
   self.last_edge.push(-1)
@@ -52,7 +52,7 @@ fn Dae2Graph::location(self : Dae2Graph) -> Int {
 }
 
 ///|
-fn Dae2Graph::locations(self : Dae2Graph, count : Int) -> Int {
+fn Dae2Graph::locations(self : Dae2Graph, count : Int32) -> Int32 {
   let base = self.used.length()
   let end = base + count
   if count < 0 || end < base {
@@ -74,7 +74,7 @@ fn Dae2Graph::locations(self : Dae2Graph, count : Int) -> Int {
 }
 
 ///|
-fn Dae2Graph::edge(self : Dae2Graph, consumer : Int, source : Int) -> Unit {
+fn Dae2Graph::edge(self : Dae2Graph, consumer : Int32, source : Int32) -> Unit {
   if self.cursor != 0 {
     abort("DAE2 graph edges must be complete before solving")
   }
@@ -93,7 +93,7 @@ fn Dae2Graph::edge(self : Dae2Graph, consumer : Int, source : Int) -> Unit {
 }
 
 ///|
-fn Dae2Graph::observe(self : Dae2Graph, location : Int) -> Unit {
+fn Dae2Graph::observe(self : Dae2Graph, location : Int32) -> Unit {
   if location >= 0 && !self.used[location] {
     self.used[location] = true
     self.work.push(location)
@@ -119,15 +119,15 @@ fn Dae2Graph::solve(self : Dae2Graph) -> Unit {
 priv struct Dae2Function {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
-  param_locations : Array[Int]
-  result_location : Int
-  mut node_location_base : Int
-  mut node_count : Int
+  param_locations : Array[Int32]
+  result_location : Int32
+  mut node_location_base : Int32
+  mut node_count : Int32
   mut raw_analysis : Bool
-  mut raw_write_locations : Array[(Int, Int)]?
-  call_infos : Array[Int]
+  mut raw_write_locations : Array[(Int32, Int32)]?
+  call_infos : Array[Int32]
   mut call_infos_ready : Bool
-  control_type_infos : Array[Int]
+  control_type_infos : Array[Int32]
 }
 
 ///|
@@ -155,7 +155,7 @@ fn Dae2Function::new(
 fn Dae2Function::assign_node_locations(
   self : Dae2Function,
   graph : Dae2Graph,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   // Allocation is contiguous in storage-node order. The immutable analysis
   // snapshot keeps only this range; mutation relifts must preserve its count.
@@ -164,7 +164,7 @@ fn Dae2Function::assign_node_locations(
 }
 
 ///|
-fn dae2_node_location(info : Dae2Function, node : Int) -> Int {
+fn dae2_node_location(info : Dae2Function, node : Int32) -> Int32 {
   if node >= 0 && node < info.node_count {
     info.node_location_base + node
   } else {
@@ -190,7 +190,7 @@ fn dae2_observe_branch_target(
 }
 
 ///|
-fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
+fn dae2_removable_node(func : @ir.HotFunc, node : Int32) -> Bool {
   let op = @ir.hot_node_op(func, node)
   // Local writes require DAE2's reaching-definition liveness proof. They
   // are not generally discardable when another pass proves a value constant.
@@ -202,12 +202,12 @@ fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
 ///|
 #valtype
 priv struct Dae2WriteFacts {
-  sole : Array[Int]?
+  sole : Array[Int32]?
   opaque : Bool
 }
 
 ///|
-fn Dae2WriteFacts::new(sole : Array[Int]?, opaque : Bool) -> Dae2WriteFacts {
+fn Dae2WriteFacts::new(sole : Array[Int32]?, opaque : Bool) -> Dae2WriteFacts {
   { sole, opaque, }
 }
 
@@ -218,10 +218,10 @@ fn Dae2WriteFacts::new(sole : Array[Int]?, opaque : Bool) -> Dae2WriteFacts {
 // entry admission may retain its historical first-opaque early return.
 fn dae2_scan_write_facts(
   func : @ir.HotFunc,
-  early_opaque? : Bool = false,
-  visits? : Array[Int]? = None,
+  early_opaque~ : Bool = false,
+  visits~ : Array[Int32]? = None,
 ) -> Dae2WriteFacts {
-  let mut sole : Array[Int]? = None
+  let mut sole : Array[Int32]? = None
   let mut opaque = false
   for node in 0..<@ir.hot_node_count(func) {
     if visits is Some(visits) {
@@ -252,17 +252,17 @@ fn dae2_scan_write_facts(
 ///|
 fn dae2_entry_read_sources(
   func : @ir.HotFunc,
-  visits? : Array[Int]? = None,
-  interval_builds? : Array[Int]? = None,
-  known_writes? : Array[Int]? = None,
-  opaque? : Bool = false,
-  write_census_visits? : Array[Int]? = None,
-  entry_row_slots? : Array[Int]? = None,
-) -> Array[Int]? {
+  visits~ : Array[Int32]? = None,
+  interval_builds~ : Array[Int32]? = None,
+  known_writes~ : Array[Int32]? = None,
+  opaque~ : Bool = false,
+  write_census_visits~ : Array[Int32]? = None,
+  entry_row_slots~ : Array[Int32]? = None,
+) -> Array[Int32]? {
   if opaque {
     return None
   }
-  let root_writes : Array[Int] = []
+  let root_writes : Array[Int32] = []
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
       root_writes.push(root)
@@ -286,7 +286,7 @@ fn dae2_entry_read_sources(
       writes
     }
   }
-  let mut entry_writes : Array[Int]? = None
+  let mut entry_writes : Array[Int32]? = None
   let mut single_local = -1
   let mut single_write = -1
   let mut admitted = 0
@@ -339,8 +339,8 @@ fn dae2_entry_read_sources(
   let write_roots = Array::make(writes.length(), -1)
   let sources = Array::make(count, -2)
   let first_roots = Array::make(count, root_count)
-  let postorder : Array[Int] = []
-  let stack : Array[Int] = []
+  let postorder : Array[Int32] = []
+  let stack : Array[Int32] = []
   // First obtain a unique DAG postorder. Sources doubles as the discovery
   // marker and then the greatest reaching root ordinal, avoiding a seen array.
   for root in @ir.hot_root_span(func) {
@@ -446,13 +446,13 @@ fn dae2_entry_read_sources(
 // DAG work while avoiding interval/postorder scratch on the common small path.
 fn dae2_entry_single_read_sources(
   func : @ir.HotFunc,
-  local : Int,
-  write : Int,
-  visits? : Array[Int]? = None,
-) -> Array[Int]? {
+  local : Int32,
+  write : Int32,
+  visits~ : Array[Int32]? = None,
+) -> Array[Int32]? {
   let mut completed = false
   let sources = Array::make(@ir.hot_node_count(func), -2)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut epoch = 0
   for root in @ir.hot_root_span(func) {
     if root < 0 {
@@ -523,24 +523,31 @@ fn dae2_entry_single_read_sources(
 fn dae2_analyze_function(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
-  type_infos : Array[Int],
+  index : Int32,
+  type_infos : Array[Int32],
   func : @ir.HotFunc,
-  local_graph_builds? : Array[Int]? = None,
-  fallback_write_builds? : Array[Int]? = None,
-  analysis_child_snapshots? : Array[Int]? = None,
-  intrinsic_imports? : Array[Bool]? = None,
-  write_census_visits? : Array[Int]? = None,
+  local_graph_builds~ : Array[Int32]? = None,
+  fallback_write_builds~ : Array[Int32]? = None,
+  analysis_child_snapshots~ : Array[Int32]? = None,
+  intrinsic_imports~ : Array[Bool]? = None,
+  write_census_visits~ : Array[Int32]? = None,
+  writer_cut~ : Dae2WriterCut? = None,
 ) -> Unit {
   // This phase changes only the dependency graph; HOT child slots stay stable.
   ignore(analysis_child_snapshots)
   let info = infos[index]
+  let writer_cut = match writer_cut {
+    Some(cut) if cut.revision == @ir.hot_revision_current(func) => Some(cut)
+    _ => None
+  }
+  let mut cut_active = false
   let mut local_flow : @ir.HotLocalReadSources? = None
-  let mut fallback_writes : Array[Array[Int]]? = None
-  let mut written_locals : Array[Int]? = None
+  let mut fallback_writes : Array[Array[Int32]]? = None
+  let mut fallback_sources : Array[Int32]? = None
+  let mut written_locals : Array[Int32]? = None
   let mut writes_scanned = false
   let mut opaque_writes = false
-  let mut entry_read_sources : Array[Int]? = None
+  let mut entry_read_sources : Array[Int32]? = None
   let mut entry_source_attempted = false
   for node = 0; node < info.node_count; node = node + 1 {
     if !@ir.hot_node_is_live(func, node) {
@@ -552,6 +559,18 @@ fn dae2_analyze_function(
     // argument accesses retain the general getter and its slot checks.
     match data.op {
       @ir.LocalGet => {
+        if cut_active {
+          match writer_cut {
+            Some(cut) => {
+              if data.imm0 >= cut.source_local_count {
+                let (_, write) = cut.captures[data.imm0 - cut.source_local_count]
+                graph.edge(value, dae2_node_location(info, write))
+              }
+              continue
+            }
+            None => ()
+          }
+        }
         if !writes_scanned {
           let facts = dae2_scan_write_facts(func, visits=write_census_visits)
           written_locals = facts.sole
@@ -589,6 +608,25 @@ fn dae2_analyze_function(
           }
           _ => ()
         }
+        // Preserve the old no-write and entry-source fast paths. Activate
+        // only at the exact point where this read would build the full CFG.
+        match writer_cut {
+          Some(cut) => {
+            match local_graph_builds {
+              Some(count) if count.length() > 1 => count[1] += 1
+              _ => ()
+            }
+            @ir.hot_verify_all_or_abort(func)
+            cut.seed(graph, info)
+            cut_active = true
+            if data.imm0 >= cut.source_local_count {
+              let (_, write) = cut.captures[data.imm0 - cut.source_local_count]
+              graph.edge(value, dae2_node_location(info, write))
+            }
+            continue
+          }
+          None => ()
+        }
         let locals = match local_flow {
           Some(locals) => locals
           None => {
@@ -624,7 +662,7 @@ fn dae2_analyze_function(
                 Some(count) => count[0] += 1
                 None => ()
               }
-              let writes : Array[Array[Int]] = Array::makei(
+              let writes : Array[Array[Int32]] = Array::makei(
                 @ir.hot_local_count(func),
                 fn(_) { [] },
               )
@@ -637,15 +675,28 @@ fn dae2_analyze_function(
                 }
               }
               fallback_writes = Some(writes)
+              fallback_sources = Some(
+                Array::make(@ir.hot_local_count(func), -1),
+              )
               writes
             }
           }
-          if data.imm0 < info.params.length() {
-            graph.edge(value, info.param_locations[data.imm0])
+          let sources = fallback_sources.unwrap()
+          let mut source = sources[data.imm0]
+          if source < 0 {
+            // All unknown reads of this local have the same conservative
+            // source set. Share its fanout so R reads and W writes need R + W
+            // edges, while observing a read retains every possible definition.
+            source = graph.location()
+            sources[data.imm0] = source
+            if data.imm0 < info.params.length() {
+              graph.edge(source, info.param_locations[data.imm0])
+            }
+            for write in writes[data.imm0] {
+              graph.edge(source, dae2_node_location(info, write))
+            }
           }
-          for write in writes[data.imm0] {
-            graph.edge(value, dae2_node_location(info, write))
-          }
+          graph.edge(value, source)
         }
         for source_index in 0..<source_count {
           let source = @ir.local_read_source_value_for_get(
@@ -808,7 +859,7 @@ fn dae2_analyze_function(
 }
 
 ///|
-fn dae2_discard(func : @ir.HotFunc, node : Int) -> Int {
+fn dae2_discard(func : @ir.HotFunc, node : Int32) -> Int32 {
   if @ir.hot_node_result_arity(func, node) > 0 {
     @ir.hot_build_drop(func, node)
   } else {
@@ -817,7 +868,7 @@ fn dae2_discard(func : @ir.HotFunc, node : Int) -> Int {
 }
 
 ///|
-fn dae2_void_sequence(func : @ir.HotFunc, nodes : Array[Int]) -> Int {
+fn dae2_void_sequence(func : @ir.HotFunc, nodes : Array[Int32]) -> Int32 {
   let kept = nodes.filter(fn(id) { !(@ir.hot_node_op(func, id) is @ir.Nop) })
   match kept {
     [] => @ir.hot_build_nop(func)
@@ -832,10 +883,10 @@ fn dae2_void_sequence(func : @ir.HotFunc, nodes : Array[Int]) -> Int {
 #inline
 fn dae2_rewrite_leaf(
   func : @ir.HotFunc,
-  node : Int,
+  node : Int32,
   data : @ir.HotNode,
   used : Bool,
-) -> Int {
+) -> Int32 {
   if data.child_count != 0 {
     return -1
   }
@@ -869,16 +920,16 @@ fn dae2_rewrite_leaf(
 fn dae2_rewrite_children(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
+  index : Int32,
   func : @ir.HotFunc,
-  node : Int,
-  memo : Array[Int],
-  old_arities : Array[Int],
+  node : Int32,
+  memo : Array[Int32],
+  old_arities : Array[Int32],
   lower_state : HotPipelineLowerState,
-  type_infos : Array[Int],
-) -> Array[Int]? {
+  type_infos : Array[Int32],
+) -> Array[Int32]? {
   let count = @ir.hot_child_count(func, node)
-  let mut changed : Array[Int]? = None
+  let mut changed : Array[Int32]? = None
   for slot in 0..<count {
     let original = @ir.hot_child_get(func, node, slot)
     let child = dae2_rewrite_node(
@@ -903,14 +954,14 @@ fn dae2_rewrite_children(
 fn dae2_rewrite_node(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
+  index : Int32,
   func : @ir.HotFunc,
-  node : Int,
-  memo : Array[Int],
-  old_arities : Array[Int],
+  node : Int32,
+  memo : Array[Int32],
+  old_arities : Array[Int32],
   lower_state : HotPipelineLowerState,
-  type_infos : Array[Int],
-) -> Int {
+  type_infos : Array[Int32],
+) -> Int32 {
   if node < 0 {
     return node
   }
@@ -977,8 +1028,8 @@ fn dae2_rewrite_node(
       let tail = data.op is @ir.ReturnCall ||
         data.op is @ir.ReturnCallIndirect ||
         data.op is @ir.ReturnCallRef
-      let args : Array[Int] = []
-      let prefix : Array[Int] = []
+      let args : Array[Int32] = []
+      let prefix : Array[Int32] = []
       let removed = callee.param_locations.any(fn(loc) { !graph.used[loc] })
       let mut arg = 0
       while arg < callee.params.length() {
@@ -1046,7 +1097,7 @@ fn dae2_rewrite_node(
       ignore(dae2_replace_children_if_changed(func, node, args))
       let call = if !used && !tail { dae2_discard(func, node) } else { node }
       let prefix = prefix.filter(fn(id) {
-        !(@ir.hot_node_get(func, id).op is @ir.Nop)
+        !(@ir.hot_node_op(func, id) is @ir.Nop)
       })
       if prefix.is_empty() {
         call
@@ -1177,17 +1228,17 @@ fn dae2_rewrite_node(
 fn dae2_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
-  cleanup_module_env_builds? : Array[Int]? = None,
-  rewrite_lifts? : Array[Int]? = None,
-  local_graph_builds? : Array[Int]? = None,
-  fallback_write_builds? : Array[Int]? = None,
-  analysis_lifts? : Array[Int]? = None,
-  perf? : HotPerfSession? = None,
-  raw_analysis? : Bool = true,
-  raw_conditionals? : Bool = true,
-  raw_rewrite? : Bool = true,
-  raw_sparse_replay? : Bool = true,
-  stack_suffix_rewrite? : Bool = true,
+  cleanup_module_env_builds~ : Array[Int32]? = None,
+  rewrite_lifts~ : Array[Int32]? = None,
+  local_graph_builds~ : Array[Int32]? = None,
+  fallback_write_builds~ : Array[Int32]? = None,
+  analysis_lifts~ : Array[Int32]? = None,
+  perf~ : HotPerfSession? = None,
+  raw_analysis~ : Bool = true,
+  raw_conditionals~ : Bool = true,
+  raw_rewrite~ : Bool = true,
+  raw_sparse_replay~ : Bool = true,
+  stack_suffix_rewrite~ : Bool = true,
 ) -> Result[@lib.Module, String] {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return Ok(mod_)
@@ -1203,7 +1254,7 @@ fn dae2_run_module_pass(
   let indices = dae_collect_func_type_indices(mod_)
   let total_funcs = indices.length()
   let suffix_state = if raw_rewrite && stack_suffix_rewrite {
-    Some(Dae2StackSuffixState::new(total_funcs))
+    Some(Dae2StackSuffixState::new(total_funcs, context~))
   } else {
     None
   }
@@ -1420,8 +1471,8 @@ fn dae2_run_module_pass(
   let new_indices : Array[@lib.TypeIdx] = []
   let mut private_group : Dae2PrivateGroup? = None
   let bodies : Array[@lib.Func] = []
-  let local_remaps : Array[Array[Int]?] = []
-  let control_types : @hashmap.HashMap[Int, @lib.TypeIdx] = @hashmap.new()
+  let local_remaps : Array[Array[Int32]?] = []
+  let control_types : @hashmap.HashMap[Int32, @lib.TypeIdx] = @hashmap.new()
   let rewrite_start = perf_start_timer_opt(perf, "detail:dae2:rewrite")
   let mut rewrite_lift_us = 0UL
   let mut lower_us = 0UL
@@ -1451,10 +1502,9 @@ fn dae2_run_module_pass(
       family >= infos.length() ||
       dae2_signature_changes(graph, infos[family])
     })
-    let direct = if raw_rewrite && needs_rewrite && !control_rewrite {
-      // Keep the broader flat demand projection first. Structured suffix edits
-      // preserve original control headers when no general expression rewrite is
-      // required, including bodies that needed HOT only for dependency analysis.
+    let direct = if raw_rewrite && (needs_rewrite || control_rewrite) {
+      // Raw replay proves retained headers keep their full original signature.
+      // Changed private control families receive separate header types below.
       let flat = if info.raw_analysis {
         dae2_rewrite_raw_function(
           graph, infos, index, original_func, context, kept_params, removed_params,
@@ -1464,6 +1514,7 @@ fn dae2_run_module_pass(
       }
       match flat {
         Some(_) => flat
+        None if !needs_rewrite || control_rewrite => None
         None =>
           match suffix_state {
             Some(state) if state.admissions[index] == 1 => {
@@ -1492,7 +1543,22 @@ fn dae2_run_module_pass(
       bodies.push(original_func)
       local_remaps.push(None)
     } else if direct is Some((body, local_map)) {
-      bodies.push(body)
+      if control_rewrite {
+        let @lib.Func(locals, @lib.Expr(instructions)) = body
+        dae2_preserve_raw_control_types(
+          instructions, context, graph, infos, type_infos, type_workspace, control_types,
+        )
+        bodies.push(
+          @lib.Func::new(
+            locals,
+            @lib.Expr::new(
+              dae2_original_control_types(instructions, control_types),
+            ),
+          ),
+        )
+      } else {
+        bodies.push(body)
+      }
       local_remaps.push(Some(local_map))
     } else {
       match rewrite_lifts {
@@ -1502,13 +1568,7 @@ fn dae2_run_module_pass(
       let rewrite_lift_start = perf_start_timer_opt(
         perf, "detail:dae2:rewrite:lift",
       )
-      let func = match
-        dae2_lift_for_analysis(
-          mod_,
-          context,
-          index,
-          record_local_accesses=false,
-        ) {
+      let func = match dae2_lift_for_rewrite(mod_, context, index, info) {
         Ok(func) => func
         Err(err) => return Err(err)
       }
@@ -1529,18 +1589,19 @@ fn dae2_run_module_pass(
             replay
           }
         }
-        info.assign_node_locations(replay.graph, @ir.hot_node_count(func))
-        dae2_analyze_function(
-          replay.graph,
+        let replay_ok = dae2_writer_cut_analyze_raw_replay(
+          graph,
+          replay,
           infos,
           index,
           type_infos,
           func,
+          original_func,
           local_graph_builds~,
           fallback_write_builds~,
           intrinsic_imports~,
         )
-        if !replay.solve_function(info, infos) {
+        if !replay_ok {
           // Qualification must reproduce the complete boundary fixed point.
           // Re-run the original module through HOT if a new dependency appears.
           return dae2_run_module_pass(
@@ -1788,21 +1849,9 @@ fn dae2_run_module_pass(
   perf_stop_timer_opt(perf, "detail:dae2:finalize:cleanup", cleanup_start)
   // No mutation escapes until every definition and call site has its new
   // signature. The module dispatcher rebuilds the HOT module context/caches.
-  let validation_start = perf_start_timer_opt(
-    perf, "detail:dae2:finalize:validate",
-  )
-  let validated = @validate.validate_module(candidate)
-  perf_stop_timer_opt(perf, "detail:dae2:finalize:validate", validation_start)
+  let finalized = dae2_finalize_candidate(candidate, perf~)
   perf_stop_timer_opt(perf, "detail:dae2:finalize", finalize_start)
-  match validated {
-    Ok(_) =>
-      Ok(
-        dfe_cleanup_simple_type_encoding(
-          dae_prune_unused_simple_func_types(candidate, preserve_names=true),
-        ),
-      )
-    Err(err) => Err("dae2: invalid rewritten module: \{err}")
-  }
+  finalized
 }
 
 ///|
@@ -1815,9 +1864,9 @@ fn dae2_signature_changes(graph : Dae2Graph, info : Dae2Function) -> Bool {
 fn dae2_boundary_is_pinned(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
+  index : Int32,
   indices : Array[@lib.TypeIdx],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   exposure : Array[DaeFunctionExposure],
 ) -> Bool {
   if index < 0 || index >= infos.length() {
@@ -1840,9 +1889,10 @@ fn dae2_boundary_is_pinned(
 fn dae2_lift_for_analysis(
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,
-  index : Int,
-  write_provenance? : Dae2StackSuffixState? = None,
-  record_local_accesses? : Bool = true,
+  index : Int32,
+  write_provenance~ : Dae2StackSuffixState? = None,
+  record_local_accesses~ : Bool = true,
+  record_capture_sources~ : Bool = false,
 ) -> Result[@ir.HotFunc, String] {
   match
     @ir.hot_lift_func_with_context_result(
@@ -1854,6 +1904,7 @@ fn dae2_lift_for_analysis(
       // Keep the helper's recording contract for reference/tool callers.
       // Production opts out explicitly, but write provenance always needs it.
       record_local_accesses=record_local_accesses || write_provenance is Some(_),
+      record_capture_sources~,
     ) {
     Ok(func) => {
       // Use the same deterministic capture preparation in both phases.
@@ -1880,11 +1931,10 @@ fn dae2_lift_for_analysis(
 // its metadata or reset its span after the original children were captured.
 fn dae2_replace_children_if_changed(
   func : @ir.HotFunc,
-  node : Int,
-  children : Array[Int],
+  node : Int32,
+  children : Array[Int32],
 ) -> Bool {
-  let data = @ir.hot_node_get(func, node)
-  if data.child_count == children.length() {
+  if @ir.hot_child_count(func, node) == children.length() {
     let mut same = true
     for i = 0; i < children.length(); i = i + 1 {
       if @ir.hot_child_get(func, node, i) != children[i] {

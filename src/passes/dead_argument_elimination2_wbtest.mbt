@@ -1,5 +1,5 @@
 ///|
-fn dae2_test_signature(mod_ : @lib.Module, index : Int) -> @lib.FuncType {
+fn dae2_test_signature(mod_ : @lib.Module, index : Int32) -> @lib.FuncType {
   match
     @ir.hot_module_resolve_func_type(
       @ir.hot_module_context_from_module(mod_),
@@ -93,7 +93,7 @@ test "dae2 tuple cleanup drops stale labels only from changed functions" {
   let input = pass_test_module_from_wat(
     "(module (func (param i32 i64) (result i32 i64) (block (result i32 i64) (local.get 0) (local.get 1))) (func (param i32) (result i32) (block (result i32) (local.get 0) (br 0))))",
   )
-  let entry = fn(index : UInt, name : String) {
+  let entry = fn(index : UInt32, name : String) {
     @lib.IndirectNameAssoc::new(
       index,
       @lib.NameMap::new([@lib.NameAssoc::new(0U, @lib.Name::from_string(name))]),
@@ -644,7 +644,7 @@ test "dae2 preserves effectful legacy handlers while folding known local dispatc
 }
 
 ///|
-fn dae2_test_count_calls(body : Array[@lib.Instruction]) -> Int {
+fn dae2_test_count_calls(body : Array[@lib.Instruction]) -> Int32 {
   let mut calls = 0
   for instr in body {
     match instr {
@@ -794,7 +794,7 @@ test "dae2 pending captures define scratch locals before their first read" {
   let output = dae2_test_run(source, "dae2")
   let @lib.CodeSec(bodies) = output.code_sec.unwrap()
   let @lib.Func(_, @lib.Expr(body)) = bodies[0]
-  let initialized : Array[UInt] = []
+  let initialized : Array[UInt32] = []
   fn visit(body : Array[@lib.Instruction]) -> Unit raise {
     for instr in body {
       match instr {

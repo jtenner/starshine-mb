@@ -1,7 +1,7 @@
 ///|
 fn sl_root_constants_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   active : Bool,
 ) -> Unit raise {
   let locals = Array::make(width, "i32").join(" ")

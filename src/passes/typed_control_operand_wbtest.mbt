@@ -1,5 +1,5 @@
 ///|
-fn typed_control_operand_fixture(source : String) -> (@ir.HotFunc, Int) raise {
+fn typed_control_operand_fixture(source : String) -> (@ir.HotFunc, Int32) raise {
   let module_ = pass_test_module_from_wat(source)
   @validate.validate_module(module_).unwrap()
   let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))

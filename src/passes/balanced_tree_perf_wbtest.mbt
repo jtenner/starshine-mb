@@ -1,9 +1,9 @@
 ///|
 fn sl_balanced_tree_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   deep : Bool,
-  shape : Int,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let fragment = match shape {

@@ -11,14 +11,14 @@ fn perf_test_join_lines(lines : Array[String]) -> String {
 }
 
 ///|
-fn perf_test_count_occurrences(text : String, needle : String) -> Int {
+fn perf_test_count_occurrences(text : String, needle : String) -> Int32 {
   if needle == "" {
     return 0
   }
   let mut count = 0
   let mut start = 0
   while start <= text.length() - needle.length() {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let mut i = start
     while i <= text.length() - needle.length() {
       if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
@@ -40,7 +40,7 @@ fn perf_test_count_occurrences(text : String, needle : String) -> Int {
 
 ///|
 fn perf_test_make_large_void_if_return_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -80,7 +80,7 @@ fn perf_test_make_large_void_if_return_ladder_module(
 
 ///|
 fn perf_test_make_single_root_value_if_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -133,7 +133,9 @@ fn perf_test_make_single_root_value_if_ladder_module(
 }
 
 ///|
-fn perf_test_make_structured_return_ladder_module(repetitions : Int) -> String {
+fn perf_test_make_structured_return_ladder_module(
+  repetitions : Int32,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
@@ -212,7 +214,7 @@ fn perf_test_make_structured_return_ladder_module(repetitions : Int) -> String {
 
 ///|
 fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -255,7 +257,7 @@ fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
 
 ///|
 fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -301,7 +303,7 @@ fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
 
 ///|
 fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -360,7 +362,7 @@ fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
 
 ///|
 fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -422,7 +424,7 @@ fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
 
 ///|
 fn perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -468,7 +470,7 @@ fn perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
 
 ///|
 fn perf_test_make_simplify_locals_straight_line_adjacent_tee_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -512,7 +514,7 @@ fn perf_test_make_simplify_locals_straight_line_adjacent_tee_module(
 
 ///|
 fn perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -561,7 +563,7 @@ fn perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
 
 ///|
 fn perf_test_make_simplify_locals_no_local_writes_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0)")
@@ -594,7 +596,7 @@ fn perf_test_make_simplify_locals_no_local_writes_module(
 
 ///|
 fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0)")
@@ -646,7 +648,7 @@ fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
 
 ///|
 fn perf_test_make_simplify_locals_large_equivalent_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -730,8 +732,8 @@ fn perf_test_make_simplify_locals_large_equivalent_module(
 
 ///|
 fn perf_test_make_simplify_locals_sparse_equivalent_module(
-  local_count : Int,
-  copy_pairs : Int,
+  local_count : Int32,
+  copy_pairs : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -785,8 +787,8 @@ fn perf_test_make_simplify_locals_sparse_equivalent_module(
 
 ///|
 fn perf_test_make_simplify_locals_structured_call_heavy_module(
-  repetitions : Int,
-  base_locals : Int,
+  repetitions : Int32,
+  base_locals : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -854,14 +856,14 @@ fn perf_test_make_simplify_locals_structured_call_heavy_module(
 
 ///|
 fn perf_test_make_simplify_locals_giant_structured_call_heavy_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   perf_test_make_simplify_locals_structured_call_heavy_module(repetitions, 960)
 }
 
 ///|
 fn perf_test_make_simplify_locals_large_structured_call_heavy_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   perf_test_make_simplify_locals_structured_call_heavy_module(repetitions, 64)
 }
@@ -1711,8 +1713,8 @@ fn perf_test_make_simplify_locals_dense_structured_call_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
-  repetitions : Int,
-  base_locals : Int,
+  repetitions : Int32,
+  base_locals : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -1982,7 +1984,7 @@ fn perf_test_make_simplify_locals_parserish_two_loop_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2080,7 +2082,7 @@ fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
 
 ///|
 fn perf_test_make_simplify_locals_low_local_decision_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2117,8 +2119,8 @@ fn perf_test_make_simplify_locals_low_local_decision_ladder_module(
 
 ///|
 fn perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
-  repetitions : Int,
-  extra_locals : Int,
+  repetitions : Int32,
+  extra_locals : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2172,8 +2174,8 @@ fn perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
 
 ///|
 fn perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
-  repetitions : Int,
-  extra_locals : Int,
+  repetitions : Int32,
+  extra_locals : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2236,8 +2238,8 @@ fn perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
 
 ///|
 fn perf_test_make_simplify_locals_call_dense_structured_walker_module(
-  repetitions : Int,
-  extra_locals : Int,
+  repetitions : Int32,
+  extra_locals : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2293,7 +2295,7 @@ fn perf_test_make_simplify_locals_call_dense_structured_walker_module(
 
 ///|
 fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2384,7 +2386,7 @@ fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
 
 ///|
 fn perf_test_make_structured_return_ladder_with_guard_carrier_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2484,7 +2486,7 @@ fn perf_test_make_structured_return_ladder_with_guard_carrier_module(
 
 ///|
 fn perf_test_make_structured_return_ladder_with_false_prefix_guard_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2778,7 +2780,7 @@ fn perf_test_make_mid_unique_loop_select_return_ladder_module() -> String {
 
 ///|
 fn perf_test_make_large_result_br_table_dispatch_ladder_module(
-  depth : Int,
+  depth : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2822,7 +2824,7 @@ fn perf_test_make_large_result_br_table_dispatch_ladder_module(
 
 ///|
 fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2920,8 +2922,8 @@ fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
 
 ///|
 fn perf_test_make_large_typed_br_table_encoder_ladder_module(
-  depth : Int,
-  tails_per_case : Int,
+  depth : Int32,
+  tails_per_case : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3032,7 +3034,7 @@ fn perf_test_make_large_typed_br_table_encoder_ladder_module(
 
 ///|
 fn perf_test_make_large_value_if_branch_ladder_module(
-  case_count : Int,
+  case_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3107,7 +3109,7 @@ fn perf_test_make_large_value_if_branch_ladder_module(
 
 ///|
 fn perf_test_make_large_drop_heavy_branch_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3221,7 +3223,7 @@ fn perf_test_make_large_drop_heavy_branch_ladder_module(
 
 ///|
 fn perf_test_make_large_tagged_result_prefix_ladder_module(
-  case_count : Int,
+  case_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3336,7 +3338,7 @@ fn perf_test_make_large_tagged_result_prefix_ladder_module(
 }
 
 ///|
-fn perf_test_make_moderate_control_ladder_module(repetitions : Int) -> String {
+fn perf_test_make_moderate_control_ladder_module(repetitions : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
@@ -3501,7 +3503,9 @@ fn perf_test_make_nested_constructor_hot_skip_module() -> String {
 }
 
 ///|
-fn perf_test_make_if_only_no_run_candidate_module(repetitions : Int) -> String {
+fn perf_test_make_if_only_no_run_candidate_module(
+  repetitions : Int32,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
@@ -3795,7 +3799,9 @@ test "vacuum raw-skips functions with no cleanup candidates" {
 }
 
 ///|
-fn perf_test_vacuum_deep_singleton_call_leaf_module(depth : Int) -> @lib.Module {
+fn perf_test_vacuum_deep_singleton_call_leaf_module(
+  depth : Int32,
+) -> @lib.Module {
   let empty_func_type = @lib.TypeIdx::new(0U)
   let mut body : Array[@lib.Instruction] = [
     @lib.Instruction::i32_const(@lib.I32(7)),

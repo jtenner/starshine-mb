@@ -1,5 +1,5 @@
 ///|
-fn merge_blocks_perf_multivalue_module(block_count : Int) -> @lib.Module {
+fn merge_blocks_perf_multivalue_module(block_count : Int32) -> @lib.Module {
   let blocks_per_func = 1000
   let function_count = block_count / blocks_per_func
   let function_types : Array[@lib.TypeIdx] = [@lib.TypeIdx::new(0U)]

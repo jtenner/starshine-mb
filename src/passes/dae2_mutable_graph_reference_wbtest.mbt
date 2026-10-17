@@ -8,13 +8,13 @@
 // Flat insertion-ordered adjacency avoids an empty heap array per location.
 // first/last link only actual edges; solve preserves the original queue order.
 priv struct Dae2MutableGraphReference {
-  mut edges : Array[Int]
-  mut next_edge : Array[Int]
-  mut first_edge : Array[Int]
-  mut last_edge : Array[Int]
+  mut edges : Array[Int32]
+  mut next_edge : Array[Int32]
+  mut first_edge : Array[Int32]
+  mut last_edge : Array[Int32]
   used : Array[Bool]
-  mut work : Array[Int]
-  mut cursor : Int
+  mut work : Array[Int32]
+  mut cursor : Int32
 }
 
 ///|
@@ -52,7 +52,9 @@ fn Dae2MutableGraphReference::new() -> Dae2MutableGraphReference {
 }
 
 ///|
-fn Dae2MutableGraphReference::location(self : Dae2MutableGraphReference) -> Int {
+fn Dae2MutableGraphReference::location(
+  self : Dae2MutableGraphReference,
+) -> Int32 {
   let id = self.used.length()
   self.first_edge.push(-1)
   self.last_edge.push(-1)
@@ -63,8 +65,8 @@ fn Dae2MutableGraphReference::location(self : Dae2MutableGraphReference) -> Int 
 ///|
 fn Dae2MutableGraphReference::locations(
   self : Dae2MutableGraphReference,
-  count : Int,
-) -> Int {
+  count : Int32,
+) -> Int32 {
   let base = self.used.length()
   let end = base + count
   if count < 0 || end < base {
@@ -88,8 +90,8 @@ fn Dae2MutableGraphReference::locations(
 ///|
 fn Dae2MutableGraphReference::edge(
   self : Dae2MutableGraphReference,
-  consumer : Int,
-  source : Int,
+  consumer : Int32,
+  source : Int32,
 ) -> Unit {
   if self.cursor != 0 {
     abort("DAE2 graph edges must be complete before solving")
@@ -111,7 +113,7 @@ fn Dae2MutableGraphReference::edge(
 ///|
 fn Dae2MutableGraphReference::observe(
   self : Dae2MutableGraphReference,
-  location : Int,
+  location : Int32,
 ) -> Unit {
   if location >= 0 && !self.used[location] {
     self.used[location] = true

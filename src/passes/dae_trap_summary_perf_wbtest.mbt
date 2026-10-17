@@ -3,18 +3,18 @@
 ///|
 fn dae_call_scan_before_trap_fusion(
   instrs : Array[@lib.Instruction],
-  caller_def : Int,
-  caller_abs : Int,
-  path : Array[Int],
-  direct_calls : Array[Int],
+  caller_def : Int32,
+  caller_abs : Int32,
+  path : Array[Int32],
+  direct_calls : Array[Int32],
   tail_calls : Array[Bool],
-  direct_callers : Array[Array[Int]],
-  dropped_calls : Array[Int],
+  direct_callers : Array[Array[Int32]],
+  dropped_calls : Array[Int32],
   escaped : Array[Bool],
   function_infos : Array[DaeFunctionInfo],
-  caller_seen_stamps : Array[Int],
+  caller_seen_stamps : Array[Int32],
   active : Bool,
-  topology_out? : DaeCurrentTopologyExtras? = None,
+  topology_out~ : DaeCurrentTopologyExtras? = None,
 ) -> Unit {
   let collect_paths = !function_infos.is_empty()
   let mut idx = 0
@@ -397,8 +397,8 @@ fn dae_trap_scan_bench_run(
 ///|
 fn dae_trap_scan_bench(
   it : @bench.T,
-  depth : Int,
-  width : Int,
+  depth : Int32,
+  width : Int32,
   trap : Bool,
   fused : Bool,
 ) -> Unit {

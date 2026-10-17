@@ -19,7 +19,7 @@ fn tail_call_pure_selector(instr : @lib.Instruction) -> Bool {
 ///|
 fn tail_call_transfer_after(
   instrs : Array[@lib.Instruction],
-  index : Int,
+  index : Int32,
   is_tail : Bool,
   tail_labels : Array[Bool],
 ) -> Bool {

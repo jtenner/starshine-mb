@@ -1,11 +1,11 @@
 ///|
 fn wide_reverse_alias_fixture(
-  stable : Int,
-  source : Int,
-  target : Int,
-  ty? : String = "i32",
-  tee? : Bool = false,
-  type_defs? : String = "",
+  stable : Int32,
+  source : Int32,
+  target : Int32,
+  ty~ : String = "i32",
+  tee~ : Bool = false,
+  type_defs~ : String = "",
 ) -> @lib.Module {
   let locals = Array::make(source + 1, ty).join(" ")
   let prefix = Array::makei(stable, fn(i) {

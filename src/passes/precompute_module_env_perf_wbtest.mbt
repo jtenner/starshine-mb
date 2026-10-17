@@ -2,7 +2,7 @@
 fn precompute_module_env_bench(
   it : @bench.T,
   name : String,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let mod_ = pass_test_module_from_wat(
     "(module (func (param i32) (result i32) block (result i32) local.get 0 end))",

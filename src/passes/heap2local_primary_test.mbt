@@ -1,7 +1,7 @@
 ///|
 fn heap2local_primary_run(
   text : String,
-  requested_passes? : Array[String] = ["heap2local"],
+  requested_passes~ : Array[String] = ["heap2local"],
 ) -> @lib.Module {
   let optimized = match pass_test_run_pipeline(text, requested_passes) {
     Ok(mod_) => mod_
@@ -17,8 +17,8 @@ fn heap2local_primary_run(
 ///|
 fn heap2local_primary_pretty(
   text : String,
-  func_idx? : UInt = 0U,
-  requested_passes? : Array[String] = ["heap2local"],
+  func_idx~ : UInt32 = 0U,
+  requested_passes~ : Array[String] = ["heap2local"],
 ) -> String {
   heap2local_primary_run(text, requested_passes~).pretty_print_func(
     @lib.FuncIdx::new(func_idx),
@@ -54,7 +54,7 @@ fn heap2local_primary_contains_all(
 ///|
 fn heap2local_primary_run_module(
   mod_ : @lib.Module,
-  requested_passes? : Array[String] = ["heap2local"],
+  requested_passes~ : Array[String] = ["heap2local"],
 ) -> @lib.Module {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
@@ -76,8 +76,8 @@ fn heap2local_primary_run_module(
 ///|
 fn heap2local_primary_pretty_module(
   mod_ : @lib.Module,
-  func_idx? : UInt = 0U,
-  requested_passes? : Array[String] = ["heap2local"],
+  func_idx~ : UInt32 = 0U,
+  requested_passes~ : Array[String] = ["heap2local"],
 ) -> String {
   heap2local_primary_run_module(mod_, requested_passes~).pretty_print_func(
     @lib.FuncIdx::new(func_idx),

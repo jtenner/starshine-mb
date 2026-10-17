@@ -1,8 +1,8 @@
 ///|
 fn tuple_prepare_opcode_fixture(
-  width : Int,
+  width : Int32,
   results : Array[@lib.ValType],
-) -> (@ir.HotFunc, Int) {
+) -> (@ir.HotFunc, Int32) {
   let func = @ir.HotFunc::new()
   for index in 0..<width {
     @ir.hot_root_append(
@@ -10,7 +10,7 @@ fn tuple_prepare_opcode_fixture(
       @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(index))),
     )
   }
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for result in results {
     values.push(
       if result == @lib.ValType::i64() {

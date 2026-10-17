@@ -1,7 +1,7 @@
 ///|
 fn gsi_propagation_perf_fixture(
-  depth : Int,
-  global_count : Int,
+  depth : Int32,
+  global_count : Int32,
 ) -> (@validate.Env, Array[Array[@lib.GlobalIdx]]) {
   let source = StringBuilder::new()
   source.write_string("(module\n")
@@ -35,8 +35,8 @@ fn gsi_propagation_perf_fixture(
 ///|
 fn gsi_propagation_perf_bench(
   it : @bench.T,
-  depth : Int,
-  global_count : Int,
+  depth : Int32,
+  global_count : Int32,
 ) -> Unit {
   let (env, initial) = gsi_propagation_perf_fixture(depth, global_count)
   let copy_candidates = fn() {

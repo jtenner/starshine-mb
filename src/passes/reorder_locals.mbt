@@ -5,16 +5,16 @@ pub fn reorder_locals_summary() -> String {
 
 ///|
 priv struct RLScanState {
-  counts : Array[Int]
-  first_uses : Array[Int]
-  used_body_locals : Array[Int]
-  param_count : Int
-  mut next_rank : Int
+  counts : Array[Int32]
+  first_uses : Array[Int32]
+  used_body_locals : Array[Int32]
+  param_count : Int32
+  mut next_rank : Int32
   mut valid : Bool
 }
 
 ///|
-fn RLScanState::new(local_count : Int, param_count : Int) -> RLScanState {
+fn RLScanState::new(local_count : Int32, param_count : Int32) -> RLScanState {
   {
     counts: Array::make(local_count, 0),
     first_uses: Array::make(local_count, 0),
@@ -28,12 +28,12 @@ fn RLScanState::new(local_count : Int, param_count : Int) -> RLScanState {
 ///|
 priv struct RLFuncRewrite {
   func : @lib.Func
-  old_to_new : Array[Int]
+  old_to_new : Array[Int32]
   changed : Bool
 }
 
 ///|
-fn rl_imported_func_count(mod_ : @lib.Module) -> Int {
+fn rl_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -49,13 +49,13 @@ fn rl_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rl_local_idx_raw(idx : @lib.LocalIdx) -> Int {
+fn rl_local_idx_raw(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn rl_local_idx_from_int(idx : Int) -> @lib.LocalIdx {
+fn rl_local_idx_from_int(idx : Int32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(idx.reinterpret_as_uint())
 }
 
@@ -64,7 +64,7 @@ fn rl_local_idx_from_int(idx : Int) -> @lib.LocalIdx {
 ///|
 fn rl_flatten_locals(
   locals : @lib.Locals,
-  local_count : Int,
+  local_count : Int32,
 ) -> Array[@lib.ValType] {
   let out : Array[@lib.ValType] = Array::new(capacity=local_count)
   for run in locals.runs() {
@@ -148,10 +148,10 @@ fn rl_scan_instruction(instr : @lib.Instruction, state : RLScanState) -> Unit {
 
 ///|
 fn rl_sort_used_body_locals(
-  used_body_locals : Array[Int],
-  counts : Array[Int],
-  first_uses : Array[Int],
-) -> Array[Int] {
+  used_body_locals : Array[Int32],
+  counts : Array[Int32],
+  first_uses : Array[Int32],
+) -> Array[Int32] {
   used_body_locals.sort_by(fn(lhs, rhs) {
     let lhs_count = counts[lhs]
     let rhs_count = counts[rhs]
@@ -171,7 +171,7 @@ fn rl_sort_used_body_locals(
 ///|
 fn rl_rewrite_local_idx(
   idx : @lib.LocalIdx,
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> @lib.LocalIdx {
   let raw = rl_local_idx_raw(idx)
   if raw < 0 || raw >= old_to_new.length() {
@@ -185,7 +185,7 @@ fn rl_rewrite_local_idx(
 }
 
 ///|
-fn rl_rewrite_expr(expr : @lib.Expr, old_to_new : Array[Int]) -> @lib.Expr {
+fn rl_rewrite_expr(expr : @lib.Expr, old_to_new : Array[Int32]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten = instrs.copy()
   rl_rewrite_instrs_in_place(rewritten, old_to_new)
@@ -195,7 +195,7 @@ fn rl_rewrite_expr(expr : @lib.Expr, old_to_new : Array[Int]) -> @lib.Expr {
 ///|
 fn rl_rewrite_instrs_in_place(
   instrs : Array[@lib.Instruction],
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -361,8 +361,8 @@ fn rl_defined_func_param_cache(
 
 ///|
 fn rl_used_body_locals_are_original_prefix(
-  used_body_locals : Array[Int],
-  param_count : Int,
+  used_body_locals : Array[Int32],
+  param_count : Int32,
 ) -> Bool {
   for idx = 0; idx < used_body_locals.length(); idx = idx + 1 {
     if used_body_locals[idx] != param_count + idx {
@@ -406,7 +406,7 @@ fn rl_rewrite_func_type_stable(
           body_local_types[old_body_end] == ty {
       old_body_end += 1
     }
-    let used_in_run : Array[Int] = []
+    let used_in_run : Array[Int32] = []
     for old_body_idx = old_body_start
         old_body_idx < old_body_end
         old_body_idx = old_body_idx + 1 {
@@ -513,7 +513,7 @@ fn rl_rewrite_func(
 ///|
 fn rl_rewrite_name_map(
   names : @lib.NameMap,
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> @lib.NameMap? {
   let @lib.NameMap(entries) = names
   let rewritten : Array[@lib.NameAssoc] = Array::new(capacity=entries.length())
@@ -551,8 +551,8 @@ fn rl_rewrite_name_map(
 ///|
 fn rl_rewrite_local_names(
   names : @lib.IndirectNameMap?,
-  imported_func_count : Int,
-  func_remaps : Array[Array[Int]?],
+  imported_func_count : Int32,
+  func_remaps : Array[Array[Int32]?],
 ) -> @lib.IndirectNameMap? {
   match names {
     Some(@lib.IndirectNameMap(entries)) => {
@@ -608,8 +608,8 @@ fn rl_name_sec_is_empty(name_sec : @lib.NameSec) -> Bool {
 ///|
 fn rl_rewrite_name_sec(
   name_sec : @lib.NameSec?,
-  imported_func_count : Int,
-  func_remaps : Array[Array[Int]?],
+  imported_func_count : Int32,
+  func_remaps : Array[Array[Int32]?],
 ) -> @lib.NameSec? {
   match name_sec {
     Some(sec) => {
@@ -697,7 +697,9 @@ pub fn reorder_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),
       )
-      let func_remaps : Array[Array[Int]?] = Array::new(capacity=funcs.length())
+      let func_remaps : Array[Array[Int32]?] = Array::new(
+        capacity=funcs.length(),
+      )
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let func = funcs[code_idx]
@@ -724,5 +726,60 @@ pub fn reorder_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       )
     }
     None => mod_
+  }
+}
+
+///|
+fn run_hot_pipeline_apply_reorder_locals_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  params_by_func~ : Array[Array[@lib.ValType]]? = None,
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let params = match params_by_func {
+    Some(params) => params
+    None => rl_defined_func_param_cache(mod_)
+  }
+  let func_remaps : Array[Array[Int32]?] = Array::make(funcs.length(), None)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let func_params = match params.get(code_idx) {
+      Some(params) => params
+      None =>
+        return Err("missing defined function params for code index \{code_idx}")
+    }
+    let rewrite = rl_rewrite_func(funcs[code_idx], func_params)
+    if rewrite.changed {
+      func_remaps[code_idx] = Some(rewrite.old_to_new)
+      match rewritten {
+        Some(copy) => copy[code_idx] = rewrite.func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = rewrite.func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) => {
+      let next = mod_.with_code_sec(@lib.CodeSec::new(copy))
+      match
+        rl_rewrite_name_sec(
+          mod_.name_sec,
+          rl_imported_func_count(mod_),
+          func_remaps,
+        ) {
+        Some(name_sec) => Ok(next.with_name_sec(name_sec))
+        None => Ok(next.without_name_sec())
+      }
+    }
+    None => Ok(mod_)
   }
 }

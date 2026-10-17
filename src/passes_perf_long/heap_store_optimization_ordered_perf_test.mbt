@@ -13,7 +13,7 @@ fn hso_ordered_perf_struct_fields() -> Array[@lib.FieldType] {
 }
 
 ///|
-fn hso_ordered_perf_module(candidate_count : Int) -> @lib.Module {
+fn hso_ordered_perf_module(candidate_count : Int32) -> @lib.Module {
   let pair = @lib.TypeIdx::new(0U)
   let descriptor = @lib.TypeIdx::new(1U)
   let func_type = @lib.TypeIdx::new(2U)
@@ -186,7 +186,9 @@ test "heap-store-optimization ordered perf lane measures repeated subtree summar
 }
 
 ///|
-fn hso_ordered_perf_count_struct_sets(instrs : Array[@lib.Instruction]) -> Int {
+fn hso_ordered_perf_count_struct_sets(
+  instrs : Array[@lib.Instruction],
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -210,7 +212,7 @@ fn hso_ordered_perf_count_struct_sets(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn hso_ordered_perf_struct_set_count(mod_ : @lib.Module) -> Int {
+fn hso_ordered_perf_struct_set_count(mod_ : @lib.Module) -> Int32 {
   match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
       hso_ordered_perf_count_struct_sets(body)

@@ -1,7 +1,7 @@
 ///|
 fn cl_path_scan_value_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nested : Bool,
   unsupported : Bool,
 ) -> Unit {

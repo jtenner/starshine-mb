@@ -1,11 +1,14 @@
 ///|
-fn flatten_dew_accumulator_execute(func : @lib.Func, input : Int) -> Int raise {
+fn flatten_dew_accumulator_execute(
+  func : @lib.Func,
+  input : Int32,
+) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(body_locals.length() + 1, 0)
   locals[0] = input
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut fuel = 3000
-  fn execute(instrs : Array[@lib.Instruction]) -> Int? raise {
+  fn execute(instrs : Array[@lib.Instruction]) -> Int32? raise {
     for instr in instrs {
       fuel -= 1
       assert_true(

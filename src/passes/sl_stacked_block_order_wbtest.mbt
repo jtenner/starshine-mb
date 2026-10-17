@@ -1,7 +1,7 @@
 ///|
 fn sl_stacked_block_const_source(
   func : @ir.HotFunc,
-  node : Int,
+  node : Int32,
 ) -> @lib.Instruction? {
   let data = @ir.hot_node_get(func, node)
   if data.op is @ir.Const {
@@ -26,7 +26,7 @@ fn sl_stacked_block_first_operand_source(
     @ir.cfg_build(func, expand_operand_control=true),
   )
   let seen = Array::make(@ir.hot_node_count(func), false)
-  fn source(node : Int) -> @lib.Instruction? {
+  fn source(node : Int32) -> @lib.Instruction? {
     if node < 0 || seen[node] {
       return None
     }

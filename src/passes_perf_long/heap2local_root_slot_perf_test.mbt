@@ -2,7 +2,7 @@
 // Setup validates the input and output; timing measures the pass invocation.
 
 ///|
-fn heap2local_root_slot_fixture(epoch_count : Int) -> @lib.Module {
+fn heap2local_root_slot_fixture(epoch_count : Int32) -> @lib.Module {
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(
       @lib.CompType::struct_([
@@ -42,7 +42,7 @@ fn heap2local_root_slot_fixture(epoch_count : Int) -> @lib.Module {
 }
 
 ///|
-fn heap2local_root_slot_bench(it : @bench.T, epochs : Int) -> Unit {
+fn heap2local_root_slot_bench(it : @bench.T, epochs : Int32) -> Unit {
   let fixture = heap2local_root_slot_fixture(epochs)
   let expected = opportunity_run(fixture, "heap2local", true)
   let original_code = fixture.code_sec

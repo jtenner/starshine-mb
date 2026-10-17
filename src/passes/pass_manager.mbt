@@ -29,42 +29,47 @@ pub struct HotPipelineOptions {
   zero_filled_memory : Bool
   fast_math : Bool
   compiler_fact_policy : CompilerFactUsePolicy
-  optimize_level : Int
-  shrink_level : Int
-  inlining_always_inline_max_size : Int
-  inlining_one_caller_inline_max_size : Int
-  inlining_flexible_inline_max_size : Int
-  inlining_max_combined_binary_size : Int
+  optimize_level : Int32
+  shrink_level : Int32
+  inlining_always_inline_max_size : Int32
+  inlining_one_caller_inline_max_size : Int32
+  inlining_flexible_inline_max_size : Int32
+  inlining_max_combined_binary_size : Int32
   inlining_allow_functions_with_loops : Bool
-  inlining_partial_inlining_ifs : Int
+  inlining_partial_inlining_ifs : Int32
   stack_function_passes : Bool
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
+  priv dae_default_no_callback_trace : DaeNoCallbackTrace?
 }
 
 ///|
 pub fn HotPipelineOptions::new(
-  verify_policy? : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
-  validate_final_module? : Bool = true,
-  closed_world? : Bool = false,
-  traps_never_happen? : Bool = false,
-  ignore_implicit_traps? : Bool = false,
-  zero_filled_memory? : Bool = false,
-  fast_math? : Bool = false,
-  compiler_fact_policy? : CompilerFactUsePolicy = CompilerFactUsePolicy::ignore(),
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  inlining_always_inline_max_size? : Int = 2,
-  inlining_one_caller_inline_max_size? : Int = -1,
-  inlining_flexible_inline_max_size? : Int = 20,
-  inlining_max_combined_binary_size? : Int = 400 * 1024,
-  inlining_allow_functions_with_loops? : Bool = false,
-  inlining_partial_inlining_ifs? : Int = 0,
-  stack_function_passes? : Bool = false,
-  trace? : ((String) -> Unit)? = None,
-  perf? : HotPerfSession? = None,
+  verify_policy~ : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
+  validate_final_module~ : Bool = true,
+  closed_world~ : Bool = false,
+  traps_never_happen~ : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
+  zero_filled_memory~ : Bool = false,
+  fast_math~ : Bool = false,
+  compiler_fact_policy~ : CompilerFactUsePolicy = CompilerFactUsePolicy::ignore(),
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  inlining_always_inline_max_size~ : Int32 = 2,
+  inlining_one_caller_inline_max_size~ : Int32 = -1,
+  inlining_flexible_inline_max_size~ : Int32 = 20,
+  inlining_max_combined_binary_size~ : Int32 = 400 * 1024,
+  inlining_allow_functions_with_loops~ : Bool = false,
+  inlining_partial_inlining_ifs~ : Int32 = 0,
+  stack_function_passes~ : Bool = false,
+  trace~ : ((String) -> Unit)? = None,
+  perf~ : HotPerfSession? = None,
 ) -> HotPipelineOptions {
+  let trace_fn = match trace {
+    Some(cb) => cb
+    None => hot_pipeline_trace_noop
+  }
   {
     verify_policy,
     validate_final_module,
@@ -84,11 +89,13 @@ pub fn HotPipelineOptions::new(
     inlining_partial_inlining_ifs,
     stack_function_passes,
     trace_enabled: trace is Some(_),
-    trace: match trace {
-      Some(cb) => cb
-      None => hot_pipeline_trace_noop
-    },
+    trace: trace_fn,
     perf,
+    dae_default_no_callback_trace: if trace is None && perf is None {
+      Some({ callback: trace_fn, })
+    } else {
+      None
+    },
   }
 }
 
@@ -173,11 +180,12 @@ pub struct HotPassContext {
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
   fast_math : Bool
-  optimize_level : Int
-  shrink_level : Int
+  optimize_level : Int32
+  shrink_level : Int32
   trace : (String) -> Unit
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
+  priv mut allows_simd_introduction : Bool
 }
 
 ///|
@@ -187,13 +195,13 @@ pub fn HotPassContext::new(
   verify_policy : HotPipelineVerifyPolicy,
   closed_world : Bool,
   trace : (String) -> Unit,
-  traps_never_happen? : Bool = false,
-  ignore_implicit_traps? : Bool = false,
-  fast_math? : Bool = false,
-  perf? : HotPerfSession? = None,
-  module_ctx? : @ir.HotModuleContext? = None,
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
+  traps_never_happen~ : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
+  fast_math~ : Bool = false,
+  perf~ : HotPerfSession? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
 ) -> HotPassContext {
   {
     descriptor,
@@ -208,6 +216,7 @@ pub fn HotPassContext::new(
     trace,
     perf,
     module_ctx,
+    allows_simd_introduction: true,
   }
 }
 
@@ -374,7 +383,7 @@ pub fn pipeline_trace_hook(
   trace : (String) -> Unit,
   pass_name : String,
   event : String,
-  payload? : String = "",
+  payload~ : String = "",
 ) -> Unit {
   let suffix = if payload == "" { "" } else { " \{payload}" }
   trace("pass[\{pass_name}]:\{event}\{suffix}")
@@ -397,7 +406,7 @@ pub fn run_hot_pipeline_debug_dump_enabled(
 }
 
 ///|
-fn pass_manager_debug_node_tag(func : @ir.HotFunc, node_id : Int) -> String {
+fn pass_manager_debug_node_tag(func : @ir.HotFunc, node_id : Int32) -> String {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
@@ -412,7 +421,7 @@ fn pass_manager_debug_dump_node(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   stage : String,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
     trace("debug[\{stage}]:node \{node_id} dead")
@@ -435,7 +444,7 @@ fn pass_manager_debug_dump_root_prefix(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   stage : String,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let limit = if count < @ir.hot_root_count(func) {
     count
@@ -638,7 +647,7 @@ fn vacuum_heap_is_removable_if_unused(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
-  let length_is_known_nonnegative_const = fn(slot : Int) {
+  let length_is_known_nonnegative_const = fn(slot : Int32) {
     if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
       return false
     }
@@ -789,15 +798,15 @@ fn vacuum_branch_targets_only_label(
 
 ///|
 priv struct VacuumDroppedNodeWorkspace {
-  states : Array[Int]
-  generations : Array[Int]
+  states : Array[Int32]
+  generations : Array[Int32]
   touched : Array[@ir.NodeId]
-  mut generation : Int
+  mut generation : Int32
 }
 
 ///|
 fn VacuumDroppedNodeWorkspace::new(
-  node_count : Int,
+  node_count : Int32,
 ) -> VacuumDroppedNodeWorkspace {
   {
     states: Array::make(node_count, 0),
@@ -810,7 +819,7 @@ fn VacuumDroppedNodeWorkspace::new(
 ///|
 fn VacuumDroppedNodeWorkspace::begin_query(
   self : VacuumDroppedNodeWorkspace,
-  node_count : Int,
+  node_count : Int32,
 ) -> Unit {
   while self.states.length() < node_count {
     self.states.push(0)
@@ -824,7 +833,7 @@ fn VacuumDroppedNodeWorkspace::begin_query(
 fn VacuumDroppedNodeWorkspace::state(
   self : VacuumDroppedNodeWorkspace,
   node_id : @ir.NodeId,
-) -> Int {
+) -> Int32 {
   if node_id < 0 || node_id >= self.states.length() {
     return 0
   }
@@ -839,7 +848,7 @@ fn VacuumDroppedNodeWorkspace::state(
 fn VacuumDroppedNodeWorkspace::set_state(
   self : VacuumDroppedNodeWorkspace,
   node_id : @ir.NodeId,
-  state : Int,
+  state : Int32,
 ) -> Unit {
   if self.generations[node_id] != self.generation {
     self.generations[node_id] = self.generation
@@ -1223,7 +1232,7 @@ fn vacuum_fresh_array_set_replacement(
 fn hot_pass_vacuum_can_remove_local_only_node_memoized(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  states : Array[Int],
+  states : Array[Int32],
 ) -> Bool {
   if node_id < 0 ||
     node_id >= states.length() ||
@@ -1339,7 +1348,7 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
 fn hot_pass_vacuum_can_remove_local_only_region_memoized(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  states : Array[Int],
+  states : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if !hot_pass_vacuum_can_remove_local_only_node_memoized(
@@ -1469,7 +1478,7 @@ fn hot_pass_vacuum_label_is_used(
 fn hot_pass_vacuum_exact_i32_const(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  expected : Int,
+  expected : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.I32Const(@lib.I32(value))) => value == expected
@@ -1481,7 +1490,7 @@ fn hot_pass_vacuum_exact_i32_const(
 fn hot_pass_vacuum_exact_local_get(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-) -> Int? {
+) -> Int32? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.LocalGet(@lib.LocalIdx(raw))) => Some(raw.reinterpret_as_int())
     _ => None
@@ -1492,7 +1501,7 @@ fn hot_pass_vacuum_exact_local_get(
 fn hot_pass_vacuum_exact_local_set(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-) -> Int? {
+) -> Int32? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.LocalSet(@lib.LocalIdx(raw))) => Some(raw.reinterpret_as_int())
     _ => None
@@ -1503,7 +1512,7 @@ fn hot_pass_vacuum_exact_local_set(
 fn hot_pass_vacuum_is_const_arg_call_local_set(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-) -> Int? {
+) -> Int32? {
   let target = match hot_pass_vacuum_exact_local_set(func, node_id) {
     Some(local_id) => local_id
     None => return None
@@ -1538,7 +1547,7 @@ fn hot_pass_vacuum_is_const_arg_call_local_set(
 fn hot_pass_vacuum_is_load_linked_local_get(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  target_local : Int,
+  target_local : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.I32Load(_)) => ()
@@ -1566,7 +1575,7 @@ fn hot_pass_vacuum_is_load_linked_local_get(
 fn hot_pass_vacuum_is_load_linked_eqz_condition(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  target_local : Int,
+  target_local : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.I32Eqz) => ()
@@ -1599,7 +1608,7 @@ fn hot_pass_vacuum_is_load_linked_eqz_condition(
 fn hot_pass_vacuum_is_load_linked_unreachable_if(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  target_local : Int,
+  target_local : Int32,
 ) -> Bool {
   if !(@ir.hot_node_get(func, node_id).op is @ir.HotOp::If) ||
     @ir.hot_child_count(func, node_id) == 0 ||
@@ -1725,7 +1734,7 @@ fn hot_pass_vacuum_region_is_load_linked_local_set_call_prefix(
 }
 
 ///|
-fn hot_pass_vacuum_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
+fn hot_pass_vacuum_is_region_child_slot(op : @ir.HotOp, slot : Int32) -> Bool {
   for info in @ir.hot_control_region_slot_info(op) {
     if info.slot == slot {
       return true
@@ -1971,7 +1980,7 @@ fn hot_pass_vacuum_sink_drop_into_if_arms(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   if_id : @ir.NodeId,
 ) -> Bool {
   if !(@ir.hot_node_get(func, if_id).op is @ir.HotOp::If) ||
@@ -2032,7 +2041,7 @@ fn hot_pass_vacuum_remove_empty_if_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   node_id : @ir.NodeId,
   workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
@@ -2077,7 +2086,7 @@ fn hot_pass_vacuum_collapse_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
   node_id : @ir.NodeId,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -2293,7 +2302,7 @@ fn hot_pass_remove_node_child_nested_region_nops(
 ///|
 fn hot_pass_vacuum_is_dropped_local_get_root(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   @ir.hot_node_get(func, node_id).op is @ir.HotOp::Drop &&
   @ir.hot_child_count(func, node_id) == 1 &&
@@ -2800,8 +2809,8 @@ priv struct HotPipelineInstrScanSummary {
   mut has_dead_drop_after_nonfallthrough : Bool
   mut has_dce_candidate : Bool
   mut has_call_result_lifetime : Bool
-  mut min_branch_target_token : Int
-  mut instr_count : Int
+  mut min_branch_target_token : Int32
+  mut instr_count : Int32
   mut may_fallthrough : Bool
 }
 
@@ -2858,15 +2867,15 @@ fn hot_pipeline_instr_scan_merge(
 
 ///|
 priv struct HotPipelineInstrScanState {
-  control_tokens : Array[Int]
+  control_tokens : Array[Int32]
   targeted_controls : @bitset.BitSet
-  mut next_control_token : Int
-  visit_count : Array[Int]?
+  mut next_control_token : Int32
+  visit_count : Array[Int32]?
 }
 
 ///|
 fn HotPipelineInstrScanState::new(
-  visit_count : Array[Int]?,
+  visit_count : Array[Int32]?,
 ) -> HotPipelineInstrScanState {
   {
     control_tokens: [],
@@ -2879,7 +2888,7 @@ fn HotPipelineInstrScanState::new(
 ///|
 fn hot_pipeline_instr_scan_push_control(
   state : HotPipelineInstrScanState,
-) -> Int {
+) -> Int32 {
   let token = state.next_control_token
   state.next_control_token += 1
   state.targeted_controls.grow(state.next_control_token)
@@ -2941,7 +2950,7 @@ fn hot_pipeline_instr_scan_record_branch_targets(
 ///|
 fn hot_pipeline_instr_scan_has_call_result_multi_call_lifetime_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx + 1 >= instrs.length() {
     return false
@@ -2952,11 +2961,11 @@ fn hot_pipeline_instr_scan_has_call_result_multi_call_lifetime_at(
   }
   let mut first_call : @lib.FuncIdx? = None
   let mut saw_indirect_call = false
-  let scan_end = Int::min(instrs.length(), idx + 34)
+  let scan_end = Int32::min(instrs.length(), idx + 34)
   for scan = idx + 2; scan < scan_end; scan = scan + 1 {
     match instrs[scan] {
       @lib.LocalGet(candidate) if candidate == local_idx => {
-        let look_end = Int::min(scan_end, scan + 12)
+        let look_end = Int32::min(scan_end, scan + 12)
         for look = scan + 1; look < look_end; look = look + 1 {
           match instrs[look] {
             @lib.Call(call_target) => {
@@ -3229,12 +3238,12 @@ fn run_hot_pipeline_instr_scan_impl(
 ///|
 fn run_hot_pipeline_instr_scan(
   instrs : Array[@lib.Instruction],
-  visit_count? : Array[Int]? = None,
-  dead_drop_after_nonfallthrough? : Array[Bool]? = None,
-  constant_result_if? : Array[Bool]? = None,
-  dce_candidate? : Array[Bool]? = None,
-  dce_call_result_lifetime? : Array[Bool]? = None,
-) -> (Bool, Bool, Bool, Bool, Bool, Int) {
+  visit_count~ : Array[Int32]? = None,
+  dead_drop_after_nonfallthrough~ : Array[Bool]? = None,
+  constant_result_if~ : Array[Bool]? = None,
+  dce_candidate~ : Array[Bool]? = None,
+  dce_call_result_lifetime~ : Array[Bool]? = None,
+) -> (Bool, Bool, Bool, Bool, Bool, Int32) {
   let summary = run_hot_pipeline_instr_scan_impl(
     instrs,
     HotPipelineInstrScanState::new(visit_count),
@@ -3583,20 +3592,20 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
 
 ///|
 priv struct RawRemoveUnusedBrsShape {
-  mut call_count : Int
-  mut local_set_count : Int
-  mut local_tee_count : Int
-  mut if_count : Int
-  mut return_count : Int
-  mut select_count : Int
-  mut br_if_count : Int
-  mut block_count : Int
-  mut value_block_count : Int
-  mut void_block_count : Int
-  mut loop_count : Int
-  mut br_count : Int
-  mut br_table_count : Int
-  mut drop_count : Int
+  mut call_count : Int32
+  mut local_set_count : Int32
+  mut local_tee_count : Int32
+  mut if_count : Int32
+  mut return_count : Int32
+  mut select_count : Int32
+  mut br_if_count : Int32
+  mut block_count : Int32
+  mut value_block_count : Int32
+  mut void_block_count : Int32
+  mut loop_count : Int32
+  mut br_count : Int32
+  mut br_table_count : Int32
+  mut drop_count : Int32
 }
 
 ///|
@@ -3606,20 +3615,20 @@ fn RawRemoveUnusedBrsShape::new() -> RawRemoveUnusedBrsShape {
 
 ///|
 fn RawRemoveUnusedBrsShape::with_counts(
-  call_count? : Int = 0,
-  local_set_count? : Int = 0,
-  local_tee_count? : Int = 0,
-  if_count? : Int = 0,
-  return_count? : Int = 0,
-  select_count? : Int = 0,
-  br_if_count? : Int = 0,
-  block_count? : Int = 0,
-  value_block_count? : Int = 0,
-  void_block_count? : Int = 0,
-  loop_count? : Int = 0,
-  br_count? : Int = 0,
-  br_table_count? : Int = 0,
-  drop_count? : Int = 0,
+  call_count~ : Int32 = 0,
+  local_set_count~ : Int32 = 0,
+  local_tee_count~ : Int32 = 0,
+  if_count~ : Int32 = 0,
+  return_count~ : Int32 = 0,
+  select_count~ : Int32 = 0,
+  br_if_count~ : Int32 = 0,
+  block_count~ : Int32 = 0,
+  value_block_count~ : Int32 = 0,
+  void_block_count~ : Int32 = 0,
+  loop_count~ : Int32 = 0,
+  br_count~ : Int32 = 0,
+  br_table_count~ : Int32 = 0,
+  drop_count~ : Int32 = 0,
 ) -> RawRemoveUnusedBrsShape {
   {
     call_count,
@@ -3695,7 +3704,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_scan_shape(
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut depth = 0
   let mut cursor = instrs
   while cursor.length() > 0 {
@@ -3713,7 +3722,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut depth = 0
   let mut cursor = instrs
   while cursor.length() > 0 {
@@ -4023,8 +4032,8 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
 
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
-  locals_count : Int,
-  instr_count : Int,
+  locals_count : Int32,
+  instr_count : Int32,
   has_structured_control : Bool,
   has_branches : Bool,
   has_drop : Bool,
@@ -4064,8 +4073,8 @@ fn run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
 
 ///|
 fn run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
-  locals_count : Int,
-  instr_count : Int,
+  locals_count : Int32,
+  instr_count : Int32,
   shape : RawRemoveUnusedBrsShape,
 ) -> Bool {
   locals_count >= 20 &&
@@ -4200,7 +4209,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_match_i32_const(
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int, Bool) {
+) -> (Array[@lib.Instruction], Int32, Bool) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut saw_br_table = false
@@ -4488,57 +4497,72 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate
 
 ///|
 priv struct RawSimplifyLocalsShape {
-  mut instr_count : Int
-  mut if_count : Int
-  mut block_count : Int
-  mut loop_count : Int
-  mut local_set_count : Int
-  mut local_tee_count : Int
-  mut local_get_count : Int
-  mut call_count : Int
-  mut return_count : Int
-  mut exact_tail_count : Int
+  mut instr_count : Int32
+  mut if_count : Int32
+  mut block_count : Int32
+  mut loop_count : Int32
+  mut local_set_count : Int32
+  mut local_tee_count : Int32
+  mut local_get_count : Int32
+  mut call_count : Int32
+  mut return_count : Int32
+  mut exact_tail_count : Int32
   mut has_global_state : Bool
   mut has_memory_size : Bool
   mut has_stack_effect_hazard : Bool
+  mut has_i32_add : Bool
+  mut has_v128_bitselect : Bool
+  mut has_i32x4_shr_u : Bool
+  mut has_simd_carrier_op : Bool
+  mut has_recurrence_binary : Bool
 }
 
 ///|
 priv struct RawSimplifyLocalsGateStats {
-  locals_count : Int
-  instr_count : Int
+  locals_count : Int32
+  instr_count : Int32
   has_structured_control : Bool
-  if_count : Int
-  block_count : Int
-  loop_count : Int
-  local_set_count : Int
-  local_tee_count : Int
-  local_get_count : Int
-  call_count : Int
-  return_count : Int
-  exact_tail_count : Int
+  if_count : Int32
+  block_count : Int32
+  loop_count : Int32
+  local_set_count : Int32
+  local_tee_count : Int32
+  local_get_count : Int32
+  call_count : Int32
+  return_count : Int32
+  exact_tail_count : Int32
   has_global_state : Bool
   has_memory_size : Bool
   has_stack_effect_hazard : Bool
+  has_i32_add : Bool
+  has_v128_bitselect : Bool
+  has_i32x4_shr_u : Bool
+  has_simd_carrier_op : Bool
+  has_recurrence_binary : Bool
 }
 
 ///|
 fn RawSimplifyLocalsGateStats::new(
-  locals_count? : Int = 0,
-  instr_count? : Int = 0,
-  has_structured_control? : Bool = false,
-  if_count? : Int = 0,
-  block_count? : Int = 0,
-  loop_count? : Int = 0,
-  local_set_count? : Int = 0,
-  local_tee_count? : Int = 0,
-  local_get_count? : Int = 0,
-  call_count? : Int = 0,
-  return_count? : Int = 0,
-  exact_tail_count? : Int = 0,
-  has_global_state? : Bool = false,
-  has_memory_size? : Bool = false,
-  has_stack_effect_hazard? : Bool = false,
+  locals_count~ : Int32 = 0,
+  instr_count~ : Int32 = 0,
+  has_structured_control~ : Bool = false,
+  if_count~ : Int32 = 0,
+  block_count~ : Int32 = 0,
+  loop_count~ : Int32 = 0,
+  local_set_count~ : Int32 = 0,
+  local_tee_count~ : Int32 = 0,
+  local_get_count~ : Int32 = 0,
+  call_count~ : Int32 = 0,
+  return_count~ : Int32 = 0,
+  exact_tail_count~ : Int32 = 0,
+  has_global_state~ : Bool = false,
+  has_memory_size~ : Bool = false,
+  has_stack_effect_hazard~ : Bool = false,
+  has_i32_add~ : Bool = false,
+  has_v128_bitselect~ : Bool = false,
+  has_i32x4_shr_u~ : Bool = false,
+  has_simd_carrier_op~ : Bool = false,
+  has_recurrence_binary~ : Bool = false,
 ) -> RawSimplifyLocalsGateStats {
   {
     locals_count,
@@ -4556,6 +4580,11 @@ fn RawSimplifyLocalsGateStats::new(
     has_global_state,
     has_memory_size,
     has_stack_effect_hazard,
+    has_i32_add,
+    has_v128_bitselect,
+    has_i32x4_shr_u,
+    has_simd_carrier_op,
+    has_recurrence_binary,
   }
 }
 
@@ -4575,6 +4604,11 @@ fn RawSimplifyLocalsShape::new() -> RawSimplifyLocalsShape {
     has_global_state: false,
     has_memory_size: false,
     has_stack_effect_hazard: false,
+    has_i32_add: false,
+    has_v128_bitselect: false,
+    has_i32x4_shr_u: false,
+    has_simd_carrier_op: false,
+    has_recurrence_binary: false,
   }
 }
 
@@ -4667,7 +4701,7 @@ fn run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_match_tail_local_get(
   instrs : Array[@lib.Instruction],
-) -> (Int, @lib.I32, Bool)? {
+) -> (Int32, @lib.I32, Bool)? {
   let len = instrs.length()
   if len < 3 {
     return None
@@ -4853,7 +4887,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   stats? : RawSimplifyLocalsGateStats,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   // The entry census covers the complete current body, including both arms,
   // loops and handlers. Only If can enable this rewrite. Its absence proves
   // zero rewrites before allocating normalized or rewritten storage. The raw
@@ -4878,7 +4912,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_wor
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrites = 0
   for instr in instrs {
@@ -5227,8 +5261,8 @@ fn run_hot_pipeline_raw_simplify_locals_has_result_control_write(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
   instrs : Array[@lib.Instruction],
-  writes : Map[UInt, Bool],
-  result_writes : Map[UInt, Bool],
+  writes : Map[UInt32, Bool],
+  result_writes : Map[UInt32, Bool],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -5285,7 +5319,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_ca
       _ => continue
     }
     let mut checked = 0
-    let mut result_summary : Map[UInt, Bool]? = None
+    let mut result_summary : Map[UInt32, Bool]? = None
     for init_idx = 1; init_idx < loop_idx; init_idx = init_idx + 1 {
       let local_idx = match instrs[init_idx] {
         @lib.LocalSet(local_idx) => local_idx
@@ -5304,8 +5338,8 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_ca
         let summary = match result_summary {
           Some(summary) => summary
           None => {
-            let writes : Map[UInt, Bool] = Map([])
-            let summary : Map[UInt, Bool] = Map([])
+            let writes : Map[UInt32, Bool] = Map([])
+            let summary : Map[UInt32, Bool] = Map([])
             run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
               loop_body, writes, summary,
             )
@@ -5365,7 +5399,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(
     }
     let initialized_carriers : Array[@lib.LocalIdx] = []
     let mut checked = 0
-    let mut write_summary : Map[UInt, Bool]? = None
+    let mut write_summary : Map[UInt32, Bool]? = None
     for init_idx = 0; init_idx < loop_idx; init_idx = init_idx + 1 {
       let local_idx = match instrs[init_idx] {
         @lib.LocalSet(local_idx) => local_idx
@@ -5380,8 +5414,8 @@ fn run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(
         let summary = match write_summary {
           Some(summary) => summary
           None => {
-            let summary : Map[UInt, Bool] = Map([])
-            let result_writes : Map[UInt, Bool] = Map([])
+            let summary : Map[UInt32, Bool] = Map([])
+            let result_writes : Map[UInt32, Bool] = Map([])
             run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
               loop_body, summary, result_writes,
             )
@@ -5416,7 +5450,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifetime(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -5482,7 +5516,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifet
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -5527,8 +5561,8 @@ fn run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_result_if_count_at_most(
   instrs : Array[@lib.Instruction],
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -5579,7 +5613,7 @@ fn run_hot_pipeline_raw_simplify_locals_result_if_count_at_most(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_deep_br_table(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -5633,7 +5667,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_local_alias_multi_call_lifetime(
         for scan = idx + 2; scan < instrs.length(); scan = scan + 1 {
           match instrs[scan] {
             @lib.LocalGet(read_local) if read_local == alias_local => {
-              let call_end = Int::min(instrs.length(), scan + 5)
+              let call_end = Int32::min(instrs.length(), scan + 5)
               for look = scan + 1; look < call_end; look = look + 1 {
                 match instrs[look] {
                   @lib.Call(call_target) => {
@@ -5734,7 +5768,7 @@ fn run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
 
 ///|
 priv struct RawStructuredLifetimeFacts {
-  reads : @hashmap.HashMap[UInt, Bool]
+  reads : @hashmap.HashMap[UInt32, Bool]
   mut has_call : Bool
   mut hazard : Bool
 }
@@ -5746,8 +5780,8 @@ fn RawStructuredLifetimeFacts::new() -> RawStructuredLifetimeFacts {
 
 ///|
 fn raw_structured_lifetime_reads_capture(
-  reads : @hashmap.HashMap[UInt, Bool],
-  captures : @hashmap.HashMap[UInt, Bool],
+  reads : @hashmap.HashMap[UInt32, Bool],
+  captures : @hashmap.HashMap[UInt32, Bool],
 ) -> Bool {
   if captures.length() < reads.length() {
     for local in captures.keys() {
@@ -5769,7 +5803,7 @@ fn raw_structured_lifetime_reads_capture(
 fn raw_structured_lifetime_merge(
   into : RawStructuredLifetimeFacts,
   child : RawStructuredLifetimeFacts,
-  captures : @hashmap.HashMap[UInt, Bool],
+  captures : @hashmap.HashMap[UInt32, Bool],
 ) -> Unit {
   into.hazard = into.hazard || child.hazard
   if !into.hazard &&
@@ -5786,11 +5820,11 @@ fn raw_structured_lifetime_merge(
 ///|
 fn raw_structured_lifetime_summarize(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  visits : Array[Int]?,
+  end : Int32,
+  visits : Array[Int32]?,
 ) -> RawStructuredLifetimeFacts {
   let facts = RawStructuredLifetimeFacts::new()
-  let captures : @hashmap.HashMap[UInt, Bool] = @hashmap.new()
+  let captures : @hashmap.HashMap[UInt32, Bool] = @hashmap.new()
   for idx = 0; idx < end; idx = idx + 1 {
     match visits {
       Some(count) => count[0] += 1
@@ -5844,8 +5878,8 @@ fn raw_structured_lifetime_summarize(
 ///|
 fn raw_structured_lifetime_last_structured(
   instrs : Array[@lib.Instruction],
-  visits : Array[Int]?,
-) -> Int {
+  visits : Array[Int32]?,
+) -> Int32 {
   let mut last_structured = -1
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match visits {
@@ -5866,9 +5900,9 @@ fn raw_structured_lifetime_last_structured(
 ///|
 fn raw_structured_lifetime_body_hazard(
   body : Array[@lib.Instruction],
-  captures : @hashmap.HashMap[UInt, Bool]?,
-  visits : Array[Int]?,
-  summaries : Array[Int]?,
+  captures : @hashmap.HashMap[UInt32, Bool]?,
+  visits : Array[Int32]?,
+  summaries : Array[Int32]?,
 ) -> Bool {
   match captures {
     None =>
@@ -5895,8 +5929,8 @@ fn raw_structured_lifetime_body_hazard(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
   instrs : Array[@lib.Instruction],
-  visits? : Array[Int]? = None,
-  summaries? : Array[Int]? = None,
+  visits~ : Array[Int32]? = None,
+  summaries~ : Array[Int32]? = None,
 ) -> Bool {
   let last_structured = raw_structured_lifetime_last_structured(instrs, visits)
   if last_structured < 0 {
@@ -5905,7 +5939,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
   // Without an earlier capture, only a child's own hazard matters. Recurse
   // through such bodies without building read sets or summarizing them again.
   // Once a capture exists, summarize each following body once for all captures.
-  let mut captures : @hashmap.HashMap[UInt, Bool]? = None
+  let mut captures : @hashmap.HashMap[UInt32, Bool]? = None
   for idx = 0; idx <= last_structured; idx = idx + 1 {
     match visits {
       Some(count) => count[0] += 1
@@ -6048,14 +6082,14 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(
       @lib.LocalTee(target) => target
       _ => continue
     }
-    let scan_end = Int::min(instrs.length(), tee_idx + 24)
+    let scan_end = Int32::min(instrs.length(), tee_idx + 24)
     let mut saw_consumer_call = false
     for scan = tee_idx + 1; scan < scan_end; scan = scan + 1 {
       match instrs[scan] {
         @lib.LocalSet(written) | @lib.LocalTee(written) if written == target =>
           break
         @lib.LocalGet(read_local) if read_local == target && saw_consumer_call => {
-          let look_end = Int::min(scan_end, scan + 5)
+          let look_end = Int32::min(scan_end, scan + 5)
           for look = scan + 1; look < look_end; look = look + 1 {
             if run_hot_pipeline_dce_raw_instr_is_call(instrs[look]) {
               return true
@@ -6131,7 +6165,7 @@ fn run_hot_pipeline_raw_has_alias_call_structured_release(
         owned_local
       _ => continue
     }
-    let scan_end = Int::min(instrs.length(), idx + 24)
+    let scan_end = Int32::min(instrs.length(), idx + 24)
     let mut call_pos = -1
     for scan = idx + 3; scan + 1 < scan_end; scan = scan + 1 {
       match (instrs[scan], instrs[scan + 1]) {
@@ -6225,7 +6259,7 @@ fn run_hot_pipeline_raw_has_call_argument_structured_release(
     }
     let released_locals : Array[@lib.LocalIdx] = []
     let mut release_target : @lib.FuncIdx? = None
-    let after_end = Int::min(instrs.length(), call_idx + 10)
+    let after_end = Int32::min(instrs.length(), call_idx + 10)
     for release_idx = call_idx + 1
         release_idx < after_end
         release_idx = release_idx + 1 {
@@ -6321,7 +6355,7 @@ fn run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(
       continue
     }
     let released_locals : Array[@lib.LocalIdx] = []
-    let after_end = Int::min(instrs.length(), call_idx + 10)
+    let after_end = Int32::min(instrs.length(), call_idx + 10)
     for release_idx = call_idx + 1
         release_idx < after_end
         release_idx = release_idx + 1 {
@@ -6417,7 +6451,7 @@ fn run_hot_pipeline_raw_has_call_argument_direct_release(
     }
     let released_locals : Array[@lib.LocalIdx] = []
     let mut release_target : @lib.FuncIdx? = None
-    let after_end = Int::min(instrs.length(), call_idx + 64)
+    let after_end = Int32::min(instrs.length(), call_idx + 64)
     for release_idx = call_idx + 1
         release_idx + 1 < after_end
         release_idx = release_idx + 1 {
@@ -6470,8 +6504,8 @@ fn run_hot_pipeline_raw_has_call_argument_direct_release(
 ///|
 fn run_hot_pipeline_raw_record_parameter_accesses(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
-  first_access : Array[Int],
+  parameter_count : Int32,
+  first_access : Array[Int32],
   writes : Array[Bool],
 ) -> Unit {
   for instr in instrs {
@@ -6569,7 +6603,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
       @lib.LocalTee(target) => target
       _ => continue
     }
-    let scan_end = Int::min(instrs.length(), idx + 5)
+    let scan_end = Int32::min(instrs.length(), idx + 5)
     for scan = idx + 1; scan < scan_end; scan = scan + 1 {
       match instrs[scan] {
         @lib.If(block_type, then_body, else_body) if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(
@@ -6635,18 +6669,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
 
 ///|
 priv struct SsaTeeIfArmAccess {
-  if_idx : Int
-  then_reads : Map[UInt, Bool]
-  then_writes : Map[UInt, Bool]
-  else_reads : Map[UInt, Bool]
-  else_writes : Map[UInt, Bool]
+  if_idx : Int32
+  then_reads : Map[UInt32, Bool]
+  then_writes : Map[UInt32, Bool]
+  else_reads : Map[UInt32, Bool]
+  else_writes : Map[UInt32, Bool]
 }
 
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
   instrs : Array[@lib.Instruction],
-  reads : Map[UInt, Bool],
-  writes : Map[UInt, Bool],
+  reads : Map[UInt32, Bool],
+  writes : Map[UInt32, Bool],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -6678,14 +6712,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
 
 ///|
 fn SsaTeeIfArmAccess::new(
-  if_idx : Int,
+  if_idx : Int32,
   then_body : Array[@lib.Instruction],
   else_body : Array[@lib.Instruction]?,
 ) -> SsaTeeIfArmAccess {
-  let then_reads : Map[UInt, Bool] = Map([])
-  let then_writes : Map[UInt, Bool] = Map([])
-  let else_reads : Map[UInt, Bool] = Map([])
-  let else_writes : Map[UInt, Bool] = Map([])
+  let then_reads : Map[UInt32, Bool] = Map([])
+  let then_writes : Map[UInt32, Bool] = Map([])
+  let else_reads : Map[UInt32, Bool] = Map([])
+  let else_writes : Map[UInt32, Bool] = Map([])
   run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
     then_body, then_reads, then_writes,
   )
@@ -6702,9 +6736,9 @@ fn SsaTeeIfArmAccess::new(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
-  let mut next_if : Array[Int] = []
+  let mut next_if : Array[Int32] = []
   let mut cached_if : SsaTeeIfArmAccess? = None
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     let target = match (instrs[idx], instrs[idx + 1]) {
@@ -6757,8 +6791,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_collect_loop_local_accesses(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
-  first_accesses : Array[Int],
+  local_count : Int32,
+  first_accesses : Array[Int32],
   writes : @bitset.BitSet,
 ) -> Unit {
   for instr in instrs {
@@ -6806,8 +6840,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_collect_loop_local_accesses(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_control_has_loop_carrier(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
-  target_local : Int,
+  local_count : Int32,
+  target_local : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -6860,7 +6894,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_control_has_loop_carrier(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_tee_call_loop_carrier(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
+  local_count : Int32,
 ) -> Bool {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     let target_local = match (instrs[idx], instrs[idx + 1]) {
@@ -7135,7 +7169,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_stacked_call_results(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_discarded_parameter_load_before_structured_write(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -7179,7 +7213,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_discarded_parameter_load_before_structur
 ///|
 fn run_hot_pipeline_raw_has_parameter_read_before_later_write(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -7409,12 +7443,12 @@ fn run_hot_pipeline_raw_simplify_locals_deep_result_if_unread_tee_cleanup(
   let params = run_hot_pipeline_required_raw_func_params(
     mod_, module_ctx, func_idx, module_state,
   )
-  let local_gets : Array[Int] = Array::make(
+  let local_gets : Array[Int32] = Array::make(
     params.length() + locals.length(),
     0,
   )
-  let local_sets : Array[Int] = Array::make(local_gets.length(), 0)
-  let local_tees : Array[Int] = Array::make(local_gets.length(), 0)
+  let local_sets : Array[Int32] = Array::make(local_gets.length(), 0)
+  let local_tees : Array[Int32] = Array::make(local_gets.length(), 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -7520,6 +7554,19 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
     stats.has_structured_control &&
     stats.local_tee_count > 0
   if structured_local_tee_hot_protect {
+    if !stats.has_stack_effect_hazard {
+      let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        original,
+      )
+      if changed {
+        return Some({
+          reason: "structured-local-tee-exact-cleanup",
+          func: cleaned,
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      }
+    }
     return Some({
       reason: "structured-local-tee-hot-protect",
       func: original,
@@ -7541,7 +7588,15 @@ fn run_hot_pipeline_raw_simplify_locals_scan_shape(
   }
   for instr in instrs {
     shape.instr_count = shape.instr_count + 1
+    if !shape.has_recurrence_binary &&
+      run_hot_pipeline_raw_simplify_locals_instr_is_recurrence_binary(instr) {
+      shape.has_recurrence_binary = true
+    }
     match instr {
+      @lib.I32Add => shape.has_i32_add = true
+      @lib.V128Bitselect => shape.has_v128_bitselect = true
+      @lib.I32x4ShrU => shape.has_i32x4_shr_u = true
+      @lib.V128Xor | @lib.I32x4Add => shape.has_simd_carrier_op = true
       @lib.GlobalGet(_) | @lib.GlobalSet(_) => shape.has_global_state = true
       @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) =>
         shape.has_stack_effect_hazard = true
@@ -7618,6 +7673,11 @@ fn run_hot_pipeline_raw_simplify_locals_gate_stats(
     has_global_state=shape.has_global_state,
     has_memory_size=shape.has_memory_size,
     has_stack_effect_hazard=shape.has_stack_effect_hazard,
+    has_i32_add=shape.has_i32_add,
+    has_v128_bitselect=shape.has_v128_bitselect,
+    has_i32x4_shr_u=shape.has_i32x4_shr_u,
+    has_simd_carrier_op=shape.has_simd_carrier_op,
+    has_recurrence_binary=shape.has_recurrence_binary,
   )
 }
 
@@ -8492,7 +8552,7 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
   func_idx : @lib.FuncIdx,
   module_ctx : @ir.HotModuleContext,
   locals : @lib.Locals,
-  module_env? : @validate.Env? = None,
+  module_env~ : @validate.Env? = None,
 ) -> @validate.Env {
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, results)) => {
@@ -8520,12 +8580,12 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
 // an extra tuple allocation at every existing split-wrapper call.
 fn sl_value_suffix_at(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  count : Int,
+  end : Int32,
+  count : Int32,
   env : @validate.Env,
-  typed_instructions? : Array[Int]? = None,
-  typed_seed? : SlStatementTypeSeed? = None,
-  state_builds? : Array[Int]? = None,
+  typed_instructions~ : Array[Int32]? = None,
+  typed_seed~ : SlStatementTypeSeed? = None,
+  state_builds~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   sl_value_suffix_at_with_seed(
     instrs, end, count, env, typed_seed, typed_instructions, state_builds,
@@ -8535,12 +8595,12 @@ fn sl_value_suffix_at(
 ///|
 fn sl_value_suffix_at_with_seed(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  count : Int,
+  end : Int32,
+  count : Int32,
   env : @validate.Env,
   typed_seed : SlStatementTypeSeed?,
-  typed_instructions : Array[Int]?,
-  state_builds : Array[Int]?,
+  typed_instructions : Array[Int32]?,
+  state_builds : Array[Int32]?,
 ) -> Array[@lib.Instruction] {
   if count <= 0 {
     return []
@@ -8569,7 +8629,7 @@ fn sl_value_suffix_at_with_seed(
     if known {
       match sl_value_suffix_stack_effect(instrs[start], env) {
         Some((inputs, outputs)) => {
-          required = Int::max(inputs, required + inputs - outputs)
+          required = Int32::max(inputs, required + inputs - outputs)
           net += outputs - inputs
         }
         None => known = false
@@ -8614,9 +8674,9 @@ fn sl_value_suffix_at_with_seed(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
   instrs : Array[@lib.Instruction],
-  count : Int,
+  count : Int32,
   env : @validate.Env,
-  typed_instructions? : Array[Int]? = None,
+  typed_instructions~ : Array[Int32]? = None,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
   if count <= 0 {
     return (instrs.copy(), [])
@@ -8657,7 +8717,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_instr_source_local(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
     _ => None
@@ -8667,8 +8727,8 @@ fn run_hot_pipeline_raw_simplify_locals_instr_source_local(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_instr_source_locals(
   instrs : Array[@lib.Instruction],
-) -> Array[Int] {
-  let source_locals : Array[Int] = []
+) -> Array[Int32] {
+  let source_locals : Array[Int32] = []
   sl_collect_producer_source_locals(instrs, source_locals)
   source_locals
 }
@@ -8676,7 +8736,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_source_locals(
 ///|
 fn sl_collect_producer_source_locals(
   instrs : Array[@lib.Instruction],
-  source_locals : Array[Int],
+  source_locals : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -8714,8 +8774,8 @@ fn sl_collect_producer_source_locals(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_instr_written_locals(
   instrs : Array[@lib.Instruction],
-) -> Array[Int] {
-  let written_locals : Array[Int] = []
+) -> Array[Int32] {
+  let written_locals : Array[Int32] = []
   fn collect(body : Array[@lib.Instruction]) -> Unit {
     for instr in body {
       match instr {
@@ -8815,7 +8875,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_instr_writes_local(
   instr : @lib.Instruction,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match instr {
     @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
@@ -8866,8 +8926,8 @@ fn run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_statement_is_safe_copy_if_barrier(
   statement : Array[@lib.Instruction],
-  target_local : Int,
-  source_local : Int,
+  target_local : Int32,
+  source_local : Int32,
 ) -> Bool {
   if statement.length() == 0 {
     return false
@@ -8920,7 +8980,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_dupable_copy_value(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_local_reads_in_body(
   body : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : @lib.Instruction,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
@@ -8993,11 +9053,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_local_reads_in_body(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_condition(
   remaining : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : @lib.Instruction,
-  source_locals : Array[Int],
-  start? : Int = 0,
-) -> (Array[@lib.Instruction], Int)? {
+  source_locals : Array[Int32],
+  start~ : Int32 = 0,
+) -> (Array[@lib.Instruction], Int32)? {
   let prefix : Array[@lib.Instruction] = []
   let mut idx = start
   while idx < remaining.length() {
@@ -9074,12 +9134,12 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_co
 ///|
 fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_terminal_value_suffix(
   remaining : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : @lib.Instruction,
-  source_locals : Array[Int],
+  source_locals : Array[Int32],
   env : @validate.Env,
-  start? : Int = 0,
-) -> (Array[@lib.Instruction], Int)? {
+  start~ : Int32 = 0,
+) -> (Array[@lib.Instruction], Int32)? {
   let last_index = remaining.length() - 1
   if start > last_index {
     return None
@@ -9125,8 +9185,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_dupable_copy_middle_statements_i
   middle_statements : Array[Array[@lib.Instruction]],
   statement : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
-  statement_end : Int,
-) -> (Array[@lib.Instruction], Array[@lib.Instruction], Int) {
+  statement_end : Int32,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction], Int32) {
   let rewritten_middle_reversed : Array[Array[@lib.Instruction]] = []
   let later_middle : Array[@lib.Instruction] = []
   let mut rewritten_statement = statement
@@ -9314,7 +9374,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_pure_call_tail_candidates_nested(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut idx = 0
   let mut rewrite_count = 0
@@ -9417,7 +9477,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -9484,7 +9544,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested_fixpoint(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut total_rewrites = 0
   let mut pass_count = 0
@@ -9575,16 +9635,24 @@ fn run_hot_pipeline_raw_simplify_locals_has_pure_suffix_local_set_candidates_nes
 #inline
 fn sl_collect_pure_suffix_movable_middle(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   env : @validate.Env,
-  target_local : Int,
-  source_locals : Array[Int],
+  target_local : Int32,
+  source_locals : Array[Int32],
   movable_middle : Array[@lib.Instruction],
   producer_is_dupable_copy : Bool,
-) -> Int {
+  initialization_slots~ : Array[Int32]? = None,
+  typed_seed~ : SlStatementTypeSeed? = None,
+) -> Int32 {
   let mut sink_idx = start
   while sink_idx < instrs.length() {
-    let statement = sl_statement_at(instrs, sink_idx, env)
+    let statement = sl_statement_at(
+      instrs,
+      sink_idx,
+      env,
+      typed_seed~,
+      initialization_slots~,
+    )
     if statement.length() == 0 ||
       statement.any(fn(instr) {
         run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
@@ -9620,10 +9688,22 @@ fn sl_collect_pure_suffix_movable_middle(
 }
 
 ///|
+#inline
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
+  run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat_with_statement_setup(
+    instrs, env,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat_with_statement_setup(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+  initialization_slots~ : Array[Int32]? = None,
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -9670,6 +9750,17 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             run_hot_pipeline_raw_simplify_locals_instr_is_dupable_copy_value(
               producer_suffix[0],
             )
+          if wide_environment &&
+            typed_seed is None &&
+            scan_idx + 1 < instrs.length() {
+            // One immutable environment owns the all-initialized local facts.
+            // Statement results and query stacks remain independently owned.
+            typed_seed = Some(SlStatementTypeSeed::new(env))
+            match initialization_slots {
+              Some(slots) => slots[0] += env.locals.length()
+              None => ()
+            }
+          }
           let movable_middle : Array[@lib.Instruction] = []
           let sink_idx = sl_collect_pure_suffix_movable_middle(
             instrs,
@@ -9679,6 +9770,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             source_locals,
             movable_middle,
             producer_is_dupable_copy,
+            initialization_slots~,
+            typed_seed~,
           )
           if movable_middle.length() > 0 && !producer_is_dupable_copy {
             for idx = cursor; idx < producer_start; idx = idx + 1 {
@@ -9704,7 +9797,13 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
                 producer_suffix[0],
               ) {
               Some(source_local) => {
-                let statement = sl_statement_at(instrs, scan_idx + 1, env)
+                let statement = sl_statement_at(
+                  instrs,
+                  scan_idx + 1,
+                  env,
+                  typed_seed~,
+                  initialization_slots~,
+                )
                 if run_hot_pipeline_raw_simplify_locals_statement_is_safe_copy_if_barrier(
                     statement, target_local, source_local,
                   ) {
@@ -9781,11 +9880,24 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             let skipped_middle_statements : Array[Array[@lib.Instruction]] = []
             let mut sink_idx = scan_idx + 1
             while sink_idx < instrs.length() && !rewritten_here {
-              let statement0 = sl_statement_at(instrs, sink_idx, env)
+              let statement0 = sl_statement_at(
+                instrs,
+                sink_idx,
+                env,
+                typed_seed~,
+                initialization_slots~,
+              )
               let statement = if statement0.length() > 0 {
                 statement0
               } else {
-                sl_statement_at(instrs, sink_idx, env, allow_escape=true)
+                sl_statement_at(
+                  instrs,
+                  sink_idx,
+                  env,
+                  allow_escape=true,
+                  typed_seed~,
+                  initialization_slots~,
+                )
               }
               if statement.length() == 0 {
                 break
@@ -9874,7 +9986,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut normalized = instrs
   let mut rewrite_count = 0
   for index, instr in instrs {
@@ -9959,7 +10071,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut total_rewrites = 0
   let mut pass_count = 0
@@ -9995,9 +10107,9 @@ fn run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier(
   pure_prefix : Array[@lib.Instruction],
-  target_local : Int,
-  source_locals : Array[Int],
-  barrier_local : Int,
+  target_local : Int32,
+  source_locals : Array[Int32],
+  barrier_local : Int32,
   env : @validate.Env,
 ) -> Bool {
   if barrier_local == target_local ||
@@ -10021,7 +10133,7 @@ fn run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
   body : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   let rewritten : Array[@lib.Instruction] = []
@@ -10162,7 +10274,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_instr(
   instr : @lib.Instruction,
-  target_local : Int,
+  target_local : Int32,
   replacement : Array[@lib.Instruction],
 ) -> @lib.Instruction? {
   match instr {
@@ -10223,7 +10335,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_value_control(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_flat(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -10324,7 +10436,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_flat(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -10391,7 +10503,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut total_rewrites = 0
   let mut pass_count = 0
@@ -10413,7 +10525,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpo
 fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -10580,7 +10692,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
 fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut normalized = instrs
   let mut rewrite_count = 0
   for index, instr in instrs {
@@ -10665,7 +10777,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fixpoint(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut total_rewrites = 0
   for _ in 0..<4 {
@@ -10685,7 +10797,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fi
 fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -10871,7 +10983,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
 fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut normalized = instrs
   let mut rewrite_count = 0
   for index, instr in instrs {
@@ -10956,7 +11068,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut total_rewrites = 0
   let mut pass_count = 0
@@ -10977,7 +11089,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixp
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -11076,7 +11188,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_match_lane_builder_block(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> (
   @lib.LocalIdx,
   @lib.I32,
@@ -11166,7 +11278,7 @@ fn run_hot_pipeline_raw_simplify_locals_match_lane_builder_block(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_straight_line_lane_builder(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut idx = 0
   let mut rewrite_count = 0
@@ -11216,7 +11328,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_straight_line_lane_builder(
 fn run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   match run_hot_pipeline_raw_simplify_locals_match_tail_local_get(instrs) {
     Some((set_idx, status, tail_has_return)) => {
       let producer_instrs : Array[@lib.Instruction] = []
@@ -11249,7 +11361,7 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut previous_unconditional_terminator = false
@@ -11361,8 +11473,8 @@ fn run_hot_pipeline_raw_block_type_has_result(bt : @lib.BlockType) -> Bool {
 ///|
 fn run_hot_pipeline_raw_next_non_nop_idx(
   instrs : Array[@lib.Instruction],
-  after_idx : Int,
-) -> Int? {
+  after_idx : Int32,
+) -> Int32? {
   let mut idx = after_idx + 1
   while idx < instrs.length() {
     match instrs[idx] {
@@ -11377,7 +11489,7 @@ fn run_hot_pipeline_raw_next_non_nop_idx(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -11461,8 +11573,8 @@ fn run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-) -> (Array[@lib.Instruction], Int) {
+  local_gets : Array[Int32],
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -11537,11 +11649,11 @@ fn run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-  total_local_count : Int,
-) -> (Array[@lib.Instruction], Int) {
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  total_local_count : Int32,
+) -> (Array[@lib.Instruction], Int32) {
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -11578,7 +11690,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bound
 fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -11676,7 +11788,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
   reason : String,
-  effectful_only? : Bool = false,
+  effectful_only~ : Bool = false,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "simplify-locals" {
     return None
@@ -11751,7 +11863,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
 fn run_hot_pipeline_raw_simplify_locals_match_i32_add_accumulator_block(
   instr : @lib.Instruction,
   scratch_local : @lib.LocalIdx,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.Block(
       _,
@@ -11772,8 +11884,8 @@ fn run_hot_pipeline_raw_simplify_locals_match_i32_add_accumulator_block(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -11868,7 +11980,7 @@ fn run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_flat(
   instrs : Array[@lib.Instruction],
   all_instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut idx = 0
@@ -11976,7 +12088,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_f
 fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
   instrs : Array[@lib.Instruction],
   all_instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -12043,7 +12155,22 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_n
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+  stats? : RawSimplifyLocalsGateStats,
+) -> (Array[@lib.Instruction], Int32) {
+  let stats = match stats {
+    Some(stats) => stats
+    None =>
+      run_hot_pipeline_raw_simplify_locals_gate_stats(
+        @lib.Locals::empty(),
+        instrs,
+      )
+  }
+  // A tee can supply the first source; the remaining pattern needs three gets.
+  if !stats.has_i32x4_shr_u ||
+    stats.local_set_count < 2 ||
+    stats.local_get_count < 3 {
+    return (instrs, 0)
+  }
   run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
     instrs, instrs,
   )
@@ -12053,7 +12180,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten = instrs.copy()
   let mut rewrite_count = 0
   for set_idx = 0; set_idx < rewritten.length(); set_idx = set_idx + 1 {
@@ -12063,7 +12190,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets_flat(
     }
     let mut state = @validate.make_state(env, [])
     let mut scan = set_idx + 1
-    let scan_end = Int::min(rewritten.length(), set_idx + 257)
+    let scan_end = Int32::min(rewritten.length(), set_idx + 257)
     while scan < scan_end {
       match rewritten[scan] {
         @lib.LocalGet(read) if read == target => {
@@ -12101,7 +12228,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets_flat(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -12219,8 +12346,8 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_recurrence_binary(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_simd_pure_op_count_at_most(
   instrs : Array[@lib.Instruction],
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     if lcse_simd_pure_operand_count(instr) is Some(_) {
@@ -12263,8 +12390,8 @@ fn run_hot_pipeline_raw_simplify_locals_simd_pure_op_count_at_most(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_i8x16_shuffle_count_at_most(
   instrs : Array[@lib.Instruction],
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -12411,15 +12538,83 @@ fn run_hot_pipeline_raw_simplify_locals_has_simd_nan_fixup_mesh(
 }
 
 ///|
+// Count exactly the pairs consumed by the owned rewrite, without rebuilding
+// nested rows. Child rewrites leave one control instruction in the parent,
+// so they cannot create or remove a parent pair. Legacy Try stays untouched.
+fn run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+  instrs : Array[@lib.Instruction],
+  limit : Int32,
+) -> Int32 {
+  let mut count = 0
+  let mut idx = 0
+  while idx < instrs.length() && count < limit {
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+          body,
+          limit - count,
+        )
+      @lib.If(_, then_body, else_body) => {
+        count += run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+          then_body,
+          limit - count,
+        )
+        if count < limit {
+          match else_body {
+            Some(body) =>
+              count += run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+                body,
+                limit - count,
+              )
+            None => ()
+          }
+        }
+      }
+      @lib.LocalSet(local) => {
+        let mut get_idx = idx + 1
+        while get_idx < instrs.length() &&
+              instrs[get_idx] == @lib.Instruction::nop() {
+          get_idx += 1
+        }
+        if get_idx < instrs.length() &&
+          instrs[get_idx] == @lib.Instruction::local_get(local) {
+          count += 1
+          idx = get_idx + 1
+          continue
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  count
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
+  if run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+      instrs, 1,
+    ) ==
+    0 {
+    return (instrs, 0)
+  }
+  run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(instrs)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int32) {
   let nested : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
           body,
         )
         nested.push(
@@ -12428,7 +12623,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
         rewrite_count = rewrite_count + count
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
           body,
         )
         nested.push(
@@ -12437,7 +12632,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
         rewrite_count = rewrite_count + count
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+        let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
           body,
         )
         nested.push(
@@ -12450,12 +12645,12 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
         rewrite_count = rewrite_count + count
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (rewritten_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+        let (rewritten_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
           then_body,
         )
         let rewritten_else = match else_body {
           Some(body) => {
-            let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+            let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
               body,
             )
             rewrite_count = rewrite_count + count
@@ -12503,7 +12698,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_flat(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   // Both patterns require two complete ten-instruction recurrences. An
   // unchanged result borrows this read-only row; changed results keep their
   // original owned construction and the recursive caller's deep ownership.
@@ -12635,7 +12830,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrences_flat(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   // Both patterns require two complete ten-instruction recurrences. An
   // unchanged result borrows this read-only row; changed results keep their
   // original owned construction and the recursive caller's deep ownership.
@@ -12765,13 +12960,43 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrence
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+  stats? : RawSimplifyLocalsGateStats,
+) -> (Array[@lib.Instruction], Int32) {
+  let stats = match stats {
+    Some(stats) => stats
+    None =>
+      run_hot_pipeline_raw_simplify_locals_gate_stats(
+        @lib.Locals::empty(),
+        instrs,
+      )
+  }
+  let additive = stats.has_i32_add &&
+    stats.local_tee_count >= 4 &&
+    stats.local_set_count >= 2 &&
+    stats.local_get_count >= 8
+  let bitselect = stats.has_v128_bitselect &&
+    stats.local_set_count >= 4 &&
+    stats.local_get_count >= 8
+  if !additive && !bitselect {
+    return (instrs, 0)
+  }
+  // Possible candidates keep the original deep-owned recursive construction.
+  // Later cleanup can mutate even siblings that this worker did not rewrite.
+  run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
+    instrs,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12780,7 +13005,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12789,7 +13014,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12798,13 +13023,13 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (then_body, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+        let (then_body, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
           then_body,
         )
         rewrite_count = rewrite_count + then_rewrites
         let else_body = match else_body {
           Some(body) => {
-            let (body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+            let (body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_worker(
               body,
             )
             rewrite_count = rewrite_count + else_rewrites
@@ -12829,7 +13054,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_flat(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut copy_start = 0
   let mut idx = 0
@@ -12924,13 +13149,40 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_fla
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+  stats? : RawSimplifyLocalsGateStats,
+) -> (Array[@lib.Instruction], Int32) {
+  let stats = match stats {
+    Some(stats) => stats
+    None =>
+      run_hot_pipeline_raw_simplify_locals_gate_stats(
+        @lib.Locals::empty(),
+        instrs,
+      )
+  }
+  // Two alternating pairs need four stores and eight reads. Scalar binary
+  // operators remain admitted along with the SIMD forms of this rewrite.
+  if !stats.has_recurrence_binary ||
+    stats.local_set_count < 4 ||
+    stats.local_get_count < 8 {
+    return (instrs, 0)
+  }
+  // Possible candidates keep the original deep-owned recursive construction.
+  // Later cleanup can mutate even siblings that this worker did not rewrite.
+  run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
+    instrs,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12939,7 +13191,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12948,7 +13200,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
           body,
         )
         normalized.push(
@@ -12961,13 +13213,13 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
           then_body,
         )
         rewrite_count = rewrite_count + then_rewrites
         let rewritten_else = match else_body {
           Some(body) => {
-            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
+            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_worker(
               body,
             )
             rewrite_count = rewrite_count + else_rewrites
@@ -13001,7 +13253,7 @@ fn run_hot_pipeline_raw_simplify_locals_instr_is_commutative_simd_carrier_op(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_flat(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut idx = 0
@@ -13037,13 +13289,38 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_flat(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+  stats? : RawSimplifyLocalsGateStats,
+) -> (Array[@lib.Instruction], Int32) {
+  let stats = match stats {
+    Some(stats) => stats
+    None =>
+      run_hot_pipeline_raw_simplify_locals_gate_stats(
+        @lib.Locals::empty(),
+        instrs,
+      )
+  }
+  if !stats.has_simd_carrier_op ||
+    stats.local_set_count == 0 ||
+    stats.local_get_count < 2 {
+    return (instrs, 0)
+  }
+  // Possible candidates keep the original deep-owned recursive construction.
+  // Later cleanup can mutate even siblings that this worker did not rewrite.
+  run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
+    instrs,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
           body,
         )
         normalized.push(
@@ -13052,7 +13329,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
           body,
         )
         normalized.push(
@@ -13061,7 +13338,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
           body,
         )
         normalized.push(
@@ -13074,13 +13351,13 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
         rewrite_count = rewrite_count + nested_rewrites
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
           then_body,
         )
         rewrite_count = rewrite_count + then_rewrites
         let rewritten_else = match else_body {
           Some(body) => {
-            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_worker(
               body,
             )
             rewrite_count = rewrite_count + else_rewrites
@@ -13227,7 +13504,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
 ///|
 fn run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(
   instrs : Array[@lib.Instruction],
-  instruction_visits? : Array[Int]? = None,
+  instruction_visits~ : Array[Int32]? = None,
 ) -> Bool {
   let mut live_count = 0
   let mut target = @lib.GlobalIdx::new(0U)
@@ -13317,7 +13594,7 @@ fn run_hot_pipeline_raw_has_root_global_snapshot_return_hazard(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_unconditional_backedge_self_update(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
     match
@@ -13498,9 +13775,11 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
   if allows_tee {
     let (recurrence_instrs, recurrence_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
       instrs,
+      stats~,
     )
     if recurrence_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -13543,7 +13822,6 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
   if descriptor.name == "simplify-locals" {
     let (conditional_instrs, conditional_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
       instrs,
@@ -13612,35 +13890,41 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   if allows_tee {
-    let (adjacent_instrs, adjacent_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
-      instrs,
+    // Only local set/get operations change. Calls, SIMD pure op counts,
+    // shuffles, signed division and the NaN mesh stay identical, including
+    // their control regions. Test admission on the source before copying it.
+    let adjacent_rewrites = run_hot_pipeline_raw_simplify_locals_adjacent_set_get_count_at_most(
+      instrs, 8,
     )
     let has_simd_nan_fixup_mesh = run_hot_pipeline_raw_simplify_locals_has_simd_nan_fixup_mesh(
-      adjacent_instrs,
+      instrs,
     )
-    let has_any_call = run_hot_pipeline_raw_simplify_locals_has_any_call(
-      adjacent_instrs,
-    )
+    let has_any_call = run_hot_pipeline_raw_simplify_locals_has_any_call(instrs)
     let bulk_adjacent_admitted = if has_any_call {
       adjacent_rewrites > 0 &&
       run_hot_pipeline_raw_simplify_locals_simd_pure_op_count_at_most(
-        adjacent_instrs, 16,
+        instrs, 16,
       ) >=
       16
     } else {
-      !run_hot_pipeline_raw_simplify_locals_has_i32_div_s(adjacent_instrs) &&
+      !run_hot_pipeline_raw_simplify_locals_has_i32_div_s(instrs) &&
       (
         (adjacent_rewrites >= 8 && stats.locals_count <= 16) ||
         (
           adjacent_rewrites > 0 &&
           run_hot_pipeline_raw_simplify_locals_i8x16_shuffle_count_at_most(
-            adjacent_instrs, 8,
+            instrs, 8,
           ) >=
           8
         )
       )
     }
     if bulk_adjacent_admitted || has_simd_nan_fixup_mesh {
+      // NaN mesh cleanup also runs when there are no adjacent pairs. Keep
+      // the original fully owned construction for every admitted body.
+      let (adjacent_instrs, _) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets_owned(
+        instrs,
+      )
       let adjacent_func = @lib.Func::new(
         locals,
         @lib.Expr::new(adjacent_instrs),
@@ -13665,6 +13949,7 @@ fn run_hot_pipeline_raw_simplify_locals(
     }
     let (alternating_instrs, alternating_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences(
       instrs,
+      stats~,
     )
     if alternating_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -13746,9 +14031,11 @@ fn run_hot_pipeline_raw_simplify_locals(
   if descriptor.name == "simplify-locals" && stats.loop_count > 0 {
     let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
       instrs,
+      stats~,
     )
     let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
       simd_rotate_instrs,
+      stats~,
     )
     if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -13854,9 +14141,11 @@ fn run_hot_pipeline_raw_simplify_locals(
     if descriptor.name == "simplify-locals" {
       let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
         instrs,
+        stats~,
       )
       let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
         simd_rotate_instrs,
+        stats~,
       )
       if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
         let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -14089,7 +14378,7 @@ fn run_hot_pipeline_raw_simplify_locals(
   } else {
     instrs
   }
-  if adjacent_pair_instrs != instrs {
+  if !physical_equal(adjacent_pair_instrs, instrs) {
     return Some({
       reason: "adjacent-local-set-get",
       func: @lib.Func::new(locals, @lib.Expr::new(adjacent_pair_instrs)),
@@ -14100,9 +14389,11 @@ fn run_hot_pipeline_raw_simplify_locals(
   if descriptor.name == "simplify-locals" {
     let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
       instrs,
+      stats~,
     )
     let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
       simd_rotate_instrs,
+      stats~,
     )
     if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -15005,7 +15296,7 @@ fn run_hot_pipeline_raw_simplify_locals(
 fn run_hot_pipeline_dce_raw_block_result_arity(
   block_type : @lib.BlockType,
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> Int32 {
   match block_type {
     @lib.VoidBlockType => 0
     @lib.ValTypeBlockType(_) => 1
@@ -15098,7 +15389,7 @@ fn run_hot_pipeline_dce_raw_instr_is_call(instr : @lib.Instruction) -> Bool {
 fn run_hot_pipeline_dce_raw_instr_static_result_arity(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -15524,11 +15815,11 @@ fn run_hot_pipeline_dce_raw_has_call_result_multi_call_lifetime(
     }
     let mut first_call : @lib.FuncIdx? = None
     let mut saw_indirect_call = false
-    let scan_end = Int::min(instrs.length(), idx + 34)
+    let scan_end = Int32::min(instrs.length(), idx + 34)
     for scan = idx + 2; scan < scan_end; scan = scan + 1 {
       match instrs[scan] {
         @lib.LocalGet(candidate) if candidate == local_idx => {
-          let look_end = Int::min(scan_end, scan + 12)
+          let look_end = Int32::min(scan_end, scan + 12)
           for look = scan + 1; look < look_end; look = look + 1 {
             match instrs[look] {
               @lib.Call(call_target) => {
@@ -15842,7 +16133,7 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
 ///|
 fn run_hot_pipeline_dce_raw_instrs_branch_to_depth(
   instrs : Array[@lib.Instruction],
-  target_depth : Int,
+  target_depth : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -16398,20 +16689,21 @@ priv struct HsoCandidateScanState {
 ///|
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
+  mut allows_simd_introduction : Bool?
   mut validation_module_env : @validate.Env?
   mut func_type_indices : Array[@lib.TypeIdx]?
   mut raw_type_sec_snapshot : @lib.TypeSec?
   mut raw_flat_subtypes : Array[@lib.SubType]?
   mut vacuum_raw_preclean_elapsed_us : UInt64
-  mut vacuum_raw_preclean_count : Int
+  mut vacuum_raw_preclean_count : Int32
   mut vacuum_no_candidate_elapsed_us : UInt64
-  mut vacuum_no_candidate_count : Int
+  mut vacuum_no_candidate_count : Int32
   mut vacuum_lift_elapsed_us : UInt64
-  mut vacuum_lift_count : Int
+  mut vacuum_lift_count : Int32
   mut vacuum_pass_elapsed_us : UInt64
-  mut vacuum_pass_count : Int
+  mut vacuum_pass_count : Int32
   mut vacuum_lower_elapsed_us : UInt64
-  mut vacuum_lower_count : Int
+  mut vacuum_lower_count : Int32
   dce_unchanged_lowering_known : @bitset.BitSet
   dce_unchanged_lowering_required : @bitset.BitSet
 }
@@ -16420,6 +16712,7 @@ priv struct HotPipelineModuleState {
 fn HotPipelineModuleState::new() -> HotPipelineModuleState {
   {
     module_ctx: None,
+    allows_simd_introduction: None,
     validation_module_env: None,
     func_type_indices: None,
     raw_type_sec_snapshot: None,
@@ -16576,6 +16869,23 @@ priv struct HotPipelineLowerState {
 }
 
 ///|
+fn run_hot_pipeline_allows_simd_introduction(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+) -> Bool {
+  // Each function lane keeps custom sections unchanged. Module passes start
+  // a new state; lowering-only type changes need no metadata reparse.
+  match module_state.allows_simd_introduction {
+    Some(allowed) => allowed
+    None => {
+      let allowed = pass_module_allows_feature_introduction(mod_, "simd128")
+      module_state.allows_simd_introduction = Some(allowed)
+      allowed
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_require_module_ctx(
   mod_ : @lib.Module,
   module_state : HotPipelineModuleState,
@@ -16627,7 +16937,9 @@ fn run_hot_pipeline_require_validation_module_env(
 }
 
 ///|
-fn run_hot_pipeline_lower_type_sec_flat_count(type_sec : @lib.TypeSec?) -> Int {
+fn run_hot_pipeline_lower_type_sec_flat_count(
+  type_sec : @lib.TypeSec?,
+) -> Int32 {
   let mut count = 0
   match type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -16849,7 +17161,7 @@ fn run_hot_pipeline_hso_candidate_scan(
 fn run_hot_pipeline_hso_raw_struct_field_count(
   mod_ : @lib.Module,
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> Int32? {
   let target = match type_idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
     @lib.RecIdx(_) => return None
@@ -17361,7 +17673,7 @@ fn run_hot_pipeline_required_func_params(
 fn run_hot_pipeline_require_raw_types(
   mod_ : @lib.Module,
   module_state : HotPipelineModuleState,
-  builds : Array[Int]?,
+  builds : Array[Int32]?,
 ) -> Array[@lib.SubType] {
   let same_snapshot = match
     (module_state.raw_type_sec_snapshot, mod_.type_sec) {
@@ -17450,7 +17762,7 @@ fn run_hot_pipeline_required_func_results(
 fn run_hot_pipeline_raw_local_type(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  local_id : Int,
+  local_id : Int32,
 ) -> @lib.ValType {
   if local_id < params.length() {
     return params[local_id]
@@ -17463,7 +17775,7 @@ fn run_hot_pipeline_raw_rewritten_local_type(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
-  local_id : Int,
+  local_id : Int32,
 ) -> @lib.ValType? {
   if local_id < params.length() {
     return Some(params[local_id])
@@ -17576,7 +17888,7 @@ fn run_hot_pipeline_raw_subtype_as_heap_type_is_subtype(
   module_ctx : @ir.HotModuleContext,
   subtype : @lib.SubType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -17615,7 +17927,7 @@ fn run_hot_pipeline_raw_heap_type_is_subtype(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if source == target {
     return true
@@ -17696,7 +18008,7 @@ fn run_hot_pipeline_raw_reference_type_matches(
 fn run_hot_pipeline_raw_default_instr_for_local(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  local_id : Int,
+  local_id : Int32,
 ) -> @lib.Instruction {
   match run_hot_pipeline_raw_local_type(params, locals, local_id) {
     @lib.NumTypeValType(@lib.I32NumType) =>
@@ -18000,7 +18312,7 @@ fn run_hot_pipeline_raw_append_local_read(
   initialized_locals : @bitset.BitSet,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  local_id : Int,
+  local_id : Int32,
 ) -> Unit {
   if local_id >= params.length() &&
     source_aliases[local_id] == canonical_aliases[local_id] &&
@@ -18045,7 +18357,7 @@ priv struct RawSsaLabelTarget {
 fn run_hot_pipeline_raw_fresh_local(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  local_id : Int,
+  local_id : Int32,
   extra_local_types : Array[@lib.ValType],
 ) -> @lib.LocalIdx {
   let fresh_local_id = params.length() +
@@ -18079,9 +18391,9 @@ fn run_hot_pipeline_raw_fresh_typed_local(
 ///|
 fn run_hot_pipeline_raw_collect_local_ref_counts(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -18142,7 +18454,7 @@ fn run_hot_pipeline_raw_collect_local_ref_counts(
 ///|
 fn run_hot_pipeline_raw_compact_rewrite_local_refs(
   instrs : Array[@lib.Instruction],
-  local_remap : Array[Int],
+  local_remap : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -18250,13 +18562,13 @@ fn run_hot_pipeline_raw_drop_unused_appended_locals(
   }
   let base_local_count = params.length() + locals.length()
   let total_local_count = base_local_count + extra_local_types.length()
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     local_remap.push(local_id)
   }
@@ -18295,7 +18607,7 @@ fn run_hot_pipeline_raw_drop_unused_appended_locals(
 fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  prefix_local_count : Int,
+  prefix_local_count : Int32,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= prefix_local_count {
@@ -18303,13 +18615,13 @@ fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
   }
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     local_remap.push(local_id)
   }
@@ -18350,10 +18662,10 @@ fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
 ///|
 fn run_hot_pipeline_raw_note_appended_local_first_refs(
   instrs : Array[@lib.Instruction],
-  appended_start : Int,
-  first_refs : Array[Int],
-  next_rank : Int,
-) -> Int {
+  appended_start : Int32,
+  first_refs : Array[Int32],
+  next_rank : Int32,
+) -> Int32 {
   let mut next = next_rank
   for instr in instrs {
     match instr {
@@ -18395,7 +18707,7 @@ fn run_hot_pipeline_raw_note_appended_local_first_refs(
 ///|
 fn run_hot_pipeline_raw_instrs_reference_local(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -18432,7 +18744,7 @@ fn run_hot_pipeline_raw_instrs_reference_local(
 ///|
 fn run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
   instrs : Array[@lib.Instruction],
-  appended_start : Int,
+  appended_start : Int32,
   priorities : Array[Bool],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -18476,7 +18788,7 @@ fn run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
 fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  prefix_local_count : Int,
+  prefix_local_count : Int32,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= prefix_local_count {
@@ -18495,7 +18807,7 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
   let appended_start = param_count + prefix_local_count
-  let first_refs : Array[Int] = Array::make(total_local_count, -1)
+  let first_refs : Array[Int32] = Array::make(total_local_count, -1)
   ignore(
     run_hot_pipeline_raw_note_appended_local_first_refs(
       instrs, appended_start, first_refs, 0,
@@ -18505,7 +18817,7 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
   run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
     instrs, appended_start, priority_scratch,
   )
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     local_remap.push(local_id)
   }
@@ -18518,8 +18830,8 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
       continue
     }
     let ty = locals.get(local_idx)
-    let slots : Array[Int] = []
-    let ordered : Array[Int] = []
+    let slots : Array[Int32] = []
+    let ordered : Array[Int32] = []
     for scan_idx = local_idx
         scan_idx < locals.length()
         scan_idx = scan_idx + 1 {
@@ -18579,7 +18891,7 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
 ///|
 fn run_hot_pipeline_raw_branch_targets_depth(
   instrs : Array[@lib.Instruction],
-  target_depth : UInt,
+  target_depth : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -18732,7 +19044,7 @@ fn run_hot_pipeline_raw_drop_void_blocks_wrapping_loops(
 ///|
 fn run_hot_pipeline_raw_count_void_blocks_ending_br0(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -18765,17 +19077,17 @@ fn run_hot_pipeline_raw_count_void_blocks_ending_br0(
 fn run_hot_pipeline_raw_count_appended_i32_locals_by_use(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  prefix_local_count : Int,
-) -> (Int, Int) {
+  prefix_local_count : Int32,
+) -> (Int32, Int32) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= prefix_local_count {
     return (0, 0)
   }
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -18801,7 +19113,7 @@ fn run_hot_pipeline_raw_count_appended_i32_locals_by_use(
 ///|
 fn run_hot_pipeline_raw_append_unused_i32_locals(
   func : @lib.Func,
-  count : Int,
+  count : Int32,
 ) -> (@lib.Func, Bool) {
   if count <= 0 {
     return (func, false)
@@ -18821,7 +19133,7 @@ fn run_hot_pipeline_raw_append_unused_i32_locals(
 fn run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  prefix_local_count : Int,
+  prefix_local_count : Int32,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if run_hot_pipeline_raw_count_void_blocks_ending_br0(instrs) < 2 {
@@ -18852,9 +19164,18 @@ fn run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
     return (func, false)
   }
   if prev_local_idx >= 2 {
-    let local_gets : Array[Int] = Array::make(param_count + locals.length(), 0)
-    let local_sets : Array[Int] = Array::make(param_count + locals.length(), 0)
-    let local_tees : Array[Int] = Array::make(param_count + locals.length(), 0)
+    let local_gets : Array[Int32] = Array::make(
+      param_count + locals.length(),
+      0,
+    )
+    let local_sets : Array[Int32] = Array::make(
+      param_count + locals.length(),
+      0,
+    )
+    let local_tees : Array[Int32] = Array::make(
+      param_count + locals.length(),
+      0,
+    )
     run_hot_pipeline_raw_collect_local_ref_counts(
       instrs, local_gets, local_sets, local_tees,
     )
@@ -18872,7 +19193,7 @@ fn run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
     }
   }
   let total_local_count = param_count + locals.length()
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     if local_id >= prev_tee {
       local_remap.push(local_id + 2)
@@ -18903,7 +19224,7 @@ fn run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
 fn run_hot_pipeline_raw_local_type_bucket_index(
   buckets : Array[@lib.ValType],
   ty : @lib.ValType,
-) -> Int {
+) -> Int32 {
   for idx = 0; idx < buckets.length(); idx = idx + 1 {
     if buckets[idx] == ty {
       return idx
@@ -18924,8 +19245,8 @@ fn run_hot_pipeline_raw_numeric_local_type(ty : @lib.ValType) -> Bool {
 fn run_hot_pipeline_raw_group_body_locals_by_type_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  mapping_slots? : Array[Int]? = None,
-) -> (@lib.Func, Array[Int]?) {
+  mapping_slots~ : Array[Int32]? = None,
+) -> (@lib.Func, Array[Int32]?) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= 1 {
     return (func, None)
@@ -18937,8 +19258,8 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
   }
   let runs = locals.runs()
   let buckets : Array[@lib.ValType] = []
-  let counts : Array[Int] = []
-  let run_buckets : Array[Int] = []
+  let counts : Array[Int32] = []
+  let run_buckets : Array[Int32] = []
   for run in runs {
     if run.count == 0U {
       run_buckets.push(-1)
@@ -18975,7 +19296,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
     Some(count) => count[0] += remap.length()
     None => ()
   }
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let mut next = param_count
   for count in counts {
     starts.push(next)
@@ -19008,8 +19329,8 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
 ///|
 fn run_hot_pipeline_raw_group_body_locals_by_type_module(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
-  context_builds? : Array[Int]? = None,
+  touched~ : Array[Bool]? = None,
+  context_builds~ : Array[Int32]? = None,
 ) -> @lib.Module {
   // Opaque name bytes cannot be safely permuted without decoding them.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -19021,7 +19342,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
       ignore(context_builds)
       let params_by_func = raw_numeric_group_function_params(mod_)
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let remaps : Array[Array[Int]?] = []
+      let remaps : Array[Array[Int32]?] = []
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if touched is Some(selected) &&
@@ -19127,7 +19448,7 @@ fn run_hot_pipeline_raw_instrs_have_br_table(
 ///|
 fn run_hot_pipeline_raw_instrs_have_function_exit_br_table(
   instrs : Array[@lib.Instruction],
-  control_depth : UInt,
+  control_depth : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -19299,9 +19620,9 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   }
   let base_local_count = params.length() + locals.length()
   let total_local_count = base_local_count + extra_local_types.length()
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -19318,7 +19639,7 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
       local_sets[local_id] > 0 ||
       local_tees[local_id] > 0
   }
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     local_remap.push(local_id)
   }
@@ -19422,9 +19743,9 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   let mut trimmed_local_count = locals.length()
   if compacted_extra_types.length() == 0 {
     let final_total_local_count = base_local_count
-    let final_gets : Array[Int] = Array::make(final_total_local_count, 0)
-    let final_sets : Array[Int] = Array::make(final_total_local_count, 0)
-    let final_tees : Array[Int] = Array::make(final_total_local_count, 0)
+    let final_gets : Array[Int32] = Array::make(final_total_local_count, 0)
+    let final_sets : Array[Int32] = Array::make(final_total_local_count, 0)
+    let final_tees : Array[Int32] = Array::make(final_total_local_count, 0)
     run_hot_pipeline_raw_collect_local_ref_counts(
       compacted_instrs, final_gets, final_sets, final_tees,
     )
@@ -19537,7 +19858,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
 
 ///|
 fn run_hot_pipeline_raw_canonical_aliases(
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> Array[@lib.LocalIdx] {
   let canonical : Array[@lib.LocalIdx] = []
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -19548,8 +19869,8 @@ fn run_hot_pipeline_raw_canonical_aliases(
 
 ///|
 fn run_hot_pipeline_raw_initialized_locals(
-  base_local_count : Int,
-  param_count : Int,
+  base_local_count : Int32,
+  param_count : Int32,
 ) -> @bitset.BitSet {
   let initialized = @bitset.BitSet::new(base_local_count)
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -19561,7 +19882,7 @@ fn run_hot_pipeline_raw_initialized_locals(
 ///|
 fn run_hot_pipeline_raw_has_default_local_reads(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -19596,8 +19917,8 @@ fn run_hot_pipeline_raw_has_default_local_reads(
 ///|
 fn run_hot_pipeline_raw_instrs_have_later_local_read(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  local_id : Int,
+  start_idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     if run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
@@ -19645,7 +19966,7 @@ fn run_hot_pipeline_raw_instrs_have_later_local_read(
 ///|
 fn run_hot_pipeline_raw_instr_reads_local(
   instr : @lib.Instruction,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int() == local_id
@@ -19674,8 +19995,8 @@ fn run_hot_pipeline_raw_instr_reads_local(
 ///|
 fn run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  local_id : Int,
+  start_idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     if run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
@@ -19699,8 +20020,8 @@ fn run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
 ///|
 fn run_hot_pipeline_raw_instrs_have_later_local_write(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  local_id : Int,
+  start_idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -19743,7 +20064,7 @@ fn run_hot_pipeline_raw_instrs_have_later_local_write(
 ///|
 fn run_hot_pipeline_raw_mark_future_local_accesses(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   accesses : @bitset.BitSet,
   reads : Bool,
 ) -> Unit {
@@ -19781,7 +20102,7 @@ fn run_hot_pipeline_raw_mark_future_local_accesses(
 ///|
 fn run_hot_pipeline_raw_future_local_accesses(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   inherited : @bitset.BitSet,
   reads : Bool,
 ) -> @bitset.BitSet {
@@ -19795,7 +20116,7 @@ fn run_hot_pipeline_raw_future_local_accesses(
 ///|
 fn run_hot_pipeline_raw_future_local_reads_before_writes(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   inherited : @bitset.BitSet,
   label_stack : Array[RawSsaLabelTarget],
 ) -> @bitset.BitSet {
@@ -19877,7 +20198,7 @@ fn run_hot_pipeline_raw_label_inc(label_idx : @lib.LabelIdx) -> @lib.LabelIdx {
 ///|
 fn run_hot_pipeline_raw_label_add(
   label_idx : @lib.LabelIdx,
-  increment : UInt,
+  increment : UInt32,
 ) -> @lib.LabelIdx {
   let @lib.LabelIdx(raw) = label_idx
   @lib.LabelIdx::new(raw + increment)
@@ -19886,7 +20207,7 @@ fn run_hot_pipeline_raw_label_add(
 ///|
 fn run_hot_pipeline_raw_catch_label_add(
   catch_ : @lib.Catch,
-  increment : UInt,
+  increment : UInt32,
 ) -> @lib.Catch {
   match catch_ {
     @lib.Catch(tag_idx, label_idx) =>
@@ -19969,8 +20290,8 @@ fn run_hot_pipeline_raw_increment_try_table_catch_labels(
 ///|
 fn run_hot_pipeline_raw_plain_br_before_local_write(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  local_id : Int,
+  start_idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   let mut idx = start_idx
   while idx < instrs.length() {
@@ -20012,7 +20333,7 @@ fn run_hot_pipeline_raw_plain_br_before_local_write(
 ///|
 fn run_hot_pipeline_raw_local_tee_has_plain_br_before_next_write(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -20058,9 +20379,9 @@ fn run_hot_pipeline_raw_local_tee_has_plain_br_before_next_write(
 ///|
 fn run_hot_pipeline_raw_next_br_needs_canonical_alias(
   instrs : Array[@lib.Instruction],
-  next_idx : Int,
+  next_idx : Int32,
   label_stack : Array[RawSsaLabelTarget],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   let mut idx = next_idx
   while idx < instrs.length() {
@@ -20124,7 +20445,7 @@ fn run_hot_pipeline_raw_exit_depths_have_outer_exit(
 ///|
 fn run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let mut idx = start_idx
   while idx < instrs.length() {
@@ -20182,7 +20503,7 @@ fn run_hot_pipeline_raw_propagate_outer_exits(
 ///|
 fn run_hot_pipeline_raw_enclosing_label_needs_alias_copy(
   label_stack : Array[RawSsaLabelTarget],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for label_target in label_stack {
     if (!label_target.is_loop || label_target.is_loop_param_store) &&
@@ -20314,9 +20635,9 @@ fn run_hot_pipeline_raw_instrs_have_branch(
 
 ///|
 fn run_hot_pipeline_raw_increment_label_depths(
-  depths : Array[UInt],
-) -> Array[UInt] {
-  let incremented : Array[UInt] = []
+  depths : Array[UInt32],
+) -> Array[UInt32] {
+  let incremented : Array[UInt32] = []
   for depth in depths {
     incremented.push(depth + 1U)
   }
@@ -20325,8 +20646,8 @@ fn run_hot_pipeline_raw_increment_label_depths(
 
 ///|
 fn run_hot_pipeline_raw_label_depth_is_allowed(
-  raw : UInt,
-  depths : Array[UInt],
+  raw : UInt32,
+  depths : Array[UInt32],
 ) -> Bool {
   for depth in depths {
     if raw == depth {
@@ -20339,10 +20660,10 @@ fn run_hot_pipeline_raw_label_depth_is_allowed(
 ///|
 fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
   instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
+  loop_depth : UInt32,
   allow_ref_branches : Bool,
   allow_try_table_branches : Bool,
-  void_self_loop_depths : Array[UInt],
+  void_self_loop_depths : Array[UInt32],
 ) -> Bool {
   let mut saw_backedge = false
   for instr in instrs {
@@ -20523,7 +20844,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
 ///|
 fn run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
   instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
+  loop_depth : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -20627,7 +20948,7 @@ fn run_hot_pipeline_raw_val_types_are_gc_free(
 ///|
 fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
   instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
+  loop_depth : UInt32,
   allow_ref_branches : Bool,
 ) -> Bool {
   run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
@@ -20642,7 +20963,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
 ///|
 fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
   instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
+  loop_depth : UInt32,
   allow_ref_branches : Bool,
 ) -> Bool {
   run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
@@ -20695,7 +21016,7 @@ fn run_hot_pipeline_raw_br_table_alias_copies(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
   label_stack : Array[RawSsaLabelTarget],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> @bitset.BitSet? {
   let needed_alias_copies = @bitset.BitSet::new(base_local_count)
   for label_idx in labels {
@@ -20849,7 +21170,7 @@ fn run_hot_pipeline_raw_append_br_table_scratch_branch(
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   loop_target : RawSsaLabelTarget,
-  label_increment : UInt,
+  label_increment : UInt32,
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
   initialized_locals : @bitset.BitSet,
@@ -20964,8 +21285,8 @@ fn run_hot_pipeline_raw_append_br_table_proxy_scratch_branch(
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   proxy_target : RawSsaLabelTarget,
-  proxy_label_increment : UInt,
-  non_proxy_label_increment : UInt,
+  proxy_label_increment : UInt32,
+  non_proxy_label_increment : UInt32,
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
   initialized_locals : @bitset.BitSet,
@@ -21176,8 +21497,8 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
   allow_local_tee : Bool,
-  allow_direct_call? : Bool = false,
-  allow_direct_call_operands? : Bool = false,
+  allow_direct_call~ : Bool = false,
+  allow_direct_call_operands~ : Bool = false,
 ) -> (@lib.ValType, @lib.LocalIdx)? {
   let (ref_type, source_local, keep_trailing_value, keep_ref_null) = match
     rewritten.last() {
@@ -24062,8 +24383,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
 ///|
 fn run_hot_pipeline_raw_count_local_gets(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -24094,8 +24415,8 @@ fn run_hot_pipeline_raw_count_local_gets(
 ///|
 fn run_hot_pipeline_raw_collect_written_body_locals(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
-  out : Array[Int],
+  param_count : Int32,
+  out : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -24129,7 +24450,7 @@ fn run_hot_pipeline_raw_collect_written_body_locals(
 ///|
 fn run_hot_pipeline_raw_rewrite_local_refs(
   instrs : Array[@lib.Instruction],
-  old_local : Int,
+  old_local : Int32,
   new_local : @lib.LocalIdx,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
@@ -24202,7 +24523,7 @@ fn run_hot_pipeline_raw_rewrite_local_refs(
 ///|
 fn run_hot_pipeline_raw_instr_writes_local(
   instr : @lib.Instruction,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match instr {
     @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
@@ -24214,7 +24535,7 @@ fn run_hot_pipeline_raw_instr_writes_local(
 ///|
 fn run_hot_pipeline_raw_rewrite_local_refs_before_last_write(
   instrs : Array[@lib.Instruction],
-  old_local : Int,
+  old_local : Int32,
   new_local : @lib.LocalIdx,
 ) -> Array[@lib.Instruction] {
   let mut last_write_idx = -1
@@ -24394,8 +24715,8 @@ fn run_hot_pipeline_raw_instrs_have_table_update(
 ///|
 fn run_hot_pipeline_raw_count_non_loop_local_writes(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -24425,8 +24746,8 @@ fn run_hot_pipeline_raw_count_non_loop_local_writes(
 ///|
 fn run_hot_pipeline_raw_count_local_writes(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -24457,7 +24778,7 @@ fn run_hot_pipeline_raw_count_local_writes(
 ///|
 fn run_hot_pipeline_raw_set_param_alias(
   param_aliases : Array[@lib.LocalIdx?],
-  local_id : Int,
+  local_id : Int32,
   mapped_alias : @lib.LocalIdx?,
 ) -> Unit {
   if local_id < 0 {
@@ -24478,8 +24799,8 @@ fn run_hot_pipeline_raw_set_param_alias(
 ///|
 fn run_hot_pipeline_raw_no_else_branch_merge_locals(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
-  base_local_count : Int,
+  param_count : Int32,
+  base_local_count : Int32,
 ) -> @bitset.BitSet {
   let locals = @bitset.BitSet::new(base_local_count)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -24520,7 +24841,7 @@ fn run_hot_pipeline_raw_no_else_branch_merge_locals(
 ///|
 fn run_hot_pipeline_raw_mark_instr_first_local_reads(
   instr : @lib.Instruction,
-  first_accesses : Array[Int],
+  first_accesses : Array[Int32],
 ) -> Unit {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => {
@@ -24563,7 +24884,7 @@ fn run_hot_pipeline_raw_mark_instr_first_local_reads(
 ///|
 fn run_hot_pipeline_raw_mark_instrs_first_local_reads(
   instrs : Array[@lib.Instruction],
-  first_accesses : Array[Int],
+  first_accesses : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     run_hot_pipeline_raw_mark_instr_first_local_reads(instr, first_accesses)
@@ -24620,7 +24941,7 @@ fn run_hot_pipeline_raw_mark_instrs_local_writes(
 ///|
 fn run_hot_pipeline_raw_loop_carried_merge_locals(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> @bitset.BitSet {
   let locals = @bitset.BitSet::new(base_local_count)
   for instr in instrs {
@@ -24667,7 +24988,7 @@ fn run_hot_pipeline_raw_loop_carried_merge_locals(
 ///|
 fn run_hot_pipeline_raw_branch_writes_local(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -24702,7 +25023,7 @@ fn run_hot_pipeline_raw_branch_writes_local(
 ///|
 fn run_hot_pipeline_raw_count_call_like(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -24730,19 +25051,19 @@ fn run_hot_pipeline_raw_count_call_like(
 priv struct RawScratchEscapes {
   canonical : @bitset.BitSet
   conditional : @bitset.BitSet
-  region_ends : Array[Int]
-  region_starts : Array[Int]
-  param_count : Int
-  mut next_region : Int
+  region_ends : Array[Int32]
+  region_starts : Array[Int32]
+  param_count : Int32
+  mut next_region : Int32
 }
 
 ///|
 fn RawScratchEscapes::new(
-  local_count : Int,
-  param_count : Int,
-  region_ends : Array[Int],
-  region_starts : Array[Int],
-  instr_count : Int,
+  local_count : Int32,
+  param_count : Int32,
+  region_ends : Array[Int32],
+  region_starts : Array[Int32],
+  instr_count : Int32,
 ) -> RawScratchEscapes {
   {
     canonical: @bitset.BitSet::new(local_count),
@@ -24763,16 +25084,16 @@ fn RawScratchEscapes::new(
 ///|
 priv struct RawScratchEscapeScan {
   plan : RawScratchEscapes
-  pending_starts : Array[Int]
-  pending_ends : Array[Int]
-  conditional_starts : Array[Int]
-  conditional_ends : Array[Int]
-  param_epochs : Array[Int]
+  pending_starts : Array[Int32]
+  pending_ends : Array[Int32]
+  conditional_starts : Array[Int32]
+  conditional_ends : Array[Int32]
+  param_epochs : Array[Int32]
   last_param_writes : @bitset.BitSet
-  candidate_heads : Array[Int]
-  candidate_positions : Array[Int]
-  candidate_next : Array[Int]
-  mut epoch : Int
+  candidate_heads : Array[Int32]
+  candidate_positions : Array[Int32]
+  candidate_next : Array[Int32]
+  mut epoch : Int32
 }
 
 ///|
@@ -24797,10 +25118,10 @@ fn RawScratchEscapeScan::new(plan : RawScratchEscapes) -> RawScratchEscapeScan {
 ///|
 fn run_hot_pipeline_raw_collect_scratch_regions(
   instrs : Array[@lib.Instruction],
-  region_ends : Array[Int],
-  region_starts : Array[Int],
-  position : Int,
-) -> Int {
+  region_ends : Array[Int32],
+  region_starts : Array[Int32],
+  position : Int32,
+) -> Int32 {
   let region = region_ends.length()
   region_ends.push(region)
   // Reserve a contiguous instruction row for this region before its children.
@@ -24882,11 +25203,11 @@ fn run_hot_pipeline_raw_scratch_write_barrier(instr : @lib.Instruction) -> Bool 
 fn run_hot_pipeline_raw_mark_scratch_escapes(
   instrs : Array[@lib.Instruction],
   scan : RawScratchEscapeScan,
-  region : Int,
-  alias_region : Int,
-  param_alias_region : Int,
+  region : Int32,
+  alias_region : Int32,
+  param_alias_region : Int32,
   legacy : Bool,
-) -> Int {
+) -> Int32 {
   let plan = scan.plan
   let param_count = plan.param_count
   if param_count > 0 {
@@ -24939,21 +25260,21 @@ fn run_hot_pipeline_raw_mark_scratch_escapes(
               alias_region
             }
             if boundary > 0 {
-              scan.pending_starts[id] = Int::max(
+              scan.pending_starts[id] = Int32::max(
                 scan.pending_starts[id],
                 boundary,
               )
-              scan.pending_ends[id] = Int::min(
+              scan.pending_ends[id] = Int32::min(
                 scan.pending_ends[id],
                 plan.region_ends[boundary],
               )
             }
             if id < param_count {
-              scan.conditional_starts[id] = Int::max(
+              scan.conditional_starts[id] = Int32::max(
                 scan.conditional_starts[id],
                 alias_region,
               )
-              scan.conditional_ends[id] = Int::min(
+              scan.conditional_ends[id] = Int32::min(
                 scan.conditional_ends[id],
                 plan.region_ends[alias_region],
               )
@@ -25036,11 +25357,11 @@ fn run_hot_pipeline_raw_mark_scratch_escapes(
 ///|
 fn run_hot_pipeline_raw_escaping_scratch_locals(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
-  local_count : Int,
+  param_count : Int32,
+  local_count : Int32,
 ) -> RawScratchEscapes {
-  let ends : Array[Int] = []
-  let starts : Array[Int] = []
+  let ends : Array[Int32] = []
+  let starts : Array[Int32] = []
   let count = run_hot_pipeline_raw_collect_scratch_regions(
     instrs, ends, starts, 0,
   )
@@ -25071,8 +25392,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   extra_local_types : Array[@lib.ValType],
   param_aliases : Array[@lib.LocalIdx?],
   inherited_no_else_branch_merge_locals : @bitset.BitSet,
-  escaping_scratch_locals? : RawScratchEscapes? = None,
-  in_if? : Bool = false,
+  escaping_scratch_locals~ : RawScratchEscapes? = None,
+  in_if~ : Bool = false,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   let freshen_params = run_hot_pipeline_raw_instrs_have_memory_access(instrs)
@@ -26103,7 +26424,7 @@ fn run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   run_hot_pipeline_raw_collect_written_body_locals(
     arm,
     params.length(),
@@ -26239,7 +26560,7 @@ fn run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(
 ///|
 fn run_hot_pipeline_raw_has_unwritten_appended_local_get(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> Bool {
   let writes = @bitset.BitSet::new(base_local_count)
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -26251,7 +26572,7 @@ fn run_hot_pipeline_raw_has_unwritten_appended_local_get(
 ///|
 fn run_hot_pipeline_raw_collect_base_local_traffic(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
   writes : @bitset.BitSet,
   gets : @bitset.BitSet,
 ) -> Unit {
@@ -26324,7 +26645,7 @@ fn run_hot_pipeline_raw_has_plain_br(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn run_hot_pipeline_raw_original_has_branch_merge_suffix_read(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> Bool {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -26379,9 +26700,9 @@ fn run_hot_pipeline_raw_original_has_branch_merge_suffix_read(
 ///|
 fn run_hot_pipeline_raw_suffix_reads_before_write(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  base_local_count : Int,
-  target_id : Int,
+  start_idx : Int32,
+  base_local_count : Int32,
+  target_id : Int32,
 ) -> Bool {
   let ignored_writes = @bitset.BitSet::new(base_local_count)
   let reads = @bitset.BitSet::new(base_local_count)
@@ -26440,7 +26761,7 @@ fn run_hot_pipeline_raw_suffix_reads_before_write(
 fn run_hot_pipeline_raw_has_dropped_base_write_read(
   original_instrs : Array[@lib.Instruction],
   finalized_instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> Bool {
   if !run_hot_pipeline_raw_has_plain_br(original_instrs) &&
     !run_hot_pipeline_raw_original_has_branch_merge_suffix_read(
@@ -26471,7 +26792,7 @@ fn run_hot_pipeline_raw_has_dropped_base_write_read(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
     _ => None
@@ -26481,7 +26802,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.LocalSet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
     _ => None
@@ -26491,10 +26812,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_can_redirect_branch_copy_producer(
   instrs : Array[@lib.Instruction],
-  producer_idx : Int,
-  copy_idx : Int,
-  temp_id : Int,
-  target_id : Int,
+  producer_idx : Int32,
+  copy_idx : Int32,
+  temp_id : Int32,
+  target_id : Int32,
 ) -> Bool {
   for scan = producer_idx + 1; scan < copy_idx; scan = scan + 1 {
     match instrs[scan] {
@@ -26525,10 +26846,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_can_redirect_branch_copy_producer(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_find_branch_copy_producer(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  temp_id : Int,
-  target_id : Int,
-) -> Int {
+  start_idx : Int32,
+  temp_id : Int32,
+  target_id : Int32,
+) -> Int32 {
   let mut scan = start_idx
   while scan >= 0 {
     match instrs[scan] {
@@ -26582,7 +26903,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_find_branch_copy_producer(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_instr_reads_local(
   instr : @lib.Instruction,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int() == local_id
@@ -26607,7 +26928,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_instr_reads_local(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_body_reads_local(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for instr in instrs {
     if run_hot_pipeline_raw_ssa_nomerge_instr_reads_local(instr, local_id) {
@@ -26620,8 +26941,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_body_reads_local(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  local_id : Int,
+  start_idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   let mut idx = start_idx
   while idx < instrs.length() {
@@ -26636,8 +26957,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_arm_copy_suffix(
   body : Array[@lib.Instruction],
-  temp_id : Int,
-  target_id : Int,
+  temp_id : Int32,
+  target_id : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.is_empty() || body.any(dae_instr_has_branch) {
     return None
@@ -26658,8 +26979,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_arm_copy_suffix(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_branch_alias_suffix(
   instr : @lib.Instruction,
-  temp_id : Int,
-  target_id : Int,
+  temp_id : Int32,
+  target_id : Int32,
 ) -> @lib.Instruction? {
   match instr {
     @lib.If(block_type, then_body, Some(else_body)) => {
@@ -26686,7 +27007,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_branch_alias_suffix(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
   instrs : Array[@lib.Instruction],
-  whole_body? : Array[@lib.Instruction]? = None,
+  whole_body~ : Array[@lib.Instruction]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   let whole_body = whole_body.unwrap_or(instrs)
   let rewritten = instrs.copy()
@@ -26751,7 +27072,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
   instrs : Array[@lib.Instruction],
-  whole_body? : Array[@lib.Instruction]? = None,
+  whole_body~ : Array[@lib.Instruction]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   let whole_body = whole_body.unwrap_or(instrs)
   let rewritten = instrs.copy()
@@ -27054,8 +27375,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_find_mask_update_tee_from_local(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
-) -> Int? {
+  local_id : Int32,
+) -> Int32? {
   // A derived mask is not an alias of its source. Require an explicit
   // assignment on every path that can reach the following eqz.
   let len = instrs.length()
@@ -27178,9 +27499,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
 ///|
 fn run_hot_pipeline_raw_ssa_locals_equal_before(
   instrs : Array[@lib.Instruction],
-  end_ : Int,
-  left : Int,
-  right : Int,
+  end_ : Int32,
+  left : Int32,
+  right : Int32,
 ) -> Bool {
   if left == right {
     return true
@@ -27280,7 +27601,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
   let out : Array[@lib.Instruction] = []
   let mut changed = child_changed
   let mut last_spilled_local = -1
-  let call_result_aliases : Array[Int] = []
+  let call_result_aliases : Array[Int32] = []
   let mut idx = 0
   while idx < child_rewritten.length() {
     if idx + 2 < child_rewritten.length() {
@@ -27662,7 +27983,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_next_set_decision(
   plan : SsaNoMergeRewritePlan,
-  cursor : Int,
+  cursor : Int32,
 ) -> SsaNoMergeWriteDecision? {
   if cursor >= plan.write_rewrites.length() {
     return None
@@ -27677,8 +27998,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_next_set_decision(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_next_get_decision_for_local(
   plan : SsaNoMergeRewritePlan,
-  cursor : Int,
-  original_local : Int,
+  cursor : Int32,
+  original_local : Int32,
 ) -> SsaNoMergeGetDecision? {
   if cursor >= plan.get_rewrites.length() {
     return None
@@ -27695,9 +28016,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
   extra_local_types : Array[@lib.ValType],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  base_local_count : Int,
-  original_local : Int,
-  fresh_local_id : Int,
+  base_local_count : Int32,
+  original_local : Int32,
+  fresh_local_id : Int32,
 ) -> Unit {
   let expected = base_local_count + extra_local_types.length()
   if fresh_local_id != expected {
@@ -27712,13 +28033,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
 
 ///|
 priv struct SsaNoMergeRawGetCursor {
-  mut cursor : Int
+  mut cursor : Int32
 }
 
 ///|
 priv struct SsaNoMergeRawRewriteCursor {
-  mut write_cursor : Int
-  mut get_cursor : Int
+  mut write_cursor : Int32
+  mut get_cursor : Int32
   mut changed : Bool
 }
 
@@ -27914,7 +28235,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -28058,8 +28379,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
 
 ///|
 priv struct SsaNoMergeMixedStructuredControlScan {
-  mut write_count : Int
-  mut tee_count : Int
+  mut write_count : Int32
+  mut tee_count : Int32
 }
 
 ///|
@@ -28425,7 +28746,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
       instrs,
@@ -28439,7 +28760,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
 fn run_hot_pipeline_raw_local_has_legal_default(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   if local_id < 0 || local_id >= params.length() + locals.length() {
     return false
@@ -28577,7 +28898,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
 fn run_hot_pipeline_raw_ssa_nomerge_replaced_written_get_with_default(
   original : Array[@lib.Instruction],
   rewritten : Array[@lib.Instruction],
-  rewritten_locals : Array[Int],
+  rewritten_locals : Array[Int32],
 ) -> Bool {
   let aligned_length = if original.length() < rewritten.length() {
     original.length()
@@ -28839,7 +29160,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
 fn run_hot_pipeline_raw_ssa_nomerge_block_result_count(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
-) -> Int {
+) -> Int32 {
   match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
     Some(results) => results.length()
     None => 0
@@ -28850,7 +29171,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_block_result_count(
 fn run_hot_pipeline_raw_ssa_nomerge_block_param_count(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
-) -> Int {
+) -> Int32 {
   match block_type {
     @lib.TypeIdxBlockType(type_idx) =>
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
@@ -28865,7 +29186,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_block_param_count(
 fn run_hot_pipeline_raw_ssa_nomerge_instr_result_count(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
@@ -28889,7 +29210,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_instr_result_count(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_push_drops(
   out : Array[@lib.Instruction],
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let mut idx = 0
   while idx < count {
@@ -28901,7 +29222,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_push_drops(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> Bool {
   let mut saw_unreachable = false
   for idx = start; idx < instrs.length(); idx = idx + 1 {
@@ -28966,7 +29287,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_tail_scalar_debris_then_unreachable(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> Bool {
   let mut saw_unreachable = false
@@ -28992,7 +29313,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_tail_scalar_debris_then_unreachable(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_const_should_drop_before_tail(
   instrs : Array[@lib.Instruction],
-  next : Int,
+  next : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> Bool {
   if run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(instrs, next) {
@@ -29552,7 +29873,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
   written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
-  base_local_count : Int,
+  base_local_count : Int32,
   emitted_fresh_locals : Array[Bool],
   in_branching_value_block : Bool,
   force_keep_write : Bool,
@@ -29777,7 +30098,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
   written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
-  base_local_count : Int,
+  base_local_count : Int32,
   emitted_fresh_locals : Array[Bool],
   in_branching_value_block : Bool,
 ) -> Array[@lib.Instruction] {
@@ -29854,7 +30175,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   let rewritten_instrs : Array[@lib.Instruction] = []
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
-  let fresh_aliases : Array[Int] = Array::make(base_local_count, -1)
+  let fresh_aliases : Array[Int32] = Array::make(base_local_count, -1)
   let initialized_locals = run_hot_pipeline_raw_initialized_locals(
     base_local_count,
     params.length(),
@@ -30024,7 +30345,7 @@ priv struct HotPipelineFuncResult {
 ///|
 fn run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
   instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
+  loop_depth : UInt32,
 ) -> Bool {
   let mut saw_scalar_backedge = false
   let mut saw_null_backedge = false
@@ -30849,7 +31170,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -30929,7 +31250,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> (Bool, Bool, Bool) {
   let mut saw_body_local_get = false
   let mut saw_body_local_write = false
@@ -30983,7 +31304,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_loop_carried_plain_br_boundary(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -31069,7 +31390,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_no_result_loop(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match body {
     [@lib.LocalSet(@lib.LocalIdx(raw)), ..] =>
@@ -31148,7 +31469,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match body {
     [@lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)), @lib.Unreachable] => {
@@ -31165,7 +31486,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
 fn run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -31219,7 +31540,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
 fn run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -31326,7 +31647,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -31379,7 +31700,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
   instrs : Array[@lib.Instruction],
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   let mut loop_count = 0
   let mut branch_count = 0
   let mut local_write_count = 0
@@ -31434,7 +31755,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
+  base_local_count : Int32,
 ) -> Bool {
   if base_local_count < 17 {
     return false
@@ -31448,13 +31769,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
-  depth : Int,
+  param_count : Int32,
+  depth : Int32,
   ok : Ref[Bool],
-  tee_local : Ref[Int],
-  tee_count : Ref[Int],
-  body_get_count : Ref[Int],
-  local_set_count : Ref[Int],
+  tee_local : Ref[Int32],
+  tee_count : Ref[Int32],
+  body_get_count : Ref[Int32],
+  local_set_count : Ref[Int32],
 ) -> Unit {
   for instr in instrs {
     if !ok.val {
@@ -31543,7 +31864,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_single_already_ssa_tee_chain(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   let ok = Ref::new(true)
   let tee_local = Ref::new(-1)
@@ -31608,7 +31929,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   seen_sets : @bitset.BitSet,
   seen_get_after_set : @bitset.BitSet,
   has_call : Ref[Bool],
@@ -31670,7 +31991,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   let seen_sets = @bitset.BitSet::new(256)
   let seen_get_after_set = @bitset.BitSet::new(256)
@@ -31692,8 +32013,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
-  target_local : Int,
+  param_count : Int32,
+  target_local : Int32,
 ) -> Bool {
   if target_local < 0 || target_local >= param_count {
     return false
@@ -31764,7 +32085,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   if param_count <= 1 {
     return false
@@ -31891,7 +32212,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_is_jsonas_func36_numeric_formatter(
 // make removing the block label observable.
 fn run_hot_pipeline_raw_ssa_nomerge_branch_free_value_block_tee_local(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let mut tee_local = -1
   for instr in body {
     match instr {
@@ -32297,7 +32618,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
       }
     }
   } else {
-    let first_set : @hashmap.HashMap[Int, Int] = @hashmap.new()
+    let first_set : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
     let mut latest_result_if = -1
     let mut latest_result_if_before_return = -1
     for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -32386,7 +32707,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
       }
     }
   } else {
-    let first_set : @hashmap.HashMap[Int, Int] = @hashmap.new()
+    let first_set : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
     let mut latest_result_if = -1
     for idx = 0; idx < instrs.length(); idx = idx + 1 {
       match instrs[idx] {
@@ -32477,7 +32798,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_rewritten_loop_parameter(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -33402,7 +33723,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
 fn run_hot_pipeline_raw_count_typed_loop_params(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -33944,15 +34265,15 @@ fn run_hot_pipeline_raw_ssa_nomerge(
 
 ///|
 priv struct OptimizeInstructionsLoweredStats {
-  mut instrs : Int
-  mut blocks : Int
-  mut loops : Int
-  mut ifs : Int
-  mut branches : Int
-  mut returns : Int
-  mut calls : Int
-  mut loads : Int
-  mut local_writes : Int
+  mut instrs : Int32
+  mut blocks : Int32
+  mut loops : Int32
+  mut ifs : Int32
+  mut branches : Int32
+  mut returns : Int32
+  mut calls : Int32
+  mut loads : Int32
+  mut local_writes : Int32
 }
 
 ///|
@@ -34039,23 +34360,23 @@ fn run_hot_pipeline_optimize_instructions_collect_stats_body(
 // shape or when the missing ordered-effect/final-repair substrate lands.
 priv struct RawOiCoarseNoopSkipFact {
   reason : String
-  local_count : Int
-  instr_count : Int
-  block_count : Int
-  loop_count : Int
-  if_count : Int
-  branch_count : Int
-  return_count : Int
-  call_count : Int
-  load_count : Int
-  local_write_count : Int
+  local_count : Int32
+  instr_count : Int32
+  block_count : Int32
+  loop_count : Int32
+  if_count : Int32
+  branch_count : Int32
+  return_count : Int32
+  call_count : Int32
+  load_count : Int32
+  local_write_count : Int32
   bypassed_by_const_offset_load_call : Bool
 }
 
 ///|
 fn RawOiCoarseNoopSkipFact::from_stats(
   reason : String,
-  local_count : Int,
+  local_count : Int32,
   stats : OptimizeInstructionsLoweredStats,
   bypassed_by_const_offset_load_call : Bool,
 ) -> RawOiCoarseNoopSkipFact {
@@ -34077,7 +34398,7 @@ fn RawOiCoarseNoopSkipFact::from_stats(
 
 ///|
 fn RawOiCoarseNoopSkipFact::from_large_local(
-  local_count : Int,
+  local_count : Int32,
   stats : OptimizeInstructionsLoweredStats,
 ) -> RawOiCoarseNoopSkipFact? {
   if local_count > 1024 {
@@ -34093,7 +34414,7 @@ fn RawOiCoarseNoopSkipFact::from_large_local(
 
 ///|
 fn RawOiCoarseNoopSkipFact::from_large_lowered(
-  local_count : Int,
+  local_count : Int32,
   stats : OptimizeInstructionsLoweredStats,
 ) -> RawOiCoarseNoopSkipFact? {
   if local_count > 64 && stats.instrs > 500 {
@@ -34109,7 +34430,7 @@ fn RawOiCoarseNoopSkipFact::from_large_lowered(
 
 ///|
 fn RawOiCoarseNoopSkipFact::from_structured_or_call_boundary(
-  local_count : Int,
+  local_count : Int32,
   stats : OptimizeInstructionsLoweredStats,
   const_offset_load_then_call : Bool,
 ) -> RawOiCoarseNoopSkipFact? {
@@ -34197,7 +34518,7 @@ fn run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
-  module_ctx? : @ir.HotModuleContext? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
@@ -34273,7 +34594,7 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
-  module_ctx? : @ir.HotModuleContext? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
@@ -34499,7 +34820,7 @@ fn run_hot_pipeline_raw_merge_blocks_has_flat_call_prefix_candidate(
 fn run_hot_pipeline_raw_merge_blocks_prior_global_conflict(
   body : Array[@lib.Instruction],
   slices : Array[DaeValueSlice],
-  end_arg : Int,
+  end_arg : Int32,
 ) -> Bool {
   for arg_idx = 0; arg_idx < end_arg; arg_idx = arg_idx + 1 {
     let slice = slices[arg_idx]
@@ -34748,7 +35069,7 @@ fn run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(
     match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
       (@lib.LocalGet(carrier), @lib.Block(_, _), @lib.LocalSet(overwritten)) if carrier ==
         overwritten => {
-        let end = Int::min(instrs.length(), idx + 16)
+        let end = Int32::min(instrs.length(), idx + 16)
         let mut reads = 0
         for probe = idx + 3; probe < end; probe = probe + 1 {
           match instrs[probe] {
@@ -34806,7 +35127,7 @@ fn run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(
   for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
       (@lib.I32Const(_), @lib.LocalSet(_)) => {
-        let scan_end = Int::min(instrs.length(), idx + 10)
+        let scan_end = Int32::min(instrs.length(), idx + 10)
         for scan = idx + 2; scan < scan_end; scan = scan + 1 {
           match instrs[scan] {
             @lib.If(_, then_body, else_body) => {
@@ -34885,7 +35206,7 @@ fn run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(
       | @lib.I64Store32(_) => ()
       _ => continue
     }
-    let scan_end = Int::min(instrs.length(), idx + 96)
+    let scan_end = Int32::min(instrs.length(), idx + 96)
     for scan = idx + 3; scan < scan_end; scan = scan + 1 {
       match instrs[scan] {
         @lib.LocalGet(read) if read == target => return true
@@ -35408,7 +35729,7 @@ fn run_hot_pipeline_raw_code_folding_skip(
 // values they leave on the stack, so stack inputs below those results are treated
 // as carried across the effect barrier.
 priv struct RawOiStackEffectBarrierFact {
-  result_count : Int
+  result_count : Int32
 }
 
 ///|
@@ -35589,15 +35910,15 @@ fn run_hot_pipeline_optimize_instructions_instr_is_call(
 
 ///|
 priv struct RawOiLocalLoadCallAddressUseFact {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   base : @lib.LocalIdx
 }
 
 ///|
 fn RawOiLocalLoadCallAddressUseFact::from_region_at(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiLocalLoadCallAddressUseFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::LocalGet) ||
@@ -35713,7 +36034,7 @@ fn run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
 fn run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
@@ -35748,7 +36069,7 @@ fn run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
 priv struct RawOiGcSelectedOperandForwardingFact {
   is_struct_get_after_new : Bool
   is_array_get_after_fixed_new : Bool
-  operand_count : Int
+  operand_count : Int32
   saw_effectful_operand_call : Bool
 }
 
@@ -35826,7 +36147,7 @@ priv struct RawOiGcEffectLocalizationFact {
   is_array_set_after_fixed_new : Bool
   is_array_set_after_default_new : Bool
   is_array_set_after_new : Bool
-  operand_count : Int
+  operand_count : Int32
   saw_effectful_operand_call : Bool
 }
 
@@ -36058,7 +36379,7 @@ fn RawOiSimpleStackCallBinopFact::proves_binaryen_stack_localization(
 // stack-carried-effect skip exception aligned with the call_ref target facts
 // instead of spelling the table/call_ref window directly in the skip gate.
 priv struct RawOiCallIndexedTableGetCallRefFact {
-  pure_prefix_count : Int
+  pure_prefix_count : Int32
   index_call_has_no_params_one_result : Bool
   is_table_get_target : Bool
   is_call_ref : Bool
@@ -36145,16 +36466,16 @@ fn run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
 
 ///|
 priv struct RawOiBulkStackOperandFact {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   has_call : Bool
-  stack_argument_count : Int
+  stack_argument_count : Int32
 }
 
 ///|
 fn RawOiBulkStackOperandFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiBulkStackOperandFact? {
   if start >= region.roots.length() {
@@ -36245,7 +36566,7 @@ fn RawOiBulkSizeFact::from_instr(instr : @lib.Instruction) -> RawOiBulkSizeFact 
 // operands, one constant-size fact, and the bulk opcode. This replaces the old
 // raw end-index scanner used by the tiny and trap-relaxed zero-size gates.
 priv struct RawOiStackBulkMemoryFact {
-  end : Int
+  end : Int32
   dest : RawOiBulkStackOperandFact
   source_or_value : RawOiBulkStackOperandFact
   size : RawOiBulkSizeFact
@@ -36256,7 +36577,7 @@ priv struct RawOiStackBulkMemoryFact {
 ///|
 fn RawOiStackBulkMemoryFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiStackBulkMemoryFact? {
   let dest = match
@@ -36320,7 +36641,7 @@ fn RawOiStackBulkMemoryFact::matches_trap_relaxed_zero_size_drop(
 // trap-relaxed zero-size operations from operand facts; this region fact records
 // whether an entire lowered body is made only from those stack-bulk operations.
 priv struct RawOiStackBulkMemoryRegionFact {
-  operation_count : Int
+  operation_count : Int32
   all_tiny_rewrites : Bool
   all_trap_relaxed_zero_size_drops : Bool
   saw_stack_carried_call_operand : Bool
@@ -36384,17 +36705,17 @@ fn RawOiStackBulkMemoryRegionFact::proves_trap_relaxed_zero_size_drop_region(
 
 ///|
 priv struct RawOiStackCarriedEffectUseFact {
-  barrier_index : Int
-  result_count : Int
-  stack_depth_after : Int
+  barrier_index : Int32
+  result_count : Int32
+  stack_depth_after : Int32
 }
 
 ///|
 fn RawOiStackCarriedEffectUseFact::from_barrier_state(
-  barrier_index : Int,
+  barrier_index : Int32,
   barrier : RawOiStackEffectBarrierFact,
   reachable : Bool,
-  stack_depth_after : Int,
+  stack_depth_after : Int32,
 ) -> RawOiStackCarriedEffectUseFact? {
   if reachable && stack_depth_after > barrier.result_count {
     Some({
@@ -36604,7 +36925,7 @@ fn RawOiRootFlowFact::blocks_branch_free_value_region(
 // compiler emits their six classifications as static constants already.
 #valtype
 priv struct RawOiTopLevelRootFact {
-  position : Int
+  position : Int32
   kind : RawOiRootKind
   instr : @lib.Instruction
   is_pure_stack_operand : Bool
@@ -36613,7 +36934,7 @@ priv struct RawOiTopLevelRootFact {
 
 ///|
 fn RawOiTopLevelRootFact::from_instr(
-  position : Int,
+  position : Int32,
   instr : @lib.Instruction,
 ) -> RawOiTopLevelRootFact {
   let kind = match instr {
@@ -36710,7 +37031,7 @@ fn RawOiInstructionRegionFact::from_expr(
 ///|
 fn RawOiInstructionRegionFact::has_root_at(
   self : RawOiInstructionRegionFact,
-  position : Int,
+  position : Int32,
   kind : RawOiRootKind,
 ) -> Bool {
   position >= 0 &&
@@ -36725,7 +37046,7 @@ fn RawOiInstructionRegionFact::has_root_at(
 ///|
 fn RawOiInstructionRegionFact::has_call_like_root_at(
   self : RawOiInstructionRegionFact,
-  position : Int,
+  position : Int32,
 ) -> Bool {
   self.has_root_at(position, RawOiRootKind::DirectCall) ||
   self.has_root_at(position, RawOiRootKind::CallLike) ||
@@ -36735,12 +37056,12 @@ fn RawOiInstructionRegionFact::has_call_like_root_at(
 ///|
 priv struct RawOiCallSiteFact {
   call_idx : @lib.FuncIdx
-  call_ordinal : Int
+  call_ordinal : Int32
 }
 
 ///|
 priv struct RawOiSelectAnchorFact {
-  select_ordinal : Int
+  select_ordinal : Int32
 }
 
 ///|
@@ -36957,10 +37278,10 @@ fn RawOiAdmissionGuardFacts::has_global_call_tee_control(
 
 ///|
 priv struct RawOiFunctionRevisionFactIndex {
-  instruction_count : Int
+  instruction_count : Int32
   lowered_stats : OptimizeInstructionsLoweredStats
   top_level_roots : Array[RawOiTopLevelRootFact]
-  top_level_pure_stack_prefix_count : Int
+  top_level_pure_stack_prefix_count : Int32
   regions : Array[RawOiInstructionRegionFact]
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
@@ -36977,7 +37298,7 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
   admission_guards : RawOiAdmissionGuardFacts,
-) -> Int {
+) -> Int32 {
   let mut count = 1
   run_hot_pipeline_optimize_instructions_record_stats_instr(
     instr, lowered_stats,
@@ -37024,7 +37345,7 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
   admission_guards : RawOiAdmissionGuardFacts,
-) -> Int {
+) -> Int32 {
   admission_guards.record_region(instrs)
   regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
@@ -37076,7 +37397,7 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
 ///|
 fn RawOiFunctionRevisionFactIndex::has_stack_carried_tee_parameter_alias(
   self : RawOiFunctionRevisionFactIndex,
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -37116,13 +37437,13 @@ fn RawOiFunctionRevisionFactIndex::has_stack_carried_tee_parameter_alias(
 priv struct RawOiCurrentRootRevisionOverlay {
   current : @lib.Instruction
   region : RawOiInstructionRegionFact
-  start : Int
+  start : Int32
 }
 
 ///|
 fn RawOiCurrentRootRevisionOverlay::instr_at(
   self : RawOiCurrentRootRevisionOverlay,
-  offset : Int,
+  offset : Int32,
 ) -> @lib.Instruction? {
   let position = self.start + offset
   if position < 0 || position >= self.region.roots.length() {
@@ -37176,7 +37497,7 @@ fn RawOiFunctionRevisionFactIndex::root_kind_matches(
 ///|
 fn RawOiFunctionRevisionFactIndex::has_top_level_root_at(
   self : RawOiFunctionRevisionFactIndex,
-  position : Int,
+  position : Int32,
   kind : RawOiRootKind,
 ) -> Bool {
   if position < 0 || position >= self.top_level_roots.length() {
@@ -37190,7 +37511,7 @@ fn RawOiFunctionRevisionFactIndex::has_top_level_root_at(
 ///|
 fn RawOiFunctionRevisionFactIndex::has_top_level_call_ref_root_at(
   self : RawOiFunctionRevisionFactIndex,
-  position : Int,
+  position : Int32,
 ) -> Bool {
   self.has_top_level_root_at(position, RawOiRootKind::CallRef) ||
   self.has_top_level_root_at(position, RawOiRootKind::ReturnCallRef)
@@ -37199,7 +37520,7 @@ fn RawOiFunctionRevisionFactIndex::has_top_level_call_ref_root_at(
 ///|
 fn RawOiFunctionRevisionFactIndex::instr_at(
   self : RawOiFunctionRevisionFactIndex,
-  position : Int,
+  position : Int32,
 ) -> @lib.Instruction? {
   if position < 0 || position >= self.top_level_roots.length() {
     None
@@ -37246,7 +37567,7 @@ fn RawOiModuleFunctionRevisionFacts::from_index(
 ///|
 fn RawOiModuleFunctionRevisionFacts::is_constructor_operand_at(
   self : RawOiModuleFunctionRevisionFacts,
-  position : Int,
+  position : Int32,
 ) -> Bool {
   position >= 0 &&
   position < self.constructor_operand_positions.length() &&
@@ -37256,8 +37577,8 @@ fn RawOiModuleFunctionRevisionFacts::is_constructor_operand_at(
 ///|
 fn RawOiModuleFunctionRevisionFacts::range_all_constructor_operands(
   self : RawOiModuleFunctionRevisionFacts,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
@@ -37273,8 +37594,8 @@ fn RawOiModuleFunctionRevisionFacts::range_all_constructor_operands(
 ///|
 fn RawOiModuleFunctionRevisionFacts::range_has_direct_call(
   self : RawOiModuleFunctionRevisionFacts,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   if start < 0 || end < start || end > self.index.top_level_roots.length() {
     return false
@@ -37319,9 +37640,9 @@ fn RawOiFunctionRevisionFactIndex::has_select_anchor(
 // invalidation conditions.
 priv struct RawOiIdempotentCallSelfSelectFact {
   call_idx : @lib.FuncIdx
-  first_call_ordinal : Int
-  second_call_ordinal : Int
-  select_ordinal : Int
+  first_call_ordinal : Int32
+  second_call_ordinal : Int32
+  select_ordinal : Int32
 }
 
 ///|
@@ -37444,8 +37765,8 @@ fn RawOiV131IdempotentAbsMulFact::from_body(
 // materialization. Raw OI cannot prove or build that plan, so this fact routes
 // the whole original function through HOT; HOT remains the sole semantic owner.
 priv struct RawOiV131EffectfulSelectHotReplayFact {
-  call_ordinal : Int
-  select_ordinal : Int
+  call_ordinal : Int32
+  select_ordinal : Int32
 }
 
 ///|
@@ -37548,10 +37869,10 @@ fn RawOiStackCarriedEffectUseFact::is_stack_carried(
 
 ///|
 priv struct RawOiStackValueTransferStepFact {
-  position : Int
+  position : Int32
   typechecked : Bool
   reachable : Bool
-  stack_depth_after : Int
+  stack_depth_after : Int32
 }
 
 ///|
@@ -37775,7 +38096,7 @@ fn RawOiRefFuncTargetFact::from_instr(
 // kind, and complete rewrite payload instead of duplicating call_ref target
 // peepholes inside the dispatcher loop.
 priv struct RawOiCallRefDirectizeRewriteFact {
-  end : Int
+  end : Int32
   is_direct_ref_func_target : Bool
   is_table_target : Bool
   is_const_select_ref_func_target : Bool
@@ -37962,7 +38283,7 @@ fn RawOiCallRefDirectizeRewriteFact::from_overlay(
 // the dispatcher no longer owns separate ref.null/ref.test/ref.cast/null-trap
 // peepholes.
 priv struct RawOiRefNullTrapRewriteFact {
-  end : Int
+  end : Int32
   terminates_region : Bool
   is_dropped_unreachable_tail : Bool
   is_ref_null_as_non_null : Bool
@@ -38011,7 +38332,7 @@ fn RawOiRefNullTrapRewriteFact::append_rewrite(
 fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start + 1 >= region.roots.length() {
     return None
@@ -38043,7 +38364,7 @@ fn RawOiRefNullTrapRewriteFact::from_dropped_unreachable_tail(
 fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start + 1 >= region.roots.length() {
     return None
@@ -38073,7 +38394,7 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_as_non_null(
 fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start + 10 >= region.roots.length() {
     return None
@@ -38144,7 +38465,7 @@ fn RawOiRefNullTrapRewriteFact::from_local_null_test_cast_drop(
 fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start + 2 >= region.roots.length() {
     return None
@@ -38182,7 +38503,7 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_test_drop(
 fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start + 2 >= region.roots.length() {
     return None
@@ -38228,7 +38549,7 @@ fn RawOiRefNullTrapRewriteFact::from_ref_null_cast_drop(
 fn RawOiRefNullTrapRewriteFact::from_region(
   current : @lib.Instruction,
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiRefNullTrapRewriteFact? {
   if start < 0 ||
     start >= region.roots.length() ||
@@ -38693,8 +39014,8 @@ priv struct RawOiNonnegativeSignedSpellingFact {
 
 ///|
 fn RawOiNonnegativeSignedSpellingFact::from_i32(
-  lhs_raw : Int,
-  rhs_raw : Int,
+  lhs_raw : Int32,
+  rhs_raw : Int32,
   instr : @lib.Instruction,
 ) -> RawOiNonnegativeSignedSpellingFact? {
   if lhs_raw < 0 || rhs_raw < 0 {
@@ -38868,13 +39189,13 @@ fn RawOiF64SubNegatedConstFact::proves_binaryen_negatable_sub_const(
 // rewrite proves that the right constant is a positive power of two and carries
 // the shift count into the replacement `shl`.
 priv struct RawOiI32PowerOfTwoShiftFact {
-  raw : Int
-  shift : Int
+  raw : Int32
+  shift : Int32
 }
 
 ///|
 fn RawOiI32PowerOfTwoShiftFact::from_raw(
-  raw : Int,
+  raw : Int32,
 ) -> RawOiI32PowerOfTwoShiftFact? {
   if raw <= 0 || (raw & (raw - 1)) != 0 {
     return None
@@ -38951,8 +39272,8 @@ priv struct RawOiOrderedConstEqNeFact {
 
 ///|
 fn RawOiOrderedConstEqNeFact::from_i32(
-  lhs_raw : Int,
-  rhs_raw : Int,
+  lhs_raw : Int32,
+  rhs_raw : Int32,
   instr : @lib.Instruction,
 ) -> RawOiOrderedConstEqNeFact? {
   if lhs_raw > rhs_raw {
@@ -39271,7 +39592,7 @@ fn RawOiI64ExtendLocalCommuteFact::from_parts(
 // access kind, original/folded memargs, folded address, and complete rewrite
 // payload instead of dispatcher-owned ad hoc peepholes.
 priv struct RawOiMemoryOffsetFoldRewriteFact {
-  end : Int
+  end : Int32
   is_load : Bool
   is_store : Bool
   original_memarg : @lib.MemArg
@@ -39309,7 +39630,7 @@ fn RawOiMemoryOffsetFoldRewriteFact::append_rewrite(
 ///|
 fn RawOiMemoryOffsetFoldRewriteFact::from_load_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
   if start + 1 >= region.roots.length() ||
     !region.has_root_at(start + 1, RawOiRootKind::PlainLoad) {
@@ -39348,7 +39669,7 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_load_region(
 ///|
 fn RawOiMemoryOffsetFoldRewriteFact::from_store_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start + 2, RawOiRootKind::MemoryStore) {
@@ -39397,7 +39718,7 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_region(
 ///|
 fn RawOiMemoryOffsetFoldRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiMemoryOffsetFoldRewriteFact? {
   match RawOiMemoryOffsetFoldRewriteFact::from_store_region(region, start) {
     Some(fact) => return Some(fact)
@@ -39413,7 +39734,7 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_region(
 // switch on the exact byte count; keep that proof as a named fact instead of
 // threading ad hoc `i32.const` / `i64.const` matches through rewrite windows.
 priv struct RawOiBulkConstSizeFact {
-  size : Int
+  size : Int32
 }
 
 ///|
@@ -39437,7 +39758,7 @@ priv struct RawOiAtomicAccessFact {
   is_atomic_load : Bool
   is_atomic_rmw : Bool
   is_atomic_cmpxchg : Bool
-  address_operand_distance : Int
+  address_operand_distance : Int32
 }
 
 ///|
@@ -39479,7 +39800,7 @@ fn RawOiAtomicAccessFact::from_instr(
 ///|
 fn RawOiAtomicAccessFact::proves_address_localtee_boundary(
   self : RawOiAtomicAccessFact,
-  observed_operand_distance : Int,
+  observed_operand_distance : Int32,
 ) -> Bool {
   (self.is_atomic_load || self.is_atomic_rmw || self.is_atomic_cmpxchg) &&
   self.address_operand_distance == observed_operand_distance
@@ -39487,16 +39808,16 @@ fn RawOiAtomicAccessFact::proves_address_localtee_boundary(
 
 ///|
 priv struct RawOiAtomicLocalTeeAddressUseFact {
-  localtee_index : Int
-  consumer_index : Int
-  operand_distance : Int
+  localtee_index : Int32
+  consumer_index : Int32
+  operand_distance : Int32
   access : RawOiAtomicAccessFact
 }
 
 ///|
 fn RawOiAtomicLocalTeeAddressUseFact::from_region_at(
   region : RawOiInstructionRegionFact,
-  localtee_index : Int,
+  localtee_index : Int32,
 ) -> RawOiAtomicLocalTeeAddressUseFact? {
   if !region.has_root_at(localtee_index, RawOiRootKind::LocalTee) {
     return None
@@ -39678,9 +39999,9 @@ fn RawOiTnhLocalTeeSameAddressMemoryCopyFact::proves_trap_relaxed_escape(
 
 ///|
 priv struct RawOiMemoryLocalTeeUseFact {
-  localtee_index : Int
-  consumer_index : Int
-  operand_distance : Int
+  localtee_index : Int32
+  consumer_index : Int32
+  operand_distance : Int32
   is_nondefault_memory_access : Bool
   is_bulk_memory_copy : Bool
   is_bulk_memory_fill : Bool
@@ -39689,7 +40010,7 @@ priv struct RawOiMemoryLocalTeeUseFact {
 ///|
 fn RawOiMemoryLocalTeeUseFact::from_region_at(
   region : RawOiInstructionRegionFact,
-  localtee_index : Int,
+  localtee_index : Int32,
 ) -> RawOiMemoryLocalTeeUseFact? {
   if !region.has_root_at(localtee_index, RawOiRootKind::LocalTee) {
     return None
@@ -39793,7 +40114,7 @@ fn RawOiMemoryLocalTeeRegionFact::from_index(
 // an i32 `and` mask only for byte/halfword i32 stores; i64 stores and i64.store32
 // are tracked as explicit boundaries.
 priv struct RawOiNarrowStoreAccessFact {
-  store_bits : Int
+  store_bits : Int32
   is_i64_store : Bool
 }
 
@@ -39818,8 +40139,8 @@ fn RawOiNarrowStoreAccessFact::from_instr(
 // records the store width, mask side, and constant-constant guard explicitly
 // instead of keeping the decision as an effectful-sibling window helper.
 priv struct RawOiNarrowStoreMaskFact {
-  store_bits : Int
-  required_mask : Int
+  store_bits : Int32
+  required_mask : Int32
   value : @lib.Instruction
   mask_on_left : Bool
   mask_on_right : Bool
@@ -39901,7 +40222,7 @@ fn RawOiNarrowStoreMaskFact::from_parts(
 
 ///|
 priv struct RawOiDropStoreMaskRewriteFact {
-  end : Int
+  end : Int32
   folded_const_add_address : Bool
   address : @lib.Instruction
   value : @lib.Instruction
@@ -39932,7 +40253,7 @@ fn RawOiDropStoreMaskRewriteFact::append_rewrite(
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiDropStoreMaskRewriteFact? {
   let address = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
@@ -39965,7 +40286,7 @@ fn RawOiDropStoreMaskRewriteFact::from_const_add_address(
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_plain_address(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiDropStoreMaskRewriteFact? {
   if start + 4 >= region.roots.length() ||
     !region.has_root_at(start + 4, RawOiRootKind::MemoryStore) {
@@ -39994,7 +40315,7 @@ fn RawOiDropStoreMaskRewriteFact::from_plain_address(
 ///|
 fn RawOiDropStoreMaskRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiDropStoreMaskRewriteFact? {
   match RawOiDropStoreMaskRewriteFact::from_const_add_address(region, start) {
     Some(fact) => return Some(fact)
@@ -40008,8 +40329,8 @@ fn RawOiDropStoreMaskRewriteFact::from_region(
 // memory.fill by repeating the low byte of an i32 constant into the store value;
 // keep the byte, size, and rewritten value together instead of ad hoc helpers.
 priv struct RawOiRepeatedFillValueFact {
-  size : Int
-  byte : UInt
+  size : Int32
+  byte : UInt32
   value : @lib.Instruction
 }
 
@@ -40024,7 +40345,7 @@ fn RawOiRepeatedFillValueFact::proves_binaryen_repeated_byte_value(
 ///|
 fn RawOiRepeatedFillValueFact::from_value_and_size(
   value : @lib.Instruction,
-  size : Int,
+  size : Int32,
 ) -> RawOiRepeatedFillValueFact? {
   match size {
     1 => Some({ size, byte: 0U, value, })
@@ -40081,7 +40402,7 @@ fn RawOiRepeatedFillValueFact::from_value_and_size(
 // copies with a load/store pair using zero-offset memargs for the source and
 // destination memories; this fact owns the size-to-opcode mapping.
 priv struct RawOiBulkCopyLoadStoreFact {
-  size : Int
+  size : Int32
   src_mem : @lib.MemIdx
   dst_mem : @lib.MemIdx
   load : @lib.Instruction
@@ -40105,7 +40426,7 @@ fn RawOiBulkCopyLoadStoreFact::proves_binaryen_copy_load_store(
 
 ///|
 fn RawOiBulkCopyLoadStoreFact::from_parts(
-  size : Int,
+  size : Int32,
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
 ) -> RawOiBulkCopyLoadStoreFact? {
@@ -40152,7 +40473,7 @@ fn RawOiBulkCopyLoadStoreFact::from_parts(
 // Raw OI-G memory.fill lowering store fact. The value proof is separate in
 // RawOiRepeatedFillValueFact; this fact records Binaryen's size-to-store mapping.
 priv struct RawOiBulkFillStoreFact {
-  size : Int
+  size : Int32
   mem : @lib.MemIdx
   store : @lib.Instruction
 }
@@ -40172,7 +40493,7 @@ fn RawOiBulkFillStoreFact::proves_binaryen_fill_store(
 
 ///|
 fn RawOiBulkFillStoreFact::from_parts(
-  size : Int,
+  size : Int32,
   mem : @lib.MemIdx,
 ) -> RawOiBulkFillStoreFact? {
   let memarg_fact = RawOiZeroOffsetMemargFact::from_mem_idx(mem)
@@ -40193,14 +40514,14 @@ fn RawOiBulkFillStoreFact::from_parts(
 
 ///|
 priv struct RawOiI32ConstSelectOperandFact {
-  end : Int
+  end : Int32
   value : @lib.Instruction
 }
 
 ///|
 fn RawOiI32ConstSelectOperandFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiI32ConstSelectOperandFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::I32Const) ||
@@ -40234,7 +40555,7 @@ fn RawOiI32ConstSelectOperandFact::from_region(
 
 ///|
 priv struct RawOiMemorySizePageAddressFact {
-  end : Int
+  end : Int32
   mem : @lib.MemIdx
   rewrite : Array[@lib.Instruction]
 }
@@ -40242,7 +40563,7 @@ priv struct RawOiMemorySizePageAddressFact {
 ///|
 fn RawOiMemorySizePageAddressFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiMemorySizePageAddressFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::MemorySize) {
@@ -40282,7 +40603,7 @@ fn RawOiMemorySizePageAddressFact::from_region(
 
 ///|
 priv struct RawOiI32ConstAddAddressFact {
-  end : Int
+  end : Int32
   value : @lib.Instruction
 }
 
@@ -40291,7 +40612,7 @@ fn RawOiI32ConstAddAddressFact::from_parts(
   first : @lib.Instruction,
   second : @lib.Instruction,
   add : @lib.Instruction,
-  end : Int,
+  end : Int32,
 ) -> RawOiI32ConstAddAddressFact? {
   match (first, second, add) {
     (
@@ -40311,7 +40632,7 @@ fn RawOiI32ConstAddAddressFact::from_parts(
 ///|
 fn RawOiI32ConstAddAddressFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiI32ConstAddAddressFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::I32Const) ||
@@ -40334,8 +40655,8 @@ fn RawOiI32ConstAddAddressFact::from_region(
 // family (resolved const-selects, memory.size page addresses, plain static
 // sizes, or folded const-add addresses) plus the complete rewrite payload.
 priv struct RawOiBulkLoweringRewriteFact {
-  end : Int
-  size : Int
+  end : Int32
+  size : Int32
   is_memory_copy : Bool
   is_memory_fill : Bool
   operands_are_const_selects : Bool
@@ -40386,10 +40707,10 @@ fn RawOiBulkLoweringRewriteFact::append_operand_chunk(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::copy_from_parts(
-  end : Int,
+  end : Int32,
   dest : Array[@lib.Instruction],
   source : Array[@lib.Instruction],
-  size : Int,
+  size : Int32,
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
   operands_are_const_selects : Bool,
@@ -40422,10 +40743,10 @@ fn RawOiBulkLoweringRewriteFact::copy_from_parts(
 
 ///|
 fn RawOiBulkLoweringRewriteFact::fill_from_parts(
-  end : Int,
+  end : Int32,
   dest : Array[@lib.Instruction],
   value : @lib.Instruction,
-  size : Int,
+  size : Int32,
   mem : @lib.MemIdx,
   operands_are_const_selects : Bool,
   operands_are_plain_static_size : Bool,
@@ -40460,7 +40781,7 @@ fn RawOiBulkLoweringRewriteFact::fill_from_parts(
 ///|
 fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBulkLoweringRewriteFact? {
   let dest = match RawOiI32ConstSelectOperandFact::from_region(region, start) {
     Some(fact) => fact
@@ -40515,7 +40836,7 @@ fn RawOiBulkLoweringRewriteFact::from_const_select_operands(
 ///|
 fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBulkLoweringRewriteFact? {
   let dest = match RawOiMemorySizePageAddressFact::from_region(region, start) {
     Some(fact) => fact
@@ -40557,7 +40878,7 @@ fn RawOiBulkLoweringRewriteFact::from_memory_size_page_addresses(
 ///|
 fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBulkLoweringRewriteFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start + 3, RawOiRootKind::BulkMemory) {
@@ -40599,7 +40920,7 @@ fn RawOiBulkLoweringRewriteFact::from_plain_static_size(
 ///|
 fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBulkLoweringRewriteFact? {
   let dest = match RawOiI32ConstAddAddressFact::from_region(region, start) {
     Some(fact) => fact
@@ -40640,7 +40961,7 @@ fn RawOiBulkLoweringRewriteFact::from_i32_const_add_addresses(
 ///|
 fn RawOiBulkLoweringRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBulkLoweringRewriteFact? {
   match
     RawOiBulkLoweringRewriteFact::from_const_select_operands(region, start) {
@@ -40667,7 +40988,7 @@ fn RawOiBulkLoweringRewriteFact::from_region(
 // fact records the exact proof family and the complete rewrite payload instead
 // of leaving three separate select instruction windows in the dispatcher.
 priv struct RawOiSelectRewriteFact {
-  end : Int
+  end : Int32
   constant_condition : Bool
   condition_is_eqz : Bool
   identical_arms : Bool
@@ -40699,7 +41020,7 @@ fn RawOiSelectRewriteFact::append_rewrite(
 ///|
 fn RawOiSelectRewriteFact::from_const_eqz_condition(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiSelectRewriteFact? {
   if start + 4 >= region.roots.length() ||
     !region.has_root_at(start + 4, RawOiRootKind::Select) {
@@ -40740,7 +41061,7 @@ fn RawOiSelectRewriteFact::from_const_eqz_condition(
 ///|
 fn RawOiSelectRewriteFact::from_const_condition(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiSelectRewriteFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start + 3, RawOiRootKind::Select) {
@@ -40789,7 +41110,7 @@ fn RawOiSelectRewriteFact::identical_arm_is_condition_stable(
 ///|
 fn RawOiSelectRewriteFact::from_identical_pure_arms(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiSelectRewriteFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start + 3, RawOiRootKind::Select) {
@@ -40903,7 +41224,7 @@ fn RawOiV131PrecomputedIdenticalSelectFact::from_body(
 ///|
 fn RawOiSelectRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiSelectRewriteFact? {
   match RawOiSelectRewriteFact::from_const_eqz_condition(region, start) {
     Some(fact) => return Some(fact)
@@ -40981,7 +41302,7 @@ fn RawOiDroppedConstBranchValueFact::from_body(
 
 ///|
 priv struct RawOiDroppedConstBranchIfFact {
-  end : Int
+  end : Int32
   condition : @lib.Instruction
   then_value : Array[@lib.Instruction]
   else_value : Array[@lib.Instruction]
@@ -41023,7 +41344,7 @@ fn RawOiDroppedConstBranchIfFact::append_rewrite(
 ///|
 fn RawOiDroppedConstBranchIfFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiDroppedConstBranchIfFact? {
   if start + 1 >= region.roots.length() ||
     !region.has_root_at(start + 1, RawOiRootKind::If) {
@@ -41066,7 +41387,7 @@ fn RawOiDroppedConstBranchIfFact::from_region(
 // OI-G memory/bulk cleanup can recurse through the `if` body without a broader
 // ad hoc boolean scanner.
 priv struct RawOiMemorySizeNonzeroIfFact {
-  end : Int
+  end : Int32
   memory_size : @lib.Instruction
   zero_condition : Bool
   compare_is_ne : Bool
@@ -41102,7 +41423,7 @@ fn RawOiMemorySizeNonzeroIfFact::append_rewrite(
 ///|
 fn RawOiMemorySizeNonzeroIfFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiMemorySizeNonzeroIfFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::MemorySize) {
@@ -41137,7 +41458,7 @@ fn RawOiMemorySizeNonzeroIfFact::from_region(
 // constant wrapping. Keep the represented flat stack windows as one fact with a
 // complete rewrite payload instead of separate dispatcher-owned peepholes.
 priv struct RawOiScalarNumericRewriteFact {
-  end : Int
+  end : Int32
   neutral_integer : Bool
   ordered_const_eq_ne : Bool
   nonnegative_signed_spelling : Bool
@@ -41183,7 +41504,7 @@ fn RawOiScalarNumericRewriteFact::append_rewrite(
 ///|
 fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiScalarNumericRewriteFact? {
   if start + 4 >= region.roots.length() ||
     !region.has_root_at(start + 4, RawOiRootKind::ScalarNumericTerminal) {
@@ -41239,7 +41560,7 @@ fn RawOiScalarNumericRewriteFact::from_f64_div2_sub(
 ///|
 fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiScalarNumericRewriteFact? {
   if start + 3 >= region.roots.length() ||
     !region.has_root_at(start + 3, RawOiRootKind::ScalarNumericTerminal) {
@@ -41313,8 +41634,8 @@ fn raw_oi_is_nullary_scalar_value(
 ///|
 fn RawOiScalarNumericRewriteFact::from_three_roots(
   region : RawOiInstructionRegionFact,
-  start : Int,
-  module_ctx? : @ir.HotModuleContext? = None,
+  start : Int32,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> RawOiScalarNumericRewriteFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start + 2, RawOiRootKind::ScalarNumericTerminal) {
@@ -41626,7 +41947,7 @@ fn RawOiScalarNumericRewriteFact::from_three_roots(
 ///|
 fn RawOiScalarNumericRewriteFact::from_two_roots(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiScalarNumericRewriteFact? {
   if start + 1 >= region.roots.length() ||
     !region.has_root_at(start + 1, RawOiRootKind::ScalarNumericTerminal) {
@@ -41659,8 +41980,8 @@ fn RawOiScalarNumericRewriteFact::from_two_roots(
 ///|
 fn RawOiScalarNumericRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
-  module_ctx? : @ir.HotModuleContext? = None,
+  start : Int32,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> RawOiScalarNumericRewriteFact? {
   match RawOiScalarNumericRewriteFact::from_f64_div2_sub(region, start) {
     Some(fact) => return Some(fact)
@@ -41696,15 +42017,15 @@ fn RawOiScalarNumericRewriteFact::from_region(
 // trapping descriptor block prefix when all contained control remains inside
 // that prefix and no loop/EH/return/throw boundary can escape it.
 priv struct RawOiDescriptorPrefixLabelFact {
-  depth : Int
-  target_depth : Int
+  depth : Int32
+  target_depth : Int32
   is_local_to_prefix : Bool
 }
 
 ///|
 fn RawOiDescriptorPrefixLabelFact::from_label(
   label_idx : @lib.LabelIdx,
-  depth : Int,
+  depth : Int32,
 ) -> RawOiDescriptorPrefixLabelFact {
   let @lib.LabelIdx(raw) = label_idx
   let target_depth = raw.reinterpret_as_int()
@@ -41720,8 +42041,8 @@ fn RawOiDescriptorPrefixLabelFact::proves_binaryen_local_branch(
 
 ///|
 priv struct RawOiDescriptorPrefixBodyFact {
-  depth : Int
-  end : Int
+  depth : Int32
+  end : Int32
   can_hoist : Bool
   has_blocking_boundary : Bool
 }
@@ -41740,14 +42061,14 @@ priv struct RawOiDescriptorPrefixInstrFact {
 // any prefix boundary without replaying the body scan. Recursive block/if
 // values build the same graph for their own nested revision.
 priv struct RawOiDescriptorPrefixValueGraphFact {
-  body_len : Int
+  body_len : Int32
   prefixes : Array[RawOiDescriptorPrefixBodyFact]
 }
 
 ///|
 fn RawOiDescriptorPrefixValueGraphFact::from_body(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> RawOiDescriptorPrefixValueGraphFact {
   let prefixes : Array[RawOiDescriptorPrefixBodyFact] = [
     { depth, end: 0, can_hoist: true, has_blocking_boundary: false, },
@@ -41820,7 +42141,7 @@ fn RawOiDescriptorPrefixInstrFact::blocking() -> RawOiDescriptorPrefixInstrFact 
 ///|
 fn RawOiDescriptorPrefixInstrFact::from_instr(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> RawOiDescriptorPrefixInstrFact {
   match instr {
     @lib.Block(_, @lib.Expr(body)) =>
@@ -41886,14 +42207,14 @@ fn RawOiDescriptorPrefixInstrFact::from_instr(
 
 ///|
 priv struct RawOiDescriptorBlockPrefixHoistFact {
-  prefix_len : Int
+  prefix_len : Int32
   body : RawOiDescriptorPrefixBodyFact
 }
 
 ///|
 fn RawOiDescriptorPrefixValueGraphFact::prefix_hoist(
   self : RawOiDescriptorPrefixValueGraphFact,
-  prefix_len : Int,
+  prefix_len : Int32,
 ) -> RawOiDescriptorBlockPrefixHoistFact? {
   if prefix_len < 0 || prefix_len > self.body_len {
     return None
@@ -41951,7 +42272,7 @@ priv struct RawOiDescriptorDescribesFact {
   kind : RawOiDescriptorProducerKind
   descriptor_type : @lib.TypeIdx
   target : RawOiDescriptorTargetFact
-  param_count : Int
+  param_count : Int32
 }
 
 ///|
@@ -41960,7 +42281,7 @@ fn RawOiDescriptorDescribesFact::from_descriptor_type(
   kind : RawOiDescriptorProducerKind,
   descriptor_type : @lib.TypeIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiDescriptorDescribesFact? {
   let target_fact = match RawOiDescriptorTargetFact::from_heap_type(target) {
     Some(target_fact) => target_fact
@@ -41991,7 +42312,7 @@ fn RawOiDescriptorDescribesFact::from_struct_new_default(
 ///|
 fn RawOiDescriptorDescribesFact::descriptor_type_from_func_type(
   func_type : @lib.FuncType,
-  param_count : Int,
+  param_count : Int32,
 ) -> @lib.TypeIdx? {
   match func_type {
     @lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)]) if params.length() ==
@@ -42011,7 +42332,7 @@ fn RawOiDescriptorDescribesFact::from_direct_call(
   module_ctx : @ir.HotModuleContext,
   descriptor_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiDescriptorDescribesFact? {
   let descriptor_type = match
     @ir.hot_module_resolve_func_type(module_ctx, descriptor_func) {
@@ -42039,7 +42360,7 @@ fn RawOiDescriptorDescribesFact::from_call_ref_type(
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiDescriptorDescribesFact? {
   let descriptor_type = match
     @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
@@ -42104,7 +42425,7 @@ fn RawOiDescriptorDescribesFact::direct_call_exactly_describes_with_param_count(
   module_ctx : @ir.HotModuleContext,
   descriptor_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiDescriptorDescribesFact::from_direct_call(
@@ -42120,7 +42441,7 @@ fn RawOiDescriptorDescribesFact::call_ref_type_exactly_describes_with_param_coun
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiDescriptorDescribesFact::from_call_ref_type(
@@ -42140,7 +42461,7 @@ priv enum RawOiReferenceReturnSourceKind {
 ///|
 priv struct RawOiReferenceReturnFact {
   source_kind : RawOiReferenceReturnSourceKind
-  param_count : Int
+  param_count : Int32
   heap_type : @lib.HeapType
   nullable : Bool
   exact : Bool
@@ -42150,7 +42471,7 @@ priv struct RawOiReferenceReturnFact {
 fn RawOiReferenceReturnFact::from_func_type(
   source_kind : RawOiReferenceReturnSourceKind,
   func_type : @lib.FuncType,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiReferenceReturnFact? {
   match func_type {
     @lib.FuncType(params, [@lib.ValType::RefTypeValType(ref_type)]) if params.length() ==
@@ -42170,7 +42491,7 @@ fn RawOiReferenceReturnFact::from_func_type(
 fn RawOiReferenceReturnFact::from_direct_call(
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiReferenceReturnFact? {
   match @ir.hot_module_resolve_func_type(module_ctx, ref_func) {
     Some(func_type) =>
@@ -42187,7 +42508,7 @@ fn RawOiReferenceReturnFact::from_direct_call(
 fn RawOiReferenceReturnFact::from_call_ref_type(
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
-  param_count : Int,
+  param_count : Int32,
 ) -> RawOiReferenceReturnFact? {
   match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
     Some(func_type) =>
@@ -42261,7 +42582,7 @@ fn RawOiReferenceReturnFact::direct_call_proves_non_null_strict_subtype_with_par
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiReferenceReturnFact::from_direct_call(
@@ -42278,7 +42599,7 @@ fn RawOiReferenceReturnFact::direct_call_proves_non_null_exact_target_with_param
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiReferenceReturnFact::from_direct_call(
@@ -42294,7 +42615,7 @@ fn RawOiReferenceReturnFact::call_ref_type_proves_non_null_exact_target_with_par
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiReferenceReturnFact::from_call_ref_type(
@@ -42310,7 +42631,7 @@ fn RawOiReferenceReturnFact::direct_call_proves_non_null_target_with_param_count
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiReferenceReturnFact::from_direct_call(
@@ -42326,7 +42647,7 @@ fn RawOiReferenceReturnFact::direct_call_proves_nullable_target_with_param_count
   module_ctx : @ir.HotModuleContext,
   ref_func : @lib.FuncIdx,
   target : @lib.HeapType,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   match
     RawOiReferenceReturnFact::from_direct_call(
@@ -42360,16 +42681,16 @@ priv enum RawOiDescriptorCallArgKind {
 ///|
 priv struct RawOiDescriptorCallArgFact {
   kind : RawOiDescriptorCallArgKind
-  start : Int
-  end : Int
-  value_count : Int
+  start : Int32
+  end : Int32
+  value_count : Int32
 }
 
 ///|
 priv struct RawOiDescriptorCallArgBlockBodyFact {
   has_value : Bool
   branch_free : Bool
-  blocking_boundary_count : Int
+  blocking_boundary_count : Int32
 }
 
 ///|
@@ -42402,7 +42723,7 @@ fn RawOiDescriptorCallArgBlockBodyFact::proves_binaryen_branch_free_operand(
 ///|
 fn RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.LocalGet(_)
@@ -42424,7 +42745,7 @@ fn RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(
 ///|
 fn RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.Block(@lib.ValTypeBlockType(_), body) => {
@@ -42450,7 +42771,7 @@ fn RawOiDescriptorCallArgFact::from_branch_free_effectful_block_instr(
 fn RawOiDescriptorCallArgFact::from_no_param_direct_value_call_instr(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.Call(func_idx) =>
@@ -42476,7 +42797,7 @@ fn RawOiDescriptorCallArgFact::from_no_param_direct_value_call_instr(
 fn RawOiDescriptorCallArgFact::from_no_param_direct_reference_call_instr(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match instr {
     @lib.Call(func_idx) =>
@@ -42499,7 +42820,7 @@ fn RawOiDescriptorCallArgFact::from_no_param_direct_reference_call_instr(
 ///|
 fn RawOiDescriptorCallArgFact::from_scalar_local_tee_instrs(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   if start + 1 >= instrs.length() {
     return None
@@ -42522,7 +42843,7 @@ fn RawOiDescriptorCallArgFact::from_scalar_local_tee_instrs(
 ///|
 fn RawOiDescriptorCallArgFact::from_pure_select_instrs(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   if start + 3 >= instrs.length() {
     return None
@@ -42566,7 +42887,7 @@ fn RawOiDescriptorCallArgFact::from_pure_select_instrs(
 ///|
 fn RawOiDescriptorCallArgFact::from_trapping_scalar_binary_instrs(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   if start + 2 >= instrs.length() {
     return None
@@ -42610,7 +42931,7 @@ fn RawOiDescriptorCallArgFact::from_trapping_scalar_binary_instrs(
 fn RawOiDescriptorCallArgFact::from_parameterized_direct_value_call_instrs(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   let mut scan = start
   let mut param_count = 0
@@ -42654,7 +42975,7 @@ fn RawOiDescriptorCallArgFact::from_parameterized_direct_value_call_instrs(
 fn RawOiDescriptorCallArgFact::from_parameterized_direct_reference_call_instrs(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   let mut scan = start
   let mut param_count = 0
@@ -42695,7 +43016,7 @@ fn RawOiDescriptorCallArgFact::from_parameterized_direct_reference_call_instrs(
 fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
   module_ctx : @ir.HotModuleContext,
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match
     RawOiDescriptorCallArgFact::from_scalar_local_tee_instrs(instrs, start) {
@@ -42729,7 +43050,7 @@ fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_chunk(
 fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(instr, start) {
     Some(fact) => return Some(fact)
@@ -42758,7 +43079,7 @@ fn RawOiDescriptorCallArgFact::from_descriptor_operand_miss_single(
 fn RawOiDescriptorCallArgFact::from_descriptor_exactification_single(
   module_ctx : @ir.HotModuleContext,
   instr : @lib.Instruction,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorCallArgFact? {
   match RawOiDescriptorCallArgFact::from_nontrapping_leaf_instr(instr, start) {
     Some(fact) => return Some(fact)
@@ -42813,13 +43134,13 @@ priv enum RawOiDescriptorProducerEndpointKind {
 // signature, target descriptor, exactness, arity, local subtype, and rewrite.
 priv struct RawOiDescriptorProducerEndpointFact {
   kind : RawOiDescriptorProducerEndpointKind
-  end : Int
+  end : Int32
 }
 
 ///|
 fn RawOiDescriptorProducerEndpointFact::from_position(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorProducerEndpointFact? {
   if start < 0 || start >= instrs.length() {
     return None
@@ -42859,15 +43180,15 @@ fn RawOiDescriptorProducerEndpointFact::from_position(
 // descriptor fact.
 priv struct RawOiDescriptorCallValueGraphFact {
   instrs : Array[@lib.Instruction]
-  local_run_ends : Array[Int]
-  nontrapping_run_ends : Array[Int]
-  exactification_run_ends : Array[Int]
+  local_run_ends : Array[Int32]
+  nontrapping_run_ends : Array[Int32]
+  exactification_run_ends : Array[Int32]
   descriptor_operand_miss_chunks : Array[RawOiDescriptorCallArgFact?]
   descriptor_operand_miss_endpoints : Array[
     RawOiDescriptorProducerEndpointFact?,
   ]
-  descriptor_operand_miss_run_ends : Array[Int]
-  descriptor_operand_miss_value_counts : Array[Int]
+  descriptor_operand_miss_run_ends : Array[Int32]
+  descriptor_operand_miss_value_counts : Array[Int32]
 }
 
 ///|
@@ -42990,8 +43311,8 @@ fn RawOiDescriptorCallValueGraphFact::from_module_body(
 ///|
 fn RawOiDescriptorCallValueGraphFact::local_run_end(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   if start < 0 || start >= self.instrs.length() {
     start
   } else {
@@ -43002,8 +43323,8 @@ fn RawOiDescriptorCallValueGraphFact::local_run_end(
 ///|
 fn RawOiDescriptorCallValueGraphFact::nontrapping_run_end(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   if start < 0 || start >= self.instrs.length() {
     start
   } else {
@@ -43014,8 +43335,8 @@ fn RawOiDescriptorCallValueGraphFact::nontrapping_run_end(
 ///|
 fn RawOiDescriptorCallValueGraphFact::exactification_run_end(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   if start < 0 || start >= self.instrs.length() {
     start
   } else {
@@ -43026,8 +43347,8 @@ fn RawOiDescriptorCallValueGraphFact::exactification_run_end(
 ///|
 fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_run_end(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   if start < 0 || start >= self.instrs.length() {
     start
   } else {
@@ -43038,8 +43359,8 @@ fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_run_end(
 ///|
 fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_value_count(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   if start < 0 || start >= self.instrs.length() {
     0
   } else {
@@ -43050,7 +43371,7 @@ fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_value_count(
 ///|
 fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_endpoint(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiDescriptorProducerEndpointFact? {
   if start < 0 || start >= self.instrs.length() {
     None
@@ -43062,8 +43383,8 @@ fn RawOiDescriptorCallValueGraphFact::descriptor_operand_miss_endpoint(
 ///|
 fn RawOiDescriptorCallValueGraphFact::instr_args(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[@lib.Instruction] {
   let args : Array[@lib.Instruction] = []
   let mut idx = start
@@ -43077,7 +43398,7 @@ fn RawOiDescriptorCallValueGraphFact::instr_args(
 ///|
 fn RawOiDescriptorCallValueGraphFact::has_local_default_candidate_at(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
 ) -> Bool {
   if start < 0 || start + 2 >= self.instrs.length() {
     return false
@@ -43092,8 +43413,8 @@ fn RawOiDescriptorCallValueGraphFact::has_local_default_candidate_at(
 ///|
 fn RawOiDescriptorCallValueGraphFact::local_args(
   self : RawOiDescriptorCallValueGraphFact,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[@lib.LocalIdx] {
   let args : Array[@lib.LocalIdx] = []
   let mut idx = start
@@ -43121,7 +43442,7 @@ priv enum RawOiDescriptorMissProducerKind {
 
 ///|
 priv struct RawOiDescriptorDirectCallMissFact {
-  end : Int
+  end : Int32
   kind : RawOiDescriptorMissProducerKind
   ref_func : @lib.FuncIdx
   descriptor_func : @lib.FuncIdx?
@@ -43135,7 +43456,7 @@ priv struct RawOiDescriptorDirectCallMissFact {
 ///|
 fn RawOiDescriptorDirectCallMissFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorDirectCallMissFact? {
   let ref_end = graph.nontrapping_run_end(start)
@@ -43297,21 +43618,21 @@ fn RawOiDescriptorDirectCallMissFact::append_rewrite(
 
 ///|
 priv struct RawOiDescriptorLocalOperandMissFact {
-  end : Int
+  end : Int32
   kind : RawOiDescriptorMissProducerKind
   local_idx : @lib.LocalIdx
   descriptor_func : @lib.FuncIdx?
   type_idx : @lib.TypeIdx?
   table_idx : @lib.TableIdx?
   target : @lib.HeapType
-  desc_value_count : Int
+  desc_value_count : Int32
   desc_args : Array[@lib.Instruction]
 }
 
 ///|
 fn RawOiDescriptorLocalOperandMissFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -43472,8 +43793,8 @@ fn RawOiDescriptorLocalOperandMissFact::append_rewrite(
 // descriptor producer exactly describes that target; preserve both producer
 // calls and only drop the now-unused descriptor value.
 priv struct RawOiDescriptorBalancedLocalDirectExactSuccessFact {
-  end : Int
-  param_count : Int
+  end : Int32
+  param_count : Int32
   ref_func : @lib.FuncIdx
   descriptor_func : @lib.FuncIdx
   target : @lib.HeapType
@@ -43484,7 +43805,7 @@ priv struct RawOiDescriptorBalancedLocalDirectExactSuccessFact {
 ///|
 fn RawOiDescriptorBalancedLocalDirectExactSuccessFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectExactSuccessFact? {
   let ref_end = graph.local_run_end(start)
@@ -43575,7 +43896,7 @@ priv enum RawOiDescriptorTnhExactSuccessKind {
 
 ///|
 priv struct RawOiDescriptorTnhCallIndirectExactSuccessFact {
-  end : Int
+  end : Int32
   kind : RawOiDescriptorTnhExactSuccessKind
   ref_func : @lib.FuncIdx?
   descriptor_func : @lib.FuncIdx?
@@ -43589,7 +43910,7 @@ priv struct RawOiDescriptorTnhCallIndirectExactSuccessFact {
 ///|
 fn RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_reference_instrs(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorTnhCallIndirectExactSuccessFact? {
   let ref_inputs : Array[@lib.Instruction] = []
@@ -43646,7 +43967,7 @@ fn RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_reference_instr
 ///|
 fn RawOiDescriptorTnhCallIndirectExactSuccessFact::from_indirect_descriptor_instrs(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorTnhCallIndirectExactSuccessFact? {
   let ref_inputs : Array[@lib.Instruction] = []
@@ -43829,7 +44150,7 @@ fn run_hot_pipeline_raw_optimize_instructions_tnh_call_indirect_exact_descriptor
 // when both the reference value and descriptor producer are known to target the
 // same described heap type.
 priv struct RawOiDescriptorDirectCallExactificationFact {
-  end : Int
+  end : Int32
   ref_func : @lib.FuncIdx
   descriptor_func : @lib.FuncIdx
   target : @lib.HeapType
@@ -43841,7 +44162,7 @@ priv struct RawOiDescriptorDirectCallExactificationFact {
 ///|
 fn RawOiDescriptorDirectCallExactificationFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorDirectCallExactificationFact? {
   let ref_end = graph.exactification_run_end(start)
@@ -44124,7 +44445,7 @@ fn RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
 // ref.cast_desc exact non-null` as a proof object instead of leaving the
 // dispatcher to own an inline raw triple match.
 priv struct RawOiDescriptorLocalDefaultMissFact {
-  end : Int
+  end : Int32
   local_idx : @lib.LocalIdx
   descriptor_type : @lib.TypeIdx
   target : @lib.HeapType
@@ -44133,7 +44454,7 @@ priv struct RawOiDescriptorLocalDefaultMissFact {
 ///|
 fn RawOiDescriptorLocalDefaultMissFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -44185,8 +44506,8 @@ fn RawOiDescriptorLocalDefaultMissFact::append_rewrite(
 // same arity cap and rewrite shape in one source-backed fact matching
 // Binaryen's known descriptor-cast failure preservation of both operand calls.
 priv struct RawOiDescriptorBalancedLocalDirectMissFact {
-  end : Int
-  param_count : Int
+  end : Int32
+  param_count : Int32
   ref_func : @lib.FuncIdx
   descriptor_func : @lib.FuncIdx
   target : @lib.HeapType
@@ -44197,7 +44518,7 @@ priv struct RawOiDescriptorBalancedLocalDirectMissFact {
 ///|
 fn RawOiDescriptorBalancedLocalDirectMissFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
 ) -> RawOiDescriptorBalancedLocalDirectMissFact? {
   let ref_end = graph.local_run_end(start)
@@ -44288,7 +44609,7 @@ fn RawOiDescriptorBalancedLocalDirectMissFact::append_rewrite(
 // this fact keeps the narrow raw spelling (`local.get`; nontrapping descriptor
 // args; direct descriptor call; `ref.cast_desc`) out of the dispatcher body.
 priv struct RawOiDescriptorLocalCallOperandMissFact {
-  end : Int
+  end : Int32
   local_idx : @lib.LocalIdx
   descriptor_func : @lib.FuncIdx
   target : @lib.HeapType
@@ -44298,7 +44619,7 @@ priv struct RawOiDescriptorLocalCallOperandMissFact {
 ///|
 fn RawOiDescriptorLocalCallOperandMissFact::from_graph(
   graph : RawOiDescriptorCallValueGraphFact,
-  start : Int,
+  start : Int32,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -44454,7 +44775,7 @@ fn run_hot_pipeline_raw_optimize_instructions_exact_descriptor_miss_body(
 priv struct RawOiBottomNullDescriptorOperandFact {
   preserves_operand_as_drop : Bool
   erases_fresh_descriptor_allocation : Bool
-  block_prefix_len : Int
+  block_prefix_len : Int32
   block_traps : Bool
 }
 
@@ -44535,7 +44856,7 @@ fn RawOiBottomNullDescriptorOperandFact::is_represented_fold_operand(
 
 ///|
 priv struct RawOiBottomNullDescriptorCastFact {
-  end : Int
+  end : Int32
   descriptor : @lib.Instruction
   operand : RawOiBottomNullDescriptorOperandFact
   nullable : Bool
@@ -44546,7 +44867,7 @@ priv struct RawOiBottomNullDescriptorCastFact {
 ///|
 fn RawOiBottomNullDescriptorCastFact::from_region_at(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiBottomNullDescriptorCastFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start, RawOiRootKind::RefNull) ||
@@ -44891,8 +45212,8 @@ priv struct RawOiFlatPureScalarStackValueFact {
 
 ///|
 priv struct RawOiFlatPureScalarAddressFact {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   key : String
   binary_op : String
   left_key : String
@@ -45139,8 +45460,8 @@ fn RawOiFlatPureScalarStackValueFact::binary_result(
 
 ///|
 fn RawOiFlatPureScalarAddressFact::from_value(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   value : RawOiFlatPureScalarStackValueFact,
 ) -> RawOiFlatPureScalarAddressFact {
   {
@@ -45157,8 +45478,8 @@ fn RawOiFlatPureScalarAddressFact::from_value(
 
 ///|
 priv struct RawOiFlatPureScalarBudgetFact {
-  max_instrs : Int
-  max_stack : Int
+  max_instrs : Int32
+  max_stack : Int32
 }
 
 ///|
@@ -45173,8 +45494,8 @@ fn RawOiFlatPureScalarBudgetFact::default() -> RawOiFlatPureScalarBudgetFact {
 ///|
 fn RawOiFlatPureScalarBudgetFact::allows_instr(
   self : RawOiFlatPureScalarBudgetFact,
-  start : Int,
-  idx : Int,
+  start : Int32,
+  idx : Int32,
 ) -> Bool {
   idx - start < self.max_instrs
 }
@@ -45182,7 +45503,7 @@ fn RawOiFlatPureScalarBudgetFact::allows_instr(
 ///|
 fn RawOiFlatPureScalarBudgetFact::exceeded_stack(
   self : RawOiFlatPureScalarBudgetFact,
-  stack_len : Int,
+  stack_len : Int32,
 ) -> Bool {
   stack_len > self.max_stack
 }
@@ -45190,7 +45511,7 @@ fn RawOiFlatPureScalarBudgetFact::exceeded_stack(
 ///|
 fn RawOiFlatPureScalarAddressFact::candidates_from_region(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
   allow_fallthrough_local_tee : Bool,
 ) -> Array[RawOiFlatPureScalarAddressFact] {
   let budget = RawOiFlatPureScalarBudgetFact::default()
@@ -45300,8 +45621,8 @@ fn RawOiFlatPureScalarAddressFact::append_dropped_operand(
 priv struct RawOiSameFlatPureScalarMemoryCopyFact {
   dst_fact : RawOiFlatPureScalarAddressFact
   src_fact : RawOiFlatPureScalarAddressFact
-  size_instr_idx : Int
-  copy_instr_idx : Int
+  size_instr_idx : Int32
+  copy_instr_idx : Int32
 }
 
 ///|
@@ -45346,7 +45667,7 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::append_replacement(
   self : RawOiSameFlatPureScalarMemoryCopyFact,
   out : Array[@lib.Instruction],
   region : RawOiInstructionRegionFact,
-) -> Int {
+) -> Int32 {
   self.dst_fact.append_dropped_operand(out, region)
   self.src_fact.append_dropped_operand(out, region)
   out.push(region.roots[self.size_instr_idx].instr)
@@ -45474,8 +45795,8 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
 // path; it should remain an orchestrator over `RawOi*Fact` producers rather
 // than a home for new scanner predicates.
 fn run_hot_pipeline_raw_optimize_instructions_i32_add_is_safe_fold(
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Bool {
   let sum = lhs + rhs
   sum >= -2147483648 && sum <= 2147483647
@@ -45614,7 +45935,7 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
 
 ///|
 priv struct RawOiSparseExponentBrTableFact {
-  end : Int
+  end : Int32
   selector : Array[@lib.Instruction]
   zero_target : @lib.LabelIdx
   special_target : @lib.LabelIdx
@@ -45624,7 +45945,7 @@ priv struct RawOiSparseExponentBrTableFact {
 ///|
 fn RawOiSparseExponentBrTableFact::from_body(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> RawOiSparseExponentBrTableFact? {
   if start + 13 >= instrs.length() {
     return None
@@ -45815,7 +46136,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
-  oi_index? : RawOiFunctionRevisionFactIndex? = None,
+  oi_index~ : RawOiFunctionRevisionFactIndex? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "optimize-instructions" {
     return None
@@ -46886,7 +47207,7 @@ fn run_hot_pipeline_tuple_has_effect_bracketed_multivalue_call(
     if !has_call_before {
       continue
     }
-    let after_end = Int::min(instrs.length(), idx + 9)
+    let after_end = Int32::min(instrs.length(), idx + 9)
     let mut has_call_after = false
     let mut spill_defs = 0
     for scan = idx + 1; scan < after_end; scan = scan + 1 {
@@ -46936,7 +47257,7 @@ fn run_hot_pipeline_tuple_has_effect_bracketed_multivalue_call(
 fn run_hot_pipeline_raw_dropped_call_result_linear_effect(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match instr {
     @lib.Nop => Some((0, 0))
     @lib.I32Const(_)
@@ -47221,7 +47542,7 @@ fn run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(
         | @lib.I64Sub,
         @lib.LocalSet(target),
       ) => {
-        let end = Int::min(instrs.length(), idx + 32)
+        let end = Int32::min(instrs.length(), idx + 32)
         let mut reads = 0
         for probe = idx + 4; probe < end; probe = probe + 1 {
           match instrs[probe] {
@@ -47300,7 +47621,7 @@ fn run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(
         | @lib.CallRef(_),
         @lib.LocalSet(result_local),
       ) => {
-        let end = Int::min(instrs.length(), idx + 24)
+        let end = Int32::min(instrs.length(), idx + 24)
         let mut saw_store = false
         for probe = idx + 2; probe < end; probe = probe + 1 {
           if run_hot_pipeline_raw_precompute_instr_is_store(instrs[probe]) {
@@ -47570,7 +47891,7 @@ fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
     let mut values_above_carrier = 0
     let mut overwritten_while_live = false
     let mut carrier_alive = true
-    let end = Int::min(instrs.length(), start + 24)
+    let end = Int32::min(instrs.length(), start + 24)
     for idx = start + 1; idx < end; idx = idx + 1 {
       match instrs[idx] {
         @lib.LocalGet(_) => values_above_carrier += 1
@@ -47625,7 +47946,7 @@ fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
         @lib.LocalGet(_),
         @lib.LocalSet(overwritten),
       ) if carrier == overwritten => {
-        let end = Int::min(instrs.length(), start + 22)
+        let end = Int32::min(instrs.length(), start + 22)
         for idx = start + 4; idx < end; idx = idx + 1 {
           match instrs[idx] {
             @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
@@ -47639,7 +47960,7 @@ fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
     match (instrs[start], instrs[start + 1], instrs[start + 2]) {
       (@lib.LocalGet(carrier), @lib.LocalGet(_), @lib.LocalSet(overwritten)) if carrier ==
         overwritten => {
-        let end = Int::min(instrs.length(), start + 19)
+        let end = Int32::min(instrs.length(), start + 19)
         let mut saw_reloaded = false
         for idx = start + 3; idx < end; idx = idx + 1 {
           match instrs[idx] {
@@ -47691,7 +48012,7 @@ fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
 ///|
 fn run_hot_pipeline_raw_precompute_const_simd_reduction_count(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -47740,7 +48061,7 @@ fn run_hot_pipeline_raw_precompute_const_simd_reduction_count(
 ///|
 fn run_hot_pipeline_raw_precompute_additive_local_update_count(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
@@ -47840,7 +48161,7 @@ fn run_hot_pipeline_raw_precompute(
   module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
-  instruction_scans? : Array[Int]? = None,
+  instruction_scans~ : Array[Int32]? = None,
 ) -> HotPipelineFuncResult? {
   let propagating = descriptor.name == "precompute-propagate"
   if descriptor.name != "precompute" && !propagating {
@@ -48392,7 +48713,7 @@ fn run_hot_pipeline_raw_rse_needs_module_env(
 ///|
 fn run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
   instrs : Array[@lib.Instruction],
-  counts : @hashmap.HashMap[UInt, Int],
+  counts : @hashmap.HashMap[UInt32, Int32],
 ) -> Bool {
   for idx = 1; idx < instrs.length(); idx = idx + 1 {
     match (instrs[idx - 1], instrs[idx]) {
@@ -48536,13 +48857,13 @@ fn run_hot_pipeline_raw_rse(
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_label_idx_depth(idx : @lib.LabelIdx) -> Int {
+fn run_hot_pipeline_raw_vacuum_label_idx_depth(idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_label_depth(label : @lib.LabelIdx) -> Int {
+fn run_hot_pipeline_raw_vacuum_label_depth(label : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = label
   raw.reinterpret_as_int()
 }
@@ -48550,7 +48871,7 @@ fn run_hot_pipeline_raw_vacuum_label_depth(label : @lib.LabelIdx) -> Int {
 ///|
 fn run_hot_pipeline_raw_vacuum_label_targets_owner(
   label : @lib.LabelIdx,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   run_hot_pipeline_raw_vacuum_label_depth(label) == owner_depth
 }
@@ -48558,7 +48879,7 @@ fn run_hot_pipeline_raw_vacuum_label_targets_owner(
 ///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_label(
   label : @lib.LabelIdx,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> @lib.LabelIdx {
   let depth = run_hot_pipeline_raw_vacuum_label_depth(label)
   if depth > owner_depth {
@@ -48570,7 +48891,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_label(
 ///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_catch(
   catch_ : @lib.Catch,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> @lib.Catch {
   match catch_ {
     @lib.Catch(tag, label) =>
@@ -48597,7 +48918,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_catch(
 ///|
 fn run_hot_pipeline_raw_vacuum_resume_handlers_target_owner(
   handlers : Array[@lib.ResumeHandler],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   for handler in handlers {
     match handler {
@@ -48614,7 +48935,7 @@ fn run_hot_pipeline_raw_vacuum_resume_handlers_target_owner(
 ///|
 fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
   instr : @lib.Instruction,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label)
@@ -48701,7 +49022,7 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_targets_owner(
   body : Array[@lib.Instruction],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   for instr in body {
     if run_hot_pipeline_raw_vacuum_instr_targets_owner(instr, owner_depth) {
@@ -48714,7 +49035,7 @@ fn run_hot_pipeline_raw_vacuum_body_targets_owner(
 ///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
   handlers : Array[@lib.ResumeHandler],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Array[@lib.ResumeHandler] {
   handlers.map(fn(handler) {
     match handler {
@@ -48731,7 +49052,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
 ///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
   instr : @lib.Instruction,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> @lib.Instruction {
   match instr {
     @lib.BrOnCastDescEq(label, source, target) =>
@@ -48913,7 +49234,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
 ///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_body(
   body : Array[@lib.Instruction],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Array[@lib.Instruction] {
   let rebased : Array[@lib.Instruction] = []
   for instr in body {
@@ -49084,7 +49405,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_local_set_outer_br_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 2 >= body.length() {
     return false
@@ -49393,7 +49714,7 @@ fn run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
 ///|
 fn run_hot_pipeline_raw_vacuum_two_arg_call_result_local_set_release_target(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -49760,7 +50081,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f3317_singleton_retain_allocation_loop_wr
 ///|
 fn run_hot_pipeline_raw_vacuum_tag20_compare_prefix_end(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   if body.length() < 4 {
     return None
   }
@@ -49833,7 +50154,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_tag20_call_local_set_prefix_if_preserve_c
 ///|
 fn run_hot_pipeline_raw_vacuum_body_ends_local_set(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   if body.length() == 0 {
     return None
   }
@@ -49846,7 +50167,7 @@ fn run_hot_pipeline_raw_vacuum_body_ends_local_set(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_last_non_nop_before(
   body : Array[@lib.Instruction],
-  end_exclusive : Int,
+  end_exclusive : Int32,
 ) -> @lib.Instruction? {
   let mut idx = end_exclusive - 1
   while idx >= 0 {
@@ -49861,7 +50182,7 @@ fn run_hot_pipeline_raw_vacuum_body_last_non_nop_before(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_predicate_local_set_block(
   body : Array[@lib.Instruction],
-  flag_local : Int,
+  flag_local : Int32,
 ) -> Bool {
   let cleaned = run_hot_pipeline_raw_vacuum_drop_leading_empty_blocks(body)
   if cleaned.length() == 0 {
@@ -50181,7 +50502,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f749_double_branchy_selection_wrapper_can
 ///|
 fn run_hot_pipeline_raw_vacuum_has_f749_i64_return_continuation(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for pos = idx + 1; pos < instrs.length(); pos = pos + 1 {
@@ -50442,7 +50763,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5138_load_linked_result_prefix_parent_pr
 ///|
 fn run_hot_pipeline_raw_vacuum_else_starts_with_release_pairs(
   else_body : Array[@lib.Instruction],
-  min_pair_count : Int,
+  min_pair_count : Int32,
 ) -> Bool {
   let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
     else_body,
@@ -50533,7 +50854,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5138_paired_result_prefix_parent_preserv
 ///|
 fn run_hot_pipeline_raw_vacuum_f5154_selected_local_from_tag_if(
   final_if : @lib.Instruction,
-) -> UInt? {
+) -> UInt32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       if !run_hot_pipeline_raw_instrs_have_branch(else_body) ||
@@ -50567,7 +50888,7 @@ fn run_hot_pipeline_raw_vacuum_f5154_selected_local_from_tag_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_f5184_selected_local_from_tag_if(
   final_if : @lib.Instruction,
-) -> UInt? {
+) -> UInt32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       if !run_hot_pipeline_raw_instrs_have_branch(else_body) {
@@ -50647,9 +50968,9 @@ fn run_hot_pipeline_raw_vacuum_f5184_selected_local_from_tag_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5154_slot_replace_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  slot_raw : UInt,
-  selected_raw : UInt,
+  start_idx : Int32,
+  slot_raw : UInt32,
+  selected_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -50680,7 +51001,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5154_slot_replace_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_store_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 20 ||
@@ -50757,7 +51078,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5154_retain_pair_result_before_slot_stor
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5184_drop_call_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -50785,7 +51106,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5184_drop_call_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f5184_single_retain_result_before_drop_continuation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 16 ||
@@ -50873,7 +51194,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5138_outer_singleton_parent(
       rebased_child_body
     _ => child_body
   }
-  let (clean_child_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+  let (clean_child_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased_child_body, module_ctx,
   )
   Some([
@@ -50920,7 +51241,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_c
     @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
     _ => return false
   }
-  let stable_locals : Array[Int] = []
+  let stable_locals : Array[Int32] = []
   for idx = 0; idx + 5 < if_idx - 3; idx = idx + 1 {
     match
       (
@@ -50991,7 +51312,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserv
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
   body : Array[@lib.Instruction],
-  local_raw : UInt,
+  local_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1]) {
@@ -51073,8 +51394,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_
 ///|
 fn run_hot_pipeline_raw_vacuum_f3561_branch_if_cleanup_local(
   final_if : @lib.Instruction,
-  result_raw : UInt,
-) -> Int? {
+  result_raw : UInt32,
+) -> Int32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       let cleanup_raw = match then_body {
@@ -51124,7 +51445,7 @@ fn run_hot_pipeline_raw_vacuum_f3561_branch_if_cleanup_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -51188,8 +51509,8 @@ fn run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f3561_terminal_release_return_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  cleanup_local : Int,
+  start_idx : Int32,
+  cleanup_local : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -51215,7 +51536,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f3561_terminal_release_return_continuati
 fn run_hot_pipeline_raw_vacuum_body_is_f3561_load_retain_prefix_before_terminal_release_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   match
     run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
@@ -51339,7 +51660,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_singleton_child(
     return None
   }
   let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
-  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
   Some([
@@ -51386,7 +51707,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_child_before_continua
     return None
   }
   let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
-  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
   Some([
@@ -51414,7 +51735,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_local_copy_child(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let mut idx = start_idx + 1
   while idx < body.length() {
@@ -51483,7 +51804,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_two_tag_dispatch(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_body_is_f1738_loop_head_two_tag_dispatch(body) ||
     !run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
@@ -51550,7 +51871,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1743_nested_tag2_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1743_loop_update_continuation(
   body : Array[@lib.Instruction],
-  copied_target_raw : UInt,
+  copied_target_raw : UInt32,
 ) -> Bool {
   if body.length() < 19 ||
     !run_hot_pipeline_raw_vacuum_body_is_f1743_nested_tag2_dispatch(body) {
@@ -51628,7 +51949,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f1743_loop_update_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() < 2 ||
     !run_hot_pipeline_raw_vacuum_body_has_f1738_parent_br_continuation(
@@ -51674,10 +51995,10 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_di
 ///|
 fn run_hot_pipeline_raw_vacuum_f3579_then_releases_and_returns(
   body : Array[@lib.Instruction],
-  guard_raw : UInt,
-  copied_raw : UInt,
-  pair_raw : UInt,
-  env_raw : UInt,
+  guard_raw : UInt32,
+  copied_raw : UInt32,
+  pair_raw : UInt32,
+  env_raw : UInt32,
 ) -> Bool {
   match body {
     [
@@ -51781,7 +52102,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrap
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
   body : Array[@lib.Instruction],
-  active_raw : UInt,
+  active_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1]) {
@@ -51830,7 +52151,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_f3841_selected_local(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -51915,8 +52236,8 @@ fn run_hot_pipeline_raw_vacuum_body_f3841_selected_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_has_f3841_selected_local_set_br_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : Int,
+  start_idx : Int32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -51943,7 +52264,7 @@ fn run_hot_pipeline_raw_vacuum_has_f3841_selected_local_set_br_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 1 {
     return None
@@ -51983,7 +52304,7 @@ fn run_hot_pipeline_raw_vacuum_strip_top_level_nops(
 ///|
 fn run_hot_pipeline_raw_vacuum_f3998_prefix_result_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 9 {
     return None
@@ -52050,7 +52371,7 @@ fn run_hot_pipeline_raw_vacuum_f3998_prefix_result_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_instr_is_f3998_tag2_dispatch_if(
   instr : @lib.Instruction,
-  active_raw : UInt,
+  active_raw : UInt32,
 ) -> Bool {
   match instr {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
@@ -52128,7 +52449,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f3998_tag2_prefix_child(
 ///|
 fn run_hot_pipeline_raw_vacuum_has_f3998_release_load_loop_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -52164,7 +52485,7 @@ fn run_hot_pipeline_raw_vacuum_has_f3998_release_load_loop_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_has_f3998_release_load_loop_continuation(
       parent_body, start_idx,
@@ -52194,7 +52515,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_c
 ///|
 fn run_hot_pipeline_raw_vacuum_f4070_prefix_result_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 5 {
     return None
@@ -52215,7 +52536,7 @@ fn run_hot_pipeline_raw_vacuum_f4070_prefix_result_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4070_dispatch_payload_load(
   body : Array[@lib.Instruction],
-  dispatch_raw : UInt,
+  dispatch_raw : UInt32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() < 4 {
@@ -52332,7 +52653,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_re
 ///|
 fn run_hot_pipeline_raw_vacuum_body_f4071_has_payload_load(
   body : Array[@lib.Instruction],
-  result_raw : UInt,
+  result_raw : UInt32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() < 3 {
@@ -52369,8 +52690,8 @@ fn run_hot_pipeline_raw_vacuum_body_f4071_else_ends_selected_local_outer_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4071_selected_local_branch_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : Int,
+  start_idx : Int32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -52397,7 +52718,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4071_selected_local_branch_continuation
 fn run_hot_pipeline_raw_vacuum_body_is_f4071_load_retain_tag_dispatch_before_selected_local_branch_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 12 ||
@@ -52468,9 +52789,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4071_load_retain_tag_dispatch_before_sel
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4073_slot_store_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  slot_raw : UInt,
-  selected_raw : Int,
+  start_idx : Int32,
+  slot_raw : UInt32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -52501,7 +52822,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4073_slot_store_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f4073_call_result_tag_dispatch_before_slot_store_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 26 ||
@@ -52603,7 +52924,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4073_call_result_tag_dispatch_before_slo
 ///|
 fn run_hot_pipeline_raw_vacuum_f4071_sentinel_active_local(
   final_if : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(_)) =>
       match then_body {
@@ -52620,7 +52941,7 @@ fn run_hot_pipeline_raw_vacuum_f4071_sentinel_active_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_f4071_sentinel_else_sets_selected_local(
   final_if : @lib.Instruction,
-  selected_raw : Int,
+  selected_raw : Int32,
 ) -> Bool {
   match final_if {
     @lib.If(@lib.VoidBlockType, _, Some(else_body)) =>
@@ -52635,9 +52956,9 @@ fn run_hot_pipeline_raw_vacuum_f4071_sentinel_else_sets_selected_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_f4071_sentinel_allocation_selected_local(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  active_raw : Int,
-) -> Int? {
+  start_idx : Int32,
+  active_raw : Int32,
+) -> Int32? {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
   while idx < parent_body.length() && sig.length() < 13 {
@@ -52679,7 +53000,7 @@ fn run_hot_pipeline_raw_vacuum_f4071_sentinel_allocation_selected_local(
 fn run_hot_pipeline_raw_vacuum_body_is_f4071_sentinel_prefix_before_allocation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 15 ||
@@ -52744,8 +53065,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4071_sentinel_prefix_before_allocation_p
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4232_selected_local_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : Int,
+  start_idx : Int32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -52766,8 +53087,8 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4232_selected_local_return_continuation
 ///|
 fn run_hot_pipeline_raw_vacuum_f4232_sentinel_return_selected_local(
   final_if : @lib.Instruction,
-  sentinel_raw : UInt,
-) -> Int? {
+  sentinel_raw : UInt32,
+) -> Int32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       match then_body {
@@ -52809,7 +53130,7 @@ fn run_hot_pipeline_raw_vacuum_f4232_sentinel_return_selected_local(
 fn run_hot_pipeline_raw_vacuum_body_is_f4232_sentinel_prefix_before_selected_local_return_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 15 ||
@@ -52871,8 +53192,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4232_sentinel_prefix_before_selected_loc
 ///|
 fn run_hot_pipeline_raw_vacuum_f4483_selected_value_from_tag1_if(
   final_if : @lib.Instruction,
-  result_raw : UInt,
-) -> Int? {
+  result_raw : UInt32,
+) -> Int32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       if else_body.length() == 0 {
@@ -52924,8 +53245,8 @@ fn run_hot_pipeline_raw_vacuum_f4483_selected_value_from_tag1_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4483_range_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : Int,
+  start_idx : Int32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -52952,7 +53273,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4483_range_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if (non_nops.length() != 17 && non_nops.length() != 21) ||
@@ -53064,8 +53385,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4483_indexed_call_result_tag1_prefix_pre
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5277_tag_refcount_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-) -> UInt? {
+  start_idx : Int32,
+) -> UInt32? {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
   while idx < parent_body.length() && sig.length() < 3 {
@@ -53123,7 +53444,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5277_tag_refcount_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
   body : Array[@lib.Instruction],
-  target_raw : UInt,
+  target_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1]) {
@@ -53168,7 +53489,7 @@ fn run_hot_pipeline_raw_vacuum_body_sets_local_from_other(
 ///|
 fn run_hot_pipeline_raw_vacuum_f5277_else_has_refcount_fallback_branch(
   else_body : Array[@lib.Instruction],
-  result_raw : UInt,
+  result_raw : UInt32,
 ) -> Bool {
   let else_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
     else_body,
@@ -53212,8 +53533,8 @@ fn run_hot_pipeline_raw_vacuum_f5277_else_has_refcount_fallback_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_f5277_final_if_matches_selected_local(
   final_if : @lib.Instruction,
-  result_raw : UInt,
-  selected_raw : UInt,
+  result_raw : UInt32,
+  selected_raw : UInt32,
 ) -> Bool {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
@@ -53231,7 +53552,7 @@ fn run_hot_pipeline_raw_vacuum_f5277_final_if_matches_selected_local(
 fn run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 17 ||
@@ -53297,7 +53618,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5277_indexed_retain_before_tag_continuat
 ///|
 fn run_hot_pipeline_raw_vacuum_f5288_selected_locals_from_leading_dispatch(
   body : Array[@lib.Instruction],
-) -> (UInt, UInt)? {
+) -> (UInt32, UInt32)? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 6 {
     return None
@@ -53408,8 +53729,8 @@ fn run_hot_pipeline_raw_vacuum_f5288_selected_locals_from_leading_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5288_selected_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : UInt,
+  start_idx : Int32,
+  selected_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -53442,7 +53763,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5288_selected_return_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 1 {
     return None
@@ -53473,7 +53794,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_b
 ///|
 fn run_hot_pipeline_raw_vacuum_f5392_selected_locals_from_leading_tag2_dispatch(
   body : Array[@lib.Instruction],
-) -> (UInt, UInt)? {
+) -> (UInt32, UInt32)? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 6 {
     return None
@@ -53591,9 +53912,9 @@ fn run_hot_pipeline_raw_vacuum_f5392_selected_locals_from_leading_tag2_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5392_call_release_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  first_raw : UInt,
-  second_raw : UInt,
+  start_idx : Int32,
+  first_raw : UInt32,
+  second_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -53637,7 +53958,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5392_call_release_return_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 1 {
     return None
@@ -53668,7 +53989,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_
 ///|
 fn run_hot_pipeline_raw_vacuum_f5419_selected_local_from_tag1_owner_dispatch(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 6 ||
     run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
@@ -53763,8 +54084,8 @@ fn run_hot_pipeline_raw_vacuum_f5419_selected_local_from_tag1_owner_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5419_stream_loop_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : UInt,
+  start_idx : Int32,
+  selected_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -53842,7 +54163,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_str
 fn run_hot_pipeline_raw_vacuum_body_is_f5351_leading_tag_dispatch_before_zero_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 3 ||
@@ -53873,7 +54194,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5351_leading_tag_dispatch_before_zero_re
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5369_allocation_path_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -53911,7 +54232,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5369_allocation_path_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_f5369_then_has_refcount_dispatch_branch(
   then_body : Array[@lib.Instruction],
-  dispatch_raw : UInt,
+  dispatch_raw : UInt32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(then_body)
   if non_nops.length() < 32 {
@@ -53977,8 +54298,8 @@ fn run_hot_pipeline_raw_vacuum_f5369_then_has_refcount_dispatch_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_f5369_else_has_release_branch(
   else_body : Array[@lib.Instruction],
-  dispatch_raw : UInt,
-  owner_raw : UInt,
+  dispatch_raw : UInt32,
+  owner_raw : UInt32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(else_body)
   if non_nops.length() < 5 {
@@ -54010,7 +54331,7 @@ fn run_hot_pipeline_raw_vacuum_f5369_else_has_release_branch(
 fn run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_before_allocation_continuation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() < 13 {
@@ -54071,9 +54392,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_bef
 ///|
 fn run_hot_pipeline_raw_vacuum_f6113_then_has_retain_dispatch_branch(
   then_body : Array[@lib.Instruction],
-  owner_raw : UInt,
-  dispatch_raw : UInt,
-) -> UInt? {
+  owner_raw : UInt32,
+  dispatch_raw : UInt32,
+) -> UInt32? {
   let then_non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(
     then_body,
   )
@@ -54164,7 +54485,7 @@ fn run_hot_pipeline_raw_vacuum_f6113_then_has_retain_dispatch_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_f6113_else_has_release_branch(
   else_body : Array[@lib.Instruction],
-  dispatch_raw : UInt,
+  dispatch_raw : UInt32,
 ) -> Bool {
   match run_hot_pipeline_raw_vacuum_strip_top_level_nops(else_body) {
     [
@@ -54185,9 +54506,9 @@ fn run_hot_pipeline_raw_vacuum_f6113_else_has_release_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f6113_parent_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  owner_raw : UInt,
-  selected_raw : UInt,
+  start_idx : Int32,
+  owner_raw : UInt32,
+  selected_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54246,7 +54567,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f6113_parent_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_parent_continuation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 12 ||
@@ -54308,7 +54629,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f6113_retain_call_tag_dispatch_before_par
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4310_accumulator_store_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54344,8 +54665,8 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4310_accumulator_store_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_f4493_selected_value_from_tag1_if(
   final_if : @lib.Instruction,
-  result_raw : UInt,
-) -> Int? {
+  result_raw : UInt32,
+) -> Int32? {
   match final_if {
     @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
       if else_body.length() == 0 {
@@ -54378,8 +54699,8 @@ fn run_hot_pipeline_raw_vacuum_f4493_selected_value_from_tag1_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4493_allocation_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : Int,
+  start_idx : Int32,
+  selected_raw : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54414,7 +54735,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4493_allocation_return_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f4493_offset4_call_result_tag1_prefix_before_allocation_return_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 16 ||
@@ -54479,7 +54800,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4493_offset4_call_result_tag1_prefix_bef
 fn run_hot_pipeline_raw_vacuum_body_is_f4310_side_effect_prefix_before_accumulator_stores_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if !run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
@@ -54553,7 +54874,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4311_tag85_86_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4311_call_local_set_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54581,7 +54902,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4311_call_local_set_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_body_has_f4311_call_local_set_continuation(
       parent_body, start_idx,
@@ -54859,7 +55180,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4915_tag1_owner_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4915_tag95_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54890,7 +55211,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4915_tag95_return_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_body_has_f4915_tag95_return_continuation(
       parent_body, start_idx,
@@ -54924,7 +55245,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag9
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4919_tag99_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -54963,7 +55284,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4919_tag99_return_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f4919_call_if_return_dispatch(
   body : Array[@lib.Instruction],
-  return_local : UInt,
+  return_local : UInt32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() != 3 {
@@ -55050,7 +55371,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4919_call_if_return_dispatch(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   module_ctx : @ir.HotModuleContext?,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 3 ||
@@ -55073,7 +55394,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_ret
     return None
   }
   let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0)
-  let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+  let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
   let flattened : Array[@lib.Instruction] = []
@@ -55088,10 +55409,10 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_ret
 ///|
 fn run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
   body : Array[@lib.Instruction],
-  selector_raw : UInt,
+  selector_raw : UInt32,
   require_terminal_outer_branch : Bool,
   allow_leading_release : Bool,
-) -> UInt? {
+) -> UInt32? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   let mut start_idx = 0
   let mut leading_release_count = 0
@@ -55150,8 +55471,8 @@ fn run_hot_pipeline_raw_vacuum_f5027_branch_selected_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5083_conditional_handoff_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  selected_raw : UInt,
+  start_idx : Int32,
+  selected_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -55215,8 +55536,8 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5083_conditional_handoff_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f5027_allocation_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
-  payload_raw : UInt,
+  start_idx : Int32,
+  payload_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -55252,7 +55573,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f5027_allocation_return_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f5083_selected_payload_before_conditional_handoff_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() < 8 {
@@ -55352,7 +55673,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5083_selected_payload_before_conditional
 fn run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
   non_nops : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if non_nops.length() < 8 {
     return false
@@ -55414,7 +55735,7 @@ fn run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocat
 fn run_hot_pipeline_raw_vacuum_body_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if run_hot_pipeline_raw_vacuum_non_nops_is_f5027_selected_payload_before_allocation_return_preserve_candidate(
@@ -55444,7 +55765,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5027_selected_payload_before_allocation_
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4859_case0_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -55466,7 +55787,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4859_case0_return_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_body_has_f4859_case0_return_continuation(
       parent_body, start_idx,
@@ -55614,7 +55935,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f4665_tag2_56_classification_dispatch(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4665_renderer_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -55651,7 +55972,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4665_renderer_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if !run_hot_pipeline_raw_vacuum_body_has_f4665_renderer_continuation(
       parent_body, start_idx,
@@ -55680,7 +56001,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_befor
 ///|
 fn run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_then(
   then_body : Array[@lib.Instruction],
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let body = run_hot_pipeline_raw_vacuum_strip_top_level_nops(then_body)
   if body.length() < 10 {
     return None
@@ -55706,7 +56027,7 @@ fn run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_then(
 ///|
 fn run_hot_pipeline_raw_vacuum_f4702_selected_locals_from_call_result_child(
   body : Array[@lib.Instruction],
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() == 0 {
     return None
@@ -56094,7 +56415,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owne
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f4463_failure_box_return_continuation(
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx + 1
@@ -56126,7 +56447,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f4463_failure_box_return_continuation(
 fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 4 ||
     !run_hot_pipeline_raw_vacuum_body_has_f4463_failure_box_return_continuation(
@@ -56228,7 +56549,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_preserve_candidate(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1759_counter_store_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -56280,7 +56601,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f1759_counter_store_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_before_counter_store_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   run_hot_pipeline_raw_vacuum_body_is_f1759_tag2_prefix_preserve_candidate(body) &&
   run_hot_pipeline_raw_vacuum_body_has_f1759_counter_store_continuation(
@@ -56389,7 +56710,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_pr
 ///|
 fn run_hot_pipeline_raw_vacuum_body_sets_local(
   body : Array[@lib.Instruction],
-  target_raw : UInt,
+  target_raw : UInt32,
 ) -> Bool {
   for instr in body {
     match instr {
@@ -56426,7 +56747,7 @@ fn run_hot_pipeline_raw_vacuum_body_sets_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(
   body : Array[@lib.Instruction],
-  min_depth : Int,
+  min_depth : Int32,
 ) -> Bool {
   if body.length() == 0 {
     return false
@@ -56441,7 +56762,7 @@ fn run_hot_pipeline_raw_vacuum_body_ends_with_outer_br(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f1148_tag_selection(
   body : Array[@lib.Instruction],
-  continuation_raw : UInt,
+  continuation_raw : UInt32,
 ) -> Bool {
   if body.length() != 6 {
     return false
@@ -56598,7 +56919,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachab
 ///|
 fn run_hot_pipeline_raw_vacuum_body_count_br_tables(
   body : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {
@@ -56655,7 +56976,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_only_f1792_dispatch_return_instrs(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_leading_void_block_depth(
   body : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   if body.length() == 0 {
     return 0
   }
@@ -56694,7 +57015,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1792_br_table_dispatch_return_wrapper(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1792_merge_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -56740,8 +57061,8 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrappe
 ///|
 fn run_hot_pipeline_raw_vacuum_body_starts_f1836_tag20_fetch_cascade(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
-  slot_raw : UInt,
+  source_raw : UInt32,
+  slot_raw : UInt32,
 ) -> Bool {
   if body.length() < 24 {
     return false
@@ -56811,8 +57132,8 @@ fn run_hot_pipeline_raw_vacuum_body_starts_f1836_tag20_fetch_cascade(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1836_tag20_fetch_cascade(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
-  slot_raw : UInt,
+  source_raw : UInt32,
+  slot_raw : UInt32,
 ) -> Bool {
   if run_hot_pipeline_raw_vacuum_body_starts_f1836_tag20_fetch_cascade(
       body, source_raw, slot_raw,
@@ -56913,7 +57234,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
@@ -56971,7 +57292,7 @@ fn run_hot_pipeline_raw_vacuum_body_contains_f1940_selector(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f1940_cleanup_else(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
@@ -57070,7 +57391,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_befor
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
@@ -57128,7 +57449,7 @@ fn run_hot_pipeline_raw_vacuum_body_contains_f1956_selector(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
@@ -57186,7 +57507,7 @@ fn run_hot_pipeline_raw_vacuum_body_contains_f2054_selector(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
@@ -57337,7 +57658,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_befor
 ///|
 fn run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
       (
@@ -57477,8 +57798,8 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_l
 ///|
 fn run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> Int {
+  tagged_raw : UInt32,
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2]) {
@@ -57523,7 +57844,7 @@ fn run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
 ///|
 fn run_hot_pipeline_raw_vacuum_f2334_child_source(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -57599,8 +57920,8 @@ fn run_hot_pipeline_raw_vacuum_f2334_child_source(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2334_offset8_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  source_raw : UInt,
+  start_idx : Int32,
+  source_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -57669,7 +57990,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_c
 ///|
 fn run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   for idx = 0; idx + 4 < body.length(); idx = idx + 1 {
     match
       (body[idx], body[idx + 1], body[idx + 2], body[idx + 3], body[idx + 4]) {
@@ -57720,8 +58041,8 @@ fn run_hot_pipeline_raw_vacuum_f2651_selector_tagged_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> Int {
+  tagged_raw : UInt32,
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1]) {
@@ -57762,8 +58083,8 @@ fn run_hot_pipeline_raw_vacuum_body_count_tagged_i32_loads(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-  kind : Int,
+  tagged_raw : UInt32,
+  kind : Int32,
 ) -> Bool {
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], kind) {
@@ -57811,8 +58132,8 @@ fn run_hot_pipeline_raw_vacuum_body_has_tagged_load_kind(
 ///|
 fn run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> UInt? {
+  tagged_raw : UInt32,
+) -> UInt32? {
   for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
       (
@@ -57867,8 +58188,8 @@ fn run_hot_pipeline_raw_vacuum_f2651_i32_value_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2651_converter_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  value_raw : UInt,
+  start_idx : Int32,
+  value_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -57956,8 +58277,8 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_co
 ///|
 fn run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
   body : Array[@lib.Instruction],
-  guard_raw : UInt,
-) -> UInt? {
+  guard_raw : UInt32,
+) -> UInt32? {
   for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
       (
@@ -58011,7 +58332,7 @@ fn run_hot_pipeline_raw_vacuum_f2696_selector_tagged_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
+  tagged_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 13 < body.length(); idx = idx + 1 {
     match
@@ -58171,7 +58492,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_be
 ///|
 fn run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2]) {
       (
@@ -58223,8 +58544,8 @@ fn run_hot_pipeline_raw_vacuum_f2714_direct_selector_source_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
-) -> UInt? {
+  source_raw : UInt32,
+) -> UInt32? {
   for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
     match
       (
@@ -58295,7 +58616,7 @@ fn run_hot_pipeline_raw_vacuum_f2714_i32_output_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2714_terminal_release_return_zero(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
+  source_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
@@ -58408,7 +58729,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wr
 ///|
 fn run_hot_pipeline_raw_vacuum_f2905_selector_locals(
   body : Array[@lib.Instruction],
-) -> (UInt, UInt)? {
+) -> (UInt32, UInt32)? {
   for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
       (
@@ -58454,8 +58775,8 @@ fn run_hot_pipeline_raw_vacuum_f2905_selector_locals(
 ///|
 fn run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> UInt? {
+  tagged_raw : UInt32,
+) -> UInt32? {
   for instr in body {
     match instr {
       @lib.Block(_, @lib.Expr(child_body))
@@ -58526,8 +58847,8 @@ fn run_hot_pipeline_raw_vacuum_f2905_first_local_load_output(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> Int {
+  tagged_raw : UInt32,
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 7 < body.length(); idx = idx + 1 {
     match
@@ -58589,8 +58910,8 @@ fn run_hot_pipeline_raw_vacuum_body_count_f2905_local_load_release_branches(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2905_nested_call_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  output_raw : UInt,
+  start_idx : Int32,
+  output_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -58754,8 +59075,8 @@ fn run_hot_pipeline_raw_vacuum_body_has_f2775_release_return(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2775_branch_or_cleanup_else(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
-  tag_raw : UInt,
+  source_raw : UInt32,
+  tag_raw : UInt32,
 ) -> Bool {
   if body.length() != 5 || !(body[4] is @lib.Unreachable) {
     return false
@@ -58855,7 +59176,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrap
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2823_release(
   body : Array[@lib.Instruction],
-  active_raw : UInt,
+  active_raw : UInt32,
 ) -> Bool {
   match body {
     [@lib.LocalGet(@lib.LocalIdx(next_active_raw)), @lib.Call(_)] =>
@@ -58867,7 +59188,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2823_release(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2823_active_branch_or_release(
   body : Array[@lib.Instruction],
-  active_raw : UInt,
+  active_raw : UInt32,
 ) -> Bool {
   if body.length() != 6 || !(body[5] is @lib.Unreachable) {
     return false
@@ -58902,7 +59223,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2823_active_branch_or_release(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2823_then_cleanup(
   body : Array[@lib.Instruction],
-  active_raw : UInt,
+  active_raw : UInt32,
 ) -> Bool {
   if body.length() != 5 {
     return false
@@ -58926,9 +59247,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2823_then_cleanup(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2823_branch_or_release_else(
   body : Array[@lib.Instruction],
-  source_raw : UInt,
-  tag_raw : UInt,
-  active_raw : UInt,
+  source_raw : UInt32,
+  tag_raw : UInt32,
+  active_raw : UInt32,
 ) -> Bool {
   if body.length() != 4 {
     return false
@@ -59033,7 +59354,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
@@ -59092,10 +59413,10 @@ fn run_hot_pipeline_raw_vacuum_body_contains_f2297_selector(
 fn run_hot_pipeline_raw_vacuum_body_is_f2297_release_ladder_if(
   then_body : Array[@lib.Instruction],
   else_body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-  count_raw : UInt,
-  value_raw : UInt,
-  copy_raw : UInt,
+  tagged_raw : UInt32,
+  count_raw : UInt32,
+  value_raw : UInt32,
+  copy_raw : UInt32,
 ) -> Bool {
   if then_body.length() < 7 || else_body.length() != 4 {
     return false
@@ -59147,8 +59468,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2297_release_ladder_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
-) -> Int {
+  tagged_raw : UInt32,
+) -> Int32 {
   let mut count = 0
   for idx = 0; idx + 13 < body.length(); idx = idx + 1 {
     match
@@ -59226,7 +59547,7 @@ fn run_hot_pipeline_raw_vacuum_body_count_f2297_release_ladders(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
+  tagged_raw : UInt32,
 ) -> Bool {
   if body.length() < 4 {
     return false
@@ -59304,7 +59625,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wr
 ///|
 fn run_hot_pipeline_raw_vacuum_f2297_selector_tagged_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
       (
@@ -59382,7 +59703,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladde
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
   body : Array[@lib.Instruction],
-  probe_raw : UInt,
+  probe_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
@@ -59440,7 +59761,7 @@ fn run_hot_pipeline_raw_vacuum_body_contains_f2320_selector(
 ///|
 fn run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   for idx = 0; idx + 5 < body.length(); idx = idx + 1 {
     match
       (
@@ -59499,7 +59820,7 @@ fn run_hot_pipeline_raw_vacuum_f2320_selector_tagged_local(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
   body : Array[@lib.Instruction],
-  tagged_raw : UInt,
+  tagged_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 18 < body.length(); idx = idx + 1 {
     match
@@ -59889,7 +60210,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1948_sentinel_branch_selection(
 ///|
 fn run_hot_pipeline_raw_vacuum_has_f1948_i64_call_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 4 >= body.length() {
     return false
@@ -60002,7 +60323,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
 ///|
 fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
   body : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -60105,9 +60426,9 @@ fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
 ///|
 fn run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  slot_raw : UInt,
-) -> (UInt, UInt, UInt)? {
+  start_idx : Int32,
+  slot_raw : UInt32,
+) -> (UInt32, UInt32, UInt32)? {
   let sig : Array[@lib.Instruction] = []
   let mut idx = start_idx
   while idx < instrs.length() && sig.length() < 15 {
@@ -60168,8 +60489,8 @@ fn run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f1900_reload_continuation(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  slot_raw : UInt,
+  start_idx : Int32,
+  slot_raw : UInt32,
 ) -> Bool {
   run_hot_pipeline_raw_vacuum_f1900_reload_signature_at(
     instrs,
@@ -60182,8 +60503,8 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_f1900_reload_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f2094_block_continuation(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  slot_raw : UInt,
+  start_idx : Int32,
+  slot_raw : UInt32,
 ) -> Bool {
   if start_idx + 1 >= instrs.length() {
     return false
@@ -60209,7 +60530,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_f2094_block_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reload_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   match
     run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(body) {
@@ -60225,7 +60546,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1900_increment_probe_prefix_before_reloa
 fn run_hot_pipeline_raw_vacuum_body_is_f2094_increment_probe_prefix_before_block_continuation_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   match
     run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(body) {
@@ -60295,7 +60616,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1895_return_branch_wrapper(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f1895_call_eqz_if_continuation(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 5 >= instrs.length() {
     return false
@@ -60324,7 +60645,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_f1895_call_eqz_if_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f1895_empty_sibling_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx + 1 >= instrs.length() {
     return false
@@ -60367,8 +60688,8 @@ fn run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
 ///|
 fn run_hot_pipeline_raw_vacuum_then_is_f2072_release_return(
   then_body : Array[@lib.Instruction],
-  object_raw : UInt,
-  release_raw : UInt,
+  object_raw : UInt32,
+  release_raw : UInt32,
 ) -> Bool {
   match then_body {
     [
@@ -60389,7 +60710,7 @@ fn run_hot_pipeline_raw_vacuum_then_is_f2072_release_return(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f2072_branch_return_continuation_at(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 21 >= instrs.length() {
     return false
@@ -60465,7 +60786,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_f2072_branch_return_continuation_at(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f2072_empty_sibling_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx + 1 >= instrs.length() {
     return false
@@ -60503,9 +60824,9 @@ fn run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
 ///|
 fn run_hot_pipeline_raw_vacuum_then_is_f2842_release_return(
   then_body : Array[@lib.Instruction],
-  left_raw : UInt,
-  right_raw : UInt,
-  release_call_raw : UInt,
+  left_raw : UInt32,
+  right_raw : UInt32,
+  release_call_raw : UInt32,
 ) -> Bool {
   match then_body {
     [
@@ -60527,7 +60848,7 @@ fn run_hot_pipeline_raw_vacuum_then_is_f2842_release_return(
 ///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_f2842_empty_block_before_live_if_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx + 27 >= instrs.length() {
     return false
@@ -60640,9 +60961,9 @@ fn run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2850_guard_else(
   body : Array[@lib.Instruction],
-  env_raw : UInt,
-  index_raw : UInt,
-  flag_raw : UInt,
+  env_raw : UInt32,
+  index_raw : UInt32,
+  flag_raw : UInt32,
 ) -> Bool {
   match body {
     [
@@ -60662,8 +60983,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2850_guard_else(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2850_release_return(
   body : Array[@lib.Instruction],
-  value_raw : UInt,
-  env_raw : UInt,
+  value_raw : UInt32,
+  env_raw : UInt32,
 ) -> Bool {
   match body {
     [
@@ -60754,7 +61075,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_contains_local_release_call(
   body : Array[@lib.Instruction],
-  release_call_raw : UInt,
+  release_call_raw : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match (body[idx], body[idx + 1]) {
@@ -60813,7 +61134,7 @@ fn run_hot_pipeline_raw_vacuum_body_ends_with_zero_set_and_outer_br(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1155_branch_continuation(
   body : Array[@lib.Instruction],
-  release_call_raw : UInt,
+  release_call_raw : UInt32,
 ) -> Bool {
   if body.length() < 5 ||
     !run_hot_pipeline_raw_vacuum_body_ends_with_zero_set_and_outer_br(body) {
@@ -60865,7 +61186,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_bra
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_prefix(
   body : Array[@lib.Instruction],
-) -> (UInt, UInt)? {
+) -> (UInt32, UInt32)? {
   if body.length() != 13 {
     return None
   }
@@ -60927,9 +61248,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_prefix(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f1224_loop_update_parent_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  target_raw : UInt,
-  slot_raw : UInt,
+  start_idx : Int32,
+  target_raw : UInt32,
+  slot_raw : UInt32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -61010,7 +61331,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_f1224_loop_update_parent_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_preserve_candidate(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   match
     run_hot_pipeline_raw_vacuum_body_is_f1224_loop_release_update_prefix(body) {
@@ -61240,7 +61561,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_appen
 ///|
 fn run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -61508,7 +61829,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_f996_tag_dispatch_parent_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let sig : Array[@lib.Instruction] = []
   for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
@@ -61618,8 +61939,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_can
 
 ///|
 fn run_hot_pipeline_raw_vacuum_indexed_tag_cascade_expected_offset(
-  group : Int,
-) -> Int {
+  group : Int32,
+) -> Int32 {
   match group {
     0 => 0
     1 => 2
@@ -61911,7 +62232,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_
 ///|
 fn run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -61947,8 +62268,8 @@ fn run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_loads_linked_local_before_if(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  target_local : Int,
+  start_idx : Int32,
+  target_local : Int32,
 ) -> Bool {
   if start_idx + 5 >= body.length() {
     return false
@@ -62222,7 +62543,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_five_arg_prefix_parent_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 1 >= body.length() {
     return false
@@ -62254,7 +62575,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_five_arg_prefix_parent_continuation(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
   body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   if start_idx + 1 >= body.length() {
     return false
@@ -62331,7 +62652,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_single_flipped_if_wrapper_candidate(
 ///|
 fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
   instr : @lib.Instruction,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label)
@@ -62386,7 +62707,7 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
   body : Array[@lib.Instruction],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   for instr in body {
     if run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(instr, owner_depth) {
@@ -62591,7 +62912,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
 ///|
 fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -62722,8 +63043,8 @@ fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
 ///|
 fn run_hot_pipeline_raw_vacuum_pure_stack_expr_start(
   instrs : Array[@lib.Instruction],
-  end_exclusive : Int,
-) -> Int? {
+  end_exclusive : Int32,
+) -> Int32? {
   if end_exclusive <= 0 {
     return None
   }
@@ -62750,7 +63071,7 @@ fn run_hot_pipeline_raw_vacuum_pure_stack_expr_start(
 ///|
 fn run_hot_pipeline_raw_vacuum_body_has_exact_pure_stack_values(
   body : Array[@lib.Instruction],
-  count : Int,
+  count : Int32,
 ) -> Bool {
   if count <= 0 {
     return body.length() == 0
@@ -62810,9 +63131,9 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
 ///|
 fn run_hot_pipeline_raw_vacuum_dropped_pure_multivalue_width_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   module_ctx : @ir.HotModuleContext?,
-) -> Int? {
+) -> Int32? {
   let (type_idx, body) = match instrs[idx] {
     @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) =>
       (type_idx, body)
@@ -63355,7 +63676,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_require_type_context(
 ///|
 fn run_hot_pipeline_raw_vacuum_empty_block_before_local_copy_continuation(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let mut scan = idx + 1
   while scan < instrs.length() && instrs[scan] == @lib.Instruction::nop() {
@@ -63411,7 +63732,7 @@ fn run_hot_pipeline_raw_vacuum_if_body_is_f7138_i32_div_counter_branch(
 ///|
 fn run_hot_pipeline_raw_vacuum_has_f6286_f6594_f6628_f6785_f7095_f7130_f7133_f7138_f7141_f7263_parser_branch_continuation(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let mut scan = idx + 1
   while scan < instrs.length() && instrs[scan] == @lib.Instruction::nop() {
@@ -63771,9 +64092,9 @@ fn run_hot_pipeline_raw_vacuum_simple_struct_operand(
 ///|
 fn run_hot_pipeline_raw_vacuum_dropped_simple_struct_length_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   module_ctx : @ir.HotModuleContext?,
-) -> Int? {
+) -> Int32? {
   let ctx = match module_ctx {
     Some(ctx) => ctx
     None => return None
@@ -63892,7 +64213,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_ref_func_struct(
 ///|
 fn run_hot_pipeline_raw_vacuum_dropped_ref_func_struct_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
   if idx + 2 >= instrs.length() ||
@@ -63964,7 +64285,7 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_fresh_array_set_candidate(
 ///|
 fn run_hot_pipeline_raw_vacuum_fresh_array_set_replacement_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   module_ctx : @ir.HotModuleContext?,
 ) -> Array[@lib.Instruction]? {
   if idx + 4 >= instrs.length() {
@@ -64195,14 +64516,73 @@ fn run_hot_pipeline_raw_vacuum_preclean_dropped_arm(
 ) -> Array[@lib.Instruction] {
   let dropped = body.copy()
   dropped.push(@lib.Instruction::drop())
-  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     dropped, module_ctx,
   )
   cleaned
 }
 
 ///|
+// This class cannot trigger any preclean rule: it has no Drop/Nop, allocation
+// store, changing control header, or terminal instruction that truncates a
+// suffix. Loop headers only change when followed by Drop. Keep unsupported
+// controls and unknown leaves on the fully owned worker.
+fn run_hot_pipeline_raw_vacuum_preclean_flat_loop_is_unchanged(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_vacuum_preclean_flat_loop_is_unchanged(body) {
+          return false
+        }
+      @lib.LocalSet(_)
+      | @lib.LocalTee(_)
+      | @lib.GlobalSet(_)
+      | @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.BrIf(_)
+      | @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_)
+      | @lib.I32DivS
+      | @lib.I32DivU
+      | @lib.I32RemS
+      | @lib.I32RemU
+      | @lib.I64DivS
+      | @lib.I64DivU
+      | @lib.I64RemS
+      | @lib.I64RemU => ()
+      _ =>
+        if !run_hot_pipeline_raw_vacuum_instr_is_idempotent_scalar_load(instr) &&
+          run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr) is None {
+          return false
+        }
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean_instrs(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> (Array[@lib.Instruction], Bool) {
+  if run_hot_pipeline_raw_vacuum_preclean_flat_loop_is_unchanged(instrs) {
+    return (instrs, false)
+  }
+  run_hot_pipeline_raw_vacuum_preclean_instrs_owned(instrs, module_ctx)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
 ) -> (Array[@lib.Instruction], Bool) {
@@ -64335,7 +64715,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           ) {
           match body[0] {
             @lib.TryTable(_, _, @lib.Expr(try_body)) => {
-              let (next_try_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+              let (next_try_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                 try_body, module_ctx,
               )
               for next_instr in next_try_body {
@@ -64459,7 +64839,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
-            let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+            let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               rebased, module_ctx,
             )
             for next_instr in clean_rebased {
@@ -64578,7 +64958,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               body, instrs, idx,
             ) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
-            let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+            let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               rebased, module_ctx,
             )
             for next_instr in clean_rebased {
@@ -64590,7 +64970,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           }
           _ => ()
         }
-        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           body, module_ctx,
         )
         changed = changed || body_changed
@@ -66001,7 +66381,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           idx = idx + 2
           continue
         }
-        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           body, module_ctx,
         )
         changed = changed || body_changed
@@ -66010,7 +66390,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         )
       }
       @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
-        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           body, module_ctx,
         )
         changed = changed || body_changed
@@ -66026,7 +66406,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           for catch_ in catches {
             match catch_ {
               @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
-                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   catch_body, module_ctx,
                 )
                 changed = changed || catch_changed
@@ -66038,7 +66418,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 )
               }
               @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
-                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   catch_body, module_ctx,
                 )
                 changed = changed || catch_changed
@@ -66059,7 +66439,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         }
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           body, module_ctx,
         )
         changed = changed || body_changed
@@ -66081,12 +66461,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         }
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (clean_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (clean_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           then_body, module_ctx,
         )
         let (clean_else, else_changed) = match else_body {
           Some(body) => {
-            let (cleaned, did_change) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+            let (cleaned, did_change) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               body, module_ctx,
             )
             (Some(cleaned), did_change)
@@ -66428,8 +66808,8 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
 ///|
 fn run_hot_pipeline_raw_vacuum_count_nops_until(
   instrs : Array[@lib.Instruction],
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -66544,7 +66924,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
   instrs : Array[@lib.Instruction],
   include_void : Bool,
   fold_sign_extensions : Bool,
-  flatten_results? : Bool = true,
+  flatten_results~ : Bool = true,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -67309,9 +67689,9 @@ fn o4z_canonicalize_final_size_sign_extensions(
 ///|
 fn o4z_canonicalize_final_size_local_tee_is_dead_before_read(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   local_idx : @lib.LocalIdx,
-  continuation? : Array[@lib.Instruction] = [],
+  continuation~ : Array[@lib.Instruction] = [],
 ) -> Bool {
   for idx = start; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -68103,7 +68483,7 @@ fn o4z_canonicalize_final_size_negative_leb_adds(
 fn o4z_canonicalize_final_size_first_local_access(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   for instr in instrs {
     match instr {
       @lib.LocalGet(next) if next == local_idx => return 1
@@ -68162,7 +68542,7 @@ fn o4z_canonicalize_final_size_overwritten_ref_func_initializer(
 ///|
 fn o4z_canonicalize_final_size_continuation(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   continuation : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = Array::new(
@@ -68178,7 +68558,7 @@ fn o4z_canonicalize_final_size_continuation(
 ///|
 fn o4z_canonicalize_final_size_dead_local_tees(
   instrs : Array[@lib.Instruction],
-  continuation? : Array[@lib.Instruction] = [],
+  continuation~ : Array[@lib.Instruction] = [],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -68294,7 +68674,7 @@ fn o4z_canonicalize_final_size_dead_local_tees(
 }
 
 ///|
-fn o4z_size_candidate_count_i64_mul(instrs : Array[@lib.Instruction]) -> Int {
+fn o4z_size_candidate_count_i64_mul(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -68403,13 +68783,13 @@ pub fn o4z_size_candidate_has_stateful_emscripten_main_runtime(
 ///|
 fn o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
   instrs : Array[@lib.Instruction],
-) -> (Bool, Bool, Bool, Bool, Int) {
+) -> (Bool, Bool, Bool, Bool, Int32) {
   let mut has_floor = false
   let mut has_bitselect = false
   let mut has_extend = false
   let mut has_global_write = false
   let mut trunc_count = 0
-  let merge = fn(facts : (Bool, Bool, Bool, Bool, Int)) {
+  let merge = fn(facts : (Bool, Bool, Bool, Bool, Int32)) {
     has_floor = has_floor || facts.0
     has_bitselect = has_bitselect || facts.1
     has_extend = has_extend || facts.2
@@ -68555,12 +68935,12 @@ fn o4z_size_outline_byte_compare_load(func : @lib.Func) -> @lib.Instruction? {
 fn o4z_size_outline_byte_comparator_values(
   func : @lib.Func,
   compare_func : @lib.FuncIdx,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals != @lib.Locals::empty() || instrs.length() != 27 {
     return None
   }
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   let mut idx = 0
   for position = 0; position < 5; position = position + 1 {
     if instrs[idx] != @lib.Instruction::local_get(@lib.LocalIdx::new(0U)) {
@@ -68594,7 +68974,7 @@ fn o4z_size_outline_byte_comparator_values(
 fn o4z_size_outline_flat_func_target_uses(
   func : @lib.Func,
   target : @lib.FuncIdx,
-) -> (Int, Bool) {
+) -> (Int32, Bool) {
   let @lib.Func(_, @lib.Expr(instrs)) = func
   let mut calls = 0
   for instr in instrs {
@@ -68676,8 +69056,8 @@ fn o4z_size_outline_byte_comparator_siblings(mod_ : @lib.Module) -> @lib.Module 
       }
       None => ()
     }
-    let wrapper_indices : Array[Int] = []
-    let wrapper_values : Array[Array[Int]] = []
+    let wrapper_indices : Array[Int32] = []
+    let wrapper_values : Array[Array[Int32]] = []
     let mut direct_calls = 0
     let mut exclusive_flat_uses = true
     for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
@@ -68812,18 +69192,18 @@ fn o4z_size_outline_byte_comparator_siblings(mod_ : @lib.Module) -> @lib.Module 
 
 ///|
 priv struct O4zBulkCopyOutlineFact {
-  dst : Int
-  src : Int
-  length : Int
+  dst : Int32
+  src : Int32
+  length : Int32
   memory_copy : @lib.Instruction
   load : @lib.Instruction
 }
 
 ///|
 priv struct O4zBulkFillOutlineFact {
-  dst : Int
-  value : Int
-  length : Int
+  dst : Int32
+  value : Int32
+  length : Int32
   memory_fill : @lib.Instruction
   load : @lib.Instruction
 }
@@ -68929,9 +69309,9 @@ fn o4z_size_outline_bulk_memory_siblings(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
   let module_ctx = @ir.hot_module_context_from_module(mod_)
-  let copy_indices : Array[Int] = []
+  let copy_indices : Array[Int32] = []
   let copy_facts : Array[O4zBulkCopyOutlineFact] = []
-  let fill_indices : Array[Int] = []
+  let fill_indices : Array[Int32] = []
   let fill_facts : Array[O4zBulkFillOutlineFact] = []
   let mut common_type : @lib.TypeIdx? = None
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
@@ -69119,7 +69499,7 @@ fn o4z_size_outline_bulk_memory_siblings(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn o4z_size_outline_recurrence_step(func : @lib.Func) -> Int? {
+fn o4z_size_outline_recurrence_step(func : @lib.Func) -> Int32? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals != @lib.Locals::from_types([@lib.ValType::i32()]) {
     return None
@@ -69175,8 +69555,8 @@ fn o4z_size_outline_constant_step_recurrences(
     return mod_
   }
   let module_ctx = @ir.hot_module_context_from_module(mod_)
-  let matched_indices : Array[Int] = []
-  let steps : Array[Int] = []
+  let matched_indices : Array[Int32] = []
+  let steps : Array[Int32] = []
   let mut common_type : @lib.TypeIdx? = None
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     match o4z_size_outline_recurrence_step(funcs[idx]) {
@@ -69534,7 +69914,7 @@ fn o4z_canonicalize_final_size_clear_global_values(
 ///|
 fn o4z_canonicalize_final_size_propagate_straight_global_values_in_body(
   instrs : Array[@lib.Instruction],
-  global_count : Int,
+  global_count : Int32,
 ) -> (Array[@lib.Instruction], Bool) {
   let known : Array[@lib.Instruction?] = Array::make(global_count, None)
   let out : Array[@lib.Instruction] = []
@@ -70882,7 +71262,7 @@ fn o4z_canonicalize_final_size_function_result_block_spill(
 ///|
 fn o4z_canonicalize_final_size_emscripten_stack_alloc_def(
   mod_ : @lib.Module,
-) -> Int? {
+) -> Int32? {
   let imported = run_hot_pipeline_imported_func_count(mod_)
   let defined = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.length()
@@ -70949,7 +71329,7 @@ fn o4z_canonicalize_final_size_restore_emscripten_stack_alloc(
 ///|
 fn o4z_canonicalize_final_size_same_local_integer_compare_result(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.I32Eq
     | @lib.I64Eq
@@ -71874,7 +72254,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       } else {
         None
       }
-      let (precleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      let (precleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
         flattened, level_zero_module_ctx,
       )
       return Some({
@@ -73074,7 +73454,7 @@ fn run_hot_pipeline_raw_remove_unused_names(
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block_go(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::Block(_, @lib.Expr(body)) => {
@@ -73121,8 +73501,8 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(
 
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_large_local_dispatch_stats(
-  locals_count : Int,
-  instr_count : Int,
+  locals_count : Int32,
+  instr_count : Int32,
   has_deep_dispatch : Bool,
 ) -> Bool {
   locals_count > 96 && instr_count > 1000 && has_deep_dispatch
@@ -73130,9 +73510,9 @@ fn run_hot_pipeline_raw_remove_unused_brs_large_local_dispatch_stats(
 
 ///|
 fn run_hot_pipeline_raw_remove_unused_brs_refcount_payload_stats(
-  optimize_level : Int,
-  shrink_level : Int,
-  locals_count : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
+  locals_count : Int32,
   shape : RawRemoveUnusedBrsShape,
 ) -> Bool {
   optimize_level >= 4 &&
@@ -74125,7 +74505,7 @@ fn run_hot_pipeline_raw_remove_unused_brs(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
   instr : @lib.Instruction,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw))
     | @lib.LocalSet(@lib.LocalIdx(raw))
@@ -74159,7 +74539,7 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
         let @lib.Expr(body) = match catch_ {
           @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
         }
-        max_idx = Int::max(
+        max_idx = Int32::max(
           max_idx,
           run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(body),
         )
@@ -74173,7 +74553,7 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
   body : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut max_idx = -1
   for instr in body {
     let instr_max = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
@@ -74189,7 +74569,7 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
 ///|
 fn sl_cleanup_record_branch(
   targets : Array[Bool],
-  barrier : Int,
+  barrier : Int32,
   label : @lib.LabelIdx,
 ) -> Unit {
   let @lib.LabelIdx(raw) = label
@@ -74202,9 +74582,9 @@ fn sl_cleanup_record_branch(
 ///|
 fn sl_cleanup_count_reachable_reads(
   body : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
   targets : Array[Bool],
-  barrier : Int,
+  barrier : Int32,
   count_reads : Bool,
 ) -> Bool {
   // Each frame records syntactic branches to one enclosing structured label.
@@ -74321,7 +74701,7 @@ fn sl_cleanup_count_reachable_reads(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
   body : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Unit {
   ignore(sl_cleanup_count_reachable_reads(body, counts, [], 0, true))
 }
@@ -74432,10 +74812,10 @@ fn run_hot_pipeline_simplify_locals_lowered_sink_v128_const_sets(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_split_wrapper_middle_is_safe(
   body : Array[@lib.Instruction],
-  start : Int,
-  end_ : Int,
-  scratch_raw : UInt,
-  source_local : Int?,
+  start : Int32,
+  end_ : Int32,
+  scratch_raw : UInt32,
+  source_local : Int32?,
 ) -> Bool {
   let mut stack_depth = 0
   for idx = start; idx < end_; idx = idx + 1 {
@@ -74594,7 +74974,7 @@ fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
   instr : @lib.Instruction,
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> @lib.Instruction? {
   match instr {
     @lib.Nop => Some(instr)
@@ -74624,6 +75004,10 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
       let cleaned_body = run_hot_pipeline_simplify_locals_lowered_cleanup_body(
         body, counts,
       )
+      if block_type is @lib.VoidBlockType &&
+        cleaned_body.all(simplify_locals_cleanup_is_inert_separator) {
+        return Some(@lib.Instruction::nop())
+      }
       match
         run_hot_pipeline_simplify_locals_lowered_rewrite_split_value_wrapper_body(
           cleaned_body,
@@ -74687,8 +75071,8 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
-  membership_probes? : Array[Int]? = None,
+  reads : Array[Int32],
+  membership_probes~ : Array[Int32]? = None,
 ) -> Unit {
   SlCleanupReadSet::new(reads).collect(instrs, membership_probes~)
 }
@@ -74706,9 +75090,9 @@ fn simplify_locals_cleanup_is_inert_separator(instr : @lib.Instruction) -> Bool 
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
   instrs : Array[@lib.Instruction],
-  live_after : Array[Int],
-  child_liveout_contexts? : Array[Int]? = None,
-  suffix_root_visits? : Array[Int]? = None,
+  live_after : Array[Int32],
+  child_liveout_contexts~ : Array[Int32]? = None,
+  suffix_root_visits~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   sl_cleanup_drop_dead_pairs_with_reads(
     instrs,
@@ -74722,10 +75106,10 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
 fn sl_cleanup_drop_dead_pairs_with_reads(
   instrs : Array[@lib.Instruction],
   live_after : SlCleanupReadSet,
-  child_liveout_contexts? : Array[Int]? = None,
-  suffix_root_visits? : Array[Int]? = None,
-  future_read_visits? : Array[Int]? = None,
-  cleanup_root_visits? : Array[Int]? = None,
+  child_liveout_contexts~ : Array[Int32]? = None,
+  suffix_root_visits~ : Array[Int32]? = None,
+  future_read_visits~ : Array[Int32]? = None,
+  cleanup_root_visits~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   sl_cleanup_drop_dead_pairs_with_facts(
     instrs,
@@ -74741,15 +75125,15 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
 #valtype
 priv struct SlCleanupPairResult {
   body : Array[@lib.Instruction]
-  reads : Array[Int]
-  start : Int
+  reads : Array[Int32]
+  start : Int32
 }
 
 ///|
 fn SlCleanupPairResult::new(
   body : Array[@lib.Instruction],
-  reads : Array[Int],
-  start : Int,
+  reads : Array[Int32],
+  start : Int32,
 ) -> SlCleanupPairResult {
   { body, reads, start, }
 }
@@ -74776,10 +75160,10 @@ fn SlCleanupPairResult::merge_original_reads(
 fn sl_cleanup_drop_dead_pairs_with_facts(
   instrs : Array[@lib.Instruction],
   live_after : SlCleanupReadSet,
-  child_liveout_contexts? : Array[Int]? = None,
-  suffix_root_visits? : Array[Int]? = None,
-  future_read_visits? : Array[Int]? = None,
-  cleanup_root_visits? : Array[Int]? = None,
+  child_liveout_contexts~ : Array[Int32]? = None,
+  suffix_root_visits~ : Array[Int32]? = None,
+  future_read_visits~ : Array[Int32]? = None,
+  cleanup_root_visits~ : Array[Int32]? = None,
 ) -> SlCleanupPairResult {
   let mut has_children = false
   let mut has_root_writes = false
@@ -74944,9 +75328,61 @@ fn sl_cleanup_drop_dead_pairs_with_facts(
       visits[0] += 1
     }
     match normalized[idx] {
-      @lib.LocalTee(@lib.LocalIdx(raw)) =>
-        if idx + 1 < normalized.length() &&
-          normalized[idx + 1] == @lib.Instruction::drop() &&
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let tee_is_dropped = idx + 1 < normalized.length() &&
+          normalized[idx + 1] == @lib.Instruction::drop()
+        let mut get_idx = idx + 2
+        if tee_is_dropped {
+          while get_idx < normalized.length() &&
+                simplify_locals_cleanup_is_inert_separator(normalized[get_idx]) {
+            get_idx += 1
+          }
+        }
+        let dead_carrier = tee_is_dropped &&
+          get_idx + 1 < normalized.length() &&
+          normalized[get_idx] ==
+          @lib.Instruction::local_get(@lib.LocalIdx::new(raw)) &&
+          normalized[get_idx + 1] == @lib.Instruction::drop() &&
+          !live_after.contains(raw.reinterpret_as_int()) &&
+          ({
+            mixed_future_queries = true
+            if future_queries < 8 {
+              future_queries += 1
+            } else if future_read_mask is None && normalized.length() >= 32 {
+              future_read_mask = Some(
+                sl_cleanup_build_future_read_mask(
+                  normalized, future_read_visits,
+                ),
+              )
+            }
+            !sl_cleanup_future_read_query(
+              normalized,
+              get_idx,
+              get_idx + 2,
+              raw.reinterpret_as_int(),
+              future_read_mask,
+              future_read_visits,
+            )
+          })
+        if dead_carrier {
+          let out = match rewritten {
+            Some(out) => out
+            None => {
+              let out : Array[@lib.Instruction] = []
+              rewritten = Some(out)
+              out
+            }
+          }
+          for kept = cursor; kept < idx; kept = kept + 1 {
+            out.push(normalized[kept])
+          }
+          out.push(@lib.Instruction::drop())
+          for kept = idx + 2; kept < get_idx; kept = kept + 1 {
+            out.push(normalized[kept])
+          }
+          idx = get_idx + 2
+          cursor = idx
+        } else if tee_is_dropped &&
           !live_after.contains(raw.reinterpret_as_int()) &&
           ({
             mixed_future_queries = true
@@ -74985,6 +75421,7 @@ fn sl_cleanup_drop_dead_pairs_with_facts(
         } else {
           idx += 1
         }
+      }
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let mut get_idx = idx + 1
         while get_idx < normalized.length() &&
@@ -76036,7 +76473,7 @@ fn run_hot_pipeline_slns_lowered_ref_func_local_call_ref_directize_matches(
   get_idx : @lib.LocalIdx,
   _type_idx : @lib.TypeIdx,
   body : Array[@lib.Instruction],
-  next_idx : Int,
+  next_idx : Int32,
   _mod_ : @lib.Module,
 ) -> Bool {
   if local_idx != get_idx {
@@ -76130,12 +76567,16 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
         body, refinalization_context, mod_,
       )
       let mut rewritten_block_type = block_type
+      let mut block_body_changed = false
       let rewritten_body = if dropped_value_context || refinalization_context {
         match
           run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_block_body(
             next_body,
           ) {
-          Some(rewritten) => rewritten
+          Some(rewritten) => {
+            block_body_changed = true
+            rewritten
+          }
           None =>
             if refinalization_context {
               match
@@ -76143,6 +76584,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
                   next_body,
                 ) {
                 Some(rewritten) => {
+                  block_body_changed = true
                   rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
                   rewritten
                 }
@@ -76152,6 +76594,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
                       next_body,
                     ) {
                     Some(rewritten) => {
+                      block_body_changed = true
                       rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
                       rewritten
                     }
@@ -76161,6 +76604,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
                           next_body,
                         ) {
                         Some(rewritten) => {
+                          block_body_changed = true
                           rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
                           rewritten
                         }
@@ -76182,9 +76626,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
             @lib.Expr::new(rewritten_body),
           ),
         ],
-        body_changed ||
-        rewritten_body != body ||
-        rewritten_block_type != block_type,
+        body_changed || block_body_changed || rewritten_block_type != block_type,
       )
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
@@ -76455,7 +76897,7 @@ fn run_hot_pipeline_simplify_locals_lowered_forward_simple_block_tail_local(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
   body : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let cleaned : Array[@lib.Instruction] = []
   for idx = 0; idx < body.length(); idx = idx + 1 {
@@ -76498,7 +76940,7 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
 ///|
 fn run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
   body : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let mut rewritten : Array[@lib.Instruction]? = None
   for index = 0; index < body.length(); index = index + 1 {
@@ -76725,30 +77167,43 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
   let (next_body_base, changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
     directized_body, body_refinalization_context, mod_,
   )
+  let mut wrapper_changed = false
   let next_body = if body_refinalization_context {
     match
       run_hot_pipeline_slns_lowered_wrap_no_normal_both_arm_catch_all_ref_if_tail(
         next_body_base,
       ) {
-      Some(rewritten) => rewritten
+      Some(rewritten) => {
+        wrapper_changed = true
+        rewritten
+      }
       None =>
         match
           run_hot_pipeline_slns_lowered_wrap_no_normal_single_arm_catch_all_ref_if_tail(
             next_body_base,
           ) {
-          Some(rewritten) => rewritten
+          Some(rewritten) => {
+            wrapper_changed = true
+            rewritten
+          }
           None =>
             match
               run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_all_ref_func_body(
                 next_body_base,
               ) {
-              Some(rewritten) => rewritten
+              Some(rewritten) => {
+                wrapper_changed = true
+                rewritten
+              }
               None =>
                 match
                   run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_ref_func_body(
                     next_body_base,
                   ) {
-                  Some(rewritten) => rewritten
+                  Some(rewritten) => {
+                    wrapper_changed = true
+                    rewritten
+                  }
                   None => next_body_base
                 }
             }
@@ -76757,7 +77212,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
   } else {
     next_body_base
   }
-  if directized_changed || changed || next_body != body {
+  if directized_changed || changed || wrapper_changed {
     @lib.Func::new(locals, @lib.Expr::new(next_body))
   } else {
     func
@@ -76771,6 +77226,7 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   let mut idx = 0
+  let mut prefix_is_inert = true
   while idx < body.length() {
     if idx + 1 < body.length() {
       match (body[idx], body[idx + 1]) {
@@ -76797,6 +77253,7 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
           rewritten.push(@lib.Instruction::nop())
           rewritten.push(producer)
           changed = true
+          prefix_is_inert = false
           idx += 2
           continue
         }
@@ -76804,13 +77261,6 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
       }
     }
     if idx + 2 < body.length() {
-      let mut prefix_is_inert = true
-      for prefix_idx = 0; prefix_idx < idx; prefix_idx = prefix_idx + 1 {
-        if body[prefix_idx] != @lib.Instruction::nop() {
-          prefix_is_inert = false
-          break
-        }
-      }
       let producer_is_structured_result = prefix_is_inert &&
         (match body[idx] {
           @lib.Block(block_type, _)
@@ -76834,6 +77284,7 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
             rewritten.push(@lib.Instruction::nop())
             rewritten.push(body[idx])
             changed = true
+            prefix_is_inert = false
             idx += 3
             continue
           }
@@ -76842,6 +77293,7 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
       }
     }
     rewritten.push(body[idx])
+    prefix_is_inert = prefix_is_inert && body[idx] == @lib.Instruction::nop()
     idx += 1
   }
   (rewritten, changed)
@@ -76959,11 +77411,10 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
     lowered_simd_cleaned,
   )
-  run_hot_pipeline_simplify_locals_finalize_lowered_root(
-    run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
-      cleaned, descriptor_name, refinalization_context, mod_,
-    ),
+  let canonicalized = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+    cleaned, descriptor_name, refinalization_context, mod_,
   )
+  run_hot_pipeline_simplify_locals_finalize_lowered_root(canonicalized)
 }
 
 ///|
@@ -76984,7 +77435,7 @@ fn run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
 priv struct RawOiEscapingLabelRetargetFact {
   original : @lib.LabelIdx
   retargeted : @lib.LabelIdx
-  removed_block_depth : Int
+  removed_block_depth : Int32
 }
 
 ///|
@@ -77025,9 +77476,9 @@ fn RawOiEscapingLabelRetargetFact::retarget(
 
 ///|
 priv struct RawOiEscapingLabelVecRetargetFact {
-  original_count : Int
+  original_count : Int32
   retargeted : Array[@lib.LabelIdx]
-  removed_block_depth : Int
+  removed_block_depth : Int32
 }
 
 ///|
@@ -77128,15 +77579,15 @@ fn RawOiRefGetDescResultBlockTypeFact::block_type_from_module(
 // the flatten fact still owns exact branch shape, labels, types, effects, traps,
 // evaluation order, descriptor rebuilding, and the complete rewrite payload.
 priv struct RawOiEscapingRefGetDescCandidateFact {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   skips_explicit_null_check : Bool
 }
 
 ///|
 fn RawOiEscapingRefGetDescCandidateFact::from_region_at(
   region : RawOiInstructionRegionFact,
-  start : Int,
+  start : Int32,
 ) -> RawOiEscapingRefGetDescCandidateFact? {
   if start < 0 ||
     start + 3 >= region.roots.length() ||
@@ -77176,9 +77627,9 @@ priv enum RawOiEscapingRefGetDescFlattenKind {
 
 ///|
 priv struct RawOiEscapingRefGetDescFlattenFact {
-  end : Int
+  end : Int32
   kind : RawOiEscapingRefGetDescFlattenKind
-  label_retarget_count : Int
+  label_retarget_count : Int32
   rebuilds_descriptor_result_block : Bool
   rewrite : Array[@lib.Instruction]
 }
@@ -78793,7 +79244,7 @@ fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
   mod_ : @lib.Module,
-  module_ctx? : @ir.HotModuleContext? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> @lib.Func {
   if descriptor_name != "optimize-instructions" {
     return func
@@ -79306,8 +79757,8 @@ fn run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
   func : @lib.Func,
   original : @lib.Func?,
   mod_ : @lib.Module,
-  module_ctx? : @ir.HotModuleContext? = None,
-  module_env_provider? : (() -> @validate.Env)? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
+  module_env_provider~ : (() -> @validate.Env)? = None,
 ) -> (@lib.Func, Bool) {
   match original {
     Some(@lib.Func(_, @lib.Expr(body))) if run_hot_pipeline_raw_tuple_has_multivalue_producer(
@@ -79336,9 +79787,9 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   original_func : @lib.Func?,
   func_idx : @lib.FuncIdx,
   mod_ : @lib.Module,
-  module_ctx? : @ir.HotModuleContext? = None,
-  module_env? : @validate.Env? = None,
-  module_env_provider? : (() -> @validate.Env)? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
+  module_env~ : @validate.Env? = None,
+  module_env_provider~ : (() -> @validate.Env)? = None,
 ) -> @lib.Func {
   let func = if descriptor_name == "constraint-analysis" ||
     descriptor_name == "tuple-optimization" ||
@@ -80474,7 +80925,7 @@ fn run_hot_pipeline_raw_optimize_casts_no_candidates(
 ///|
 fn run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -80533,7 +80984,9 @@ fn run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
 }
 
 ///|
-fn run_hot_pipeline_raw_i32_ctz_count(instrs : Array[@lib.Instruction]) -> Int {
+fn run_hot_pipeline_raw_i32_ctz_count(
+  instrs : Array[@lib.Instruction],
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -80695,7 +81148,10 @@ fn run_hot_pipeline_func(
       } else {
         result.func
       }
-      let simd_changed = simd_cleaned != result.func
+      // The SIMD sink returns the original function object when it does not
+      // rewrite anything, so identity is the complete change signal here.
+      // Avoid a derived equality walk over deeply nested control flow.
+      let simd_changed = !physical_equal(simd_cleaned, result.func)
       let (folded, capture_changed) = if descriptor.name == "simplify-locals" &&
         (!result.unchanged_original || simd_changed) {
         run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(
@@ -81004,6 +81460,7 @@ fn run_hot_pipeline_func(
       func_idx,
       module_ctx,
       capture_stack_locals=descriptor.name == "constraint-analysis",
+      record_local_accesses=false,
     ) {
     Ok(func) => func
     Err(err) => {
@@ -81219,6 +81676,11 @@ fn run_hot_pipeline_func(
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
   )
+  if descriptor.name == "optimize-instructions" {
+    ctx.allows_simd_introduction = run_hot_pipeline_allows_simd_introduction(
+      mod_, module_state,
+    )
+  }
   let aggregate_pass_timer = if descriptor.name == "vacuum" {
     Some(fn(name, elapsed_us) {
       run_hot_pipeline_record_vacuum_hot_timer(module_state, name, elapsed_us)
@@ -81242,8 +81704,9 @@ fn run_hot_pipeline_func(
   match
     hot_pass_run_with_aggregate_perf_timer(ctx, func, aggregate_pass_timer) {
     Ok(result) =>
-      if !result.changed &&
-        !merge_blocks_preclean_changed &&
+      if result.changed {
+        ()
+      } else if !merge_blocks_preclean_changed &&
         (
           @ir.hot_revision_current(func) == lifted_revision ||
           descriptor.name == "remove-unused-brs" ||
@@ -81371,11 +81834,12 @@ fn run_hot_pipeline_func(
         Ok(_) => {
           run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+          let raw_lowered = @ir.hot_lower_func_with_options(
+            func,
+            run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
+          )
           let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
-            @ir.hot_lower_func_with_options(
-              func,
-              run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
-            ),
+            raw_lowered,
             descriptor.name,
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
             func_idx,
@@ -81447,11 +81911,12 @@ fn run_hot_pipeline_func(
       }
       run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+      let raw_lowered = @ir.hot_lower_func_unverified_with_options(
+        func,
+        run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
+      )
       let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
-        @ir.hot_lower_func_unverified_with_options(
-          func,
-          run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
-        ),
+        raw_lowered,
         descriptor.name,
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         func_idx,
@@ -81549,7 +82014,7 @@ fn run_hot_pipeline_module_with_rewritten_func(
 ///|
 fn run_hot_pipeline_precompute_writeback_validation_error(
   mod_ : @lib.Module,
-  code_idx : Int,
+  code_idx : Int32,
   rewritten : @lib.Func,
 ) -> String? {
   let func_idx = @lib.FuncIdx::new(
@@ -81643,7 +82108,7 @@ fn run_hot_pipeline_touched_nonvalidation_skip_invalid_lower_reason(
 fn run_hot_pipeline_skip_invalid_lower_reason(
   current_mod : @lib.Module,
   validation_mod : @lib.Module,
-  code_idx : Int,
+  code_idx : Int32,
   descriptor_name : String,
   result : HotPipelineFuncResult,
 ) -> String? {
@@ -81757,7 +82222,7 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
 }
 
 ///|
-fn run_hot_pipeline_precompute_branch_depth(instr : @lib.Instruction) -> Int? {
+fn run_hot_pipeline_precompute_branch_depth(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Instruction::Br(label_idx) => {
       let @lib.LabelIdx(raw) = label_idx
@@ -82311,6 +82776,7 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
   touched : Array[Bool],
   descriptor_name : String,
   options : HotPipelineOptions,
+  touched_proves_changed~ : Bool = false,
 ) -> @lib.Module? {
   let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
   match (original_mod.code_sec, candidate_mod.code_sec) {
@@ -82324,7 +82790,10 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
           code_idx = code_idx + 1 {
         if code_idx < touched.length() &&
           touched[code_idx] &&
-          candidate_defs[code_idx] != original_defs[code_idx] {
+          (
+            touched_proves_changed ||
+            candidate_defs[code_idx] != original_defs[code_idx]
+          ) {
           changed_funcs.push(
             (
               @lib.FuncIdx::new(
@@ -82372,7 +82841,10 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
           code_idx >= original_defs.length() ||
           code_idx >= touched.length() ||
           !touched[code_idx] ||
-          repaired_defs[code_idx] == original_defs[code_idx] {
+          (
+            !touched_proves_changed &&
+            repaired_defs[code_idx] == original_defs[code_idx]
+          ) {
           return None
         }
         repaired_defs[code_idx] = original_defs[code_idx]
@@ -82425,20 +82897,18 @@ fn run_hot_pipeline_optimize_instructions_repair_batch_writeback(
 fn run_hot_pipeline_simplify_locals_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
+  touched : Array[Bool],
   descriptor_name : String,
   options : HotPipelineOptions,
 ) -> @lib.Module? {
-  match original_mod.code_sec {
-    Some(@lib.CodeSec(defs)) =>
-      run_hot_pipeline_repair_touched_batch_writeback(
-        original_mod,
-        candidate_mod,
-        Array::make(defs.length(), true),
-        descriptor_name,
-        options,
-      )
-    None => Some(candidate_mod)
-  }
+  run_hot_pipeline_repair_touched_batch_writeback(
+    original_mod,
+    candidate_mod,
+    touched,
+    descriptor_name,
+    options,
+    touched_proves_changed=true,
+  )
 }
 
 ///|
@@ -82604,13 +83074,13 @@ fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
-  defer_vacuum_writeback_guard? : Bool = true,
-  defer_ssa_nomerge_writeback_guard? : Bool = true,
-  defer_remove_unused_brs_writeback_guard? : Bool = true,
-  defer_dce_writeback_guard? : Bool = true,
-  defer_precompute_writeback_guard? : Bool = true,
-  defer_simplify_locals_writeback_guard? : Bool = true,
-  defer_optimize_instructions_writeback_guard? : Bool = true,
+  defer_vacuum_writeback_guard~ : Bool = true,
+  defer_ssa_nomerge_writeback_guard~ : Bool = true,
+  defer_remove_unused_brs_writeback_guard~ : Bool = true,
+  defer_dce_writeback_guard~ : Bool = true,
+  defer_precompute_writeback_guard~ : Bool = true,
+  defer_simplify_locals_writeback_guard~ : Bool = true,
+  defer_optimize_instructions_writeback_guard~ : Bool = true,
 ) -> Result[@lib.Module, String] {
   let descriptor = match entry.descriptor {
     Some(descriptor) => descriptor
@@ -82677,6 +83147,7 @@ fn run_hot_pipeline_apply_hot_pass(
   } else {
     None
   }
+  let mut simplify_locals_touched : Array[Bool]? = None
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let code_section_start_us = perf_start_timer_opt(
@@ -82726,6 +83197,7 @@ fn run_hot_pipeline_apply_hot_pass(
             }
           },
           perf: options.perf,
+          dae_default_no_callback_trace: None,
         }
       } else {
         options
@@ -82895,6 +83367,21 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         if defer_this_precompute_writeback_guard && !result.unchanged_original {
           precompute_touched.unwrap()[code_idx] = true
+        }
+        if defer_this_simplify_locals_writeback_guard &&
+          !result.unchanged_original {
+          // Batch validation starts from the original code section and only
+          // validates these marked slots. Every unchanged_original result must
+          // therefore retain the exact original Func value.
+          let touched = match simplify_locals_touched {
+            Some(touched) => touched
+            None => {
+              let touched = Array::make(defs.length(), false)
+              simplify_locals_touched = Some(touched)
+              touched
+            }
+          }
+          touched[code_idx] = true
         }
         let rse_trace_writeback_start_us = if descriptor.name ==
           "redundant-set-elimination" {
@@ -83156,7 +83643,12 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:\{descriptor.name}-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(precompute_cleanup_unused_gc_types(mod_, repaired_mod))
+        return Ok(
+          precompute_materialize_vectors_for_size(
+            precompute_cleanup_unused_gc_types(mod_, repaired_mod),
+            options.shrink_level,
+          ),
+        )
       }
       None => {
         perf_stop_timer_opt(
@@ -83215,6 +83707,7 @@ fn run_hot_pipeline_apply_hot_pass(
       run_hot_pipeline_simplify_locals_repair_batch_writeback(
         mod_,
         next_mod,
+        simplify_locals_touched.unwrap(),
         descriptor.name,
         options,
       ) {
@@ -83224,7 +83717,13 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:\{descriptor.name}-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        return Ok(
+          if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
+            simplify_locals_cleanup_module_encoding(mod_, repaired_mod)
+          } else {
+            repaired_mod
+          },
+        )
       }
       None => {
         perf_stop_timer_opt(
@@ -83385,9 +83884,14 @@ fn run_hot_pipeline_apply_hot_pass(
       vacuum_cleanup_unused_declarations_and_gc_types(mod_, next_mod)
     } else if descriptor.name == "precompute" ||
       descriptor.name == "precompute-propagate" {
-      precompute_cleanup_unused_gc_types(mod_, next_mod)
+      precompute_materialize_vectors_for_size(
+        precompute_cleanup_unused_gc_types(mod_, next_mod),
+        options.shrink_level,
+      )
     } else if descriptor.name == "optimize-instructions" {
       oi_cleanup_module_encoding(next_mod)
+    } else if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
+      simplify_locals_cleanup_module_encoding(mod_, next_mod)
     } else {
       next_mod
     },
@@ -83502,6 +84006,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             optimize_level=options.optimize_level,
             shrink_level=options.shrink_level,
           )
+          if descriptor.name == "optimize-instructions" {
+            ctx.allows_simd_introduction = run_hot_pipeline_allows_simd_introduction(
+              current_mod, module_state,
+            )
+          }
           match hot_pass_run(ctx, func) {
             Ok(_) => ()
             Err(err) => return Err("func[\{func_idx}]: \{err}")
@@ -83656,9 +84165,18 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   } else {
     output
   }
+  let output = precompute_materialize_stack_vectors_for_size(
+    output,
+    descriptors,
+    options.shrink_level,
+  )
   Ok(
     if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
       oi_cleanup_module_encoding(output)
+    } else if descriptors.any(fn(d) {
+        simplify_locals_grouping_descriptor_is_admitted(d.name)
+      }) {
+      simplify_locals_cleanup_module_encoding(mod_, output)
     } else {
       output
     },
@@ -83795,6 +84313,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             optimize_level=options.optimize_level,
             shrink_level=options.shrink_level,
           )
+          if descriptor.name == "optimize-instructions" {
+            ctx.allows_simd_introduction = run_hot_pipeline_allows_simd_introduction(
+              current_mod, module_state,
+            )
+          }
           match hot_pass_run(ctx, func) {
             Ok(_) => last_descriptor = Some(descriptor)
             Err(err) => return Err("func[\{func_idx}]: \{err}")
@@ -83949,9 +84472,23 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
     None => current_mod
   }
   if next_code_sec is None {
+    let candidate = precompute_materialize_stack_vectors_for_size(
+      candidate,
+      descriptors,
+      options.shrink_level,
+      touched=Some(touched),
+    )
     return Ok(
       if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
         oi_cleanup_module_encoding(candidate, touched=Some(touched))
+      } else if descriptors.any(fn(d) {
+          simplify_locals_grouping_descriptor_is_admitted(d.name)
+        }) {
+        simplify_locals_cleanup_module_encoding(
+          mod_,
+          candidate,
+          touched=Some(touched),
+        )
       } else {
         candidate
       },
@@ -83961,14 +84498,29 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
     run_hot_pipeline_repair_touched_batch_writeback(
       mod_, candidate, touched, "filtered-hot-stack", options,
     ) {
-    Some(repaired) =>
+    Some(repaired) => {
+      let repaired = precompute_materialize_stack_vectors_for_size(
+        repaired,
+        descriptors,
+        options.shrink_level,
+        touched=Some(touched),
+      )
       Ok(
         if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
           oi_cleanup_module_encoding(repaired, touched=Some(touched))
+        } else if descriptors.any(fn(d) {
+            simplify_locals_grouping_descriptor_is_admitted(d.name)
+          }) {
+          simplify_locals_cleanup_module_encoding(
+            mod_,
+            repaired,
+            touched=Some(touched),
+          )
         } else {
           repaired
         },
       )
+    }
     None => {
       pipeline_trace_hook(
         options.trace,
@@ -84251,6 +84803,19 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         heap2local_cleanup_module_types(candidate)
       } else if descriptor.name == "optimize-instructions" {
         oi_cleanup_module_encoding(candidate, touched=Some(touched))
+      } else if descriptor.name == "precompute" ||
+        descriptor.name == "precompute-propagate" {
+        precompute_materialize_vectors_for_size(
+          candidate,
+          options.shrink_level,
+          touched=Some(touched),
+        )
+      } else if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
+        simplify_locals_cleanup_module_encoding(
+          mod_,
+          candidate,
+          touched=Some(touched),
+        )
       } else {
         candidate
       },
@@ -84270,6 +84835,21 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           heap2local_cleanup_module_types(repaired)
         } else if descriptor.name == "optimize-instructions" {
           oi_cleanup_module_encoding(repaired, touched=Some(touched))
+        } else if descriptor.name == "precompute" ||
+          descriptor.name == "precompute-propagate" {
+          precompute_materialize_vectors_for_size(
+            repaired,
+            options.shrink_level,
+            touched=Some(touched),
+          )
+        } else if simplify_locals_grouping_descriptor_is_admitted(
+            descriptor.name,
+          ) {
+          simplify_locals_cleanup_module_encoding(
+            mod_,
+            repaired,
+            touched=Some(touched),
+          )
         } else {
           repaired
         },
@@ -84359,7 +84939,7 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
     run_hot_pipeline_module_has_assemblyscript_run_exported_memory_runtime(mod_) ||
     run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_)
   let mut rewritten : Array[@lib.Func]? = None
-  let changed_code_indices : Array[Int] = []
+  let changed_code_indices : Array[Int32] = []
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
       continue
@@ -84417,8 +84997,8 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
 
 ///|
 fn run_hot_pipeline_o4z_coalesce_local_count_selected(
-  module_defined_func_count : Int,
-  local_count : Int,
+  module_defined_func_count : Int32,
+  local_count : Int32,
 ) -> Bool {
   local_count > 50000 ||
   (module_defined_func_count < 2000 && local_count > 0 && local_count <= 512)
@@ -84426,36 +85006,36 @@ fn run_hot_pipeline_o4z_coalesce_local_count_selected(
 
 ///|
 fn run_hot_pipeline_o4z_late_convergence_selected(
-  module_defined_func_count : Int,
+  module_defined_func_count : Int32,
 ) -> Bool {
   module_defined_func_count < 2000
 }
 
 ///|
 fn run_hot_pipeline_o4z_cfg_coalesce_module_selected(
-  module_defined_func_count : Int,
+  module_defined_func_count : Int32,
 ) -> Bool {
   module_defined_func_count < 2000
 }
 
 ///|
 fn run_hot_pipeline_o4z_remove_unused_brs_selected(
-  module_defined_func_count : Int,
+  module_defined_func_count : Int32,
 ) -> Bool {
   module_defined_func_count < 2000
 }
 
 ///|
 fn run_hot_pipeline_o4z_precompute_propagate_selected(
-  module_defined_func_count : Int,
+  module_defined_func_count : Int32,
 ) -> Bool {
   module_defined_func_count < 2000
 }
 
 ///|
 fn run_hot_pipeline_o4z_ssa_wave_selected(
-  module_defined_func_count : Int,
-  ssa_wave : Int,
+  module_defined_func_count : Int32,
+  ssa_wave : Int32,
 ) -> Bool {
   ssa_wave <= 1 || module_defined_func_count < 2000
 }
@@ -84653,7 +85233,7 @@ fn run_hot_pipeline_apply_local_subtyping_to_touched(
 #warnings("-unused_value")
 fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
   mod_ : @lib.Module,
-  defs : Array[Int],
+  defs : Array[Int32],
 ) -> Result[@lib.Module, String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -84669,7 +85249,7 @@ fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
   }
   let mut cached_type_idx : @lib.TypeIdx? = None
   let mut cached_params : Array[@lib.ValType] = []
-  let mut func_remaps : Array[Array[Int]?]? = None
+  let mut func_remaps : Array[Array[Int32]?]? = None
   let mut rewritten : Array[@lib.Func]? = None
   for code_idx in defs {
     if code_idx < 0 ||
@@ -84699,7 +85279,10 @@ fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
         match func_remaps {
           Some(remaps) => remaps[code_idx] = Some(rewrite.old_to_new)
           None => {
-            let remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
+            let remaps : Array[Array[Int32]?] = Array::make(
+              funcs.length(),
+              None,
+            )
             remaps[code_idx] = Some(rewrite.old_to_new)
             func_remaps = Some(remaps)
           }
@@ -84737,57 +85320,6 @@ fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
 }
 
 ///|
-fn run_hot_pipeline_apply_reorder_locals_to_touched(
-  mod_ : @lib.Module,
-  touched : Array[Bool],
-) -> Result[@lib.Module, String] {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return Ok(mod_)
-  }
-  let params = rl_defined_func_param_cache(mod_)
-  let func_remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
-  let mut rewritten : Array[@lib.Func]? = None
-  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-    if code_idx >= touched.length() || !touched[code_idx] {
-      continue
-    }
-    let func_params = match params.get(code_idx) {
-      Some(params) => params
-      None =>
-        return Err("missing defined function params for code index \{code_idx}")
-    }
-    let rewrite = rl_rewrite_func(funcs[code_idx], func_params)
-    if rewrite.changed {
-      func_remaps[code_idx] = Some(rewrite.old_to_new)
-      match rewritten {
-        Some(copy) => copy[code_idx] = rewrite.func
-        None => {
-          let copy = funcs.copy()
-          copy[code_idx] = rewrite.func
-          rewritten = Some(copy)
-        }
-      }
-    }
-  }
-  match rewritten {
-    Some(copy) => {
-      let next = mod_.with_code_sec(@lib.CodeSec::new(copy))
-      match
-        rl_rewrite_name_sec(
-          mod_.name_sec,
-          rl_imported_func_count(mod_),
-          func_remaps,
-        ) {
-        Some(name_sec) => Ok(next.with_name_sec(name_sec))
-        None => Ok(next.without_name_sec())
-      }
-    }
-    None => Ok(mod_)
-  }
-}
-
-///|
 // Semantic DAEO nested replay is selected only by producer-owned worth. Module,
 // local, and instruction cardinality may still guide earlier optional cleanup,
 // but they do not suppress the source-required touched-function roster.
@@ -84804,7 +85336,7 @@ fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
 fn run_hot_pipeline_sgo_nested_cleanup_filter_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> (Array[Bool], Int, Array[Bool]) {
+) -> (Array[Bool], Int32, Array[Bool]) {
   // Cardinality alone is not a semantic reason to omit Binaryen's required
   // nested function cleanup. Individual pass owners retain their focused,
   // source-backed complexity guards.
@@ -85004,8 +85536,8 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
 fn run_hot_pipeline_dae_retain_valid_selected_defs(
   baseline : @lib.Module,
   candidate : @lib.Module,
-  defs : Array[Int],
-) -> (@lib.Module, Array[Int], Array[Int], Array[String]) {
+  defs : Array[Int32],
+) -> (@lib.Module, Array[Int32], Array[Int32], Array[String]) {
   let baseline_funcs = match baseline.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (baseline, [], defs.copy(), ["baseline has no code section"])
@@ -85058,8 +85590,8 @@ fn run_hot_pipeline_dae_retain_valid_selected_defs(
       }
   }
   let retained_funcs = baseline_funcs.copy()
-  let accepted : Array[Int] = []
-  let rejected : Array[Int] = []
+  let accepted : Array[Int32] = []
+  let rejected : Array[Int32] = []
   let rejection_errors : Array[String] = []
   for def_idx in defs {
     if def_idx < 0 ||
@@ -85099,7 +85631,7 @@ fn run_hot_pipeline_dae_retain_valid_selected_defs(
 fn run_hot_pipeline_dae_validate_selected_def_or_rollback(
   original : @lib.Module,
   candidate : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> (@lib.Module, Bool) {
   let candidate_func = match candidate.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -85155,7 +85687,7 @@ fn run_hot_pipeline_dae_clone_cleanup_instr(
 }
 
 ///|
-fn run_hot_pipeline_dae_encoded_size(mod_ : @lib.Module) -> Int? {
+fn run_hot_pipeline_dae_encoded_size(mod_ : @lib.Module) -> Int32? {
   match @binary.encode_module(mod_) {
     Ok(bytes) => Some(bytes.length())
     Err(_) => None
@@ -85163,7 +85695,7 @@ fn run_hot_pipeline_dae_encoded_size(mod_ : @lib.Module) -> Int? {
 }
 
 ///|
-fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int? {
+fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int32? {
   let buf = @buffer.new()
   match @binary.Encode::encode(func, buf) {
     Ok(_) => Some(buf.to_bytes().length())
@@ -85176,7 +85708,7 @@ fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int? {
 fn run_hot_pipeline_dae_selected_func_encoded_not_larger(
   current : @lib.Module,
   candidate : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Bool? {
   if current.type_sec != candidate.type_sec {
     let current_size = run_hot_pipeline_dae_encoded_size(current)
@@ -85213,7 +85745,7 @@ fn run_hot_pipeline_dae_selected_func_encoded_not_larger(
 fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
   current : @lib.Module,
   candidate : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Bool? {
   if current.type_sec != candidate.type_sec {
     let current_size = run_hot_pipeline_dae_encoded_size(current)
@@ -85249,7 +85781,7 @@ fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_clone_cleanup_defs(
   mod_ : @lib.Module,
-  defs : Array[Int],
+  defs : Array[Int32],
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -85280,9 +85812,9 @@ fn run_hot_pipeline_dae_is_scalar_literal(instr : @lib.Instruction) -> Bool {
 ///|
 fn run_hot_pipeline_dae_collect_adjacent_literal_callees(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  callee_defs : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  callee_defs : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -85320,7 +85852,7 @@ fn run_hot_pipeline_dae_collect_adjacent_literal_callees(
 fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
   original_source : @lib.Module,
   mod_ : @lib.Module,
-  payoff_defs : Array[Int],
+  payoff_defs : Array[Int32],
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> DaeCoreResultApplication {
@@ -85348,7 +85880,7 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
   let imported = dae_imported_func_count(mod_)
   let defined = funcs.length()
   let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-  let callee_defs : Array[Int] = []
+  let callee_defs : Array[Int32] = []
   // Uniform scalar arguments in the selected payoff body appear immediately
   // before their direct call in raw stack order. Prefilter on that source shape
   // so the exact-literal verifier scans global callers only for plausible
@@ -85376,9 +85908,9 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
 ///|
 fn run_hot_pipeline_dae_collect_direct_callees(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  callee_defs : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  callee_defs : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -85415,12 +85947,12 @@ fn run_hot_pipeline_dae_collect_direct_callees(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_high_literal_chain_payoff(
   funcs : Array[@lib.Func],
-  def_idx : Int,
-  imported : Int,
-  defined : Int,
-  remaining_depth : Int,
+  def_idx : Int32,
+  imported : Int32,
+  defined : Int32,
+  remaining_depth : Int32,
   seen : Array[Bool],
-) -> Int {
+) -> Int32 {
   if def_idx < 0 ||
     def_idx >= funcs.length() ||
     def_idx >= seen.length() ||
@@ -85432,7 +85964,7 @@ fn run_hot_pipeline_dae_high_literal_chain_payoff(
   let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
   let mut payoff = instr_count + locals.length()
   if remaining_depth > 0 {
-    let callees : Array[Int] = []
+    let callees : Array[Int32] = []
     run_hot_pipeline_dae_collect_direct_callees(
       body, imported, defined, callees,
     )
@@ -85457,9 +85989,9 @@ fn run_hot_pipeline_dae_high_literal_chain_payoff(
 // observed branch-result family instead of enabling generic control flattening.
 fn run_hot_pipeline_dae_try_fold_branch_result_if_body(
   body : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if body.length() < 4 {
     return None
@@ -85562,10 +86094,10 @@ fn run_hot_pipeline_dae_try_fold_branch_result_if_body(
 ///|
 fn run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int) {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -85775,7 +86307,7 @@ fn run_hot_pipeline_dae_try_flatten_pair_null_guard_body(
 ///|
 fn run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -85840,7 +86372,7 @@ fn run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
 ///|
 fn run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -85914,8 +86446,8 @@ fn run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
 ///|
 fn run_hot_pipeline_dae_void_dropped_i32_block_payloads(
   instrs : Array[@lib.Instruction],
-  target_depth : Int,
-) -> (Array[@lib.Instruction], Bool, Int) {
+  target_depth : Int32,
+) -> (Array[@lib.Instruction], Bool, Int32) {
   let out : Array[@lib.Instruction] = []
   let mut removed_payload_count = 0
   let mut idx = 0
@@ -86024,7 +86556,7 @@ fn run_hot_pipeline_dae_void_dropped_i32_block_payloads(
 ///|
 fn run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int, Int) {
+) -> (Array[@lib.Instruction], Int32, Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut voided_block_count = 0
   let mut removed_payload_count = 0
@@ -86134,7 +86666,7 @@ fn run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
 ///|
 fn run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut flattened_count = 0
   for instr in instrs {
@@ -86328,9 +86860,9 @@ fn run_hot_pipeline_dae_rewrite_loop_iteration_alias(
 ///|
 fn run_hot_pipeline_dae_try_coalesce_loop_iteration_alias_body(
   body : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if body.length() < 2 || !(body[body.length() - 1] is @lib.Br(_)) {
     return None
@@ -86387,10 +86919,10 @@ fn run_hot_pipeline_dae_try_coalesce_loop_iteration_alias_body(
 ///|
 fn run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int) {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -86515,12 +87047,12 @@ fn run_hot_pipeline_dae_replace_leading_block_local_get(
 ///|
 fn run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -86703,10 +87235,10 @@ fn run_hot_pipeline_dae_copy_retarget_is_control_boundary(
 fn run_hot_pipeline_dae_retarget_copy_producers_once(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
-  param_count : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  param_count : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> (Array[@lib.Instruction], Bool) {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let nested = match instrs[idx] {
@@ -86854,15 +87386,15 @@ fn run_hot_pipeline_dae_retarget_copy_producers_once(
 fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
-  param_count? : Int = 0,
-) -> (Array[@lib.Instruction], Int) {
+  param_count~ : Int32 = 0,
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut rewrite_count = 0
   let max_rounds = local_types.length()
   while rewrite_count < max_rounds {
-    let local_gets : Array[Int] = Array::make(local_types.length(), 0)
-    let local_sets : Array[Int] = Array::make(local_types.length(), 0)
-    let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+    let local_gets : Array[Int32] = Array::make(local_types.length(), 0)
+    let local_sets : Array[Int32] = Array::make(local_types.length(), 0)
+    let local_tees : Array[Int32] = Array::make(local_types.length(), 0)
     run_hot_pipeline_raw_collect_local_ref_counts(
       current, local_gets, local_sets, local_tees,
     )
@@ -86881,15 +87413,15 @@ fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
 ///|
 fn run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
   instrs : Array[@lib.Instruction],
-  total_local_count : Int,
-  param_count : Int,
-) -> (Array[@lib.Instruction], Int) {
+  total_local_count : Int32,
+  param_count : Int32,
+) -> (Array[@lib.Instruction], Int32) {
   if total_local_count <= param_count {
     return (instrs, 0)
   }
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -86949,7 +87481,7 @@ fn run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
 ///|
 fn run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut idx = 0
@@ -86976,7 +87508,7 @@ fn run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
 ///|
 fn run_hot_pipeline_dae_remove_final_return_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   if instrs.length() == 0 {
     return (instrs, 0)
   }
@@ -86993,7 +87525,7 @@ fn run_hot_pipeline_dae_remove_final_return_instrs(
 fn run_hot_pipeline_dae_drop_selected_local_sets_instrs(
   instrs : Array[@lib.Instruction],
   drop_locals : Array[Bool],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -87066,15 +87598,15 @@ fn run_hot_pipeline_dae_drop_selected_local_sets_instrs(
 ///|
 fn run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
   instrs : Array[@lib.Instruction],
-  total_local_count : Int,
-  param_count : Int,
-) -> (Array[@lib.Instruction], Int) {
+  total_local_count : Int32,
+  param_count : Int32,
+) -> (Array[@lib.Instruction], Int32) {
   if total_local_count <= param_count {
     return (instrs, 0)
   }
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -87099,7 +87631,7 @@ fn run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
 ///|
 fn run_hot_pipeline_dae_remove_nops_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut removed = 0
   for instr in instrs {
@@ -87163,8 +87695,8 @@ fn run_hot_pipeline_dae_remove_nops_instrs(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int) {
+  def_idx : Int32,
+) -> (@lib.Module, Int32) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, 0)
@@ -87187,9 +87719,9 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     local_types.push(locals.get(local_idx))
   }
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     body, local_gets, local_sets, local_tees,
   )
@@ -87225,9 +87757,9 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   let mut sunk_body = next_body
   for sink_round = 0; sink_round < 32; sink_round = sink_round + 1 {
     let total_local_count = params.length() + locals.length()
-    let local_gets : Array[Int] = Array::make(total_local_count, 0)
-    let local_sets : Array[Int] = Array::make(total_local_count, 0)
-    let local_tees : Array[Int] = Array::make(total_local_count, 0)
+    let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+    let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+    let local_tees : Array[Int32] = Array::make(total_local_count, 0)
     run_hot_pipeline_raw_collect_local_ref_counts(
       sunk_body, local_gets, local_sets, local_tees,
     )
@@ -87317,8 +87849,8 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int) {
+  def_idx : Int32,
+) -> (@lib.Module, Int32) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, 0)
@@ -87364,8 +87896,8 @@ fn run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int) {
+  def_idx : Int32,
+) -> (@lib.Module, Int32) {
   let (candidate, removed_tee_count, _) = run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     mod_, def_idx,
   )
@@ -87379,8 +87911,8 @@ fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_compact_selected_locals(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int) {
+  def_idx : Int32,
+) -> (@lib.Module, Int32) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, 0)
@@ -87417,8 +87949,8 @@ fn run_hot_pipeline_dae_broad_high_compact_selected_locals(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_bounded_instr_count(
   instrs : Array[@lib.Instruction],
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += 1
@@ -87462,8 +87994,8 @@ fn run_hot_pipeline_dae_bounded_instr_count(
 ///|
 fn run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-) -> (Array[@lib.Instruction], Int) {
+  local_gets : Array[Int32],
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut removed_count = 0
   for instr in instrs {
@@ -87535,16 +88067,16 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
 ///|
 fn run_hot_pipeline_dae_remove_never_read_local_tees(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
     instrs,
   )
   if max_local_idx < 0 {
     return (instrs, 0)
   }
-  let local_gets : Array[Int] = Array::make(max_local_idx + 1, 0)
-  let local_sets : Array[Int] = Array::make(max_local_idx + 1, 0)
-  let local_tees : Array[Int] = Array::make(max_local_idx + 1, 0)
+  let local_gets : Array[Int32] = Array::make(max_local_idx + 1, 0)
+  let local_sets : Array[Int32] = Array::make(max_local_idx + 1, 0)
+  let local_tees : Array[Int32] = Array::make(max_local_idx + 1, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -87556,12 +88088,12 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees(
 ///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_instr(
   instr : @lib.Instruction,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   local_types : Array[@lib.ValType],
-  type_sec? : @lib.TypeSec? = None,
-) -> (@lib.Instruction, Int) {
+  type_sec~ : @lib.TypeSec? = None,
+) -> (@lib.Instruction, Int32) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
@@ -87651,11 +88183,11 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 // projected call argument to remain on the stack instead of using a spill.
 fn run_hot_pipeline_dae_try_reread_receiver_before_spilled_field(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  idx : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 5 >= instrs.length() {
     return None
   }
@@ -87718,11 +88250,11 @@ fn run_hot_pipeline_dae_try_reread_receiver_before_spilled_field(
 // aggregate is tested before any intervening effect or control instruction.
 fn run_hot_pipeline_dae_try_reread_reordered_aggregate_fields(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  idx : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 8 >= instrs.length() {
     return None
   }
@@ -87886,14 +88418,14 @@ fn run_hot_pipeline_dae_try_store_first_terminal_pair_result_producer(
 // leaves producer effects, traps, result order, and the second spill unchanged.
 fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  expected_producer_calls : Int,
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  expected_producer_calls : Int32,
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 9 >= instrs.length() {
     return None
   }
@@ -88026,13 +88558,13 @@ fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
 ///|
 fn run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
     instrs,
     idx,
@@ -88048,13 +88580,13 @@ fn run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
 ///|
 fn run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
     instrs,
     idx,
@@ -88074,12 +88606,12 @@ fn run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
 // redundant result carrier.
 fn run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 11 >= instrs.length() {
     return None
   }
@@ -88167,12 +88699,12 @@ fn run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
 // calls cannot observe them; producer-local writes remain an explicit bailout.
 fn run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 8 >= instrs.length() {
     return None
   }
@@ -88257,12 +88789,12 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
 // before the complete block preserves every effect and trap in the producer.
 fn run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 4 >= instrs.length() {
     return None
   }
@@ -88327,13 +88859,13 @@ fn run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
 // remain an explicit bailout, matching the direct artifact's evaluated shape.
 fn run_hot_pipeline_dae_try_sink_remapped_composite_call_arg_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 9 >= instrs.length() {
     return None
   }
@@ -88425,13 +88957,13 @@ fn run_hot_pipeline_dae_try_sink_remapped_composite_call_arg_block_carrier(
 // writes to every caller local moved before it.
 fn run_hot_pipeline_dae_try_sink_target_first_terminal_call_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 12 >= instrs.length() {
     return None
   }
@@ -88529,13 +89061,13 @@ fn run_hot_pipeline_dae_try_sink_target_first_terminal_call_block_carrier(
 // argument and zero move before the producer, with caller-local writes guarded.
 fn run_hot_pipeline_dae_try_sink_target_last_terminal_call_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 12 >= instrs.length() {
     return None
   }
@@ -88648,13 +89180,13 @@ fn run_hot_pipeline_dae_try_sink_target_last_terminal_call_block_carrier(
 // place while deleting the set/readback carrier before construction/return.
 fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int, Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32, Int32)? {
   if idx + 6 >= instrs.length() {
     return None
   }
@@ -88723,12 +89255,12 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
 ///|
 fn run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 5 >= instrs.length() {
     return None
   }
@@ -88885,10 +89417,10 @@ fn run_hot_pipeline_dae_rewrite_delayed_struct_get_readback_in_region(
 fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
-  param_count : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  param_count : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   type_sec : @lib.TypeSec?,
 ) -> (Array[@lib.Instruction], Bool) {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -89050,16 +89582,16 @@ fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
 fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   type_sec : @lib.TypeSec?,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut current = instrs
   let mut rewrite_count = 0
   let max_rounds = local_types.length()
   while rewrite_count < max_rounds {
-    let local_gets : Array[Int] = Array::make(local_types.length(), 0)
-    let local_sets : Array[Int] = Array::make(local_types.length(), 0)
-    let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+    let local_gets : Array[Int32] = Array::make(local_types.length(), 0)
+    let local_sets : Array[Int32] = Array::make(local_types.length(), 0)
+    let local_tees : Array[Int32] = Array::make(local_types.length(), 0)
     run_hot_pipeline_raw_collect_local_ref_counts(
       current, local_gets, local_sets, local_tees,
     )
@@ -89082,13 +89614,13 @@ fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
 // local while deleting the one-use selector carrier.
 fn run_hot_pipeline_dae_try_delay_immutable_selector_past_side_call(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   type_sec : @lib.TypeSec?,
-) -> (Array[@lib.Instruction], Int)? {
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 22 >= instrs.length() {
     return None
   }
@@ -89211,12 +89743,12 @@ fn run_hot_pipeline_dae_try_delay_immutable_selector_past_side_call(
 ///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   local_types : Array[@lib.ValType],
-  type_sec? : @lib.TypeSec? = None,
-) -> (Array[@lib.Instruction], Int) {
+  type_sec~ : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut idx = 0
@@ -89770,10 +90302,10 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
 ///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int) {
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32) {
   run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     instrs,
     local_gets,
@@ -89786,7 +90318,7 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
 ///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(instrs, [], [], [])
 }
 
@@ -89794,7 +90326,7 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks(
 fn run_hot_pipeline_dae_replace_local_get_with_i64_zero(
   instr : @lib.Instruction,
   target : @lib.LocalIdx,
-) -> (@lib.Instruction, Int) {
+) -> (@lib.Instruction, Int32) {
   match instr {
     @lib.LocalGet(idx) if idx == target =>
       (@lib.Instruction::i64_const(@lib.I64(0)), 1)
@@ -89848,7 +90380,7 @@ fn run_hot_pipeline_dae_replace_local_get_with_i64_zero(
 fn run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
   instrs : Array[@lib.Instruction],
   target : @lib.LocalIdx,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut count = 0
   for instr in instrs {
@@ -89870,11 +90402,11 @@ fn run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
 fn run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
-  param_count : Int,
-) -> (Array[@lib.Instruction], Int) {
-  let local_gets : Array[Int] = Array::make(local_types.length(), 0)
-  let local_sets : Array[Int] = Array::make(local_types.length(), 0)
-  let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+  param_count : Int32,
+) -> (Array[@lib.Instruction], Int32) {
+  let local_gets : Array[Int32] = Array::make(local_types.length(), 0)
+  let local_sets : Array[Int32] = Array::make(local_types.length(), 0)
+  let local_tees : Array[Int32] = Array::make(local_types.length(), 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
@@ -89918,7 +90450,7 @@ fn run_hot_pipeline_dae_replace_local_get(
   instr : @lib.Instruction,
   target : @lib.LocalIdx,
   source : @lib.LocalIdx,
-) -> (@lib.Instruction, Int) {
+) -> (@lib.Instruction, Int32) {
   match instr {
     @lib.LocalGet(idx) if idx == target =>
       (@lib.Instruction::local_get(source), 1)
@@ -89973,7 +90505,7 @@ fn run_hot_pipeline_dae_replace_local_gets(
   instrs : Array[@lib.Instruction],
   target : @lib.LocalIdx,
   source : @lib.LocalIdx,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut count = 0
   for instr in instrs {
@@ -89995,9 +90527,9 @@ fn run_hot_pipeline_dae_try_fold_four_result_terminal_self_branch(
   body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if dae_block_type_zero_param_result_count(block_type, type_sec) != Some(4) ||
     body.length() != 14 {
@@ -90069,9 +90601,9 @@ fn run_hot_pipeline_dae_try_flatten_four_result_fallthrough_block(
   body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if dae_block_type_zero_param_result_count(block_type, type_sec) != Some(4) ||
     body.length() != 13 {
@@ -90133,13 +90665,13 @@ fn run_hot_pipeline_dae_try_flatten_four_result_fallthrough_block(
 ///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
   instr : @lib.Instruction,
-  param_count : Int,
+  param_count : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   type_sec : @lib.TypeSec?,
-) -> (@lib.Instruction, Int) {
+) -> (@lib.Instruction, Int32) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
@@ -90205,7 +90737,7 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
 ///|
 fn run_hot_pipeline_dae_local_is_nonnullable_ref(
   local_types : Array[@lib.ValType],
-  local_idx : Int,
+  local_idx : Int32,
 ) -> Bool {
   if local_idx < 0 || local_idx >= local_types.length() {
     return false
@@ -90219,11 +90751,11 @@ fn run_hot_pipeline_dae_local_is_nonnullable_ref(
 ///|
 fn run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if idx + 7 >= instrs.length() {
     return None
@@ -90291,11 +90823,11 @@ fn run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
 ///|
 fn run_hot_pipeline_dae_try_forward_four_field_aggregate_leader(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if idx + 15 >= instrs.length() {
     return None
@@ -90412,11 +90944,11 @@ fn run_hot_pipeline_dae_try_forward_four_field_aggregate_leader(
 ///|
 fn run_hot_pipeline_dae_try_collapse_residual_four_field_aggregate_spill(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if idx + 13 >= instrs.length() {
     return None
@@ -90545,14 +91077,14 @@ fn run_hot_pipeline_dae_zero_param_single_block_result_type(
 // caller-local call arguments move only when the block cannot rewrite them.
 fn run_hot_pipeline_dae_try_sink_selected_block_result_transport(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  param_count : Int,
+  idx : Int32,
+  param_count : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   type_sec : @lib.TypeSec?,
-) -> (Array[@lib.Instruction], Int)? {
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 1 >= instrs.length() {
     return None
   }
@@ -90698,10 +91230,10 @@ fn run_hot_pipeline_dae_try_sink_selected_block_result_transport(
 // effects stay ordered, and direct calls cannot observe caller-local reads.
 fn run_hot_pipeline_dae_try_sink_final_three_producer_call_result(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  idx : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if idx + 20 >= instrs.length() {
     return None
@@ -90800,10 +91332,10 @@ fn run_hot_pipeline_dae_try_sink_final_three_producer_call_result(
 // unchanged, and direct calls cannot observe or mutate the caller's locals.
 fn run_hot_pipeline_dae_try_sink_final_two_producer_call_result(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  idx : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> Array[@lib.Instruction]? {
   if idx + 15 >= instrs.length() {
     return None
@@ -90883,11 +91415,11 @@ fn run_hot_pipeline_dae_try_sink_final_two_producer_call_result(
 // operand ordered while direct calls remain unable to observe caller locals.
 fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  idx : Int32,
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   if idx + 10 >= instrs.length() {
     return None
   }
@@ -91253,13 +91785,13 @@ fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
 ///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   type_sec : @lib.TypeSec?,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut idx = 0
@@ -91471,8 +92003,8 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
 ///|
 fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_remap : Array[Int],
+  local_gets : Array[Int32],
+  local_remap : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -91570,12 +92102,12 @@ fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
 ///|
 fn run_hot_pipeline_dae_collect_consumed_call_slot_reuse_at(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
+  call_idx : Int32,
   local_types : Array[@lib.ValType],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  entry_stack_values : Int,
-  slot_reuse : Array[Int],
+  entry_stack_values : Int32,
+  slot_reuse : Array[Int32],
 ) -> Unit {
   if entry_stack_values < 0 ||
     call_idx + 1 >= instrs.length() ||
@@ -91655,14 +92187,14 @@ fn run_hot_pipeline_dae_collect_consumed_call_slot_reuse_at(
 // slot, and the containing region returns before that source can rejoin.
 fn run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
   instrs : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
   local_types : Array[@lib.ValType],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  entry_stack_values : Int,
-  slot_reuse : Array[Int],
+  entry_stack_values : Int32,
+  slot_reuse : Array[Int32],
 ) -> Unit {
   let mut instr_idx = 0
   while instr_idx < instrs.length() {
@@ -91741,8 +92273,8 @@ fn run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
 ///|
 fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int, Bool) {
+  def_idx : Int32,
+) -> (@lib.Module, Int32, Bool) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, 0, false)
@@ -91779,14 +92311,14 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     )
   }
   let total_local_count = params.length() + locals.length()
-  let local_gets : Array[Int] = Array::make(total_local_count, 0)
-  let local_sets : Array[Int] = Array::make(total_local_count, 0)
-  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  let local_gets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int32] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int32] = Array::make(total_local_count, 0)
   let local_types = params.copy()
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     local_types.push(locals.get(local_idx))
   }
-  let slot_reuse : Array[Int] = Array::make(total_local_count, -1)
+  let slot_reuse : Array[Int32] = Array::make(total_local_count, -1)
   let func_type_indices = dae_collect_func_type_indices(mod_)
   run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
     body, local_gets, local_sets, local_tees, local_types, mod_, func_type_indices,
@@ -91810,13 +92342,13 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   if removed_tee_count == 0 {
     return (mod_, 0, false)
   }
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {
     local_remap.push(local_idx)
   }
-  let remapped_gets : Array[Int] = []
-  let remapped_sets : Array[Int] = []
-  let remapped_tees : Array[Int] = []
+  let remapped_gets : Array[Int32] = []
+  let remapped_sets : Array[Int32] = []
+  let remapped_tees : Array[Int32] = []
   for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
     remapped_gets.push(local_gets[param_idx])
     remapped_sets.push(local_sets[param_idx])
@@ -91876,7 +92408,7 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
 ///|
 fn run_hot_pipeline_dae_effects_own_worth_for_def(
   effects : DaeCommitEffects,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Bool {
   def_idx >= 0 &&
   def_idx < effects.worth_decided.length() &&
@@ -91888,7 +92420,7 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
   _before : @lib.Module,
   after : @lib.Module,
   _changed_touched : Array[Bool],
-  producer_effects? : DaeCommitEffects? = None,
+  producer_effects~ : DaeCommitEffects? = None,
 ) -> Array[Bool] {
   let defined = match after.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.length()
@@ -91984,9 +92516,9 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
   options : HotPipelineOptions,
-  bypass_size_guards? : Bool = false,
-  pass_names? : Array[String]? = None,
-  diagnostics? : DaeDiagnostics? = None,
+  bypass_size_guards~ : Bool = false,
+  pass_names~ : Array[String]? = None,
+  diagnostics~ : DaeDiagnostics? = None,
 ) -> Result[@lib.Module, String] {
   let touched_count = dae_count_touched(touched)
   if touched_count == 0 {
@@ -92584,7 +93116,7 @@ fn run_hot_pipeline_sgo_instr_is_unconditional_unreachable(
 ///|
 fn run_hot_pipeline_sgo_large_unreachable_tail_start(
   body : Array[@lib.Instruction],
-) -> Int? {
+) -> Int32? {
   let mut idx = 0
   while idx < body.length() && body[idx] == @lib.Instruction::nop() {
     idx = idx + 1
@@ -93578,7 +94110,7 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
   original : @lib.Module,
   current : @lib.Module,
   touched : Array[Bool],
-) -> (@lib.Module, Array[Int], Array[Int], Array[Bool]) {
+) -> (@lib.Module, Array[Int32], Array[Int32], Array[Bool]) {
   let original_type_idxs = dae_collect_func_type_indices(original)
   let current_type_idxs = dae_collect_func_type_indices(current)
   let imported = dae_imported_func_count(current)
@@ -93586,8 +94118,8 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (current, [], [], [])
   }
-  let cleaned_defs : Array[Int] = []
-  let removed_local_counts : Array[Int] = []
+  let cleaned_defs : Array[Int32] = []
+  let removed_local_counts : Array[Int32] = []
   let used_fallbacks : Array[Bool] = []
   let mut rewritten : Array[@lib.Func]? = None
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
@@ -93676,12 +94208,12 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
 #warnings("-unused_value")
 fn run_hot_pipeline_dae_admit_body_only_worth_defs(
   worth_touched : Array[Bool],
-  cleaned_defs : Array[Int],
-  removed_local_counts : Array[Int],
+  cleaned_defs : Array[Int32],
+  removed_local_counts : Array[Int32],
   used_fallbacks : Array[Bool],
   trace : (String) -> Unit,
-) -> Array[Int] {
-  let admitted : Array[Int] = []
+) -> Array[Int32] {
+  let admitted : Array[Int32] = []
   for def_idx = 0; def_idx < worth_touched.length(); def_idx = def_idx + 1 {
     if !worth_touched[def_idx] || cleaned_defs.contains(def_idx) {
       continue
@@ -93829,8 +94361,8 @@ fn run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
-  single_caller_throttle_consumed? : Bool = false,
-  single_caller_throttle_report? : Array[Bool] = [],
+  single_caller_throttle_consumed~ : Bool = false,
+  single_caller_throttle_report~ : Array[Bool] = [],
 ) -> Result[@lib.Module, String] {
   if o4z_size_candidate_has_unsafe_emscripten_main_runtime(mod_) {
     pipeline_trace_hook(
@@ -93979,6 +94511,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     perf=options.perf,
     single_caller_throttle_consumed~,
     traps_never_happen=options.traps_never_happen,
+    no_callback_trace=hot_pipeline_dae_no_callback_trace(options),
   )
   let mut core_effects = result.effects
   let throttle_consumed = result.single_caller_throttle_consumed ||
@@ -94064,7 +94597,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let payoff_cleanup_candidates = dae_collect_dropped_result_payoff_cleanup_candidates(
     mod_, core_mod,
   )
-  let payoff_final_reorder_defs : Array[Int] = []
+  let payoff_final_reorder_defs : Array[Int32] = []
   for candidate in payoff_cleanup_candidates {
     payoff_final_reorder_defs.push(candidate.callee_def)
   }
@@ -94276,7 +94809,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
 ///|
 fn run_hot_pipeline_should_defer_call_bulk_memory_module(
   mod_ : @lib.Module,
-  max_defined_funcs_exclusive : Int,
+  max_defined_funcs_exclusive : Int32,
 ) -> Bool {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -94483,6 +95016,7 @@ fn run_hot_pipeline_apply_module_pass(
           trace=Some(options.trace),
           traps_never_happen=options.traps_never_happen,
           perf=options.perf,
+          no_callback_trace=hot_pipeline_dae_no_callback_trace(options),
         )
       }
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
@@ -94817,7 +95351,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
 fn sl_value_suffix_stack_effect(
   instr : @lib.Instruction,
   env : @validate.Env,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match instr {
     @lib.Block(_, _) | @lib.Loop(_, _) => None
     @lib.Select(Some(types)) => Some((types.length() * 2 + 1, types.length()))

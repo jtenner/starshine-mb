@@ -4,11 +4,11 @@
 // 64 predicates and strictly tighten each at most twice before convergence.
 fn ca_record_relation(
   state : CaState,
-  left : Int,
-  right : Int,
-  bits : Int,
+  left : Int32,
+  right : Int32,
+  bits : Int32,
   signed : Bool,
-  relation : Int,
+  relation : Int32,
 ) -> Unit {
   let work : Array[CaRelation] = [{ left, right, bits, signed, relation, }]
   for cursor = 0; cursor < work.length(); cursor = cursor + 1 {
@@ -109,7 +109,7 @@ fn ca_record_relation(
 }
 
 ///|
-fn ca_equal_locals(state : CaState, index : Int) -> Array[Int] {
+fn ca_equal_locals(state : CaState, index : Int32) -> Array[Int32] {
   let locals = [index]
   for cursor = 0; cursor < locals.length(); cursor = cursor + 1 {
     let current = locals[cursor]

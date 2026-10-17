@@ -1,5 +1,5 @@
 ///|
-fn dae2_live_control_bench(it : @bench.T, depth : Int) -> Unit {
+fn dae2_live_control_bench(it : @bench.T, depth : Int32) -> Unit {
   let (graph, infos, func, root, state) = dae2_live_control_fixture(
     depth, false,
   )

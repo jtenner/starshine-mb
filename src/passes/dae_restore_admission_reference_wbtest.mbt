@@ -3,7 +3,7 @@
 fn dae_restore_admission_reference(
   original : @lib.Module,
   current : @lib.Module,
-  candidate_defs? : Array[Bool]? = None,
+  candidate_defs~ : Array[Bool]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(original)
   let original_funcs = match original.code_sec {

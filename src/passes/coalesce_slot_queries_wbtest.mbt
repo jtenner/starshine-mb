@@ -1,15 +1,15 @@
 ///|
 fn cl_cfg_slot_reference_color(
-  order : Array[Int],
+  order : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLCfgSparseInterferences,
   weights : CLCfgSparseWeights,
-  query_steps? : Array[Int]? = None,
+  query_steps~ : Array[Int32]? = None,
 ) -> CLColoring {
   let old_to_new = Array::make(types.length(), -1)
   let slot_types : Array[@lib.ValType] = []
-  let slot_members : Array[Array[Int]] = []
+  let slot_members : Array[Array[Int32]] = []
   for idx = 0; idx < param_count; idx = idx + 1 {
     old_to_new[idx] = idx
     slot_types.push(types[idx])

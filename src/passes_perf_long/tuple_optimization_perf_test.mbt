@@ -1,5 +1,5 @@
 ///|
-fn tuple_optimization_perf_candidate_module(pair_count : Int) -> @lib.Module {
+fn tuple_optimization_perf_candidate_module(pair_count : Int32) -> @lib.Module {
   let locals : Array[@lib.ValType] = []
   let body : Array[@lib.Instruction] = Array::new(capacity=pair_count * 7)
   for pair_idx in 0..<pair_count {
@@ -52,7 +52,7 @@ fn tuple_optimization_perf_candidate_module(pair_count : Int) -> @lib.Module {
 
 ///|
 fn tuple_optimization_perf_candidate_free_module(
-  function_count : Int,
+  function_count : Int32,
 ) -> @lib.Module {
   let func_types : Array[@lib.TypeIdx] = Array::new(capacity=function_count)
   let funcs : Array[@lib.Func] = Array::new(capacity=function_count)

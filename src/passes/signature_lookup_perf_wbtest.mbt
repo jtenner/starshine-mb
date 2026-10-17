@@ -1,7 +1,7 @@
 ///|
 fn signature_lookup_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   cold : Bool,
   reference : Bool,
 ) -> Unit {

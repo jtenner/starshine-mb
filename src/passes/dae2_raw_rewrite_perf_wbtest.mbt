@@ -4,8 +4,8 @@
 // outside the measured loop. Producer and pipeline controls live alongside it.
 fn dae2_raw_rewrite_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   direct : Bool,
 ) -> Unit {
   let input = dae2_raw_analysis_fixture(helpers, width)

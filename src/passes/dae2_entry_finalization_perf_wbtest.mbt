@@ -1,8 +1,8 @@
 ///|
 fn dae2_entry_finalization_bench(
   it : @bench.T,
-  depth : Int,
-  two_writes? : Bool = true,
+  depth : Int32,
+  two_writes~ : Bool = true,
 ) -> Unit {
   let (func, _) = dae2_entry_finalization_fixture(depth, two_writes~)
   let expected = dae2_entry_finalization_reference(func)

@@ -1,7 +1,7 @@
 ///|
 fn cl_default_identity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let actions : Array[CLAction] = []

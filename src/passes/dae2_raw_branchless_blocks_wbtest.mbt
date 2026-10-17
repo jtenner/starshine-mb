@@ -49,18 +49,34 @@ test "DAE2 directly analyzes and rewrites branchless scalar blocks with exact HO
 }
 
 ///|
-test "DAE2 branchless admission retains HOT for intentionally unsupported indexed multivalue branched and early-return control" {
+test "DAE2 raw scalar blocks support exits and retain HOT for indexed and multivalue control" {
   for
-    source in [
-      "(module (type $s (func (param i32) (result i32))) (func $h (param i32 i32 i32) (result i32) local.get 1 block (type $s) i32.const 7 i32.add end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
-      "(module (func $h (param i32 i32 i32) (result i32) block (result i32 i32) local.get 1 local.get 1 end i32.add) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
-      "(module (func $h (param i32 i32 i32) (result i32) block (result i32) local.get 1 br 0 end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
-      "(module (func $h (param i32 i32 i32) (result i32) block (result i32) local.get 1 return end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
+    (source, expected_lifts) in [
+      (
+        "(module (type $s (func (param i32) (result i32))) (func $h (param i32 i32 i32) (result i32) local.get 1 block (type $s) i32.const 7 i32.add end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
+        1,
+      ),
+      (
+        "(module (func $h (param i32 i32 i32) (result i32) block (result i32 i32) local.get 1 local.get 1 end i32.add) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
+        1,
+      ),
+      (
+        "(module (func $h (param i32 i32 i32) (result i32) block (result i32) local.get 1 br 0 end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
+        0,
+      ),
+      (
+        "(module (func $h (param i32 i32 i32) (result i32) block (result i32) local.get 1 return end) (func (export \"run\") (param i32) (result i32) i32.const 9 local.get 0 i32.const 8 call $h))",
+        0,
+      ),
     ] {
     let input = pass_test_module_from_wat(source)
     @validate.validate_module(input).unwrap()
     let lifts = [0]
-    let output = dae2_run_module_pass(input, false, analysis_lifts=Some(lifts)).unwrap()
+    let output = match
+      dae2_run_module_pass(input, false, analysis_lifts=Some(lifts)) {
+      Ok(output) => output
+      Err(error) => fail("raw scalar-block DAE2 failed: \{error}")
+    }
     let reference = dae2_run_module_pass(
       input,
       false,
@@ -72,6 +88,6 @@ test "DAE2 branchless admission retains HOT for intentionally unsupported indexe
       @binary.encode_module(output).unwrap(),
       @binary.encode_module(reference).unwrap(),
     )
-    assert_true(lifts[0] > 0)
+    assert_eq(lifts[0], expected_lifts)
   }
 }

@@ -1,6 +1,6 @@
 ///|
 fn dae2_handler_admission_fixture(
-  count : Int,
+  count : Int32,
   active : Bool,
   legacy : Bool,
 ) -> @lib.Module {
@@ -26,7 +26,7 @@ fn dae2_handler_admission_fixture(
 ///|
 fn dae2_handler_admission_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   active : Bool,
   legacy : Bool,
   reference : Bool,

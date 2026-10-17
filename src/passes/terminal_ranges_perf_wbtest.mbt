@@ -1,8 +1,8 @@
 ///|
 fn sl_terminal_bench(
   it : @bench.T,
-  width : Int,
-  shape : Int,
+  width : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let (env, replacement) = sl_terminal_fixture("i32", "i32.const 7")

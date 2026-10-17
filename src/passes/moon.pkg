@@ -15,4 +15,5 @@ import {
 
 import {
   "moonbitlang/core/bench",
+  "moonbitlang/core/env",
 } for "wbtest"

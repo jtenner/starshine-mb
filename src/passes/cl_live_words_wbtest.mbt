@@ -15,14 +15,14 @@ fn cl_mark_structured_liveness_backward(
   actions : Array[CLAction],
   effective : Array[Bool],
   write_live_hazards : CLBitMatrix,
-  visited_actions : Array[Int],
+  visited_actions : Array[Int32],
   live_after : Array[Bool],
   label_lives : Array[Array[Bool]],
-  action_cursor : Array[Int],
-  exception_live? : Array[Bool] = [],
-  control_visits? : Array[Int]? = None,
-  control_index? : CLControlIndex? = None,
-  control_start? : Int = 0,
+  action_cursor : Array[Int32],
+  exception_live~ : Array[Bool] = [],
+  control_visits~ : Array[Int32]? = None,
+  control_index~ : CLControlIndex? = None,
+  control_start~ : Int32 = 0,
 ) -> Array[Bool] {
   cl_live_words_to_bools(
     cl_mark_structured_live_words_backward(

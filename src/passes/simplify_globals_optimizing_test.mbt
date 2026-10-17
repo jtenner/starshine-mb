@@ -29,8 +29,8 @@ fn sgo_test_run_twice(text : String) -> @lib.Module {
 ///|
 fn sgo_test_run_with_trace_at_levels(
   text : String,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> (@lib.Module, Array[String]) {
   let trace : Array[String] = []
   let mod_ = match
@@ -85,8 +85,8 @@ fn sgo_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
 
 ///|
 fn sgo_test_make_touched_cleanup_fixture(
-  touched_count : Int,
-  extra_untouched_count? : Int = 0,
+  touched_count : Int32,
+  extra_untouched_count~ : Int32 = 0,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -103,8 +103,8 @@ fn sgo_test_make_touched_cleanup_fixture(
 
 ///|
 fn sgo_test_make_large_touched_function_fixture(
-  local_count : Int,
-  extra_untouched_count? : Int = 0,
+  local_count : Int32,
+  extra_untouched_count~ : Int32 = 0,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -123,7 +123,7 @@ fn sgo_test_make_large_touched_function_fixture(
 
 ///|
 fn sgo_test_make_mixed_large_and_small_touched_fixture(
-  local_count : Int,
+  local_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -139,7 +139,7 @@ fn sgo_test_make_mixed_large_and_small_touched_fixture(
 }
 
 ///|
-fn sgo_test_make_large_touched_body_fixture(nop_count : Int) -> String {
+fn sgo_test_make_large_touched_body_fixture(nop_count : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
@@ -167,7 +167,7 @@ fn sgo_test_run_module(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn sgo_test_defined_global_type(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> @lib.GlobalType raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
@@ -205,7 +205,7 @@ fn sgo_test_first_defined_func_instrs(
 }
 
 ///|
-fn sgo_test_first_defined_func_local_count(mod_ : @lib.Module) -> Int raise {
+fn sgo_test_first_defined_func_local_count(mod_ : @lib.Module) -> Int32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, _), ..])) => locals.length()
     other =>
@@ -219,7 +219,7 @@ fn sgo_test_first_defined_func_local_count(mod_ : @lib.Module) -> Int raise {
 fn sgo_test_count_instr(
   instrs : Array[@lib.Instruction],
   needle : @lib.Instruction,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     if instr == needle {
@@ -246,7 +246,7 @@ fn sgo_test_count_instr(
 ///|
 fn sgo_test_defined_global_init_instrs(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> Array[@lib.Instruction] raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
@@ -393,7 +393,7 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
 
 ///|
 fn sgo_test_make_large_dead_tail_after_unreachable_fixture(
-  nop_count : Int,
+  nop_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -414,7 +414,7 @@ fn sgo_test_make_large_dead_tail_after_unreachable_fixture(
 ///|
 fn sgo_test_make_large_safe_trunc_prefix_before_unreachable_fixture(
   trunc_source : String,
-  nop_count : Int,
+  nop_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -460,7 +460,7 @@ test "simplify-globals-optimizing cleans safe trunc prefix before guaranteed unr
 
 ///|
 fn sgo_test_make_large_safe_trunc_batch_before_unreachable_fixture(
-  nop_count : Int,
+  nop_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

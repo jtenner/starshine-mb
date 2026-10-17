@@ -1,5 +1,5 @@
 ///|
-fn compiler_fact_value_lookup_fixture(count : Int) -> CompilerFactIndex {
+fn compiler_fact_value_lookup_fixture(count : Int32) -> CompilerFactIndex {
   let sites : Array[@representation.ExpressionFact] = []
   for idx in 0..<count {
     sites.push(
@@ -26,7 +26,7 @@ fn compiler_fact_value_lookup_fixture(count : Int) -> CompilerFactIndex {
 }
 
 ///|
-fn compiler_fact_value_lookup_bench(it : @bench.T, count : Int) -> Unit {
+fn compiler_fact_value_lookup_bench(it : @bench.T, count : Int32) -> Unit {
   let index = compiler_fact_value_lookup_fixture(count)
   for idx in 0..<count {
     let site = @representation.ValueSite::new(

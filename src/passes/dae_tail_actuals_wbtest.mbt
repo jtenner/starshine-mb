@@ -3,7 +3,7 @@ fn dae_tail_actuals_execute(mod_ : @lib.Module) -> Unit raise {
   let module_ctx = @ir.hot_module_context_from_module(mod_)
   let funcs = mod_.code_sec.unwrap().0
   let mut fuel = 500
-  fn invoke(index : Int, args : Array[Int]) -> Array[Int] raise {
+  fn invoke(index : Int32, args : Array[Int32]) -> Array[Int32] raise {
     let @lib.FuncType(params, results) = @ir.hot_module_resolve_func_type(
       module_ctx,
       @lib.FuncIdx::new(index.to_uint()),
@@ -14,7 +14,7 @@ fn dae_tail_actuals_execute(mod_ : @lib.Module) -> Unit raise {
     for i, value in args {
       locals[i] = value
     }
-    let stack : Array[Int] = []
+    let stack : Array[Int32] = []
     fn execute(instrs : Array[@lib.Instruction]) -> Bool raise {
       for instr in instrs {
         fuel -= 1

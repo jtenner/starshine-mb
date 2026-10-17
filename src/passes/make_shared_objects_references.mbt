@@ -83,7 +83,7 @@ fn mso_instruction_has_string_surface(instr : @lib.Instruction) -> Bool {
 
 ///|
 priv struct MsoReferences {
-  indices : Map[UInt, UInt]
+  indices : Map[UInt32, UInt32]
   functions : Array[@lib.FuncIdx]
   needs_table : Array[Bool]
   unsupported_branch_cast : Array[Bool]
@@ -104,7 +104,7 @@ fn MsoReferences::new(types : Array[@lib.SubType]) -> MsoReferences {
 }
 
 ///|
-fn MsoReferences::index(self : MsoReferences, raw : UInt) -> UInt {
+fn MsoReferences::index(self : MsoReferences, raw : UInt32) -> UInt32 {
   match self.indices.get(raw) {
     Some(i) => i
     None => {
@@ -289,7 +289,7 @@ fn mso_signature_cast(
   exact : Bool,
   heap : @lib.HeapType,
   function_table : @lib.TableIdx,
-  scratch : (@lib.Locals, Int)?,
+  scratch : (@lib.Locals, Int32)?,
   is_test : Bool,
 ) -> Unit {
   let original_type = @lib.RefType::new(nullable, heap, exact~)

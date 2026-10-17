@@ -1,8 +1,8 @@
 ///|
 fn encoded_size_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
+  count : Int32,
+  width : Int32,
   shared : Bool,
   reference : Bool,
 ) -> Unit {

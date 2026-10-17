@@ -1,5 +1,5 @@
 ///|
-fn cl_tee_control_fixture(depth : Int) -> @lib.Module {
+fn cl_tee_control_fixture(depth : Int32) -> @lib.Module {
   let mut body = [
     @lib.Instruction::i32_const(7),
     @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),

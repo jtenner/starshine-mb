@@ -1,7 +1,7 @@
 ///|
 fn inl_test_run(
   text : String,
-  pass_name? : String = "inlining-optimizing",
+  pass_name~ : String = "inlining-optimizing",
 ) -> @lib.Module {
   match pass_test_run_pipeline(text, [pass_name]) {
     Ok(mod_) => mod_
@@ -12,7 +12,7 @@ fn inl_test_run(
 ///|
 fn inl_test_run_named(
   text : String,
-  names : Array[(UInt, String)],
+  names : Array[(UInt32, String)],
   passes : Array[String],
 ) -> @lib.Module {
   let entries : Array[@lib.NameAssoc] = []
@@ -32,7 +32,7 @@ fn inl_test_run_named(
 ///|
 fn inl_test_run_named_with_options(
   text : String,
-  names : Array[(UInt, String)],
+  names : Array[(UInt32, String)],
   passes : Array[String],
   options : HotPipelineOptions,
 ) -> @lib.Module {
@@ -51,7 +51,7 @@ fn inl_test_run_named_with_options(
 }
 
 ///|
-fn inl_test_count_local_traffic(instrs : Array[@lib.Instruction]) -> Int {
+fn inl_test_count_local_traffic(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -74,7 +74,7 @@ fn inl_test_count_local_traffic(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn inl_test_count_calls(instrs : Array[@lib.Instruction]) -> Int {
+fn inl_test_count_calls(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -97,7 +97,7 @@ fn inl_test_count_calls(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn inl_test_total_declared_locals(mod_ : @lib.Module) -> Int {
+fn inl_test_total_declared_locals(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -111,7 +111,7 @@ fn inl_test_total_declared_locals(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn inl_test_count_named_func(mod_ : @lib.Module, expected : String) -> Int {
+fn inl_test_count_named_func(mod_ : @lib.Module, expected : String) -> Int32 {
   let mut count = 0
   match mod_.name_sec {
     Some(sec) =>
@@ -133,9 +133,9 @@ fn inl_test_count_named_func(mod_ : @lib.Module, expected : String) -> Int {
 ///|
 fn inl_test_count_func_annotation(
   mod_ : @lib.Module,
-  target : UInt,
+  target : UInt32,
   name : String,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   match mod_.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>

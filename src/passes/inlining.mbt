@@ -25,9 +25,9 @@ priv struct InlFunctionInfo {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   type_idx : @lib.TypeIdx?
-  size : Int
-  max_combined_binary_size : Int
-  direct_targets : Array[Int]
+  size : Int32
+  max_combined_binary_size : Int32
+  direct_targets : Array[Int32]
   inlineable : Bool
 }
 
@@ -40,9 +40,9 @@ priv struct InlTailCallsiteHoist {
 priv struct InlRewriteState {
   mut func : @lib.Func
   mut changed : Bool
-  mut revision : Int
-  size : Int
-  reusable_body_local_start : Int
+  mut revision : Int32
+  size : Int32
+  reusable_body_local_start : Int32
   tail_callsite_hoists : Array[InlTailCallsiteHoist]
 }
 
@@ -50,14 +50,14 @@ priv struct InlRewriteState {
 priv struct InlCowInstrOutput {
   original : Array[@lib.Instruction]
   mut rewritten : Array[@lib.Instruction]?
-  mut index : Int
-  allocations : Array[Int]?
+  mut index : Int32
+  allocations : Array[Int32]?
 }
 
 ///|
 fn InlCowInstrOutput::new(
   original : Array[@lib.Instruction],
-  allocations? : Array[Int]? = None,
+  allocations~ : Array[Int32]? = None,
 ) -> InlCowInstrOutput {
   { original, rewritten: None, index: 0, allocations, }
 }
@@ -132,16 +132,16 @@ priv struct InlPassResult {
 priv struct InlRemovalResult {
   mod_out : @lib.Module
   touched : Array[Bool]
-  original_abs : Array[Int]
+  original_abs : Array[Int32]
 }
 
 ///|
 priv struct InlOriginalGraphInfo {
   cycle_remove : Array[Bool]
-  public_scc_representative : Array[Int]
-  predicted_unreachable_counts : @hashmap.HashMap[String, Int]
-  final_trim_counts : @hashmap.HashMap[String, Int]
-  retain_inlined_helper_counts : @hashmap.HashMap[String, Int]
+  public_scc_representative : Array[Int32]
+  predicted_unreachable_counts : @hashmap.HashMap[String, Int32]
+  final_trim_counts : @hashmap.HashMap[String, Int32]
+  retain_inlined_helper_counts : @hashmap.HashMap[String, Int32]
   skip_trailing_exact_move : Bool
   force_predicted_pad_on_retain_return : Bool
 }
@@ -149,22 +149,22 @@ priv struct InlOriginalGraphInfo {
 ///|
 priv struct InlDeadSuffixTargets {
   has_any : Bool
-  total_count : Int
-  targets : Array[Int]
-  counts : Array[Int]
+  total_count : Int32
+  targets : Array[Int32]
+  counts : Array[Int32]
 }
 
 ///|
 priv struct InlDeadSuffixPreserveFacts {
-  imports : Int
-  defined : Int
+  imports : Int32
+  defined : Int32
   used : Array[Bool]
   signatures : Array[String]
   dead_suffix_targets : Array[InlDeadSuffixTargets]
 }
 
 ///|
-fn inl_imported_func_count(mod_ : @lib.Module) -> Int {
+fn inl_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -180,7 +180,7 @@ fn inl_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn inl_defined_func_count(mod_ : @lib.Module) -> Int {
+fn inl_defined_func_count(mod_ : @lib.Module) -> Int32 {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
     None => 0
@@ -188,19 +188,19 @@ fn inl_defined_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn inl_func_idx_slot(idx : @lib.FuncIdx) -> Int {
+fn inl_func_idx_slot(idx : @lib.FuncIdx) -> Int32 {
   let @lib.FuncIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn inl_local_idx_slot(idx : @lib.LocalIdx) -> Int {
+fn inl_local_idx_slot(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn inl_label_idx_slot(idx : @lib.LabelIdx) -> Int {
+fn inl_label_idx_slot(idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -270,7 +270,7 @@ fn inl_type_sec_func_type(
 fn inl_resolve_func_type(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  func_abs : Int,
+  func_abs : Int32,
 ) -> @lib.FuncType? {
   if func_abs < 0 || func_abs >= func_type_indices.length() {
     return None
@@ -339,8 +339,8 @@ fn inl_append_zero_param_result_type(
 ///|
 fn inl_prepare_multivalue_block_types(
   mod_ : @lib.Module,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> @lib.Module {
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let refs = Array::make(func_type_indices.length(), 0)
@@ -402,7 +402,7 @@ fn inl_result_block_type(
 }
 
 ///|
-fn inl_count_instr(instr : @lib.Instruction) -> Int {
+fn inl_count_instr(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       1 + inl_count_instrs(body)
@@ -415,7 +415,7 @@ fn inl_count_instr(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn inl_count_instrs(instrs : Array[@lib.Instruction]) -> Int {
+fn inl_count_instrs(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += inl_count_instr(instr)
@@ -425,9 +425,9 @@ fn inl_count_instrs(instrs : Array[@lib.Instruction]) -> Int {
 
 ///|
 fn inl_combined_binary_size_within_limit(
-  caller_size : Int,
-  callee_size : Int,
-  max_combined_binary_size? : Int = 400 * 1024,
+  caller_size : Int32,
+  callee_size : Int32,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
 ) -> Bool {
   // Binaryen estimates 2.5 encoded bytes per expression and uses a strict
   // comparison against the configured combined-size ceiling.
@@ -488,7 +488,7 @@ priv struct InlBodyFacts {
   mut loops : Bool
   mut tries : Bool
   mut tails : Bool
-  mut size : Int
+  mut size : Int32
 }
 
 ///|
@@ -501,7 +501,7 @@ fn inl_measure_body_visit(
   instrs : Array[@lib.Instruction],
   facts : InlBodyFacts,
   inside_try : Bool,
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> Unit {
   for instr in instrs {
     facts.size += 1
@@ -543,8 +543,8 @@ fn inl_measure_body_visit(
 ///|
 fn inl_measure_body(
   instrs : Array[@lib.Instruction],
-  visits? : Array[Int]? = None,
-) -> (Bool, Bool, Bool, Bool, Int) {
+  visits~ : Array[Int32]? = None,
+) -> (Bool, Bool, Bool, Bool, Int32) {
   let facts = InlBodyFacts::new()
   inl_measure_body_visit(instrs, facts, false, visits)
   (facts.calls, facts.loops, facts.tries, facts.tails, facts.size)
@@ -802,7 +802,7 @@ fn inl_is_binary_trivial_op(instr : @lib.Instruction) -> Bool {
 ///|
 fn inl_body_is_ordered_param_passthrough_prefix(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   if body.length() < param_count {
     return false
@@ -824,9 +824,9 @@ fn inl_body_is_ordered_param_passthrough_prefix(
 ///|
 fn inl_body_is_shrinking_trivial(
   body : Array[@lib.Instruction],
-  param_count : Int,
-  mod_? : @lib.Module = @lib.Module::new(),
-  func_type_indices? : Array[@lib.TypeIdx] = [],
+  param_count : Int32,
+  mod_~ : @lib.Module = @lib.Module::new(),
+  func_type_indices~ : Array[@lib.TypeIdx] = [],
 ) -> Bool {
   if body.length() > 0 {
     let operand_count = body.length() - 1
@@ -952,7 +952,7 @@ fn inl_body_is_shrinking_trivial(
 ///|
 fn inl_flat_trivial_instruction_modes(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> (Bool, Bool)? {
@@ -1003,9 +1003,9 @@ fn inl_flat_trivial_instruction_modes(
 ///|
 fn inl_hot_trivial_instruction_modes(
   mod_ : @lib.Module,
-  func_abs : Int,
+  func_abs : Int32,
   module_ctx : @ir.HotModuleContext,
-  measured_size : Int,
+  measured_size : Int32,
 ) -> (Bool, Bool) {
   let hot = match
     @ir.hot_lift_func_with_context_result(
@@ -1157,11 +1157,11 @@ fn inl_mark_used_refs(
 ///|
 fn inl_scan_refs(
   instrs : Array[@lib.Instruction],
-  refs : Array[Int],
+  refs : Array[Int32],
   used : Array[Bool],
-  direct_targets? : Array[Int]? = None,
-  legacy_bodies? : Array[Bool]? = None,
-  source_abs? : Int = -1,
+  direct_targets~ : Array[Int32]? = None,
+  legacy_bodies~ : Array[Bool]? = None,
+  source_abs~ : Int32 = -1,
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -1256,7 +1256,7 @@ fn inl_scan_refs(
 ///|
 fn inl_toolchain_inline_hints(
   mod_ : @lib.Module,
-  total : Int,
+  total : Int32,
 ) -> Array[InlToolchainInlineHint] {
   let hints = Array::make(total, InlToolchainInlineHint::DefaultInline)
   match mod_.func_annotation_sec {
@@ -1292,7 +1292,7 @@ fn inl_partial_wrapper_annotation_name() -> String {
 ///|
 fn inl_annotation_map(
   mod_ : @lib.Module,
-  total : Int,
+  total : Int32,
 ) -> Array[Array[@lib.FuncAnnotation]] {
   let by_func : Array[Array[@lib.FuncAnnotation]] = []
   let mut idx = 0
@@ -1342,7 +1342,7 @@ fn inl_build_func_annotation_sec_from_map(
 }
 
 ///|
-fn inl_partial_wrapper_flags(mod_ : @lib.Module, total : Int) -> Array[Bool] {
+fn inl_partial_wrapper_flags(mod_ : @lib.Module, total : Int32) -> Array[Bool] {
   let flags = Array::make(total, false)
   match mod_.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
@@ -1505,8 +1505,8 @@ fn inl_partial_simple_unary(instr : @lib.Instruction) -> Bool {
 ///|
 fn inl_partial_simple_expr(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   if start < 0 || end <= start || end > instrs.length() {
     return false
@@ -1632,7 +1632,7 @@ fn inl_partial_terminal_exit(body : Array[@lib.Instruction]) -> Bool {
 ///|
 fn inl_partial_instr_has_escaping_branch(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label)
@@ -1696,7 +1696,7 @@ fn inl_partial_instr_has_escaping_branch(
 ///|
 fn inl_partial_instrs_have_escaping_branch(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   for instr in instrs {
     if inl_partial_instr_has_escaping_branch(instr, depth) {
@@ -1770,8 +1770,8 @@ fn inl_partial_simple_expr_reads_written_local(
 ///|
 fn inl_partial_pattern_b(
   body : Array[@lib.Instruction],
-  max_ifs : Int,
-  local_count : Int,
+  max_ifs : Int32,
+  local_count : Int32,
 ) -> InlPartialPatternB? {
   if max_ifs <= 0 {
     return None
@@ -1851,7 +1851,7 @@ fn inl_partial_pattern_b(
 }
 
 ///|
-fn inl_func_name_strings(mod_ : @lib.Module, total : Int) -> Array[String] {
+fn inl_func_name_strings(mod_ : @lib.Module, total : Int32) -> Array[String] {
   let names : Array[String] = []
   let mut idx = 0
   while idx < total {
@@ -1893,7 +1893,7 @@ fn inl_unique_generated_func_name(
 ///|
 fn inl_name_sec_with_generated_func_names(
   sec : @lib.NameSec?,
-  generated : Array[(UInt, String)],
+  generated : Array[(UInt32, String)],
 ) -> @lib.NameSec? {
   if generated.length() == 0 {
     return sec
@@ -1964,14 +1964,14 @@ fn inl_rebuild_with_func_annotations(
 ///|
 fn inl_apply_partial_pattern_a_splits(
   mod_ : @lib.Module,
-  optimize_level : Int,
-  shrink_level : Int,
-  always_inline_max_size : Int,
-  one_caller_inline_max_size : Int,
-  flexible_inline_max_size : Int,
-  max_combined_binary_size : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
+  always_inline_max_size : Int32,
+  one_caller_inline_max_size : Int32,
+  flexible_inline_max_size : Int32,
+  max_combined_binary_size : Int32,
   allow_functions_with_loops : Bool,
-  partial_inlining_ifs : Int,
+  partial_inlining_ifs : Int32,
 ) -> @lib.Module {
   if partial_inlining_ifs <= 0 || optimize_level < 3 || shrink_level != 0 {
     return mod_
@@ -2002,7 +2002,7 @@ fn inl_apply_partial_pattern_a_splits(
   let names = inl_func_name_strings(mod_, original_total)
   let type_idxs = original_type_idxs.copy()
   let funcs = original_funcs.copy()
-  let generated_names : Array[(UInt, String)] = []
+  let generated_names : Array[(UInt32, String)] = []
   let mut changed = false
   let mut def_idx = 0
   while def_idx < original_funcs.length() {
@@ -2180,18 +2180,18 @@ fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn inl_build_function_infos(
   mod_ : @lib.Module,
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  trivial_mode_cache? : Array[(Bool, Bool)?]? = None,
-  classification_counts? : Array[Int]? = None,
-  body_measure_cache? : InlBodyMeasureCache? = None,
-  module_context_builds? : Array[Int]? = None,
-  classify_uncalled? : Bool = true,
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  trivial_mode_cache~ : Array[(Bool, Bool)?]? = None,
+  classification_counts~ : Array[Int32]? = None,
+  body_measure_cache~ : InlBodyMeasureCache? = None,
+  module_context_builds~ : Array[Int32]? = None,
+  classify_uncalled~ : Bool = true,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
@@ -2201,7 +2201,7 @@ fn inl_build_function_infos(
   let legacy_bodies = Array::make(total, false)
   let used = Array::make(total, false)
   inl_mark_global_uses(mod_, used)
-  let direct_targets_by_func : Array[Array[Int]] = []
+  let direct_targets_by_func : Array[Array[Int32]] = []
   for _ in 0..<imports {
     direct_targets_by_func.push([])
   }
@@ -2209,7 +2209,7 @@ fn inl_build_function_infos(
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
-        let direct_targets : Array[Int] = []
+        let direct_targets : Array[Int32] = []
         inl_scan_refs(
           body,
           refs,
@@ -2459,7 +2459,7 @@ fn inl_build_function_infos(
 ///|
 fn inl_copy_local_idx(
   idx : @lib.LocalIdx,
-  local_map : Array[Int],
+  local_map : Array[Int32],
 ) -> @lib.LocalIdx {
   let slot = inl_local_idx_slot(idx)
   if slot >= 0 && slot < local_map.length() {
@@ -2471,7 +2471,7 @@ fn inl_copy_local_idx(
 
 ///|
 priv struct InlNestedReturnHoistState {
-  mut next_local_idx : Int
+  mut next_local_idx : Int32
   extra_types : Array[@lib.ValType]
   hoists : Array[InlTailCallsiteHoist]
   mut failed : Bool
@@ -2537,7 +2537,7 @@ fn inl_nested_return_call_operand_types(
 ///|
 fn inl_nested_return_call_with_local_operands(
   instr : @lib.Instruction,
-  locals : Array[Int],
+  locals : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for local_idx in locals {
@@ -2562,7 +2562,7 @@ fn inl_nested_return_call_with_local_operands(
 ///|
 fn inl_hoist_nested_return_calls_in_instrs(
   instrs : Array[@lib.Instruction],
-  try_depth : Int,
+  try_depth : Int32,
   state : InlNestedReturnHoistState,
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
@@ -2583,7 +2583,7 @@ fn inl_hoist_nested_return_calls_in_instrs(
               continue
             }
           }
-          let locals : Array[Int] = []
+          let locals : Array[Int32] = []
           for operand_type in operand_types {
             locals.push(state.next_local_idx)
             state.next_local_idx += 1
@@ -2671,7 +2671,7 @@ fn inl_hoist_nested_return_calls_in_instrs(
 ///|
 fn inl_prepare_nested_return_call_hoists(
   body : Array[@lib.Instruction],
-  local_base : Int,
+  local_base : Int32,
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
 ) -> (Array[@lib.Instruction], Array[@lib.ValType])? {
@@ -2715,8 +2715,8 @@ fn inl_prepare_nested_return_call_hoists(
 ///|
 fn inl_rewrite_callee_instr(
   instr : @lib.Instruction,
-  local_map : Array[Int],
-  return_depth : Int,
+  local_map : Array[Int32],
+  return_depth : Int32,
   preserve_tail_calls : Bool,
 ) -> @lib.Instruction {
   match instr {
@@ -2795,8 +2795,8 @@ fn inl_rewrite_callee_instr(
 ///|
 fn inl_rewrite_callee_instrs(
   instrs : Array[@lib.Instruction],
-  local_map : Array[Int],
-  return_depth : Int,
+  local_map : Array[Int32],
+  return_depth : Int32,
   preserve_tail_calls : Bool,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -2863,12 +2863,12 @@ fn inl_push_inline_replacement(
 }
 
 ///|
-fn inl_tail_callsite_hoist_placeholder_base() -> Int {
+fn inl_tail_callsite_hoist_placeholder_base() -> Int32 {
   0x3fff0000
 }
 
 ///|
-fn inl_tail_callsite_hoist_placeholder(id : Int) -> @lib.Instruction {
+fn inl_tail_callsite_hoist_placeholder(id : Int32) -> @lib.Instruction {
   @lib.Instruction::br(
     @lib.LabelIdx::new(
       (inl_tail_callsite_hoist_placeholder_base() + id).reinterpret_as_uint(),
@@ -2877,7 +2877,7 @@ fn inl_tail_callsite_hoist_placeholder(id : Int) -> @lib.Instruction {
 }
 
 ///|
-fn inl_tail_callsite_hoist_placeholder_id(label : @lib.LabelIdx) -> Int? {
+fn inl_tail_callsite_hoist_placeholder_id(label : @lib.LabelIdx) -> Int32? {
   let slot = inl_label_idx_slot(label)
   let id = slot - inl_tail_callsite_hoist_placeholder_base()
   if id >= 0 {
@@ -2890,8 +2890,8 @@ fn inl_tail_callsite_hoist_placeholder_id(label : @lib.LabelIdx) -> Int? {
 ///|
 fn inl_shift_outer_target_label(
   label : @lib.LabelIdx,
-  control_depth : Int,
-  added_outer_depth : Int,
+  control_depth : Int32,
+  added_outer_depth : Int32,
 ) -> @lib.LabelIdx {
   match inl_tail_callsite_hoist_placeholder_id(label) {
     Some(_) => return label
@@ -2908,8 +2908,8 @@ fn inl_shift_outer_target_label(
 ///|
 fn inl_shift_outer_target_catches(
   catches : Array[@lib.Catch],
-  control_depth : Int,
-  added_outer_depth : Int,
+  control_depth : Int32,
+  added_outer_depth : Int32,
 ) -> Array[@lib.Catch] {
   let out : Array[@lib.Catch] = []
   for catch_ in catches {
@@ -2956,8 +2956,8 @@ fn inl_shift_outer_target_catches(
 ///|
 fn inl_shift_outer_target_branches(
   instrs : Array[@lib.Instruction],
-  added_outer_depth : Int,
-  control_depth? : Int = 0,
+  added_outer_depth : Int32,
+  control_depth~ : Int32 = 0,
 ) -> Array[@lib.Instruction] {
   if added_outer_depth <= 0 {
     return instrs
@@ -3164,8 +3164,8 @@ fn inl_shift_outer_target_branches(
 ///|
 fn inl_patch_tail_callsite_hoist_branches(
   instrs : Array[@lib.Instruction],
-  hoist_count : Int,
-  control_depth : Int,
+  hoist_count : Int32,
+  control_depth : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -3277,9 +3277,9 @@ fn inl_wrap_tail_callsite_hoists(
 
 ///|
 fn inl_can_inline_action(
-  caller_abs : Int,
-  caller_size : Int,
-  callee_abs : Int,
+  caller_abs : Int32,
+  caller_size : Int32,
+  callee_abs : Int32,
   infos : Array[InlFunctionInfo],
   touched : Array[Bool],
 ) -> Bool {
@@ -3318,15 +3318,15 @@ fn inl_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
 ///|
 fn inl_inline_call_instrs(
   instrs : Array[@lib.Instruction],
-  caller_abs : Int,
+  caller_abs : Int32,
   state : InlRewriteState,
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
-  imports : Int,
+  imports : Int32,
   touched : Array[Bool],
   inlined_from : Array[Bool],
-  try_depth? : Int = 0,
-  reconstruction_allocations? : Array[Int]? = None,
+  try_depth~ : Int32 = 0,
+  reconstruction_allocations~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   let output = InlCowInstrOutput::new(
     instrs,
@@ -3570,9 +3570,9 @@ fn inl_inline_call_instrs(
 ///|
 fn inl_local_may_read_before_write_sequence(
   instrs : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
   written_in : Bool,
-  visits? : Array[Int]? = None,
+  visits~ : Array[Int32]? = None,
 ) -> Bool {
   let mut written = written_in
   for instr in instrs {
@@ -3658,7 +3658,7 @@ fn inl_local_may_read_before_write_sequence(
 ///|
 fn inl_local_may_read_before_write(
   body : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   inl_local_may_read_before_write_sequence(body, local_id, false)
 }
@@ -3666,9 +3666,9 @@ fn inl_local_may_read_before_write(
 ///|
 fn inl_locals_read_before_write(
   body : Array[@lib.Instruction],
-  first_local : Int,
-  local_count : Int,
-  visits? : Array[Int]? = None,
+  first_local : Int32,
+  local_count : Int32,
+  visits~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   if local_count == 1 {
     return [
@@ -3685,7 +3685,7 @@ fn inl_locals_read_before_write(
     return needed
   }
   let written = Array::make(local_count, false)
-  let writes : Array[Int] = []
+  let writes : Array[Int32] = []
   fn scan(instrs : Array[@lib.Instruction]) -> Unit {
     let scope_start = writes.length()
     for instr in instrs {
@@ -3744,7 +3744,7 @@ fn inl_locals_read_before_write(
 ///|
 fn inl_default_local_init_instrs(
   local_type : @lib.ValType,
-  local_idx : Int,
+  local_idx : Int32,
 ) -> Array[@lib.Instruction] {
   let idx = @lib.LocalIdx::new(local_idx.reinterpret_as_uint())
   let init = match local_type {
@@ -3776,8 +3776,8 @@ fn inl_default_local_init_instrs(
 ///|
 fn inl_collect_parameter_local_uses(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
-  reads : Array[Int],
+  parameter_count : Int32,
+  reads : Array[Int32],
   writes : Array[Bool],
 ) -> Unit {
   for instr in instrs {
@@ -3818,7 +3818,7 @@ fn inl_collect_parameter_local_uses(
 ///|
 fn inl_label_escapes_control_depth(
   label : @lib.LabelIdx,
-  control_depth : Int,
+  control_depth : Int32,
 ) -> Bool {
   inl_label_idx_slot(label) >= control_depth
 }
@@ -3826,7 +3826,7 @@ fn inl_label_escapes_control_depth(
 ///|
 fn inl_catch_escapes_control_depth(
   catch_ : @lib.Catch,
-  active_label_depth : Int,
+  active_label_depth : Int32,
 ) -> Bool {
   let label = match catch_ {
     @lib.Catch(_, label)
@@ -3840,7 +3840,7 @@ fn inl_catch_escapes_control_depth(
 ///|
 fn inl_instrs_have_function_label_escape(
   instrs : Array[@lib.Instruction],
-  control_depth? : Int = 0,
+  control_depth~ : Int32 = 0,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -3928,7 +3928,7 @@ fn inl_instrs_have_function_label_escape(
 ///|
 fn inl_is_single_parameter_i32_const_add(
   body : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count != 1 || body.length() < 3 {
     return false
@@ -3942,8 +3942,8 @@ fn inl_is_single_parameter_i32_const_add(
 ///|
 fn inl_ordered_single_use_parameter_stack_prefix(
   body : Array[@lib.Instruction],
-  parameter_count : Int,
-) -> Int {
+  parameter_count : Int32,
+) -> Int32 {
   if parameter_count <= 0 || body.length() == 0 {
     return 0
   }
@@ -3967,16 +3967,16 @@ fn inl_ordered_single_use_parameter_stack_prefix(
 
 ///|
 priv struct InlFinalizeFoldStats {
-  mut functions_visited : Int
-  mut instructions_reconstructed : Int
-  mut arrays_allocated : Int
-  mut folds : Int
+  mut functions_visited : Int32
+  mut instructions_reconstructed : Int32
+  mut arrays_allocated : Int32
+  mut folds : Int32
 }
 
 ///|
 fn inl_finalize_fold_copy_prefix(
   instrs : Array[@lib.Instruction],
-  end : Int,
+  end : Int32,
   stats : InlFinalizeFoldStats,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -4090,13 +4090,13 @@ fn inl_fold_adjacent_local_set_gets(
 ///|
 priv struct InlScratchTypeCursor {
   local_type : @lib.ValType
-  mut next_slot : Int
+  mut next_slot : Int32
 }
 
 ///|
 fn InlScratchTypeCursor::new(
   local_type : @lib.ValType,
-  next_slot : Int,
+  next_slot : Int32,
 ) -> InlScratchTypeCursor {
   { local_type, next_slot, }
 }
@@ -4107,11 +4107,11 @@ fn inl_allocate_reusable_scratch_local(
   pool_types : Array[@lib.ValType],
   pool_used : Array[Bool],
   next_locals : @lib.Locals,
-  absolute_pool_base : Int,
-  first_unused? : Array[Int]? = None,
-  slot_visits? : Array[Int]? = None,
-  type_cursors? : Array[InlScratchTypeCursor]? = None,
-) -> Int {
+  absolute_pool_base : Int32,
+  first_unused~ : Array[Int32]? = None,
+  slot_visits~ : Array[Int32]? = None,
+  type_cursors~ : Array[InlScratchTypeCursor]? = None,
+) -> Int32 {
   let mut start = match first_unused {
     Some(cursor) => {
       while cursor[0] < pool_types.length() && pool_used[cursor[0]] {
@@ -4179,11 +4179,11 @@ fn inl_make_inline_replacement(
   caller : @lib.Func,
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
-  caller_abs : Int,
-  callee_abs : Int,
-  imports : Int,
+  caller_abs : Int32,
+  callee_abs : Int32,
+  imports : Int32,
   tail_callsite : Bool,
-  reusable_body_local_start : Int,
+  reusable_body_local_start : Int32,
 ) -> (@lib.Func, Array[@lib.Instruction])? {
   let def_idx = callee_abs - imports
   let callee = match mod_.code_sec {
@@ -4224,7 +4224,7 @@ fn inl_make_inline_replacement(
   } else {
     0
   }
-  let local_map : Array[Int] = []
+  let local_map : Array[Int32] = []
   let next_locals = caller_locals.copy()
   let can_reuse_scratch = !tail_callsite && hoist_local_types.length() == 0
   if can_reuse_scratch {
@@ -4382,7 +4382,7 @@ fn inl_instrs_have_try_table(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn inl_instrs_have_stack_carried_local_across_import_call(
   instrs : Array[@lib.Instruction],
-  imports : Int,
+  imports : Int32,
 ) -> Bool {
   for idx = 0; idx + 6 < instrs.length(); idx = idx + 1 {
     match
@@ -4442,7 +4442,7 @@ fn inl_instrs_have_stack_carried_local_across_import_call(
 ///|
 fn inl_instrs_have_function_exit_br_table(
   instrs : Array[@lib.Instruction],
-  control_depth : UInt,
+  control_depth : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -4486,12 +4486,12 @@ fn inl_instrs_have_function_exit_br_table(
 fn inl_rewrite_func_body(
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
-  imports : Int,
-  def_idx : Int,
+  imports : Int32,
+  def_idx : Int32,
   func : @lib.Func,
   touched : Array[Bool],
   inlined_from : Array[Bool],
-  reconstruction_allocations : Array[Int]?,
+  reconstruction_allocations : Array[Int32]?,
 ) -> @lib.Func {
   let caller_abs = imports + def_idx
   let @lib.Func(_, @lib.Expr(body)) = func
@@ -4553,8 +4553,8 @@ fn inl_rewrite_func_body(
 fn inl_rewrite_all_calls(
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
-  rewrite_visits? : Array[Int]? = None,
-  reconstruction_allocations? : Array[Int]? = None,
+  rewrite_visits~ : Array[Int32]? = None,
+  reconstruction_allocations~ : Array[Int32]? = None,
 ) -> InlPassResult {
   let imports = inl_imported_func_count(mod_)
   let total = infos.length()
@@ -4599,7 +4599,7 @@ fn inl_rewrite_all_calls(
 ///|
 fn inl_rewrite_func_idx(
   idx : @lib.FuncIdx,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.FuncIdx {
   let @lib.FuncIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
@@ -4618,7 +4618,7 @@ fn inl_rewrite_func_idx(
 ///|
 fn inl_rewrite_instruction_func_idxs(
   instr : @lib.Instruction,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, expr) => {
@@ -4729,7 +4729,7 @@ fn inl_rewrite_instruction_func_idxs(
 ///|
 fn inl_rewrite_instrs_func_idxs(
   instrs : Array[@lib.Instruction],
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> Array[@lib.Instruction] {
   let mut output : Array[@lib.Instruction]? = None
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -4752,7 +4752,7 @@ fn inl_rewrite_instrs_func_idxs(
 ///|
 fn inl_rewrite_expr_func_idxs(
   expr : @lib.Expr,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let next = inl_rewrite_instrs_func_idxs(instrs, remap)
@@ -4766,7 +4766,7 @@ fn inl_rewrite_expr_func_idxs(
 ///|
 fn inl_rewrite_elem_kind_func_idxs(
   kind : @lib.ElemKind,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(funcs) => {
@@ -4796,8 +4796,8 @@ fn inl_rewrite_elem_kind_func_idxs(
 ///|
 fn inl_remap_name_map(
   map : @lib.NameMap?,
-  remap : Array[UInt],
-  final_total : Int,
+  remap : Array[UInt32],
+  final_total : Int32,
 ) -> @lib.NameMap? {
   let out : Array[@lib.NameAssoc] = []
   match map {
@@ -4824,9 +4824,9 @@ fn inl_remap_name_map(
 ///|
 fn inl_remap_indirect_name_map(
   map : @lib.IndirectNameMap?,
-  remap : Array[UInt],
-  final_total : Int,
-  drop_for_final? : Array[Bool]? = None,
+  remap : Array[UInt32],
+  final_total : Int32,
+  drop_for_final~ : Array[Bool]? = None,
 ) -> @lib.IndirectNameMap? {
   let out : Array[@lib.IndirectNameAssoc] = []
   match map {
@@ -4876,9 +4876,9 @@ fn inl_name_sec_is_empty(sec : @lib.NameSec) -> Bool {
 ///|
 fn inl_remap_name_sec(
   sec : @lib.NameSec?,
-  remap : Array[UInt],
-  final_total : Int,
-  touched_final? : Array[Bool]? = None,
+  remap : Array[UInt32],
+  final_total : Int32,
+  touched_final~ : Array[Bool]? = None,
 ) -> @lib.NameSec? {
   match sec {
     Some(sec) => {
@@ -4936,8 +4936,8 @@ fn inl_func_annotation_present(
 ///|
 fn inl_remap_func_annotation_sec(
   sec : @lib.FuncAnnotationSec?,
-  remap : Array[UInt],
-  final_total : Int,
+  remap : Array[UInt32],
+  final_total : Int32,
 ) -> @lib.FuncAnnotationSec? {
   if final_total <= 0 {
     return None
@@ -4986,8 +4986,8 @@ fn inl_remap_func_annotation_sec(
 ///|
 fn inl_apply_func_remap(
   mod_ : @lib.Module,
-  remap : Array[UInt],
-  touched_final? : Array[Bool]? = None,
+  remap : Array[UInt32],
+  touched_final~ : Array[Bool]? = None,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match rewritten.export_sec {
@@ -5137,8 +5137,8 @@ fn inl_apply_func_remap(
 }
 
 ///|
-fn inl_identity_abs_map(total : Int) -> Array[Int] {
-  let out : Array[Int] = []
+fn inl_identity_abs_map(total : Int32) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut idx = 0
   while idx < total {
     out.push(idx)
@@ -5148,7 +5148,7 @@ fn inl_identity_abs_map(total : Int) -> Array[Int] {
 }
 
 ///|
-fn inl_normalize_touched(touched : Array[Bool], total : Int) -> Array[Bool] {
+fn inl_normalize_touched(touched : Array[Bool], total : Int32) -> Array[Bool] {
   let out = Array::make(total, false)
   let limit = if touched.length() < total { touched.length() } else { total }
   for idx = 0; idx < limit; idx = idx + 1 {
@@ -5159,9 +5159,9 @@ fn inl_normalize_touched(touched : Array[Bool], total : Int) -> Array[Bool] {
 
 ///|
 fn inl_normalize_original_abs(
-  original_abs : Array[Int],
-  total : Int,
-) -> Array[Int] {
+  original_abs : Array[Int32],
+  total : Int32,
+) -> Array[Int32] {
   let out = inl_identity_abs_map(total)
   let limit = if original_abs.length() < total {
     original_abs.length()
@@ -5178,7 +5178,7 @@ fn inl_normalize_original_abs(
 fn inl_identity_removal_result(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
 ) -> InlRemovalResult {
   let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
   {
@@ -5191,9 +5191,9 @@ fn inl_identity_removal_result(
 ///|
 fn inl_apply_func_remap_with_state(
   mod_ : @lib.Module,
-  remap : Array[UInt],
+  remap : Array[UInt32],
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
 ) -> InlRemovalResult {
   let final_total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
   let next_touched = Array::make(final_total, false)
@@ -5222,7 +5222,7 @@ fn inl_apply_func_remap_with_state(
 ///|
 fn inl_remap_prior_touched(
   touched : Array[Bool],
-  final_to_original_abs : Array[Int],
+  final_to_original_abs : Array[Int32],
 ) -> Array[Bool] {
   let out = Array::make(final_to_original_abs.length(), false)
   for final_abs = 0
@@ -5240,7 +5240,7 @@ fn inl_remap_prior_touched(
 fn inl_remap_trivial_mode_cache(
   cache : Array[(Bool, Bool)?],
   touched : Array[Bool],
-  final_to_prior_abs : Array[Int],
+  final_to_prior_abs : Array[Int32],
 ) -> Array[(Bool, Bool)?] {
   if cache.length() == 0 {
     return []
@@ -5282,9 +5282,9 @@ fn inl_remove_dead_inlined_helpers(
   infos : Array[InlFunctionInfo],
   touched : Array[Bool],
   inlined_from : Array[Bool],
-  retain_counts : @hashmap.HashMap[String, Int],
-  signature_builds? : Array[Int]? = None,
-  formatted_signatures? : Array[Int]? = None,
+  retain_counts : @hashmap.HashMap[String, Int32],
+  signature_builds~ : Array[Int32]? = None,
+  formatted_signatures~ : Array[Int32]? = None,
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
@@ -5293,7 +5293,7 @@ fn inl_remove_dead_inlined_helpers(
   let used = Array::make(total, false)
   let has_retention = inl_hash_has_positive(retain_counts)
   let mut signatures : InlSignatureKeyCache? = None
-  let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let retained_counts : @hashmap.HashMap[String, Int32] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -5366,7 +5366,7 @@ fn inl_remove_dead_inlined_helpers(
   }
   let next_type_idxs : Array[@lib.TypeIdx] = []
   let next_funcs : Array[@lib.Func] = []
-  let next_original_abs : Array[Int] = []
+  let next_original_abs : Array[Int32] = []
   let mut import_idx = 0
   while import_idx < imports {
     next_original_abs.push(import_idx)
@@ -5416,7 +5416,7 @@ fn inl_remove_dead_inlined_helpers(
 ///|
 fn inl_collect_call_targets(
   instrs : Array[@lib.Instruction],
-  out : Array[Int],
+  out : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -5446,7 +5446,7 @@ fn inl_collect_call_targets(
 }
 
 ///|
-fn inl_dead_suffix_call_count_to(func : @lib.Func, target_abs : Int) -> Int {
+fn inl_dead_suffix_call_count_to(func : @lib.Func, target_abs : Int32) -> Int32 {
   let @lib.Func(_, @lib.Expr(body)) = func
   let mut seen_unreachable = false
   let mut count = 0
@@ -5466,7 +5466,10 @@ fn inl_dead_suffix_call_count_to(func : @lib.Func, target_abs : Int) -> Int {
 }
 
 ///|
-fn inl_func_has_dead_suffix_call_to(func : @lib.Func, target_abs : Int) -> Bool {
+fn inl_func_has_dead_suffix_call_to(
+  func : @lib.Func,
+  target_abs : Int32,
+) -> Bool {
   inl_dead_suffix_call_count_to(func, target_abs) > 0
 }
 
@@ -5488,21 +5491,21 @@ fn inl_func_has_dead_suffix_call(func : @lib.Func) -> Bool {
 
 ///|
 priv struct InlGraphReachability {
-  graph : Array[Array[Int]]
-  scc_by_node : Array[Int]
-  members_by_scc : Array[Array[Int]]
+  graph : Array[Array[Int32]]
+  scc_by_node : Array[Int32]
+  members_by_scc : Array[Array[Int32]]
   scc_has_cycle : Array[Bool]
-  mut cached_source : Int
+  mut cached_source : Int32
   cached_reachable : Array[Bool]
-  cached_touched : Array[Int]
+  cached_touched : Array[Int32]
 }
 
 ///|
 fn inl_build_graph_reachability(
-  graph : Array[Array[Int]],
+  graph : Array[Array[Int32]],
 ) -> InlGraphReachability {
   let total = graph.length()
-  let reverse : Array[Array[Int]] = []
+  let reverse : Array[Array[Int32]] = []
   for _ in 0..<total {
     reverse.push([])
   }
@@ -5515,14 +5518,14 @@ fn inl_build_graph_reachability(
   }
 
   let visited = Array::make(total, false)
-  let finish_order : Array[Int] = []
+  let finish_order : Array[Int32] = []
   for start = 0; start < total; start = start + 1 {
     if visited[start] {
       continue
     }
     visited[start] = true
-    let nodes : Array[Int] = [start]
-    let next_edges : Array[Int] = [0]
+    let nodes : Array[Int32] = [start]
+    let next_edges : Array[Int32] = [0]
     while nodes.length() > 0 {
       let top = nodes.length() - 1
       let node = nodes[top]
@@ -5552,7 +5555,7 @@ fn inl_build_graph_reachability(
       continue
     }
     scc_by_node[start] = scc_count
-    let stack : Array[Int] = [start]
+    let stack : Array[Int32] = [start]
     while stack.length() > 0 {
       let node = stack.pop().unwrap()
       for next in reverse[node] {
@@ -5564,7 +5567,7 @@ fn inl_build_graph_reachability(
     }
     scc_count += 1
   }
-  let members_by_scc : Array[Array[Int]] = []
+  let members_by_scc : Array[Array[Int32]] = []
   for _ in 0..<scc_count {
     members_by_scc.push([])
   }
@@ -5600,9 +5603,9 @@ fn inl_build_graph_reachability(
 ///|
 fn inl_reachability_scc_members(
   reachability : InlGraphReachability,
-  node : Int,
-  visits? : Array[Int]? = None,
-) -> Array[Int] {
+  node : Int32,
+  visits~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if node < 0 || node >= reachability.scc_by_node.length() {
     return []
   }
@@ -5617,8 +5620,8 @@ fn inl_reachability_scc_members(
 ///|
 fn inl_reachability_same_scc(
   reachability : InlGraphReachability,
-  left : Int,
-  right : Int,
+  left : Int32,
+  right : Int32,
 ) -> Bool {
   left >= 0 &&
   left < reachability.scc_by_node.length() &&
@@ -5630,8 +5633,8 @@ fn inl_reachability_same_scc(
 ///|
 fn inl_reachability_reaches(
   reachability : InlGraphReachability,
-  start : Int,
-  target : Int,
+  start : Int32,
+  target : Int32,
 ) -> Bool {
   if start < 0 ||
     start >= reachability.graph.length() ||
@@ -5648,7 +5651,7 @@ fn inl_reachability_reaches(
       reachability.cached_reachable[node] = false
     }
     reachability.cached_touched.clear()
-    let stack : Array[Int] = []
+    let stack : Array[Int32] = []
     for next in reachability.graph[start] {
       if next >= 0 &&
         next < reachability.graph.length() &&
@@ -5678,10 +5681,10 @@ fn inl_reachability_reaches(
 ///|
 fn inl_predict_alive_unreachable_counts(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   used : Array[Bool],
-) -> @hashmap.HashMap[String, Int] {
+) -> @hashmap.HashMap[String, Int32] {
   let total = graph.length()
   let alive = Array::make(total, true)
   let exact_inlineable = Array::make(total, false)
@@ -5698,9 +5701,9 @@ fn inl_predict_alive_unreachable_counts(
     }
     None => ()
   }
-  let calls : Array[Array[Int]] = []
+  let calls : Array[Array[Int32]] = []
   for edges in graph {
-    let copy : Array[Int] = []
+    let copy : Array[Int32] = []
     copy.append(edges)
     calls.push(copy)
   }
@@ -5767,7 +5770,7 @@ fn inl_predict_alive_unreachable_counts(
     idx = 0
     while idx < total {
       if alive[idx] {
-        let filtered : Array[Int] = []
+        let filtered : Array[Int32] = []
         for target in calls[idx] {
           if target >= 0 && target < total && alive[target] {
             filtered.push(target)
@@ -5780,7 +5783,7 @@ fn inl_predict_alive_unreachable_counts(
     }
     iteration += 1
   }
-  let counts : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let counts : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let types = inl_collect_func_type_indices(mod_)
   let mut abs = imports
   while abs < total {
@@ -5811,8 +5814,8 @@ fn inl_predict_alive_unreachable_counts(
 fn inl_signature_result_count(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  abs : Int,
-) -> Int {
+  abs : Int32,
+) -> Int32 {
   match inl_resolve_func_type(mod_, func_type_indices, abs) {
     Some(@lib.FuncType(_, results)) => results.length()
     None => 0
@@ -5822,12 +5825,12 @@ fn inl_signature_result_count(
 ///|
 fn inl_prediction_retain_shadowed_void_cycle_result_helper(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -5932,12 +5935,12 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
 ///|
 fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -5995,12 +5998,12 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
 ///|
 fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -6069,11 +6072,11 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
 ///|
 fn inl_prediction_retain_self_loop_helper_inlined_count(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
-  retain : @hashmap.HashMap[String, Int],
+  retain : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -6149,11 +6152,11 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
 ///|
 fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -6230,11 +6233,11 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
 ///|
 fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -6333,14 +6336,14 @@ fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
 ///|
 fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
-) -> @hashmap.HashMap[String, Int] {
-  let retain : @hashmap.HashMap[String, Int] = @hashmap.new()
+  predicted : @hashmap.HashMap[String, Int32],
+) -> @hashmap.HashMap[String, Int32] {
+  let retain : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
@@ -6364,7 +6367,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       continue
     }
     let root_sig = signatures[root]
-    let processed_sccs : @set.Set[Int] = @set.Set([])
+    let processed_sccs : @set.Set[Int32] = @set.Set([])
     let mut seed = imports
     while seed < total {
       let seed_scc = reachability.scc_by_node[seed]
@@ -6378,7 +6381,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       processed_sccs.add(seed_scc)
       let scc_members = inl_reachability_scc_members(reachability, seed)
       let mut member_self_loop = false
-      let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
+      let sigs : @hashmap.HashMap[String, Int32] = @hashmap.new()
       for idx in scc_members {
         if idx >= imports {
           let sig = signatures[idx]
@@ -6454,12 +6457,12 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
 ///|
 fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  final_trim : @hashmap.HashMap[String, Int],
+  final_trim : @hashmap.HashMap[String, Int32],
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
@@ -6484,7 +6487,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       continue
     }
     let root_sig = signatures[root]
-    let processed_sccs : @set.Set[Int] = @set.Set([])
+    let processed_sccs : @set.Set[Int32] = @set.Set([])
     let mut seed = imports
     while seed < total {
       let seed_scc = reachability.scc_by_node[seed]
@@ -6498,7 +6501,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       processed_sccs.add(seed_scc)
       let scc_members = inl_reachability_scc_members(reachability, seed)
       let mut member_self_loop = false
-      let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
+      let sigs : @hashmap.HashMap[String, Int32] = @hashmap.new()
       for idx in scc_members {
         if idx >= imports {
           let sig = signatures[idx]
@@ -6556,9 +6559,9 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
 
 ///|
 fn inl_graph_edges_equal(
-  graph : Array[Array[Int]],
-  from : Int,
-  expected : Array[Int],
+  graph : Array[Array[Int32]],
+  from : Int32,
+  expected : Array[Int32],
 ) -> Bool {
   if from < 0 || from >= graph.length() {
     return false
@@ -6579,10 +6582,10 @@ fn inl_graph_edges_equal(
 
 ///|
 fn inl_prediction_select_exact_count(
-  predicted : @hashmap.HashMap[String, Int],
-  final_trim : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
+  final_trim : @hashmap.HashMap[String, Int32],
   sig : String,
-  want : Int,
+  want : Int32,
 ) -> Unit {
   predicted.set(sig, want)
   final_trim.set(sig, want)
@@ -6591,13 +6594,13 @@ fn inl_prediction_select_exact_count(
 ///|
 fn inl_prediction_adjust_broadened_four_func_dead_suffix_frontier(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   used : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
-  final_trim : @hashmap.HashMap[String, Int],
-  retain : @hashmap.HashMap[String, Int],
-) -> Int {
+  predicted : @hashmap.HashMap[String, Int32],
+  final_trim : @hashmap.HashMap[String, Int32],
+  retain : @hashmap.HashMap[String, Int32],
+) -> Int32 {
   if imports != 0 || graph.length() != 4 || used.length() < 4 {
     return 0
   }
@@ -6707,18 +6710,18 @@ fn inl_prediction_adjust_broadened_four_func_dead_suffix_frontier(
 ///|
 fn inl_prediction_final_trim_root_self_loop_duplicates(
   mod_ : @lib.Module,
-  imports : Int,
-  graph : Array[Array[Int]],
+  imports : Int32,
+  graph : Array[Array[Int32]],
   reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
-  predicted : @hashmap.HashMap[String, Int],
-) -> @hashmap.HashMap[String, Int] {
-  let final_trim : @hashmap.HashMap[String, Int] = @hashmap.new()
+  predicted : @hashmap.HashMap[String, Int32],
+) -> @hashmap.HashMap[String, Int32] {
+  let final_trim : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
-  let processed_sccs : @set.Set[Int] = @set.Set([])
+  let processed_sccs : @set.Set[Int32] = @set.Set([])
   let mut root = 0
   while root < total {
     let root_scc = reachability.scc_by_node[root]
@@ -6893,7 +6896,7 @@ fn inl_original_reachable_private_cycle_funcs(
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
-  let graph : Array[Array[Int]] = []
+  let graph : Array[Array[Int32]] = []
   let mut idx = 0
   while idx < total {
     graph.push([])
@@ -7090,7 +7093,7 @@ fn inl_original_reachable_private_cycle_funcs(
 fn inl_original_graph_info_for_mode(
   mod_ : @lib.Module,
   optimize : Bool,
-  analysis_visits : Array[Int],
+  analysis_visits : Array[Int32],
 ) -> InlOriginalGraphInfo {
   if optimize {
     analysis_visits[0] += 1
@@ -7138,7 +7141,7 @@ fn inl_func_type_signature_key(
 fn inl_func_signature_key(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  abs : Int,
+  abs : Int32,
 ) -> String {
   match inl_resolve_func_type(mod_, func_type_indices, abs) {
     Some(@lib.FuncType(params, results)) =>
@@ -7152,14 +7155,14 @@ priv struct InlSignatureKeyCache {
   flat_types : Array[@lib.SubType]
   type_keys : Array[String?]
   func_type_indices : Array[@lib.TypeIdx]
-  formatted_signatures : Array[Int]?
+  formatted_signatures : Array[Int32]?
 }
 
 ///|
 fn InlSignatureKeyCache::new(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  formatted_signatures? : Array[Int]? = None,
+  formatted_signatures~ : Array[Int32]? = None,
 ) -> InlSignatureKeyCache {
   let flat_types : Array[@lib.SubType] = []
   match mod_.type_sec {
@@ -7181,7 +7184,10 @@ fn InlSignatureKeyCache::new(
 }
 
 ///|
-fn InlSignatureKeyCache::key(self : InlSignatureKeyCache, abs : Int) -> String {
+fn InlSignatureKeyCache::key(
+  self : InlSignatureKeyCache,
+  abs : Int32,
+) -> String {
   let slot = if abs >= 0 && abs < self.func_type_indices.length() {
     match self.func_type_indices[abs] {
       @lib.TypeIdx(raw) => raw.reinterpret_as_int()
@@ -7215,14 +7221,17 @@ fn InlSignatureKeyCache::key(self : InlSignatureKeyCache, abs : Int) -> String {
 fn inl_build_func_signature_keys(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  total : Int,
+  total : Int32,
 ) -> Array[String] {
   let cache = InlSignatureKeyCache::new(mod_, func_type_indices)
   Array::makei(total, fn(abs) { cache.key(abs) })
 }
 
 ///|
-fn inl_hash_get_int(map : @hashmap.HashMap[String, Int], key : String) -> Int {
+fn inl_hash_get_int(
+  map : @hashmap.HashMap[String, Int32],
+  key : String,
+) -> Int32 {
   match map.get(key) {
     Some(value) => value
     None => 0
@@ -7230,12 +7239,15 @@ fn inl_hash_get_int(map : @hashmap.HashMap[String, Int], key : String) -> Int {
 }
 
 ///|
-fn inl_hash_inc_int(map : @hashmap.HashMap[String, Int], key : String) -> Unit {
+fn inl_hash_inc_int(
+  map : @hashmap.HashMap[String, Int32],
+  key : String,
+) -> Unit {
   map.set(key, inl_hash_get_int(map, key) + 1)
 }
 
 ///|
-fn inl_hash_has_positive(map : @hashmap.HashMap[String, Int]) -> Bool {
+fn inl_hash_has_positive(map : @hashmap.HashMap[String, Int32]) -> Bool {
   for key in map.keys() {
     if inl_hash_get_int(map, key) > 0 {
       return true
@@ -7249,7 +7261,7 @@ fn inl_signature_type_idx_map(
   mod_ : @lib.Module,
 ) -> @hashmap.HashMap[String, @lib.TypeIdx] {
   let out : @hashmap.HashMap[String, @lib.TypeIdx] = @hashmap.new()
-  let add = fn(subtype : @lib.SubType, index : Int) {
+  let add = fn(subtype : @lib.SubType, index : Int32) {
     match subtype.get_comptype() {
       @lib.FuncCompType(params, results) => {
         let key = inl_func_type_signature_key(params, results)
@@ -7285,8 +7297,11 @@ fn inl_signature_type_idx_map(
 ///|
 fn inl_pad_unreachable_to_predicted_counts(
   mod_ : @lib.Module,
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
 ) -> @lib.Module {
+  if !inl_hash_has_positive(predicted) {
+    return mod_
+  }
   let old_type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
     None => return mod_
@@ -7295,28 +7310,41 @@ fn inl_pad_unreachable_to_predicted_counts(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
   }
-  let type_for_sig = inl_signature_type_idx_map(mod_)
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let imports = inl_imported_func_count(mod_)
-  let current : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let signatures = InlSignatureKeyCache::new(mod_, func_type_indices)
+  let current : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let mut def_idx = 0
   while def_idx < old_funcs.length() {
-    inl_hash_inc_int(
-      current,
-      inl_func_signature_key(mod_, func_type_indices, imports + def_idx),
-    )
+    inl_hash_inc_int(current, signatures.key(imports + def_idx))
     def_idx += 1
   }
-  let next_type_idxs : Array[@lib.TypeIdx] = []
-  next_type_idxs.append(old_type_idxs)
-  let next_funcs : Array[@lib.Func] = []
-  next_funcs.append(old_funcs)
-  let mut changed = false
+  let mut type_for_sig : @hashmap.HashMap[String, @lib.TypeIdx]? = None
+  let mut next : (Array[@lib.TypeIdx], Array[@lib.Func])? = None
   for key in predicted.keys() {
     let want = inl_hash_get_int(predicted, key)
     let mut have = inl_hash_get_int(current, key)
-    match type_for_sig.get(key) {
-      Some(type_idx) =>
+    if have >= want {
+      continue
+    }
+    let available_types = match type_for_sig {
+      Some(types) => types
+      None => {
+        let types = inl_signature_type_idx_map(mod_)
+        type_for_sig = Some(types)
+        types
+      }
+    }
+    match available_types.get(key) {
+      Some(type_idx) => {
+        let (next_type_idxs, next_funcs) = match next {
+          Some(rows) => rows
+          None => {
+            let rows = (old_type_idxs.copy(), old_funcs.copy())
+            next = Some(rows)
+            rows
+          }
+        }
         while have < want {
           next_type_idxs.push(type_idx)
           next_funcs.push(
@@ -7326,17 +7354,17 @@ fn inl_pad_unreachable_to_predicted_counts(
             ),
           )
           have += 1
-          changed = true
         }
+      }
       None => ()
     }
   }
-  if changed {
-    mod_
-    .with_func_sec(@lib.FuncSec::new(next_type_idxs))
-    .with_code_sec(@lib.CodeSec::new(next_funcs))
-  } else {
-    mod_
+  match next {
+    Some((next_type_idxs, next_funcs)) =>
+      mod_
+      .with_func_sec(@lib.FuncSec::new(next_type_idxs))
+      .with_code_sec(@lib.CodeSec::new(next_funcs))
+    None => mod_
   }
 }
 
@@ -7344,7 +7372,7 @@ fn inl_pad_unreachable_to_predicted_counts(
 fn inl_move_trailing_exact_before_last_nonexact_same_sig(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let old_type_idxs = match mod_.func_sec {
@@ -7417,9 +7445,9 @@ fn inl_move_trailing_exact_before_last_nonexact_same_sig(
 ///|
 fn inl_trim_unreachable_to_predicted_counts(
   mod_ : @lib.Module,
-  predicted : @hashmap.HashMap[String, Int],
+  predicted : @hashmap.HashMap[String, Int32],
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
@@ -7444,14 +7472,14 @@ fn inl_trim_unreachable_to_predicted_counts(
       }
     None => ()
   }
-  let used_self_loop_sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let used_self_loop_sigs : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let mut used_has_self_loop = false
   let mut def_idx = 0
   while def_idx < defined {
     let abs = imports + def_idx
     if abs >= 0 && abs < used.length() && used[abs] {
       let @lib.Func(_, @lib.Expr(body)) = old_funcs[def_idx]
-      let calls : Array[Int] = []
+      let calls : Array[Int32] = []
       inl_collect_call_targets(body, calls)
       for target in calls {
         if target == abs {
@@ -7464,7 +7492,7 @@ fn inl_trim_unreachable_to_predicted_counts(
     }
     def_idx += 1
   }
-  let current : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let current : @hashmap.HashMap[String, Int32] = @hashmap.new()
   def_idx = 0
   while def_idx < defined {
     let abs = imports + def_idx
@@ -7534,9 +7562,9 @@ fn inl_trim_unreachable_to_predicted_counts(
 ///|
 fn inl_trim_unreachable_to_selected_counts(
   mod_ : @lib.Module,
-  selected : @hashmap.HashMap[String, Int],
+  selected : @hashmap.HashMap[String, Int32],
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
@@ -7561,7 +7589,7 @@ fn inl_trim_unreachable_to_selected_counts(
       }
     None => ()
   }
-  let current : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let current : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let mut def_idx = 0
   while def_idx < defined {
     let abs = imports + def_idx
@@ -7636,9 +7664,9 @@ fn inl_trim_unreachable_to_selected_counts(
 fn inl_remove_dead_unreachable_private_funcs(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  original_abs : Array[Int],
+  original_abs : Array[Int32],
   original_cycle_remove : Array[Bool],
-  retain_counts : @hashmap.HashMap[String, Int],
+  retain_counts : @hashmap.HashMap[String, Int32],
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
@@ -7646,7 +7674,7 @@ fn inl_remove_dead_unreachable_private_funcs(
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
   let func_type_indices = inl_collect_func_type_indices(mod_)
-  let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let retained_counts : @hashmap.HashMap[String, Int32] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -7787,7 +7815,7 @@ fn inl_mark_local_uses_instrs(
 ///|
 fn inl_rewrite_local_idx(
   idx : @lib.LocalIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.LocalIdx {
   let slot = inl_local_idx_slot(idx)
   if slot >= 0 && slot < remap.length() {
@@ -7800,7 +7828,7 @@ fn inl_rewrite_local_idx(
 ///|
 fn inl_rewrite_local_idxs_instr(
   instr : @lib.Instruction,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.Instruction {
   match instr {
     @lib.LocalGet(idx) =>
@@ -7841,7 +7869,7 @@ fn inl_rewrite_local_idxs_instr(
 ///|
 fn inl_rewrite_local_idxs_instrs(
   instrs : Array[@lib.Instruction],
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -7881,7 +7909,7 @@ fn inl_instrs_have_tail_call(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn inl_compact_unused_locals_func(
   func : @lib.Func,
-  param_count : Int,
+  param_count : Int32,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
   // Fail closed around tail-call operands. The compact-local rewriter is purely
@@ -7979,8 +8007,8 @@ fn inl_prefix_label_is_forward_exit(
 ///|
 fn inl_instr_is_nontrapping_prefix(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  exit_labels? : Array[Bool] = [],
+  idx : Int32,
+  exit_labels~ : Array[Bool] = [],
 ) -> Bool {
   // A branch may return from the function or repeat a loop before the final
   // unreachable. Such control flow cannot be replaced by that trap.
@@ -8222,8 +8250,8 @@ fn inl_instr_is_nontrapping_prefix(
 ///|
 fn inl_instrs_have_matching_call(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  matches : (Int) -> Bool,
+  start : Int32,
+  matches : (Int32) -> Bool,
 ) -> Bool {
   for idx = start; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
@@ -8269,7 +8297,7 @@ fn inl_instrs_have_matching_call(
 ///|
 fn inl_suffix_calls_marked_func(
   body : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   marked : Array[Bool],
 ) -> Bool {
   inl_instrs_have_matching_call(body, start, fn(target_abs) {
@@ -8280,8 +8308,8 @@ fn inl_suffix_calls_marked_func(
 ///|
 fn inl_suffix_has_self_call(
   body : Array[@lib.Instruction],
-  start : Int,
-  self_abs : Int,
+  start : Int32,
+  self_abs : Int32,
 ) -> Bool {
   inl_instrs_have_matching_call(body, start, fn(target_abs) {
     target_abs == self_abs
@@ -8291,8 +8319,8 @@ fn inl_suffix_has_self_call(
 ///|
 fn inl_suffix_has_polymorphic_self_call(
   body : Array[@lib.Instruction],
-  start : Int,
-  self_abs : Int,
+  start : Int32,
+  self_abs : Int32,
 ) -> Bool {
   let mut seen_unreachable = false
   let mut idx = start
@@ -8315,10 +8343,10 @@ fn inl_suffix_has_polymorphic_self_call(
 ///|
 fn inl_func_collapse_unreachable_root(
   func : @lib.Func,
-  self_abs : Int,
+  self_abs : Int32,
   self_recursive_funcs : Array[Bool],
-  check_dead_suffix_calls? : Bool = true,
-  check_marked_suffix_calls? : Bool = true,
+  check_dead_suffix_calls~ : Bool = true,
+  check_marked_suffix_calls~ : Bool = true,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let mut idx = 0
@@ -8364,9 +8392,9 @@ fn inl_func_collapse_unreachable_root(
 ///|
 fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
   let @lib.Func(_, @lib.Expr(body)) = func
-  let targets : Array[Int] = []
-  let counts : Array[Int] = []
-  let mut positions : @hashmap.HashMap[Int, Int]? = None
+  let targets : Array[Int32] = []
+  let counts : Array[Int32] = []
+  let mut positions : @hashmap.HashMap[Int32, Int32]? = None
   let mut seen_unreachable = false
   let mut total_count = 0
   for instr in body {
@@ -8403,7 +8431,7 @@ fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
                 targets.push(target)
                 counts.push(1)
                 if targets.length() == 8 {
-                  let by_target : @hashmap.HashMap[Int, Int] = @hashmap.new()
+                  let by_target : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
                   for slot = 0; slot < targets.length(); slot = slot + 1 {
                     by_target.set(targets[slot], slot)
                   }
@@ -8422,8 +8450,8 @@ fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
 ///|
 fn inl_dead_suffix_targets_count_to(
   facts : InlDeadSuffixTargets,
-  target_abs : Int,
-) -> Int {
+  target_abs : Int32,
+) -> Int32 {
   let mut idx = 0
   while idx < facts.targets.length() {
     if facts.targets[idx] == target_abs {
@@ -8438,7 +8466,7 @@ fn inl_dead_suffix_targets_count_to(
 fn inl_build_dead_suffix_preserve_facts(
   mod_ : @lib.Module,
   funcs : Array[@lib.Func],
-  imports : Int,
+  imports : Int32,
 ) -> InlDeadSuffixPreserveFacts {
   let total = imports + funcs.length()
   let used = Array::make(total, false)
@@ -8455,7 +8483,7 @@ fn inl_build_dead_suffix_preserve_facts(
 ///|
 fn inl_dead_suffix_preserve_facts_should_preserve(
   facts : InlDeadSuffixPreserveFacts,
-  self_abs : Int,
+  self_abs : Int32,
 ) -> Bool {
   if self_abs < facts.imports ||
     self_abs >= facts.used.length() ||
@@ -8631,8 +8659,8 @@ fn inl_has_same_sig_root_cycle_dead_suffix(mod_ : @lib.Module) -> Bool {
 fn inl_collapse_unreachable_roots(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  check_dead_suffix_calls? : Bool = true,
-  check_marked_suffix_calls? : Bool = true,
+  check_dead_suffix_calls~ : Bool = true,
+  check_marked_suffix_calls~ : Bool = true,
 ) -> @lib.Module {
   let imports = inl_imported_func_count(mod_)
   match mod_.code_sec {
@@ -8872,7 +8900,7 @@ fn inl_prune_dead_unreachable_drops(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn inl_func_has_hot_unsafe_self_suffix(func : @lib.Func, abs : Int) -> Bool {
+fn inl_func_has_hot_unsafe_self_suffix(func : @lib.Func, abs : Int32) -> Bool {
   let @lib.Func(_, @lib.Expr(body)) = func
   let mut idx = 0
   while idx < body.length() {
@@ -8905,8 +8933,8 @@ fn inl_has_two_func_exact_root_hot_unsafe_helper(mod_ : @lib.Module) -> Bool {
 ///|
 fn inl_abs_touched_to_defined(
   touched : Array[Bool],
-  imports : Int,
-  defined : Int,
+  imports : Int32,
+  defined : Int32,
 ) -> Array[Bool] {
   let out = Array::make(defined, false)
   let mut def_idx = 0
@@ -9079,8 +9107,8 @@ fn inl_validate_or_original(
 }
 
 ///|
-fn inl_touched_function_indices(touched : Array[Bool]) -> Array[Int] {
-  let selected : Array[Int] = []
+fn inl_touched_function_indices(touched : Array[Bool]) -> Array[Int32] {
+  let selected : Array[Int32] = []
   for idx = 0; idx < touched.length(); idx = idx + 1 {
     if touched[idx] {
       selected.push(idx)
@@ -9092,7 +9120,7 @@ fn inl_touched_function_indices(touched : Array[Bool]) -> Array[Int] {
 ///|
 fn inl_finalize_touched_functions(
   mod_ : @lib.Module,
-  selected : Array[Int],
+  selected : Array[Int32],
   trace : ((String) -> Unit)?,
 ) -> @lib.Module {
   let stats : InlFinalizeFoldStats = {
@@ -9152,7 +9180,7 @@ fn inl_finalize_module_pass_result(
 fn inl_finalize_module_pass_with_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  selected : @hashmap.HashMap[String, Int],
+  selected : @hashmap.HashMap[String, Int32],
   optimize : Bool,
   trace : ((String) -> Unit)?,
 ) -> @lib.Module {
@@ -9218,9 +9246,9 @@ fn inl_run_nested_cleanup(
   optimize : Bool,
   trace : ((String) -> Unit)?,
   touched : Array[Bool],
-  optimize_level : Int,
-  shrink_level : Int,
-  perf? : HotPerfSession? = None,
+  optimize_level : Int32,
+  shrink_level : Int32,
+  perf~ : HotPerfSession? = None,
 ) -> @lib.Module {
   if !optimize {
     return mod_
@@ -9312,7 +9340,7 @@ fn inl_run_nested_cleanup(
 }
 
 ///|
-fn inl_count_true(flags : Array[Bool]) -> Int {
+fn inl_count_true(flags : Array[Bool]) -> Int32 {
   let mut count = 0
   for flag in flags {
     if flag {
@@ -9333,9 +9361,9 @@ fn inl_trace_perf(trace : ((String) -> Unit)?, msg : String) -> Unit {
 ///|
 fn inl_touched_original_abs(
   touched : Array[Bool],
-  original_abs : Array[Int],
-) -> Array[Int] {
-  let out : Array[Int] = []
+  original_abs : Array[Int32],
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut idx = 0
   while idx < touched.length() && idx < original_abs.length() {
     if touched[idx] {
@@ -9347,7 +9375,7 @@ fn inl_touched_original_abs(
 }
 
 ///|
-fn inl_find_named_func_abs(mod_ : @lib.Module, name : String) -> Int {
+fn inl_find_named_func_abs(mod_ : @lib.Module, name : String) -> Int32 {
   let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
   let names = no_inline_func_names(mod_, total)
   let mut abs = 0
@@ -9364,8 +9392,8 @@ fn inl_find_named_func_abs(mod_ : @lib.Module, name : String) -> Int {
 ///|
 fn inl_count_direct_target_calls(
   instrs : Array[@lib.Instruction],
-  target_abs : Int,
-) -> Int {
+  target_abs : Int32,
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -9401,13 +9429,13 @@ fn inl_count_direct_target_calls(
 ///|
 fn inl_inline_exact_target_instrs(
   instrs : Array[@lib.Instruction],
-  caller_abs : Int,
-  target_abs : Int,
+  caller_abs : Int32,
+  target_abs : Int32,
   state : InlRewriteState,
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
-  imports : Int,
-  try_depth? : Int = 0,
+  imports : Int32,
+  try_depth~ : Int32 = 0,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -9632,8 +9660,8 @@ pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn inl_should_prepare_multivalue_block_types(
   optimize : Bool,
-  partial_inlining_ifs : Int,
-  iteration : Int,
+  partial_inlining_ifs : Int32,
+  iteration : Int32,
 ) -> Bool {
   iteration == 0 || optimize || partial_inlining_ifs > 0
 }
@@ -9641,8 +9669,8 @@ fn inl_should_prepare_multivalue_block_types(
 ///|
 fn inl_iteration_has_progress(
   touched : Array[Bool],
-  before_defined : Int,
-  after_defined : Int,
+  before_defined : Int32,
+  after_defined : Int32,
 ) -> Bool {
   before_defined != after_defined || touched.any(fn(value) { value })
 }
@@ -9654,19 +9682,19 @@ fn inl_run_module_pass_once(
   optimize : Bool,
   trace : ((String) -> Unit)?,
   pass_name : String,
-  optimize_level : Int,
-  shrink_level : Int,
-  always_inline_max_size : Int,
-  one_caller_inline_max_size : Int,
-  flexible_inline_max_size : Int,
-  max_combined_binary_size : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
+  always_inline_max_size : Int32,
+  one_caller_inline_max_size : Int32,
+  flexible_inline_max_size : Int32,
+  max_combined_binary_size : Int32,
   allow_functions_with_loops : Bool,
-  partial_inlining_ifs : Int,
+  partial_inlining_ifs : Int32,
   prepare_multivalue_block_types : Bool,
   trivial_mode_cache : Array[(Bool, Bool)?],
   body_measure_cache : InlBodyMeasureCache?,
-  perf? : HotPerfSession? = None,
-) -> (@lib.Module, Bool, Array[Int], Array[Bool], Array[(Bool, Bool)?]) {
+  perf~ : HotPerfSession? = None,
+) -> (@lib.Module, Bool, Array[Int32], Array[Bool], Array[(Bool, Bool)?]) {
   let prepare_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types",
   )
@@ -9709,7 +9737,7 @@ fn inl_run_module_pass_once(
   let rewrite_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:rewrite-all-calls",
   )
-  let reconstruction_stats : Array[Int]? = match trace {
+  let reconstruction_stats : Array[Int32]? = match trace {
     Some(_) => Some([0, 0, 0])
     None => None
   }
@@ -9770,7 +9798,7 @@ fn inl_run_module_pass_once(
   // after direct substitution. The retain-count predictor is for the
   // optimizing cleanup suffix only; using it here preserves dead helper
   // representatives that Binaryen plain mode removes.
-  let plain_retain_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let plain_retain_counts : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let remove_helpers_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:remove-dead-inlined-helpers",
   )
@@ -9929,18 +9957,18 @@ fn inl_module_has_typeidx_loop(mod_ : @lib.Module) -> Bool {
 ///|
 fn inlining_run_module_pass_with_perf(
   mod_ : @lib.Module,
-  optimize? : Bool = false,
-  trace? : ((String) -> Unit)? = None,
-  pass_name? : String = "inlining",
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  partial_inlining_ifs? : Int = 0,
-  perf? : HotPerfSession? = None,
+  optimize~ : Bool = false,
+  trace~ : ((String) -> Unit)? = None,
+  pass_name~ : String = "inlining",
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  partial_inlining_ifs~ : Int32 = 0,
+  perf~ : HotPerfSession? = None,
 ) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -9988,8 +10016,8 @@ fn inlining_run_module_pass_with_perf(
   } else {
     []
   }
-  let body_measure_cache = if cache_plain_function_facts {
-    Some(InlBodyMeasureCache::new(initial_total))
+  let body_measure_cache = if partial_inlining_ifs <= 0 {
+    Some(InlBodyMeasureCache::new(initial_total, flat_only=optimize))
   } else {
     None
   }
@@ -10103,17 +10131,17 @@ fn inlining_run_module_pass_with_perf(
 ///|
 pub fn inlining_run_module_pass(
   mod_ : @lib.Module,
-  optimize? : Bool = false,
-  trace? : ((String) -> Unit)? = None,
-  pass_name? : String = "inlining",
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  partial_inlining_ifs? : Int = 0,
+  optimize~ : Bool = false,
+  trace~ : ((String) -> Unit)? = None,
+  pass_name~ : String = "inlining",
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  partial_inlining_ifs~ : Int32 = 0,
 ) -> @lib.Module {
   inlining_run_module_pass_with_perf(
     mod_,
@@ -10134,8 +10162,8 @@ pub fn inlining_run_module_pass(
 ///|
 fn inl_shift_resume_handlers(
   handlers : Array[@lib.ResumeHandler],
-  control_depth : Int,
-  added_outer_depth : Int,
+  control_depth : Int32,
+  added_outer_depth : Int32,
 ) -> Array[@lib.ResumeHandler] {
   handlers.map(fn(handler) {
     match handler {

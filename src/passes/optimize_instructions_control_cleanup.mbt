@@ -39,7 +39,7 @@ fn oi_control_cleanup_has_block(body : Array[@lib.Instruction]) -> Bool {
 ///|
 fn oi_cleanup_control(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
+  touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
   // Undecoded label names cannot be safely renumbered.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -50,7 +50,7 @@ fn oi_cleanup_control(
     None => return mod_
   }
   let env = @validate.Env::new().with_module(mod_)
-  let remaps : Array[Array[Int]?] = []
+  let remaps : Array[Array[Int32]?] = []
   let mut changed = false
   let rewritten = funcs.mapi(fn(index, func) {
     if touched is Some(selected) &&

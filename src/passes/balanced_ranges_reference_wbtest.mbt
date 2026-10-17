@@ -4,7 +4,7 @@
 fn sl_balanced_range_reference(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -136,9 +136,9 @@ fn sl_balanced_range_reference(
 ///|
 fn sl_balanced_range_reference_suffix(
   instrs : Array[@lib.Instruction],
-  count : Int,
+  count : Int32,
   env : @validate.Env,
-  typed_instructions? : Array[Int]? = None,
+  typed_instructions~ : Array[Int32]? = None,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
   if count <= 0 {
     return (instrs.copy(), [])
@@ -151,7 +151,7 @@ fn sl_balanced_range_reference_suffix(
     if known {
       match sl_value_suffix_stack_effect(instrs[start], env) {
         Some((inputs, outputs)) => {
-          required = Int::max(inputs, required + inputs - outputs)
+          required = Int32::max(inputs, required + inputs - outputs)
           net += outputs - inputs
         }
         None => known = false
@@ -212,8 +212,8 @@ fn sl_balanced_range_reference_prefix_end(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   allow_escape : Bool,
-  typed_instructions? : Array[Int]? = None,
-) -> Int {
+  typed_instructions~ : Array[Int32]? = None,
+) -> Int32 {
   let mut state = @validate.make_state(env, [])
   for index = 0; index < instrs.length(); index = index + 1 {
     match typed_instructions {

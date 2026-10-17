@@ -1,8 +1,8 @@
 ///|
 fn sl_balanced_range_bench(
   it : @bench.T,
-  width : Int,
-  shape : Int,
+  width : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let body = match shape {
@@ -140,7 +140,7 @@ test "bench balanced ranges 512 blocked reads ranged" (it : @bench.T) {
 ///|
 fn sl_balanced_range_suffix_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   present : Bool,
   reference : Bool,
 ) -> Unit raise {

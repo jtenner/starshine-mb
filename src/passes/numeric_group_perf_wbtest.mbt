@@ -1,7 +1,7 @@
 ///|
 fn numeric_group_bench(
   it : @bench.T,
-  runs : Int,
+  runs : Int32,
   grouped : Bool,
   reference : Bool,
 ) -> Unit {

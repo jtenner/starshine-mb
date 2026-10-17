@@ -1,5 +1,5 @@
 ///|
-fn rub_perf_literal_multivalue_module(block_count : Int) -> @lib.Module {
+fn rub_perf_literal_multivalue_module(block_count : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = Array::new(capacity=block_count * 3)
   for index in 0..<block_count {
     body.push(

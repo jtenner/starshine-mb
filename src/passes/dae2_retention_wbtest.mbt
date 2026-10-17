@@ -1,5 +1,5 @@
 ///|
-fn dae2_retention_fixture(count : Int) -> @lib.Module {
+fn dae2_retention_fixture(count : Int32) -> @lib.Module {
   let wat : Array[String] = []
   wat.push("(module (type $sig (func (param i32) (result i32)))")
   for index in 0..<count {

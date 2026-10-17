@@ -2,9 +2,9 @@
 fn sl_dew_assert_reduced_i32_result(module_ : @lib.Module) -> Unit raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = module_.code_sec.unwrap().0[1]
   let locals = Array::make(body_locals.length(), 0)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut calls = 0
-  fn execute(instrs : Array[@lib.Instruction]) -> Int? raise {
+  fn execute(instrs : Array[@lib.Instruction]) -> Int32? raise {
     for instr in instrs {
       match instr {
         @lib.Nop => ()

@@ -1,7 +1,7 @@
 ///|
 fn dae_uniform_operands_bench(
   it : @bench.T,
-  params : Int,
+  params : Int32,
   computed : Bool,
   sliced : Bool,
 ) -> Unit {

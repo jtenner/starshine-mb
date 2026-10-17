@@ -4,65 +4,15 @@ pub fn merge_similar_functions_summary() -> String {
 }
 
 ///|
-fn msf_target_features_disallow(payload : Bytes, feature : String) -> Bool {
-  let count_result : Result[(@lib.U32, Int), @binary.BinaryDecodeError] = @binary.Decode::decode(
-    payload, 0,
-  )
-  let (@lib.U32(raw_count), initial_cursor) = match count_result {
-    Ok(value) => value
-    Err(_) => return true
-  }
-  let mut cursor = initial_cursor
-  let count = raw_count.reinterpret_as_int()
-  if count < 0 {
-    return true
-  }
-  for feature_idx = 0; feature_idx < count; feature_idx = feature_idx + 1 {
-    if cursor >= payload.length() {
-      return true
-    }
-    let prefix = payload[cursor]
-    cursor += 1
-    if prefix != b'\x2b' && prefix != b'\x2d' {
-      return true
-    }
-    let name_result : Result[(@lib.Name, Int), @binary.BinaryDecodeError] = @binary.Decode::decode(
-      payload, cursor,
-    )
-    let (@lib.Name(name), next) = match name_result {
-      Ok(value) => value
-      Err(_) => return true
-    }
-    cursor = next
-    if prefix == b'\x2d' && name == feature {
-      return true
-    }
-  }
-  cursor != payload.length()
-}
-
-///|
 fn msf_module_allows_tail_call_thunks(mod_ : @lib.Module) -> Bool {
-  for custom in mod_.custom_secs {
-    let @lib.CustomSec(@lib.Name(name), payload) = custom
-    if name == "target_features" &&
-      msf_target_features_disallow(payload, "tail-call") {
-      return false
-    }
-  }
-  true
+  pass_module_allows_feature_introduction(mod_, "tail-call")
 }
 
 ///|
 fn msf_module_allows_function_references(mod_ : @lib.Module) -> Bool {
-  for custom in mod_.custom_secs {
-    let @lib.CustomSec(@lib.Name(name), payload) = custom
-    if name == "target_features" {
-      for feature in ["function-references", "reference-types", "gc"] {
-        if msf_target_features_disallow(payload, feature) {
-          return false
-        }
-      }
+  for feature in ["function-references", "reference-types", "gc"] {
+    if !pass_module_allows_feature_introduction(mod_, feature) {
+      return false
     }
   }
   true
@@ -80,19 +30,19 @@ priv struct MsfParam {
   values : Array[@lib.Instruction]
   value_type : @lib.ValType
   call_type : @lib.TypeIdx?
-  uses : Array[Int]
+  uses : Array[Int32]
 }
 
 ///|
 priv struct MsfClass {
-  members : Array[Int]
+  members : Array[Int32]
 }
 
 ///|
 priv struct MsfFunctionSummary {
   signature : @lib.FuncType?
-  shape_hash : Int
-  instruction_count : Int
+  shape_hash : Int32
+  instruction_count : Int32
 }
 
 ///|
@@ -155,7 +105,7 @@ fn msf_call_type_cached(
 fn msf_analyze_legacy_catches(
   catches : Array[@lib.LegacyCatch],
   call_types : Array[@lib.TypeIdx?],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut key = catches.length().hash()
   let mut count = 0
   for catch_ in catches {
@@ -180,7 +130,7 @@ fn msf_analyze_legacy_catches(
 fn msf_analyze_instr(
   instr : @lib.Instruction,
   call_types : Array[@lib.TypeIdx?],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   match instr {
     @lib.I32Const(_) => (1009, 1)
     @lib.I64Const(_) => (1013, 1)
@@ -253,7 +203,7 @@ fn msf_analyze_instr(
 fn msf_analyze_instrs(
   instrs : Array[@lib.Instruction],
   call_types : Array[@lib.TypeIdx?],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut key = instrs.length().hash()
   let mut count = 0
   for instr in instrs {
@@ -466,7 +416,7 @@ fn msf_local_access_types_compatible(
   instrs : Array[@lib.Instruction],
   left_locals : @lib.Locals,
   right_locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -533,8 +483,8 @@ fn msf_local_access_types_compatible(
 
 ///|
 fn msf_functions_equivalent(
-  left_idx : Int,
-  right_idx : Int,
+  left_idx : Int32,
+  right_idx : Int32,
   funcs : Array[@lib.Func],
   summaries : Array[MsfFunctionSummary],
   call_types : Array[@lib.TypeIdx?],
@@ -692,7 +642,7 @@ fn msf_param_vector_hash(
   value_type : @lib.ValType,
   call_type : @lib.TypeIdx?,
   values : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   (value_type.hash() * 31 + call_type.hash()) * 31 + values.hash()
 }
 
@@ -701,7 +651,7 @@ fn msf_derive_params(
   funcs : Array[@lib.Func],
   class_ : MsfClass,
   call_types : Array[@lib.TypeIdx?],
-) -> (Array[MsfParam], Int)? {
+) -> (Array[MsfParam], Int32)? {
   if class_.members.is_empty() {
     return None
   }
@@ -728,7 +678,7 @@ fn msf_derive_params(
     member_values.push(values)
   }
   let params : Array[MsfParam] = []
-  let param_indices_by_hash : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
+  let param_indices_by_hash : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new(
     capacity=site_count / 4 + 1,
   )
   let mut site_idx = site_count - 1
@@ -792,10 +742,10 @@ fn msf_derive_params(
 
 ///|
 fn msf_has_merge_benefit_for_count(
-  expression_size : Int,
-  original_param_count : Int,
-  member_count : Int,
-  param_count : Int,
+  expression_size : Int32,
+  original_param_count : Int32,
+  member_count : Int32,
+  param_count : Int32,
 ) -> Bool {
   if original_param_count + param_count > 255 {
     return false
@@ -808,7 +758,10 @@ fn msf_has_merge_benefit_for_count(
 }
 
 ///|
-fn msf_site_param_map(params : Array[MsfParam], site_count : Int) -> Array[Int] {
+fn msf_site_param_map(
+  params : Array[MsfParam],
+  site_count : Int32,
+) -> Array[Int32] {
   let site_to_param = Array::make(site_count, -1)
   for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
     for site_idx in params[param_idx].uses {
@@ -821,8 +774,8 @@ fn msf_site_param_map(params : Array[MsfParam], site_count : Int) -> Array[Int] 
 ///|
 fn msf_shift_local_idx(
   local_idx : @lib.LocalIdx,
-  original_param_count : Int,
-  extra_param_count : Int,
+  original_param_count : Int32,
+  extra_param_count : Int32,
 ) -> @lib.LocalIdx {
   let @lib.LocalIdx(raw) = local_idx
   let idx = raw.reinterpret_as_int()
@@ -837,9 +790,9 @@ fn msf_shift_local_idx(
 fn msf_rewrite_shared_legacy_catches(
   catches : Array[@lib.LegacyCatch],
   params : Array[MsfParam],
-  site_to_param : Array[Int],
-  site_cursor : Array[Int],
-  original_param_count : Int,
+  site_to_param : Array[Int32],
+  site_cursor : Array[Int32],
+  original_param_count : Int32,
 ) -> Array[@lib.LegacyCatch] {
   let out : Array[@lib.LegacyCatch] = []
   for catch_ in catches {
@@ -874,9 +827,9 @@ fn msf_rewrite_shared_legacy_catches(
 fn msf_rewrite_shared_instrs(
   instrs : Array[@lib.Instruction],
   params : Array[MsfParam],
-  site_to_param : Array[Int],
-  site_cursor : Array[Int],
-  original_param_count : Int,
+  site_to_param : Array[Int32],
+  site_cursor : Array[Int32],
+  original_param_count : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -1018,9 +971,9 @@ fn msf_rewrite_shared_instrs(
 
 ///|
 fn msf_make_thunk(
-  original_param_count : Int,
+  original_param_count : Int32,
   params : Array[MsfParam],
-  member_ordinal : Int,
+  member_ordinal : Int32,
   helper_idx : @lib.FuncIdx,
   use_tail_call : Bool,
 ) -> @lib.Func {
@@ -1193,13 +1146,13 @@ fn msf_collect_classes(
   summaries : Array[MsfFunctionSummary],
   call_types : Array[@lib.TypeIdx?],
 ) -> Array[MsfClass] {
-  let first_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+  let first_by_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
     capacity=funcs.length(),
   )
-  let collision_group_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+  let collision_group_by_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
     capacity=funcs.length() / 8 + 1,
   )
-  let hash_groups : Array[Array[Int]] = []
+  let hash_groups : Array[Array[Int32]] = []
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let key = summaries[idx].shape_hash
     match first_by_hash.get(key) {

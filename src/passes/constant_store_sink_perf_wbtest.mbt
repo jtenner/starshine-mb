@@ -1,7 +1,7 @@
 ///|
 fn sl_constant_sink_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   blocked : Bool,
   reference : Bool,
 ) -> Unit raise {

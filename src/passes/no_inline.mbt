@@ -60,7 +60,7 @@ fn no_inline_pass_pattern_has_base(flag : String, name : String) -> Bool {
 }
 
 ///|
-fn no_inline_imported_func_count(mod_ : @lib.Module) -> Int {
+fn no_inline_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -76,7 +76,7 @@ fn no_inline_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn no_inline_defined_func_count(mod_ : @lib.Module) -> Int {
+fn no_inline_defined_func_count(mod_ : @lib.Module) -> Int32 {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
     None => 0
@@ -90,7 +90,7 @@ fn no_inline_name_to_string(name : @lib.Name) -> String {
 }
 
 ///|
-fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
+fn no_inline_func_names(mod_ : @lib.Module, total : Int32) -> Array[String?] {
   let names : Array[String?] = Array::make(total, None)
   match mod_.name_sec {
     Some(name_sec) =>
@@ -112,15 +112,15 @@ fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
 
 ///|
 priv struct NoInlineWildcardProgram {
-  pattern_length : Int
-  word_count : Int
+  pattern_length : Int32
+  word_count : Int32
   literal_masks : Array[UInt64]
   question_masks : Array[UInt64]
   star_masks : Array[UInt64]
 }
 
 ///|
-fn no_inline_wildcard_set_bit(words : Array[UInt64], index : Int) -> Unit {
+fn no_inline_wildcard_set_bit(words : Array[UInt64], index : Int32) -> Unit {
   let word_idx = index / 64
   words[word_idx] = words[word_idx] | (1UL << (index % 64))
 }
@@ -173,7 +173,7 @@ fn no_inline_wildcard_compile(pattern : String) -> NoInlineWildcardProgram {
 fn no_inline_wildcard_match_compiled(
   program : NoInlineWildcardProgram,
   text : String,
-  visits : Array[Int],
+  visits : Array[Int32],
   first : Array[UInt64],
   second : Array[UInt64],
 ) -> Bool {
@@ -228,7 +228,7 @@ fn no_inline_wildcard_match_compiled(
 fn no_inline_wildcard_match_with_visits(
   pattern : String,
   text : String,
-  visits : Array[Int],
+  visits : Array[Int32],
 ) -> Bool {
   let program = no_inline_wildcard_compile(pattern)
   no_inline_wildcard_match_compiled(
@@ -261,7 +261,7 @@ fn no_inline_annotation_present(
 ///|
 fn no_inline_existing_policy_map(
   mod_ : @lib.Module,
-  total : Int,
+  total : Int32,
 ) -> Array[Array[@lib.FuncAnnotation]] {
   let by_func : Array[Array[@lib.FuncAnnotation]] = []
   let mut idx = 0
@@ -382,8 +382,8 @@ fn no_inline_policy_annotation_name(annotation : @lib.FuncAnnotation) -> Bool {
 ///|
 pub fn no_inline_copy_policy_annotations(
   mod_ : @lib.Module,
-  source_idx : UInt,
-  target_idx : UInt,
+  source_idx : UInt32,
+  target_idx : UInt32,
 ) -> @lib.Module {
   let total = no_inline_imported_func_count(mod_) +
     no_inline_defined_func_count(mod_)

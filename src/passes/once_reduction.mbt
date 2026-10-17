@@ -4,7 +4,7 @@ pub fn once_reduction_summary() -> String {
 }
 
 ///|
-fn or_imported_func_count(mod_ : @lib.Module) -> Int {
+fn or_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -20,7 +20,7 @@ fn or_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn or_imported_global_count(mod_ : @lib.Module) -> Int {
+fn or_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -41,7 +41,7 @@ fn or_bool_array_copy(values : @bitset.BitSet) -> @bitset.BitSet {
 }
 
 ///|
-fn or_min_int(left : Int, right : Int) -> Int {
+fn or_min_int(left : Int32, right : Int32) -> Int32 {
   if left < right {
     left
   } else {
@@ -110,7 +110,7 @@ fn or_merge_must_states(
 ///|
 fn or_record_must_state(
   states : Array[@bitset.BitSet?],
-  slot : Int,
+  slot : Int32,
   current : @bitset.BitSet,
 ) -> Unit {
   if slot < 0 || slot >= states.length() {
@@ -123,7 +123,7 @@ fn or_record_must_state(
 }
 
 ///|
-fn or_label_depth(label : @lib.LabelIdx) -> Int {
+fn or_label_depth(label : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = label
   raw.reinterpret_as_int()
 }
@@ -139,7 +139,7 @@ fn or_record_branch_state(
 }
 
 ///|
-fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int) -> Bool {
+fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int32) -> Bool {
   if slot < 0 || slot >= values.length() || !values[slot] {
     return false
   }
@@ -153,7 +153,7 @@ fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int) -> Bool {
 
 ///|
 fn or_initial_func_summary_singletons(
-  once_func_slots : Array[Int],
+  once_func_slots : Array[Int32],
 ) -> @bitset.BitSet {
   let singletons = @bitset.BitSet::new(once_func_slots.length())
   for func_idx = 0; func_idx < once_func_slots.length(); func_idx = func_idx + 1 {
@@ -164,8 +164,8 @@ fn or_initial_func_summary_singletons(
 
 ///|
 fn or_initial_func_set(
-  total_once_globals : Int,
-  once_global_slot : Int,
+  total_once_globals : Int32,
+  once_global_slot : Int32,
 ) -> @bitset.BitSet {
   let globals = @bitset.BitSet::new(total_once_globals)
   if once_global_slot >= 0 && once_global_slot < total_once_globals {
@@ -175,7 +175,7 @@ fn or_initial_func_set(
 }
 
 ///|
-fn or_slot_for_abs_idx(slots : Array[Int], abs_idx : UInt) -> Int {
+fn or_slot_for_abs_idx(slots : Array[Int32], abs_idx : UInt32) -> Int32 {
   let slot = abs_idx.reinterpret_as_int()
   if slot < 0 || slot >= slots.length() {
     -1
@@ -196,7 +196,7 @@ fn or_global_type_is_integer(global_type : @lib.GlobalType) -> Bool {
 ///|
 fn or_prev_positive_integer_const(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -211,7 +211,7 @@ fn or_prev_positive_integer_const(
 ///|
 fn or_func_has_no_params_or_results(
   env : @validate.Env,
-  abs_func_idx : Int,
+  abs_func_idx : Int32,
 ) -> Bool {
   match
     env.get_functype_by_funcidx(
@@ -224,7 +224,7 @@ fn or_func_has_no_params_or_results(
 }
 
 ///|
-fn or_instrs_once_global(instrs : Array[@lib.Instruction]) -> Int {
+fn or_instrs_once_global(instrs : Array[@lib.Instruction]) -> Int32 {
   if instrs.length() < 4 {
     return -1
   }
@@ -248,9 +248,9 @@ fn or_instrs_once_global(instrs : Array[@lib.Instruction]) -> Int {
 ///|
 fn or_find_once_global(
   env : @validate.Env,
-  abs_func_idx : Int,
+  abs_func_idx : Int32,
   func : @lib.Func,
-) -> Int {
+) -> Int32 {
   if !or_func_has_no_params_or_results(env, abs_func_idx) {
     return -1
   }
@@ -281,7 +281,7 @@ fn or_is_empty_once_wrapper(func : @lib.Func) -> Bool {
 ///|
 fn or_idempotent_func_flags(
   mod_ : @lib.Module,
-  total_funcs : Int,
+  total_funcs : Int32,
 ) -> @bitset.BitSet {
   let flags = @bitset.BitSet::new(total_funcs)
   match mod_.func_annotation_sec {
@@ -305,9 +305,9 @@ fn or_idempotent_func_flags(
 ///|
 fn or_scan_instrs(
   instrs : Array[@lib.Instruction],
-  read_counts : Array[Int],
-  write_counts : Array[Int],
-  once_global_slots : Array[Int],
+  read_counts : Array[Int32],
+  write_counts : Array[Int32],
+  once_global_slots : Array[Int32],
 ) -> Bool {
   let mut needs_dataflow = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -391,8 +391,8 @@ fn or_scan_instrs(
 
 ///|
 priv struct OrFlowEnv {
-  once_global_slots : Array[Int]
-  once_func_slots : Array[Int]
+  once_global_slots : Array[Int32]
+  once_func_slots : Array[Int32]
   func_once_sets : Array[@bitset.BitSet]
   func_once_set_singletons : @bitset.BitSet
   allow_transitive_call_summaries : Bool
@@ -401,12 +401,12 @@ priv struct OrFlowEnv {
 
 ///|
 fn OrFlowEnv::new(
-  once_global_slots : Array[Int],
-  once_func_slots : Array[Int],
+  once_global_slots : Array[Int32],
+  once_func_slots : Array[Int32],
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
-  func_may_throw? : Array[Bool] = [],
+  func_may_throw~ : Array[Bool] = [],
 ) -> OrFlowEnv {
   {
     once_global_slots,
@@ -421,7 +421,7 @@ fn OrFlowEnv::new(
 ///|
 fn or_apply_direct_call_facts(
   current : @bitset.BitSet,
-  func_slot : Int,
+  func_slot : Int32,
   env : OrFlowEnv,
 ) -> Bool {
   let mut already_once = false
@@ -608,12 +608,12 @@ fn or_analyze_instrs_flow(
 fn or_analyze_instrs(
   instrs : Array[@lib.Instruction],
   incoming : @bitset.BitSet,
-  once_global_slots : Array[Int],
-  once_func_slots : Array[Int],
+  once_global_slots : Array[Int32],
+  once_func_slots : Array[Int32],
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
-  func_may_throw? : Array[Bool] = [],
+  func_may_throw~ : Array[Bool] = [],
 ) -> @bitset.BitSet {
   let env = OrFlowEnv::new(
     once_global_slots,
@@ -834,12 +834,12 @@ fn or_rewrite_instrs_flow(
 fn or_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   incoming : @bitset.BitSet,
-  once_global_slots : Array[Int],
-  once_func_slots : Array[Int],
+  once_global_slots : Array[Int32],
+  once_func_slots : Array[Int32],
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
-  func_may_throw? : Array[Bool] = [],
+  func_may_throw~ : Array[Bool] = [],
 ) -> @bitset.BitSet {
   let env = OrFlowEnv::new(
     once_global_slots,
@@ -1046,13 +1046,13 @@ fn or_cleanup_unreachable_debris(
 ///|
 fn or_optimize_once_bodies(
   funcs : Array[@lib.Func],
-  imported_func_count : Int,
-  once_func_globals : Array[Int],
-  once_func_slots : Array[Int],
+  imported_func_count : Int32,
+  once_func_globals : Array[Int32],
+  once_func_slots : Array[Int32],
   forwardable_guards : Array[Bool],
 ) -> Bool {
   let removed_exit_logic = @bitset.BitSet::new(once_func_globals.length())
-  let guard_users : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  let guard_users : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
   for guard_id in once_func_globals {
     if guard_id >= 0 {
       guard_users.set(guard_id, guard_users.get(guard_id).unwrap_or(0) + 1)
@@ -1282,7 +1282,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let func_once_set_singletons = or_initial_func_summary_singletons(
     once_func_slots,
   )
-  let callers : Array[Array[Int]] = []
+  let callers : Array[Array[Int32]] = []
   for _ in 0..<total_funcs {
     callers.push([])
   }
@@ -1292,7 +1292,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
     or_collect_throw_callers(instrs, imported_func_count + defined_idx, callers)
   }
-  let summary_queue : Array[Int] = []
+  let summary_queue : Array[Int32] = []
   let summary_queued = @bitset.BitSet::new(funcs.length())
   for defined_idx = 0
       defined_idx < funcs.length()
@@ -1469,8 +1469,8 @@ fn or_instrs_may_throw(
 ///|
 fn or_collect_throw_callers(
   instrs : Array[@lib.Instruction],
-  caller : Int,
-  callers : Array[Array[Int]],
+  caller : Int32,
+  callers : Array[Array[Int32]],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -1508,8 +1508,8 @@ fn or_collect_throw_callers(
 ///|
 fn or_collect_throwing_funcs(
   funcs : Array[@lib.Func],
-  imports : Int,
-  total : Int,
+  imports : Int32,
+  total : Int32,
 ) -> Array[Bool] {
   let throwing = Array::make(total, false)
   for i = 0; i < imports; i = i + 1 {
@@ -1527,13 +1527,13 @@ fn or_collect_throwing_funcs(
   if !found_new {
     return throwing
   }
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   for i = 0; i < total; i = i + 1 {
     if throwing[i] {
       queue.push(i)
     }
   }
-  let callers : Array[Array[Int]] = []
+  let callers : Array[Array[Int32]] = []
   for _ in 0..<total {
     callers.push([])
   }

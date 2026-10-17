@@ -1,7 +1,7 @@
 ///|
 fn sl_first_use_minimum_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   hazard : Bool,
   reference : Bool,
 ) -> Unit {

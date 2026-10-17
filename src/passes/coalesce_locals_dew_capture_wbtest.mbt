@@ -14,14 +14,14 @@ test "coalesce-locals CFG includes locals added for conditional array operands" 
 ///|
 fn cl_dew_execute_reduced_i32(
   func : @lib.Func,
-  params : Array[Int],
-) -> Int raise {
+  params : Array[Int32],
+) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = params.copy()
   for _ in 0..<body_locals.length() {
     locals.push(0)
   }
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   fn execute(instrs : Array[@lib.Instruction]) -> Bool raise {
     for instr in instrs {
       match instr {

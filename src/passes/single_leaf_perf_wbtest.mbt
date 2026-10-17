@@ -1,8 +1,8 @@
 ///|
 fn sl_leaf_bench(
   it : @bench.T,
-  locals_count : Int,
-  shape : Int,
+  locals_count : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let env = @validate.Env::new().with_locals(

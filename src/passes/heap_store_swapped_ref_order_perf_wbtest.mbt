@@ -1,16 +1,16 @@
 ///|
-fn hso_swapped_ref_order_perf_bench(it : @bench.T, root_count : Int) -> Unit {
+fn hso_swapped_ref_order_perf_bench(it : @bench.T, root_count : Int32) -> Unit {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
   )
-  let swapped_roots : Array[Int] = []
+  let swapped_roots : Array[Int32] = []
   for _ in 0..<root_count {
     swapped_roots.push(
       @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0)),
     )
   }
   let ref_id = @ir.hot_build_local_get(func, 0)
-  let node_masks : Array[UInt] = []
+  let node_masks : Array[UInt32] = []
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     node_masks.push(@ir.effects_for_node(func, node))
   }
@@ -36,7 +36,7 @@ test "HeapStore swapped ref order still rejects a later same-local root" {
   )
   let ref_id = @ir.hot_build_local_get(func, 0)
   let root_id = @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0))
-  let node_masks : Array[UInt] = []
+  let node_masks : Array[UInt32] = []
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     node_masks.push(@ir.effects_for_node(func, node))
   }

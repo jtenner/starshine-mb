@@ -1,6 +1,6 @@
 ///|
 fn precompute_tail_admission_fixture(
-  width : Int,
+  width : Int32,
   shape : String,
 ) -> @lib.Module {
   let seed = pass_test_module_from_wat(
@@ -28,7 +28,10 @@ fn precompute_tail_admission_fixture(
 }
 
 ///|
-fn precompute_root_snapshot_fixture(width : Int, active : Bool) -> @lib.Module {
+fn precompute_root_snapshot_fixture(
+  width : Int32,
+  active : Bool,
+) -> @lib.Module {
   let seed = pass_test_module_from_wat(
     "(module (global (mut i32) (i32.const 7)) (func (param i32) (result i32) (local i32) local.get 0))",
   )
@@ -59,7 +62,7 @@ fn precompute_root_snapshot_fixture(width : Int, active : Bool) -> @lib.Module {
 ///|
 fn precompute_tail_admission_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   shape : String,
   reference : Bool,
 ) -> Unit {
@@ -99,7 +102,7 @@ fn precompute_tail_admission_bench(
 ///|
 fn precompute_root_snapshot_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit {
@@ -278,7 +281,7 @@ test "bench root snapshot prefix width=4096 active streamed" (it : @bench.T) {
 ///|
 fn precompute_nop_tail_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let instrs = Array::make(width, @lib.Instruction::nop())

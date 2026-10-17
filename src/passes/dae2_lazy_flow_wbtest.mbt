@@ -120,17 +120,11 @@ test "dae2 intentionally unrepresented reads retain entry and write dependencies
     fallback_write_builds=Some(writes),
   )
   for read in [get, other] {
-    assert_true(
-      dae2_test_dependencies(graph, dae2_node_location(info, read)).contains(
-        param,
-      ),
-    )
-    assert_true(
-      dae2_test_dependencies(graph, dae2_node_location(info, read)).contains(
-        dae2_node_location(info, write),
-      ),
-    )
+    graph.observe(dae2_node_location(info, read))
   }
+  graph.solve()
+  assert_true(graph.used[param])
+  assert_true(graph.used[dae2_node_location(info, write)])
   assert_eq(graphs[0], 1)
   assert_eq(writes[0], 1)
 }

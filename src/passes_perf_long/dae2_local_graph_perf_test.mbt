@@ -1,10 +1,10 @@
 ///|
-fn perf_long_dae2_local_graph_bench(it : @bench.T, count : Int) -> Unit {
+fn perf_long_dae2_local_graph_bench(it : @bench.T, count : Int32) -> Unit {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=Array::make(count, @lib.ValType::i32())),
   )
-  let writes : Array[Int] = []
-  let reads : Array[Int] = []
+  let writes : Array[Int32] = []
+  let reads : Array[Int32] = []
   for local_id = 0; local_id < count; local_id = local_id + 1 {
     let write = @ir.hot_build_local_set(
       func,

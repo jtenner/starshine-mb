@@ -105,10 +105,10 @@ test "root constant propagation retains precise float representations" {
   for
     literal in [
       @lib.Instruction::f32_const(
-        @lib.F32((0x7fc12345 : Int).reinterpret_as_float()),
+        @lib.F32((0x7fc12345 : Int32).reinterpret_as_float()),
       ),
       @lib.Instruction::f32_const(
-        @lib.F32((-2147483648 : Int).reinterpret_as_float()),
+        @lib.F32((-2147483648 : Int32).reinterpret_as_float()),
       ),
       @lib.Instruction::f64_const(
         @lib.F64((0x7ff8123456789abcL : Int64).reinterpret_as_double()),

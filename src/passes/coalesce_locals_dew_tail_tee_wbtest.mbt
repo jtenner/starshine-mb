@@ -1,9 +1,9 @@
 ///|
-fn cl_dew_tail_tee_execute(func : @lib.Func, index : Int) -> Int raise {
+fn cl_dew_tail_tee_execute(func : @lib.Func, index : Int32) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(body_locals.length() + 1, 0)
   locals[0] = index
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut fuel = 200
   fn execute(instrs : Array[@lib.Instruction]) -> Bool raise {
     for instr in instrs {

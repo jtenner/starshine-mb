@@ -46,8 +46,8 @@ fn dae_reverse_graph_round(
 ///|
 fn dae_reverse_graph_bench(
   it : @bench.T,
-  types : Int,
-  helpers : Int,
+  types : Int32,
+  helpers : Int32,
   active : Bool,
   shared : Bool,
 ) -> Unit {

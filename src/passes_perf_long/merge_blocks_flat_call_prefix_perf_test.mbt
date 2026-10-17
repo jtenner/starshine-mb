@@ -1,5 +1,5 @@
 ///|
-fn mb_flat_call_prefix_fixture(groups : Int) -> @lib.Module {
+fn mb_flat_call_prefix_fixture(groups : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for idx in 0..<groups {
     body.push(@lib.Instruction::i32_const(@lib.I32(idx)))
@@ -39,7 +39,7 @@ fn mb_flat_call_prefix_fixture(groups : Int) -> @lib.Module {
 }
 
 ///|
-fn mb_flat_call_prefix_bench(it : @bench.T, groups : Int) -> Unit {
+fn mb_flat_call_prefix_bench(it : @bench.T, groups : Int32) -> Unit {
   let fixture = mb_flat_call_prefix_fixture(groups)
   let options = @passes.HotPipelineOptions::new(validate_final_module=false)
   let output = match
@@ -69,7 +69,7 @@ test "bench merge-blocks flat call prefixes groups=256" (it : @bench.T) {
 }
 
 ///|
-fn mb_flat_call_many_functions_fixture(functions : Int) -> @lib.Module {
+fn mb_flat_call_many_functions_fixture(functions : Int32) -> @lib.Module {
   let base = mb_flat_call_prefix_fixture(1)
   let callee = match base.code_sec {
     Some(@lib.CodeSec([callee, _])) => callee
@@ -91,7 +91,7 @@ fn mb_flat_call_many_functions_fixture(functions : Int) -> @lib.Module {
 }
 
 ///|
-fn mb_flat_call_many_functions_bench(it : @bench.T, functions : Int) -> Unit {
+fn mb_flat_call_many_functions_bench(it : @bench.T, functions : Int32) -> Unit {
   let fixture = mb_flat_call_many_functions_fixture(functions)
   let options = @passes.HotPipelineOptions::new(validate_final_module=false)
   let output = match

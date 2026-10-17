@@ -14,13 +14,13 @@ priv enum CLActionKind {
 priv enum CLValueSource {
   Unique
   Const(String)
-  Local(Int)
+  Local(Int32)
 }
 
 ///|
 priv struct CLAction {
   kind : CLActionKind
-  local_idx : Int
+  local_idx : Int32
   source : CLValueSource
 }
 
@@ -32,13 +32,13 @@ priv struct CLLiveness {
 
 ///|
 priv struct CLBitMatrix {
-  size : Int
+  size : Int32
   bits : @bitset.BitSet
-  row_offsets : Array[Int]
+  row_offsets : Array[Int32]
 }
 
 ///|
-fn CLBitMatrix::new(size : Int) -> CLBitMatrix {
+fn CLBitMatrix::new(size : Int32) -> CLBitMatrix {
   let row_offsets = Array::make(size, 0)
   let mut bit_count = 0
   for row = 0; row < size; row = row + 1 {
@@ -49,12 +49,16 @@ fn CLBitMatrix::new(size : Int) -> CLBitMatrix {
 }
 
 ///|
-fn CLBitMatrix::length(self : CLBitMatrix) -> Int {
+fn CLBitMatrix::length(self : CLBitMatrix) -> Int32 {
   self.size
 }
 
 ///|
-fn cl_bit_matrix_index(matrix : CLBitMatrix, row : Int, column : Int) -> Int {
+fn cl_bit_matrix_index(
+  matrix : CLBitMatrix,
+  row : Int32,
+  column : Int32,
+) -> Int32 {
   if row == column {
     return -1
   }
@@ -63,7 +67,7 @@ fn cl_bit_matrix_index(matrix : CLBitMatrix, row : Int, column : Int) -> Int {
 }
 
 ///|
-fn cl_bit_matrix_get(matrix : CLBitMatrix, row : Int, column : Int) -> Bool {
+fn cl_bit_matrix_get(matrix : CLBitMatrix, row : Int32, column : Int32) -> Bool {
   let index = cl_bit_matrix_index(matrix, row, column)
   index >= 0 && matrix.bits[index]
 }
@@ -71,8 +75,8 @@ fn cl_bit_matrix_get(matrix : CLBitMatrix, row : Int, column : Int) -> Bool {
 ///|
 fn cl_bit_matrix_set(
   matrix : CLBitMatrix,
-  row : Int,
-  column : Int,
+  row : Int32,
+  column : Int32,
   value : Bool,
 ) -> Unit {
   let index = cl_bit_matrix_index(matrix, row, column)
@@ -84,8 +88,8 @@ fn cl_bit_matrix_set(
 ///|
 fn cl_bit_matrix_set_symmetric(
   matrix : CLBitMatrix,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
   value : Bool,
 ) -> Unit {
   cl_bit_matrix_set(matrix, lhs, rhs, value)
@@ -93,12 +97,12 @@ fn cl_bit_matrix_set_symmetric(
 
 ///|
 priv struct CLCopyWeights {
-  rows : Array[Array[(Int, Int)]]
+  rows : Array[Array[(Int32, Int32)]]
 }
 
 ///|
-fn CLCopyWeights::new(size : Int) -> CLCopyWeights {
-  let rows : Array[Array[(Int, Int)]] = Array::new(capacity=size)
+fn CLCopyWeights::new(size : Int32) -> CLCopyWeights {
+  let rows : Array[Array[(Int32, Int32)]] = Array::new(capacity=size)
   for _ in 0..<size {
     rows.push([])
   }
@@ -106,16 +110,16 @@ fn CLCopyWeights::new(size : Int) -> CLCopyWeights {
 }
 
 ///|
-fn CLCopyWeights::length(self : CLCopyWeights) -> Int {
+fn CLCopyWeights::length(self : CLCopyWeights) -> Int32 {
   self.rows.length()
 }
 
 ///|
 fn cl_copy_weight_add_one(
   weights : CLCopyWeights,
-  lhs : Int,
-  rhs : Int,
-  amount : Int,
+  lhs : Int32,
+  rhs : Int32,
+  amount : Int32,
 ) -> Unit {
   let row = weights.rows[lhs]
   for edge_idx = 0; edge_idx < row.length(); edge_idx = edge_idx + 1 {
@@ -131,9 +135,9 @@ fn cl_copy_weight_add_one(
 ///|
 fn cl_copy_weight_add(
   weights : CLCopyWeights,
-  lhs : Int,
-  rhs : Int,
-  amount : Int,
+  lhs : Int32,
+  rhs : Int32,
+  amount : Int32,
 ) -> Unit {
   if lhs == rhs || amount == 0 {
     return
@@ -143,7 +147,11 @@ fn cl_copy_weight_add(
 }
 
 ///|
-fn cl_copy_weight_get(weights : CLCopyWeights, lhs : Int, rhs : Int) -> Int {
+fn cl_copy_weight_get(
+  weights : CLCopyWeights,
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32 {
   for edge in weights.rows[lhs] {
     let (other, weight) = edge
     if other == rhs {
@@ -154,7 +162,7 @@ fn cl_copy_weight_get(weights : CLCopyWeights, lhs : Int, rhs : Int) -> Int {
 }
 
 ///|
-fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
+fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int32) -> Int32 {
   let mut degree = 0
   for edge in weights.rows[local_idx] {
     let (_, weight) = edge
@@ -165,9 +173,9 @@ fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
 
 ///|
 priv struct CLValueInterner {
-  ids : @hashmap.HashMap[String, Int]
-  mut next_value : Int
-  mut numeric_defaults : Array[Int]?
+  ids : @hashmap.HashMap[String, Int32]
+  mut next_value : Int32
+  mut numeric_defaults : Array[Int32]?
 }
 
 ///|
@@ -176,14 +184,14 @@ fn CLValueInterner::new() -> CLValueInterner {
 }
 
 ///|
-fn CLValueInterner::fresh(self : CLValueInterner) -> Int {
+fn CLValueInterner::fresh(self : CLValueInterner) -> Int32 {
   let value = self.next_value
   self.next_value += 1
   value
 }
 
 ///|
-fn CLValueInterner::intern(self : CLValueInterner, key : String) -> Int {
+fn CLValueInterner::intern(self : CLValueInterner, key : String) -> Int32 {
   match self.ids.get(key) {
     Some(value) => value
     None => {
@@ -196,9 +204,9 @@ fn CLValueInterner::intern(self : CLValueInterner, key : String) -> Int {
 
 ///|
 priv struct CLColoring {
-  old_to_new : Array[Int]
+  old_to_new : Array[Int32]
   slot_types : Array[@lib.ValType]
-  removed_copies : Int
+  removed_copies : Int32
 }
 
 ///|
@@ -208,7 +216,7 @@ priv struct CLFuncRewrite {
 }
 
 ///|
-fn cl_imported_func_count(mod_ : @lib.Module) -> Int {
+fn cl_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -224,18 +232,18 @@ fn cl_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn cl_local_idx_raw(idx : @lib.LocalIdx) -> Int {
+fn cl_local_idx_raw(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn cl_local_idx_from_int(idx : Int) -> @lib.LocalIdx {
+fn cl_local_idx_from_int(idx : Int32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(idx.reinterpret_as_uint())
 }
 
 ///|
-fn cl_label_idx_raw(idx : @lib.LabelIdx) -> Int {
+fn cl_label_idx_raw(idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -243,7 +251,7 @@ fn cl_label_idx_raw(idx : @lib.LabelIdx) -> Int {
 ///|
 fn cl_flatten_locals(
   locals : @lib.Locals,
-  local_count : Int,
+  local_count : Int32,
 ) -> Array[@lib.ValType] {
   let out : Array[@lib.ValType] = Array::new(capacity=local_count)
   for run in locals.runs() {
@@ -290,7 +298,7 @@ fn cl_simple_const_source(instr : @lib.Instruction) -> CLValueSource? {
 ///|
 fn cl_value_source_before(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> CLValueSource {
   if idx <= 0 {
     return CLValueSource::Unique
@@ -401,8 +409,8 @@ fn cl_control_note_target(label : @lib.LabelIdx, frames : Array[Bool]) -> Unit {
 fn cl_control_body_boundary(
   body : Array[@lib.Instruction],
   frames : Array[Bool],
-  instruction_visits : Array[Int]?,
-  control_index? : CLControlIndex? = None,
+  instruction_visits : Array[Int32]?,
+  control_index~ : CLControlIndex? = None,
 ) -> Int64 {
   let mut previous = cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
   let mut last = previous
@@ -429,7 +437,7 @@ fn cl_control_body_boundary(
 ///|
 priv struct CLControlIndex {
   facts : Array[Int64]
-  ends : Array[Int]
+  ends : Array[Int32]
 }
 
 ///|
@@ -441,8 +449,8 @@ fn CLControlIndex::new() -> CLControlIndex {
 fn cl_control_instruction(
   instr : @lib.Instruction,
   frames : Array[Bool],
-  instruction_visits : Array[Int]?,
-  control_index? : CLControlIndex? = None,
+  instruction_visits : Array[Int32]?,
+  control_index~ : CLControlIndex? = None,
 ) -> Int64 {
   match control_index {
     None => cl_control_instruction_impl(instr, frames, instruction_visits, None)
@@ -464,7 +472,7 @@ fn cl_control_instruction(
 fn cl_control_instruction_impl(
   instr : @lib.Instruction,
   frames : Array[Bool],
-  instruction_visits : Array[Int]?,
+  instruction_visits : Array[Int32]?,
   control_index : CLControlIndex?,
 ) -> Int64 {
   if instruction_visits is Some(visits) {
@@ -611,9 +619,9 @@ fn cl_control_instruction_impl(
 ///|
 fn cl_control_index_budget(
   body : Array[@lib.Instruction],
-  budget : Int,
-  visits : Array[Int]?,
-) -> Int {
+  budget : Int32,
+  visits : Array[Int32]?,
+) -> Int32 {
   let mut remaining = budget
   for instr in body {
     if visits is Some(count) {
@@ -661,7 +669,7 @@ fn cl_control_index_budget(
 ///|
 fn cl_control_index_for_body(
   body : Array[@lib.Instruction],
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> CLControlIndex? {
   if !body.any(fn(instr) {
       if visits is Some(count) {
@@ -686,7 +694,7 @@ fn cl_control_index_for_body(
 ///|
 fn cl_instr_escapes_past_depth(
   instr : @lib.Instruction,
-  boundary_depth : Int,
+  boundary_depth : Int32,
 ) -> Bool {
   cl_control_boundary(cl_control_instruction(instr, [], None)) >
   boundary_depth.to_int64()
@@ -695,7 +703,7 @@ fn cl_instr_escapes_past_depth(
 ///|
 fn cl_instrs_end_in_escape_past_depth(
   instrs : Array[@lib.Instruction],
-  boundary_depth : Int,
+  boundary_depth : Int32,
 ) -> Bool {
   if instrs.is_empty() {
     return false
@@ -716,7 +724,7 @@ fn cl_instrs_end_in_escape_past_depth(
 ///|
 fn cl_instr_never_falls_through(
   instr : @lib.Instruction,
-  instruction_visits? : Array[Int]? = None,
+  instruction_visits~ : Array[Int32]? = None,
 ) -> Bool {
   // Keep ordinary leaves allocation-free; the frame stack belongs only to a
   // structured query, never to the mutable raw instruction tree.
@@ -744,8 +752,8 @@ fn cl_instr_makes_rest_unreachable(instr : @lib.Instruction) -> Bool {
 ///|
 fn cl_reachable_prefix_len(
   instrs : Array[@lib.Instruction],
-  instruction_visits? : Array[Int]? = None,
-) -> Int {
+  instruction_visits~ : Array[Int32]? = None,
+) -> Int32 {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     if cl_instr_never_falls_through(instrs[idx], instruction_visits~) {
       return idx + 1
@@ -755,7 +763,7 @@ fn cl_reachable_prefix_len(
 }
 
 ///|
-fn cl_dense_coloring_local_limit() -> Int {
+fn cl_dense_coloring_local_limit() -> Int32 {
   // Dense interference and copy-weight tables are O(locals^2). Keep the
   // current Binaryen-compatible dense coloring path bounded until coalesce-
   // locals has a sparse interference representation for huge functions.
@@ -772,7 +780,7 @@ fn cl_instrs_have_structured_control(instrs : Array[@lib.Instruction]) -> Bool {
         ignore(body)
         return true
       }
-      @lib.If(_, _, _) => return true
+      @lib.If(_, _, _) | @lib.Try(_, _, _, _) => return true
       @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return =>
         return true
       _ => ()
@@ -855,9 +863,9 @@ fn cl_mark_syntactic_local_accesses(
 ///|
 fn cl_count_syntactic_local_accesses(
   instrs : Array[@lib.Instruction],
-  gets : Array[Int],
-  sets : Array[Int],
-  tees : Array[Int],
+  gets : Array[Int32],
+  sets : Array[Int32],
+  tees : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -946,12 +954,12 @@ test "coalesce-locals copy-through barriers include every GC branch family" {
 ///|
 fn cl_loop_copy_through_dest_after_set(
   instrs : Array[@lib.Instruction],
-  set_idx : Int,
-  temp : Int,
+  set_idx : Int32,
+  temp : Int32,
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   inside_try_table : Bool,
-) -> Int {
+) -> Int32 {
   if temp < param_count || temp >= types.length() {
     return -1
   }
@@ -998,12 +1006,12 @@ fn cl_loop_copy_through_dest_after_set(
 ///|
 fn cl_mark_loop_adjacent_copy_through_locals(
   instrs : Array[@lib.Instruction],
-  passthrough_dest : Array[Int],
-  gets : Array[Int],
-  sets : Array[Int],
-  tees : Array[Int],
+  passthrough_dest : Array[Int32],
+  gets : Array[Int32],
+  sets : Array[Int32],
+  tees : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   inside_try_table : Bool,
 ) -> Unit {
   for instr in instrs {
@@ -1076,14 +1084,14 @@ fn cl_instr_tree_has_control_transfer(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn cl_label_targets_depth(label_idx : @lib.LabelIdx, depth : Int) -> Bool {
+fn cl_label_targets_depth(label_idx : @lib.LabelIdx, depth : Int32) -> Bool {
   cl_label_idx_raw(label_idx) == depth
 }
 
 ///|
 fn cl_instr_tree_branches_to_depth(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label_idx)
@@ -1155,7 +1163,10 @@ fn cl_instr_tree_branches_to_depth(
 }
 
 ///|
-fn cl_instr_tree_get_count(instr : @lib.Instruction, local_idx : Int) -> Int {
+fn cl_instr_tree_get_count(
+  instr : @lib.Instruction,
+  local_idx : Int32,
+) -> Int32 {
   match instr {
     @lib.LocalGet(idx) => if cl_local_idx_raw(idx) == local_idx { 1 } else { 0 }
     @lib.Block(_, @lib.Expr(body))
@@ -1204,10 +1215,10 @@ fn cl_instr_tree_get_count(instr : @lib.Instruction, local_idx : Int) -> Int {
 ///|
 fn cl_mark_loop_backedge_copy_aliases(
   instrs : Array[@lib.Instruction],
-  passthrough_dest : Array[Int],
-  gets : Array[Int],
+  passthrough_dest : Array[Int32],
+  gets : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -1316,7 +1327,7 @@ fn cl_mark_loop_backedge_copy_aliases(
 ///|
 fn cl_instrs_write_local(
   instrs : Array[@lib.Instruction],
-  target : Int,
+  target : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -1362,9 +1373,14 @@ fn cl_instrs_write_local(
 ///|
 fn cl_instrs_suffix_writes_local(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  target : Int,
+  start : Int32,
+  target : Int32,
+  suffix_queries~ : Array[Int32]? = None,
 ) -> Bool {
+  match suffix_queries {
+    Some(queries) => queries[0] += 1
+    None => ()
+  }
   for idx = start; idx < instrs.length(); idx = idx + 1 {
     if cl_instrs_write_local([instrs[idx]], target) {
       return true
@@ -1376,10 +1392,11 @@ fn cl_instrs_suffix_writes_local(
 ///|
 fn cl_mark_loop_prefix_copy_aliases(
   instrs : Array[@lib.Instruction],
-  alias_source : Array[Int],
-  sets : Array[Int],
-  tees : Array[Int],
+  alias_source : Array[Int32],
+  sets : Array[Int32],
+  tees : Array[Int32],
   types : Array[@lib.ValType],
+  suffix_queries~ : Array[Int32]? = None,
 ) -> Unit {
   let seen = Array::make(types.length(), false)
   let mut idx = 0
@@ -1405,9 +1422,20 @@ fn cl_mark_loop_prefix_copy_aliases(
               source != dest &&
               !seen[dest] &&
               types[source] == types[dest] &&
-              !cl_instrs_suffix_writes_local(instrs, idx + 2, source) &&
               sets[dest] == 1 &&
-              tees[dest] == 0 {
+              tees[dest] == 0 &&
+              // Counts cover the whole unchanged body, including handlers.
+              // An immutable source cannot have a later overwrite; retain the
+              // exact suffix query for every source with any set or tee.
+              (
+                (sets[source] == 0 && tees[source] == 0) ||
+                !cl_instrs_suffix_writes_local(
+                  instrs,
+                  idx + 2,
+                  source,
+                  suffix_queries~,
+                )
+              ) {
               alias_source[dest] = source
             }
             if source >= 0 && source < seen.length() {
@@ -1435,9 +1463,9 @@ fn cl_mark_loop_prefix_copy_aliases(
 
 ///|
 fn cl_resolve_loop_alias_source(
-  local_idx : Int,
-  alias_source : Array[Int],
-) -> Int {
+  local_idx : Int32,
+  alias_source : Array[Int32],
+) -> Int32 {
   let mut current = local_idx
   let mut steps = 0
   while current >= 0 &&
@@ -1460,9 +1488,9 @@ fn cl_resolve_loop_alias_source(
 
 ///|
 fn cl_resolve_loop_passthrough_dest(
-  local_idx : Int,
-  passthrough_dest : Array[Int],
-) -> Int {
+  local_idx : Int32,
+  passthrough_dest : Array[Int32],
+) -> Int32 {
   let mut current = local_idx
   let mut steps = 0
   while current >= 0 &&
@@ -1614,7 +1642,7 @@ fn cl_rewrite_loop_func_unused_locals(
     body_slot_types.push(slot_types[slot])
   }
   let rewritten_locals = @lib.Locals::from_types(body_slot_types)
-  let rewritten_instrs = original_instrs.copy()
+  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
   let flattened_control = cl_flatten_terminal_unbranched_void_blocks(
     rewritten_instrs,
@@ -1649,7 +1677,7 @@ fn cl_rewrite_loop_func_unused_locals(
 ///|
 fn cl_rewrite_all_local_idxs_in_place(
   instrs : Array[@lib.Instruction],
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -1724,7 +1752,7 @@ fn cl_rewrite_all_local_idxs_in_place(
 ///|
 fn cl_remove_unread_local_tees(
   instrs : Array[@lib.Instruction],
-  gets : Array[Int],
+  gets : Array[Int32],
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -1831,6 +1859,25 @@ fn cl_deep_copy_instrs(
               None => None
             },
           )
+        @lib.Try(block_type, @lib.Expr(body), catches, delegate) =>
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(cl_deep_copy_instrs(body)),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, @lib.Expr(body)) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    @lib.Expr::new(cl_deep_copy_instrs(body)),
+                  )
+                @lib.LegacyCatchAll(@lib.Expr(body)) =>
+                  @lib.LegacyCatch::all(
+                    @lib.Expr::new(cl_deep_copy_instrs(body)),
+                  )
+              }
+            }),
+            delegate~,
+          )
         @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
           @lib.Instruction::try_table(
             block_type,
@@ -1846,13 +1893,13 @@ fn cl_deep_copy_instrs(
 
 ///|
 priv struct CLControlSummary {
-  branch_depths : Array[Int]
-  max_escape_boundary : Int
+  branch_depths : Array[Int32]
+  max_escape_boundary : Int32
   never_falls_through : Bool
 }
 
 ///|
-fn cl_control_add_branch_depth(depths : Array[Int], depth : Int) -> Unit {
+fn cl_control_add_branch_depth(depths : Array[Int32], depth : Int32) -> Unit {
   if depth >= 0 && !depths.contains(depth) {
     depths.push(depth)
   }
@@ -1860,8 +1907,8 @@ fn cl_control_add_branch_depth(depths : Array[Int], depth : Int) -> Unit {
 
 ///|
 fn cl_control_merge_branch_depths(
-  depths : Array[Int],
-  source : Array[Int],
+  depths : Array[Int32],
+  source : Array[Int32],
   shift_outward : Bool,
 ) -> Unit {
   if source.length() < 8 {
@@ -1903,7 +1950,7 @@ fn cl_control_merge_branch_depths(
 }
 
 ///|
-fn cl_control_shift_escape(max_escape_boundary : Int) -> Int {
+fn cl_control_shift_escape(max_escape_boundary : Int32) -> Int32 {
   if max_escape_boundary == 0x7fffffff {
     return max_escape_boundary
   }
@@ -1916,16 +1963,16 @@ fn cl_control_shift_escape(max_escape_boundary : Int) -> Int {
 ///|
 fn cl_mark_structured_interval_instruction(
   instr : @lib.Instruction,
-  first : Array[Int],
-  last : Array[Int],
+  first : Array[Int32],
+  last : Array[Int32],
   first_is_write : Array[Bool],
   first_write_dominates : Array[Bool],
   dominates_suffix : Bool,
-  cursor : Array[Int],
+  cursor : Array[Int32],
   record_intervals : Bool,
-  visited_instrs : Array[Int],
+  visited_instrs : Array[Int32],
 ) -> CLControlSummary {
-  let branch_depths : Array[Int] = []
+  let branch_depths : Array[Int32] = []
   match instr {
     @lib.LocalGet(local_idx) if record_intervals => {
       let raw = cl_local_idx_raw(local_idx)
@@ -2067,7 +2114,7 @@ fn cl_mark_structured_interval_instruction(
             -1
           } else {
             cl_control_shift_escape(
-              Int::min(
+              Int32::min(
                 then_summary.max_escape_boundary,
                 else_summary.max_escape_boundary,
               ),
@@ -2127,16 +2174,16 @@ fn cl_mark_structured_interval_instruction(
 ///|
 fn cl_mark_structured_local_interval_summary(
   instrs : Array[@lib.Instruction],
-  first : Array[Int],
-  last : Array[Int],
+  first : Array[Int32],
+  last : Array[Int32],
   first_is_write : Array[Bool],
   first_write_dominates : Array[Bool],
   dominates_suffix : Bool,
-  cursor : Array[Int],
+  cursor : Array[Int32],
   record_intervals : Bool,
-  visited_instrs : Array[Int],
+  visited_instrs : Array[Int32],
 ) -> CLControlSummary {
-  let branch_depths : Array[Int] = []
+  let branch_depths : Array[Int32] = []
   let mut current_dominates_suffix = dominates_suffix
   let mut intervals_reachable = record_intervals
   let mut last_summary : CLControlSummary = {
@@ -2191,13 +2238,13 @@ fn cl_mark_structured_local_interval_summary(
 ///|
 fn cl_mark_structured_local_intervals_with_visits(
   instrs : Array[@lib.Instruction],
-  first : Array[Int],
-  last : Array[Int],
+  first : Array[Int32],
+  last : Array[Int32],
   first_is_write : Array[Bool],
   first_write_dominates : Array[Bool],
   dominates_suffix : Bool,
-  cursor : Array[Int],
-) -> Int {
+  cursor : Array[Int32],
+) -> Int32 {
   let visited_instrs = [0]
   ignore(
     cl_mark_structured_local_interval_summary(
@@ -2211,12 +2258,12 @@ fn cl_mark_structured_local_intervals_with_visits(
 ///|
 fn cl_mark_structured_local_intervals(
   instrs : Array[@lib.Instruction],
-  first : Array[Int],
-  last : Array[Int],
+  first : Array[Int32],
+  last : Array[Int32],
   first_is_write : Array[Bool],
   first_write_dominates : Array[Bool],
   dominates_suffix : Bool,
-  cursor : Array[Int],
+  cursor : Array[Int32],
 ) -> Unit {
   ignore(
     cl_mark_structured_local_intervals_with_visits(
@@ -2249,7 +2296,7 @@ fn cl_rewrite_dense_tee_structured_intervals(
   )
   let old_to_new = Array::make(total_locals, -1)
   let slot_types : Array[@lib.ValType] = []
-  let slot_last : Array[Int] = []
+  let slot_last : Array[Int32] = []
   let assigned = Array::make(total_locals, false)
   for idx = 0; idx < params.length(); idx = idx + 1 {
     old_to_new[idx] = idx
@@ -2519,10 +2566,10 @@ fn cl_rewrite_func_structured_conservative(
 fn cl_collect_instrs(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
-  total_locals : Int,
-  control_visits? : Array[Int]? = None,
-  control_index? : CLControlIndex? = None,
-  control_cursor? : Array[Int]? = None,
+  total_locals : Int32,
+  control_visits~ : Array[Int32]? = None,
+  control_index~ : CLControlIndex? = None,
+  control_cursor~ : Array[Int32]? = None,
 ) -> Unit {
   let control_index = match control_index {
     Some(index) => Some(index)
@@ -2638,7 +2685,7 @@ fn cl_collect_instrs(
 ///|
 fn cl_compute_liveness(
   actions : Array[CLAction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> CLLiveness {
   let effective = Array::make(actions.length(), false)
   let live = Array::make(total_locals, false)
@@ -2709,7 +2756,7 @@ fn cl_push_label_live_words(
 fn cl_live_words_for_label(
   labels : Array[@bitset.BitSet],
   label : @lib.LabelIdx,
-  size : Int,
+  size : Int32,
 ) -> @bitset.BitSet {
   let depth = cl_label_idx_raw(label)
   if depth >= 0 && depth < labels.length() {
@@ -2723,7 +2770,7 @@ fn cl_live_words_for_br_table(
   labels : Array[@bitset.BitSet],
   targets : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
-  size : Int,
+  size : Int32,
 ) -> @bitset.BitSet {
   let out = cl_live_words_for_label(labels, default_label, size)
   for label in targets {
@@ -2756,14 +2803,14 @@ fn cl_mark_structured_live_words_backward(
   actions : Array[CLAction],
   effective : Array[Bool],
   write_live_hazards : CLBitMatrix,
-  visited_actions : Array[Int],
+  visited_actions : Array[Int32],
   live_after : @bitset.BitSet,
   label_lives : Array[@bitset.BitSet],
-  action_cursor : Array[Int],
-  exception_live? : @bitset.BitSet = @bitset.BitSet::new(0),
-  control_visits? : Array[Int]? = None,
-  control_index? : CLControlIndex? = None,
-  control_start? : Int = 0,
+  action_cursor : Array[Int32],
+  exception_live~ : @bitset.BitSet = @bitset.BitSet::new(0),
+  control_visits~ : Array[Int32]? = None,
+  control_index~ : CLControlIndex? = None,
+  control_start~ : Int32 = 0,
 ) -> @bitset.BitSet {
   let live = live_after.copy()
   let control_index = match control_index {
@@ -2772,7 +2819,7 @@ fn cl_mark_structured_live_words_backward(
   }
   // A reverse walk needs sibling starts, not a recursive control reproof.
   // These short rows contain only the reachable prefix and are body-owned.
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   if control_index is Some(index) {
     let mut position = control_start
     for instr in instrs {
@@ -3010,9 +3057,9 @@ fn cl_mark_structured_live_words_backward(
 fn cl_compute_structured_liveness_with_write_hazards(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
-  total_locals : Int,
-  control_index? : CLControlIndex? = None,
-) -> (CLLiveness, CLBitMatrix, Int) {
+  total_locals : Int32,
+  control_index~ : CLControlIndex? = None,
+) -> (CLLiveness, CLBitMatrix, Int32) {
   let effective = Array::make(actions.length(), false)
   let write_live_hazards = CLBitMatrix::new(total_locals)
   let live_after = @bitset.BitSet::new(total_locals)
@@ -3038,8 +3085,8 @@ fn cl_compute_structured_liveness_with_write_hazards(
 ///|
 fn cl_add_interference(
   interferences : CLBitMatrix,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Unit {
   if lhs == rhs {
     return
@@ -3054,7 +3101,7 @@ priv struct CLCopyForwardScan {
 }
 
 ///|
-fn cl_instr_accesses_local(instr : @lib.Instruction, local_idx : Int) -> Bool {
+fn cl_instr_accesses_local(instr : @lib.Instruction, local_idx : Int32) -> Bool {
   match instr {
     @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
       cl_local_idx_raw(idx) == local_idx
@@ -3070,10 +3117,10 @@ fn cl_copy_forward_scan_failed() -> CLCopyForwardScan {
 ///|
 fn cl_copy_forward_target_reaches_dest(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  target : Int,
-  dest : Int,
-  depth : Int,
+  source : Int32,
+  target : Int32,
+  dest : Int32,
+  depth : Int32,
 ) -> Bool {
   if target == dest {
     return true
@@ -3086,10 +3133,10 @@ fn cl_copy_forward_target_reaches_dest(
 ///|
 fn cl_scan_copy_forward_instrs(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
   pending : Bool,
-  depth : Int,
+  depth : Int32,
 ) -> CLCopyForwardScan {
   let mut has_pending = pending
   let mut idx = 0
@@ -3192,9 +3239,9 @@ fn cl_scan_copy_forward_instrs(
 ///|
 fn cl_copy_forward_pair_safe_depth(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
-  depth : Int,
+  source : Int32,
+  dest : Int32,
+  depth : Int32,
 ) -> Bool {
   let scanned = cl_scan_copy_forward_instrs(instrs, source, dest, false, depth)
   scanned.ok && !scanned.pending
@@ -3203,8 +3250,8 @@ fn cl_copy_forward_pair_safe_depth(
 ///|
 fn cl_copy_forward_pair_safe(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
 ) -> Bool {
   cl_copy_forward_pair_safe_depth(instrs, source, dest, 4)
 }
@@ -3212,15 +3259,15 @@ fn cl_copy_forward_pair_safe(
 ///|
 fn cl_copy_weight_reachable_destinations(
   weights : CLCopyWeights,
-  source : Int,
-  depth : Int,
-) -> (Array[Bool], Int) {
+  source : Int32,
+  depth : Int32,
+) -> (Array[Bool], Int32) {
   let reachable = Array::make(weights.length(), false)
   if source < 0 || source >= weights.length() || depth <= 0 {
     return (reachable, 0)
   }
-  let pending_locals : Array[Int] = [source]
-  let pending_depths : Array[Int] = [0]
+  let pending_locals : Array[Int32] = [source]
+  let pending_depths : Array[Int32] = [0]
   reachable[source] = true
   let mut cursor = 0
   let mut visited_edges = 0
@@ -3248,9 +3295,9 @@ fn cl_copy_weight_reachable_destinations(
 ///|
 fn cl_copy_weight_reaches(
   weights : CLCopyWeights,
-  source : Int,
-  dest : Int,
-  depth : Int,
+  source : Int32,
+  dest : Int32,
+  depth : Int32,
 ) -> Bool {
   if cl_copy_weight_get(weights, source, dest) > 0 {
     return true
@@ -3270,7 +3317,7 @@ fn cl_copy_weight_reaches(
 ///|
 fn cl_instr_tree_accesses_local(
   instr : @lib.Instruction,
-  local_idx : Int,
+  local_idx : Int32,
 ) -> Bool {
   if cl_instr_accesses_local(instr, local_idx) {
     return true
@@ -3327,7 +3374,7 @@ fn cl_instr_tree_accesses_local(
 fn cl_remove_same_source_fanout_interferences(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   let gets = Array::make(types.length(), 0)
@@ -3335,7 +3382,7 @@ fn cl_remove_same_source_fanout_interferences(
   let tees = Array::make(types.length(), 0)
   cl_count_syntactic_local_accesses(instrs, gets, sets, tees)
   for source = param_count; source < types.length(); source = source + 1 {
-    let destinations : Array[Int] = []
+    let destinations : Array[Int32] = []
     for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) => {
@@ -3385,7 +3432,7 @@ fn cl_remove_same_source_fanout_interferences(
 fn cl_remove_safe_copy_forward_interferences(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> Unit {
@@ -3470,8 +3517,8 @@ fn cl_consume_forward_scan_failed() -> CLConsumeForwardScan {
 ///|
 fn cl_scan_consume_forward_instrs(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
   seen_source : Bool,
   clobbered : Bool,
   initialized : Bool,
@@ -3594,8 +3641,8 @@ fn cl_scan_consume_forward_instrs(
 ///|
 fn cl_consume_forward_pair_safe(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
 ) -> Bool {
   let scanned = cl_scan_consume_forward_instrs(
     instrs, source, dest, false, false, false, false,
@@ -3606,8 +3653,8 @@ fn cl_consume_forward_pair_safe(
 ///|
 fn cl_source_write_is_dest_copy(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  dest : Int,
+  idx : Int32,
+  dest : Int32,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -3619,7 +3666,7 @@ fn cl_source_write_is_dest_copy(
 }
 
 ///|
-fn cl_action_is_effective(effective : Array[Bool], action_idx : Int) -> Bool {
+fn cl_action_is_effective(effective : Array[Bool], action_idx : Int32) -> Bool {
   action_idx >= 0 && action_idx < effective.length() && effective[action_idx]
 }
 
@@ -3627,8 +3674,8 @@ fn cl_action_is_effective(effective : Array[Bool], action_idx : Int) -> Bool {
 fn cl_skip_source_write_dest_read_actions(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  action_cursor : Array[Int],
-  instruction_visits? : Array[Int]? = None,
+  action_cursor : Array[Int32],
+  instruction_visits~ : Array[Int32]? = None,
 ) -> Unit {
   for instr in instrs {
     match instruction_visits {
@@ -3676,8 +3723,8 @@ fn cl_skip_source_write_dest_read_actions(
 // Keeping only local operations and control boundaries avoids decoding the same
 // instruction forest once for every source local.
 priv enum CLSourceHazardStep {
-  Read(Int)
-  Write(Int, Int)
+  Read(Int32)
+  Write(Int32, Int32)
   Branch(Array[CLSourceHazardStep], Array[CLSourceHazardStep])
   Barrier
   Reset
@@ -3687,9 +3734,9 @@ priv enum CLSourceHazardStep {
 fn cl_compile_source_hazard_steps(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  action_cursor : Array[Int],
+  action_cursor : Array[Int32],
   steps : Array[CLSourceHazardStep],
-  instruction_visits : Array[Int]?,
+  instruction_visits : Array[Int32]?,
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instruction_visits {
@@ -3754,8 +3801,8 @@ fn cl_compile_source_hazard_steps(
 ///|
 fn cl_run_source_hazard_steps(
   steps : Array[CLSourceHazardStep],
-  source : Int,
-  candidate_dests : Array[Int],
+  source : Int32,
+  candidate_dests : Array[Int32],
   may_clobber : Array[Bool],
   hazards : Array[Bool],
 ) -> Unit {
@@ -3805,12 +3852,12 @@ fn cl_run_source_hazard_steps(
 fn cl_mark_source_write_dest_read_hazards(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  source : Int,
-  candidate_dests : Array[Int],
+  source : Int32,
+  candidate_dests : Array[Int32],
   may_clobber : Array[Bool],
   hazards : Array[Bool],
-  action_cursor : Array[Int],
-  instruction_visits? : Array[Int]? = None,
+  action_cursor : Array[Int32],
+  instruction_visits~ : Array[Int32]? = None,
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instruction_visits {
@@ -3920,10 +3967,10 @@ fn cl_mark_source_write_dest_read_hazards(
 fn cl_source_write_dest_read_hazards(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  source : Int,
-  candidate_dests : Array[Int],
-  total_locals : Int,
-  instruction_visits? : Array[Int]? = None,
+  source : Int32,
+  candidate_dests : Array[Int32],
+  total_locals : Int32,
+  instruction_visits~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let hazards = Array::make(total_locals, false)
   cl_mark_source_write_dest_read_hazards(
@@ -3943,9 +3990,9 @@ fn cl_source_write_dest_read_hazards(
 fn cl_add_structured_write_live_interferences(
   write_live_hazards : CLBitMatrix,
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
-  candidate_visits? : Array[Int]? = None,
+  candidate_visits~ : Array[Int32]? = None,
 ) -> Unit {
   // The triangular matrix stores each symmetric pair once. Walk its occupied
   // bits, preserving type and parameter filters without probing every pair.
@@ -3985,7 +4032,7 @@ fn cl_compute_linear_interferences(
   actions : Array[CLAction],
   liveness : CLLiveness,
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> CLBitMatrix {
   let interferences = cl_compute_interferences(
     actions, liveness, types, param_count,
@@ -3994,7 +4041,7 @@ fn cl_compute_linear_interferences(
   // Value-equivalent copy chains may share an abstract value, but a later
   // write still cannot reuse that slot while a copied destination remains
   // live. Make this semantic hazard authoritative before coloring.
-  cl_add_source_write_dest_read_interferences(
+  cl_add_linear_source_write_dest_read_interferences(
     instrs,
     actions,
     liveness.effective,
@@ -4011,7 +4058,7 @@ fn cl_compute_linear_interferences(
 ///|
 fn cl_local_read_write_flags(
   actions : Array[CLAction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> (Array[Bool], Array[Bool]) {
   let reads = Array::make(total_locals, false)
   let writes = Array::make(total_locals, false)
@@ -4028,7 +4075,7 @@ fn cl_local_read_write_flags(
 fn cl_source_write_dest_read_active_flags(
   actions : Array[CLAction],
   effective : Array[Bool],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> (Array[Bool], Array[Bool]) {
   let writers = Array::make(total_locals, false)
   let readers = Array::make(total_locals, false)
@@ -4047,14 +4094,15 @@ fn cl_source_write_dest_read_active_flags(
 
 ///|
 fn cl_source_write_dest_read_candidate_dests(
-  source : Int,
+  source : Int32,
   readers : Array[Bool],
   types : Array[@lib.ValType],
   interferences : CLBitMatrix,
-  first_effective_write : Array[Int],
-  latest_get : Array[Int],
-) -> Array[Int] {
-  let candidates : Array[Int] = []
+  first_effective_write : Array[Int32],
+  latest_get : Array[Int32],
+  candidate_visits~ : Array[Int32]? = None,
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   if source < 0 || source >= types.length() || source >= interferences.length() {
     return candidates
   }
@@ -4063,6 +4111,10 @@ fn cl_source_write_dest_read_candidate_dests(
     return candidates
   }
   for dest = 0; dest < types.length(); dest = dest + 1 {
+    match candidate_visits {
+      Some(visits) => visits[0] += 1
+      None => ()
+    }
     if source != dest &&
       dest < readers.length() &&
       dest < latest_get.length() &&
@@ -4082,15 +4134,28 @@ fn cl_add_source_write_dest_read_interferences(
   actions : Array[CLAction],
   effective : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
-  instruction_visits? : Array[Int]? = None,
+  instruction_visits~ : Array[Int32]? = None,
+  candidate_visits~ : Array[Int32]? = None,
+  indexed_readers~ : Bool = true,
+  index_builds~ : Array[Int32]? = None,
 ) -> Unit {
   let (writers, readers) = cl_source_write_dest_read_active_flags(
     actions,
     effective,
     types.length(),
   )
+  let reader_index = if indexed_readers &&
+    cl_source_hazard_reader_index_can_filter(types, readers) {
+    match index_builds {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    Some(cl_source_hazard_reader_index(types, readers))
+  } else {
+    None
+  }
   let first_effective_write = Array::make(types.length(), -1)
   let latest_get = Array::make(types.length(), -1)
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
@@ -4109,9 +4174,27 @@ fn cl_add_source_write_dest_read_interferences(
     if !writers[source] {
       continue
     }
-    let candidate_dests = cl_source_write_dest_read_candidate_dests(
-      source, readers, types, interferences, first_effective_write, latest_get,
-    )
+    let candidate_dests = match reader_index {
+      Some(index) =>
+        cl_source_write_dest_read_candidate_dests_indexed(
+          source,
+          index,
+          interferences,
+          first_effective_write,
+          latest_get,
+          candidate_visits~,
+        )
+      None =>
+        cl_source_write_dest_read_candidate_dests(
+          source,
+          readers,
+          types,
+          interferences,
+          first_effective_write,
+          latest_get,
+          candidate_visits~,
+        )
+    }
     if candidate_dests.length() == 0 {
       continue
     }
@@ -4149,10 +4232,10 @@ fn cl_add_source_write_dest_read_interferences(
 ///|
 fn cl_collect_action_depths(
   instrs : Array[@lib.Instruction],
-  depths : Array[Int],
-  depth : Int,
-  control_index? : CLControlIndex? = None,
-  control_cursor? : Array[Int]? = None,
+  depths : Array[Int32],
+  depth : Int32,
+  control_index~ : CLControlIndex? = None,
+  control_cursor~ : Array[Int32]? = None,
 ) -> Unit {
   let control_index = match control_index {
     Some(index) => Some(index)
@@ -4227,8 +4310,8 @@ fn cl_collect_action_depths(
 
 ///|
 priv struct CLTailReuseFacts {
-  last_get : Array[Int]
-  first_effective_write : Array[Int]
+  last_get : Array[Int32]
+  first_effective_write : Array[Int32]
   source_safe : Array[Bool]
   source_read_after_write : Array[Bool]
 }
@@ -4237,9 +4320,9 @@ priv struct CLTailReuseFacts {
 fn cl_tail_reuse_facts_with_visits(
   actions : Array[CLAction],
   effective : Array[Bool],
-  depths : Array[Int],
-  total_locals : Int,
-) -> (CLTailReuseFacts, Int) {
+  depths : Array[Int32],
+  total_locals : Int32,
+) -> (CLTailReuseFacts, Int32) {
   let last_get = Array::make(total_locals, -1)
   let first_effective_write = Array::make(total_locals, -1)
   let source_safe = Array::make(total_locals, true)
@@ -4294,8 +4377,8 @@ fn cl_tail_reuse_facts_with_visits(
 ///|
 fn cl_tail_reuse_pair_safe_from_facts(
   facts : CLTailReuseFacts,
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
 ) -> Bool {
   source >= 0 &&
   source < facts.first_effective_write.length() &&
@@ -4313,10 +4396,10 @@ fn cl_remove_tail_reuse_interferences(
   actions : Array[CLAction],
   effective : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
-  let depths : Array[Int] = []
+  let depths : Array[Int32] = []
   cl_collect_action_depths(instrs, depths, 0)
   let (facts, _) = cl_tail_reuse_facts_with_visits(
     actions,
@@ -4359,8 +4442,8 @@ fn cl_path_disjoint_scan_failed() -> CLPathDisjointScan {
 ///|
 fn cl_dest_write_is_source_copy(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  source : Int,
+  idx : Int32,
+  source : Int32,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -4374,8 +4457,8 @@ fn cl_dest_write_is_source_copy(
 ///|
 fn cl_scan_path_disjoint_branch_result_instrs(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
   source_initialized : Bool,
   source_clobbers_dest : Bool,
   dest_clobbers_source : Bool,
@@ -4489,8 +4572,8 @@ fn cl_scan_path_disjoint_branch_result_instrs(
 ///|
 fn cl_path_disjoint_branch_result_pair_safe(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
 ) -> Bool {
   let scanned = cl_scan_path_disjoint_branch_result_instrs(
     instrs, source, dest, false, false, false,
@@ -4500,12 +4583,12 @@ fn cl_path_disjoint_branch_result_pair_safe(
 
 ///|
 fn cl_path_disjoint_candidate_dests(
-  source : Int,
+  source : Int32,
   writes : Array[Bool],
   types : Array[@lib.ValType],
   interferences : CLBitMatrix,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   if source < 0 ||
     source >= writes.length() ||
     source >= types.length() ||
@@ -4528,7 +4611,7 @@ fn cl_remove_path_disjoint_branch_result_interferences(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   if cl_pair_forward_scans_have_global_barrier(instrs) {
@@ -4551,10 +4634,10 @@ fn cl_remove_path_disjoint_branch_result_interferences(
 fn cl_mark_consume_forward_syntactic_candidates(
   instrs : Array[@lib.Instruction],
   candidates : Array[@bitset.BitSet],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Unit {
   let seen = Array::make(total_locals, false)
-  let seen_members : Array[Int] = []
+  let seen_members : Array[Int32] = []
   for instr in instrs {
     match instr {
       @lib.LocalGet(local_idx) => {
@@ -4609,7 +4692,7 @@ fn cl_mark_consume_forward_syntactic_candidates(
 ///|
 fn cl_consume_forward_syntactic_candidates(
   instrs : Array[@lib.Instruction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Array[@bitset.BitSet] {
   let candidates : Array[@bitset.BitSet] = []
   for _ in 0..<total_locals {
@@ -4621,16 +4704,16 @@ fn cl_consume_forward_syntactic_candidates(
 
 ///|
 fn cl_consume_forward_candidate_dests(
-  source : Int,
+  source : Int32,
   reads : Array[Bool],
   writes : Array[Bool],
   types : Array[@lib.ValType],
   interferences : CLBitMatrix,
-  first_initialized_get : Array[Int],
-  latest_write : Array[Int],
+  first_initialized_get : Array[Int32],
+  latest_write : Array[Int32],
   syntactic_candidates : Array[@bitset.BitSet],
-) -> Array[Int] {
-  let candidates : Array[Int] = []
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   ignore(interferences)
   if source < 0 ||
     source >= reads.length() ||
@@ -4660,7 +4743,7 @@ fn cl_remove_safe_consume_forward_interferences(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> Unit {
@@ -4734,10 +4817,10 @@ fn cl_source_is_explicit_default(
 ///|
 fn cl_initial_value(
   interner : CLValueInterner,
-  idx : Int,
-  param_count : Int,
+  idx : Int32,
+  param_count : Int32,
   ty : @lib.ValType,
-) -> Int {
+) -> Int32 {
   if idx < param_count {
     interner.fresh()
   } else if @lib.has_default(ty) {
@@ -4750,9 +4833,9 @@ fn cl_initial_value(
 ///|
 fn cl_value_for_source(
   source : CLValueSource,
-  current_values : Array[Int],
+  current_values : Array[Int32],
   interner : CLValueInterner,
-) -> Int {
+) -> Int32 {
   match source {
     CLValueSource::Unique => interner.fresh()
     CLValueSource::Const(key) => interner.intern("const:\{key}")
@@ -4768,7 +4851,7 @@ fn cl_value_for_source(
 ///|
 fn cl_add_default_entry_param_interferences(
   live_at_entry : Array[Bool],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   for local_id = param_count
@@ -4787,8 +4870,8 @@ fn cl_compute_interferences(
   actions : Array[CLAction],
   liveness : CLLiveness,
   types : Array[@lib.ValType],
-  param_count : Int,
-  live_visits? : Array[Int]? = None,
+  param_count : Int32,
+  live_visits~ : Array[Int32]? = None,
 ) -> CLBitMatrix {
   let total_locals = types.length()
   let interferences = CLBitMatrix::new(total_locals)
@@ -4895,7 +4978,7 @@ fn cl_compute_interferences(
 fn cl_remove_read_only_default_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   let gets = Array::make(types.length(), 0)
@@ -4944,7 +5027,7 @@ fn cl_remove_read_only_default_interferences(
 fn cl_add_entry_value_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   let writes = Array::make(types.length(), 0)
@@ -4987,7 +5070,7 @@ fn cl_add_plain_live_interferences(
   actions : Array[CLAction],
   liveness : CLLiveness,
   interferences : CLBitMatrix,
-  candidate_visits? : Array[Int]? = None,
+  candidate_visits~ : Array[Int32]? = None,
 ) -> Unit {
   let total_locals = interferences.length()
   let remaining_gets = Array::make(total_locals, 0)
@@ -5036,7 +5119,7 @@ fn cl_add_plain_live_interferences(
 fn cl_copy_weights(
   actions : Array[CLAction],
   effective : Array[Bool],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> CLCopyWeights {
   let weights = CLCopyWeights::new(total_locals)
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
@@ -5057,8 +5140,8 @@ fn cl_copy_weights(
 
 ///|
 fn cl_slot_interferes(
-  members : Array[Int],
-  local_idx : Int,
+  members : Array[Int32],
+  local_idx : Int32,
   interferences : CLBitMatrix,
 ) -> Bool {
   for slot_member in members {
@@ -5071,12 +5154,12 @@ fn cl_slot_interferes(
 
 ///|
 fn cl_color_with_order(
-  order : Array[Int],
+  order : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
-  slot_visits? : Array[Int]? = None,
+  slot_visits~ : Array[Int32]? = None,
 ) -> CLColoring {
   let total_locals = types.length()
   let old_to_new = Array::make(total_locals, -1)
@@ -5084,7 +5167,7 @@ fn cl_color_with_order(
     old_to_new[idx] = idx
   }
   let slot_types : Array[@lib.ValType] = []
-  let slot_members : Array[Array[Int]] = []
+  let slot_members : Array[Array[Int32]] = []
   for idx = 0; idx < param_count; idx = idx + 1 {
     slot_types.push(types[idx])
     slot_members.push([idx])
@@ -5173,8 +5256,8 @@ fn cl_coloring_accessed_slot_score(
   coloring : CLColoring,
   preferred : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
-) -> Int {
+  param_count : Int32,
+) -> Int32 {
   let mut score = 0
   for idx = param_count; idx < preferred.length(); idx = idx + 1 {
     if preferred[idx] && cl_accessed_compaction_type_eligible(types[idx]) {
@@ -5192,7 +5275,7 @@ fn cl_coloring_is_better(
   retained_copy_destinations : Array[Bool],
   structured_scalar_preferred : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   if candidate.removed_copies != best.removed_copies {
     return candidate.removed_copies > best.removed_copies
@@ -5225,15 +5308,15 @@ fn cl_coloring_is_better(
 }
 
 ///|
-fn cl_local_copy_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
+fn cl_local_copy_degree(weights : CLCopyWeights, local_idx : Int32) -> Int32 {
   cl_copy_weight_degree(weights, local_idx)
 }
 
 ///|
 fn cl_push_copy_weighted_order_segment(
-  out : Array[Int],
+  out : Array[Int32],
   weights : CLCopyWeights,
-  param_count : Int,
+  param_count : Int32,
   copy_connected : Bool,
   reverse : Bool,
 ) -> Unit {
@@ -5257,10 +5340,10 @@ fn cl_push_copy_weighted_order_segment(
 ///|
 fn cl_copy_weighted_order(
   weights : CLCopyWeights,
-  param_count : Int,
+  param_count : Int32,
   reverse : Bool,
-) -> Array[Int] {
-  let out : Array[Int] = []
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   // Copy-connected locals are the main coalesce-locals profitability surface.
   // Let them claim compatible slots before unrelated scratch locals; otherwise
   // an unrelated post-branch local can occupy a branch-carrier source slot and
@@ -5274,9 +5357,9 @@ fn cl_copy_weighted_order(
 fn cl_preferred_compaction_order(
   preferred : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
-) -> Array[Int] {
-  let out : Array[Int] = []
+  param_count : Int32,
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   // Binaryen lets accessed concrete GC-ref locals claim the earliest body slots
   // even when unrelated unused ref/scalar locals appear before or after them.
   // Keep this order candidate narrow: the preferred flags already require a
@@ -5304,9 +5387,9 @@ fn cl_preferred_compaction_order(
 fn cl_flagged_compaction_order(
   preferred : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
-) -> Array[Int] {
-  let out : Array[Int] = []
+  param_count : Int32,
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   for idx = param_count; idx < types.length(); idx = idx + 1 {
     if preferred[idx] {
       out.push(idx)
@@ -5366,8 +5449,8 @@ fn cl_preferred_compaction_flags(
 ///|
 fn cl_local_set_counts(
   actions : Array[CLAction],
-  total_locals : Int,
-) -> Array[Int] {
+  total_locals : Int32,
+) -> Array[Int32] {
   let sets = Array::make(total_locals, 0)
   for action in actions {
     if action.local_idx >= 0 && action.local_idx < total_locals {
@@ -5383,8 +5466,8 @@ fn cl_local_set_counts(
 ///|
 fn cl_local_write_counts(
   actions : Array[CLAction],
-  total_locals : Int,
-) -> Array[Int] {
+  total_locals : Int32,
+) -> Array[Int32] {
   let writes = Array::make(total_locals, 0)
   for action in actions {
     if action.local_idx >= 0 && action.local_idx < total_locals {
@@ -5406,8 +5489,8 @@ fn cl_local_write_counts(
 fn cl_retained_copy_destination_flags_with_visits(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
-) -> (Array[Bool], Int) {
+  param_count : Int32,
+) -> (Array[Bool], Int32) {
   let preferred = Array::make(types.length(), false)
   let next_write = Array::make(types.length(), -1)
   let latest_get = Array::make(types.length(), -1)
@@ -5452,7 +5535,7 @@ fn cl_retained_copy_destination_flags_with_visits(
 fn cl_retained_copy_destination_flags(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[Bool] {
   cl_retained_copy_destination_flags_with_visits(actions, types, param_count).0
 }
@@ -5462,7 +5545,7 @@ fn cl_structured_scalar_compaction_flags(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[Bool] {
   let preferred = Array::make(types.length(), false)
   cl_mark_structured_scalar_conditions(instrs, preferred, types, param_count)
@@ -5483,7 +5566,7 @@ fn cl_mark_structured_scalar_conditions(
   instrs : Array[@lib.Instruction],
   preferred : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     if idx + 1 < instrs.length() {
@@ -5530,8 +5613,8 @@ fn cl_mark_structured_scalar_conditions(
 fn cl_coloring_flagged_slot_score(
   coloring : CLColoring,
   preferred : Array[Bool],
-  param_count : Int,
-) -> Int {
+  param_count : Int32,
+) -> Int32 {
   let mut score = 0
   for idx = param_count; idx < preferred.length(); idx = idx + 1 {
     if preferred[idx] {
@@ -5543,9 +5626,9 @@ fn cl_coloring_flagged_slot_score(
 
 ///|
 fn cl_distinct_coloring_orders_with_visits(
-  orders : Array[Array[Int]],
-) -> (Array[Array[Int]], Int) {
-  let distinct : Array[Array[Int]] = []
+  orders : Array[Array[Int32]],
+) -> (Array[Array[Int32]], Int32) {
+  let distinct : Array[Array[Int32]] = []
   let mut visited = 0
   for order in orders {
     visited += 1
@@ -5559,18 +5642,18 @@ fn cl_distinct_coloring_orders_with_visits(
 ///|
 fn cl_pick_coloring(
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
   preferred : Array[Bool],
   retained_copy_destinations : Array[Bool],
   structured_scalar_preferred : Array[Bool],
 ) -> CLColoring {
-  let natural : Array[Int] = []
+  let natural : Array[Int32] = []
   for idx = param_count; idx < types.length(); idx = idx + 1 {
     natural.push(idx)
   }
-  let reverse : Array[Int] = []
+  let reverse : Array[Int32] = []
   let mut idx = types.length() - 1
   while idx >= param_count {
     reverse.push(idx)
@@ -5613,7 +5696,7 @@ fn cl_pick_coloring(
 ///|
 fn cl_rewrite_local_idx(
   idx : @lib.LocalIdx,
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> @lib.LocalIdx {
   let raw = cl_local_idx_raw(idx)
   if raw < 0 || raw >= old_to_new.length() {
@@ -5625,11 +5708,11 @@ fn cl_rewrite_local_idx(
 ///|
 fn cl_rewrite_instrs_in_place(
   instrs : Array[@lib.Instruction],
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
   effective : Array[Bool],
-  action_cursor : Array[Int],
-  control_index? : CLControlIndex? = None,
-  control_cursor? : Array[Int]? = None,
+  action_cursor : Array[Int32],
+  control_index~ : CLControlIndex? = None,
+  control_cursor~ : Array[Int32]? = None,
 ) -> Unit {
   let control_index = match control_index {
     Some(index) => Some(index)
@@ -5808,7 +5891,7 @@ fn cl_instrs_read_local(
 ///|
 fn cl_suffix_reads_local_before_overwrite(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   expected : @lib.LocalIdx,
 ) -> Bool {
   for idx = start; idx < instrs.length(); idx = idx + 1 {
@@ -5846,10 +5929,10 @@ fn cl_remove_ineffective_tees(
   rewritten_instrs : Array[@lib.Instruction],
   original_instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  action_cursor : Array[Int],
-  control_visits? : Array[Int]? = None,
-  control_index? : CLControlIndex? = None,
-  control_cursor? : Array[Int]? = None,
+  action_cursor : Array[Int32],
+  control_visits~ : Array[Int32]? = None,
+  control_index~ : CLControlIndex? = None,
+  control_cursor~ : Array[Int32]? = None,
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -6022,7 +6105,7 @@ fn cl_remove_ineffective_tees(
 ///|
 fn cl_remove_dropped_immutable_gets(
   instrs : Array[@lib.Instruction],
-  writes : Array[Int],
+  writes : Array[Int32],
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -6365,7 +6448,7 @@ fn cl_remove_redundant_copy_pairs(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
-fn cl_old_to_new_is_identity(old_to_new : Array[Int]) -> Bool {
+fn cl_old_to_new_is_identity(old_to_new : Array[Int32]) -> Bool {
   for idx = 0; idx < old_to_new.length(); idx = idx + 1 {
     if old_to_new[idx] != idx {
       return false
@@ -6437,8 +6520,8 @@ fn cl_legacy_merge_fallthrough(
 ///|
 fn cl_legacy_definite_assignment_scan(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
   assigned_at_entry : Bool,
 ) -> CLLegacyDefAssignFlow {
   let mut assigned = assigned_at_entry
@@ -6544,8 +6627,8 @@ fn cl_legacy_definite_assignment_scan(
 ///|
 fn cl_legacy_copy_dominates_all_reads(
   instrs : Array[@lib.Instruction],
-  source : Int,
-  dest : Int,
+  source : Int32,
+  dest : Int32,
 ) -> Bool {
   cl_legacy_definite_assignment_scan(instrs, source, dest, false).safe
 }
@@ -6553,7 +6636,7 @@ fn cl_legacy_copy_dominates_all_reads(
 ///|
 fn cl_mark_legacy_copy_aliases(
   instrs : Array[@lib.Instruction],
-  alias_source : Array[Int],
+  alias_source : Array[Int32],
 ) -> Unit {
   let mut idx = 0
   while idx < instrs.length() {
@@ -6665,7 +6748,7 @@ fn cl_rewrite_legacy_func_safe(
   for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
     body_slot_types.push(slot_types[slot])
   }
-  let rewritten_instrs = original_instrs.copy()
+  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
   let rewritten_locals = @lib.Locals::from_types(body_slot_types)
@@ -6857,7 +6940,7 @@ fn cl_rewrite_all_unused_func(
     body_slot_types.push(slot_types[slot])
   }
   let rewritten_locals = @lib.Locals::from_types(body_slot_types)
-  let rewritten_instrs = instrs.copy()
+  let rewritten_instrs = cl_deep_copy_instrs(instrs)
   let flattened_control = cl_flatten_terminal_unbranched_void_blocks(
     rewritten_instrs,
   )
@@ -6876,7 +6959,7 @@ fn cl_rewrite_all_unused_func(
 ///|
 fn cl_remove_linear_dead_tees(
   instrs : Array[@lib.Instruction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Bool {
   if cl_instrs_have_structured_control(instrs) {
     return false
@@ -6928,7 +7011,7 @@ fn cl_remove_linear_dead_tees(
 }
 
 ///|
-fn cl_instrs_local_tee_count(instrs : Array[@lib.Instruction]) -> Int {
+fn cl_instrs_local_tee_count(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -7028,7 +7111,7 @@ test "coalesce-locals preflight skips zero-local functions without tee cleanup" 
 ///|
 fn cl_cleanup_never_read_tees(
   rewrite : CLFuncRewrite,
-  param_count : Int,
+  param_count : Int32,
 ) -> CLFuncRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = rewrite.func
   if !cl_instrs_have_local_tee(instrs) {
@@ -7039,6 +7122,23 @@ fn cl_cleanup_never_read_tees(
   let sets = Array::make(total_locals, 0)
   let tees = Array::make(total_locals, 0)
   cl_count_syntactic_local_accesses(instrs, gets, sets, tees)
+  // An unchanged rewrite still borrows its caller's body. Structured bodies
+  // have no linear dead-tee cleanup, so avoid copying when every tee is read.
+  let mut has_unread_tee = false
+  for local_id = 0; local_id < total_locals; local_id = local_id + 1 {
+    if gets[local_id] == 0 && tees[local_id] > 0 {
+      has_unread_tee = true
+      break
+    }
+  }
+  if !has_unread_tee && cl_instrs_have_structured_control(instrs) {
+    return rewrite
+  }
+  let instrs = if rewrite.changed {
+    instrs
+  } else {
+    cl_deep_copy_instrs(instrs)
+  }
   let unread_changed = cl_remove_unread_local_tees(instrs, gets)
   let dead_tee_changed = cl_remove_linear_dead_tees(instrs, total_locals)
   if unread_changed || dead_tee_changed {
@@ -7050,7 +7150,7 @@ fn cl_cleanup_never_read_tees(
 
 ///|
 fn cl_should_use_dense_tee_structured_intervals(
-  body_local_count : Int,
+  body_local_count : Int32,
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   if body_local_count <= 0 || body_local_count > 512 {
@@ -7066,7 +7166,7 @@ fn cl_should_use_dense_tee_structured_intervals(
 }
 
 ///|
-fn cl_cfg_hot_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
+fn cl_cfg_hot_region_slot(op : @ir.HotOp, slot : Int32) -> Bool {
   match op {
     @ir.HotOp::Block | @ir.HotOp::Loop => true
     @ir.HotOp::If => slot == 1 || slot == 2
@@ -7087,7 +7187,7 @@ fn cl_cfg_collect_block_node_actions(
   cfg : @ir.HotCfg,
   node_id : @ir.NodeId,
   block_id : @ir.BlockId,
-  seen_stamps : Array[Int],
+  seen_stamps : Array[Int32],
   actions : Array[CLAction],
   action_node_ids : Array[@ir.NodeId],
 ) -> Unit {
@@ -7178,7 +7278,7 @@ priv struct CLCfgSparseInterferences {
 
 ///|
 fn CLCfgSparseInterferences::new(
-  total_locals : Int,
+  total_locals : Int32,
 ) -> CLCfgSparseInterferences {
   let rows : Array[@bitset.BitSet] = []
   for _ in 0..<total_locals {
@@ -7190,8 +7290,8 @@ fn CLCfgSparseInterferences::new(
 ///|
 fn cl_cfg_sparse_add_interference(
   interferences : CLCfgSparseInterferences,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Unit {
   if lhs == rhs ||
     lhs < 0 ||
@@ -7207,8 +7307,8 @@ fn cl_cfg_sparse_add_interference(
 ///|
 fn cl_cfg_sparse_interferes(
   interferences : CLCfgSparseInterferences,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Bool {
   lhs >= 0 &&
   rhs >= 0 &&
@@ -7220,8 +7320,8 @@ fn cl_cfg_sparse_interferes(
 ///|
 fn cl_cfg_sparse_add_live_member_interferences(
   interferences : CLCfgSparseInterferences,
-  live_members : Array[Int],
-) -> Int {
+  live_members : Array[Int32],
+) -> Int32 {
   // Three to fifteen members used pair insertion even for a single word.
   // Validate the selected row shapes before any update; noncanonical private
   // rows retain the original checked pair path and error/update ordering.
@@ -7259,7 +7359,7 @@ fn cl_cfg_sparse_add_live_member_interferences(
   if live_members.length() >= 16 {
     let size = interferences.rows.length()
     let mask = @bitset.BitSet::new(size)
-    let words : Array[Int] = []
+    let words : Array[Int32] = []
     for member in live_members {
       if member >= 0 && member < size {
         let word = member / 64
@@ -7299,12 +7399,12 @@ fn cl_cfg_sparse_add_live_member_interferences(
 ///|
 priv struct CLCfgLiveSet {
   live : Array[Bool]
-  members : Array[Int]
-  positions : Array[Int]
+  members : Array[Int32]
+  positions : Array[Int32]
 }
 
 ///|
-fn CLCfgLiveSet::new(total_locals : Int) -> CLCfgLiveSet {
+fn CLCfgLiveSet::new(total_locals : Int32) -> CLCfgLiveSet {
   {
     live: Array::make(total_locals, false),
     members: [],
@@ -7313,7 +7413,7 @@ fn CLCfgLiveSet::new(total_locals : Int) -> CLCfgLiveSet {
 }
 
 ///|
-fn cl_cfg_live_set_add(live : CLCfgLiveSet, local_idx : Int) -> Unit {
+fn cl_cfg_live_set_add(live : CLCfgLiveSet, local_idx : Int32) -> Unit {
   if local_idx < 0 || local_idx >= live.live.length() || live.live[local_idx] {
     return
   }
@@ -7323,7 +7423,7 @@ fn cl_cfg_live_set_add(live : CLCfgLiveSet, local_idx : Int) -> Unit {
 }
 
 ///|
-fn cl_cfg_live_set_remove(live : CLCfgLiveSet, local_idx : Int) -> Unit {
+fn cl_cfg_live_set_remove(live : CLCfgLiveSet, local_idx : Int32) -> Unit {
   if local_idx < 0 || local_idx >= live.live.length() || !live.live[local_idx] {
     return
   }
@@ -7341,11 +7441,11 @@ fn cl_cfg_live_set_remove(live : CLCfgLiveSet, local_idx : Int) -> Unit {
 fn cl_cfg_live_set_from_liveness(
   liveness : @ir.HotLiveness,
   block_id : @ir.BlockId,
-  total_locals : Int,
+  total_locals : Int32,
   live_in : Bool,
-  reuse? : CLCfgLiveSet? = None,
-  builds? : Array[Int]? = None,
-  visits? : Array[Int]? = None,
+  reuse~ : CLCfgLiveSet? = None,
+  builds~ : Array[Int32]? = None,
+  visits~ : Array[Int32]? = None,
 ) -> CLCfgLiveSet {
   let live = match reuse {
     Some(live) if live.live.length() == total_locals => {
@@ -7381,13 +7481,13 @@ fn cl_cfg_live_set_from_liveness(
 
 ///|
 priv struct CLCfgSparseWeights {
-  rows : Array[Array[(Int, Int)]]
-  row_positions : Array[Array[Int]?]
+  rows : Array[Array[(Int32, Int32)]]
+  row_positions : Array[Array[Int32]?]
 }
 
 ///|
-fn CLCfgSparseWeights::new(total_locals : Int) -> CLCfgSparseWeights {
-  let rows : Array[Array[(Int, Int)]] = []
+fn CLCfgSparseWeights::new(total_locals : Int32) -> CLCfgSparseWeights {
+  let rows : Array[Array[(Int32, Int32)]] = []
   for _ in 0..<total_locals {
     rows.push([])
   }
@@ -7397,8 +7497,8 @@ fn CLCfgSparseWeights::new(total_locals : Int) -> CLCfgSparseWeights {
 ///|
 fn cl_cfg_sparse_weight_add_one(
   weights : CLCfgSparseWeights,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Unit {
   let row = weights.rows[lhs]
   let positions = match weights.row_positions[lhs] {
@@ -7442,8 +7542,8 @@ fn cl_cfg_sparse_weight_add_one(
 ///|
 fn cl_cfg_sparse_weight_add(
   weights : CLCfgSparseWeights,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Unit {
   if lhs == rhs ||
     lhs < 0 ||
@@ -7460,7 +7560,7 @@ fn cl_cfg_sparse_weight_add(
 fn cl_cfg_sparse_copy_weights(
   actions : Array[CLAction],
   effective : Array[Bool],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> CLCfgSparseWeights {
   let weights = CLCfgSparseWeights::new(total_locals)
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
@@ -7479,10 +7579,10 @@ fn cl_cfg_sparse_copy_weights(
 
 ///|
 fn cl_cfg_sparse_slot_interferes(
-  members : Array[Int],
-  local_idx : Int,
+  members : Array[Int32],
+  local_idx : Int32,
   interferences : CLCfgSparseInterferences,
-  query_steps? : Array[Int]? = None,
+  query_steps~ : Array[Int32]? = None,
 ) -> Bool {
   for slot_member in members {
     match query_steps {
@@ -7498,11 +7598,11 @@ fn cl_cfg_sparse_slot_interferes(
 
 ///|
 fn cl_cfg_sparse_slot_copy_score(
-  members : Array[Int],
-  local_idx : Int,
-  weight_values : Array[Int],
-  weight_marks : Array[Int],
-) -> Int {
+  members : Array[Int32],
+  local_idx : Int32,
+  weight_values : Array[Int32],
+  weight_marks : Array[Int32],
+) -> Int32 {
   let mut score = 0
   for slot_member in members {
     if weight_marks[slot_member] == local_idx {
@@ -7514,12 +7614,12 @@ fn cl_cfg_sparse_slot_copy_score(
 
 ///|
 fn cl_cfg_sparse_color_with_order(
-  order : Array[Int],
+  order : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLCfgSparseInterferences,
   weights : CLCfgSparseWeights,
-  query_steps? : Array[Int]? = None,
+  query_steps~ : Array[Int32]? = None,
 ) -> CLColoring {
   // Small functions retain the compact member-based path. Larger rows scatter
   // conflicts and copy weights by assigned slot once for each source local.
@@ -7624,16 +7724,16 @@ fn cl_cfg_sparse_color_with_order(
 
 ///|
 fn cl_cfg_sparse_color_members(
-  order : Array[Int],
+  order : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLCfgSparseInterferences,
   weights : CLCfgSparseWeights,
-  query_steps? : Array[Int]? = None,
+  query_steps~ : Array[Int32]? = None,
 ) -> CLColoring {
   let old_to_new = Array::make(types.length(), -1)
   let slot_types : Array[@lib.ValType] = []
-  let slot_members : Array[Array[Int]] = []
+  let slot_members : Array[Array[Int32]] = []
   for idx = 0; idx < param_count; idx = idx + 1 {
     old_to_new[idx] = idx
     slot_types.push(types[idx])
@@ -7701,8 +7801,8 @@ fn cl_cfg_sparse_color_members(
 ///|
 fn cl_cfg_sparse_copy_degree(
   weights : CLCfgSparseWeights,
-  local_idx : Int,
-) -> Int {
+  local_idx : Int32,
+) -> Int32 {
   let mut degree = 0
   for edge in weights.rows[local_idx] {
     let (_, weight) = edge
@@ -7713,9 +7813,9 @@ fn cl_cfg_sparse_copy_degree(
 
 ///|
 fn cl_cfg_sparse_push_copy_order_segment(
-  out : Array[Int],
+  out : Array[Int32],
   weights : CLCfgSparseWeights,
-  param_count : Int,
+  param_count : Int32,
   copy_connected : Bool,
   reverse : Bool,
 ) -> Unit {
@@ -7739,10 +7839,10 @@ fn cl_cfg_sparse_push_copy_order_segment(
 ///|
 fn cl_cfg_sparse_copy_order(
   weights : CLCfgSparseWeights,
-  param_count : Int,
+  param_count : Int32,
   reverse : Bool,
-) -> Array[Int] {
-  let out : Array[Int] = []
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   cl_cfg_sparse_push_copy_order_segment(
     out, weights, param_count, true, reverse,
   )
@@ -7755,15 +7855,15 @@ fn cl_cfg_sparse_copy_order(
 ///|
 fn cl_cfg_sparse_pick_coloring(
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLCfgSparseInterferences,
   weights : CLCfgSparseWeights,
 ) -> CLColoring {
-  let natural : Array[Int] = []
+  let natural : Array[Int32] = []
   for idx = param_count; idx < types.length(); idx = idx + 1 {
     natural.push(idx)
   }
-  let reverse : Array[Int] = []
+  let reverse : Array[Int32] = []
   let mut idx = types.length() - 1
   while idx >= param_count {
     reverse.push(idx)
@@ -7796,10 +7896,10 @@ fn cl_cfg_compute_interferences(
   cfg : @ir.HotCfg,
   liveness : @ir.HotLiveness,
   block_actions : Array[CLCfgBlockActions],
-  total_locals : Int,
-  param_count : Int,
-  live_set_builds? : Array[Int]? = None,
-  live_member_visits? : Array[Int]? = None,
+  total_locals : Int32,
+  param_count : Int32,
+  live_set_builds~ : Array[Int32]? = None,
+  live_member_visits~ : Array[Int32]? = None,
 ) -> (CLCfgSparseInterferences, Array[@ir.NodeId], Array[@ir.NodeId]) {
   let interferences = CLCfgSparseInterferences::new(total_locals)
   for lhs = 0; lhs < param_count; lhs = lhs + 1 {
@@ -8037,18 +8137,18 @@ fn cl_rewrite_loop_func_cfg(
 ///|
 priv struct CLSingleLocalParamScanFacts {
   mut ok : Bool
-  mut target_writes : Int
-  mut target_gets : Int
-  mut target_copy_source : Int
+  mut target_writes : Int32
+  mut target_gets : Int32
+  mut target_copy_source : Int32
   mut target_region_reads_param : Bool
-  mut visited_instrs : Int
+  mut visited_instrs : Int32
 }
 
 ///|
 fn cl_scan_single_body_local_param_reuse(
   instrs : Array[@lib.Instruction],
-  param_idx : Int,
-  target_idx : Int,
+  param_idx : Int32,
+  target_idx : Int32,
   may_reuse_param : Bool,
   must_reuse_param : Bool,
   facts : CLSingleLocalParamScanFacts,
@@ -8177,7 +8277,7 @@ fn cl_scan_single_body_local_param_reuse(
 fn cl_rewrite_single_body_local_param_fast(
   func : @lib.Func,
   params : Array[@lib.ValType],
-) -> (CLFuncRewrite?, Int) {
+) -> (CLFuncRewrite?, Int32) {
   let @lib.Func(body_locals, @lib.Expr(instrs)) = func
   if body_locals.length() != 1 || params.length() == 0 {
     return (None, 0)
@@ -8218,7 +8318,7 @@ fn cl_rewrite_single_body_local_param_fast(
         !facts.target_region_reads_param ||
         compatible_params == 1
       ) {
-      let old_to_new : Array[Int] = []
+      let old_to_new : Array[Int32] = []
       for idx = 0; idx < params.length(); idx = idx + 1 {
         old_to_new.push(idx)
       }
@@ -8496,8 +8596,8 @@ fn cl_validate_rewritten_funcs_with_commits(
   mod_ : @lib.Module,
   original_funcs : Array[@lib.Func],
   rewritten_funcs : Array[@lib.Func],
-  changed_code_indices : Array[Int],
-) -> (Array[@lib.Func], Array[Int]) {
+  changed_code_indices : Array[Int32],
+) -> (Array[@lib.Func], Array[Int32]) {
   if changed_code_indices.length() == 0 {
     return (rewritten_funcs, [])
   }
@@ -8531,7 +8631,7 @@ fn cl_validate_rewritten_funcs_with_commits(
           rejected[code_idx] = true
         }
       }
-      let committed : Array[Int] = []
+      let committed : Array[Int32] = []
       for code_idx in changed_code_indices {
         if code_idx >= 0 && code_idx < rejected.length() && !rejected[code_idx] {
           committed.push(code_idx)
@@ -8574,7 +8674,7 @@ fn cl_locals_have_dense_v128_carriers(locals : @lib.Locals) -> Bool {
 ///|
 fn cl_snapshot_guard_preflight(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -8609,7 +8709,7 @@ fn cl_snapshot_guard_preflight(
 ///|
 fn cl_instrs_have_local_snapshot_across_parameter_write(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -8695,7 +8795,7 @@ fn cl_instrs_have_local_snapshot_across_parameter_write(
 ///|
 fn cl_instrs_memory_size_tee_parameter_write_facts(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> (Bool, Bool, Bool) {
   let mut has_memory_size = false
   let mut has_local_tee = false
@@ -8751,7 +8851,7 @@ fn cl_instrs_memory_size_tee_parameter_write_facts(
 ///|
 fn cl_instrs_have_memory_size_tee_parameter_write(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   let (has_memory_size, has_local_tee, _) = cl_instrs_memory_size_tee_parameter_write_facts(
     instrs, parameter_count,
@@ -8762,7 +8862,7 @@ fn cl_instrs_have_memory_size_tee_parameter_write(
 ///|
 fn cl_instrs_have_stack_carried_tee_parameter_alias(
   instrs : Array[@lib.Instruction],
-  parameter_count : Int,
+  parameter_count : Int32,
 ) -> Bool {
   if parameter_count <= 0 {
     return false
@@ -8844,7 +8944,7 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),
       )
-      let changed_code_indices : Array[Int] = []
+      let changed_code_indices : Array[Int32] = []
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let params = match defined_func_params.get(code_idx) {
           Some(params) => params

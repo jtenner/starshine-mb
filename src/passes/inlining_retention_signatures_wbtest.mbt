@@ -20,7 +20,7 @@ test "inlining helper removal shares signature builds and preserves first retain
   let mod_ = pass_test_module_from_wat(
     "(module (type (func)) (type (func)) (func (type 0)) (func (type 1)) (func (param i32)))",
   )
-  let retained : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let retained : @hashmap.HashMap[String, Int32] = @hashmap.new()
   retained.set("p:r:", 1)
   let counts = [0]
   let removed = inl_remove_dead_inlined_helpers(
@@ -44,7 +44,7 @@ test "inlining retention formats only eligible candidate signatures" {
   let candidates = Array::make(count, false)
   candidates[0] = true
   candidates[count - 1] = true
-  let retained : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let retained : @hashmap.HashMap[String, Int32] = @hashmap.new()
   retained.set("p:r:", 1)
   let formatted = [0]
   let removed = inl_remove_dead_inlined_helpers(
@@ -62,7 +62,7 @@ test "inlining retention formats only eligible candidate signatures" {
 }
 
 ///|
-fn inl_sparse_retention_fixture(count : Int) -> @lib.Module {
+fn inl_sparse_retention_fixture(count : Int32) -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(
     @lib.TypeSec::new(

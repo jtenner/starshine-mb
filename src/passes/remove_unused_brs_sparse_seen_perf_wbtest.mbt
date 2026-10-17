@@ -1,7 +1,7 @@
 ///|
 fn remove_unused_brs_sparse_seen_perf_bench(
   it : @bench.T,
-  unrelated_nodes : Int,
+  unrelated_nodes : Int32,
 ) -> Unit {
   let func = @ir.HotFunc::new()
   for _ in 0..<unrelated_nodes {
@@ -9,7 +9,7 @@ fn remove_unused_brs_sparse_seen_perf_bench(
   }
   let subtree = @ir.hot_build_nop(func)
   it.bench(fn() {
-    let targets : Array[Int] = []
+    let targets : Array[Int32] = []
     remove_unused_brs_collect_simple_branches_to_label(
       func, subtree, 0, targets,
     )
@@ -48,13 +48,13 @@ test "bench RemoveUnusedBrs sparse seen arena=4096" (it : @bench.T) {
 ///|
 fn rub_subtree_perf_bench(it : @bench.T, dense : Bool) -> Unit {
   let func = @ir.HotFunc::new()
-  let children : Array[Int] = []
+  let children : Array[Int32] = []
   for _ in 0..<128 {
     children.push(@ir.hot_build_nop(func))
   }
   let subtree = @ir.hot_build_block(func, @lib.BlockType::void_(), children)
   it.bench(fn() {
-    let targets : Array[Int] = []
+    let targets : Array[Int32] = []
     if dense {
       let seen = Array::make(@ir.hot_node_count(func), false)
       remove_unused_brs_collect_simple_branches_to_label_dense(

@@ -4,7 +4,7 @@ test "descriptor refinalize schedules child ids without a materialized span" {
     "(module (func i32.const 1 i32.const 2 i32.add drop))",
   )
   let root = @ir.hot_root_get(func, 0)
-  let work : Array[(Int, Bool)] = []
+  let work : Array[(Int32, Bool)] = []
 
   pass_refinalize_descriptor_schedule_children(func, root, work)
 

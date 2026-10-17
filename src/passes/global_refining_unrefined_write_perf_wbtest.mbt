@@ -1,5 +1,5 @@
 ///|
-fn gr_unrefined_write_perf_bench(it : @bench.T, writes : Int) -> Unit {
+fn gr_unrefined_write_perf_bench(it : @bench.T, writes : Int32) -> Unit {
   let instrs : Array[@lib.Instruction] = []
   for idx in 0..<writes {
     instrs.push(@lib.Instruction::i32_const(@lib.I32(idx)))

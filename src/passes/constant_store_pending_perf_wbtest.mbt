@@ -1,7 +1,7 @@
 ///|
 fn sl_constant_pending_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   blocked : Bool,
   sparse : Bool,
   reference : Bool,
@@ -111,7 +111,7 @@ test "bench constant pending pending=32 sparse adaptive" (it : @bench.T) {
 ///|
 fn sl_constant_pending_no_work_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit raise {
   let body : Array[@lib.Instruction] = []

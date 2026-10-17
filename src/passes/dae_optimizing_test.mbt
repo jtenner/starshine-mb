@@ -31,7 +31,7 @@ test "dae-optimizing intentionally fails closed for measured emscripten stateful
 }
 
 ///|
-fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int) -> @lib.FuncType {
+fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int32) -> @lib.FuncType {
   let type_idx = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs[def_idx]
     None => abort("missing func section")
@@ -73,7 +73,7 @@ fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int) -> @lib.FuncType {
 ///|
 fn dae_test_func_params(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Array[@lib.ValType] {
   let @lib.FuncType(params, _) = dae_test_func_type(mod_, def_idx)
   params
@@ -82,7 +82,7 @@ fn dae_test_func_params(
 ///|
 fn dae_test_func_results(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Array[@lib.ValType] {
   let @lib.FuncType(_, results) = dae_test_func_type(mod_, def_idx)
   results
@@ -91,7 +91,7 @@ fn dae_test_func_results(
 ///|
 fn dae_test_type_sec_func_type(
   mod_ : @lib.Module,
-  type_idx : Int,
+  type_idx : Int32,
 ) -> @lib.FuncType {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -111,7 +111,7 @@ fn dae_test_type_sec_func_type(
 ///|
 fn dae_test_run(
   text : String,
-  pass_name? : String = "dae-optimizing",
+  pass_name~ : String = "dae-optimizing",
 ) -> @lib.Module {
   if pass_name == "dead-argument-elimination" || pass_name == "dae" {
     return dae_run_module_pass(pass_test_module_from_wat(text))
@@ -125,7 +125,7 @@ fn dae_test_run(
 ///|
 fn dae_test_run_with_perf_trace(
   text : String,
-  pass_name? : String = "dae-optimizing",
+  pass_name~ : String = "dae-optimizing",
 ) -> (@lib.Module, Array[String]) {
   let trace : Array[String] = []
   let trace_fn = fn(line) { trace.push(line) }
@@ -646,7 +646,7 @@ test "dae-optimizing emits canonical worklist diagnostics" {
 }
 
 ///|
-fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int) -> @lib.Func {
+fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int32) -> @lib.Func {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs[def_idx]
     None => abort("missing code section")
@@ -654,7 +654,7 @@ fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int) -> @lib.Func {
 }
 
 ///|
-fn dae_test_many_i32_locals(count : Int) -> String {
+fn dae_test_many_i32_locals(count : Int32) -> String {
   let out = StringBuilder::new()
   for i = 0; i < count; i = i + 1 {
     out.write_string(" (local i32)")
@@ -663,7 +663,7 @@ fn dae_test_many_i32_locals(count : Int) -> String {
 }
 
 ///|
-fn dae_test_many_i32_const_drops(count : Int) -> String {
+fn dae_test_many_i32_const_drops(count : Int32) -> String {
   let out = StringBuilder::new()
   for i = 0; i < count; i = i + 1 {
     out.write_string("\n    i32.const 0\n    drop")
@@ -729,7 +729,7 @@ fn dae_test_instrs_have_local_get(
 ///|
 fn dae_test_instrs_have_i32_const(
   instrs : Array[@lib.Instruction],
-  expected : Int,
+  expected : Int32,
 ) -> Bool {
   dae_test_instrs_match(instrs, fn(instr) {
     match instr {
@@ -800,7 +800,7 @@ fn dae_test_instrs_have_i32_div_s(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
-fn dae_test_count_substring(text : String, needle : String) -> Int {
+fn dae_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -851,7 +851,7 @@ fn dae_test_instrs_reference_local(
 fn dae_test_count_local_set_instr(
   instr : @lib.Instruction,
   target_local : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.LocalSet(idx) if idx == target_local => 1
     @lib.Block(_, @lib.Expr(body))
@@ -871,7 +871,7 @@ fn dae_test_count_local_set_instr(
 fn dae_test_count_local_set_instrs(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += dae_test_count_local_set_instr(instr, target_local)
@@ -880,7 +880,7 @@ fn dae_test_count_local_set_instrs(
 }
 
 ///|
-fn dae_test_count_select_instr(instr : @lib.Instruction) -> Int {
+fn dae_test_count_select_instr(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.Select(_) => 1
     @lib.Block(_, @lib.Expr(body))
@@ -895,7 +895,7 @@ fn dae_test_count_select_instr(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn dae_test_count_select_instrs(instrs : Array[@lib.Instruction]) -> Int {
+fn dae_test_count_select_instrs(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += dae_test_count_select_instr(instr)
@@ -17754,7 +17754,7 @@ test "dae-optimizing plus local-subtyping stays valid on declarative call_ref re
 }
 
 ///|
-fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+fn dae_test_bytes_from_ints(values : Array[Int32]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
     out.write_byte(value.to_byte())
@@ -17763,7 +17763,7 @@ fn dae_test_bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
-fn dae_test_decode_wasm_bytes(values : Array[Int]) -> @lib.Module {
+fn dae_test_decode_wasm_bytes(values : Array[Int32]) -> @lib.Module {
   match @binary.decode_module(dae_test_bytes_from_ints(values)) {
     Ok(mod_) => mod_
     Err(err) => abort("expected DAE wasm fixture decode success, got \{err}")
@@ -18779,7 +18779,7 @@ test "dae-optimizing shared nested roster converges payoff cleanup independent o
 fn dae_test_append_broad_dropped_result_payoff_target(
   out : StringBuilder,
   name : String,
-  copy_count : Int,
+  copy_count : Int32,
 ) -> Unit {
   out.write_string("  (func $")
   out.write_string(name)

@@ -19,12 +19,12 @@ pub fn flatten_summary() -> String {
 ///|
 /// Analysis-only summary of Binaryen Flat IR contract violations in one HOT function.
 pub(all) struct FlattenFlatnessReport {
-  mut rich_operand_count : Int
-  mut value_control_count : Int
-  mut local_tee_count : Int
-  mut control_local_set_count : Int
-  mut body_value_flow_count : Int
-  mut unsupported_count : Int
+  mut rich_operand_count : Int32
+  mut value_control_count : Int32
+  mut local_tee_count : Int32
+  mut control_local_set_count : Int32
+  mut body_value_flow_count : Int32
+  mut unsupported_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -105,7 +105,7 @@ fn flatten_op_is_control_structure(op : @ir.HotOp) -> Bool {
 }
 
 ///|
-fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int32) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Const
@@ -128,7 +128,7 @@ fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
-fn flatten_operand_slot_count(func : @ir.HotFunc, node_id : Int) -> Int {
+fn flatten_operand_slot_count(func : @ir.HotFunc, node_id : Int32) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
@@ -157,7 +157,7 @@ fn flatten_op_is_unsupported(op : @ir.HotOp) -> Bool {
 ///|
 fn flatten_classify_live_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   report : FlattenFlatnessReport,
 ) -> Unit {
   let node = @ir.hot_node_get(func, node_id)
@@ -279,9 +279,9 @@ fn flatten_set_region_root(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  root_idx : Int,
-  replacement_id : Int,
-) -> Int {
+  root_idx : Int32,
+  replacement_id : Int32,
+) -> Int32 {
   let previous_id = @ir.hot_region_get(func, region_ref, root_idx)
   if previous_id != replacement_id {
     ignore(@ir.hot_region_set(func, region_ref, root_idx, replacement_id))
@@ -292,10 +292,10 @@ fn flatten_set_region_root(
 
 ///|
 fn flatten_record_label_branch_node(
-  branch_nodes : Array[Array[Int]],
-  last_recorded_node : Array[Int],
-  label_id : Int,
-  node_id : Int,
+  branch_nodes : Array[Array[Int32]],
+  last_recorded_node : Array[Int32],
+  label_id : Int32,
+  node_id : Int32,
 ) -> Unit {
   if label_id >= 0 &&
     label_id < branch_nodes.length() &&
@@ -308,32 +308,32 @@ fn flatten_record_label_branch_node(
 
 ///|
 priv struct FlattenBrTableTargetsEntry {
-  table_id : Int
-  start : Int
-  count : Int
+  table_id : Int32
+  start : Int32
+  count : Int32
 }
 
 ///|
 fn FlattenBrTableTargetsEntry::new(
-  table_id : Int,
-  start : Int,
-  count : Int,
+  table_id : Int32,
+  start : Int32,
+  count : Int32,
 ) -> FlattenBrTableTargetsEntry {
   { table_id, start, count, }
 }
 
 ///|
 priv struct FlattenBrTableTargets {
-  targets : Array[Int]
-  start : Int
-  count : Int
+  targets : Array[Int32]
+  start : Int32
+  count : Int32
 }
 
 ///|
 fn FlattenBrTableTargets::new(
-  targets : Array[Int],
-  start : Int,
-  count : Int,
+  targets : Array[Int32],
+  start : Int32,
+  count : Int32,
 ) -> FlattenBrTableTargets {
   { targets, start, count, }
 }
@@ -341,8 +341,8 @@ fn FlattenBrTableTargets::new(
 ///|
 fn flatten_br_table_targets_entry_lower_bound(
   entries : Array[FlattenBrTableTargetsEntry],
-  table_id : Int,
-) -> Int {
+  table_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -359,8 +359,8 @@ fn flatten_br_table_targets_entry_lower_bound(
 ///|
 fn flatten_br_table_targets_entry_index(
   entries : Array[FlattenBrTableTargetsEntry],
-  table_id : Int,
-) -> Int {
+  table_id : Int32,
+) -> Int32 {
   let index = flatten_br_table_targets_entry_lower_bound(entries, table_id)
   if index < entries.length() && entries[index].table_id == table_id {
     index
@@ -371,10 +371,10 @@ fn flatten_br_table_targets_entry_index(
 
 ///|
 fn flatten_record_generation_target(
-  targets : Array[Int],
-  marks : Array[Int],
-  epoch : Int,
-  target : Int,
+  targets : Array[Int32],
+  marks : Array[Int32],
+  epoch : Int32,
+  target : Int32,
 ) -> Bool {
   if target < 0 || target >= marks.length() || marks[target] == epoch {
     return false
@@ -387,11 +387,11 @@ fn flatten_record_generation_target(
 ///|
 fn flatten_index_br_table_targets(
   func : @ir.HotFunc,
-  table_id : Int,
+  table_id : Int32,
   entries : Array[FlattenBrTableTargetsEntry],
-  targets : Array[Int],
-  marks : Array[Int],
-  epoch : Int,
+  targets : Array[Int32],
+  marks : Array[Int32],
+  epoch : Int32,
 ) -> Unit {
   if flatten_br_table_targets_entry_index(entries, table_id) >= 0 {
     return
@@ -422,9 +422,9 @@ fn flatten_index_br_table_targets(
 ///|
 fn flatten_record_structural_parent_region(
   func : @ir.HotFunc,
-  owner_id : Int,
+  owner_id : Int32,
   region_ref : @ir.HotRegionRef,
-  direct_parent : Array[Int],
+  direct_parent : Array[Int32],
 ) -> Unit {
   for root_idx = 0
       root_idx < @ir.hot_region_root_count(func, region_ref)
@@ -442,7 +442,7 @@ fn flatten_record_structural_parent_region(
 }
 
 ///|
-fn flatten_build_structural_direct_parent(func : @ir.HotFunc) -> Array[Int] {
+fn flatten_build_structural_direct_parent(func : @ir.HotFunc) -> Array[Int32] {
   let direct_parent = Array::make(@ir.hot_node_count(func), -1)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -523,12 +523,12 @@ fn flatten_build_structural_direct_parent(func : @ir.HotFunc) -> Array[Int] {
 
 ///|
 priv struct FlattenPreMutationNodeIndex {
-  label_branch_nodes : Array[Array[Int]]
+  label_branch_nodes : Array[Array[Int32]]
   br_table_target_entries : Array[FlattenBrTableTargetsEntry]
-  br_table_targets : Array[Int]
-  loop_nodes : Array[Int]
-  try_nodes : Array[Int]
-  branch_payload_nodes : Array[Int]
+  br_table_targets : Array[Int32]
+  loop_nodes : Array[Int32]
+  try_nodes : Array[Int32]
+  branch_payload_nodes : Array[Int32]
   eh_repair_requirement : FlattenEhRepairRequirement
   flatness_report : FlattenFlatnessReport
 }
@@ -537,22 +537,22 @@ priv struct FlattenPreMutationNodeIndex {
 fn flatten_build_pre_mutation_node_index(
   func : @ir.HotFunc,
 ) -> FlattenPreMutationNodeIndex {
-  let branch_nodes : Array[Array[Int]] = []
-  let last_recorded_node : Array[Int] = []
+  let branch_nodes : Array[Array[Int32]] = []
+  let last_recorded_node : Array[Int32] = []
   for label_idx = 0; label_idx < func.labels.length(); label_idx = label_idx + 1 {
     branch_nodes.push([])
     last_recorded_node.push(-1)
   }
   let br_table_target_entries : Array[FlattenBrTableTargetsEntry] = []
-  let br_table_targets : Array[Int] = []
+  let br_table_targets : Array[Int32] = []
   let table_target_marks = Array::make(func.labels.length(), 0)
   let mut next_table_target_mark = 1
-  let loop_nodes : Array[Int] = []
-  let try_nodes : Array[Int] = []
-  let branch_payload_nodes : Array[Int] = []
+  let loop_nodes : Array[Int32] = []
+  let try_nodes : Array[Int32] = []
+  let branch_payload_nodes : Array[Int32] = []
   let eh_repair_requirement = FlattenEhRepairRequirement::empty()
   let flatness_report = FlattenFlatnessReport::empty()
-  let record = fn(label_id : Int, node_id : Int) {
+  let record = fn(label_id : Int32, node_id : Int32) {
     flatten_record_label_branch_node(
       branch_nodes, last_recorded_node, label_id, node_id,
     )
@@ -634,50 +634,50 @@ fn flatten_build_pre_mutation_node_index(
 }
 
 ///|
-fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
+fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int32]] {
   flatten_build_pre_mutation_node_index(func).label_branch_nodes
 }
 
 ///|
 priv struct FlattenBrIfFlowEntry {
-  branch_id : Int
-  flow : Array[Int]?
+  branch_id : Int32
+  flow : Array[Int32]?
 }
 
 ///|
 fn FlattenBrIfFlowEntry::new(
-  branch_id : Int,
-  flow : Array[Int]?,
+  branch_id : Int32,
+  flow : Array[Int32]?,
 ) -> FlattenBrIfFlowEntry {
   { branch_id, flow, }
 }
 
 ///|
 priv struct FlattenScalarBrIfFlowEntry {
-  branch_id : Int
-  value_id : Int
-  sites : Array[Int]
+  branch_id : Int32
+  value_id : Int32
+  sites : Array[Int32]
 }
 
 ///|
 fn FlattenScalarBrIfFlowEntry::new(
-  branch_id : Int,
-  value_id : Int,
-  sites : Array[Int],
+  branch_id : Int32,
+  value_id : Int32,
+  sites : Array[Int32],
 ) -> FlattenScalarBrIfFlowEntry {
   { branch_id, value_id, sites, }
 }
 
 ///|
 priv struct FlattenScalarFlowReplacementEntry {
-  value_id : Int
-  replacement_id : Int
+  value_id : Int32
+  replacement_id : Int32
 }
 
 ///|
 fn FlattenScalarFlowReplacementEntry::new(
-  value_id : Int,
-  replacement_id : Int,
+  value_id : Int32,
+  replacement_id : Int32,
 ) -> FlattenScalarFlowReplacementEntry {
   { value_id, replacement_id, }
 }
@@ -685,8 +685,8 @@ fn FlattenScalarFlowReplacementEntry::new(
 ///|
 fn flatten_br_if_flow_entry_lower_bound(
   entries : Array[FlattenBrIfFlowEntry],
-  branch_id : Int,
-) -> Int {
+  branch_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -703,8 +703,8 @@ fn flatten_br_if_flow_entry_lower_bound(
 ///|
 fn flatten_br_if_flow_entry_index(
   entries : Array[FlattenBrIfFlowEntry],
-  branch_id : Int,
-) -> Int {
+  branch_id : Int32,
+) -> Int32 {
   let index = flatten_br_if_flow_entry_lower_bound(entries, branch_id)
   if index < entries.length() && entries[index].branch_id == branch_id {
     index
@@ -727,8 +727,8 @@ fn flatten_br_if_flow_entry_set(
 ///|
 fn flatten_scalar_br_if_flow_entry_lower_bound(
   entries : Array[FlattenScalarBrIfFlowEntry],
-  branch_id : Int,
-) -> Int {
+  branch_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -745,8 +745,8 @@ fn flatten_scalar_br_if_flow_entry_lower_bound(
 ///|
 fn flatten_scalar_br_if_flow_entry_index(
   entries : Array[FlattenScalarBrIfFlowEntry],
-  branch_id : Int,
-) -> Int {
+  branch_id : Int32,
+) -> Int32 {
   let index = flatten_scalar_br_if_flow_entry_lower_bound(entries, branch_id)
   if index < entries.length() && entries[index].branch_id == branch_id {
     index
@@ -772,8 +772,8 @@ fn flatten_scalar_br_if_flow_entry_set(
 ///|
 fn flatten_scalar_flow_replacement_entry_lower_bound(
   entries : Array[FlattenScalarFlowReplacementEntry],
-  value_id : Int,
-) -> Int {
+  value_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -790,8 +790,8 @@ fn flatten_scalar_flow_replacement_entry_lower_bound(
 ///|
 fn flatten_scalar_flow_replacement(
   entries : Array[FlattenScalarFlowReplacementEntry],
-  value_id : Int,
-) -> Int {
+  value_id : Int32,
+) -> Int32 {
   let index = flatten_scalar_flow_replacement_entry_lower_bound(
     entries, value_id,
   )
@@ -805,8 +805,8 @@ fn flatten_scalar_flow_replacement(
 ///|
 fn flatten_scalar_flow_replacement_set(
   entries : Array[FlattenScalarFlowReplacementEntry],
-  value_id : Int,
-  replacement_id : Int,
+  value_id : Int32,
+  replacement_id : Int32,
 ) -> Unit {
   let index = flatten_scalar_flow_replacement_entry_lower_bound(
     entries, value_id,
@@ -821,34 +821,34 @@ fn flatten_scalar_flow_replacement_set(
 
 ///|
 priv struct FlattenDeadSuffixEntry {
-  table_id : Int
+  table_id : Int32
   region_ref : @ir.HotRegionRef
-  nodes : Array[Int]
+  nodes : Array[Int32]
 }
 
 ///|
 fn FlattenDeadSuffixEntry::new(
-  table_id : Int,
+  table_id : Int32,
   region_ref : @ir.HotRegionRef,
-  nodes : Array[Int],
+  nodes : Array[Int32],
 ) -> FlattenDeadSuffixEntry {
   { table_id, region_ref, nodes, }
 }
 
 ///|
 priv struct FlattenTerminalTableEntry {
-  node_id : Int
-  label_id : Int
-  payload_count : Int
+  node_id : Int32
+  label_id : Int32
+  payload_count : Int32
   allow_mixed_targets : Bool
   supported : Bool
 }
 
 ///|
 fn FlattenTerminalTableEntry::new(
-  node_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
   allow_mixed_targets : Bool,
   supported : Bool,
 ) -> FlattenTerminalTableEntry {
@@ -857,13 +857,13 @@ fn FlattenTerminalTableEntry::new(
 
 ///|
 priv struct FlattenScalarTryEntry {
-  try_id : Int
+  try_id : Int32
   supported : Bool
 }
 
 ///|
 fn FlattenScalarTryEntry::new(
-  try_id : Int,
+  try_id : Int32,
   supported : Bool,
 ) -> FlattenScalarTryEntry {
   { try_id, supported, }
@@ -871,13 +871,13 @@ fn FlattenScalarTryEntry::new(
 
 ///|
 priv struct FlattenInputfulLoopSupportEntry {
-  loop_id : Int
+  loop_id : Int32
   supported : Bool
 }
 
 ///|
 fn FlattenInputfulLoopSupportEntry::new(
-  loop_id : Int,
+  loop_id : Int32,
   supported : Bool,
 ) -> FlattenInputfulLoopSupportEntry {
   { loop_id, supported, }
@@ -886,8 +886,8 @@ fn FlattenInputfulLoopSupportEntry::new(
 ///|
 fn flatten_dead_suffix_entry_lower_bound(
   entries : Array[FlattenDeadSuffixEntry],
-  table_id : Int,
-) -> Int {
+  table_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -904,8 +904,8 @@ fn flatten_dead_suffix_entry_lower_bound(
 ///|
 fn flatten_dead_suffix_entry_index(
   entries : Array[FlattenDeadSuffixEntry],
-  table_id : Int,
-) -> Int {
+  table_id : Int32,
+) -> Int32 {
   let index = flatten_dead_suffix_entry_lower_bound(entries, table_id)
   if index < entries.length() && entries[index].table_id == table_id {
     index
@@ -928,8 +928,8 @@ fn flatten_dead_suffix_entry_set(
 ///|
 fn flatten_terminal_table_entry_lower_bound(
   entries : Array[FlattenTerminalTableEntry],
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -946,8 +946,8 @@ fn flatten_terminal_table_entry_lower_bound(
 ///|
 fn flatten_terminal_table_entry_index(
   entries : Array[FlattenTerminalTableEntry],
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let index = flatten_terminal_table_entry_lower_bound(entries, node_id)
   if index < entries.length() && entries[index].node_id == node_id {
     index
@@ -970,8 +970,8 @@ fn flatten_terminal_table_entry_set(
 ///|
 fn flatten_scalar_try_entry_lower_bound(
   entries : Array[FlattenScalarTryEntry],
-  try_id : Int,
-) -> Int {
+  try_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -988,8 +988,8 @@ fn flatten_scalar_try_entry_lower_bound(
 ///|
 fn flatten_scalar_try_entry_index(
   entries : Array[FlattenScalarTryEntry],
-  try_id : Int,
-) -> Int {
+  try_id : Int32,
+) -> Int32 {
   let index = flatten_scalar_try_entry_lower_bound(entries, try_id)
   if index < entries.length() && entries[index].try_id == try_id {
     index
@@ -1001,7 +1001,7 @@ fn flatten_scalar_try_entry_index(
 ///|
 fn flatten_scalar_try_entry_set(
   entries : Array[FlattenScalarTryEntry],
-  try_id : Int,
+  try_id : Int32,
   supported : Bool,
 ) -> Unit {
   let index = flatten_scalar_try_entry_lower_bound(entries, try_id)
@@ -1016,8 +1016,8 @@ fn flatten_scalar_try_entry_set(
 ///|
 fn flatten_inputful_loop_support_entry_lower_bound(
   entries : Array[FlattenInputfulLoopSupportEntry],
-  loop_id : Int,
-) -> Int {
+  loop_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -1034,8 +1034,8 @@ fn flatten_inputful_loop_support_entry_lower_bound(
 ///|
 fn flatten_inputful_loop_support_entry_index(
   entries : Array[FlattenInputfulLoopSupportEntry],
-  loop_id : Int,
-) -> Int {
+  loop_id : Int32,
+) -> Int32 {
   let index = flatten_inputful_loop_support_entry_lower_bound(entries, loop_id)
   if index < entries.length() && entries[index].loop_id == loop_id {
     index
@@ -1047,7 +1047,7 @@ fn flatten_inputful_loop_support_entry_index(
 ///|
 fn flatten_inputful_loop_support_entry_set(
   entries : Array[FlattenInputfulLoopSupportEntry],
-  loop_id : Int,
+  loop_id : Int32,
   supported : Bool,
 ) -> Unit {
   let index = flatten_inputful_loop_support_entry_lower_bound(entries, loop_id)
@@ -1061,9 +1061,9 @@ fn flatten_inputful_loop_support_entry_set(
 
 ///|
 fn flatten_terminal_payload_lower_bound(
-  payloads : Array[Int],
-  node_id : Int,
-) -> Int {
+  payloads : Array[Int32],
+  node_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = payloads.length()
   while low < high {
@@ -1079,8 +1079,8 @@ fn flatten_terminal_payload_lower_bound(
 
 ///|
 fn flatten_terminal_payload_contains(
-  payloads : Array[Int],
-  node_id : Int,
+  payloads : Array[Int32],
+  node_id : Int32,
 ) -> Bool {
   let index = flatten_terminal_payload_lower_bound(payloads, node_id)
   index < payloads.length() && payloads[index] == node_id
@@ -1088,8 +1088,8 @@ fn flatten_terminal_payload_contains(
 
 ///|
 fn flatten_terminal_payload_record(
-  payloads : Array[Int],
-  node_id : Int,
+  payloads : Array[Int32],
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 {
     return false
@@ -1104,11 +1104,11 @@ fn flatten_terminal_payload_record(
 
 ///|
 fn flatten_sequenced_root_lower_bound(
-  holders : Array[Int],
-  nodes : Array[Int],
-  holder : Int,
-  node_id : Int,
-) -> Int {
+  holders : Array[Int32],
+  nodes : Array[Int32],
+  holder : Int32,
+  node_id : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = if holders.length() < nodes.length() {
     holders.length()
@@ -1129,10 +1129,10 @@ fn flatten_sequenced_root_lower_bound(
 
 ///|
 fn flatten_sequenced_root_contains(
-  holders : Array[Int],
-  nodes : Array[Int],
-  holder : Int,
-  node_id : Int,
+  holders : Array[Int32],
+  nodes : Array[Int32],
+  holder : Int32,
+  node_id : Int32,
 ) -> Bool {
   if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
     return false
@@ -1145,10 +1145,10 @@ fn flatten_sequenced_root_contains(
 
 ///|
 fn flatten_sequenced_root_record(
-  holders : Array[Int],
-  nodes : Array[Int],
-  holder : Int,
-  node_id : Int,
+  holders : Array[Int32],
+  nodes : Array[Int32],
+  holder : Int32,
+  node_id : Int32,
 ) -> Bool {
   if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
     return false
@@ -1168,19 +1168,19 @@ fn flatten_sequenced_root_record(
 
 ///|
 priv struct FlattenRegionFlowSummary {
-  first_unconditional_root : Int
-  first_unconditional_node : Int
-  effective_terminal_branch : Int
-  dead_suffix_start : Int
+  first_unconditional_root : Int32
+  first_unconditional_node : Int32
+  effective_terminal_branch : Int32
+  dead_suffix_start : Int32
   normal_fallthrough_possible : Bool
 }
 
 ///|
 fn FlattenRegionFlowSummary::new(
-  first_unconditional_root : Int,
-  first_unconditional_node : Int,
-  effective_terminal_branch : Int,
-  dead_suffix_start : Int,
+  first_unconditional_root : Int32,
+  first_unconditional_node : Int32,
+  effective_terminal_branch : Int32,
+  dead_suffix_start : Int32,
   normal_fallthrough_possible : Bool,
 ) -> FlattenRegionFlowSummary {
   {
@@ -1194,13 +1194,13 @@ fn FlattenRegionFlowSummary::new(
 
 ///|
 priv struct FlattenRegionFlowEntry {
-  holder : Int
+  holder : Int32
   summary : FlattenRegionFlowSummary
 }
 
 ///|
 fn FlattenRegionFlowEntry::new(
-  holder : Int,
+  holder : Int32,
   summary : FlattenRegionFlowSummary,
 ) -> FlattenRegionFlowEntry {
   { holder, summary, }
@@ -1208,31 +1208,31 @@ fn FlattenRegionFlowEntry::new(
 
 ///|
 priv struct FlattenRewriteState {
-  label_temps : Array[Array[Int]]
-  terminal_payloads : Array[Int]
-  sequenced_root_holders : Array[Int]
-  sequenced_root_nodes : Array[Int]
+  label_temps : Array[Array[Int32]]
+  terminal_payloads : Array[Int32]
+  sequenced_root_holders : Array[Int32]
+  sequenced_root_nodes : Array[Int32]
   eh_repair_requirement : FlattenEhRepairRequirement
   label_used : @bitset.BitSet
-  label_branch_nodes : Array[Array[Int]]
+  label_branch_nodes : Array[Array[Int32]]
   br_table_target_entries : Array[FlattenBrTableTargetsEntry]
-  br_table_targets : Array[Int]
-  direct_parent : Array[Int]
+  br_table_targets : Array[Int32]
+  direct_parent : Array[Int32]
   mut direct_parent_built : Bool
-  node_marks : Array[Int]
-  mut next_node_mark : Int
-  prelude_buffers : Array[Array[Int]]
-  mut prelude_depth : Int
-  mut active_region_holder : Int
-  mut active_root_idx : Int
-  mut active_early_insertions : Int
+  node_marks : Array[Int32]
+  mut next_node_mark : Int32
+  prelude_buffers : Array[Array[Int32]]
+  mut prelude_depth : Int32
+  mut active_region_holder : Int32
+  mut active_root_idx : Int32
+  mut active_early_insertions : Int32
   type_result_cache : Array[Array[@lib.ValType]?]
-  loop_nodes : Array[Int]
-  try_nodes : Array[Int]
-  branch_payload_nodes : Array[Int]
+  loop_nodes : Array[Int32]
+  try_nodes : Array[Int32]
+  branch_payload_nodes : Array[Int32]
   use_def : @ir.HotNodeUseCounts
-  use_count_node_limit : Int
-  source_first_effect_orders : Array[Int]
+  use_count_node_limit : Int32
+  source_first_effect_orders : Array[Int32]
   module_subtypes : Array[@lib.SubType]
   tuple_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
   multivalue_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
@@ -1243,7 +1243,7 @@ priv struct FlattenRewriteState {
   scalar_try_entries : Array[FlattenScalarTryEntry]
   inputful_loop_support_entries : Array[FlattenInputfulLoopSupportEntry]
   region_flow_entries : Array[FlattenRegionFlowEntry]
-  mut region_flow_scan_count : Int
+  mut region_flow_scan_count : Int32
   flatness_report : FlattenFlatnessReport
   mut rewrites_started : Bool
 }
@@ -1251,9 +1251,9 @@ priv struct FlattenRewriteState {
 ///|
 fn FlattenRewriteState::new(
   func : @ir.HotFunc,
-  module_subtypes? : Array[@lib.SubType] = [],
+  module_subtypes~ : Array[@lib.SubType] = [],
 ) -> FlattenRewriteState {
-  let label_temps : Array[Array[Int]] = []
+  let label_temps : Array[Array[Int32]] = []
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     label_temps.push([])
   }
@@ -1311,7 +1311,7 @@ fn FlattenRewriteState::new(
 fn flatten_scalar_result_can_flow_in_state(
   source_type : @lib.ValType,
   target_type : @lib.ValType,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let subtypes = match state {
     Some(state) => state.module_subtypes
@@ -1323,7 +1323,7 @@ fn flatten_scalar_result_can_flow_in_state(
 }
 
 ///|
-fn flatten_take_node_mark(state : FlattenRewriteState) -> Int {
+fn flatten_take_node_mark(state : FlattenRewriteState) -> Int32 {
   while state.node_marks.length() < state.use_count_node_limit {
     state.node_marks.push(0)
   }
@@ -1357,8 +1357,8 @@ fn flatten_ensure_direct_parent(
 ///|
 fn flatten_prelude_buffer(
   state : FlattenRewriteState,
-  depth : Int,
-) -> Array[Int] {
+  depth : Int32,
+) -> Array[Int32] {
   while state.prelude_buffers.length() <= depth {
     state.prelude_buffers.push([])
   }
@@ -1370,8 +1370,8 @@ fn flatten_prelude_buffer(
 ///|
 fn flatten_type_results(
   func : @ir.HotFunc,
-  type_id : Int,
-  state? : FlattenRewriteState? = None,
+  type_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Array[@lib.ValType] {
   match state {
     Some(state) => {
@@ -1397,7 +1397,7 @@ fn flatten_type_results(
 ///|
 fn flatten_single_result_type(
   func : @ir.HotFunc,
-  type_id : Int,
+  type_id : Int32,
 ) -> @lib.ValType? {
   match @ir.hot_type_get(func, type_id) {
     @ir.HotTypeInfo::Value(value_type) => Some(value_type)
@@ -1417,8 +1417,8 @@ fn flatten_single_result_type(
 ///|
 fn flatten_cached_label_is_used(
   func : @ir.HotFunc,
-  label_id : Int,
-  state? : FlattenRewriteState? = None,
+  label_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match state {
     Some(state) => pass_label_is_used(label_id, state.label_used)
@@ -1429,8 +1429,8 @@ fn flatten_cached_label_is_used(
 ///|
 fn flatten_label_has_result_branch_use(
   func : @ir.HotFunc,
-  label_id : Int,
-  state? : FlattenRewriteState? = None,
+  label_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   if label_id < 0 || label_id >= func.labels.length() {
     return false
@@ -1452,7 +1452,7 @@ fn flatten_label_has_result_branch_use(
 fn flatten_label_temps_match_types(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  label_id : Int,
+  label_id : Int32,
   value_types : Array[@lib.ValType],
 ) -> Bool {
   if label_id < 0 || label_id >= state.label_temps.length() {
@@ -1474,9 +1474,9 @@ fn flatten_label_temps_match_types(
 fn flatten_ensure_label_temps(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  label_id : Int,
+  label_id : Int32,
   value_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if label_id < 0 || label_id >= state.label_temps.length() {
     return None
   }
@@ -1494,8 +1494,8 @@ fn flatten_ensure_label_temps(
 ///|
 fn flatten_br_table_targets_label(
   func : @ir.HotFunc,
-  table_id : Int,
-  label_id : Int,
+  table_id : Int32,
+  label_id : Int32,
 ) -> Bool {
   if @ir.hot_branch_table_default_target(func, table_id) == label_id {
     return true
@@ -1511,8 +1511,8 @@ fn flatten_br_table_targets_label(
 ///|
 fn flatten_terminal_branch_targets_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
+  node_id : Int32,
+  label_id : Int32,
   allow_scalar_payload : Bool,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -1535,9 +1535,9 @@ fn flatten_terminal_branch_targets_label(
 fn flatten_region_effective_terminal_branch_to_label(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  label_id : Int,
+  label_id : Int32,
   allow_scalar_payload : Bool,
-) -> Int {
+) -> Int32 {
   let mut root_idx = @ir.hot_region_root_count(func, region_ref) - 1
   while root_idx >= 0 {
     let node_id = @ir.hot_region_get(func, region_ref, root_idx)
@@ -1554,8 +1554,8 @@ fn flatten_region_effective_terminal_branch_to_label(
 ///|
 fn flatten_region_flow_entry_lower_bound(
   entries : Array[FlattenRegionFlowEntry],
-  holder : Int,
-) -> Int {
+  holder : Int32,
+) -> Int32 {
   let mut low = 0
   let mut high = entries.length()
   while low < high {
@@ -1602,7 +1602,7 @@ fn flatten_region_flow_summary_compute(
 fn flatten_region_flow_summary(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> FlattenRegionFlowSummary? {
   match state {
     Some(state) => {
@@ -1658,7 +1658,7 @@ fn flatten_region_flow_summary(
 fn flatten_region_has_no_fallthrough(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match flatten_region_flow_summary(func, region_ref, state~) {
     Some(summary) => {
@@ -1757,7 +1757,7 @@ fn flatten_prime_region_flow_summaries(
 }
 
 ///|
-fn flatten_node_has_no_fallthrough(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn flatten_node_has_no_fallthrough(func : @ir.HotFunc, node_id : Int32) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Unreachable
     | @ir.HotOp::Br
@@ -1778,9 +1778,9 @@ fn flatten_node_has_no_fallthrough(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn flatten_region_effective_terminal_multivalue_branch_to_label(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  label_id : Int,
-  payload_count : Int,
-) -> Int {
+  label_id : Int32,
+  payload_count : Int32,
+) -> Int32 {
   let mut root_idx = @ir.hot_region_root_count(func, region_ref) - 1
   while root_idx >= 0 {
     let node_id = @ir.hot_region_get(func, region_ref, root_idx)
@@ -1806,7 +1806,7 @@ fn flatten_region_effective_terminal_multivalue_branch_to_label(
 ///|
 fn flatten_label_uses_are_routed_scalar_brs(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
 ) -> Bool {
   let mut saw_target = false
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
@@ -1857,7 +1857,7 @@ fn flatten_multivalue_region_tail_matches_types(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count < result_types.length() {
@@ -1883,7 +1883,7 @@ fn flatten_multivalue_region_tail_repeats_tuple(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count < result_types.length() {
@@ -1910,8 +1910,8 @@ fn flatten_multivalue_region_tail_tuple_make_values(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count == 0 {
     return None
@@ -1934,7 +1934,7 @@ fn flatten_multivalue_region_tail_tuple_make_values(
   if @ir.hot_node_use_count(use_counts, tuple_id) != 1 {
     return None
   }
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for slot = 0; slot < result_types.length(); slot = slot + 1 {
     let value_id = @ir.hot_child_get(func, tuple_id, slot)
     let value_types = flatten_type_results(
@@ -1958,7 +1958,7 @@ fn flatten_rewrite_multivalue_region_tail_tuple_make_values(
   state : FlattenRewriteState,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if !state.rewrites_started {
     return None
   }
@@ -1975,7 +1975,7 @@ fn flatten_multivalue_region_tail_tuple_make_has_supported_origins(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count == 0 {
@@ -2021,10 +2021,10 @@ fn flatten_replace_multivalue_tuple_make_tail(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  values : Array[Int],
-  locals : Array[Int],
+  values : Array[Int32],
+  locals : Array[Int32],
 ) -> Unit {
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for slot = 0; slot < values.length(); slot = slot + 1 {
     replacement.push(@ir.hot_build_local_set(func, locals[slot], values[slot]))
   }
@@ -2043,7 +2043,7 @@ fn flatten_replace_multivalue_tuple_make_tail(
 fn flatten_multivalue_region_tail_reads_locals(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  locals : Array[Int],
+  locals : Array[Int32],
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if locals.length() <= 1 || root_count < locals.length() {
@@ -2066,8 +2066,8 @@ fn flatten_try_route_multivalue_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  block_id : Int,
-) -> Array[Int]? {
+  block_id : Int32,
+) -> Array[Int32]? {
   let block = @ir.hot_node_get(func, block_id)
   match block.op {
     @ir.HotOp::Block => ()
@@ -2171,8 +2171,8 @@ fn flatten_try_route_multivalue_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  if_id : Int,
-) -> Array[Int]? {
+  if_id : Int32,
+) -> Array[Int32]? {
   let if_node = @ir.hot_node_get(func, if_id)
   match if_node.op {
     @ir.HotOp::If => ()
@@ -2302,9 +2302,9 @@ fn flatten_try_route_multivalue_if(
 ///|
 fn flatten_multivalue_try_terminal_plain_br_targets_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -2319,7 +2319,7 @@ fn flatten_multivalue_try_terminal_plain_br_targets_label(
 ///|
 fn flatten_direct_target_control_regions(
   func : @ir.HotFunc,
-  owner_id : Int,
+  owner_id : Int32,
 ) -> Array[@ir.HotRegionRef]? {
   match @ir.hot_node_get(func, owner_id).op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
@@ -2341,10 +2341,10 @@ fn flatten_direct_target_control_regions(
 /// cycle checks reuse generation marks instead of allocating node-sized arrays.
 fn flatten_direct_enclosing_target_controls(
   func : @ir.HotFunc,
-  inner_id : Int,
-  target_controls : Array[Int],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  inner_id : Int32,
+  target_controls : Array[Int32],
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   if inner_id < 0 || inner_id >= @ir.hot_node_count(func) {
     return None
   }
@@ -2381,7 +2381,7 @@ fn flatten_direct_enclosing_target_controls(
     }
     marks[owner_id] = target_mark
   }
-  let chain : Array[Int] = []
+  let chain : Array[Int32] = []
   let mut current = inner_id
   while chain.length() < target_controls.length() {
     if current < 0 || current >= direct_parent.length() {
@@ -2402,12 +2402,12 @@ fn flatten_direct_enclosing_target_controls(
 fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
-  value_id : Int,
-  left_id : Int,
-  right_id : Int,
+  root_id : Int32,
+  value_id : Int32,
+  left_id : Int32,
+  right_id : Int32,
   multiply_on_right : Bool,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   let constant_id = if multiply_on_right { left_id } else { right_id }
   let multiply_id = if multiply_on_right { right_id } else { left_id }
   match
@@ -2455,11 +2455,11 @@ fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
 fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
-  value_id : Int,
-  left_id : Int,
-  right_id : Int,
-) -> Array[Int]? {
+  root_id : Int32,
+  value_id : Int32,
+  left_id : Int32,
+  right_id : Int32,
+) -> Array[Int32]? {
   match
     (@ir.hot_node_get(func, left_id).op, @ir.hot_node_get(func, right_id).op) {
     (@ir.HotOp::Binary, @ir.HotOp::Binary) => ()
@@ -2513,11 +2513,11 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
 fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
-  value_id : Int,
-  left_id : Int,
-  right_id : Int,
-) -> Array[Int]? {
+  root_id : Int32,
+  value_id : Int32,
+  left_id : Int32,
+  right_id : Int32,
+) -> Array[Int32]? {
   let instr = match @ir.hot_node_exact_instr(func, value_id) {
     Some(instr) => instr
     None => return None
@@ -2600,8 +2600,8 @@ fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
 fn flatten_try_table_dead_suffix_collect_owned_call_argument(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  node_id : Int,
-  nodes : Array[Int],
+  node_id : Int32,
+  nodes : Array[Int32],
 ) -> Bool {
   if node_id < 0 ||
     node_id >= @ir.hot_node_count(func) ||
@@ -2677,7 +2677,7 @@ fn flatten_try_table_dead_suffix_collect_owned_call_argument(
 ///|
 fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
   func : @ir.HotFunc,
-  argument_id : Int,
+  argument_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, argument_id).op {
     @ir.HotOp::Const => true
@@ -2715,15 +2715,15 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
 fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  call_id : Int,
-) -> Array[Int]? {
+  call_id : Int32,
+) -> Array[Int32]? {
   if @ir.hot_node_result_arity(func, call_id) != 0 {
     return None
   }
   if @ir.hot_node_use_count(use_def, call_id) != 1 {
     return None
   }
-  let nodes : Array[Int] = [call_id]
+  let nodes : Array[Int32] = [call_id]
   for slot = 0; slot < @ir.hot_child_count(func, call_id); slot = slot + 1 {
     let argument_id = @ir.hot_child_get(func, call_id, slot)
     if argument_id < 0 ||
@@ -2772,7 +2772,7 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
 fn flatten_try_table_dead_suffix_drop_const_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  drop_id : Int,
+  drop_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, drop_id).op {
     @ir.HotOp::Drop => ()
@@ -2792,8 +2792,8 @@ fn flatten_try_table_dead_suffix_drop_const_is_supported(
 ///|
 fn flatten_try_table_dead_suffix_control_label_is_unreferenced(
   func : @ir.HotFunc,
-  node_id : Int,
-  state? : FlattenRewriteState? = None,
+  node_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, node_id)
   if !@ir.hot_label_is_live(func, label_id) ||
@@ -2811,8 +2811,8 @@ fn flatten_try_table_dead_suffix_control_label_is_unreferenced(
 fn flatten_try_table_dead_suffix_structured_block_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  block_id : Int,
-  state? : FlattenRewriteState? = None,
+  block_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match @ir.hot_node_get(func, block_id).op {
     @ir.HotOp::Block => ()
@@ -2847,7 +2847,7 @@ fn flatten_try_table_dead_suffix_if_region_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
   region : @ir.HotRegionRef,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let holder = region.holder
   match @ir.hot_node_get(func, holder).op {
@@ -2879,8 +2879,8 @@ fn flatten_try_table_dead_suffix_if_region_is_supported(
 fn flatten_try_table_dead_suffix_structured_if_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  if_id : Int,
-  state? : FlattenRewriteState? = None,
+  if_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match @ir.hot_node_get(func, if_id).op {
     @ir.HotOp::If => ()
@@ -2930,8 +2930,8 @@ fn flatten_try_table_dead_suffix_structured_if_is_supported(
 fn flatten_try_table_dead_suffix_structured_loop_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  loop_id : Int,
-  state? : FlattenRewriteState? = None,
+  loop_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match @ir.hot_node_get(func, loop_id).op {
     @ir.HotOp::Loop => ()
@@ -2966,9 +2966,9 @@ fn flatten_try_table_dead_suffix_structured_loop_is_supported(
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  root_id : Int32,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Block =>
       if flatten_try_table_dead_suffix_structured_block_is_supported(
@@ -3186,7 +3186,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
 ///|
 fn flatten_try_table_dead_suffix_root_is_direct_drop_const(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
@@ -3204,7 +3204,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_drop_const(
 ///|
 fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
 ) -> @lib.Instruction? {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
@@ -3245,7 +3245,7 @@ fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
 ///|
 fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
@@ -3293,7 +3293,7 @@ fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
 fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
+  root_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
@@ -3324,7 +3324,7 @@ fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
 ///|
 fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
@@ -3381,7 +3381,7 @@ fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
 fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  root_id : Int,
+  root_id : Int32,
 ) -> Bool {
   if flatten_try_table_dead_suffix_root_is_direct_drop_const(func, root_id) ||
     flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
@@ -3435,9 +3435,9 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
 fn flatten_try_table_dead_suffix_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  table_id : Int,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  table_id : Int32,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   match state {
     Some(state) => {
       let entry_index = flatten_dead_suffix_entry_index(
@@ -3461,7 +3461,7 @@ fn flatten_try_table_dead_suffix_nodes(
     Some(state) => (state.node_marks, flatten_take_node_mark(state))
     None => (Array::make(@ir.hot_node_count(func), 0), 1)
   }
-  let nodes : Array[Int] = []
+  let nodes : Array[Int32] = []
   let root_count = @ir.hot_region_root_count(func, region_ref)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     if @ir.hot_region_get(func, region_ref, root_idx) != table_id {
@@ -3472,7 +3472,7 @@ fn flatten_try_table_dead_suffix_nodes(
       Some(state) => state.use_def
       None => flatten_build_node_use_counts(func)
     }
-    let recognized_suffix_roots : Array[Array[Int]?] = []
+    let recognized_suffix_roots : Array[Array[Int32]?] = []
     if suffix_count > 1 {
       let mut all_unreachable = true
       let mut all_direct_drop_consts = true
@@ -3620,7 +3620,7 @@ fn flatten_remove_cached_branch_dead_suffix(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let suffix_nodes = flatten_try_table_dead_suffix_nodes(
     func,
@@ -3655,11 +3655,11 @@ fn flatten_remove_cached_branch_dead_suffix(
 ///|
 fn flatten_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
   allow_mixed_targets : Bool,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   if node_id < 0 || node_id >= @ir.hot_node_count(func) {
     return false
@@ -3707,11 +3707,11 @@ fn flatten_try_terminal_br_table_targets_label(
 ///|
 fn flatten_try_terminal_br_table_targets_label_uncached(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
   allow_mixed_targets : Bool,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3731,7 +3731,7 @@ fn flatten_try_terminal_br_table_targets_label_uncached(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  let target_controls : Array[Int] = []
+  let target_controls : Array[Int32] = []
   for target_slot = 0
       target_slot < targets.count
       target_slot = target_slot + 1 {
@@ -3779,8 +3779,8 @@ fn flatten_try_terminal_br_table_targets_label_uncached(
 fn flatten_try_region_effective_terminal_id(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  state? : FlattenRewriteState? = None,
-) -> Int {
+  state~ : FlattenRewriteState? = None,
+) -> Int32 {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
     return -1
@@ -3808,11 +3808,11 @@ fn flatten_try_region_effective_terminal_id(
 ///|
 fn flatten_multivalue_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
   allow_mixed_targets : Bool,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3832,11 +3832,11 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
 ///|
 fn flatten_multivalue_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
-  try_id : Int,
-  branch_id : Int,
+  try_id : Int32,
+  branch_id : Int32,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let payload_count = result_types.length()
   let branch = @ir.hot_node_get(func, branch_id)
   if payload_count <= 1 ||
@@ -3958,7 +3958,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
                 @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
                 let left_id = @ir.hot_child_get(func, consumed_id, 0)
                 if !flatten_node_is_simple_operand(func, left_id) {
-                  let payloads : Array[Int] = []
+                  let payloads : Array[Int32] = []
                   for slot = 0; slot < payload_count; slot = slot + 1 {
                     payloads.push(@ir.hot_child_get(func, tuple_id, slot))
                   }
@@ -3993,7 +3993,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
                 @ir.hot_child_get(func, consumed_id, 1) == expected_payload => {
                 let left_id = @ir.hot_child_get(func, consumed_id, 0)
                 if !flatten_node_is_simple_operand(func, left_id) {
-                  let payloads : Array[Int] = []
+                  let payloads : Array[Int32] = []
                   for slot = 0; slot < payload_count; slot = slot + 1 {
                     payloads.push(@ir.hot_child_get(func, branch_id, slot))
                   }
@@ -4023,10 +4023,10 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
 fn flatten_rewrite_multivalue_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  try_id : Int,
-  branch_id : Int,
+  try_id : Int32,
+  branch_id : Int32,
   result_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if !state.rewrites_started {
     return None
   }
@@ -4042,9 +4042,9 @@ fn flatten_rewrite_multivalue_try_br_if_flow_is_exact(
 ///|
 fn flatten_multivalue_legacy_try_label_uses_are_supported(
   func : @ir.HotFunc,
-  try_id : Int,
+  try_id : Int32,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, try_id)
   let mut saw_target = false
@@ -4169,8 +4169,8 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
 ///|
 fn flatten_multivalue_legacy_try_is_supported(
   func : @ir.HotFunc,
-  try_id : Int,
-  state? : FlattenRewriteState? = None,
+  try_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let try_node = @ir.hot_node_get(func, try_id)
   match try_node.op {
@@ -4288,8 +4288,8 @@ fn flatten_try_route_multivalue_try(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  try_id : Int,
-) -> Array[Int]? {
+  try_id : Int32,
+) -> Array[Int32]? {
   if !flatten_multivalue_legacy_try_is_supported(
       func,
       try_id,
@@ -4375,8 +4375,8 @@ fn flatten_try_route_payloadless_multivalue_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  loop_id : Int,
-) -> Array[Int]? {
+  loop_id : Int32,
+) -> Array[Int32]? {
   let loop_node = @ir.hot_node_get(func, loop_id)
   match loop_node.op {
     @ir.HotOp::Loop => ()
@@ -4403,7 +4403,7 @@ fn flatten_try_route_payloadless_multivalue_loop(
   }
   if flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)) {
     let locals = if state.label_temps[label_id].length() > 0 {
-      let result_locals : Array[Int] = []
+      let result_locals : Array[Int32] = []
       for result_type in result_types {
         result_locals.push(@ir.hot_append_body_local(func, result_type))
       }
@@ -4430,7 +4430,7 @@ fn flatten_try_route_payloadless_multivalue_loop(
     return None
   }
   let locals = if state.label_temps[label_id].length() > 0 {
-    let result_locals : Array[Int] = []
+    let result_locals : Array[Int32] = []
     for result_type in result_types {
       result_locals.push(@ir.hot_append_body_local(func, result_type))
     }
@@ -4469,10 +4469,10 @@ fn flatten_try_route_payloadless_multivalue_loop(
 ///|
 fn flatten_multivalue_control_use_span_is_exclusive(
   func : @ir.HotFunc,
-  parent_id : Int,
-  slot : Int,
-  child_id : Int,
-  result_count : Int,
+  parent_id : Int32,
+  slot : Int32,
+  child_id : Int32,
+  result_count : Int32,
 ) -> Bool {
   if slot + result_count > @ir.hot_child_count(func, parent_id) {
     return false
@@ -4510,7 +4510,7 @@ fn flatten_multivalue_control_use_span_is_exclusive(
 ///|
 fn flatten_multivalue_control_has_exclusive_consumer_span(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
@@ -4537,9 +4537,9 @@ fn flatten_multivalue_control_has_exclusive_consumer_span(
 fn flatten_multivalue_region_control_ownership(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  child_id : Int,
-  result_count : Int,
-) -> Array[Int] {
+  child_id : Int32,
+  result_count : Int32,
+) -> Array[Int32] {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut use_count = 0
   for idx = 0; idx < root_count; idx = idx + 1 {
@@ -4562,7 +4562,7 @@ fn flatten_multivalue_region_control_ownership(
 ///|
 fn flatten_multivalue_control_has_exclusive_region_tail_span(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
@@ -4616,9 +4616,9 @@ fn flatten_multivalue_control_has_exclusive_region_tail_span(
 fn flatten_multivalue_dropped_region_ownership(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  child_id : Int,
-  result_count : Int,
-) -> Array[Int] {
+  child_id : Int32,
+  result_count : Int32,
+) -> Array[Int32] {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut drop_uses = 0
   let mut direct_uses = 0
@@ -4664,7 +4664,7 @@ fn flatten_multivalue_dropped_region_ownership(
 ///|
 fn flatten_multivalue_control_has_exclusive_dropped_region_span(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
@@ -4747,9 +4747,9 @@ fn flatten_try_route_multivalue_dropped_region_span(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  child_id : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  child_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 ||
@@ -4812,10 +4812,10 @@ fn flatten_try_route_multivalue_control_operand(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  slot : Int,
-  child_id : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  slot : Int32,
+  child_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
@@ -4863,9 +4863,9 @@ fn flatten_try_route_multivalue_control_region_span(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   region_ref : @ir.HotRegionRef,
-  root_idx : Int,
-  child_id : Int,
-) -> Int? {
+  root_idx : Int32,
+  child_id : Int32,
+) -> Int32? {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 ||
     root_idx + result_count > @ir.hot_region_root_count(func, region_ref) ||
@@ -4908,8 +4908,8 @@ fn flatten_try_route_scalar_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  block_id : Int,
-) -> Int? {
+  block_id : Int32,
+) -> Int32? {
   let block = @ir.hot_node_get(func, block_id)
   match block.op {
     @ir.HotOp::Block => ()
@@ -5007,7 +5007,7 @@ fn flatten_try_route_scalar_block(
 ///|
 fn flatten_loop_label_param_types(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
 ) -> Array[@lib.ValType]? {
   if label_id < 0 || label_id >= func.labels.length() {
     return None
@@ -5026,10 +5026,10 @@ fn flatten_loop_label_param_types(
 ///|
 fn flatten_loop_backedge_payloads_are_supported(
   func : @ir.HotFunc,
-  node_id : Int,
-  payload_count : Int,
+  node_id : Int32,
+  payload_count : Int32,
   param_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   if payload_count != param_types.length() {
     return false
@@ -5103,9 +5103,9 @@ fn flatten_loop_backedge_payloads_are_supported(
 ///|
 fn flatten_loop_backedges_are_supported(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
   param_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let branch_nodes = match state {
     Some(state) => state.label_branch_nodes[label_id]
@@ -5164,7 +5164,7 @@ fn flatten_loop_backedges_are_supported(
 fn flatten_false_flow_binary_right_operand_is_supported(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Bool {
   flatten_node_is_simple_operand(func, operand_id) ||
   (
@@ -5176,8 +5176,8 @@ fn flatten_false_flow_binary_right_operand_is_supported(
 ///|
 fn flatten_rich_left_payload_vector_is_supported(
   func : @ir.HotFunc,
-  payloads : Array[Int],
-  allow_multiple? : Bool = false,
+  payloads : Array[Int32],
+  allow_multiple~ : Bool = false,
 ) -> Bool {
   let mut rich_payload_count = 0
   for payload_id in payloads {
@@ -5199,9 +5199,9 @@ fn flatten_rich_left_payload_vector_is_supported(
 fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
-  consumer_id : Int,
-  payload_id : Int,
-  allow_rich_left? : Bool = false,
+  consumer_id : Int32,
+  payload_id : Int32,
+  allow_rich_left~ : Bool = false,
 ) -> Bool {
   let consumer = @ir.hot_node_get(func, consumer_id)
   match consumer.op {
@@ -5265,10 +5265,10 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
 fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
-  consumer_id : Int,
-  tuple_id : Int,
+  consumer_id : Int32,
+  tuple_id : Int32,
   lane_type : @lib.ValType,
-  allow_rich_left? : Bool = false,
+  allow_rich_left~ : Bool = false,
 ) -> Bool {
   let consumer = @ir.hot_node_get(func, consumer_id)
   match consumer.op {
@@ -5317,9 +5317,9 @@ fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
 ///|
 fn flatten_replace_multivalue_loop_br_if_consumer_payload(
   func : @ir.HotFunc,
-  consumer_id : Int,
-  payload_id : Int,
-  local_id : Int,
+  consumer_id : Int32,
+  payload_id : Int32,
+  local_id : Int32,
 ) -> Bool {
   let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
   if consumed_id == payload_id {
@@ -5354,12 +5354,12 @@ fn flatten_replace_multivalue_loop_br_if_consumer_payload(
 ///|
 fn flatten_multivalue_tuple_loop_br_if_flow(
   func : @ir.HotFunc,
-  loop_id : Int,
-  branch_id : Int,
+  loop_id : Int32,
+  branch_id : Int32,
   param_types : Array[@lib.ValType],
-  use_counts? : @ir.HotNodeUseCounts? = None,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  use_counts~ : @ir.HotNodeUseCounts? = None,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let payload_count = param_types.length()
   if payload_count <= 1 ||
     @ir.hot_child_count(func, branch_id) != payload_count + 1 {
@@ -5424,7 +5424,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
           @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
           let left_id = @ir.hot_child_get(func, consumed_id, 0)
           if !flatten_node_is_simple_operand(func, left_id) {
-            let payloads : Array[Int] = []
+            let payloads : Array[Int32] = []
             for slot = 0; slot < payload_count; slot = slot + 1 {
               payloads.push(@ir.hot_child_get(func, tuple_id, slot))
             }
@@ -5466,12 +5466,12 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
 ///|
 fn flatten_multivalue_loop_br_if_flow(
   func : @ir.HotFunc,
-  loop_id : Int,
-  branch_id : Int,
+  loop_id : Int32,
+  branch_id : Int32,
   param_types : Array[@lib.ValType],
-  use_counts? : @ir.HotNodeUseCounts? = None,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  use_counts~ : @ir.HotNodeUseCounts? = None,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let payload_count = param_types.length()
   let label_id = @ir.hot_control_node_label(func, loop_id)
   let branch = @ir.hot_node_get(func, branch_id)
@@ -5499,7 +5499,7 @@ fn flatten_multivalue_loop_br_if_flow(
     Some(counts) => counts
     None => flatten_build_node_use_counts(func)
   }
-  let payloads : Array[Int] = []
+  let payloads : Array[Int32] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let payload_id = @ir.hot_child_get(func, branch_id, slot)
     let payload_types = flatten_type_results(
@@ -5565,10 +5565,10 @@ fn flatten_multivalue_loop_br_if_flow(
 ///|
 fn flatten_multivalue_loop_br_if_flows_are_exact(
   func : @ir.HotFunc,
-  loop_id : Int,
-  label_id : Int,
-  payload_count : Int,
-  state? : FlattenRewriteState? = None,
+  loop_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let use_counts = match state {
     Some(state) => state.use_def
@@ -5621,9 +5621,9 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
 fn flatten_rewrite_multivalue_loop_br_if_flows_are_exact(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  loop_id : Int,
-  label_id : Int,
-  payload_count : Int,
+  loop_id : Int32,
+  label_id : Int32,
+  payload_count : Int32,
 ) -> Bool {
   if !state.rewrites_started {
     return false
@@ -5640,10 +5640,10 @@ fn flatten_rewrite_multivalue_loop_br_if_flows_are_exact(
 ///|
 fn flatten_inputful_multivalue_loop_tail_is_supported(
   func : @ir.HotFunc,
-  loop_id : Int,
-  label_id : Int,
+  loop_id : Int32,
+  label_id : Int32,
   result_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   if flatten_multivalue_region_tail_matches_types(
@@ -5722,10 +5722,10 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
 ///|
 fn flatten_inputful_loop_tuple_entry_values(
   func : @ir.HotFunc,
-  loop_id : Int,
+  loop_id : Int32,
   param_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let input_count = param_types.length()
   if input_count <= 1 || @ir.hot_child_count(func, loop_id) <= input_count {
     return None
@@ -5767,7 +5767,7 @@ fn flatten_inputful_loop_tuple_entry_values(
   if @ir.hot_node_use_count(use_counts, tuple_id) != input_count * 2 {
     return None
   }
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for slot = 0; slot < input_count; slot = slot + 1 {
     let value_id = @ir.hot_child_get(func, tuple_id, slot)
     let value_types = flatten_type_results(
@@ -5790,9 +5790,9 @@ fn flatten_inputful_loop_tuple_entry_values(
 fn flatten_rewrite_inputful_loop_tuple_entry_values(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  loop_id : Int,
+  loop_id : Int32,
   param_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if !state.rewrites_started {
     return None
   }
@@ -5807,8 +5807,8 @@ fn flatten_rewrite_inputful_loop_tuple_entry_values(
 ///|
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
-  loop_id : Int,
-  state? : FlattenRewriteState? = None,
+  loop_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   match state {
     Some(state) => {
@@ -5841,8 +5841,8 @@ fn flatten_inputful_loop_is_supported(
 ///|
 fn flatten_inputful_loop_is_supported_uncached(
   func : @ir.HotFunc,
-  loop_id : Int,
-  state? : FlattenRewriteState? = None,
+  loop_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let loop_node = @ir.hot_node_get(func, loop_id)
   match loop_node.op {
@@ -5962,11 +5962,11 @@ fn flatten_inputful_loop_is_supported_uncached(
 ///|
 fn flatten_replace_loop_entry_in_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  entry_id : Int,
-  replacement_id : Int,
-  visited_marks : Array[Int],
-  visited_mark : Int,
+  node_id : Int32,
+  entry_id : Int32,
+  replacement_id : Int32,
+  visited_marks : Array[Int32],
+  visited_mark : Int32,
 ) -> Unit {
   if node_id < 0 ||
     node_id >= visited_marks.length() ||
@@ -5993,8 +5993,8 @@ fn flatten_prepare_inputful_scalar_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  loop_id : Int,
-  preludes : Array[Int],
+  loop_id : Int32,
+  preludes : Array[Int32],
 ) -> Unit {
   let label_id = @ir.hot_control_node_label(func, loop_id)
   let input_count = @ir.hot_label_branch_arity(func, label_id)
@@ -6009,7 +6009,7 @@ fn flatten_prepare_inputful_scalar_loop(
     ) {
     Some(values) => {
       let tuple_id = @ir.hot_child_get(func, loop_id, 0)
-      let locals : Array[Int] = []
+      let locals : Array[Int32] = []
       for slot = 0; slot < values.length(); slot = slot + 1 {
         let local_id = @ir.hot_append_body_local(func, param_types[slot])
         locals.push(local_id)
@@ -6032,7 +6032,7 @@ fn flatten_prepare_inputful_scalar_loop(
     }
     None => ()
   }
-  let entries : Array[Int] = []
+  let entries : Array[Int32] = []
   for slot = 0; slot < input_count; slot = slot + 1 {
     entries.push(@ir.hot_child_get(func, loop_id, slot))
   }
@@ -6072,7 +6072,7 @@ fn flatten_prepare_inputful_scalar_loop(
 ///|
 fn flatten_loop_label_uses_are_payloadless(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
 ) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -6109,8 +6109,8 @@ fn flatten_try_route_scalar_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  loop_id : Int,
-) -> Int? {
+  loop_id : Int32,
+) -> Int32? {
   let loop_node = @ir.hot_node_get(func, loop_id)
   match loop_node.op {
     @ir.HotOp::Loop => ()
@@ -6165,7 +6165,7 @@ fn flatten_try_route_scalar_loop(
 ///|
 fn flatten_legacy_try_has_deferred_eh_repair(
   func : @ir.HotFunc,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let requirement = match state {
     Some(state) => state.eh_repair_requirement
@@ -6177,8 +6177,8 @@ fn flatten_legacy_try_has_deferred_eh_repair(
 ///|
 fn flatten_scalar_legacy_try_is_supported(
   func : @ir.HotFunc,
-  try_id : Int,
-  state? : FlattenRewriteState? = None,
+  try_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   if try_id < 0 || try_id >= @ir.hot_node_count(func) {
     return false
@@ -6214,8 +6214,8 @@ fn flatten_scalar_legacy_try_is_supported(
 ///|
 fn flatten_scalar_legacy_try_is_supported_uncached(
   func : @ir.HotFunc,
-  try_id : Int,
-  state? : FlattenRewriteState? = None,
+  try_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let try_node = @ir.hot_node_get(func, try_id)
   match try_node.op {
@@ -6289,8 +6289,8 @@ fn flatten_try_route_scalar_try(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  try_id : Int,
-) -> Int? {
+  try_id : Int32,
+) -> Int32? {
   if !flatten_scalar_legacy_try_is_supported(func, try_id, state=Some(state)) {
     return None
   }
@@ -6351,8 +6351,8 @@ fn flatten_try_route_scalar_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  if_id : Int,
-) -> Int? {
+  if_id : Int32,
+) -> Int32? {
   let if_node = @ir.hot_node_get(func, if_id)
   match if_node.op {
     @ir.HotOp::If => ()
@@ -6506,8 +6506,8 @@ fn flatten_try_route_scalar_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block =>
       flatten_try_route_scalar_block(ctx, func, state, node_id)
@@ -6522,8 +6522,8 @@ fn flatten_try_route_scalar_control(
 fn flatten_scalar_try_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
-  consumer_id : Int,
-  value_id : Int,
+  consumer_id : Int32,
+  value_id : Int32,
 ) -> Bool {
   let consumer = @ir.hot_node_get(func, consumer_id)
   match consumer.op {
@@ -6575,10 +6575,10 @@ fn flatten_scalar_try_br_if_consumer_matches_payload(
 ///|
 fn flatten_scalar_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
-  try_id : Int,
-  branch_id : Int,
-  value_id : Int,
-  state? : FlattenRewriteState? = None,
+  try_id : Int32,
+  branch_id : Int32,
+  value_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let branch = @ir.hot_node_get(func, branch_id)
   match branch.op {
@@ -6617,9 +6617,9 @@ fn flatten_scalar_try_br_if_flow_is_exact(
 fn flatten_rewrite_scalar_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  try_id : Int,
-  branch_id : Int,
-  value_id : Int,
+  try_id : Int32,
+  branch_id : Int32,
+  value_id : Int32,
 ) -> Bool {
   if !state.rewrites_started {
     return false
@@ -6636,17 +6636,17 @@ fn flatten_rewrite_scalar_try_br_if_flow_is_exact(
 ///|
 fn flatten_scalar_br_if_current_flow_sites(
   func : @ir.HotFunc,
-  branch_id : Int,
-  value_id : Int,
-  cached_sites : Array[Int],
-) -> Array[Int]? {
+  branch_id : Int32,
+  value_id : Int32,
+  cached_sites : Array[Int32],
+) -> Array[Int32]? {
   if cached_sites.length() % 2 != 0 ||
     @ir.hot_child_count(func, branch_id) < 1 ||
     @ir.hot_child_get(func, branch_id, 0) != value_id {
     return None
   }
-  let parents : Array[Int] = []
-  let expected_counts : Array[Int] = []
+  let parents : Array[Int32] = []
+  let expected_counts : Array[Int32] = []
   for site = 0; site < cached_sites.length(); site = site + 2 {
     let parent_id = cached_sites[site]
     let mut parent_idx = -1
@@ -6662,7 +6662,7 @@ fn flatten_scalar_br_if_current_flow_sites(
       expected_counts[parent_idx] = expected_counts[parent_idx] + 1
     }
   }
-  let current_sites : Array[Int] = []
+  let current_sites : Array[Int32] = []
   for parent_idx = 0; parent_idx < parents.length(); parent_idx = parent_idx + 1 {
     let parent_id = parents[parent_idx]
     let mut found = 0
@@ -6699,9 +6699,9 @@ fn flatten_scalar_br_if_current_flow_sites(
 ///|
 fn flatten_locate_scalar_br_if_flow_sites(
   func : @ir.HotFunc,
-  branch_id : Int,
-  value_id : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  value_id : Int32,
+) -> Array[Int32]? {
   if branch_id < 0 ||
     branch_id >= @ir.hot_node_count(func) ||
     !@ir.hot_node_is_live(func, branch_id) ||
@@ -6709,7 +6709,7 @@ fn flatten_locate_scalar_br_if_flow_sites(
     @ir.hot_child_get(func, branch_id, 0) != value_id {
     return None
   }
-  let sites : Array[Int] = []
+  let sites : Array[Int32] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -6734,10 +6734,10 @@ fn flatten_locate_scalar_br_if_flow_sites(
 ///|
 fn flatten_scalar_br_if_flow_sites(
   func : @ir.HotFunc,
-  branch_id : Int,
-  value_id : Int,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  branch_id : Int32,
+  value_id : Int32,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   let cached_sites = match state {
     Some(state) => {
       let entry_index = flatten_scalar_br_if_flow_entry_index(
@@ -6781,9 +6781,9 @@ fn flatten_scalar_br_if_flow_sites(
 fn flatten_rewrite_scalar_br_if_flow_sites(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  branch_id : Int,
-  value_id : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  value_id : Int32,
+) -> Array[Int32]? {
   if !state.rewrites_started {
     return None
   }
@@ -6818,9 +6818,9 @@ fn flatten_rewrite_scalar_br_if_flow_sites(
 ///|
 fn flatten_target_can_route_scalar_branches(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
   target_type : @lib.ValType,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let owner_id = @ir.hot_label_owner(func, label_id)
   let owner = @ir.hot_node_get(func, owner_id)
@@ -7007,7 +7007,7 @@ fn flatten_target_can_route_scalar_branches(
 fn flatten_rewrite_target_can_route_scalar_branches(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  label_id : Int,
+  label_id : Int32,
   target_type : @lib.ValType,
 ) -> Bool {
   flatten_target_can_route_scalar_branches(
@@ -7021,17 +7021,17 @@ fn flatten_rewrite_target_can_route_scalar_branches(
 ///|
 fn flatten_collect_distinct_branch_payloads(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
+  branch_id : Int32,
+  payload_count : Int32,
   seen : @bitset.BitSet,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if payload_count <= 0 ||
     branch_id < 0 ||
     !@ir.hot_node_is_live(func, branch_id) ||
     @ir.hot_child_count(func, branch_id) < payload_count {
     return None
   }
-  let payloads : Array[Int] = []
+  let payloads : Array[Int32] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let payload_id = @ir.hot_child_get(func, branch_id, slot)
     if payload_id < 0 || payload_id >= seen.length() || seen[payload_id] {
@@ -7046,17 +7046,17 @@ fn flatten_collect_distinct_branch_payloads(
 ///|
 fn flatten_collect_distinct_branch_payload_slots(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-  payload_slots : Array[Int],
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+  payload_slots : Array[Int32],
+) -> Array[Int32]? {
   if payload_count <= 0 ||
     branch_id < 0 ||
     !@ir.hot_node_is_live(func, branch_id) ||
     @ir.hot_child_count(func, branch_id) < payload_count {
     return None
   }
-  let payloads : Array[Int] = []
+  let payloads : Array[Int32] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let payload_id = @ir.hot_child_get(func, branch_id, slot)
     if payload_id < 0 ||
@@ -7073,9 +7073,9 @@ fn flatten_collect_distinct_branch_payload_slots(
 ///|
 fn flatten_multivalue_br_if_cached_flow_is_current(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-  flow : Array[Int],
+  branch_id : Int32,
+  payload_count : Int32,
+  flow : Array[Int32],
 ) -> Bool {
   if payload_count <= 1 ||
     @ir.hot_child_count(func, branch_id) != payload_count + 1 {
@@ -7127,9 +7127,9 @@ fn flatten_multivalue_br_if_cached_flow_is_current(
 ///|
 fn flatten_locate_reachable_multivalue_br_if_same_parent_flow_span(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+) -> Array[Int32]? {
   let payload_slots = Array::make(@ir.hot_node_count(func), -1)
   if flatten_collect_distinct_branch_payload_slots(
       func, branch_id, payload_count, payload_slots,
@@ -7138,7 +7138,7 @@ fn flatten_locate_reachable_multivalue_br_if_same_parent_flow_span(
     return None
   }
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let worklist : Array[Int] = []
+  let worklist : Array[Int32] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     let root_id = @ir.hot_root_get(func, root_idx)
     if root_id >= 0 &&
@@ -7201,7 +7201,7 @@ fn flatten_locate_reachable_multivalue_br_if_same_parent_flow_span(
 fn flatten_multivalue_br_if_region_has_payload_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  payload_slots : Array[Int],
+  payload_slots : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
@@ -7218,8 +7218,8 @@ fn flatten_multivalue_br_if_region_has_payload_root(
 fn flatten_multivalue_br_if_dropped_flow_in_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  drop_ids : Array[Int],
-) -> Array[Int]? {
+  drop_ids : Array[Int32],
+) -> Array[Int32]? {
   let payload_count = drop_ids.length()
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if payload_count <= 1 || root_count < payload_count {
@@ -7248,9 +7248,9 @@ fn flatten_multivalue_br_if_dropped_flow_in_region(
 ///|
 fn flatten_locate_dropped_multivalue_br_if_flow_span(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+) -> Array[Int32]? {
   let payload_slots = Array::make(@ir.hot_node_count(func), -1)
   if flatten_collect_distinct_branch_payload_slots(
       func, branch_id, payload_count, payload_slots,
@@ -7295,7 +7295,7 @@ fn flatten_locate_dropped_multivalue_br_if_flow_span(
       return None
     }
   }
-  let mut found : Array[Int]? = None
+  let mut found : Array[Int32]? = None
   let root_region = @ir.HotRegionRef::root()
   if flatten_multivalue_br_if_region_has_payload_root(
       func, root_region, payload_slots,
@@ -7360,9 +7360,9 @@ fn flatten_locate_dropped_multivalue_br_if_flow_span(
 ///|
 fn flatten_locate_reachable_multivalue_br_if_flow_span(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+) -> Array[Int32]? {
   match
     flatten_locate_reachable_multivalue_br_if_same_parent_flow_span(
       func, branch_id, payload_count,
@@ -7378,10 +7378,10 @@ fn flatten_locate_reachable_multivalue_br_if_flow_span(
 ///|
 fn flatten_multivalue_br_if_flow_span(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   if payload_count <= 1 ||
     @ir.hot_child_count(func, branch_id) != payload_count + 1 {
     return None
@@ -7429,9 +7429,9 @@ fn flatten_multivalue_br_if_flow_span(
 fn flatten_rewrite_multivalue_br_if_flow_span(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  branch_id : Int,
-  payload_count : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  payload_count : Int32,
+) -> Array[Int32]? {
   if !state.rewrites_started ||
     flatten_br_if_flow_entry_index(
       state.multivalue_br_if_flow_entries,
@@ -7451,9 +7451,9 @@ fn flatten_rewrite_multivalue_br_if_flow_span(
 ///|
 fn flatten_tuple_br_if_cached_flow_is_current(
   func : @ir.HotFunc,
-  tuple_id : Int,
-  payload_count : Int,
-  flow : Array[Int],
+  tuple_id : Int32,
+  payload_count : Int32,
+  flow : Array[Int32],
 ) -> Bool {
   if flow.length() != 3 ||
     flow[0] != tuple_id ||
@@ -7473,9 +7473,9 @@ fn flatten_tuple_br_if_cached_flow_is_current(
 
 ///|
 fn flatten_record_distinct_flow_slot(
-  flow_slots : Array[Int],
+  flow_slots : Array[Int32],
   seen : Array[Bool],
-  slot : Int,
+  slot : Int32,
 ) -> Bool {
   if slot < 0 || slot >= seen.length() || seen[slot] {
     return false
@@ -7488,12 +7488,12 @@ fn flatten_record_distinct_flow_slot(
 ///|
 fn flatten_locate_reachable_tuple_br_if_flow(
   func : @ir.HotFunc,
-  branch_id : Int,
-  tuple_id : Int,
-  payload_count : Int,
-) -> Array[Int]? {
+  branch_id : Int32,
+  tuple_id : Int32,
+  payload_count : Int32,
+) -> Array[Int32]? {
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let worklist : Array[Int] = []
+  let worklist : Array[Int32] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     let root_id = @ir.hot_root_get(func, root_idx)
     if root_id == tuple_id {
@@ -7505,7 +7505,7 @@ fn flatten_locate_reachable_tuple_br_if_flow(
     }
   }
   let branch_slots = Array::make(payload_count, false)
-  let flow_slots : Array[Int] = []
+  let flow_slots : Array[Int32] = []
   let flow_slot_seen : Array[Bool] = []
   let mut flow_parent = -1
   let mut site_count = 0
@@ -7559,11 +7559,11 @@ fn flatten_locate_reachable_tuple_br_if_flow(
 ///|
 fn flatten_multivalue_tuple_br_if_flow(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
+  branch_id : Int32,
+  payload_count : Int32,
   target_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   if payload_count <= 1 ||
     target_types.length() != payload_count ||
     @ir.hot_child_count(func, branch_id) != payload_count + 1 {
@@ -7648,10 +7648,10 @@ fn flatten_multivalue_tuple_br_if_flow(
 fn flatten_rewrite_multivalue_tuple_br_if_flow(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  branch_id : Int,
-  payload_count : Int,
+  branch_id : Int32,
+  payload_count : Int32,
   target_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if !state.rewrites_started ||
     flatten_br_if_flow_entry_index(state.tuple_br_if_flow_entries, branch_id) <
     0 {
@@ -7669,11 +7669,11 @@ fn flatten_rewrite_multivalue_tuple_br_if_flow(
 ///|
 fn flatten_multivalue_tuple_branch_payload_values(
   func : @ir.HotFunc,
-  branch_id : Int,
-  payload_count : Int,
+  branch_id : Int32,
+  payload_count : Int32,
   target_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
-) -> Array[Int]? {
+  state~ : FlattenRewriteState? = None,
+) -> Array[Int32]? {
   if payload_count <= 1 || target_types.length() != payload_count {
     return None
   }
@@ -7699,7 +7699,7 @@ fn flatten_multivalue_tuple_branch_payload_values(
   if @ir.hot_node_use_count(use_counts, tuple_id) != payload_count {
     return None
   }
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let value_id = @ir.hot_child_get(func, tuple_id, slot)
     let value_types = flatten_type_results(
@@ -7722,10 +7722,10 @@ fn flatten_multivalue_tuple_branch_payload_values(
 fn flatten_rewrite_multivalue_tuple_branch_payload_values(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  branch_id : Int,
-  payload_count : Int,
+  branch_id : Int32,
+  payload_count : Int32,
   target_types : Array[@lib.ValType],
-) -> Array[Int]? {
+) -> Array[Int32]? {
   if !state.rewrites_started {
     return None
   }
@@ -7741,9 +7741,9 @@ fn flatten_rewrite_multivalue_tuple_branch_payload_values(
 ///|
 fn flatten_br_table_payload_types(
   func : @ir.HotFunc,
-  table_id : Int,
-  payload_count : Int,
-  state? : FlattenRewriteState? = None,
+  table_id : Int32,
+  payload_count : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Array[@lib.ValType]? {
   if payload_count <= 0 {
     return None
@@ -7812,10 +7812,10 @@ fn flatten_br_table_payload_types(
 ///|
 fn flatten_multivalue_branch_target_is_supported_with_table(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
   target_types : Array[@lib.ValType],
-  admitted_table_id : Int,
-  state? : FlattenRewriteState? = None,
+  admitted_table_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   if target_types.length() <= 1 ||
     @ir.hot_label_branch_arity(func, label_id) != target_types.length() {
@@ -8097,9 +8097,9 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
 ///|
 fn flatten_multivalue_branch_target_is_supported(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
   target_types : Array[@lib.ValType],
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   flatten_multivalue_branch_target_is_supported_with_table(
     func,
@@ -8114,9 +8114,9 @@ fn flatten_multivalue_branch_target_is_supported(
 fn flatten_rewrite_multivalue_branch_target_is_supported(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  label_id : Int,
+  label_id : Int32,
   target_types : Array[@lib.ValType],
-  admitted_table_id : Int,
+  admitted_table_id : Int32,
 ) -> Bool {
   flatten_multivalue_branch_target_is_supported_with_table(
     func,
@@ -8133,8 +8133,8 @@ fn flatten_try_route_br(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  node_id : Int,
-  preludes : Array[Int],
+  node_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let branch = @ir.hot_node_get(func, node_id)
   match branch.op {
@@ -8294,9 +8294,9 @@ fn flatten_try_route_br(
 fn flatten_replace_cached_flowing_value_uses(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  branch_id : Int,
-  value_id : Int,
-  local_id : Int,
+  branch_id : Int32,
+  value_id : Int32,
+  local_id : Int32,
 ) -> Bool {
   let sites = match
     flatten_rewrite_scalar_br_if_flow_sites(func, state, branch_id, value_id) {
@@ -8329,9 +8329,9 @@ fn flatten_replace_cached_flowing_value_uses(
 ///|
 fn flatten_replace_flowing_value_uses(
   func : @ir.HotFunc,
-  branch_id : Int,
-  value_id : Int,
-  local_id : Int,
+  branch_id : Int32,
+  value_id : Int32,
+  local_id : Int32,
 ) -> Bool {
   let mut replacement = -1
   let mut replaced = false
@@ -8370,8 +8370,8 @@ fn flatten_try_route_multivalue_br_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  node_id : Int,
-  preludes : Array[Int],
+  node_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let branch = @ir.hot_node_get(func, node_id)
   let child_count = @ir.hot_child_count(func, node_id)
@@ -8537,8 +8537,8 @@ fn flatten_try_route_scalar_br_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
-  node_id : Int,
-  preludes : Array[Int],
+  node_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let branch = @ir.hot_node_get(func, node_id)
   let child_count = @ir.hot_child_count(func, node_id)
@@ -8775,9 +8775,9 @@ fn flatten_try_route_scalar_br_if(
 
 ///|
 fn flatten_record_unique_br_table_target(
-  targets : Array[Int],
+  targets : Array[Int32],
   seen : @bitset.BitSet,
-  target : Int,
+  target : Int32,
 ) -> Bool {
   if target < 0 || target >= seen.length() || seen[target] {
     return false
@@ -8790,9 +8790,9 @@ fn flatten_record_unique_br_table_target(
 ///|
 fn flatten_unique_br_table_targets(
   func : @ir.HotFunc,
-  table_id : Int,
-) -> Array[Int] {
-  let unique : Array[Int] = []
+  table_id : Int32,
+) -> Array[Int32] {
+  let unique : Array[Int32] = []
   let seen = @bitset.BitSet::new(func.labels.length())
   for target in @ir.hot_branch_table_targets(func, table_id) {
     ignore(flatten_record_unique_br_table_target(unique, seen, target))
@@ -8810,8 +8810,8 @@ fn flatten_unique_br_table_targets(
 ///|
 fn flatten_br_table_targets(
   func : @ir.HotFunc,
-  table_id : Int,
-  state? : FlattenRewriteState? = None,
+  table_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> FlattenBrTableTargets? {
   match state {
     Some(state) => {
@@ -8841,7 +8841,7 @@ fn flatten_br_table_targets(
 ///|
 fn flatten_br_table_targets_contains(
   targets : FlattenBrTableTargets,
-  label_id : Int,
+  label_id : Int32,
 ) -> Bool {
   for offset = 0; offset < targets.count; offset = offset + 1 {
     if targets.targets[targets.start + offset] == label_id {
@@ -8854,8 +8854,8 @@ fn flatten_br_table_targets_contains(
 ///|
 fn flatten_br_table_target_at(
   targets : FlattenBrTableTargets,
-  offset : Int,
-) -> Int {
+  offset : Int32,
+) -> Int32 {
   targets.targets[targets.start + offset]
 }
 
@@ -8914,11 +8914,11 @@ fn flatten_br_table_staging_locals(
   state : FlattenRewriteState,
   targets : FlattenBrTableTargets,
   payload_types : Array[@lib.ValType],
-) -> Array[Int] {
+) -> Array[Int32] {
   if targets.count == 1 {
     return state.label_temps[flatten_br_table_target_at(targets, 0)]
   }
-  let staging : Array[Int] = []
+  let staging : Array[Int32] = []
   for payload_type in payload_types {
     staging.push(@ir.hot_append_body_local(func, payload_type))
   }
@@ -8928,10 +8928,10 @@ fn flatten_br_table_staging_locals(
 ///|
 fn flatten_tuple_mixed_try_table_is_supported(
   func : @ir.HotFunc,
-  table_id : Int,
+  table_id : Int32,
   payload_types : Array[@lib.ValType],
   targets : FlattenBrTableTargets,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let tuple_values = flatten_multivalue_tuple_branch_payload_values(
     func,
@@ -8981,8 +8981,8 @@ fn flatten_try_route_br_table(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  node_id : Int,
-  preludes : Array[Int],
+  node_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let branch = @ir.hot_node_get(func, node_id)
   let child_count = @ir.hot_child_count(func, node_id)
@@ -9163,7 +9163,7 @@ fn flatten_try_route_br_table(
 ///|
 fn flatten_node_is_admitted_terminal_control_effect(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Br
@@ -9183,10 +9183,10 @@ fn flatten_place_unreachable_control_placeholder(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  slot : Int,
-  child_id : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  slot : Int32,
+  child_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   if !flatten_node_is_admitted_terminal_control_effect(func, child_id) {
     return false
@@ -9210,8 +9210,8 @@ fn flatten_insert_early_source_preludes(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  child_id : Int,
-  preludes : Array[Int],
+  child_id : Int32,
+  preludes : Array[Int32],
 ) -> Unit {
   let child = @ir.hot_node_get(func, child_id)
   let mut early_insert_idx = -1
@@ -9266,10 +9266,10 @@ fn flatten_spill_scalar_operand(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  slot : Int,
-  child_id : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  slot : Int32,
+  child_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let child = @ir.hot_node_get(func, child_id)
   let parent = @ir.hot_node_get(func, parent_id)
@@ -9312,9 +9312,9 @@ fn flatten_try_lower_region_root_tee(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  root_idx : Int,
-  node_id : Int,
-) -> Int? {
+  root_idx : Int32,
+  node_id : Int32,
+) -> Int32? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 => ()
@@ -9339,7 +9339,7 @@ fn flatten_try_lower_region_root_tee(
 ///|
 fn flatten_root_needs_sequence_tracking(
   state : FlattenRewriteState,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   node_id >= 0 &&
   node_id < state.use_count_node_limit &&
@@ -9447,10 +9447,10 @@ fn flatten_rewrite_region_operands(
 fn flatten_try_lower_tee_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  parent_id : Int,
-  slot : Int,
-  tee_id : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  slot : Int32,
+  tee_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let tee = @ir.hot_node_get(func, tee_id)
   match tee.op {
@@ -9487,9 +9487,9 @@ fn flatten_rewrite_operand_slot(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  slot : Int,
-  preludes : Array[Int],
+  parent_id : Int32,
+  slot : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   let child_id = @ir.hot_child_get(func, parent_id, slot)
   if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
@@ -9539,7 +9539,7 @@ fn flatten_rewrite_operand_slot(
 ///|
 fn flatten_node_needs_postorder_branch_routing(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Br => @ir.hot_child_count(func, node_id) > 0
@@ -9550,7 +9550,7 @@ fn flatten_node_needs_postorder_branch_routing(
 ///|
 fn flatten_mark_local_writes_in_subtree(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
   written_locals : Array[Bool],
 ) -> Unit {
   let pending = [root_id]
@@ -9576,8 +9576,8 @@ fn flatten_mark_local_writes_in_subtree(
 ///|
 fn flatten_new_prelude_local_writes(
   func : @ir.HotFunc,
-  preludes : Array[Int],
-  start : Int,
+  preludes : Array[Int32],
+  start : Int32,
 ) -> Array[Bool] {
   let written_locals = Array::make(@ir.hot_local_count(func), false)
   for idx = start; idx < preludes.length(); idx = idx + 1 {
@@ -9589,12 +9589,12 @@ fn flatten_new_prelude_local_writes(
 ///|
 fn flatten_stage_operand_reads_before_local_writes(
   func : @ir.HotFunc,
-  owner_id : Int,
-  owner_slot : Int,
+  owner_id : Int32,
+  owner_slot : Int32,
   written_locals : Array[Bool],
-  preludes : Array[Int],
-  insert_at : Int,
-) -> Int {
+  preludes : Array[Int32],
+  insert_at : Int32,
+) -> Int32 {
   let node_id = @ir.hot_child_get(func, owner_id, owner_slot)
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return 0
@@ -9644,10 +9644,10 @@ fn flatten_stage_operand_reads_before_local_writes(
 ///|
 fn flatten_stage_prior_operands_before_new_preludes(
   func : @ir.HotFunc,
-  parent_id : Int,
-  end_slot : Int,
-  preludes : Array[Int],
-  insert_at : Int,
+  parent_id : Int32,
+  end_slot : Int32,
+  preludes : Array[Int32],
+  insert_at : Int32,
 ) -> Bool {
   let written_locals = flatten_new_prelude_local_writes(
     func, preludes, insert_at,
@@ -9672,8 +9672,8 @@ fn flatten_rewrite_node_operands(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  node_id : Int,
-  preludes : Array[Int],
+  node_id : Int32,
+  preludes : Array[Int32],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -9847,7 +9847,7 @@ fn flatten_materialize_multivalue_body_result(
     return false
   }
   let tail_start = root_count - result_count
-  let scalar_values : Array[Int] = []
+  let scalar_values : Array[Int32] = []
   let mut has_scalar_tail = true
   for slot = 0; slot < result_count; slot = slot + 1 {
     let value_id = @ir.hot_root_get(func, tail_start + slot)
@@ -9897,15 +9897,15 @@ fn flatten_materialize_multivalue_body_result(
     @ir.hot_node_use_count(state.use_def, tuple_id) != result_count {
     return false
   }
-  let locals : Array[Int] = []
+  let locals : Array[Int32] = []
   for result_type in result_types {
     locals.push(@ir.hot_append_body_local(func, result_type))
   }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for slot = result_count - 1; slot >= 0; slot = slot - 1 {
     replacement.push(@ir.hot_build_local_set(func, locals[slot], tuple_id))
   }
-  let return_values : Array[Int] = []
+  let return_values : Array[Int32] = []
   for local_id in locals {
     return_values.push(@ir.hot_build_local_get(func, local_id))
   }
@@ -9992,7 +9992,7 @@ fn flatten_materialize_scalar_body_result(
 ///|
 fn flatten_scalar_branch_payload_has_supported_origin(
   func : @ir.HotFunc,
-  value_id : Int,
+  value_id : Int32,
 ) -> Bool {
   if flatten_node_is_simple_operand(func, value_id) {
     return true
@@ -10055,9 +10055,9 @@ fn flatten_has_deferred_legacy_try(
 ///|
 fn flatten_scalar_branch_payload_is_supported(
   func : @ir.HotFunc,
-  branch_id : Int,
-  value_id : Int,
-  state? : FlattenRewriteState? = None,
+  branch_id : Int32,
+  value_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let label_id = @ir.hot_node_get(func, branch_id).imm0
   if label_id < 0 ||
@@ -10097,7 +10097,7 @@ fn flatten_scalar_branch_payload_is_supported(
 ///|
 fn flatten_has_deferred_rich_branch_payload(
   func : @ir.HotFunc,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let branch_nodes = match state {
     Some(state) => state.branch_payload_nodes
@@ -10358,8 +10358,8 @@ priv enum FlattenRunAdmission {
 ///|
 fn flatten_direct_rethrow_value_if_is_supported(
   func : @ir.HotFunc,
-  if_id : Int,
-  rethrow_id : Int,
+  if_id : Int32,
+  rethrow_id : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let result_types = flatten_type_results(
@@ -10402,8 +10402,8 @@ fn flatten_direct_rethrow_value_if_is_supported(
 ///|
 fn flatten_markerless_catch_owns_root(
   func : @ir.HotFunc,
-  try_id : Int,
-  root_id : Int,
+  try_id : Int32,
+  root_id : Int32,
 ) -> Bool {
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -10426,8 +10426,8 @@ fn flatten_markerless_catch_owns_root(
 ///|
 fn flatten_typed_catch_owns_root(
   func : @ir.HotFunc,
-  try_id : Int,
-  root_id : Int,
+  try_id : Int32,
+  root_id : Int32,
 ) -> Bool {
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -10469,8 +10469,8 @@ fn flatten_typed_catch_owns_root(
 ///|
 fn flatten_typed_catch_root_owns_strict_rethrow(
   func : @ir.HotFunc,
-  root_id : Int,
-  rethrow_id : Int,
+  root_id : Int32,
+  rethrow_id : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let mut current = root_id
@@ -10516,8 +10516,8 @@ fn flatten_typed_catch_root_owns_strict_rethrow(
 ///|
 fn flatten_typed_catch_owns_strict_rethrow(
   func : @ir.HotFunc,
-  try_id : Int,
-  rethrow_id : Int,
+  try_id : Int32,
+  rethrow_id : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
@@ -10570,8 +10570,8 @@ fn flatten_typed_catch_owns_strict_rethrow(
 ///|
 fn flatten_targeted_if_opposite_payloadless_exit_is_supported(
   func : @ir.HotFunc,
-  if_id : Int,
-  current : Int,
+  if_id : Int32,
+  current : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, if_id)
@@ -10653,9 +10653,9 @@ fn flatten_targeted_if_opposite_payloadless_exit_is_supported(
 ///|
 fn flatten_rethrow_catch_root_through_strict_ancestry(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
   state : FlattenRewriteState,
-) -> Int {
+) -> Int32 {
   let mut current = root_id
   let mut parent = state.direct_parent[current]
   while parent >= 0 {
@@ -10719,7 +10719,7 @@ fn flatten_rethrow_catch_root_through_strict_ancestry(
 ///|
 fn flatten_direct_catch_all_rethrow_is_supported(
   func : @ir.HotFunc,
-  rethrow_id : Int,
+  rethrow_id : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let rethrow = @ir.hot_node_get(func, rethrow_id)
@@ -10809,9 +10809,9 @@ fn flatten_direct_catch_all_rethrow_is_supported(
 ///|
 fn flatten_strict_constant_selected_if_root(
   func : @ir.HotFunc,
-  if_id : Int,
+  if_id : Int32,
   state : FlattenRewriteState,
-) -> Int? {
+) -> Int32? {
   match @ir.hot_node_get(func, if_id).op {
     @ir.HotOp::If => ()
     _ => return None
@@ -10857,7 +10857,7 @@ fn flatten_strict_constant_selected_if_root(
 ///|
 fn flatten_direct_delegate_is_supported(
   func : @ir.HotFunc,
-  delegate_id : Int,
+  delegate_id : Int32,
   state : FlattenRewriteState,
 ) -> Bool {
   let delegate = @ir.hot_node_get(func, delegate_id)
@@ -11039,7 +11039,7 @@ fn flatten_exceptional_transfers_are_supported(
 fn flatten_run_admission(
   func : @ir.HotFunc,
   report : FlattenFlatnessReport,
-  state? : FlattenRewriteState? = None,
+  state~ : FlattenRewriteState? = None,
 ) -> FlattenRunAdmission {
   let analysis = match state {
     Some(state) => state
@@ -11075,9 +11075,9 @@ fn flatten_run_admission(
 ///|
 fn flatten_synthetic_legacy_check_control(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
   want_loop : Bool,
-) -> Int? {
+) -> Int32? {
   let root = @ir.hot_node_get(func, root_id)
   match root.op {
     @ir.HotOp::Block if !want_loop => return Some(root_id)
@@ -11232,18 +11232,18 @@ priv struct FlattenStackCarriedLocalReadAcrossWriteFact {
 
 ///|
 priv struct FlattenLocalAccessWorkspace {
-  min_later_get_node_ids : Array[Int]
-  root_min_get_node_ids : Array[Int]
-  root_max_write_node_ids : Array[Int]
-  touched_later_get_locals : Array[Int]
-  touched_get_locals : Array[Int]
-  touched_write_locals : Array[Int]
-  pending_nodes : Array[Int]
+  min_later_get_node_ids : Array[Int32]
+  root_min_get_node_ids : Array[Int32]
+  root_max_write_node_ids : Array[Int32]
+  touched_later_get_locals : Array[Int32]
+  touched_get_locals : Array[Int32]
+  touched_write_locals : Array[Int32]
+  pending_nodes : Array[Int32]
   pending_regions : Array[@ir.HotRegionRef]
-  visit_epochs : Array[Int]
+  visit_epochs : Array[Int32]
   queued_controls : Array[Bool]
-  mut epoch : Int
-  local_scratch_cells : Int
+  mut epoch : Int32
+  local_scratch_cells : Int32
 }
 
 ///|
@@ -11281,9 +11281,9 @@ fn FlattenLocalAccessWorkspace::begin_region(
 ///|
 fn flatten_collect_subtree_local_access_extrema(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
   workspace : FlattenLocalAccessWorkspace,
-  node_visits? : Array[Int]? = None,
+  node_visits~ : Array[Int32]? = None,
 ) -> Unit {
   workspace.pending_nodes.clear()
   workspace.pending_nodes.push(root_id)
@@ -11334,7 +11334,7 @@ fn flatten_collect_subtree_local_access_extrema(
 ///|
 fn flatten_queue_nested_local_access_regions(
   func : @ir.HotFunc,
-  root_id : Int,
+  root_id : Int32,
   workspace : FlattenLocalAccessWorkspace,
 ) -> Unit {
   if root_id < 0 ||
@@ -11379,8 +11379,8 @@ fn flatten_queue_nested_local_access_regions(
 fn flatten_region_has_stack_carried_local_read_across_write(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  node_visits? : Array[Int]? = None,
-  scratch_cells? : Array[Int]? = None,
+  node_visits~ : Array[Int32]? = None,
+  scratch_cells~ : Array[Int32]? = None,
 ) -> Bool {
   let workspace = FlattenLocalAccessWorkspace::new(func)
   match scratch_cells {
@@ -11455,8 +11455,8 @@ priv struct FlattenCarriedScalarAcrossGlobalWriteFact {
 ///|
 fn flatten_subtree_has_source_older_rich_scalar(
   func : @ir.HotFunc,
-  root_id : Int,
-  barrier_id : Int,
+  root_id : Int32,
+  barrier_id : Int32,
 ) -> Bool {
   let pending = [root_id]
   while !pending.is_empty() {

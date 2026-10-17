@@ -2,7 +2,7 @@
 // Validation and expected-output checks happen outside timed pass runs.
 
 ///|
-fn ssa_type_table_bench(it : @bench.T, function_count : Int) -> Unit {
+fn ssa_type_table_bench(it : @bench.T, function_count : Int32) -> Unit {
   let fixture = opportunity_imports(function_count, 0)
   let expected = opportunity_run(fixture, "ssa-nomerge", true)
   let original_code = fixture.code_sec

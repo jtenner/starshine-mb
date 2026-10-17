@@ -1,8 +1,8 @@
 ///|
 fn simplify_locals_use_count_perf_bench(
   it : @bench.T,
-  trailing_nodes : Int,
-  unique? : Bool = false,
+  trailing_nodes : Int32,
+  unique~ : Bool = false,
 ) -> Unit {
   let func = @ir.HotFunc::new()
   let target = @ir.hot_build_const_i32(func, @lib.I32(1))
@@ -57,7 +57,7 @@ test "bench SimplifyLocals unique-child use count trailing=4096" (it : @bench.T)
 ///|
 fn simplify_locals_two_unique_uses_perf_bench(
   it : @bench.T,
-  trailing_nodes : Int,
+  trailing_nodes : Int32,
 ) -> Unit {
   let func = @ir.HotFunc::new()
   let first = @ir.hot_build_const_i32(func, @lib.I32(1))

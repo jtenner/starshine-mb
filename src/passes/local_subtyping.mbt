@@ -4,7 +4,7 @@ pub fn local_subtyping_summary() -> String {
 }
 
 ///|
-fn ls_imported_func_count(mod_ : @lib.Module) -> Int {
+fn ls_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -72,7 +72,7 @@ fn ls_subtype_as_heap_is_subtype(
   module_ctx : @ir.HotModuleContext,
   subtype : @lib.SubType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -110,7 +110,7 @@ fn ls_heap_is_subtype(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if source == target {
     return true
@@ -207,7 +207,7 @@ fn ls_as_ref(vt : @lib.ValType) -> @lib.RefType? {
 }
 
 ///|
-fn ls_local_idx_raw(idx : @lib.LocalIdx) -> Int {
+fn ls_local_idx_raw(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -236,7 +236,7 @@ fn ls_ref_body_local_mask(body_locals : @lib.Locals) -> Array[Bool]? {
 ///|
 fn ls_write_targets_ref_body_local(
   idx : @lib.LocalIdx,
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
 ) -> Bool {
   let raw = ls_local_idx_raw(idx)
@@ -249,7 +249,7 @@ fn ls_write_targets_ref_body_local(
 ///|
 fn ls_instrs_write_ref_body_local(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
 ) -> Bool {
   for instr in instrs {
@@ -287,7 +287,7 @@ fn ls_instrs_write_ref_body_local(
 ///|
 fn ls_expr_writes_ref_body_local(
   expr : @lib.Expr,
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
 ) -> Bool {
   let @lib.Expr(instrs) = expr
@@ -297,9 +297,9 @@ fn ls_expr_writes_ref_body_local(
 ///|
 fn ls_count_ref_body_local_writes_instrs(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -332,15 +332,15 @@ fn ls_count_ref_body_local_writes_instrs(
 ///|
 fn ls_count_ref_body_local_writes_expr(
   expr : @lib.Expr,
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
-) -> Int {
+) -> Int32 {
   let @lib.Expr(instrs) = expr
   ls_count_ref_body_local_writes_instrs(instrs, param_count, ref_body_locals)
 }
 
 ///|
-fn ls_assignment_count(assignments : Array[Array[@lib.ValType]]) -> Int {
+fn ls_assignment_count(assignments : Array[Array[@lib.ValType]]) -> Int32 {
   let mut count = 0
   for local_assignments in assignments {
     count += local_assignments.length()
@@ -435,7 +435,7 @@ fn ls_ref_concrete_super_lub(
   source_idx : @lib.TypeIdx,
   right : @lib.RefType,
   nullable : Bool,
-  fuel : Int,
+  fuel : Int32,
 ) -> @lib.RefType? {
   if fuel <= 0 {
     return None
@@ -610,9 +610,9 @@ fn ls_candidate_local_type(
 ///|
 fn ls_body_local_idx(
   idx : @lib.LocalIdx,
-  param_count : Int,
-  body_local_count : Int,
-) -> Int? {
+  param_count : Int32,
+  body_local_count : Int32,
+) -> Int32? {
   let raw = ls_local_idx_raw(idx)
   let body_idx = raw - param_count
   if body_idx >= 0 && body_idx < body_local_count {
@@ -652,7 +652,7 @@ fn ls_select_declared_type(types : Array[@lib.ValType]?) -> @lib.ValType? {
 }
 
 ///|
-fn ls_label_idx_raw(idx : @lib.LabelIdx) -> Int {
+fn ls_label_idx_raw(idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -1291,7 +1291,7 @@ fn ls_refine_selects_expr(
 }
 
 ///|
-fn ls_raw_assignment_slots(total_locals : Int) -> Array[Array[@lib.ValType]] {
+fn ls_raw_assignment_slots(total_locals : Int32) -> Array[Array[@lib.ValType]] {
   let locals : Array[Array[@lib.ValType]] = []
   for idx = 0; idx < total_locals; idx = idx + 1 {
     ignore(idx)
@@ -1579,7 +1579,7 @@ fn ls_collect_raw_assignments(
   body_locals : @lib.Locals,
   ref_body_locals : Array[Bool],
   module_ctx : @ir.HotModuleContext,
-  unknown_falls_back? : Bool = true,
+  unknown_falls_back~ : Bool = true,
 ) -> Array[Array[@lib.ValType]] {
   let locals = ls_raw_assignment_slots(
     param_types.length() + body_locals.length(),
@@ -1608,16 +1608,16 @@ fn LsDominanceScanResult::new(
 ///|
 fn ls_scan_branch_free_dominance_instrs(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
   initialized : Array[Bool],
   safe : Array[Bool],
-  allow_return_skip? : Bool = false,
-  allow_throw_skip? : Bool = false,
-  allow_terminal_return? : Bool = false,
-  allow_terminal_throw? : Bool = false,
-  allow_non_final_return_tail? : Bool = false,
-  allow_non_final_throw_tail? : Bool = false,
+  allow_return_skip~ : Bool = false,
+  allow_throw_skip~ : Bool = false,
+  allow_terminal_return~ : Bool = false,
+  allow_terminal_throw~ : Bool = false,
+  allow_non_final_return_tail~ : Bool = false,
+  allow_non_final_throw_tail~ : Bool = false,
 ) -> LsDominanceScanResult {
   let body_local_count = ref_body_locals.length()
   let mut allow_later_write_init = true
@@ -1760,7 +1760,7 @@ fn ls_scan_branch_free_dominance_instrs(
 ///|
 fn ls_non_null_dominated_linear_locals(
   expr : @lib.Expr,
-  param_count : Int,
+  param_count : Int32,
   ref_body_locals : Array[Bool],
 ) -> Array[Bool] {
   let body_local_count = ref_body_locals.length()
@@ -2013,7 +2013,7 @@ fn ls_rebuild_module(
 }
 
 ///|
-fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int {
+fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int32 {
   let mut limit = 1
   for func in funcs {
     let @lib.Func(body_locals, _) = func
@@ -2028,7 +2028,7 @@ fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int {
 }
 
 ///|
-fn ls_label_count(body : Array[@lib.Instruction]) -> UInt {
+fn ls_label_count(body : Array[@lib.Instruction]) -> UInt32 {
   let mut count = 0U
   for instr in body {
     match instr {
@@ -2071,7 +2071,7 @@ fn ls_remove_return_suffixes(mod_ : @lib.Module) -> @lib.Module {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
   }
-  let label_limits : Map[UInt, UInt] = Map([])
+  let label_limits : Map[UInt32, UInt32] = Map([])
   let imported = ls_imported_func_count(mod_)
   let next_funcs = funcs.mapi(fn(index, func) {
     let @lib.Func(locals, @lib.Expr(body)) = func

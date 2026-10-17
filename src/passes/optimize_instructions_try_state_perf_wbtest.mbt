@@ -1,7 +1,7 @@
 ///|
-fn oi_try_state_fixture(count : Int) -> (@ir.HotFunc, Array[Int]) {
+fn oi_try_state_fixture(count : Int32) -> (@ir.HotFunc, Array[Int32]) {
   let func = @ir.HotFunc::new()
-  let try_ids : Array[Int] = []
+  let try_ids : Array[Int32] = []
   for idx in 0..<count {
     try_ids.push(
       @ir.hot_build_try(
@@ -16,7 +16,7 @@ fn oi_try_state_fixture(count : Int) -> (@ir.HotFunc, Array[Int]) {
 }
 
 ///|
-fn oi_try_state_bench(it : @bench.T, count : Int) -> Unit {
+fn oi_try_state_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, try_ids) = oi_try_state_fixture(count)
   for try_id in try_ids {
     match OiBooleanTryBodyThrowFact::from_try_operand(func, try_id) {

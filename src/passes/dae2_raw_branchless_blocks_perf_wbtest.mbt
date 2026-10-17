@@ -1,8 +1,8 @@
 ///|
 fn dae2_branchless_bench_fixture(
-  helpers : Int,
-  width : Int,
-  depth : Int,
+  helpers : Int32,
+  width : Int32,
+  depth : Int32,
 ) -> @lib.Module {
   let wat = ["(module"]
   for index in 0..<helpers {
@@ -28,9 +28,9 @@ fn dae2_branchless_bench_fixture(
 ///|
 fn dae2_branchless_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
-  depth : Int,
+  helpers : Int32,
+  width : Int32,
+  depth : Int32,
   reference : Bool,
 ) -> Unit {
   let input = dae2_branchless_bench_fixture(helpers, width, depth)

@@ -41,7 +41,7 @@ fn opportunity_run(
 }
 
 ///|
-fn opportunity_padding(count : Int) -> Array[@lib.Instruction] {
+fn opportunity_padding(count : Int32) -> Array[@lib.Instruction] {
   let body = []
   for _ in 0..<count {
     body.push(@lib.Instruction::i32_const(@lib.I32(7)))
@@ -51,7 +51,7 @@ fn opportunity_padding(count : Int) -> Array[@lib.Instruction] {
 }
 
 ///|
-fn opportunity_imports(count : Int, imports : Int) -> @lib.Module {
+fn opportunity_imports(count : Int32, imports : Int32) -> @lib.Module {
   let fixture = opportunity_module([], [], [])
   let import_list = []
   for _ in 0..<imports {
@@ -77,7 +77,7 @@ fn opportunity_imports(count : Int, imports : Int) -> @lib.Module {
 }
 
 ///|
-fn opportunity_locals(count : Int, dense : Bool) -> @lib.Module {
+fn opportunity_locals(count : Int32, dense : Bool) -> @lib.Module {
   let body = [
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
@@ -103,7 +103,7 @@ fn opportunity_locals(count : Int, dense : Bool) -> @lib.Module {
 }
 
 ///|
-fn opportunity_blocks(count : Int, has_local : Bool) -> @lib.Module {
+fn opportunity_blocks(count : Int32, has_local : Bool) -> @lib.Module {
   let body = [
     @lib.Instruction::block(
       @lib.BlockType::void_(),

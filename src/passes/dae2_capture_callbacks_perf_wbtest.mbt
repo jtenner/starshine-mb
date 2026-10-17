@@ -1,7 +1,7 @@
 ///|
 fn dae2_capture_callbacks_perf_run(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   original : Bool,
   flatten : Bool,
 ) -> Unit {

@@ -15,7 +15,7 @@ fn dae2_scalar_forwarding_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)
   })
-  let remaps : Array[Array[Int]?] = []
+  let remaps : Array[Array[Int32]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
   for index = 0; index < funcs.length(); index = index + 1 {

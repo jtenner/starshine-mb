@@ -1,8 +1,8 @@
 ///|
 fn dae_pure_arguments_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   optimizing : Bool,
 ) -> Unit {
   let wat = ["(module (import \"m\" \"value\" (func $v (result i32)))"]

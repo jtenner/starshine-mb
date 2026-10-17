@@ -1,5 +1,5 @@
 ///|
-fn dfe_collision_perf_module(count : Int) -> @lib.Module {
+fn dfe_collision_perf_module(count : Int32) -> @lib.Module {
   let imports : Array[@lib.Import] = []
   let types : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
@@ -33,7 +33,7 @@ fn dfe_collision_perf_module(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_collision_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_collision_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_collision_perf_module(count)
   let preflight = dfe_eliminate_duplicate_functions(fixture)
   if preflight.changed || preflight.mod_ != fixture {
@@ -62,7 +62,7 @@ test "DFE distinct import wrappers remain separate" {
 }
 
 ///|
-fn dfe_duplicate_perf_module(count : Int) -> @lib.Module {
+fn dfe_duplicate_perf_module(count : Int32) -> @lib.Module {
   let fixture = dfe_collision_perf_module(count)
   let funcs : Array[@lib.Func] = []
   for _ in 0..<count {
@@ -77,7 +77,7 @@ fn dfe_duplicate_perf_module(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_duplicate_prefix_perf_module(count : Int) -> @lib.Module {
+fn dfe_duplicate_prefix_perf_module(count : Int32) -> @lib.Module {
   let fixture = dfe_collision_perf_module(count)
   let funcs = match fixture.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.copy()
@@ -93,7 +93,7 @@ fn dfe_duplicate_prefix_perf_module(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_duplicate_prefix_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_duplicate_prefix_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_duplicate_prefix_perf_module(count)
   let result = dfe_eliminate_duplicate_functions(fixture)
   let survivors = match result.mod_.code_sec {

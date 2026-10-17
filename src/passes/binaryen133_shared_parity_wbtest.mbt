@@ -1,7 +1,7 @@
 ///|
 fn binaryen133_run_shared(
   source : String,
-  array_len? : Bool = false,
+  array_len~ : Bool = false,
 ) -> @lib.Module raise {
   let input = match @wast.wast_to_binary_module(source) {
     Ok(m) => m
@@ -523,7 +523,7 @@ test "make-shared-objects scans and rewrites conversions in EH bodies" {
 fn binaryen133_shared_opcode_count(
   mod_ : @lib.Module,
   opcode : @lib.Instruction,
-) -> Int {
+) -> Int32 {
   let count = [0]
   fn visit(expr : @lib.Expr) -> @lib.Expr {
     for instr in expr.0 {

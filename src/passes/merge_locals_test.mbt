@@ -28,7 +28,7 @@ fn merge_locals_test_first_func(mod_ : @lib.Module) -> @lib.Func {
 fn merge_locals_test_count_gets(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -61,7 +61,7 @@ fn merge_locals_test_count_gets(
 }
 
 ///|
-fn merge_locals_test_index_of(passes : Array[String], name : String) -> Int {
+fn merge_locals_test_index_of(passes : Array[String], name : String) -> Int32 {
   for idx = 0; idx < passes.length(); idx = idx + 1 {
     if passes[idx] == name {
       return idx
@@ -207,7 +207,7 @@ test "merge-locals preserves source reads evaluated before a later copy" {
   // may change the spelling, but must not turn the old sum into twice b.
   let storage = Array::make(locals.length() + 1, 0)
   storage[0] = 10
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut loop_body : Array[@lib.Instruction] = []
   fn step(instrs : Array[@lib.Instruction]) -> Bool raise {
     for instr in instrs {

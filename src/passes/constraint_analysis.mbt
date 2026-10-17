@@ -18,7 +18,7 @@ fn constraint_analysis_descriptor() -> @ir.HotPassDescriptor {
 ///|
 priv struct CaValue {
   range : CaRange?
-  nullness : Int // 1=null, 2=non-null, 3=unknown; zero is bottom.
+  nullness : Int32 // 1=null, 2=non-null, 3=unknown; zero is bottom.
 } derive(Eq, @debug.Debug)
 
 ///|
@@ -66,18 +66,18 @@ fn ca_value_join(a : CaValue, b : CaValue) -> CaValue {
 
 ///|
 priv struct CaRelation {
-  left : Int
-  right : Int
-  bits : Int
+  left : Int32
+  right : Int32
+  bits : Int32
   signed : Bool
-  relation : Int
+  relation : Int32
 } derive(Eq, @debug.Debug)
 
 ///|
 priv struct CaState {
   mut reachable : Bool
   locals : Array[CaValue]
-  versions : Array[Int]
+  versions : Array[Int32]
   relations : Array[CaRelation]
 } derive(Eq, @debug.Debug)
 
@@ -116,7 +116,7 @@ fn ca_state_equal(a : CaState, b : CaState) -> Bool {
 }
 
 ///|
-fn ca_write(state : CaState, index : Int, value : CaValue) -> Unit {
+fn ca_write(state : CaState, index : Int32, value : CaValue) -> Unit {
   state.locals[index] = value
   state.versions[index] += 1
   for i = state.relations.length() - 1; i >= 0; i = i - 1 {
@@ -130,8 +130,8 @@ fn ca_write(state : CaState, index : Int, value : CaValue) -> Unit {
 ///|
 priv struct CaEval {
   value : CaValue
-  binding : Int
-  version : Int
+  binding : Int32
+  version : Int32
 }
 
 ///|
@@ -140,7 +140,7 @@ fn ca_evaluated(value : CaValue) -> CaEval {
 }
 
 ///|
-fn ca_live_binding(state : CaState, value : CaEval) -> Int {
+fn ca_live_binding(state : CaState, value : CaEval) -> Int32 {
   if value.binding >= 0 && state.versions[value.binding] == value.version {
     value.binding
   } else {
@@ -166,7 +166,7 @@ fn ca_assume_null(state : CaState, value : CaEval, is_null : Bool) -> Unit {
 
 ///|
 // Width belongs to the compared operands, not the i32 predicate result.
-fn ca_comparison(instr : @lib.Instruction?) -> (Int, Int, Bool)? {
+fn ca_comparison(instr : @lib.Instruction?) -> (Int32, Int32, Bool)? {
   match instr {
     Some(@lib.Instruction::I32Eq) => Some((32, 2, false))
     Some(@lib.Instruction::I32Ne) => Some((32, 5, false))
@@ -239,7 +239,7 @@ fn ca_compare_values(
   state : CaState,
   left : CaEval,
   right : CaEval,
-  relation : Int,
+  relation : Int32,
   signed : Bool,
 ) -> CaValue {
   let mut possible = match (left.value.range, right.value.range) {
@@ -298,8 +298,8 @@ fn ca_refine_value(
 
 ///|
 fn ca_relation_range_from_range(
-  bits : Int,
-  relation : Int,
+  bits : Int32,
+  relation : Int32,
   signed : Bool,
   other : CaRange,
 ) -> CaRange {
@@ -334,8 +334,8 @@ fn ca_assume_comparison(
   state : CaState,
   left : CaEval,
   right : CaEval,
-  bits : Int,
-  relation : Int,
+  bits : Int32,
+  relation : Int32,
   signed : Bool,
 ) -> Unit {
   match right.value.range {
@@ -368,9 +368,9 @@ fn ca_assume(
   func : @ir.HotFunc,
   state : CaState,
   values : Array[CaEval?],
-  node : Int,
+  node : Int32,
   truth : Bool,
-  depth : Int,
+  depth : Int32,
 ) -> CaState {
   if !state.reachable || depth > 64 {
     return state
@@ -505,7 +505,7 @@ fn ca_assume(
 }
 
 ///|
-fn ca_node_type_value(func : @ir.HotFunc, node : Int) -> CaValue {
+fn ca_node_type_value(func : @ir.HotFunc, node : Int32) -> CaValue {
   let types = @ir.hot_type_results(func, @ir.hot_node_type(func, node))
   if types.length() == 1 {
     ca_value_type(types[0], false)
@@ -518,14 +518,14 @@ fn ca_node_type_value(func : @ir.HotFunc, node : Int) -> CaValue {
 priv struct CaBlockEval {
   state : CaState
   fast_math : Bool
-  expression_blocks : Array[Int]
+  expression_blocks : Array[Int32]
   loop_plan : CaLoopPlan
   values : Array[CaEval?]
-  touched : Array[Int]
-  mut condition : Int
+  touched : Array[Int32]
+  mut condition : Int32
   mut conditional_branch : Bool
-  mut null_branch : Int
-  proofs : Array[(Int, Int)]
+  mut null_branch : Int32
+  proofs : Array[(Int32, Int32)]
   mut exhausted : Bool
 }
 
@@ -533,10 +533,10 @@ priv struct CaBlockEval {
 fn ca_eval_node(
   func : @ir.HotFunc,
   cfg : @ir.HotCfg,
-  block : Int,
+  block : Int32,
   eval : CaBlockEval,
-  node : Int,
-  depth : Int,
+  node : Int32,
+  depth : Int32,
 ) -> CaEval {
   if depth > 512 {
     eval.exhausted = true
@@ -850,12 +850,12 @@ fn ca_eval_node(
 fn ca_evaluate_block(
   func : @ir.HotFunc,
   cfg : @ir.HotCfg,
-  block : Int,
+  block : Int32,
   input : CaState,
-  expression_blocks : Array[Int],
+  expression_blocks : Array[Int32],
   loop_plan : CaLoopPlan,
   values : Array[CaEval?],
-  touched : Array[Int],
+  touched : Array[Int32],
   fast_math : Bool,
 ) -> CaBlockEval {
   // Only these entries belong to the preceding block evaluation. Clearing the
@@ -906,11 +906,11 @@ fn ca_initial_state(func : @ir.HotFunc, loop_plan : CaLoopPlan) -> CaState {
 fn ca_replace_predicate(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node : Int,
-  value : Int,
+  node : Int32,
+  value : Int32,
 ) -> Unit {
   let children = @ir.hot_child_span(func, node)
-  let retained : Array[Int] = []
+  let retained : Array[Int32] = []
   for child in children {
     ca_preserve_evaluation(func, child, retained, 0)
   }
@@ -933,9 +933,9 @@ fn ca_replace_predicate(
 ///|
 fn ca_preserve_evaluation(
   func : @ir.HotFunc,
-  node : Int,
-  retained : Array[Int],
-  depth : Int,
+  node : Int32,
+  retained : Array[Int32],
+  depth : Int32,
 ) -> Unit {
   // A local read participates in motion dependencies but is harmless to drop.
   // Strip only nontrapping value operations, keeping their children in order.
@@ -1015,7 +1015,7 @@ fn constraint_analysis_run(
   let thresholds = ca_prepare_thresholds(thresholds)
   let loop_plan = ca_loop_plan(func, cfg)
   let values : Array[CaEval?] = Array::make(@ir.hot_node_count(func), None)
-  let touched : Array[Int] = []
+  let touched : Array[Int32] = []
   let states : Array[CaState?] = Array::make(cfg.blocks.length(), None)
   states[cfg.entry_block] = Some(ca_initial_state(func, loop_plan))
   let queue = [cfg.entry_block]
@@ -1123,8 +1123,8 @@ fn constraint_analysis_run(
     }
   }
   // Replay only converged states. No analysis facts outlive this revision.
-  let proofs : @hashmap.HashMap[Int, Int] = @hashmap.new()
-  let conflicts : @hashmap.HashMap[Int, Bool] = @hashmap.new()
+  let proofs : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
+  let conflicts : @hashmap.HashMap[Int32, Bool] = @hashmap.new()
   for block = 0; block < states.length(); block = block + 1 {
     match states[block] {
       Some(state) if state.reachable => {
@@ -1169,7 +1169,7 @@ fn constraint_analysis_run(
   // Multi-value expressions can expose one physical region through several
   // CFG occurrences. A slot is dead only when every occurrence is dead; an
   // unrepresented slot is unknown. Plan all edits before changing any region.
-  let slots_by_holder : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new()
+  let slots_by_holder : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new()
   for block in cfg.blocks {
     if block.is_synthetic || block.nodes.is_empty() {
       continue
@@ -1237,21 +1237,21 @@ fn constraint_analysis_run(
 
 ///|
 priv struct CaLoopPlan {
-  local_slots : Array[Int]
-  local_ids : Array[Int]
+  local_slots : Array[Int32]
+  local_ids : Array[Int32]
   local_types : Array[@lib.ValType]
   types : Array[@lib.ValType]
-  depths : Array[Int]
-  loop_slots : Array[Array[Int]]
-  header_slots : Array[Array[Int]]
-  block_parameters : Array[Array[(Int, Int)]]
+  depths : Array[Int32]
+  loop_slots : Array[Array[Int32]]
+  header_slots : Array[Array[Int32]]
+  block_parameters : Array[Array[(Int32, Int32)]]
 }
 
 ///|
-fn ca_relevant_locals(func : @ir.HotFunc) -> Array[Int] {
+fn ca_relevant_locals(func : @ir.HotFunc) -> Array[Int32] {
   let slots = Array::make(@ir.hot_local_count(func), -1)
-  let writes : Array[Array[Int]] = Array::makei(slots.length(), fn(_) { [] })
-  let work : Array[Int] = []
+  let writes : Array[Array[Int32]] = Array::makei(slots.length(), fn(_) { [] })
+  let work : Array[Int32] = []
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     if !@ir.hot_node_is_live(func, node) {
       continue
@@ -1317,7 +1317,7 @@ fn ca_relevant_locals(func : @ir.HotFunc) -> Array[Int] {
 }
 
 ///|
-fn ca_slot_type(plan : CaLoopPlan, slot : Int) -> @lib.ValType {
+fn ca_slot_type(plan : CaLoopPlan, slot : Int32) -> @lib.ValType {
   if slot < plan.local_types.length() {
     plan.local_types[slot]
   } else {
@@ -1328,7 +1328,7 @@ fn ca_slot_type(plan : CaLoopPlan, slot : Int) -> @lib.ValType {
 ///|
 fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
   let local_slots = ca_relevant_locals(func)
-  let local_ids : Array[Int] = []
+  let local_ids : Array[Int32] = []
   let local_types : Array[@lib.ValType] = []
   for index = 0; index < local_slots.length(); index = index + 1 {
     if local_slots[index] >= 0 {
@@ -1348,7 +1348,7 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
   }
   let loop_depths = Array::make(@ir.hot_node_count(func), 0)
   let seen_generation = Array::make(@ir.hot_node_count(func), 0)
-  let blocks_by_holder : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new()
+  let blocks_by_holder : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new()
   for block in cfg.blocks {
     if block.region_holder < 0 {
       continue
@@ -1358,7 +1358,7 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
       None => blocks_by_holder.set(block.region_holder, [block.id])
     }
   }
-  let work : Array[Int] = []
+  let work : Array[Int32] = []
   let mut generation = 0
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     let data = @ir.hot_node_get(func, node)
@@ -1448,8 +1448,8 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
 fn ca_transfer_loop_arguments(
   func : @ir.HotFunc,
   cfg : @ir.HotCfg,
-  from : Int,
-  target : Int,
+  from : Int32,
+  target : Int32,
   eval : CaBlockEval,
   output : CaState,
 ) -> Unit {

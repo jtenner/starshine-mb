@@ -4,7 +4,7 @@
 fn sl_producer_reference_pure_suffix_local_sets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -280,7 +280,7 @@ fn sl_producer_reference_pure_suffix_local_sets_flat(
 fn sl_producer_reference_effectful_suffix_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0

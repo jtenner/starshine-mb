@@ -1,5 +1,7 @@
 ///|
-fn dae2_exception_parity_count_dispatch(body : Array[@lib.Instruction]) -> Int {
+fn dae2_exception_parity_count_dispatch(
+  body : Array[@lib.Instruction],
+) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {
@@ -19,7 +21,7 @@ fn dae2_exception_parity_count_dispatch(body : Array[@lib.Instruction]) -> Int {
 ///|
 fn dae2_exception_parity_count_void_blocks(
   body : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     if instr is @lib.Block(@lib.VoidBlockType, _) {

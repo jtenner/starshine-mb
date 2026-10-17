@@ -1,5 +1,5 @@
 ///|
-fn hso_allocation_sink_perf_module(candidate_count : Int) -> @lib.Module {
+fn hso_allocation_sink_perf_module(candidate_count : Int32) -> @lib.Module {
   let pair = @lib.TypeIdx::new(0U)
   let func_type = @lib.TypeIdx::new(1U)
   let body : Array[@lib.Instruction] = []
@@ -61,7 +61,7 @@ fn hso_allocation_sink_perf_module(candidate_count : Int) -> @lib.Module {
 }
 
 ///|
-fn hso_allocation_sink_perf_adjacent_count(mod_ : @lib.Module) -> Int {
+fn hso_allocation_sink_perf_adjacent_count(mod_ : @lib.Module) -> Int32 {
   let body = match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
     _ => abort("expected one allocation-sinking HSO benchmark function")

@@ -1,7 +1,7 @@
 ///|
 fn ca_lower_has_label_branch(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -142,7 +142,7 @@ fn ca_lower_refinalize(
   func : @lib.Func,
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
-  module_env? : @validate.Env? = None,
+  module_env~ : @validate.Env? = None,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let env = match module_env {
@@ -200,7 +200,7 @@ fn ca_lower_trim_terminal_local_roundtrip(
 fn ca_lower_cleanup_raw(
   func : @lib.Func,
   mod_ : @lib.Module,
-  module_env? : @validate.Env? = None,
+  module_env~ : @validate.Env? = None,
 ) -> (@lib.Func, Bool) {
   let (func, changed) = pass_lower_cleanup_branchless_blocks(
     func,

@@ -2,7 +2,7 @@
 fn dae_multivalue_prefix_copied_reference(
   instr : @lib.Instruction,
   types : @lib.TypeSec?,
-) -> (Int, Array[@lib.Instruction])? {
+) -> (Int32, Array[@lib.Instruction])? {
   let (block_type, body) = match instr {
     @lib.Block(block_type, @lib.Expr(body)) => (block_type, body)
     _ => return None
@@ -41,8 +41,8 @@ fn dae_multivalue_prefix_copied_reference(
 ///|
 fn dae_multivalue_prefix_bench(
   it : @bench.T,
-  results : Int,
-  width : Int,
+  results : Int32,
+  width : Int32,
   borrow : Bool,
 ) -> Unit {
   let result_types = Array::make(results, "i32").join(" ")

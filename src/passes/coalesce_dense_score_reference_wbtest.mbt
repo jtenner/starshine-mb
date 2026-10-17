@@ -1,8 +1,8 @@
 ///|
 fn cl_color_with_order_reference(
-  order : Array[Int],
+  order : Array[Int32],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> CLColoring {
@@ -12,7 +12,7 @@ fn cl_color_with_order_reference(
     old_to_new[idx] = idx
   }
   let slot_types : Array[@lib.ValType] = []
-  let slot_members : Array[Array[Int]] = []
+  let slot_members : Array[Array[Int32]] = []
   for idx = 0; idx < param_count; idx = idx + 1 {
     slot_types.push(types[idx])
     slot_members.push([idx])

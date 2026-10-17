@@ -2,7 +2,7 @@
 fn cl_br_table_all_past_depth_reference(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
-  boundary_depth : Int,
+  boundary_depth : Int32,
 ) -> Bool {
   if cl_label_idx_raw(default_label) <= boundary_depth {
     return false
@@ -18,7 +18,7 @@ fn cl_br_table_all_past_depth_reference(
 ///|
 fn cl_instr_escapes_past_depth_reference(
   instr : @lib.Instruction,
-  boundary_depth : Int,
+  boundary_depth : Int32,
 ) -> Bool {
   if cl_instr_is_terminal(instr) {
     return true
@@ -61,7 +61,7 @@ fn cl_instr_escapes_past_depth_reference(
 ///|
 fn cl_instrs_end_in_escape_past_depth_reference(
   instrs : Array[@lib.Instruction],
-  boundary_depth : Int,
+  boundary_depth : Int32,
 ) -> Bool {
   if instrs.length() == 0 {
     return false
@@ -121,7 +121,7 @@ fn cl_instr_never_falls_through_reference(instr : @lib.Instruction) -> Bool {
 ///|
 fn cl_label_targets_depth_reference(
   label_idx : @lib.LabelIdx,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   cl_label_idx_raw(label_idx) == depth
 }
@@ -129,7 +129,7 @@ fn cl_label_targets_depth_reference(
 ///|
 fn cl_instr_tree_branches_to_depth_reference(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label_idx)
@@ -211,7 +211,7 @@ fn cl_instr_tree_branches_to_depth_reference(
 fn cl_collect_instrs_reference(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Unit {
   let mut reachable = true
   for idx = 0; idx < instrs.length(); idx = idx + 1 {

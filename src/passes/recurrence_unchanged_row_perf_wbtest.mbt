@@ -1,7 +1,7 @@
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_flat_copy_reference(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut copy_start = 0
   let mut idx = 0
@@ -124,7 +124,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
 ///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrences_flat_copy_reference(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut copy_start = 0
   let mut idx = 0

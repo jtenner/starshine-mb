@@ -3,11 +3,11 @@
 ///|
 fn sl_terminal_reference_terminal_value_suffix(
   remaining : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : @lib.Instruction,
-  source_locals : Array[Int],
+  source_locals : Array[Int32],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int)? {
+) -> (Array[@lib.Instruction], Int32)? {
   let (middle, value_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
     remaining, 1, env,
   )
@@ -47,10 +47,10 @@ fn sl_terminal_reference_terminal_value_suffix(
 ///|
 fn sl_terminal_reference_into_next_if_condition(
   remaining : Array[@lib.Instruction],
-  target_local : Int,
+  target_local : Int32,
   replacement : @lib.Instruction,
-  source_locals : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+  source_locals : Array[Int32],
+) -> (Array[@lib.Instruction], Int32)? {
   let prefix : Array[@lib.Instruction] = []
   let mut idx = 0
   while idx < remaining.length() {

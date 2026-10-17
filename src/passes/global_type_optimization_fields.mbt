@@ -194,7 +194,7 @@ fn gto_map_initializers(
 fn gto_public_types(
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,
-  bases : Array[Int],
+  bases : Array[Int32],
 ) -> Array[Bool] {
   let graph = Dae2Graph::new()
   for _ in context.subtypes {
@@ -370,8 +370,8 @@ fn gto_operand_start(
   mod_ : @lib.Module,
   funcs : Array[@lib.TypeIdx],
   instrs : Array[@lib.Instruction],
-  end : Int,
-) -> Int {
+  end : Int32,
+) -> Int32 {
   let mut needed = 1
   for i = end; i >= 0; i = i - 1 {
     match dae_stack_effect_evidence(instrs[i], mod_, funcs) {
@@ -405,16 +405,16 @@ fn gto_droppable(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn gto_layout_expr(
   expr : @lib.Expr,
-  maps : Array[Array[Int]],
+  maps : Array[Array[Int32]],
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,
   locals : @lib.Locals?,
-  param_count : Int,
+  param_count : Int32,
   removed_inits : Array[@lib.Global],
   failed : Array[Bool],
 ) -> @lib.Expr {
   let out : Array[@lib.Instruction] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let instrs = expr.0
   for pos, original in instrs {
     starts.push(out.length())
@@ -461,7 +461,7 @@ fn gto_layout_expr(
           out.push(instr)
           continue
         }
-        let ranges : Array[(Int, Int)] = []
+        let ranges : Array[(Int32, Int32)] = []
         let mut end = pos
         for _ in map {
           let start = gto_operand_start(
@@ -591,7 +591,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
   }
   let context = @ir.hot_module_context_from_module(mod_)
   let types = context.subtypes
-  let bases : Array[Int] = []
+  let bases : Array[Int32] = []
   for rec in recs {
     let base = bases.length()
     match rec {
@@ -632,7 +632,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
       _ => -1
     }
   })
-  let children : Array[Array[Int]] = parents.map(fn(_) { [] })
+  let children : Array[Array[Int32]] = parents.map(fn(_) { [] })
   for i, p in parents {
     if p >= 0 {
       children[p].push(i)
@@ -640,7 +640,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
   }
   let all_reads = fields.map(fn(f) { Array::make(f.length(), false) })
   let all_writes = fields.map(fn(f) { Array::make(f.length(), false) })
-  let pending : Array[(Int, Int, Bool)] = []
+  let pending : Array[(Int32, Int32, Bool)] = []
   for i, type_fields in fields {
     for f = 0; f < type_fields.length(); f = f + 1 {
       if reads[i][f] || public_[i] {
@@ -694,7 +694,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
       for f = 0; f < inherited; f = f + 1 {
         if maps[p][f] >= 0 {
           maps[i][f] = maps[p][f]
-          next = Int::max(next, maps[p][f] + 1)
+          next = Int32::max(next, maps[p][f] + 1)
         }
       }
     }

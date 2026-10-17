@@ -2,7 +2,7 @@
 fn cl_add_structured_write_live_interferences_reference(
   write_live_hazards : CLBitMatrix,
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   for source = param_count; source < types.length(); source = source + 1 {

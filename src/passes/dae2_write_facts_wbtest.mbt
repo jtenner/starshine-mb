@@ -2,7 +2,7 @@
 fn dae2_writefacts_graph(
   func : @ir.HotFunc,
   reference : Bool,
-  census_visits? : Array[Int]? = None,
+  census_visits~ : Array[Int32]? = None,
 ) -> Dae2Graph {
   let graph = Dae2Graph::new()
   let params = Array::makei(@ir.hot_local_param_count(func), fn(local) {
@@ -105,10 +105,24 @@ test "shared DAE2 write census preserves intentionally unrepresented and repeate
       }
       @ir.hot_root_append(func, read)
     }
-    dae2_writefacts_assert_same(
-      dae2_writefacts_graph(func, false),
-      dae2_writefacts_graph(func, true),
-    )
+    let actual = dae2_writefacts_graph(func, false)
+    let expected = dae2_writefacts_graph(func, true)
+    if mode == 0 {
+      // Unknown-read fanout may use a shared location. Compare the required
+      // transitive demand on all original locations against the direct edges.
+      let location = 2 + read
+      actual.observe(location)
+      expected.observe(location)
+      actual.solve()
+      expected.solve()
+      for location in 0..<expected.used.length() {
+        assert_eq(actual.used[location], expected.used[location])
+      }
+      assert_true(actual.used[0])
+      assert_true(actual.used[2 + write])
+    } else {
+      dae2_writefacts_assert_same(actual, expected)
+    }
   }
 }
 

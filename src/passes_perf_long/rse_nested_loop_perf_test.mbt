@@ -2,7 +2,7 @@
 // rewrite. The body has no branches, so loop entry backedge probing is unused.
 
 ///|
-fn rse_nested_loop_fixture(depth : Int) -> @lib.Module {
+fn rse_nested_loop_fixture(depth : Int32) -> @lib.Module {
   let heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let body : Array[@lib.Instruction] = [
     @lib.Instruction::ref_null(heap),
@@ -21,7 +21,7 @@ fn rse_nested_loop_fixture(depth : Int) -> @lib.Module {
 }
 
 ///|
-fn rse_nested_loop_bench(it : @bench.T, depth : Int) -> Unit {
+fn rse_nested_loop_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = rse_nested_loop_fixture(depth)
   let expected = opportunity_run(fixture, "redundant-set-elimination", true)
   let original_code = fixture.code_sec

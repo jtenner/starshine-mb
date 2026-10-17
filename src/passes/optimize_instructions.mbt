@@ -27,17 +27,17 @@ priv struct OptimizeInstructionsLocalFacts {
   sign_ext_state_by_local : Array[OiSignExtLocalStateFact]
   i32_unsigned_max_state_by_local : Array[OiI32UnsignedMaxLocalStateFact]
   i64_unsigned_max_state_by_local : Array[OiI64UnsignedMaxLocalStateFact]
-  i32_max_by_node : Array[Int?]
+  i32_max_by_node : Array[Int32?]
   i64_max_by_node : Array[Int64?]
   i32_max_ready : @bitset.BitSet
   i64_max_ready : @bitset.BitSet
-  assigned_i32_max_by_node : Array[Int?]
+  assigned_i32_max_by_node : Array[Int32?]
   assigned_i64_max_by_node : Array[Int64?]
   assigned_i32_max_ready : @bitset.BitSet
   assigned_i64_max_ready : @bitset.BitSet
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
-  mut label_used_revision : Int
+  mut label_used_revision : Int32
   mut label_used : @bitset.BitSet
   mut boolean_exit_labels : @bitset.BitSet?
 }
@@ -55,7 +55,7 @@ priv enum OiSignExtLocalStateKind {
 ///|
 priv struct OiSignExtLocalStateFact {
   kind : OiSignExtLocalStateKind
-  bits : Int
+  bits : Int32
 }
 
 ///|
@@ -65,7 +65,7 @@ fn OiSignExtLocalStateFact::unknown() -> OiSignExtLocalStateFact {
 
 ///|
 fn OiSignExtLocalStateFact::from_assignment_bits(
-  bits : Int,
+  bits : Int32,
 ) -> OiSignExtLocalStateFact {
   if bits > 0 {
     { kind: KnownSignExtLocalState, bits, }
@@ -77,7 +77,7 @@ fn OiSignExtLocalStateFact::from_assignment_bits(
 ///|
 fn OiSignExtLocalStateFact::merge_assignment_bits(
   self : OiSignExtLocalStateFact,
-  bits : Int,
+  bits : Int32,
 ) -> OiSignExtLocalStateFact {
   let candidate = OiSignExtLocalStateFact::from_assignment_bits(bits)
   match self.kind {
@@ -92,7 +92,7 @@ fn OiSignExtLocalStateFact::merge_assignment_bits(
 }
 
 ///|
-fn OiSignExtLocalStateFact::final_bits(self : OiSignExtLocalStateFact) -> Int {
+fn OiSignExtLocalStateFact::final_bits(self : OiSignExtLocalStateFact) -> Int32 {
   match self.kind {
     KnownSignExtLocalState => self.bits
     UnknownSignExtLocalState | ConflictingSignExtLocalState => 0
@@ -115,7 +115,7 @@ priv struct OiI32UnsignedMaxLocalStateFact {
   // Local unsigned-max summaries start at zero for known i32 locals, grow to
   // the largest proven assigned maximum, and fall back to None for unsupported
   // or conflicting assignments instead of storing a -1 sentinel.
-  max_value : Int?
+  max_value : Int32?
 }
 
 ///|
@@ -131,7 +131,7 @@ fn OiI32UnsignedMaxLocalStateFact::zero() -> OiI32UnsignedMaxLocalStateFact {
 ///|
 fn OiI32UnsignedMaxLocalStateFact::merge_assignment_max(
   self : OiI32UnsignedMaxLocalStateFact,
-  max_value : Int?,
+  max_value : Int32?,
 ) -> OiI32UnsignedMaxLocalStateFact {
   match (self.max_value, max_value) {
     (Some(current), Some(value)) if value >= 0 =>
@@ -171,8 +171,8 @@ fn OiI64UnsignedMaxLocalStateFact::merge_assignment_max(
 
 ///|
 priv struct OiLocalAssignmentPayloadFact {
-  local_id : Int
-  value_id : Int
+  local_id : Int32
+  value_id : Int32
   val_type : @lib.ValType
 }
 
@@ -183,8 +183,8 @@ priv struct OiLocalAssignmentFact {
 
 ///|
 fn OptimizeInstructionsLocalFacts::new(
-  local_count : Int,
-  node_count : Int,
+  local_count : Int32,
+  node_count : Int32,
 ) -> OptimizeInstructionsLocalFacts {
   {
     sign_ext_state_by_local: Array::make(
@@ -218,8 +218,8 @@ fn OptimizeInstructionsLocalFacts::new(
 ///|
 fn OptimizeInstructionsLocalFacts::sign_ext_bits_for_get(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   if local_id >= 0 && local_id < self.sign_ext_state_by_local.length() {
     self.sign_ext_state_by_local[local_id].final_bits()
   } else {
@@ -230,8 +230,8 @@ fn OptimizeInstructionsLocalFacts::sign_ext_bits_for_get(
 ///|
 fn OptimizeInstructionsLocalFacts::merge_sign_ext_bits_for_local(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
-  bits : Int,
+  local_id : Int32,
+  bits : Int32,
 ) -> Unit {
   if local_id < 0 || local_id >= self.sign_ext_state_by_local.length() {
     return
@@ -253,8 +253,8 @@ fn OptimizeInstructionsLocalFacts::finalize_sign_ext_bits(
 ///|
 fn OptimizeInstructionsLocalFacts::i32_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
-) -> Int? {
+  local_id : Int32,
+) -> Int32? {
   if self.unsigned_max_ready &&
     local_id >= 0 &&
     local_id < self.i32_unsigned_max_state_by_local.length() {
@@ -267,7 +267,7 @@ fn OptimizeInstructionsLocalFacts::i32_unsigned_max_for_get(
 ///|
 fn OptimizeInstructionsLocalFacts::i64_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
+  local_id : Int32,
 ) -> Int64? {
   if self.unsigned_max_ready &&
     local_id >= 0 &&
@@ -281,7 +281,7 @@ fn OptimizeInstructionsLocalFacts::i64_unsigned_max_for_get(
 ///|
 fn OptimizeInstructionsLocalFacts::seed_i32_unsigned_max_local(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
+  local_id : Int32,
 ) -> Unit {
   if local_id >= 0 && local_id < self.i32_unsigned_max_state_by_local.length() {
     self.i32_unsigned_max_state_by_local[local_id] = OiI32UnsignedMaxLocalStateFact::zero()
@@ -291,7 +291,7 @@ fn OptimizeInstructionsLocalFacts::seed_i32_unsigned_max_local(
 ///|
 fn OptimizeInstructionsLocalFacts::seed_i64_unsigned_max_local(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
+  local_id : Int32,
 ) -> Unit {
   if local_id >= 0 && local_id < self.i64_unsigned_max_state_by_local.length() {
     self.i64_unsigned_max_state_by_local[local_id] = OiI64UnsignedMaxLocalStateFact::zero()
@@ -301,8 +301,8 @@ fn OptimizeInstructionsLocalFacts::seed_i64_unsigned_max_local(
 ///|
 fn OptimizeInstructionsLocalFacts::merge_i32_unsigned_max_for_local(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
-  max_value : Int?,
+  local_id : Int32,
+  max_value : Int32?,
 ) -> Unit {
   if local_id < 0 || local_id >= self.i32_unsigned_max_state_by_local.length() {
     return
@@ -315,7 +315,7 @@ fn OptimizeInstructionsLocalFacts::merge_i32_unsigned_max_for_local(
 ///|
 fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
   self : OptimizeInstructionsLocalFacts,
-  local_id : Int,
+  local_id : Int32,
   max_value : Int64?,
 ) -> Unit {
   if local_id < 0 || local_id >= self.i64_unsigned_max_state_by_local.length() {
@@ -335,7 +335,7 @@ fn OiLocalAssignmentFact::empty() -> OiLocalAssignmentFact {
 fn OiLocalAssignmentFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLocalAssignmentFact {
   // Binaryen's `LocalScanner` records local-set/tee assignments as facts that
   // later integer rewrites query, rather than each rewrite owning a separate
@@ -421,7 +421,7 @@ fn OiRefNullabilityFact::unknown() -> OiRefNullabilityFact {
 ///|
 fn OiRefNullabilityFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   ref_type : @lib.RefType?,
 ) -> OiRefNullabilityFact {
   let node = @ir.hot_node_get(func, node_id)
@@ -484,7 +484,7 @@ fn OiRefFact::unknown() -> OiRefFact {
 }
 
 ///|
-fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int) -> OiRefFact {
+fn OiRefFact::from_node(func : @ir.HotFunc, node_id : Int32) -> OiRefFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiRefFact::unknown()
   }
@@ -567,7 +567,7 @@ priv struct OiRefIsNullOperandErasureFact {
 fn OiRefIsNullOperandErasureFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefIsNullOperandErasureFact {
   // Binaryen v130 `visitRefIsNull` erases the operand only when the operand's
   // effects are pure; otherwise it materializes the known boolean after a drop.
@@ -595,7 +595,7 @@ fn OiRefIsNullOperandErasureFact::proves_operand_erasable(
 
 ///|
 priv struct OiRefIsNullFact {
-  operand_id : Int
+  operand_id : Int32
   result_fact : OiRefIsNullResultFact
   erasure_fact : OiRefIsNullOperandErasureFact
 }
@@ -604,7 +604,7 @@ priv struct OiRefIsNullFact {
 fn OiRefIsNullFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefIsNullFact? {
   if @ir.hot_child_count(func, node_id) != 1 {
     return None
@@ -627,7 +627,7 @@ fn OiRefIsNullFact::from_node(
 
 ///|
 priv struct OiRefIsNullSkipCastFact {
-  replacement_operand_id : Int
+  replacement_operand_id : Int32
 }
 
 ///|
@@ -683,8 +683,8 @@ priv enum OiRefIsNullRewritePlanKind {
 ///|
 priv struct OiRefIsNullRewritePlanFact {
   kind : OiRefIsNullRewritePlanKind
-  operand_id : Int
-  replacement_operand_id : Int
+  operand_id : Int32
+  replacement_operand_id : Int32
   const_result : @lib.I32
 }
 
@@ -724,7 +724,7 @@ fn OiRefIsNullRewritePlanFact::from_fact(
 fn OiRefIsNullRewritePlanFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefIsNullRewritePlanFact? {
   match OiRefIsNullFact::from_node(ctx, func, node_id) {
     Some(fact) => OiRefIsNullRewritePlanFact::from_fact(ctx, func, fact)
@@ -736,8 +736,8 @@ fn OiRefIsNullRewritePlanFact::from_node(
 fn OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  operand_id : Int,
+  node_id : Int32,
+  operand_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_unary(
     ctx,
@@ -750,12 +750,12 @@ fn OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
 
 ///|
 priv struct OiSynthesizedRefIsNullFact {
-  operand_id : Int
+  operand_id : Int32
 }
 
 ///|
 fn OiSynthesizedRefIsNullFact::from_operand(
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiSynthesizedRefIsNullFact {
   { operand_id, }
 }
@@ -765,7 +765,7 @@ fn OiSynthesizedRefIsNullFact::apply(
   self : OiSynthesizedRefIsNullFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   // A producer such as ref.eq may synthesize ref.is_null after the ordinary
   // RefIsNull post-order slot has passed. Reuse the regular typed result and
@@ -788,7 +788,7 @@ fn OiRefIsNullRewritePlanFact::apply(
   self : OiRefIsNullRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     RefIsNullRewriteToConst => {
@@ -847,7 +847,7 @@ fn OiRefLiteralFact::i31() -> OiRefLiteralFact {
 ///|
 fn OiRefLiteralFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefLiteralFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return OiRefLiteralFact::none()
@@ -982,7 +982,7 @@ fn OiNullTrapScopeFact::proves_traps_on_null(
 ///|
 fn OiNullTrapFact::for_operand(
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   caller_scope_traps~ : Bool,
 ) -> OiNullTrapFact {
   // Binaryen v130's `trapOnNull` callers decide whether a null operand traps in
@@ -1021,7 +1021,7 @@ fn OiNullTrapRewriteFact::from_trap_fact(
 fn optimize_instructions_region_tail_id(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
     return None
@@ -1043,7 +1043,7 @@ priv enum OiRegionFallthroughExitKind {
 ///|
 priv struct OiRegionFallthroughExitFact {
   kind : OiRegionFallthroughExitKind
-  tail_id : Int?
+  tail_id : Int32?
 }
 
 ///|
@@ -1149,7 +1149,7 @@ fn OiFallthroughTailFact::empty() -> OiFallthroughTailFact {
 ///|
 fn OiFallthroughTailFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiFallthroughTailFact {
   // Binaryen's Properties::getImmediateFallthrough treats br_on_* as letting
   // their reference child fall through. Starshine's represented region path
@@ -1249,8 +1249,8 @@ fn OiRefFallthroughTailUseFact::proves_usable_tail(
 
 ///|
 priv struct OiRefFallthroughRegionFact {
-  root_count : Int
-  tail_id : Int?
+  root_count : Int32
+  tail_id : Int32?
   tail_use : OiRefFallthroughTailUseFact
   ref_type : @lib.RefType?
 }
@@ -1321,7 +1321,7 @@ priv struct OiRefFallthroughFact {
 ///|
 fn optimize_instructions_node_ref_result_type(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.RefType? {
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [@lib.ValType::RefTypeValType(ref_type)] => Some(ref_type)
@@ -1389,7 +1389,7 @@ fn OiHeapSubtypeFact::proves_subtype_with_fuel(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if optimize_instructions_module_heap_matches(module_ctx, source, target) {
     return true
@@ -1704,7 +1704,7 @@ fn OiModuleHeapSubtypeTargetFact::from_subtype(
   module_ctx : @ir.HotModuleContext,
   subtype : @lib.SubType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> OiModuleHeapSubtypeTargetFact {
   if fuel <= 0 {
     return { kind: ModuleHeapSubtypeTargetNoMatch, }
@@ -1781,7 +1781,7 @@ fn OiModuleHeapTargetFact::from_heaps(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> OiModuleHeapTargetFact {
   // Source-backed equivalent of Binaryen's heap-target compatibility walk: fast
   // abstract-heap lattice facts first, then bounded module subtype traversal.
@@ -2502,7 +2502,7 @@ fn optimize_instructions_ref_fallthrough_lower_bound(
 fn OiRefFallthroughFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefFallthroughFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return { ref_type: None, }
@@ -2614,7 +2614,7 @@ priv struct OiRefProducerFact {
 fn OiRefProducerFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefProducerFact {
   let node = @ir.hot_node_get(func, node_id)
   let ref_type = match node.op {
@@ -3139,7 +3139,7 @@ priv struct OiDescriptorTypeFact {
 fn OiDescriptorTypeFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorTypeFact {
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
@@ -3215,7 +3215,7 @@ priv struct OiDescriptorExactnessDropFact {
 ///|
 fn OiDescriptorExactnessDropFact::from_operand(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorExactnessDropFact {
   // Binaryen's descriptor-cast TNH skip may drop exactness when the descriptor
   // operand is a ref.get_desc whose preserved children can escape through
@@ -3259,7 +3259,7 @@ fn OiDescriptorOperandFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorOperandFact {
   {
     type_fact: OiDescriptorTypeFact::from_node(ctx, func, node_id),
@@ -3313,7 +3313,7 @@ priv enum OiRefGetDescTrapKind {
 
 ///|
 priv struct OiRefGetDescExplicitKnownNullChildFact {
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
@@ -3332,7 +3332,7 @@ priv struct OiRefGetDescTrapFact {
 ///|
 fn OiRefGetDescTrapFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefGetDescTrapFact {
   // Binaryen v130 treats `ref.get_desc(unreachable)` and
   // `ref.get_desc(ref.as_non_null(ref.null ...))` as descriptor operands that
@@ -3385,7 +3385,7 @@ priv enum OiDescriptorOperandTrapKind {
 
 ///|
 priv struct OiDescriptorOperandDirectUnreachableTrapFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
@@ -3405,7 +3405,7 @@ priv struct OiDescriptorOperandTrapFact {
 ///|
 fn OiDescriptorOperandTrapFact::from_operand(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorOperandTrapFact {
   // Descriptor casts/tests can become `unreachable` when the descriptor operand
   // itself is already an unconditional trap with no preceding side effects.
@@ -3460,7 +3460,7 @@ priv struct OiDescriptorOperandSkipLocalizationFact {
 ///|
 fn OiDescriptorOperandSkipLocalizationFact::from_operand(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorOperandSkipLocalizationFact {
   // Binaryen's descriptor TNH skip path uses ChildLocalizer-like decisions to
   // preserve descriptor operand evaluation when the descriptor is a call-like or
@@ -3528,14 +3528,14 @@ priv struct OiRefTestFact {
   nullable : Bool
   exact : Bool
   target : @lib.HeapType
-  operand_id : Int
+  operand_id : Int32
   style_fact : OiRefTestStyleFact
 }
 
 ///|
 fn OiRefTestFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefTestFact? {
   if @ir.hot_child_count(func, node_id) != 1 {
     return None
@@ -3667,7 +3667,7 @@ priv struct OiRefTestOperandFact {
 fn OiRefTestOperandFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefTestOperandFact {
   let ref_fact = OiRefFact::from_node(func, operand_id)
   let producer_fact = OiRefProducerFact::from_node(ctx, func, operand_id)
@@ -4264,12 +4264,12 @@ priv enum OiRefTestConstOperandPreservationKind {
 ///|
 priv struct OiRefTestConstOperandPreservationFact {
   kind : OiRefTestConstOperandPreservationKind
-  operand_id : Int
+  operand_id : Int32
 }
 
 ///|
 fn OiRefTestConstOperandPreservationFact::from_operand(
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefTestConstOperandPreservationFact {
   // Binaryen v130 `visitRefTest` materializes both known Success and Failure as
   // `drop(ref); i32.const`. This is an output-shape contract, not merely an
@@ -4388,7 +4388,7 @@ fn OiRefTestRewritePlanFact::replace_with_ref_is_null(
   self : OiRefTestRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   OiRefIsNullRewritePlanFact::replace_node_with_ref_is_null(
     ctx,
@@ -4403,7 +4403,7 @@ fn OiRefTestRewritePlanFact::replace_with_ref_is_non_null_test(
   self : OiRefTestRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let operand_id = self.test_fact.operand_id
   let is_null = @ir.hot_build_unary(func, @lib.ValType::i32(), operand_id)
@@ -4421,7 +4421,7 @@ fn OiRefTestRewritePlanFact::apply(
   self : OiRefTestRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let operand_id = self.test_fact.operand_id
   match self.kind {
@@ -4477,13 +4477,13 @@ priv struct OiRefCastFact {
   nullable : Bool
   exact : Bool
   target : @lib.HeapType
-  operand_id : Int
+  operand_id : Int32
 }
 
 ///|
 fn OiRefCastFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefCastFact? {
   if @ir.hot_child_count(func, node_id) != 1 {
     return None
@@ -4513,7 +4513,7 @@ priv struct OiRefCastOperandTargetFact {
 ///|
 fn OiRefCastOperandTargetFact::from_operand(
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefCastOperandTargetFact {
   let node = @ir.hot_node_get(func, operand_id)
   let source_type = match
@@ -4981,7 +4981,7 @@ priv struct OiRefCastOperandErasureFact {
 fn OiRefCastOperandErasureFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefCastOperandErasureFact {
   // Binaryen only drops a trapping ref.cast operand when its effects need not
   // be preserved. Keep that effect-preservation proof separate from the
@@ -5022,7 +5022,7 @@ priv struct OiRefCastOperandFact {
 fn OiRefCastOperandFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   target : @lib.HeapType,
   target_nullable : Bool,
 ) -> OiRefCastOperandFact {
@@ -5134,12 +5134,12 @@ priv struct OiRefCastTighteningFact {
 
 ///|
 priv struct OiRefCastChildCastFact {
-  replacement_operand_id : Int
+  replacement_operand_id : Int32
 }
 
 ///|
 priv struct OiRefCastChildNonNullFact {
-  replacement_operand_id : Int
+  replacement_operand_id : Int32
   narrowed_ref_type : @lib.RefType
 }
 
@@ -5326,7 +5326,7 @@ priv enum OiRefCastRewritePlanKind {
 
 ///|
 priv struct OiRefCastRewritePayloadFact {
-  replacement_operand_id : Int?
+  replacement_operand_id : Int32?
   narrowed_ref_type : @lib.RefType?
 }
 
@@ -5337,7 +5337,7 @@ fn OiRefCastRewritePayloadFact::empty() -> OiRefCastRewritePayloadFact {
 
 ///|
 fn OiRefCastRewritePayloadFact::replacement_operand(
-  replacement_operand_id : Int,
+  replacement_operand_id : Int32,
 ) -> OiRefCastRewritePayloadFact {
   {
     replacement_operand_id: Some(replacement_operand_id),
@@ -5347,7 +5347,7 @@ fn OiRefCastRewritePayloadFact::replacement_operand(
 
 ///|
 fn OiRefCastRewritePayloadFact::replacement_operand_and_type(
-  replacement_operand_id : Int,
+  replacement_operand_id : Int32,
   narrowed_ref_type : @lib.RefType,
 ) -> OiRefCastRewritePayloadFact {
   {
@@ -5467,7 +5467,7 @@ fn OiRefCastRewritePlanFact::apply(
   self : OiRefCastRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let operand_id = self.cast_fact.operand_id
   match self.kind {
@@ -5565,18 +5565,18 @@ fn OiRefCastRewritePlanFact::apply(
 
 ///|
 priv struct OiDescriptorCastFact {
-  node_id : Int
+  node_id : Int32
   nullable : Bool
   exact : Bool
   target : @lib.HeapType
-  operand_id : Int
-  descriptor_id : Int
+  operand_id : Int32
+  descriptor_id : Int32
 }
 
 ///|
 fn OiDescriptorCastFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorCastFact? {
   if @ir.hot_child_count(func, node_id) != 2 {
     return None
@@ -5612,7 +5612,7 @@ priv struct OiDescriptorCastTighteningOperandFact {
 fn OiDescriptorCastTighteningOperandFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiDescriptorCastTighteningOperandFact {
   // Binaryen v130 descriptor-cast nullability tightening is driven by the
   // reference operand fallthrough type. Keep that source proof as a fact instead
@@ -5695,7 +5695,7 @@ fn OiDescriptorCastTighteningRewritePlanFact::apply(
   self : OiDescriptorCastTighteningRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = self.tightening_fact.cast_fact
   let narrowed_ref_type = self.tightening_fact.narrowed_ref_type
@@ -5734,7 +5734,7 @@ priv struct OiDescriptorExactMissDropBeforeUnreachableFact {
 ///|
 fn OiDescriptorExactMissDropBeforeUnreachableFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorExactMissDropBeforeUnreachableFact {
   // Binaryen v130 lowers statically-impossible descriptor equality casts with
   // `getDroppedChildrenAndAppend(..., unreachable, IgnoreParentEffects)`. Keep
@@ -5938,7 +5938,7 @@ priv struct OiDescriptorExactMissDescriptorRelationFact {
 fn OiDescriptorExactMissDescriptorRelationFact::from_descriptor(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
   target : @lib.HeapType,
 ) -> OiDescriptorExactMissDescriptorRelationFact {
   // Binaryen v130 descriptor equality exact-miss cleanup first proves that the
@@ -5973,7 +5973,7 @@ priv struct OiDescriptorExactMissOperandRelationFact {
 fn OiDescriptorExactMissOperandRelationFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   target : @lib.HeapType,
   target_nullable : Bool,
 ) -> OiDescriptorExactMissOperandRelationFact {
@@ -6015,7 +6015,7 @@ fn OiDescriptorExactMissFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorExactMissFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6225,7 +6225,7 @@ fn OiDescriptorExactMissRewritePlanFact::apply(
   self : OiDescriptorExactMissRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = self.miss_fact.cast_fact
   match self.kind {
@@ -6267,7 +6267,7 @@ priv struct OiDescriptorOperandTargetRelationFact {
 fn OiDescriptorOperandTargetRelationFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   target : @lib.HeapType,
   target_nullable : Bool,
 ) -> OiDescriptorOperandTargetRelationFact {
@@ -6325,7 +6325,7 @@ fn OiDescriptorTnhSkipFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorTnhSkipFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6588,7 +6588,7 @@ fn OiDescriptorTnhSkipRewritePlanFact::apply(
   self : OiDescriptorTnhSkipRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = self.skip_fact.cast_fact
   match self.kind {
@@ -6694,7 +6694,7 @@ fn OiDescriptorNullCastFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorNullCastFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6808,7 +6808,7 @@ fn OiDescriptorNullCastRewritePlanFact::apply(
   self : OiDescriptorNullCastRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = self.null_fact.cast_fact
   match self.kind {
@@ -6894,7 +6894,7 @@ priv struct OiDescriptorExactSuccessOperandFact {
 fn OiDescriptorExactSuccessOperandFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   target : @lib.HeapType,
   target_nullable : Bool,
 ) -> OiDescriptorExactSuccessOperandFact {
@@ -6939,7 +6939,7 @@ priv struct OiDescriptorExactSuccessDescriptorRelationFact {
 fn OiDescriptorExactSuccessDescriptorRelationFact::from_descriptor(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
   target : @lib.HeapType,
 ) -> OiDescriptorExactSuccessDescriptorRelationFact {
   // Binaryen v130 descriptor equality exact-success skipping under TNH needs a
@@ -6978,7 +6978,7 @@ priv struct OiDescriptorExactSuccessFact {
 fn OiDescriptorExactSuccessFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorExactSuccessFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -7193,7 +7193,7 @@ fn OiDescriptorExactSuccessRewritePlanFact::apply(
   self : OiDescriptorExactSuccessRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     DescriptorExactSuccessLocalizeOperandThenDescriptor =>
@@ -7511,7 +7511,7 @@ priv struct OiDescriptorResultNarrowingControlFact {
 ///|
 fn OiDescriptorResultNarrowingControlFact::from_descriptor(
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> OiDescriptorResultNarrowingControlFact {
   // Binaryen v130 descriptor-cast result tightening refuses to reorder through
   // descriptor operands with escaping branch control. Keep that descriptor-side
@@ -7904,7 +7904,7 @@ fn OiDescriptorResultNarrowingRewritePlanFact::apply(
   self : OiDescriptorResultNarrowingRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     DescriptorResultNarrowCastRoot | DescriptorResultNarrowRefAsNonNullRoot =>
@@ -7953,7 +7953,7 @@ priv enum OiDescriptorCallRefDirectizationChildSlot {
 ///|
 priv struct OiDescriptorCallRefChildDirectizationFact {
   slot : OiDescriptorCallRefDirectizationChildSlot
-  call_ref_id : Int
+  call_ref_id : Int32
 }
 
 ///|
@@ -8048,7 +8048,7 @@ priv struct OiDescriptorOperandSimplificationFact {
 ///|
 fn OiDescriptorOperandSimplificationFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorOperandSimplificationFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -8106,7 +8106,7 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let fact = self.simplification_fact
   let cast_fact = fact.cast_fact
@@ -8147,19 +8147,19 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
 
 ///|
 priv struct OiRefGetDescExplicitNullableChildFact {
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
 priv struct OiRefGetDescFact {
-  child_id : Int
+  child_id : Int32
   explicit_nullable_child_fact : OiRefGetDescExplicitNullableChildFact?
 }
 
 ///|
 fn OiRefGetDescFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefGetDescFact? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefGetDesc(_)) => ()
@@ -8179,7 +8179,7 @@ fn OiRefGetDescFact::from_node(
 }
 
 ///|
-fn OiRefGetDescFact::explicit_nullable_child(self : OiRefGetDescFact) -> Int? {
+fn OiRefGetDescFact::explicit_nullable_child(self : OiRefGetDescFact) -> Int32? {
   match self.explicit_nullable_child_fact {
     Some(fact) => Some(fact.child_id)
     None => None
@@ -8194,7 +8194,7 @@ priv enum OiRefGetDescKnownNullChildKind {
 
 ///|
 priv struct OiRefGetDescKnownNullPreserveChildFact {
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
@@ -8259,7 +8259,7 @@ fn OiRefGetDescKnownNullChildFact::apply(
   self : OiRefGetDescKnownNullChildFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   ignore(self.get_desc_fact)
   match self.kind {
@@ -8316,7 +8316,7 @@ priv struct OiRefGetDescDescriptorOperandMoveFact {
 ///|
 fn OiRefGetDescDescriptorOperandMoveFact::from_child(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> OiRefGetDescDescriptorOperandMoveFact {
   // Descriptor operands are stricter than standalone ref.get_desc rewrites: only
   // direct local leaves and represented branch-free control wrappers can move
@@ -8356,7 +8356,7 @@ fn OiRefGetDescDescriptorOperandMoveFact::proves_descriptor_operand_move_allowed
 
 ///|
 priv struct OiRefGetDescNullableChildMoveFact {
-  child_id : Int
+  child_id : Int32
   child_kind : OiRefGetDescNullableChildMoveKind
   descriptor_operand_move : OiRefGetDescDescriptorOperandMoveFact
 }
@@ -8364,7 +8364,7 @@ priv struct OiRefGetDescNullableChildMoveFact {
 ///|
 fn OiRefGetDescNullableChildMoveFact::from_child(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> OiRefGetDescNullableChildMoveFact? {
   // Binaryen v130 commonly strips `ref.as_non_null` under `ref.get_desc` when
   // the nullable child is already the value that should be described. Keep the
@@ -8450,7 +8450,7 @@ fn OiRefGetDescNullableChildMoveFact::proves_move_allowed_for(
 priv struct OiRefGetDescNullCheckMoveFact {
   kind : OiRefGetDescNullCheckMoveKind
   get_desc_fact : OiRefGetDescFact
-  nullable_child_id : Int
+  nullable_child_id : Int32
 }
 
 ///|
@@ -8487,7 +8487,7 @@ fn OiRefGetDescNullCheckMoveFact::apply(
   self : OiRefGetDescNullCheckMoveFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   ignore(self.kind)
   ignore(self.get_desc_fact)
@@ -8509,19 +8509,19 @@ fn OiRefGetDescFact::child_is_unreachable(
 
 ///|
 priv struct OptimizeInstructionsScratch {
-  cross_seen_stamps : Array[Int]
+  cross_seen_stamps : Array[Int32]
   loop_input_nodes : @bitset.BitSet
   if_condition_nodes : @bitset.BitSet
   local_facts : OptimizeInstructionsLocalFacts
   mut loop_input_nodes_ready : Bool
   mut if_condition_nodes_ready : Bool
-  mut next_cross_seen_stamp : Int
+  mut next_cross_seen_stamp : Int32
 }
 
 ///|
 fn OptimizeInstructionsScratch::new(
-  node_count : Int,
-  local_count : Int,
+  node_count : Int32,
+  local_count : Int32,
 ) -> OptimizeInstructionsScratch {
   {
     cross_seen_stamps: Array::make(node_count, -1),
@@ -8537,7 +8537,7 @@ fn OptimizeInstructionsScratch::new(
 ///|
 fn optimize_instructions_alloc_cross_seen_stamp(
   scratch : OptimizeInstructionsScratch,
-) -> Int {
+) -> Int32 {
   let stamp = scratch.next_cross_seen_stamp
   scratch.next_cross_seen_stamp = stamp + 1
   stamp
@@ -8605,7 +8605,7 @@ fn optimize_instructions_mark_if_condition_nodes(
 ///|
 fn optimize_instructions_sign_ext_bits_for_exact_instr(
   instr : @lib.Instruction,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.Instruction::I32Load8S(_) | @lib.Instruction::I64Load8S(_) => 8
     @lib.Instruction::I32Load16S(_) | @lib.Instruction::I64Load16S(_) => 16
@@ -8618,7 +8618,7 @@ fn optimize_instructions_sign_ext_bits_for_exact_instr(
 }
 
 ///|
-fn optimize_instructions_i32_sign_ext_bits_for_const(raw : Int) -> Int {
+fn optimize_instructions_i32_sign_ext_bits_for_const(raw : Int32) -> Int32 {
   if raw >= -128 && raw <= 127 {
     8
   } else if raw >= -32768 && raw <= 32767 {
@@ -8629,7 +8629,7 @@ fn optimize_instructions_i32_sign_ext_bits_for_const(raw : Int) -> Int {
 }
 
 ///|
-fn optimize_instructions_i64_sign_ext_bits_for_const(raw : Int64) -> Int {
+fn optimize_instructions_i64_sign_ext_bits_for_const(raw : Int64) -> Int32 {
   if raw >= -128L && raw <= 127L {
     8
   } else if raw >= -32768L && raw <= 32767L {
@@ -8643,11 +8643,11 @@ fn optimize_instructions_i64_sign_ext_bits_for_const(raw : Int64) -> Int {
 
 ///|
 priv struct OiSignExtValueFact {
-  bits : Int
+  bits : Int32
 }
 
 ///|
-fn OiSignExtValueFact::from_bits(bits : Int) -> OiSignExtValueFact {
+fn OiSignExtValueFact::from_bits(bits : Int32) -> OiSignExtValueFact {
   { bits, }
 }
 
@@ -8656,7 +8656,7 @@ fn OiSignExtValueFact::from_node_with_local_facts(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSignExtValueFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiSignExtValueFact::from_bits(0)
@@ -8690,7 +8690,7 @@ fn OiSignExtValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSignExtValueFact {
   OiSignExtValueFact::from_node_with_local_facts(
     func,
@@ -8704,7 +8704,7 @@ fn OiSignExtValueFact::from_value(
 fn OiSignExtValueFact::from_assigned_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSignExtValueFact {
   // Binaryen's LocalScanner computes the value fact for an assignment from the
   // assigned expression itself, not from the local fact being built. Keep that
@@ -8724,8 +8724,8 @@ fn optimize_instructions_sign_ext_bits_for_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   OiSignExtValueFact::from_value(func, dead, scratch, node_id).bits
 }
 
@@ -8754,7 +8754,7 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   dead : @bitset.BitSet,
   seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
     return
@@ -8840,12 +8840,12 @@ fn optimize_instructions_collect_sign_ext_facts(
 
 ///|
 priv struct OiUnsignedMaxValueFact {
-  i32_max : Int?
+  i32_max : Int32?
   i64_max : Int64?
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i32_bits_for_max(max_value : Int) -> Int {
+fn OiUnsignedMaxValueFact::i32_bits_for_max(max_value : Int32) -> Int32 {
   let mut bits = 0
   let mut value = max_value
   while value > 0 {
@@ -8856,7 +8856,7 @@ fn OiUnsignedMaxValueFact::i32_bits_for_max(max_value : Int) -> Int {
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i64_bits_for_max(max_value : Int64) -> Int {
+fn OiUnsignedMaxValueFact::i64_bits_for_max(max_value : Int64) -> Int32 {
   let mut bits = 0
   let mut value = max_value
   while value > 0L {
@@ -8867,7 +8867,7 @@ fn OiUnsignedMaxValueFact::i64_bits_for_max(max_value : Int64) -> Int {
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i32_max_for_bits(max_bits : Int) -> Int? {
+fn OiUnsignedMaxValueFact::i32_max_for_bits(max_bits : Int32) -> Int32? {
   if max_bits < 0 || max_bits > 31 {
     None
   } else if max_bits == 0 {
@@ -8878,7 +8878,7 @@ fn OiUnsignedMaxValueFact::i32_max_for_bits(max_bits : Int) -> Int? {
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i64_max_for_bits(max_bits : Int) -> Int64? {
+fn OiUnsignedMaxValueFact::i64_max_for_bits(max_bits : Int32) -> Int64? {
   if max_bits < 0 || max_bits > 63 {
     None
   } else if max_bits == 0 {
@@ -8889,7 +8889,7 @@ fn OiUnsignedMaxValueFact::i64_max_for_bits(max_bits : Int) -> Int64? {
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i32_max_bits_or_unknown(max_value : Int?) -> Int {
+fn OiUnsignedMaxValueFact::i32_max_bits_or_unknown(max_value : Int32?) -> Int32 {
   match max_value {
     Some(value) => OiUnsignedMaxValueFact::i32_bits_for_max(value)
     None => 32
@@ -8897,7 +8897,7 @@ fn OiUnsignedMaxValueFact::i32_max_bits_or_unknown(max_value : Int?) -> Int {
 }
 
 ///|
-fn OiUnsignedMaxValueFact::i64_max_bits_or_unknown(max_value : Int64?) -> Int {
+fn OiUnsignedMaxValueFact::i64_max_bits_or_unknown(max_value : Int64?) -> Int32 {
   match max_value {
     Some(value) => OiUnsignedMaxValueFact::i64_bits_for_max(value)
     None => 64
@@ -8906,9 +8906,9 @@ fn OiUnsignedMaxValueFact::i64_max_bits_or_unknown(max_value : Int64?) -> Int {
 
 ///|
 fn OiUnsignedMaxValueFact::i32_max_for_bitwise_and(
-  lhs_max : Int?,
-  rhs_max : Int?,
-) -> Int? {
+  lhs_max : Int32?,
+  rhs_max : Int32?,
+) -> Int32? {
   match (lhs_max, rhs_max) {
     (Some(lhs), Some(rhs)) => Some(if lhs < rhs { lhs } else { rhs })
     (Some(lhs), None) => Some(lhs)
@@ -8932,9 +8932,9 @@ fn OiUnsignedMaxValueFact::i64_max_for_bitwise_and(
 
 ///|
 fn OiUnsignedMaxValueFact::i32_max_for_bitwise_union(
-  lhs_max : Int?,
-  rhs_max : Int?,
-) -> Int? {
+  lhs_max : Int32?,
+  rhs_max : Int32?,
+) -> Int32? {
   let lhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(lhs_max)
   let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(rhs_max)
   let max_bits = if lhs_bits > rhs_bits { lhs_bits } else { rhs_bits }
@@ -8954,20 +8954,20 @@ fn OiUnsignedMaxValueFact::i64_max_for_bitwise_union(
 
 ///|
 priv struct OiI32UnsignedLoadMaxBitsFact {
-  value_id : Int
-  max_value : Int
+  value_id : Int32
+  max_value : Int32
 }
 
 ///|
 priv struct OiI64UnsignedLoadMaxBitsFact {
-  value_id : Int
+  value_id : Int32
   max_value : Int64
 }
 
 ///|
 fn OiI32UnsignedLoadMaxBitsFact::from_instr(
   instr : @lib.Instruction,
-  value_id : Int,
+  value_id : Int32,
 ) -> OiI32UnsignedLoadMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` bounds unsigned narrow loads by the number
   // of loaded bits. Keep width-specific leaf producer facts explicit so load
@@ -8982,7 +8982,7 @@ fn OiI32UnsignedLoadMaxBitsFact::from_instr(
 ///|
 fn OiI64UnsignedLoadMaxBitsFact::from_instr(
   instr : @lib.Instruction,
-  value_id : Int,
+  value_id : Int32,
 ) -> OiI64UnsignedLoadMaxBitsFact? {
   // Same Binaryen v130 unsigned-load maxBits leaf facts for i64 loads.
   match instr {
@@ -8996,20 +8996,20 @@ fn OiI64UnsignedLoadMaxBitsFact::from_instr(
 
 ///|
 priv struct OiI32UnsignedConstMaxValueFact {
-  value_id : Int
-  max_value : Int
+  value_id : Int32
+  max_value : Int32
 }
 
 ///|
 priv struct OiI64UnsignedConstMaxValueFact {
-  value_id : Int
+  value_id : Int32
   max_value : Int64
 }
 
 ///|
 fn OiI32UnsignedConstMaxValueFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32UnsignedConstMaxValueFact? {
   // Binaryen v130 `Bits::getMaxBits` treats nonnegative integer constants as
   // exact unsigned maxima. Negative constants are not bounded here because their
@@ -9024,7 +9024,7 @@ fn OiI32UnsignedConstMaxValueFact::from_node(
 ///|
 fn OiI64UnsignedConstMaxValueFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI64UnsignedConstMaxValueFact? {
   // Same exact unsigned maximum fact for nonnegative i64 constants.
   match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
@@ -9036,20 +9036,20 @@ fn OiI64UnsignedConstMaxValueFact::from_node(
 
 ///|
 priv struct OiI32LocalUnsignedMaxValueFact {
-  local_id : Int
-  max_value : Int
+  local_id : Int32
+  max_value : Int32
 }
 
 ///|
 priv struct OiI64LocalUnsignedMaxValueFact {
-  local_id : Int
+  local_id : Int32
   max_value : Int64
 }
 
 ///|
 fn OiI32LocalUnsignedMaxValueFact::from_get(
   local_facts : OptimizeInstructionsLocalFacts?,
-  local_id : Int,
+  local_id : Int32,
 ) -> OiI32LocalUnsignedMaxValueFact? {
   // Binaryen's `LocalScanner`-style fact store feeds local.get maxBits queries.
   // Keep width-specific get-side consumption explicit and distinct from leaf
@@ -9067,7 +9067,7 @@ fn OiI32LocalUnsignedMaxValueFact::from_get(
 ///|
 fn OiI64LocalUnsignedMaxValueFact::from_get(
   local_facts : OptimizeInstructionsLocalFacts?,
-  local_id : Int,
+  local_id : Int32,
 ) -> OiI64LocalUnsignedMaxValueFact? {
   // Same fact-store consumption for i64 local.get maxBits queries.
   match local_facts {
@@ -9082,13 +9082,13 @@ fn OiI64LocalUnsignedMaxValueFact::from_get(
 
 ///|
 priv struct OiI32ConvertMaxBitsFact {
-  operand_id : Int
-  max_value : Int
+  operand_id : Int32
+  max_value : Int32
 }
 
 ///|
 priv struct OiI64ConvertMaxBitsFact {
-  operand_id : Int
+  operand_id : Int32
   max_value : Int64
 }
 
@@ -9098,7 +9098,7 @@ fn OiI32ConvertMaxBitsFact::from_convert(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiI32ConvertMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` keeps the bounded low-lane fact for
   // `i32.wrap_i64(x)` when the wrapped i64 is proven below the i32 sign bit.
@@ -9122,7 +9122,7 @@ fn OiI64ConvertMaxBitsFact::from_convert(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiI64ConvertMaxBitsFact? {
   // Binaryen v130 i32-to-i64 producer facts preserve known unsigned i32 maxima;
   // unsigned extension has the full 32-bit fallback when the operand is not
@@ -9152,7 +9152,7 @@ fn OiI64ConvertMaxBitsFact::from_convert(
 
 ///|
 priv struct OiI32BitwiseMaxBitsFact {
-  max_value : Int?
+  max_value : Int32?
 }
 
 ///|
@@ -9166,8 +9166,8 @@ fn OiI32BitwiseMaxBitsFact::from_binary(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32BitwiseMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats integer `and` as the minimum of
   // operand max-bit counts and `or` / `xor` as the maximum. Keep those bitwise
@@ -9202,8 +9202,8 @@ fn OiI64BitwiseMaxBitsFact::from_binary(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64BitwiseMaxBitsFact? {
   // Same Binaryen v130 bitwise maxBits fact for i64 producers.
   let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
@@ -9231,19 +9231,19 @@ fn OiI64BitwiseMaxBitsFact::from_binary(
 
 ///|
 priv struct OiI32EffectiveShiftAmountFact {
-  amount : Int
+  amount : Int32
 }
 
 ///|
 priv struct OiI64EffectiveShiftAmountFact {
-  amount : Int
+  amount : Int32
 }
 
 ///|
 fn OiI32EffectiveShiftAmountFact::from_const_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  rhs_id : Int,
+  rhs_id : Int32,
 ) -> OiI32EffectiveShiftAmountFact? {
   // Binaryen v130 `Bits::getMaxBits` calls `Bits::getEffectiveShifts` for
   // integer shift constants, matching WebAssembly's low-5-bit i32 shift amount
@@ -9260,7 +9260,7 @@ fn OiI32EffectiveShiftAmountFact::from_const_operand(
 fn OiI64EffectiveShiftAmountFact::from_const_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  rhs_id : Int,
+  rhs_id : Int32,
 ) -> OiI64EffectiveShiftAmountFact? {
   // Same Binaryen v130 effective-shift fact for i64 shifts, using the low 6 bits
   // of the i64 constant operand and keeping the i64 lane explicit in the type.
@@ -9272,7 +9272,7 @@ fn OiI64EffectiveShiftAmountFact::from_const_operand(
 
 ///|
 priv struct OiI32LogicalShiftMaxBitsFact {
-  max_value : Int?
+  max_value : Int32?
 }
 
 ///|
@@ -9286,8 +9286,8 @@ fn OiI32LogicalShiftMaxBitsFact::from_shr_u(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32LogicalShiftMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats constant logical right shifts as
   // max-bit reducers using the masked WebAssembly shift amount. Keep the `shr_u`
@@ -9321,8 +9321,8 @@ fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64LogicalShiftMaxBitsFact? {
   // Same Binaryen v130 logical-right-shift maxBits fact for i64 producers.
   match instr {
@@ -9385,23 +9385,23 @@ priv enum OiMaxBitsBlockPrefixKind {
 ///|
 priv struct OiMaxBitsBlockPrefixFact {
   kind : OiMaxBitsBlockPrefixKind
-  root_id : Int
+  root_id : Int32
 }
 
 ///|
 priv struct OiDroppedStructAtomicRmwLoweringFact {
-  block_id : Int
+  block_id : Int32
 }
 
 ///|
 priv struct OiDroppedStructAtomicCmpxchgLoweringFact {
-  block_id : Int
+  block_id : Int32
 }
 
 ///|
 fn OiDroppedStructAtomicRmwLoweringFact::from_drop_child(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
 ) -> OiDroppedStructAtomicRmwLoweringFact? {
   // `visitStructRMW` can lower aggregate atomic RMWs to a result block before
   // the block-tail maxBits fold runs. Binaryen v130 still folds the surrounding
@@ -9453,7 +9453,7 @@ fn OiDroppedStructAtomicRmwLoweringFact::proves_preserved_prefix(
 ///|
 fn OiDroppedStructAtomicCmpxchgLoweringFact::from_drop_child(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
 ) -> OiDroppedStructAtomicCmpxchgLoweringFact? {
   // `visitStructRMW` can lower aggregate cmpxchg to a result block before the
   // block-tail maxBits fold runs. Binaryen v130 still folds the surrounding
@@ -9532,7 +9532,7 @@ fn OiDroppedStructAtomicCmpxchgLoweringFact::proves_preserved_prefix(
 fn OiMaxBitsBlockPrefixFact::from_root(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  root_id : Int,
+  root_id : Int32,
 ) -> OiMaxBitsBlockPrefixFact? {
   // Binaryen v130 `Bits::getMaxBits` can use the value fallthrough of a block
   // even when earlier straight-line roots have effects; the later replacement
@@ -9715,14 +9715,14 @@ fn OiMaxBitsBlockPrefixFact::proves_preservable_prefix(
 
 ///|
 priv struct OiMaxBitsFallthroughFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiMaxBitsFallthroughFact::from_single_value_block(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts?,
 ) -> OiMaxBitsFallthroughFact? {
   // Starshine's represented block fallthrough mirrors the local Binaryen
@@ -9772,7 +9772,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
 ///|
 fn OiMaxBitsFallthroughFact::from_local_tee(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMaxBitsFallthroughFact? {
   // Binaryen's fallthrough/maxBits path can inspect the value written by a
   // `local.tee` while later replacement still preserves the tee as a dropped
@@ -9795,13 +9795,13 @@ priv enum OiAssignedMaxBitsFallthroughKind {
 ///|
 priv struct OiAssignedMaxBitsFallthroughFact {
   kind : OiAssignedMaxBitsFallthroughKind
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiAssignedMaxBitsFallthroughFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiAssignedMaxBitsFallthroughFact {
   // Binaryen v130 LocalScanner asks `Properties::getFallthrough` about
   // local-set/tee values before feeding `Bits::getMaxBits`. Keep assignment-only
@@ -9845,7 +9845,7 @@ fn OiAssignedMaxBitsFallthroughFact::from_node(
 ///|
 fn OiAssignedMaxBitsFallthroughFact::selected_value(
   self : OiAssignedMaxBitsFallthroughFact,
-) -> Int {
+) -> Int32 {
   match self.kind {
     AssignedMaxBitsLoopTail | AssignedMaxBitsIfOneSidedArmTail => self.value_id
     AssignedMaxBitsNoFallthrough => self.value_id
@@ -9867,8 +9867,8 @@ priv struct OiCombinedShiftZeroBitsFact {
 fn OiCombinedShiftZeroBitsFact::from_i32_shr_u(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  amount : Int,
+  lhs_id : Int32,
+  amount : Int32,
 ) -> OiCombinedShiftZeroBitsFact? {
   // When Starshine combines nested logical right shifts before the general
   // zero-bits replacement gets a second look, preserve the same Binaryen
@@ -9888,8 +9888,8 @@ fn OiCombinedShiftZeroBitsFact::from_i32_shr_u(
 fn OiCombinedShiftZeroBitsFact::from_i64_shr_u(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  amount : Int,
+  lhs_id : Int32,
+  amount : Int32,
 ) -> OiCombinedShiftZeroBitsFact? {
   // Same combined-shift zero-bit fact for i64 logical right shifts.
   if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
@@ -9907,7 +9907,7 @@ fn OiCombinedShiftZeroBitsFact::apply(
   self : OiCombinedShiftZeroBitsFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     CombinedShiftZeroI32 =>
@@ -9929,22 +9929,25 @@ fn OiCombinedShiftZeroBitsFact::apply(
 
 ///|
 priv struct OiI32ArithmeticMaxBitsFact {
-  value_id : Int
-  lhs_id : Int
-  rhs_id : Int
-  max_bits : Int
+  value_id : Int32
+  lhs_id : Int32
+  rhs_id : Int32
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64ArithmeticMaxBitsFact {
-  value_id : Int
-  lhs_id : Int
-  rhs_id : Int
-  max_bits : Int
+  value_id : Int32
+  lhs_id : Int32
+  rhs_id : Int32
+  max_bits : Int32
 }
 
 ///|
-fn optimize_instructions_max_bits_cap(width_bits : Int, max_bits : Int) -> Int {
+fn optimize_instructions_max_bits_cap(
+  width_bits : Int32,
+  max_bits : Int32,
+) -> Int32 {
   if max_bits > width_bits {
     width_bits
   } else {
@@ -9954,18 +9957,18 @@ fn optimize_instructions_max_bits_cap(width_bits : Int, max_bits : Int) -> Int {
 
 ///|
 priv struct OiI32AddMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64AddMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 fn OiI32AddMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI32AddMaxBitsFact {
   // Binaryen v130 add maxBits is one more than the widest operand, capped to the
   // i32 lane width.
@@ -9975,8 +9978,8 @@ fn OiI32AddMaxBitsFact::from_bits(
 
 ///|
 fn OiI64AddMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI64AddMaxBitsFact {
   // Same Binaryen v130 add formula for the i64 lane.
   let operand_bits = if left_bits > right_bits { left_bits } else { right_bits }
@@ -9985,18 +9988,18 @@ fn OiI64AddMaxBitsFact::from_bits(
 
 ///|
 priv struct OiI32MulMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64MulMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 fn OiI32MulMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI32MulMaxBitsFact {
   // Binaryen v130 multiply maxBits sums operand max-bit counts, capped to the
   // i32 lane width.
@@ -10005,8 +10008,8 @@ fn OiI32MulMaxBitsFact::from_bits(
 
 ///|
 fn OiI64MulMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI64MulMaxBitsFact {
   // Same Binaryen v130 multiply formula for the i64 lane.
   { max_bits: optimize_instructions_max_bits_cap(64, left_bits + right_bits), }
@@ -10014,18 +10017,18 @@ fn OiI64MulMaxBitsFact::from_bits(
 
 ///|
 priv struct OiI32DivMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64DivMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 fn OiI32DivMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_min_bits : Int,
+  left_bits : Int32,
+  right_min_bits : Int32,
 ) -> OiI32DivMaxBitsFact? {
   // Divisor *minimum* bits bound the quotient. A maximum-bit count cannot
   // exclude divisor 1; zero denotes a known trapping divisor.
@@ -10047,8 +10050,8 @@ fn OiI32DivMaxBitsFact::from_bits(
 
 ///|
 fn OiI64DivMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_min_bits : Int,
+  left_bits : Int32,
+  right_min_bits : Int32,
 ) -> OiI64DivMaxBitsFact? {
   // Divisor *minimum* bits bound the quotient. A maximum-bit count cannot
   // exclude divisor 1; zero denotes a known trapping divisor.
@@ -10070,18 +10073,18 @@ fn OiI64DivMaxBitsFact::from_bits(
 
 ///|
 priv struct OiI32RemMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64RemMaxBitsFact {
-  max_bits : Int
+  max_bits : Int32
 }
 
 ///|
 fn OiI32RemMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI32RemMaxBitsFact? {
   // Binaryen v130 bounds remainder by the smaller operand max-bit count. A zero
   // max-bit divisor is a trap-preservation boundary for now, matching div above.
@@ -10100,8 +10103,8 @@ fn OiI32RemMaxBitsFact::from_bits(
 
 ///|
 fn OiI64RemMaxBitsFact::from_bits(
-  left_bits : Int,
-  right_bits : Int,
+  left_bits : Int32,
+  right_bits : Int32,
 ) -> OiI64RemMaxBitsFact? {
   // Same Binaryen v130 remainder formula and zero-divisor trap boundary for the
   // i64 lane.
@@ -10120,22 +10123,22 @@ fn OiI64RemMaxBitsFact::from_bits(
 
 ///|
 priv struct OiI32ArithmeticShiftMaxBitsFact {
-  amount : Int
-  max_bits : Int
+  amount : Int32
+  max_bits : Int32
 }
 
 ///|
 priv struct OiI64ArithmeticShiftMaxBitsFact {
-  amount : Int
-  max_bits : Int
+  amount : Int32
+  max_bits : Int32
 }
 
 ///|
 fn OiI32ArithmeticShiftMaxBitsFact::from_shl(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_bits : Int,
-  rhs_id : Int,
+  lhs_bits : Int32,
+  rhs_id : Int32,
 ) -> OiI32ArithmeticShiftMaxBitsFact? {
   match OiI32EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) =>
@@ -10151,8 +10154,8 @@ fn OiI32ArithmeticShiftMaxBitsFact::from_shl(
 fn OiI32ArithmeticShiftMaxBitsFact::from_shr_s(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_bits : Int,
-  rhs_id : Int,
+  lhs_bits : Int32,
+  rhs_id : Int32,
 ) -> OiI32ArithmeticShiftMaxBitsFact? {
   match OiI32EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) if lhs_bits < 32 => {
@@ -10167,8 +10170,8 @@ fn OiI32ArithmeticShiftMaxBitsFact::from_shr_s(
 fn OiI64ArithmeticShiftMaxBitsFact::from_shl(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_bits : Int,
-  rhs_id : Int,
+  lhs_bits : Int32,
+  rhs_id : Int32,
 ) -> OiI64ArithmeticShiftMaxBitsFact? {
   match OiI64EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) =>
@@ -10184,8 +10187,8 @@ fn OiI64ArithmeticShiftMaxBitsFact::from_shl(
 fn OiI64ArithmeticShiftMaxBitsFact::from_shr_s(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_bits : Int,
-  rhs_id : Int,
+  lhs_bits : Int32,
+  rhs_id : Int32,
 ) -> OiI64ArithmeticShiftMaxBitsFact? {
   match OiI64EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) if lhs_bits < 64 => {
@@ -10198,20 +10201,20 @@ fn OiI64ArithmeticShiftMaxBitsFact::from_shr_s(
 
 ///|
 fn OiI32ArithmeticMaxBitsFact::from_max_bits(
-  value_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
-  max_bits : Int,
+  value_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
+  max_bits : Int32,
 ) -> OiI32ArithmeticMaxBitsFact {
   { value_id, lhs_id, rhs_id, max_bits, }
 }
 
 ///|
 fn OiI64ArithmeticMaxBitsFact::from_max_bits(
-  value_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
-  max_bits : Int,
+  value_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
+  max_bits : Int32,
 ) -> OiI64ArithmeticMaxBitsFact {
   { value_id, lhs_id, rhs_id, max_bits, }
 }
@@ -10221,10 +10224,10 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32ArithmeticMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` derives i32 arithmetic max-bit counts
   // from operand max bits for add, multiply, constant left shift, arithmetic
@@ -10328,10 +10331,10 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64ArithmeticMaxBitsFact? {
   // Same Binaryen v130 arithmetic `Bits::getMaxBits` family as the i32 fact,
   // specialized for i64 widths and i64-typed shift operands in Starshine HOT.
@@ -10427,7 +10430,7 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
 
 ///|
 fn OiUnsignedMaxValueFact::from_i32_max(
-  max_value : Int?,
+  max_value : Int32?,
 ) -> OiUnsignedMaxValueFact {
   { i32_max: max_value, i64_max: None, }
 }
@@ -10444,7 +10447,7 @@ fn OiUnsignedMaxValueFact::from_i32_node_with_local_facts(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   let max_value = OiUnsignedMaxValueFact::i32_max_for_node(
     func, dead, local_facts, node_id,
@@ -10457,7 +10460,7 @@ fn OiUnsignedMaxValueFact::from_i64_node_with_local_facts(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   let max_value = OiUnsignedMaxValueFact::i64_max_for_node(
     func, dead, local_facts, node_id,
@@ -10470,7 +10473,7 @@ fn OiUnsignedMaxValueFact::from_i32_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   OiUnsignedMaxValueFact::from_i32_node_with_local_facts(
     func,
@@ -10485,7 +10488,7 @@ fn OiUnsignedMaxValueFact::from_i64_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   OiUnsignedMaxValueFact::from_i64_node_with_local_facts(
     func,
@@ -10500,8 +10503,8 @@ fn OiUnsignedMaxValueFact::assigned_i32_max_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   facts : OptimizeInstructionsLocalFacts,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if node_id < 0 || node_id >= facts.assigned_i32_max_by_node.length() {
     return None
   }
@@ -10526,7 +10529,7 @@ fn OiUnsignedMaxValueFact::assigned_i64_max_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   facts : OptimizeInstructionsLocalFacts,
-  node_id : Int,
+  node_id : Int32,
 ) -> Int64? {
   if node_id < 0 || node_id >= facts.assigned_i64_max_by_node.length() {
     return None
@@ -10552,7 +10555,7 @@ fn OiUnsignedMaxValueFact::from_assigned_i32_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   // Assignment facts seed the LocalScanner-like summary. They deliberately do
   // not recurse through LocalGet summaries, matching the conservative previous
@@ -10576,7 +10579,7 @@ fn OiUnsignedMaxValueFact::from_assigned_i64_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiUnsignedMaxValueFact {
   // Same separate local-free cache for i64 assignment values.
   let fallthrough = OiAssignedMaxBitsFallthroughFact::from_node(func, node_id)
@@ -10592,12 +10595,12 @@ fn OiUnsignedMaxValueFact::from_assigned_i64_value(
 
 ///|
 priv struct OiBooleanI32MaxBitsFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 priv struct OiDroppedChildrenReplacementFact {
-  drop_ids : Array[Int]
+  drop_ids : Array[Int32]
 }
 
 ///|
@@ -10613,7 +10616,7 @@ priv enum OiBooleanMaxBitsBinaryRewriteKind {
 ///|
 priv struct OiBooleanMaxBitsBinaryRewriteFact {
   kind : OiBooleanMaxBitsBinaryRewriteKind
-  left_id : Int
+  left_id : Int32
   dropped_children : OiDroppedChildrenReplacementFact
 }
 
@@ -10621,7 +10624,7 @@ priv struct OiBooleanMaxBitsBinaryRewriteFact {
 fn OiBooleanI32MaxBitsFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanI32MaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats integer comparisons and `eqz`
   // results as i32 booleans, so they require at most one bit. Keep this as an
@@ -10652,7 +10655,7 @@ fn OiDroppedChildrenReplacementFact::empty() -> OiDroppedChildrenReplacementFact
 fn OiDroppedChildrenReplacementFact::from_child_ids(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  child_ids : Array[Int],
+  child_ids : Array[Int32],
 ) -> OiDroppedChildrenReplacementFact {
   // Binaryen v130 rewrites such as `replaceZeroBitsWithZero` and maxBits
   // `bool | 1` delegate erased operands to `getDroppedChildrenAndAppend`.
@@ -10661,7 +10664,7 @@ fn OiDroppedChildrenReplacementFact::from_child_ids(
   // original child order before the synthesized constant, while pure children
   // are erased.
   let effects = pass_require_effects(ctx, func)
-  let drop_ids : Array[Int] = []
+  let drop_ids : Array[Int32] = []
   for child_id in child_ids {
     if !OiNodeEffectPurityFact::from_node_masks(effects.node_masks, child_id).proves_pure() {
       drop_ids.push(child_id)
@@ -10674,10 +10677,10 @@ fn OiDroppedChildrenReplacementFact::from_child_ids(
 fn OiDroppedChildrenReplacementFact::from_node_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDroppedChildrenReplacementFact {
   let node = @ir.hot_node_get(func, node_id)
-  let child_ids : Array[Int] = []
+  let child_ids : Array[Int32] = []
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     child_ids.push(@ir.hot_child_get(func, node_id, slot))
   }
@@ -10696,14 +10699,14 @@ fn OiDroppedChildrenReplacementFact::replace_with_const_i32(
   self : OiDroppedChildrenReplacementFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I32,
 ) -> Unit {
   if !self.needs_drops() {
     optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
     return
   }
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for drop_id in self.drop_ids {
     body.push(@ir.hot_build_drop(func, drop_id))
   }
@@ -10722,14 +10725,14 @@ fn OiDroppedChildrenReplacementFact::replace_with_const_i64(
   self : OiDroppedChildrenReplacementFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I64,
 ) -> Unit {
   if !self.needs_drops() {
     optimize_instructions_replace_with_const_i64(ctx, func, node_id, value)
     return
   }
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for drop_id in self.drop_ids {
     body.push(@ir.hot_build_drop(func, drop_id))
   }
@@ -10809,7 +10812,7 @@ fn OiDroppedChildrenNontrappingRootFact::from_instr(
 ///|
 fn OiDroppedChildrenNontrappingRootFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDroppedChildrenNontrappingRootFact? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => OiDroppedChildrenNontrappingRootFact::from_instr(instr)
@@ -10851,8 +10854,8 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiBooleanMaxBitsBinaryRewriteFact? {
   // Binaryen v130 `visitBinary` uses `Bits::getMaxBits(left) == 1` to simplify
   // boolean-valued integer expressions in `== 1`, `!= 0`, `& 1`, `!= 1`,
@@ -10902,8 +10905,8 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiBooleanMaxBitsBinaryRewriteFact? {
   // Same Binaryen v130 maxBits consumer family for i64 boolean values. Compare
   // shells return i32 via `i32.wrap_i64(left)`, while `xor 1` inverts the i64
@@ -10960,7 +10963,7 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
   self : OiBooleanMaxBitsBinaryRewriteFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     BooleanMaxBitsForwardLeft =>
@@ -11045,17 +11048,17 @@ fn OiBooleanMaxBitsBinaryRewriteFact::apply(
 
 ///|
 priv struct OiI32BinaryMaxBitsProducerFact {
-  value_id : Int
-  lhs_id : Int
-  rhs_id : Int
-  max_value : Int?
+  value_id : Int32
+  lhs_id : Int32
+  rhs_id : Int32
+  max_value : Int32?
 }
 
 ///|
 priv struct OiI64BinaryMaxBitsProducerFact {
-  value_id : Int
-  lhs_id : Int
-  rhs_id : Int
+  value_id : Int32
+  lhs_id : Int32
+  rhs_id : Int32
   max_value : Int64?
 }
 
@@ -11064,10 +11067,10 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32BinaryMaxBitsProducerFact? {
   // Binaryen v130 `Bits::getMaxBits` binary-producer dispatch first tries
   // bitwise facts, then logical-right-shift reducers, then arithmetic formulas.
@@ -11107,10 +11110,10 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64BinaryMaxBitsProducerFact? {
   // Same Binaryen v130 binary-producer dispatch for i64 maxBits queries.
   let max_value = match
@@ -11144,13 +11147,13 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
 
 ///|
 priv struct OiI32MaxBitsProducerFact {
-  value_id : Int
-  max_value : Int?
+  value_id : Int32
+  max_value : Int32?
 }
 
 ///|
 priv struct OiI64MaxBitsProducerFact {
-  value_id : Int
+  value_id : Int32
   max_value : Int64?
 }
 
@@ -11159,7 +11162,7 @@ fn OiI32MaxBitsProducerFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32MaxBitsProducerFact? {
   // Binaryen v130 `Bits::getMaxBits` asks a single producer classifier for the
   // current expression before consumers use the resulting unsigned maximum.
@@ -11277,7 +11280,7 @@ fn OiI64MaxBitsProducerFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI64MaxBitsProducerFact? {
   // Same fact-owned producer dispatch for i64 maxBits queries. I64 does not use
   // the i32 boolean-result fact directly; i64 one-bit values come from ordinary
@@ -11386,8 +11389,8 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   match local_facts {
     Some(facts) if node_id >= 0 && node_id < facts.i32_max_by_node.length() => {
       if facts.i32_max_ready[node_id] {
@@ -11426,7 +11429,7 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> Int64? {
   match local_facts {
     Some(facts) if node_id >= 0 && node_id < facts.i64_max_by_node.length() => {
@@ -11462,14 +11465,14 @@ fn optimize_instructions_i32_unsigned_max_fact_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max
 }
 
 ///|
 priv struct OiEqzWrapI64MaxBitsFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
@@ -11478,7 +11481,7 @@ fn OiEqzWrapI64MaxBitsFact::from_eqz_operand(
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiEqzWrapI64MaxBitsFact? {
   // Binaryen v130 rewrites `i32.eqz(i32.wrap_i64(x))` to `i64.eqz(x)` when
   // `Bits::getMaxBits(x) <= 32`. Reuse the shared unsigned-max fact instead of
@@ -11509,19 +11512,19 @@ fn optimize_instructions_i64_unsigned_max_fact_for_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Int64? {
   OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max
 }
 
 ///|
 priv struct OiExtendWrapI64MaxBitsFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 priv struct OiSignedExtendWrapI64FallbackFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
@@ -11542,7 +11545,7 @@ fn OiZeroBitsReplacementFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiZeroBitsReplacementFact? {
   // Binaryen v130 `replaceZeroBitsWithZero` replaces non-constant integer
   // expressions when `Bits::getMaxBits(curr) == 0`, delegating effect
@@ -11589,7 +11592,7 @@ fn OiZeroBitsReplacementFact::apply(
   self : OiZeroBitsReplacementFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     ZeroBitsI32 =>
@@ -11615,7 +11618,7 @@ fn OiExtendWrapI64MaxBitsFact::from_extend_operand(
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiExtendWrapI64MaxBitsFact? {
   // Binaryen v130 rewrites `i64.extend_i32_s(i32.wrap_i64(x))` to `x` when
   // `Bits::getMaxBits(x) <= 31`, and the unsigned spelling when maxBits <= 32.
@@ -11647,7 +11650,7 @@ fn OiSignedExtendWrapI64FallbackFact::from_extend_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiSignedExtendWrapI64FallbackFact? {
   // Binaryen v130 `visitUnary` applies the maxBits removal above first, then
   // rewrites the remaining signed low-32-bit lane as
@@ -11675,7 +11678,7 @@ fn OiSignedExtendWrapI64FallbackFact::apply(
   self : OiSignedExtendWrapI64FallbackFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_unary(
     ctx,
@@ -11711,7 +11714,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
   dead : @bitset.BitSet,
   seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
     return
@@ -11838,7 +11841,7 @@ priv struct OiLiveNodeFact {
 fn OiLiveNodeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLiveNodeFact {
   // Starshine keeps a pass-local dead bitset while mutating HOT. Route every
   // OI liveness guard through a fact so rewrite families share one boundary
@@ -11862,7 +11865,7 @@ fn OiLiveNodeFact::proves_live(self : OiLiveNodeFact) -> Bool {
 fn OiLiveNodeFact::proves_node_live(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiLiveNodeFact::from_node(func, dead, node_id).proves_live()
 }
@@ -11871,7 +11874,7 @@ fn OiLiveNodeFact::proves_node_live(
 fn optimize_instructions_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I32,
 ) -> Unit {
   let temp = @ir.hot_build_const_i32(func, value)
@@ -11885,7 +11888,7 @@ fn optimize_instructions_replace_with_const_i32(
 fn optimize_instructions_replace_with_const_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I64,
 ) -> Unit {
   let temp = @ir.hot_build_const_i64(func, value)
@@ -11946,9 +11949,9 @@ test "OI zero bits replacement retains the original expression evaluation positi
 fn optimize_instructions_replace_with_block_body(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   block_type : @lib.BlockType,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   let temp = @ir.hot_build_block(func, block_type, body)
   // This block retains the expression's effects at its original evaluation
@@ -11968,7 +11971,7 @@ fn optimize_instructions_replace_with_block_body(
 fn optimize_instructions_replace_with_unreachable(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let temp = @ir.hot_build_unreachable(func)
   let replacement = @ir.hot_node_get(func, temp)
@@ -11981,7 +11984,7 @@ fn optimize_instructions_replace_with_unreachable(
 fn optimize_instructions_replace_with_existing_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let replacement_id = @ir.hot_child_get(func, node_id, 0)
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
@@ -11992,8 +11995,8 @@ fn optimize_instructions_replace_with_existing_node(
 fn optimize_instructions_replace_with_node_id(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  replacement_id : Int,
+  node_id : Int32,
+  replacement_id : Int32,
 ) -> Unit {
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
   pass_mark_mutated(ctx, func)
@@ -12003,9 +12006,9 @@ fn optimize_instructions_replace_with_node_id(
 fn optimize_instructions_replace_with_exact_unary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Unit {
   let result_ty = match instr {
     @lib.Instruction::I64Eqz => @lib.ValType::i32()
@@ -12026,10 +12029,10 @@ fn optimize_instructions_replace_with_exact_unary(
 fn optimize_instructions_replace_with_exact_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Unit {
   let temp = @ir.hot_build_compare(func, lhs_id, rhs_id)
   @ir.hot_node_exact_instr_set(func, temp, instr)
@@ -12047,7 +12050,7 @@ priv struct OiI32ValueFact {
 ///|
 fn OiI32ValueFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32ValueFact {
   // Binaryen condition cleanup only erases compare-to-zero shells when the
   // exposed operand is an i32 condition value. Keep that result-type proof as
@@ -12068,7 +12071,7 @@ fn OiI32ValueFact::proves_i32_value(self : OiI32ValueFact) -> Bool {
 ///|
 fn OiI32ValueFact::proves_node_i32_value(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiI32ValueFact::from_node(func, node_id).proves_i32_value()
 }
@@ -12077,9 +12080,9 @@ fn OiI32ValueFact::proves_node_i32_value(
 fn optimize_instructions_rewrite_exact_with_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  new_children : Array[Int],
+  new_children : Array[Int32],
 ) -> Unit {
   ignore(@ir.hot_replace_child_span(func, node_id, new_children))
   @ir.hot_node_exact_instr_set(func, node_id, instr)
@@ -12088,7 +12091,7 @@ fn optimize_instructions_rewrite_exact_with_children(
 
 ///|
 priv struct OiCallRefFallthroughFunctionIndexFact {
-  direct_func : Int
+  direct_func : Int32
 }
 
 ///|
@@ -12112,8 +12115,8 @@ priv enum OiCallRefFallthroughWrapperKind {
 ///|
 priv struct OiCallRefFallthroughWrapperChildFact {
   kind : OiCallRefFallthroughWrapperKind
-  wrapper_id : Int
-  child_id : Int
+  wrapper_id : Int32
+  child_id : Int32
 }
 
 ///|
@@ -12130,8 +12133,8 @@ priv enum OiCallRefBlockTailKind {
 ///|
 priv struct OiCallRefBlockTailFact {
   kind : OiCallRefBlockTailKind
-  block_id : Int
-  tail_id : Int
+  block_id : Int32
+  tail_id : Int32
 }
 
 ///|
@@ -12173,7 +12176,7 @@ fn OiCallRefFallthroughFunctionIndexFact::proves_function_index(
 ///|
 fn OiCallRefFallthroughFunctionIndexFact::function_index(
   self : OiCallRefFallthroughFunctionIndexFact,
-) -> Int {
+) -> Int32 {
   self.direct_func
 }
 
@@ -12192,7 +12195,7 @@ fn OiCallRefFallthroughFunctionFact::proves_ref_func_payload(
 ///|
 fn OiCallRefFallthroughFunctionFact::function_index(
   self : OiCallRefFallthroughFunctionFact,
-) -> Int {
+) -> Int32 {
   self.index_fact.function_index()
 }
 
@@ -12211,7 +12214,7 @@ priv enum OiCallRefIfFallthroughArmChoiceKind {
 
 ///|
 priv struct OiCallRefIfFallthroughArmTailFact {
-  fallthrough_arm_id : Int
+  fallthrough_arm_id : Int32
 }
 
 ///|
@@ -12234,7 +12237,7 @@ priv enum OiCallRefLoopBodyTailKind {
 ///|
 priv struct OiCallRefLoopBodyTailFact {
   kind : OiCallRefLoopBodyTailKind
-  body_id : Int
+  body_id : Int32
 }
 
 ///|
@@ -12259,13 +12262,13 @@ priv enum OiCallRefBrOnRefChildKind {
 ///|
 priv struct OiCallRefBrOnRefChildFact {
   kind : OiCallRefBrOnRefChildKind
-  ref_id : Int
+  ref_id : Int32
   ref_fact : OiCallRefFallthroughTargetFact
 }
 
 ///|
 priv struct OiCallRefBrOnBranchTargetFact {
-  branch_target_id : Int
+  branch_target_id : Int32
 }
 
 ///|
@@ -12279,8 +12282,8 @@ priv struct OiCallRefBrOnFallthroughTargetFact {
 fn OiCallRefFallthroughTargetFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth? : Int = 0,
+  node_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiCallRefFallthroughTargetFact {
   if depth > 8 || !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return OiCallRefFallthroughTargetFact::unknown()
@@ -12356,8 +12359,8 @@ fn OiCallRefFallthroughTargetFact::from_node(
 fn OiCallRefWrappedFallthroughTargetFact::from_wrapper_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefWrappedFallthroughTargetFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` can peel simple target
   // wrappers such as `local.tee`, `ref.as_non_null`, and `ref.cast` before
@@ -12419,8 +12422,8 @@ fn OiCallRefWrappedFallthroughTargetFact::proves_ref_func_wrapped_fallthrough(
 fn OiCallRefBlockFallthroughTargetFact::from_block_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefBlockFallthroughTargetFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` descends from a block
   // target to the block body's final root before `visitCallRef` asks whether the
@@ -12480,8 +12483,8 @@ fn OiCallRefBlockFallthroughTargetFact::proves_ref_func_block_fallthrough(
 fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefBrOnFallthroughTargetFact? {
   // Binaryen v130 `Properties::getImmediateFallthroughPtr` returns `BrOn::ref`
   // for every `br_on_*` target before `visitCallRef` checks for a `ref.func`.
@@ -12517,8 +12520,8 @@ fn OiCallRefBrOnBranchTargetFact::proves_valid_branch_target(
 fn OiCallRefBrOnRefChildFact::from_br_on_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefBrOnRefChildFact? {
   // Binaryen v130 `Properties::getImmediateFallthroughPtr` exposes the final
   // reference child of `br_on_*` as the fallthrough value. Carry that selected
@@ -12577,8 +12580,8 @@ fn OiCallRefBrOnFallthroughTargetFact::proves_ref_func_ref_fallthrough(
 fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefLoopFallthroughTargetFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` descends from a loop
   // target to its body before `visitCallRef` asks whether the final fallthrough
@@ -12686,8 +12689,8 @@ fn OiCallRefIfFallthroughArmChoiceFact::proves_one_sided_fallthrough_arm(
 fn OiCallRefIfFallthroughTargetFact::from_if_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> OiCallRefIfFallthroughTargetFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` descends through an
   // `if` only when exactly one arm is unreachable. `visitCallRef` still drops
@@ -12746,7 +12749,7 @@ priv struct OiCallRefFallthroughTypeFact {
 ///|
 fn OiCallRefFallthroughTypeFact::from_target(
   func : @ir.HotFunc,
-  target_id : Int,
+  target_id : Int32,
   fallthrough : OiCallRefFallthroughTargetFact,
 ) -> OiCallRefFallthroughTypeFact {
   // Binaryen v130 `visitCallRef` accepts `getFallthrough(curr->target)` only
@@ -12802,7 +12805,7 @@ priv struct OiCallRefTargetSkipNonNullOrderFact {
 
 ///|
 priv struct OiCallRefTargetSkippedNonNullCastFact {
-  replacement_target_id : Int
+  replacement_target_id : Int32
   order_fact : OiCallRefTargetSkipNonNullOrderFact
 }
 
@@ -12815,7 +12818,7 @@ priv struct OiCallRefTargetSkipNonNullFact {
 fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  call_ref_id : Int,
+  call_ref_id : Int32,
 ) -> OiCallRefTargetSkipNonNullFact? {
   // Binaryen v130 `visitCallRef` runs `skipNonNullCast(curr->target, curr)`
   // before target directization. `skipNonNullCast` may remove a nullable
@@ -12898,7 +12901,7 @@ fn OiCallRefTargetSkippedNonNullCastFact::proves_order_preserving_skip(
 ///|
 fn OiCallRefTargetSkipNonNullFact::effective_target_id(
   self : OiCallRefTargetSkipNonNullFact,
-) -> Int? {
+) -> Int32? {
   if self.skipped_fact.proves_order_preserving_skip() {
     Some(self.skipped_fact.replacement_target_id)
   } else {
@@ -12914,7 +12917,7 @@ priv enum OiCallRefKnownNullTargetEffectKind {
 
 ///|
 priv struct OiCallRefKnownNullTargetPreserveEffectsFact {
-  target_effect_drop_id : Int
+  target_effect_drop_id : Int32
 }
 
 ///|
@@ -12925,8 +12928,8 @@ priv struct OiCallRefKnownNullTargetEffectFact {
 
 ///|
 priv struct OiCallRefKnownNullTargetFact {
-  target_id : Int
-  fallthrough_null_id : Int
+  target_id : Int32
+  fallthrough_null_id : Int32
   target_effect_fact : OiCallRefKnownNullTargetEffectFact
 }
 
@@ -12938,9 +12941,9 @@ priv enum OiCallRefKnownNullBlockTailKind {
 ///|
 priv struct OiCallRefKnownNullBlockTailFact {
   kind : OiCallRefKnownNullBlockTailKind
-  block_id : Int
-  tail_id : Int
-  root_count : Int
+  block_id : Int32
+  tail_id : Int32
+  root_count : Int32
 }
 
 ///|
@@ -12955,7 +12958,7 @@ fn OiCallRefKnownNullTargetEffectFact::elidable() -> OiCallRefKnownNullTargetEff
 
 ///|
 fn OiCallRefKnownNullTargetEffectFact::preserve_by_drop(
-  target_effect_drop_id : Int,
+  target_effect_drop_id : Int32,
 ) -> OiCallRefKnownNullTargetEffectFact? {
   if target_effect_drop_id < 0 {
     return None
@@ -12983,7 +12986,7 @@ fn OiCallRefKnownNullTargetEffectFact::proves_preservable(
 ///|
 fn OiCallRefKnownNullTargetEffectFact::preserved_drop_id(
   self : OiCallRefKnownNullTargetEffectFact,
-) -> Int? {
+) -> Int32? {
   match self.kind {
     CallRefKnownNullTargetEffectsElidable => None
     CallRefKnownNullTargetEffectsPreserveByDrop =>
@@ -12999,7 +13002,7 @@ fn OiCallRefKnownNullTargetEffectFact::preserved_drop_id(
 fn OiCallRefKnownNullTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefKnownNullTargetFact? {
   // Binaryen v130 `trapOnNull` checks `getFallthrough(ref)->type.isNull()`
   // before replacing the parent with `getDroppedChildrenAndAppend(...,
@@ -13083,7 +13086,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
 fn OiCallRefKnownNullBlockFallthroughFact::from_block_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefKnownNullBlockFallthroughFact? {
   // Binaryen v130 `trapOnNull(curr, curr->target)` can see a known-null
   // fallthrough through a block target when the block body's final root traps as
@@ -13141,7 +13144,7 @@ fn OiCallRefKnownNullBlockFallthroughFact::proves_known_null_fallthrough(
 ///|
 fn OiCallRefKnownNullBlockFallthroughFact::fallthrough_null_id(
   self : OiCallRefKnownNullBlockFallthroughFact,
-) -> Int {
+) -> Int32 {
   self.block_tail_fact.tail_id
 }
 
@@ -13190,9 +13193,9 @@ fn OiCallRefNullTrapPlanFact::apply(
   self : OiCallRefNullTrapPlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if !optimize_instructions_append_ordered_effects(
       ctx,
       func,
@@ -13238,7 +13241,7 @@ priv struct OiCallRefSelectDirectArmsFact {
 
 ///|
 priv struct OiCallRefSelectResidueArmFact {
-  arm_id : Int
+  arm_id : Int32
 }
 
 ///|
@@ -13250,7 +13253,7 @@ priv struct OiCallRefSelectTargetFact {
 
 ///|
 priv struct OiCallRefDirectFunctionIndexFact {
-  direct_func : Int
+  direct_func : Int32
 }
 
 ///|
@@ -13261,18 +13264,18 @@ priv struct OiCallRefDirectFunctionFact {
 
 ///|
 priv struct OiCallRefDirectTargetFact {
-  target_id : Int
+  target_id : Int32
   direct_func_fact : OiCallRefDirectFunctionFact
 }
 
 ///|
 priv struct OiCallRefTableImmediateFact {
-  table_idx : Int
+  table_idx : Int32
 }
 
 ///|
 priv struct OiCallRefTableIndexOperandFact {
-  table_index_id : Int
+  table_index_id : Int32
   index_live_fact : OiLiveNodeFact
 }
 
@@ -13284,13 +13287,13 @@ priv struct OiCallRefTableIndexFact {
 
 ///|
 priv struct OiCallRefTableTargetFact {
-  target_id : Int
+  target_id : Int32
   table_index_fact : OiCallRefTableIndexFact
 }
 
 ///|
 priv struct OiCallRefFallthroughDirectTargetFact {
-  target_id : Int
+  target_id : Int32
   function_fact : OiCallRefFallthroughFunctionFact
   fallthrough_fact : OiCallRefFallthroughTargetFact
   type_fact : OiCallRefFallthroughTypeFact
@@ -13298,7 +13301,7 @@ priv struct OiCallRefFallthroughDirectTargetFact {
 
 ///|
 priv struct OiCallRefTargetClassificationFact {
-  target_id : Int
+  target_id : Int32
   classified_target_fact : OiCallRefTargetFact
 }
 
@@ -13427,7 +13430,7 @@ fn OiCallRefTargetFact::select_target(
 fn OiCallRefDirectTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefDirectTargetFact? {
   // Binaryen v130 `visitCallRef` handles immediate `RefFunc` targets before
   // the fallthrough and select paths. Keep the direct target classifier as its
@@ -13463,7 +13466,7 @@ fn OiCallRefDirectFunctionIndexFact::proves_function_index(
 ///|
 fn OiCallRefDirectFunctionIndexFact::function_index(
   self : OiCallRefDirectFunctionIndexFact,
-) -> Int {
+) -> Int32 {
   self.direct_func
 }
 
@@ -13482,7 +13485,7 @@ fn OiCallRefDirectFunctionFact::proves_direct_ref_func(
 ///|
 fn OiCallRefDirectFunctionFact::function_index(
   self : OiCallRefDirectFunctionFact,
-) -> Int {
+) -> Int32 {
   self.index_fact.function_index()
 }
 
@@ -13497,7 +13500,7 @@ fn OiCallRefDirectTargetFact::proves_direct_ref_func(
 fn OiCallRefTableTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefTableTargetFact? {
   // Binaryen v130 `visitCallRef` handles immediate `TableGet` targets as the
   // table/index fact that lowers `call_ref` to `call_indirect`. Keep that fact
@@ -13530,7 +13533,7 @@ fn OiCallRefTableTargetFact::from_target(
 ///|
 fn OiCallRefTableImmediateFact::table_index(
   self : OiCallRefTableImmediateFact,
-) -> Int {
+) -> Int32 {
   self.table_idx
 }
 
@@ -13545,7 +13548,7 @@ fn OiCallRefTableIndexOperandFact::proves_live_table_index_operand(
 ///|
 fn OiCallRefTableIndexOperandFact::index_operand_id(
   self : OiCallRefTableIndexOperandFact,
-) -> Int {
+) -> Int32 {
   self.table_index_id
 }
 
@@ -13558,14 +13561,16 @@ fn OiCallRefTableIndexFact::proves_live_table_index(
 }
 
 ///|
-fn OiCallRefTableIndexFact::table_index(self : OiCallRefTableIndexFact) -> Int {
+fn OiCallRefTableIndexFact::table_index(
+  self : OiCallRefTableIndexFact,
+) -> Int32 {
   self.table_fact.table_index()
 }
 
 ///|
 fn OiCallRefTableIndexFact::index_operand_id(
   self : OiCallRefTableIndexFact,
-) -> Int {
+) -> Int32 {
   self.index_operand_fact.index_operand_id()
 }
 
@@ -13581,7 +13586,7 @@ fn OiCallRefTableTargetFact::proves_table_get_target(
 fn OiCallRefFallthroughDirectTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefFallthroughDirectTargetFact? {
   // Binaryen v130 `visitCallRef` asks `Properties::getFallthrough` for a
   // `ref.func` after immediate direct/table targets fail, then checks that the
@@ -13633,7 +13638,7 @@ fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
 
 ///|
 fn OiCallRefTargetClassificationFact::unknown(
-  target_id : Int,
+  target_id : Int32,
 ) -> OiCallRefTargetClassificationFact {
   { target_id, classified_target_fact: OiCallRefTargetFact::unknown(), }
 }
@@ -13642,7 +13647,7 @@ fn OiCallRefTargetClassificationFact::unknown(
 fn OiCallRefTargetClassificationFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
 ) -> OiCallRefTargetClassificationFact {
   // Binaryen v130 `visitCallRef` classifies targets in a fixed source order:
   // direct `ref.func`, immediate `table.get`, `Properties::getFallthrough`
@@ -13704,7 +13709,7 @@ fn OiCallRefTargetClassificationFact::target_fact(
 
 ///|
 priv struct OiCallRefSelectArmFunctionIndexFact {
-  direct_func : Int
+  direct_func : Int32
 }
 
 ///|
@@ -13716,8 +13721,8 @@ priv struct OiCallRefSelectArmFunctionFact {
 priv struct OiCallRefSelectArmDirectFact {
   function_fact : OiCallRefSelectArmFunctionFact
   ref_func_heap : @lib.HeapType?
-  elided_non_null_wrapper_depth : Int
-  elided_cast_wrapper_depth : Int
+  elided_non_null_wrapper_depth : Int32
+  elided_cast_wrapper_depth : Int32
 }
 
 ///|
@@ -13732,7 +13737,7 @@ fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
 
 ///|
 fn OiCallRefSelectArmFunctionIndexFact::from_ref_func(
-  direct_func : Int,
+  direct_func : Int32,
 ) -> OiCallRefSelectArmFunctionIndexFact? {
   if direct_func < 0 {
     return None
@@ -13750,13 +13755,13 @@ fn OiCallRefSelectArmFunctionIndexFact::proves_function_index(
 ///|
 fn OiCallRefSelectArmFunctionIndexFact::function_index(
   self : OiCallRefSelectArmFunctionIndexFact,
-) -> Int {
+) -> Int32 {
   self.direct_func
 }
 
 ///|
 fn OiCallRefSelectArmFunctionFact::from_ref_func(
-  direct_func : Int,
+  direct_func : Int32,
 ) -> OiCallRefSelectArmFunctionFact? {
   let index_fact = match
     OiCallRefSelectArmFunctionIndexFact::from_ref_func(direct_func) {
@@ -13776,16 +13781,16 @@ fn OiCallRefSelectArmFunctionFact::proves_function_index(
 ///|
 fn OiCallRefSelectArmFunctionFact::function_index(
   self : OiCallRefSelectArmFunctionFact,
-) -> Int {
+) -> Int32 {
   self.index_fact.function_index()
 }
 
 ///|
 fn OiCallRefSelectArmFact::direct(
-  direct_func : Int,
+  direct_func : Int32,
   ref_func_heap : @lib.HeapType?,
-  elided_non_null_wrapper_depth? : Int = 0,
-  elided_cast_wrapper_depth? : Int = 0,
+  elided_non_null_wrapper_depth~ : Int32 = 0,
+  elided_cast_wrapper_depth~ : Int32 = 0,
 ) -> OiCallRefSelectArmFact {
   let function_fact = match
     OiCallRefSelectArmFunctionFact::from_ref_func(direct_func) {
@@ -13805,7 +13810,7 @@ fn OiCallRefSelectArmFact::direct(
 ///|
 fn OiCallRefSelectArmDirectFact::function_index(
   self : OiCallRefSelectArmDirectFact,
-) -> Int {
+) -> Int32 {
   self.function_fact.function_index()
 }
 
@@ -13841,8 +13846,8 @@ priv struct OiCallRefSelectArmCastFact {
 fn OiCallRefSelectArmCastFact::from_cast_arm(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  arm_id : Int,
-  depth : Int,
+  arm_id : Int32,
+  depth : Int32,
 ) -> OiCallRefSelectArmCastFact? {
   let arm = @ir.hot_node_get(func, arm_id)
   match arm.op {
@@ -13904,8 +13909,8 @@ fn OiCallRefSelectArmCastFact::matched_ref_func_heap(
 fn OiCallRefSelectArmFact::from_target_arm(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  arm_id : Int,
-  depth? : Int = 0,
+  arm_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiCallRefSelectArmFact {
   if depth > 4 || !OiLiveNodeFact::proves_node_live(func, dead, arm_id) {
     return OiCallRefSelectArmFact::unknown()
@@ -13976,7 +13981,7 @@ priv enum OiCallRefSelectConditionEffectKind {
 
 ///|
 priv struct OiCallRefSelectConditionPreserveEffectsFact {
-  condition_drop_id : Int
+  condition_drop_id : Int32
 }
 
 ///|
@@ -13992,7 +13997,7 @@ priv struct OiCallRefSelectConditionTypeFact {
 
 ///|
 priv struct OiCallRefSelectConditionFact {
-  condition_id : Int
+  condition_id : Int32
   type_fact : OiCallRefSelectConditionTypeFact
   effect_fact : OiCallRefSelectConditionEffectFact
 }
@@ -14004,7 +14009,7 @@ fn OiCallRefSelectConditionEffectFact::elidable() -> OiCallRefSelectConditionEff
 
 ///|
 fn OiCallRefSelectConditionEffectFact::preserve_by_drop(
-  condition_drop_id : Int,
+  condition_drop_id : Int32,
 ) -> OiCallRefSelectConditionEffectFact? {
   if condition_drop_id < 0 {
     return None
@@ -14018,7 +14023,7 @@ fn OiCallRefSelectConditionEffectFact::preserve_by_drop(
 ///|
 fn OiCallRefSelectConditionEffectFact::preserved_drop_id(
   self : OiCallRefSelectConditionEffectFact,
-) -> Int? {
+) -> Int32? {
   match self.kind {
     CallRefSelectConditionEffectsElidable => None
     CallRefSelectConditionPreserveByDrop =>
@@ -14033,7 +14038,7 @@ fn OiCallRefSelectConditionEffectFact::preserved_drop_id(
 ///|
 fn OiCallRefSelectConditionTypeFact::from_condition(
   func : @ir.HotFunc,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiCallRefSelectConditionTypeFact? {
   // Binaryen v130 `CallUtils::convertToDirectCalls` emits an `if` over the
   // select condition, so Starshine's represented select-target directization
@@ -14057,7 +14062,7 @@ fn OiCallRefSelectConditionTypeFact::proves_i32_condition(
 fn OiCallRefSelectConditionFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiCallRefSelectConditionFact? {
   if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
     return None
@@ -14111,7 +14116,7 @@ fn OiCallRefSelectDirectArmsFact::from_arm_facts(
 
 ///|
 fn OiCallRefSelectResidueArmFact::from_arm_id(
-  arm_id : Int,
+  arm_id : Int32,
 ) -> OiCallRefSelectResidueArmFact? {
   if arm_id < 0 {
     return None
@@ -14124,7 +14129,7 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
   condition_fact : OiCallRefSelectConditionFact,
   true_fact : OiCallRefSelectArmFact,
   false_fact : OiCallRefSelectArmFact,
-  residue_arm_id : Int,
+  residue_arm_id : Int32,
 ) -> OiCallRefSelectTargetFact? {
   // Binaryen v130 `CallUtils::convertToDirectCalls` first classifies both
   // select arms as known direct targets, then either emits a one-call residue
@@ -14152,7 +14157,7 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
 fn OiCallRefSelectTargetFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
 ) -> OiCallRefSelectTargetFact? {
   // Binaryen v130 delegates select target directization to
   // `CallUtils::convertToDirectCalls` after direct/table/fallthrough targets
@@ -14182,18 +14187,18 @@ fn OiCallRefSelectTargetFact::from_select(
 
 ///|
 priv struct OiCallRefDirectFuncPlanFact {
-  direct_func : Int
+  direct_func : Int32
 }
 
 ///|
 priv struct OiCallRefTableTargetPlanFact {
-  table_idx : Int
-  table_index_id : Int
+  table_idx : Int32
+  table_index_id : Int32
 }
 
 ///|
 priv struct OiCallRefFallthroughFuncPlanFact {
-  direct_func : Int
+  direct_func : Int32
 }
 
 ///|
@@ -14243,15 +14248,15 @@ fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
 
 ///|
 priv struct OiCallRefSelectSameTargetFact {
-  direct_func : Int
-  residue_arm_id : Int
+  direct_func : Int32
+  residue_arm_id : Int32
   condition_fact : OiCallRefSelectConditionFact
 }
 
 ///|
 priv struct OiCallRefSelectDirectCallsFact {
-  true_func : Int
-  false_func : Int
+  true_func : Int32
+  false_func : Int32
   condition_fact : OiCallRefSelectConditionFact
 }
 
@@ -14297,32 +14302,32 @@ fn OiCallRefSelectDirectCallsFact::from_select_target(
 
 ///|
 priv struct OiCallRefOperandTypeFact {
-  arg_id : Int
+  arg_id : Int32
   arg_type : @lib.ValType
 }
 
 ///|
 priv struct OiCallRefOperandFact {
-  args : Array[Int]
+  args : Array[Int32]
   type_facts : Array[OiCallRefOperandTypeFact]
 }
 
 ///|
 priv struct OiCallRefLocalizedOperandFact {
-  prefix : Array[Int]
-  local_ids : Array[Int]
+  prefix : Array[Int32]
+  local_ids : Array[Int32]
 }
 
 ///|
 priv struct OiCallRefFallthroughOperandInterpositionFact {
-  args : Array[Int]
+  args : Array[Int32]
   type_facts : Array[OiCallRefOperandTypeFact]
-  callee_ref_id : Int
+  callee_ref_id : Int32
 }
 
 ///|
 priv struct OiCallRefSelectResidueOperandInterpositionFact {
-  args : Array[Int]
+  args : Array[Int32]
   type_facts : Array[OiCallRefOperandTypeFact]
   residue_fact : OiCallRefSelectTargetResidueFact
 }
@@ -14330,9 +14335,9 @@ priv struct OiCallRefSelectResidueOperandInterpositionFact {
 ///|
 fn OiCallRefOperandFact::from_args(
   func : @ir.HotFunc,
-  args : Array[Int],
+  args : Array[Int32],
 ) -> OiCallRefOperandFact? {
-  let fact_args : Array[Int] = []
+  let fact_args : Array[Int32] = []
   let type_facts : Array[OiCallRefOperandTypeFact] = []
   for arg in args {
     let arg_node = @ir.hot_node_get(func, arg)
@@ -14349,7 +14354,7 @@ fn OiCallRefOperandFact::from_args(
 ///|
 fn OiCallRefOperandTypeFact::proves_typed_operand(
   self : OiCallRefOperandTypeFact,
-  arg_id : Int,
+  arg_id : Int32,
 ) -> Bool {
   self.arg_id == arg_id
 }
@@ -14357,7 +14362,7 @@ fn OiCallRefOperandTypeFact::proves_typed_operand(
 ///|
 fn OiCallRefOperandTypeFact::operand_type(
   self : OiCallRefOperandTypeFact,
-  arg_id : Int,
+  arg_id : Int32,
 ) -> @lib.ValType? {
   if self.proves_typed_operand(arg_id) {
     Some(self.arg_type)
@@ -14369,7 +14374,7 @@ fn OiCallRefOperandTypeFact::operand_type(
 ///|
 fn OiCallRefOperandFact::operand_type_at(
   self : OiCallRefOperandFact,
-  index : Int,
+  index : Int32,
 ) -> @lib.ValType? {
   if index < 0 ||
     index >= self.args.length() ||
@@ -14384,8 +14389,8 @@ fn OiCallRefOperandFact::localize_all(
   self : OiCallRefOperandFact,
   func : @ir.HotFunc,
 ) -> OiCallRefLocalizedOperandFact {
-  let prefix : Array[Int] = []
-  let local_ids : Array[Int] = []
+  let prefix : Array[Int32] = []
+  let local_ids : Array[Int32] = []
   for i = 0; i < self.args.length(); i = i + 1 {
     let arg_type = match self.operand_type_at(i) {
       Some(ty) => ty
@@ -14402,8 +14407,8 @@ fn OiCallRefOperandFact::localize_all(
 fn OiCallRefLocalizedOperandFact::local_gets(
   self : OiCallRefLocalizedOperandFact,
   func : @ir.HotFunc,
-) -> Array[Int] {
-  let gets : Array[Int] = []
+) -> Array[Int32] {
+  let gets : Array[Int32] = []
   for local_id in self.local_ids {
     gets.push(@ir.hot_build_local_get(func, local_id))
   }
@@ -14413,7 +14418,7 @@ fn OiCallRefLocalizedOperandFact::local_gets(
 ///|
 fn OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
   operand_fact : OiCallRefOperandFact,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
 ) -> OiCallRefFallthroughOperandInterpositionFact? {
   // Binaryen v130 fallthrough-target directization preserves call_ref operand
   // order by interposing the original target evaluation after the last operand:
@@ -14433,13 +14438,13 @@ fn OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
 fn OiCallRefFallthroughOperandInterpositionFact::build_args(
   self : OiCallRefFallthroughOperandInterpositionFact,
   func : @ir.HotFunc,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   let arg_count = self.args.length()
   if arg_count == 0 {
     return Some([])
   }
   let last_index = arg_count - 1
-  let operands : Array[Int] = []
+  let operands : Array[Int32] = []
   for i = 0; i < last_index; i = i + 1 {
     operands.push(self.args[i])
   }
@@ -14463,8 +14468,8 @@ fn OiCallRefFallthroughOperandInterpositionFact::build_args(
 fn OiCallRefOperandFact::args_with_fallthrough_target_after_last_operand(
   self : OiCallRefOperandFact,
   func : @ir.HotFunc,
-  callee_ref_id : Int,
-) -> Array[Int]? {
+  callee_ref_id : Int32,
+) -> Array[Int32]? {
   match
     OiCallRefFallthroughOperandInterpositionFact::from_operand_fact(
       self, callee_ref_id,
@@ -14495,7 +14500,7 @@ fn OiCallRefSelectResidueOperandInterpositionFact::from_operand_fact(
 fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
   self : OiCallRefSelectResidueOperandInterpositionFact,
   func : @ir.HotFunc,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   match self.residue_fact.preserved_condition_drop_id() {
     Some(_) => ()
     None => return Some(self.args.copy())
@@ -14505,7 +14510,7 @@ fn OiCallRefSelectResidueOperandInterpositionFact::build_args(
     return Some([])
   }
   let last_index = arg_count - 1
-  let operands : Array[Int] = []
+  let operands : Array[Int32] = []
   for i = 0; i < last_index; i = i + 1 {
     operands.push(self.args[i])
   }
@@ -14535,7 +14540,7 @@ fn OiCallRefOperandFact::args_with_select_condition_after_last_operand(
   self : OiCallRefOperandFact,
   func : @ir.HotFunc,
   residue_fact : OiCallRefSelectTargetResidueFact,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   match
     OiCallRefSelectResidueOperandInterpositionFact::from_operand_fact(
       self, residue_fact,
@@ -14552,7 +14557,7 @@ priv struct OiCallRefSelectTargetResidueTypeFact {
 
 ///|
 priv struct OiCallRefSelectTargetResidueFact {
-  target_arm_id : Int
+  target_arm_id : Int32
   type_fact : OiCallRefSelectTargetResidueTypeFact
   condition_fact : OiCallRefSelectConditionFact
 }
@@ -14560,7 +14565,7 @@ priv struct OiCallRefSelectTargetResidueFact {
 ///|
 fn OiCallRefSelectTargetResidueFact::from_same_target(
   func : @ir.HotFunc,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
   target_fact : OiCallRefTargetFact,
 ) -> OiCallRefSelectTargetResidueFact? {
   let same_target_fact = match target_fact.select_target() {
@@ -14592,7 +14597,7 @@ fn OiCallRefSelectTargetResidueTypeFact::result_type(
 ///|
 fn OiCallRefSelectTargetResidueFact::preserved_condition_drop_id(
   self : OiCallRefSelectTargetResidueFact,
-) -> Int? {
+) -> Int32? {
   self.condition_fact.effect_fact.preserved_drop_id()
 }
 
@@ -14600,7 +14605,7 @@ fn OiCallRefSelectTargetResidueFact::preserved_condition_drop_id(
 fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
   self : OiCallRefSelectTargetResidueFact,
   func : @ir.HotFunc,
-) -> Int? {
+) -> Int32? {
   // This mirrors the Binaryen v130 `CallUtils::convertToDirectCalls` residue for
   // identical select arms: an effectful i32 condition is dropped, then a
   // fact-proven target arm is materialized as the block result and the whole
@@ -14623,7 +14628,7 @@ fn OiCallRefSelectTargetResidueFact::build_dropped_target_evaluation(
 
 ///|
 priv struct OiCallRefResultArityFact {
-  result_count : Int
+  result_count : Int32
 }
 
 ///|
@@ -14703,7 +14708,7 @@ priv struct OiCallRefDirectizePlanFact {
 fn OiCallRefDirectizePlanFact::from_target(
   func : @ir.HotFunc,
   target_fact : OiCallRefTargetFact,
-  args : Array[Int],
+  args : Array[Int32],
 ) -> OiCallRefDirectizePlanFact? {
   // Binaryen v130 `visitCallRef` routes direct targets, typed-table targets,
   // fallthrough `ref.func` producers, and two-direct-arm selects through
@@ -14785,9 +14790,9 @@ fn OiCallRefDirectizePlanFact::build_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  callee_ref_id : Int,
-  args : Array[Int],
-) -> Int? {
+  callee_ref_id : Int32,
+  args : Array[Int32],
+) -> Int32? {
   match self.kind {
     CallRefDirectFunc => self.build_direct_func_replacement(func, node, args)
     CallRefTableTarget => self.build_table_target_replacement(func, node, args)
@@ -14824,9 +14829,9 @@ fn OiCallRefDirectizePlanFact::build_fallthrough_func_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
   operand_fact : OiCallRefOperandFact,
-) -> Int? {
+) -> Int32? {
   let fallthrough_plan = match
     OiCallRefFallthroughFuncPlanFact::from_target_fact(self.target_fact) {
     Some(fact) => fact
@@ -14896,8 +14901,8 @@ fn OiCallRefDirectizePlanFact::build_direct_func_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  args : Array[Int],
-) -> Int? {
+  args : Array[Int32],
+) -> Int32? {
   let direct_plan = match
     OiCallRefDirectFuncPlanFact::from_target_fact(self.target_fact) {
     Some(fact) => fact
@@ -14924,8 +14929,8 @@ fn OiCallRefDirectizePlanFact::build_table_target_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  args : Array[Int],
-) -> Int? {
+  args : Array[Int32],
+) -> Int32? {
   let table_plan = match
     OiCallRefTableTargetPlanFact::from_target_fact(self.target_fact) {
     Some(fact) => fact
@@ -14963,9 +14968,9 @@ fn OiCallRefDirectizePlanFact::build_select_same_direct_func_replacement(
   self : OiCallRefDirectizePlanFact,
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  callee_ref_id : Int,
+  callee_ref_id : Int32,
   operand_fact : OiCallRefOperandFact,
-) -> Int? {
+) -> Int32? {
   let same_target_fact = match self.target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectSameTargetFact::from_select_target(select_fact) {
@@ -15043,7 +15048,7 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
   func : @ir.HotFunc,
   node : @ir.HotNode,
   operand_fact : OiCallRefOperandFact,
-) -> Int? {
+) -> Int32? {
   let direct_calls_fact = match self.target_fact.select_target() {
     Some(select_fact) =>
       match OiCallRefSelectDirectCallsFact::from_select_target(select_fact) {
@@ -15122,13 +15127,13 @@ fn OiCallRefDirectizePlanFact::build_select_direct_funcs_replacement(
 
 ///|
 priv struct OiCallRefTargetSlotFact {
-  source_target_id : Int
-  effective_target_id : Int
+  source_target_id : Int32
+  effective_target_id : Int32
 }
 
 ///|
 priv struct OiCallRefArgumentListFact {
-  args : Array[Int]
+  args : Array[Int32]
 }
 
 ///|
@@ -15166,7 +15171,7 @@ priv struct OiCallRefRewriteFact {
 fn OiCallRefChildLayoutFact::from_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   node : @ir.HotNode,
 ) -> OiCallRefChildLayoutFact? {
   // Binaryen v130 `visitCallRef` treats the final child as the callee reference
@@ -15194,7 +15199,7 @@ fn OiCallRefChildLayoutFact::from_call_ref(
       }
     None => callee_ref_id
   }
-  let args : Array[Int] = []
+  let args : Array[Int32] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
     args.push(@ir.hot_child_get(func, node_id, slot))
   }
@@ -15216,7 +15221,7 @@ fn OiCallRefTargetSlotFact::proves_effective_target(
 ///|
 fn OiCallRefArgumentListFact::args(
   self : OiCallRefArgumentListFact,
-) -> Array[Int] {
+) -> Array[Int32] {
   self.args
 }
 
@@ -15267,7 +15272,7 @@ fn OiCallRefDirectizationFact::apply(
   self : OiCallRefDirectizationFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !self.invocation_fact.child_layout_fact.target_slot_fact.proves_effective_target() {
     return false
@@ -15307,7 +15312,7 @@ fn OiCallRefDirectizationFact::apply(
 fn OiCallRefRewriteFact::from_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiCallRefRewriteFact? {
   // Binaryen v130 `visitCallRef` runs target `skipNonNullCast`, target
   // `trapOnNull`, direct `ref.func`, immediate `table.get`, fallthrough
@@ -15353,7 +15358,7 @@ fn OiCallRefRewriteFact::apply(
   self : OiCallRefRewriteFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     CallRefNullTrapRewrite =>
@@ -15374,7 +15379,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiCallRefRewriteFact::from_call_ref(func, dead, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -15387,7 +15392,7 @@ fn optimize_instructions_try_sink_same_global_set_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
@@ -15460,9 +15465,9 @@ fn optimize_instructions_try_sink_same_global_set_if(
 
 ///|
 priv struct OiSameLocalSetIfFact {
-  reusable_set_id : Int
-  then_value_id : Int
-  else_value_id : Int
+  reusable_set_id : Int32
+  then_value_id : Int32
+  else_value_id : Int32
   value_type : @lib.ValType
   use_site : @ir.HotUseSite
   use_region : @ir.HotRegionRef?
@@ -15473,7 +15478,7 @@ fn OiSameLocalSetIfFact::from_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSameLocalSetIfFact? {
   // Binaryen v130's parsed OI shape sinks matching local writes from both arms
   // into one write around a value-producing `if`. Keep the same-local target,
@@ -15578,7 +15583,7 @@ fn OiSameLocalSetIfFact::apply(
   self : OiSameLocalSetIfFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   @ir.hot_region_replace_body(func, @ir.hot_region_then_ref(func, node_id), [
     self.then_value_id,
@@ -15631,7 +15636,7 @@ fn optimize_instructions_try_sink_same_local_set_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiSameLocalSetIfFact::from_if(ctx, func, dead, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -15644,7 +15649,7 @@ fn optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !optimize_instructions_try_sink_same_local_set_if(ctx, func, dead, node_id) {
     return false
@@ -15667,7 +15672,7 @@ fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -15696,7 +15701,7 @@ fn optimize_instructions_try_fold_constant_if_condition(
     return false
   }
   let root_count = @ir.hot_region_root_count(func, chosen_region)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for i = 0; i < root_count; i = i + 1 {
     body.push(@ir.hot_region_get(func, chosen_region, i))
   }
@@ -15709,7 +15714,7 @@ fn optimize_instructions_try_fold_constant_if_condition(
 fn optimize_instructions_i32_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
@@ -15733,7 +15738,7 @@ fn optimize_instructions_i32_const(
 fn optimize_instructions_i64_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I64? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
@@ -15757,7 +15762,7 @@ fn optimize_instructions_i64_const(
 fn optimize_instructions_f32_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.F32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
@@ -15781,7 +15786,7 @@ fn optimize_instructions_f32_const(
 fn optimize_instructions_f64_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.F64? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
@@ -15802,7 +15807,7 @@ fn optimize_instructions_f64_const(
 }
 
 ///|
-fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
+fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Instruction::I32Shl
     | @lib.Instruction::I32ShrS
@@ -15822,9 +15827,9 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 fn optimize_instructions_shift_rhs_i32_amount(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  rhs_id : Int,
-  mask_bits : Int,
-) -> Int? {
+  rhs_id : Int32,
+  mask_bits : Int32,
+) -> Int32? {
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(raw)) => return Some(raw & mask_bits)
     None => ()
@@ -15865,9 +15870,9 @@ fn optimize_instructions_shift_rhs_i32_amount(
 fn optimize_instructions_shift_rhs_i64_amount(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  rhs_id : Int,
-  mask_bits : Int,
-) -> Int? {
+  rhs_id : Int32,
+  mask_bits : Int32,
+) -> Int32? {
   match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(raw)) => return Some((raw & mask_bits.to_int64()).to_int())
     None => ()
@@ -15940,7 +15945,7 @@ priv struct OiI64NonNegativeIntegerFact {
 fn OiI32NonNegativeIntegerFact::from_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32NonNegativeIntegerFact {
   let kind = match optimize_instructions_i32_const(func, dead, node_id) {
     Some(@lib.I32(raw)) =>
@@ -15958,7 +15963,7 @@ fn OiI32NonNegativeIntegerFact::from_const(
 fn OiI64NonNegativeIntegerFact::from_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI64NonNegativeIntegerFact {
   let kind = match optimize_instructions_i64_const(func, dead, node_id) {
     Some(@lib.I64(raw)) =>
@@ -15977,7 +15982,7 @@ fn OiI32NonNegativeIntegerFact::from_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32NonNegativeIntegerFact {
   // Binaryen v130 uses `Bits::getMaxBits(left, this) <= signBit - 1` before
   // rewriting signed compare/div/rem/shr operations to unsigned spellings. The
@@ -16003,7 +16008,7 @@ fn OiI64NonNegativeIntegerFact::from_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI64NonNegativeIntegerFact {
   let kind = match
     OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
@@ -16148,8 +16153,8 @@ fn OiI32SignedConstUnsignedCanonicalizationFact::from_binary(
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32SignedConstUnsignedCanonicalizationFact? {
   // Binaryen v130 runs this source step only when the right operand is a
   // nonnegative constant and the left operand has no sign bit according to
@@ -16180,8 +16185,8 @@ fn OiI64SignedConstUnsignedCanonicalizationFact::from_binary(
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64SignedConstUnsignedCanonicalizationFact? {
   let opcode_fact = OiI64SignedToUnsignedOpcodeFact::from_instr(instr)
   match opcode_fact.replacement() {
@@ -16207,8 +16212,8 @@ fn OiSignedConstUnsignedCanonicalizationFact::from_binary(
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiSignedConstUnsignedCanonicalizationFact? {
   match
     OiI32SignedConstUnsignedCanonicalizationFact::from_binary(
@@ -16260,10 +16265,10 @@ fn optimize_instructions_try_canonicalize_signed_const_unsigned(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let fact = match
     OiSignedConstUnsignedCanonicalizationFact::from_binary(
@@ -16282,7 +16287,7 @@ fn optimize_instructions_try_canonicalize_signed_const_unsigned(
 }
 
 ///|
-fn optimize_instructions_prefer_negative_leb_i32(raw : Int) -> Bool {
+fn optimize_instructions_prefer_negative_leb_i32(raw : Int32) -> Bool {
   match raw {
     0x40 | 0x2000 | 0x100000 | 0x8000000 => true
     _ => false
@@ -16306,7 +16311,7 @@ fn optimize_instructions_prefer_negative_leb_i64(raw : Int64) -> Bool {
 }
 
 ///|
-fn optimize_instructions_i32_power_of_two_shift(raw : Int) -> Int? {
+fn optimize_instructions_i32_power_of_two_shift(raw : Int32) -> Int32? {
   if raw <= 0 || (raw & (raw - 1)) != 0 {
     return None
   }
@@ -16339,7 +16344,7 @@ priv struct OiI32LowOnesMaskFact {
 }
 
 ///|
-fn OiI32LowOnesMaskFact::from_raw(raw : Int) -> OiI32LowOnesMaskFact {
+fn OiI32LowOnesMaskFact::from_raw(raw : Int32) -> OiI32LowOnesMaskFact {
   { low_ones: raw >= 0 && (raw & (raw + 1)) == 0, }
 }
 
@@ -16432,14 +16437,14 @@ fn OiCommutativeInstructionFact::proves_instr_commutative(
 
 ///|
 priv struct OiLocalGetLeafFact {
-  local_id : Int?
+  local_id : Int32?
 }
 
 ///|
 fn OiLocalGetLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLocalGetLeafFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return { local_id: None, }
@@ -16474,7 +16479,7 @@ priv struct OiConstlikeLeafFact {
 fn OiConstlikeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiConstlikeLeafFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return { kind: ConstlikeLeafNoProof, }
@@ -16521,7 +16526,7 @@ priv struct OiSharedCrossSafeLeafFact {
 fn OiSharedCrossSafeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSharedCrossSafeLeafFact {
   // Binaryen v130 local reordering and select cleanup only allow multiply used
   // children to cross a local.get when the child is a direct immutable leaf.
@@ -16582,10 +16587,10 @@ fn OiLocalGetCrossingChildTraversalFact::from_children(
   dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
   node : @ir.HotNode,
-  local_id : Int,
+  local_id : Int32,
   loop_input_nodes : @bitset.BitSet,
-  seen_stamps : Array[Int],
-  seen_stamp : Int,
+  seen_stamps : Array[Int32],
+  seen_stamp : Int32,
 ) -> OiLocalGetCrossingChildTraversalFact {
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child_is_local_tee_payload = match node.op {
@@ -16636,12 +16641,12 @@ fn OiLocalGetCrossingFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
-  node_id : Int,
-  local_id : Int,
+  node_id : Int32,
+  local_id : Int32,
   under_local_tee_payload : Bool,
   loop_input_nodes : @bitset.BitSet,
-  seen_stamps : Array[Int],
-  seen_stamp : Int,
+  seen_stamps : Array[Int32],
+  seen_stamp : Int32,
 ) -> OiLocalGetCrossingFact {
   // Binaryen OI's operand canonicalization may move a subtree across a
   // local.get only when the intervening subtree cannot write that local or hide
@@ -16775,14 +16780,14 @@ priv enum OiCommutativeOperandClassKind {
 ///|
 priv struct OiCommutativeOperandClassFact {
   kind : OiCommutativeOperandClassKind
-  local_index : Int?
-  binaryen_compare_order : Int?
+  local_index : Int32?
+  binaryen_compare_order : Int32?
 }
 
 ///|
 fn optimize_instructions_binaryen_v132_scalar_compare_order(
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   // Binaryen's BinaryOp enum supplies the final canonicalization tie-break
   // when two commutative operands have the same expression node kind. Keep
   // the supported scalar comparison subset explicit because Starshine's
@@ -16827,7 +16832,7 @@ fn optimize_instructions_binaryen_v132_scalar_compare_order(
 ///|
 fn OiCommutativeOperandClassFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiCommutativeOperandClassFact {
   // Binaryen OI canonicalizes commutative operands into a stable source order
   // before applying rewrites. Keep Starshine's represented HOT subset as an
@@ -16910,7 +16915,7 @@ fn OiCommutativeOperandClassFact::from_node(
 ///|
 fn OiCommutativeOperandClassFact::order_index(
   self : OiCommutativeOperandClassFact,
-) -> Int? {
+) -> Int32? {
   match self.kind {
     OiCommutativeOperandUnsupported => None
     OiCommutativeOperandCallLike => Some(0)
@@ -16943,8 +16948,8 @@ priv struct OiCommutativeOperandSwapFact {
 fn OiCommutativeOperandSwapFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiCommutativeOperandSwapFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
@@ -16991,9 +16996,9 @@ fn OiCommutativeOperandSwapFact::proves_should_swap(
 ///|
 fn optimize_instructions_root_use_region_ref(
   func : @ir.HotFunc,
-  node_id : Int,
-  holder_id : Int,
-  slot : Int,
+  node_id : Int32,
+  holder_id : Int32,
+  slot : Int32,
 ) -> @ir.HotRegionRef? {
   let holder = @ir.hot_node_get(func, holder_id)
   for info in @ir.hot_control_region_slot_info(holder.op) {
@@ -17024,11 +17029,11 @@ fn optimize_instructions_root_use_region_ref(
 ///|
 fn optimize_instructions_subtree_writes_local_after_read(
   func : @ir.HotFunc,
-  node_id : Int,
-  local_a : Int,
-  read_a : Int,
-  local_b : Int,
-  read_b : Int,
+  node_id : Int32,
+  local_a : Int32,
+  read_a : Int32,
+  local_b : Int32,
+  read_b : Int32,
   seen : @bitset.BitSet,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -17103,9 +17108,9 @@ fn optimize_instructions_subtree_writes_local_after_read(
 fn optimize_instructions_local_swap_crosses_preceding_write(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  node_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let lhs = @ir.hot_node_get(func, lhs_id)
   let rhs = @ir.hot_node_get(func, rhs_id)
@@ -17173,10 +17178,10 @@ fn optimize_instructions_try_canonicalize_commutative(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   // The old O4z guard disabled this after address-like operand reordering bugs.
@@ -17217,7 +17222,7 @@ priv struct OiTriviallyPureOperandFact {
 ///|
 fn OiTriviallyPureOperandFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTriviallyPureOperandFact {
   // Binaryen OI frequently asks whether an operand can be erased without
   // preserving effects. Keep the represented direct leaf set as a selected fact
@@ -17257,7 +17262,7 @@ fn OiTriviallyPureOperandFact::proves_pure(
 ///|
 fn OiTriviallyPureOperandFact::proves_node_pure(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiTriviallyPureOperandFact::from_node(func, node_id).proves_pure()
 }
@@ -17266,7 +17271,7 @@ fn OiTriviallyPureOperandFact::proves_node_pure(
 fn OiTriviallyPureOperandFact::proves_live_node_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiLiveNodeFact::proves_node_live(func, dead, node_id) &&
   OiTriviallyPureOperandFact::proves_node_pure(func, node_id)
@@ -17339,7 +17344,7 @@ fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
 fn OiSideEffectFreeExpressionFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiSideEffectFreeExpressionFact {
   // Represented subset of Binaryen v130 `EffectAnalyzer` /
   // `ExpressionAnalyzer` purity queries used by OI when it can erase an
@@ -17554,7 +17559,7 @@ fn OiSideEffectFreeExpressionFact::proves_free(
 fn OiSideEffectFreeExpressionFact::proves_node_free(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiSideEffectFreeExpressionFact::from_node(func, dead, node_id).proves_free()
 }
@@ -17563,8 +17568,8 @@ fn OiSideEffectFreeExpressionFact::proves_node_free(
 fn optimize_instructions_negate_boolean_expr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -17586,8 +17591,8 @@ fn optimize_instructions_negate_boolean_expr(
 fn optimize_instructions_negate_boolean_expr_recursive(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -17651,7 +17656,7 @@ fn OiBooleanConstantLeafFact::empty() -> OiBooleanConstantLeafFact {
 fn OiBooleanConstantLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanConstantLeafFact {
   // Binaryen's OI `optimizeBoolean` recursive boolean context accepts exact
   // i32 `0` / `1` leaves. Keep the literal proof separate from recursive `if`
@@ -17719,7 +17724,7 @@ priv struct OiBooleanConstantTreeFact {
 fn OiBooleanConstantTreeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanConstantTreeFact {
   // Binaryen's OI `optimizeBoolean` recursively treats i32-valued `if` arms as
   // boolean contexts, and Starshine's represented nested-boolean cleanup only
@@ -17804,7 +17809,7 @@ fn OiBooleanConstantTreeFact::proves_boolean_tree(
 fn OiBooleanConstantTreeFact::proves_node_boolean_tree(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiBooleanConstantTreeFact::from_node(func, dead, node_id).proves_boolean_tree()
 }
@@ -17831,7 +17836,7 @@ fn OiBooleanTreeLeafFact::empty() -> OiBooleanTreeLeafFact {
 fn OiBooleanTreeLeafFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanTreeLeafFact {
   // Source-backed leaf facts for Binaryen's nested boolean-condition rewrites:
   // direct `eqz` plus exact boolean constants. The unshared recursive `if`
@@ -17907,7 +17912,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanTreeUnsharedFact {
   // Source-backed subset for Binaryen's nested boolean-condition rewrites:
   // direct `eqz`, exact boolean constants, and recursively unshared one-result
@@ -18001,23 +18006,23 @@ fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiBooleanTreeUnsharedFact::from_node(func, dead, use_def, node_id).proves_allowed_tree()
 }
 
 ///|
 priv struct OiDirectBranchRootFact {
-  node_id : Int
-  label_id : Int
-  value_count : Int
+  node_id : Int32
+  label_id : Int32
+  value_count : Int32
 }
 
 ///|
 fn OiDirectBranchRootFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDirectBranchRootFact? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
@@ -18050,8 +18055,8 @@ priv struct OiBranchShapeFact {
 fn OiBranchShapeFact::from_pair(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiBranchShapeFact {
   // The represented duplicate-branch collapse mirrors Binaryen's ability to
   // fold identical branch arms after condition cleanup, but HOT only rewrites
@@ -18105,8 +18110,8 @@ fn OiBranchShapeFact::proves_same_direct_branch(
 fn optimize_instructions_same_branch_shape(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   OiBranchShapeFact::from_pair(func, dead, lhs_id, rhs_id).proves_same_direct_branch()
 }
@@ -18116,7 +18121,7 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let then_root_count = @ir.hot_region_root_count(func, then_region)
@@ -18168,13 +18173,13 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
 
 ///|
 priv struct OiDirectZeroSentinelFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
 fn OiDirectZeroSentinelFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDirectZeroSentinelFact? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -18199,13 +18204,13 @@ fn OiDirectZeroSentinelFact::proves_direct_zero_sentinel(
 
 ///|
 priv struct OiDropZeroSentinelFact {
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
 fn OiDropZeroSentinelFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDropZeroSentinelFact? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -18241,7 +18246,7 @@ priv struct OiZeroSentinelFact {
 ///|
 fn OiZeroSentinelFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiZeroSentinelFact {
   // Starshine's dead-suffix cleanup uses explicit zero sentinels to avoid
   // deleting value carriers that still satisfy a surrounding drop or result
@@ -18279,7 +18284,7 @@ fn OiZeroSentinelFact::proves_drop_zero_sentinel(
 ///|
 fn OiZeroSentinelFact::proves_node_zero_sentinel(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiZeroSentinelFact::from_node(func, node_id).proves_zero_sentinel()
 }
@@ -18287,7 +18292,7 @@ fn OiZeroSentinelFact::proves_node_zero_sentinel(
 ///|
 fn OiZeroSentinelFact::proves_node_drop_zero_sentinel(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiZeroSentinelFact::from_node(func, node_id).proves_drop_zero_sentinel()
 }
@@ -18300,8 +18305,8 @@ priv struct OiBranchTableDefaultTargetFact {
 ///|
 fn OiBranchTableDefaultTargetFact::from_table(
   func : @ir.HotFunc,
-  table_id : Int,
-  label_id : Int,
+  table_id : Int32,
+  label_id : Int32,
 ) -> OiBranchTableDefaultTargetFact {
   {
     targets_label: @ir.hot_branch_table_default_target(func, table_id) ==
@@ -18324,8 +18329,8 @@ priv struct OiBranchTableExplicitTargetsFact {
 ///|
 fn OiBranchTableExplicitTargetsFact::from_table(
   func : @ir.HotFunc,
-  table_id : Int,
-  label_id : Int,
+  table_id : Int32,
+  label_id : Int32,
 ) -> OiBranchTableExplicitTargetsFact {
   let mut all_targets_label = true
   for target in @ir.hot_branch_table_targets(func, table_id) {
@@ -18365,8 +18370,8 @@ priv struct OiBranchTableTargetFact {
 ///|
 fn OiBranchTableTargetFact::from_table(
   func : @ir.HotFunc,
-  table_id : Int,
-  label_id : Int,
+  table_id : Int32,
+  label_id : Int32,
 ) -> OiBranchTableTargetFact {
   // `br_table` exits to a surrounding label only when both the default edge and
   // every explicit table edge target that label. Keep those source-level edges
@@ -18463,8 +18468,8 @@ fn OiControlDirectExitFact::fallthrough() -> OiControlDirectExitFact {
 ///|
 fn OiControlDirectExitFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
+  node_id : Int32,
+  label_id : Int32,
 ) -> OiControlDirectExitFact {
   // Binaryen's OI control cleanup treats terminal roots, local-label branches,
   // and all-target branch tables as separate source facts. Keep that direct
@@ -18631,8 +18636,8 @@ fn OiControlExitFact::empty(live : Bool) -> OiControlExitFact {
 fn OiControlExitFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  label_id : Int,
+  node_id : Int32,
+  label_id : Int32,
 ) -> OiControlExitFact {
   // Binaryen's OI relies on control/fallthrough facts when deleting dead
   // suffixes and preserving branch-carried values. Starshine's represented
@@ -18823,7 +18828,7 @@ fn OiControlExitRegionFact::from_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
-  label_id : Int,
+  label_id : Int32,
 ) -> OiControlExitRegionFact {
   // Region summaries have two separate source-shaped decisions: the tail exit
   // facts exposed to parents, and whether a live prefix root already exits via
@@ -18997,7 +19002,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
-  label_id : Int,
+  label_id : Int32,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count < 2 {
@@ -19091,7 +19096,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
         _ => ()
       }
     }
-    let next : Array[Int] = []
+    let next : Array[Int32] = []
     for keep = 0; keep <= idx; keep = keep + 1 {
       next.push(@ir.hot_region_get(func, region_ref, keep))
     }
@@ -19153,10 +19158,10 @@ fn optimize_instructions_try_canonicalize_relational_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   if !OiConstlikeLeafFact::from_node(func, dead, lhs_id).proves_constlike() ||
     OiConstlikeLeafFact::from_node(func, dead, rhs_id).proves_constlike() {
@@ -19182,10 +19187,10 @@ fn optimize_instructions_try_canonicalize_relational_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   let reversed = match optimize_instructions_reverse_relational_instr(instr) {
@@ -19284,10 +19289,10 @@ fn optimize_instructions_try_canonicalize_compare_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32GtS, Some(@lib.I32(raw))) if raw == -1 => {
@@ -19560,7 +19565,7 @@ fn optimize_instructions_try_optimize_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -19575,7 +19580,7 @@ fn optimize_instructions_try_optimize_if_condition(
   let cond_id = func.children[node.child_base]
   let then_region = func.children[node.child_base + 1]
   let else_region = func.children[node.child_base + 2]
-  let flip_if = fn(next_cond : Int) -> Bool {
+  let flip_if = fn(next_cond : Int32) -> Bool {
     match optimize_instructions_i32_const(func, dead, next_cond) {
       Some(@lib.I32(raw)) if raw == 0 => return false
       _ => ()
@@ -19672,7 +19677,7 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) != 1 {
     return false
@@ -19749,10 +19754,10 @@ fn optimize_instructions_try_invert_nested_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  cond_id : Int,
-  then_region : Int,
-  else_region : Int,
+  node_id : Int32,
+  cond_id : Int32,
+  then_region : Int32,
+  else_region : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, else_region) {
     return false
@@ -19808,9 +19813,9 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  cond_id : Int,
-  else_region : Int,
+  node_id : Int32,
+  cond_id : Int32,
+  else_region : Int32,
 ) -> Bool {
   if @ir.hot_node_is_live(func, else_region) {
     return false
@@ -19864,8 +19869,8 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
 ///|
 fn optimize_instructions_const_memory_size_exact(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Const =>
@@ -19883,8 +19888,8 @@ fn optimize_instructions_const_memory_size_exact(
 fn optimize_instructions_const_memory_size(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   match optimize_instructions_i32_const(func, dead, node_id) {
     Some(@lib.I32(raw)) if raw >= 0 => Some(raw)
     _ =>
@@ -19900,7 +19905,7 @@ fn optimize_instructions_const_memory_size(
 fn optimize_instructions_i32_const_for_memory_fill(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I32? {
   match optimize_instructions_i32_const(func, dead, node_id) {
     Some(value) => Some(value)
@@ -19919,7 +19924,7 @@ fn optimize_instructions_i32_const_for_memory_fill(
 }
 
 ///|
-fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
+fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int32) -> @lib.MemArg {
   @lib.MemArg::new(
     @lib.U32(0),
     Some(@lib.MemIdx::new(mem_idx.reinterpret_as_uint())),
@@ -19929,24 +19934,24 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 
 ///|
 priv struct OiStateWriteSetFact {
-  local_writes : Array[Int]
-  global_writes : Array[Int]
+  local_writes : Array[Int32]
+  global_writes : Array[Int32]
 }
 
 ///|
 priv struct OiLeftFallthroughInputFact {
-  fallthrough_id : Int
-  after_value_effect_mask : UInt
-  after_value_write_mask : UInt
+  fallthrough_id : Int32
+  after_value_effect_mask : UInt32
+  after_value_write_mask : UInt32
   after_value_state_writes : OiStateWriteSetFact
   unsupported_after_value_control : Bool
 }
 
 ///|
 priv struct OiRightFallthroughInputFact {
-  fallthrough_id : Int
-  prefix_effect_mask : UInt
-  prefix_write_mask : UInt
+  fallthrough_id : Int32
+  prefix_effect_mask : UInt32
+  prefix_write_mask : UInt32
   prefix_state_writes : OiStateWriteSetFact
   unsupported_prefix_control : Bool
   peeled_local_tee : Bool
@@ -19954,17 +19959,17 @@ priv struct OiRightFallthroughInputFact {
 
 ///|
 priv struct OiInterveningEffectFact {
-  effect_mask : UInt
-  write_mask : UInt
+  effect_mask : UInt32
+  write_mask : UInt32
   state_writes : OiStateWriteSetFact
   unsupported_control : Bool
 }
 
 ///|
 priv struct OiSubtreeReorderEffectFact {
-  effect_mask : UInt
-  read_mask : UInt
-  write_mask : UInt
+  effect_mask : UInt32
+  read_mask : UInt32
+  write_mask : UInt32
   state_writes : OiStateWriteSetFact
   carries_control : Bool
   disrupts : Bool
@@ -19988,7 +19993,7 @@ priv enum OiNodeEffectPurityKind {
 
 ///|
 priv struct OiNodeEffectPurityFact {
-  effect_mask : UInt
+  effect_mask : UInt32
   kind : OiNodeEffectPurityKind
 }
 
@@ -20023,8 +20028,8 @@ priv struct OiConsecutiveInputInterferenceFact {
 
 ///|
 priv struct OiConsecutiveInputEqualityFact {
-  left_fallthrough_id : Int
-  right_fallthrough_id : Int
+  left_fallthrough_id : Int32
+  right_fallthrough_id : Int32
   equality_proof : OiConsecutiveInputEqualityProofFact
   interference_fact : OiConsecutiveInputInterferenceFact
 }
@@ -20037,7 +20042,7 @@ fn OiStateWriteSetFact::empty() -> OiStateWriteSetFact {
 ///|
 fn OiStateWriteSetFact::add_local(
   self : OiStateWriteSetFact,
-  local_idx : Int,
+  local_idx : Int32,
 ) -> Unit {
   for value in self.local_writes {
     if value == local_idx {
@@ -20050,7 +20055,7 @@ fn OiStateWriteSetFact::add_local(
 ///|
 fn OiStateWriteSetFact::add_global(
   self : OiStateWriteSetFact,
-  global_idx : Int,
+  global_idx : Int32,
 ) -> Unit {
   for value in self.global_writes {
     if value == global_idx {
@@ -20076,7 +20081,7 @@ fn OiStateWriteSetFact::append_from(
 ///|
 fn OiStateWriteSetFact::writes_local(
   self : OiStateWriteSetFact,
-  local_idx : Int,
+  local_idx : Int32,
 ) -> Bool {
   for value in self.local_writes {
     if value == local_idx {
@@ -20089,8 +20094,8 @@ fn OiStateWriteSetFact::writes_local(
 ///|
 fn OiStateWriteSetFact::writes_global(
   self : OiStateWriteSetFact,
-  global_idx : Int,
-  module_ctx? : @ir.HotModuleContext? = None,
+  global_idx : Int32,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> Bool {
   for value in self.global_writes {
     if !globals_are_provably_disjoint(module_ctx, value, global_idx) {
@@ -20113,14 +20118,14 @@ fn OiStateWriteSetFact::has_global_writes(self : OiStateWriteSetFact) -> Bool {
 ///|
 fn OiStateWriteSetFact::from_value_subtree(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStateWriteSetFact {
   // Binaryen's `EffectAnalyzer::invalidates` reasons about precise local/global
   // locations even though coarse HOT effect bits conflate reads and writes.
   // Keep the represented OI subset as a fact so fallthrough-prefix and
   // after-value equality paths share the same source-backed write-set proof.
   let fact = OiStateWriteSetFact::empty()
-  fn walk(id : Int) -> Unit {
+  fn walk(id : Int32) -> Unit {
     let node = @ir.hot_node_get(func, id)
     match node.op {
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => fact.add_local(node.imm0)
@@ -20136,7 +20141,7 @@ fn OiStateWriteSetFact::from_value_subtree(
 }
 
 ///|
-fn OiNodeEffectPurityFact::from_mask(mask : UInt) -> OiNodeEffectPurityFact {
+fn OiNodeEffectPurityFact::from_mask(mask : UInt32) -> OiNodeEffectPurityFact {
   // Shared OI view of Binaryen `EffectAnalyzer(...).hasUnremovableSideEffects()`
   // negative queries: callers that only need the existing HOT effect-mask
   // proof should record that as a fact instead of reading raw masks directly.
@@ -20150,8 +20155,8 @@ fn OiNodeEffectPurityFact::from_mask(mask : UInt) -> OiNodeEffectPurityFact {
 
 ///|
 fn OiNodeEffectPurityFact::from_node_masks(
-  node_masks : Array[UInt],
-  node_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
 ) -> OiNodeEffectPurityFact {
   if node_id < 0 || node_id >= node_masks.length() {
     { effect_mask: 0U, kind: NodeEffectMissingMask, }
@@ -20183,7 +20188,7 @@ fn OiSubtreeReorderEffectFact::empty() -> OiSubtreeReorderEffectFact {
 }
 
 ///|
-fn OiSubtreeReorderEffectFact::read_effect_mask() -> UInt {
+fn OiSubtreeReorderEffectFact::read_effect_mask() -> UInt32 {
   @ir.EFFECT_MASK_LOCAL_STATE |
   @ir.EFFECT_MASK_GLOBAL_STATE |
   @ir.EFFECT_MASK_MEMORY_READ |
@@ -20192,9 +20197,9 @@ fn OiSubtreeReorderEffectFact::read_effect_mask() -> UInt {
 
 ///|
 fn OiSubtreeReorderEffectFact::write_mask_from_effects(
-  effect_mask : UInt,
+  effect_mask : UInt32,
   state_writes : OiStateWriteSetFact,
-) -> UInt {
+) -> UInt32 {
   // Binaryen's `EffectAnalyzer::invalidates` separates reads from writes. HOT's
   // coarse effect masks already identify memory/table writes and calls, while
   // local/global writes need the precise `OiStateWriteSetFact` subtree walk.
@@ -20218,8 +20223,8 @@ fn OiSubtreeReorderEffectFact::write_mask_from_effects(
 ///|
 fn OiSubtreeReorderEffectFact::from_node(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
 ) -> OiSubtreeReorderEffectFact {
   // Source-backed subset of Binaryen v130 `EffectAnalyzer::orderedBefore` /
   // `invalidates` used by OI operand reordering and consecutive-input equality:
@@ -20266,7 +20271,7 @@ fn OiSubtreeReorderEffectFact::can_swap_with(
 }
 
 ///|
-fn optimize_instructions_mask_without_local_state(mask : UInt) -> UInt {
+fn optimize_instructions_mask_without_local_state(mask : UInt32) -> UInt32 {
   if (mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U {
     mask ^ @ir.EFFECT_MASK_LOCAL_STATE
   } else {
@@ -20275,7 +20280,7 @@ fn optimize_instructions_mask_without_local_state(mask : UInt) -> UInt {
 }
 
 ///|
-fn optimize_instructions_mask_without_global_state(mask : UInt) -> UInt {
+fn optimize_instructions_mask_without_global_state(mask : UInt32) -> UInt32 {
   if (mask & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U {
     mask ^ @ir.EFFECT_MASK_GLOBAL_STATE
   } else {
@@ -20322,8 +20327,8 @@ priv enum OiStableStateReadEqualityKind {
 
 ///|
 priv struct OiStableStateReadIndexRelationFact {
-  left_index : Int
-  right_index : Int
+  left_index : Int32
+  right_index : Int32
 }
 
 ///|
@@ -20385,8 +20390,8 @@ fn OiStableStateReadEqualityFact::proves_equal(
 ///|
 fn optimize_instructions_scalar_tree_metadata_equal(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
   left : @ir.HotNode,
   right : @ir.HotNode,
 ) -> Bool {
@@ -20426,8 +20431,8 @@ priv struct OiScalarTreeLeafEqualityFact {
 ///|
 fn OiScalarTreeLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
   left : @ir.HotNode,
   right : @ir.HotNode,
   include_stable_state_read : Bool,
@@ -20555,10 +20560,10 @@ fn OiScalarTreeEqualityFact::empty() -> OiScalarTreeEqualityFact {
 ///|
 fn OiScalarTreeEqualityFact::from_nodes(
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
-  include_stable_state_read? : Bool = false,
-  depth? : Int = 0,
+  left_id : Int32,
+  right_id : Int32,
+  include_stable_state_read~ : Bool = false,
+  depth~ : Int32 = 0,
 ) -> OiScalarTreeEqualityFact {
   // Source-backed subset of Binaryen v130 `ExpressionAnalyzer::equal` used by
   // OI's equality facts. Keep leaf kind, branchless scalar-shell equality, and
@@ -20733,8 +20738,8 @@ fn OiStableMemoryReadEqualityFact::empty() -> OiStableMemoryReadEqualityFact {
 fn OiStableMemoryReadEqualityFact::from_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
 ) -> OiStableMemoryReadEqualityFact {
   // Equal addresses establish equal reads only for an unshared memory with
   // no intervening writes. Shared reads can observe another agent's store.
@@ -20841,9 +20846,9 @@ fn OiStableMemoryReadEqualityFact::proves_equal(
 ///|
 fn optimize_instructions_left_fallthrough_input_for_equality(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-  right_fallthrough_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
+  right_fallthrough_id : Int32,
 ) -> OiLeftFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 1 {
@@ -20928,8 +20933,8 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
 ///|
 fn optimize_instructions_right_fallthrough_input_for_equality(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
 ) -> OiRightFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 1 {
@@ -21037,9 +21042,9 @@ fn OiInterveningEffectFact::from_fallthrough_facts(
 fn OiInterveningEffectFact::ordered_before_right_fallthrough(
   self : OiInterveningEffectFact,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  right_id : Int,
-  module_ctx? : @ir.HotModuleContext? = None,
+  node_masks : Array[UInt32],
+  right_id : Int32,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> Bool {
   // Represented subset of Binaryen v130
   // `EffectAnalyzer::orderedBefore(effects(right))` / `invalidates` used by
@@ -21109,13 +21114,13 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
 
 ///|
 priv struct OiRightLocalTeeFallthroughValueFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiRightLocalTeeFallthroughValueFact::from_node(
   func : @ir.HotFunc,
-  right_id : Int,
+  right_id : Int32,
 ) -> OiRightLocalTeeFallthroughValueFact? {
   // Binaryen v130 `areConsecutiveInputsEqual` peels the right operand with
   // `Properties::getImmediateFallthrough(...AllowTeeBrIf)`, exposing the value
@@ -21139,8 +21144,8 @@ priv struct OiRightLocalTeeFallthroughEqualityFact {
 ///|
 fn OiRightLocalTeeFallthroughEqualityFact::from_nodes(
   func : @ir.HotFunc,
-  left_fallthrough_id : Int,
-  right_id : Int,
+  left_fallthrough_id : Int32,
+  right_id : Int32,
 ) -> OiRightLocalTeeFallthroughEqualityFact {
   // The currently represented Starshine subset is intentionally narrow: direct
   // right `local.tee` values that match the left fallthrough by pure scalar
@@ -21230,10 +21235,10 @@ fn OiConsecutiveInputEqualityProofFact::proves_equal(
 ///|
 fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  right_fallthrough_id : Int,
+  node_masks : Array[UInt32],
+  right_fallthrough_id : Int32,
   intervening_effect_fact : OiInterveningEffectFact,
-  module_ctx? : @ir.HotModuleContext? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
 ) -> OiConsecutiveInputInterferenceFact {
   // Keep the Binaryen `EffectAnalyzer::orderedBefore(effects(right))` blocker
   // as its own nested fact so equality proof selection and effect invalidation
@@ -21258,8 +21263,8 @@ fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
 fn oi_stored_scalar_source(
   graph : @ir.HotLocalGraph,
   func : @ir.HotFunc,
-  input : Int,
-) -> Int? {
+  input : Int32,
+) -> Int32? {
   let mut node = input
   for _ in 0..<16 {
     if node < 0 || !@ir.hot_node_is_live(func, node) {
@@ -21294,8 +21299,8 @@ fn oi_stored_scalar_source(
 fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
 ) -> OiConsecutiveInputEqualityFact {
   let effects = pass_require_effects(ctx, func)
   let right_fallthrough = optimize_instructions_right_fallthrough_input_for_equality(
@@ -21397,17 +21402,17 @@ fn OiConsecutiveInputEqualityFact::proves_equal(
 
 ///|
 priv struct OiBulkMemoryConstSizeFact {
-  size : Int
+  size : Int32
 }
 
 ///|
 priv struct OiBulkMemoryFact {
-  dst_id : Int
-  src_or_value_id : Int
-  size_id : Int
+  dst_id : Int32
+  src_or_value_id : Int32
+  size_id : Int32
   const_size_fact : OiBulkMemoryConstSizeFact?
-  dst_mem_idx : Int
-  src_mem_idx : Int
+  dst_mem_idx : Int32
+  src_mem_idx : Int32
 }
 
 ///|
@@ -21424,7 +21429,7 @@ priv struct OiBulkMemoryZeroSizeDropFact {
 fn OiBulkMemoryConstSizeFact::from_size_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  size_id : Int,
+  size_id : Int32,
 ) -> OiBulkMemoryConstSizeFact? {
   match optimize_instructions_const_memory_size(func, dead, size_id) {
     Some(size) => Some({ size, })
@@ -21436,7 +21441,7 @@ fn OiBulkMemoryConstSizeFact::from_size_operand(
 fn OiBulkMemoryFact::from_copy(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBulkMemoryFact? {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count != 3 {
@@ -21459,7 +21464,7 @@ fn OiBulkMemoryFact::from_copy(
 fn OiBulkMemoryFact::from_fill(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBulkMemoryFact? {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count != 3 {
@@ -21562,21 +21567,22 @@ fn OiBulkMemoryZeroSizeDropFact::from_bulk(
 
 ///|
 priv struct OiTinyMemoryCopyFact {
-  size : Int
+  size : Int32
 }
 
 ///|
 fn OiTinyMemoryCopyFact::from_size(
   ctx : HotPassContext,
-  size : Int,
+  size : Int32,
 ) -> OiTinyMemoryCopyFact? {
   match size {
     1 | 2 | 4 | 8 => Some({ size, })
     16 =>
       // Binaryen v130 `optimizeMemoryCopy` only emits the SIMD 16-byte
       // load/store lane when `shrinkLevel == 0`; higher shrink levels keep the
-      // bulk-memory spelling to avoid the extra bytes.
-      if ctx.shrink_level == 0 {
+      // bulk-memory spelling to avoid the extra bytes. The module contract
+      // must also permit the new SIMD load and store.
+      if ctx.shrink_level == 0 && ctx.allows_simd_introduction {
         Some({ size, })
       } else {
         None
@@ -21628,10 +21634,10 @@ fn OiTinyMemoryCopyFact::store_instr(
 fn optimize_instructions_replace_with_store_exact(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  mem_idx : Int,
-  address_id : Int,
-  value_id : Int,
+  node_id : Int32,
+  mem_idx : Int32,
+  address_id : Int32,
+  value_id : Int32,
   instr_for_memarg : (@lib.MemArg) -> @lib.Instruction,
 ) -> Unit {
   let memarg = optimize_instructions_memarg_for_mem_idx(mem_idx)
@@ -21644,7 +21650,10 @@ fn optimize_instructions_replace_with_store_exact(
 }
 
 ///|
-fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
+fn optimize_instructions_repeated_fill_i32(
+  raw : Int32,
+  size : Int32,
+) -> @lib.I32? {
   let byte = raw.reinterpret_as_uint() & 0xff
   match size {
     1 => Some(@lib.I32(byte.reinterpret_as_int()))
@@ -21660,7 +21669,7 @@ fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
 }
 
 ///|
-fn optimize_instructions_repeated_fill_i64(raw : Int) -> @lib.I64 {
+fn optimize_instructions_repeated_fill_i64(raw : Int32) -> @lib.I64 {
   let byte = (raw.reinterpret_as_uint() & 0xff).to_uint64()
   @lib.I64(
     (byte |
@@ -21677,8 +21686,8 @@ fn optimize_instructions_repeated_fill_i64(raw : Int) -> @lib.I64 {
 ///|
 fn optimize_instructions_build_repeated_fill_v128_const(
   func : @ir.HotFunc,
-  raw : Int,
-) -> Int {
+  raw : Int32,
+) -> Int32 {
   let byte = (raw.reinterpret_as_uint() & 0xff).to_byte()
   @ir.hot_build_const_v128_splat(func, byte)
 }
@@ -21694,20 +21703,20 @@ priv enum OiTinyMemoryFillStoreFact {
 
 ///|
 priv enum OiTinyMemoryFillValueFact {
-  RepeatedByte(Int)
+  RepeatedByte(Int32)
   OriginalI32Value
 }
 
 ///|
 priv struct OiTinyMemoryFillFact {
-  size : Int
+  size : Int32
   store_fact : OiTinyMemoryFillStoreFact
   value_fact : OiTinyMemoryFillValueFact
 }
 
 ///|
 fn OiTinyMemoryFillStoreFact::from_size(
-  size : Int,
+  size : Int32,
 ) -> OiTinyMemoryFillStoreFact? {
   match size {
     1 => Some(Store8)
@@ -21736,8 +21745,8 @@ fn OiTinyMemoryFillStoreFact::instruction(
 ///|
 fn OiTinyMemoryFillFact::from_repeated_byte(
   ctx : HotPassContext,
-  size : Int,
-  byte : Int,
+  size : Int32,
+  byte : Int32,
 ) -> OiTinyMemoryFillFact? {
   let store_fact = match OiTinyMemoryFillStoreFact::from_size(size) {
     Some(fact) => fact
@@ -21745,13 +21754,13 @@ fn OiTinyMemoryFillFact::from_repeated_byte(
   }
   // Binaryen v130 `optimizeMemoryFill` always lowers constant sizes 1/2, only
   // lowers constant sizes 4/8 for zero bytes or `shrinkLevel == 0`, and only
-  // lowers constant size 16 at `shrinkLevel == 0` (with a SIMD store when the
-  // module feature set permits it; Starshine currently has no module feature
-  // fact, so the no-SIMD two-i64-store fallback stays documented as open).
+  // lowers constant size 16 at `shrinkLevel == 0` when the module contract
+  // permits SIMD introduction. Keep memory.fill when SIMD is forbidden: two
+  // scalar stores could write the first half before the second half traps.
   let may_lower = match size {
     1 | 2 => true
     4 | 8 => byte == 0 || ctx.shrink_level == 0
-    16 => ctx.shrink_level == 0
+    16 => ctx.shrink_level == 0 && ctx.allows_simd_introduction
     _ => false
   }
   if may_lower {
@@ -21766,8 +21775,8 @@ fn OiTinyMemoryFillFact::from_size_and_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  size : Int,
-  value_id : Int,
+  size : Int32,
+  value_id : Int32,
 ) -> OiTinyMemoryFillFact? {
   match optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
     Some(@lib.I32(raw)) => {
@@ -21795,8 +21804,8 @@ fn OiTinyMemoryFillFact::store_instr(
 fn OiTinyMemoryFillFact::build_store_value(
   self : OiTinyMemoryFillFact,
   func : @ir.HotFunc,
-  original_value_id : Int,
-) -> Int? {
+  original_value_id : Int32,
+) -> Int32? {
   match self.value_fact {
     RepeatedByte(raw) =>
       match self.store_fact {
@@ -21828,9 +21837,9 @@ fn OiTinyMemoryFillFact::build_store_value(
 fn optimize_instructions_build_i32_binary(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
-) -> Int {
+  lhs_id : Int32,
+  rhs_id : Int32,
+) -> Int32 {
   let node_id = @ir.hot_build_binary(func, @lib.ValType::i32(), lhs_id, rhs_id)
   @ir.hot_node_exact_instr_set(func, node_id, instr)
   node_id
@@ -21840,7 +21849,7 @@ fn optimize_instructions_build_i32_binary(
 priv struct OiMemoryAccessFact {
   instr : @lib.Instruction
   load_result_type : @lib.ValType?
-  store_value_bits : Int?
+  store_value_bits : Int32?
   store_value_is_i64 : Bool
 }
 
@@ -21952,15 +21961,15 @@ fn OiMemoryAccessFact::with_memarg(
 ///|
 priv struct OiStoredValueFact {
   instr : @lib.Instruction
-  address_id : Int
-  value_id : Int
+  address_id : Int32
+  value_id : Int32
   access_fact : OiMemoryAccessFact
 }
 
 ///|
 fn OiStoredValueFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStoredValueFact? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -21989,7 +21998,7 @@ fn OiStoredValueFact::from_node(
 ///|
 priv struct OiStoredValueTruncatedConstFact {
   stored_fact : OiStoredValueFact
-  new_value_id : Int
+  new_value_id : Int32
 }
 
 ///|
@@ -22037,7 +22046,7 @@ fn OiStoredValueTruncatedConstFact::from_stored_value(
 ///|
 priv struct OiStoredValueLowBitMaskFact {
   stored_fact : OiStoredValueFact
-  unmasked_value_id : Int
+  unmasked_value_id : Int32
 }
 
 ///|
@@ -22094,7 +22103,7 @@ fn OiStoredValueLowBitMaskFact::from_stored_value(
 priv struct OiStoredValueReinterpretFact {
   stored_fact : OiStoredValueFact
   new_instr : @lib.Instruction
-  new_value_id : Int
+  new_value_id : Int32
 }
 
 ///|
@@ -22143,7 +22152,7 @@ fn OiStoredValueReinterpretFact::from_stored_value(
 priv struct OiStoredValueWrapI64WidenFact {
   stored_fact : OiStoredValueFact
   new_instr : @lib.Instruction
-  new_value_id : Int
+  new_value_id : Int32
 }
 
 ///|
@@ -22198,14 +22207,14 @@ priv struct OiStoredValueRewritePlanFact {
   kind : OiStoredValueRewritePlanKind
   stored_fact : OiStoredValueFact
   new_instr : @lib.Instruction
-  new_value_id : Int
+  new_value_id : Int32
 }
 
 ///|
 fn OiStoredValueRewritePlanFact::from_truncated_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStoredValueRewritePlanFact? {
   // Binaryen v130 `optimizeStoredValue` rewrites narrow-store constants by
   // deriving the preserved low bits from the store access fact. Keep the final
@@ -22232,7 +22241,7 @@ fn OiStoredValueRewritePlanFact::from_truncated_const(
 fn OiStoredValueRewritePlanFact::from_low_bit_mask(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStoredValueRewritePlanFact? {
   let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -22255,7 +22264,7 @@ fn OiStoredValueRewritePlanFact::from_low_bit_mask(
 fn OiStoredValueRewritePlanFact::from_reinterpret(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStoredValueRewritePlanFact? {
   let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -22279,7 +22288,7 @@ fn OiStoredValueRewritePlanFact::from_wrap_i64_widen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStoredValueRewritePlanFact? {
   let stored_fact = match OiStoredValueFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -22305,7 +22314,7 @@ fn OiStoredValueRewritePlanFact::apply(
   self : OiStoredValueRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     StoredValueTruncateConst
@@ -22328,7 +22337,7 @@ fn OiStoredValueRewritePlanFact::apply(
 priv struct OiLoadResultFact {
   consumer_instr : @lib.Instruction
   load_instr : @lib.Instruction
-  address_id : Int
+  address_id : Int32
 }
 
 ///|
@@ -22336,7 +22345,7 @@ fn OiLoadResultFact::from_unary_consumer(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLoadResultFact? {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count != 1 {
@@ -22454,7 +22463,7 @@ fn OiLoadResultRewritePlanFact::from_reinterpret(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLoadResultRewritePlanFact? {
   // Binaryen v130 `visitUnary` mutates one-use representation loads underneath
   // reinterpret consumers. Keep the mutation target as a plan fact beside the
@@ -22482,7 +22491,7 @@ fn OiLoadResultRewritePlanFact::from_i64_extend_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiLoadResultRewritePlanFact? {
   let load_fact = match
     OiLoadResultFact::from_unary_consumer(ctx, func, dead, node_id) {
@@ -22506,7 +22515,7 @@ fn OiLoadResultRewritePlanFact::apply(
   self : OiLoadResultRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     LoadResultRewriteReinterpret | LoadResultRewriteI64ExtendI32 => {
@@ -22595,7 +22604,7 @@ fn OiAtomicAccessFact::with_memarg(
 // load/store/atomic scanner at each rewrite site.
 priv struct OiMemoryOffsetFoldFact {
   instr : @lib.Instruction
-  address_id : Int
+  address_id : Int32
   new_memarg : @lib.MemArg
   folded_i32_address : @lib.I32?
   folded_i64_address : @lib.I64?
@@ -22604,7 +22613,7 @@ priv struct OiMemoryOffsetFoldFact {
 ///|
 fn OiMemoryOffsetFoldFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMemoryOffsetFoldFact? {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 0 {
@@ -22688,7 +22697,7 @@ fn OiMemoryOffsetFoldFact::from_node(
 fn OiMemoryOffsetFoldFact::build_address_const(
   self : OiMemoryOffsetFoldFact,
   func : @ir.HotFunc,
-) -> Int? {
+) -> Int32? {
   ignore(self.address_id)
   match (self.folded_i32_address, self.folded_i64_address) {
     (Some(value), None) => Some(@ir.hot_build_const_i32(func, value))
@@ -22699,14 +22708,14 @@ fn OiMemoryOffsetFoldFact::build_address_const(
 
 ///|
 priv struct OiMemoryOffsetFoldAtomicFact {
-  new_address_id : Int
+  new_address_id : Int32
   new_instr : @lib.Instruction
 }
 
 ///|
 priv struct OiMemoryOffsetFoldLoadFact {
   offset_fact : OiMemoryOffsetFoldFact
-  new_address_id : Int
+  new_address_id : Int32
   new_instr : @lib.Instruction
   result_type : @lib.ValType
 }
@@ -22714,15 +22723,15 @@ priv struct OiMemoryOffsetFoldLoadFact {
 ///|
 priv struct OiMemoryOffsetFoldStoreFact {
   offset_fact : OiMemoryOffsetFoldFact
-  new_address_id : Int
+  new_address_id : Int32
   new_instr : @lib.Instruction
-  store_value_id : Int
+  store_value_id : Int32
 }
 
 ///|
 fn OiMemoryOffsetFoldAtomicFact::from_offset(
   offset_fact : OiMemoryOffsetFoldFact,
-  new_address_id : Int,
+  new_address_id : Int32,
 ) -> OiMemoryOffsetFoldAtomicFact? {
   // Binaryen v130 `optimizeMemoryAccess` rebuilds load/store atomics by
   // replacing only the memarg after the source address fold is proven. Keep the
@@ -22742,7 +22751,7 @@ fn OiMemoryOffsetFoldAtomicFact::from_offset(
 ///|
 fn OiMemoryOffsetFoldLoadFact::from_offset(
   offset_fact : OiMemoryOffsetFoldFact,
-  new_address_id : Int,
+  new_address_id : Int32,
 ) -> OiMemoryOffsetFoldLoadFact? {
   // Binaryen v130 scalar loads need the rebuilt load result type and zero-offset
   // memarg together. Keep both in the load-specific fact instead of sharing a
@@ -22765,9 +22774,9 @@ fn OiMemoryOffsetFoldLoadFact::from_offset(
 ///|
 fn OiMemoryOffsetFoldStoreFact::from_offset(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   offset_fact : OiMemoryOffsetFoldFact,
-  new_address_id : Int,
+  new_address_id : Int32,
 ) -> OiMemoryOffsetFoldStoreFact? {
   // Binaryen v130 scalar stores preserve the value child while replacing the
   // address child and memarg. Capture that store-only child in a store-specific
@@ -22798,7 +22807,7 @@ priv enum OiMemoryOffsetFoldRewritePlanFact {
 ///|
 fn OiMemoryOffsetFoldRewritePlanFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMemoryOffsetFoldRewritePlanFact? {
   // Binaryen v130 `optimizeMemoryAccess` derives one source-level address
   // folding fact, then rebuilds the matching load/store/atomic access with the
@@ -22856,7 +22865,7 @@ fn OiMemoryOffsetFoldRewritePlanFact::apply(
   self : OiMemoryOffsetFoldRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self {
     MemoryOffsetFoldAtomicPlan(fact) => {
@@ -22931,7 +22940,7 @@ fn optimize_instructions_struct_atomic_field_type(
 fn optimize_instructions_add_temp_local(
   func : @ir.HotFunc,
   value_type : @lib.ValType,
-) -> Int {
+) -> Int32 {
   let local_id = @ir.hot_local_count(func)
   func.locals.locals.push(value_type)
   local_id
@@ -22942,8 +22951,8 @@ fn optimize_instructions_build_exact_heap(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
   result_type : @lib.ValType?,
-  children : Array[Int],
-) -> Int {
+  children : Array[Int32],
+) -> Int32 {
   let result_types = match result_type {
     Some(value_type) => [value_type]
     None => []
@@ -22956,8 +22965,8 @@ fn optimize_instructions_build_exact_atomic(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
   result_type : @lib.ValType?,
-  children : Array[Int],
-) -> Int {
+  children : Array[Int32],
+) -> Int32 {
   let result_types = match result_type {
     Some(value_type) => [value_type]
     None => []
@@ -22971,9 +22980,9 @@ fn optimize_instructions_build_exact_binary_for_value_type(
   value_type : @lib.ValType,
   instr32 : @lib.Instruction,
   instr64 : @lib.Instruction,
-  lhs : Int,
-  rhs : Int,
-) -> Int? {
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32? {
   let instr = if value_type == @lib.ValType::i32() {
     instr32
   } else if value_type == @lib.ValType::i64() {
@@ -22992,9 +23001,9 @@ fn optimize_instructions_build_exact_compare_for_value_type(
   value_type : @lib.ValType,
   instr32 : @lib.Instruction,
   instr64 : @lib.Instruction,
-  lhs : Int,
-  rhs : Int,
-) -> Int? {
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32? {
   let instr = if value_type == @lib.ValType::i32() {
     instr32
   } else if value_type == @lib.ValType::i64() {
@@ -23011,9 +23020,9 @@ fn optimize_instructions_build_exact_compare_for_value_type(
 fn optimize_instructions_replace_with_value_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   result_type : @lib.ValType,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   @ir.hot_node_promote_to_block(
     func,
@@ -23045,7 +23054,7 @@ priv enum OiStructAtomicIdentityLiteralKind {
 }
 
 ///|
-fn OiStructAtomicIdentityLiteralKind::expected_i32(self : Self) -> Int {
+fn OiStructAtomicIdentityLiteralKind::expected_i32(self : Self) -> Int32 {
   match self {
     ZeroStructAtomicIdentityLiteral => 0
     AllOnesStructAtomicIdentityLiteral => -1
@@ -23087,14 +23096,14 @@ fn OiStructAtomicIdentityOperatorFact::from_op(
 
 ///|
 priv struct OiStructAtomicI32IdentityValueFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiStructAtomicI32IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  value_id : Int,
+  value_id : Int32,
   literal_kind : OiStructAtomicIdentityLiteralKind,
 ) -> OiStructAtomicI32IdentityValueFact? {
   // Binaryen v130 `visitStructRMW` recognizes aggregate-atomic identity
@@ -23109,14 +23118,14 @@ fn OiStructAtomicI32IdentityValueFact::from_value(
 
 ///|
 priv struct OiStructAtomicI64IdentityValueFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiStructAtomicI64IdentityValueFact::from_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  value_id : Int,
+  value_id : Int32,
   literal_kind : OiStructAtomicIdentityLiteralKind,
 ) -> OiStructAtomicI64IdentityValueFact? {
   // Same Binaryen v130 aggregate-atomic identity literal proof for the i64
@@ -23155,13 +23164,13 @@ fn OiStructAtomicFieldFact::from_index(
 
 ///|
 priv struct OiStructAtomicReceiverFact {
-  receiver_id : Int
+  receiver_id : Int32
 }
 
 ///|
 fn OiStructAtomicReceiverFact::from_expr(
   func : @ir.HotFunc,
-  receiver_id : Int,
+  receiver_id : Int32,
 ) -> OiStructAtomicReceiverFact? {
   // Binaryen's replacement can reuse the receiver via `getResultOfFirst` or a
   // fresh local. The current HOT OI-L surface keeps this fact deliberately
@@ -23175,7 +23184,7 @@ fn OiStructAtomicReceiverFact::from_expr(
 
 ///|
 priv struct OiStructAtomicIdentityOperandFact {
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
@@ -23184,7 +23193,7 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
   dead : @bitset.BitSet,
   field_fact : OiStructAtomicFieldFact,
   op : @lib.AggregateAtomicRmwOp,
-  value_id : Int,
+  value_id : Int32,
 ) -> OiStructAtomicIdentityOperandFact? {
   // Binaryen v130 folds RMW add/sub/or/xor with zero and and with all-ones to a
   // read-only struct.atomic.get when the value is a single constant fallthrough.
@@ -23221,16 +23230,16 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
 
 ///|
 priv struct OiStructAtomicCmpxchgSameValueFact {
-  expected_id : Int
-  replacement_id : Int
+  expected_id : Int32
+  replacement_id : Int32
 }
 
 ///|
 fn OiStructAtomicCmpxchgSameValueFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  expected_id : Int,
-  replacement_id : Int,
+  expected_id : Int32,
+  replacement_id : Int32,
 ) -> OiStructAtomicCmpxchgSameValueFact? {
   // Binaryen v130 `visitStructCmpxchg` uses `areConsecutiveInputsEqual` to
   // prove that `expected` and `replacement` cannot modify the field and then
@@ -23255,13 +23264,13 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   field_fact : OiStructAtomicFieldFact,
   order : @lib.AtomicOrder,
   receiver_fact : OiStructAtomicReceiverFact,
-  operands_to_drop : Array[Int],
+  operands_to_drop : Array[Int32],
 ) -> Bool {
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for operand in operands_to_drop {
     if !OiLiveNodeFact::proves_node_live(func, dead, operand) ||
       !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, operand) {
@@ -23333,9 +23342,9 @@ fn OiStructAtomicRmwLoweringOpFact::build_new_value(
   self : OiStructAtomicRmwLoweringOpFact,
   func : @ir.HotFunc,
   value_type : @lib.ValType,
-  old_get_for_new : Int,
-  value_get_for_new : Int,
-) -> Int? {
+  old_get_for_new : Int32,
+  value_get_for_new : Int32,
+) -> Int32? {
   match self {
     StructAtomicRmwLowerAdd =>
       optimize_instructions_build_exact_binary_for_value_type(
@@ -23391,7 +23400,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   order : @lib.AtomicOrder,
   op : @lib.AggregateAtomicRmwOp,
   field_fact : OiStructAtomicFieldFact,
@@ -23463,7 +23472,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   // Build temporary definitions before their reads. HOT source order is also
   // used to recover carried stack dependencies; prebuilding the arithmetic
   // would make lowering preserve an extra evaluation before these writes.
-  let body : Array[Int] = [
+  let body : Array[Int32] = [
     @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, value_local, value_id),
     @ir.hot_build_local_set(
@@ -23513,7 +23522,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   order : @lib.AtomicOrder,
   field_fact : OiStructAtomicFieldFact,
 ) -> Bool {
@@ -23624,7 +23633,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
       ),
     ],
   )
-  let body : Array[Int] = [
+  let body : Array[Int32] = [
     @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, expected_local, expected_id),
     @ir.hot_build_local_set(func, replacement_local, replacement_id),
@@ -23661,7 +23670,7 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => instr
@@ -23753,7 +23762,7 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   ignore(dead)
   match OiMemoryOffsetFoldRewritePlanFact::from_node(func, node_id) {
@@ -23827,7 +23836,7 @@ fn OiTupleLaneLocalizeChildTraversalFact::from_region(
 ///|
 fn OiTupleLaneLocalizeChildTraversalFact::from_node_children(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleLaneLocalizeChildTraversalFact {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 0 {
@@ -23846,7 +23855,7 @@ fn OiTupleLaneLocalizeChildTraversalFact::from_node_children(
 ///|
 fn OiTupleLaneLocalizeFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleLaneLocalizeFact {
   // Binaryen v130 `visitTupleExtract` delegates discarded-value sequencing to
   // `getDroppedChildrenAndAppend(make, get)`, which can localize expression
@@ -23930,7 +23939,7 @@ fn OiTupleLaneTrapChildTraversalFact::may_trap(
 ///|
 fn OiTupleLaneTrapChildTraversalFact::from_node_children(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleLaneTrapChildTraversalFact {
   // This child-traversal fact is the trap-preservation sibling of
   // `OiTupleLaneLocalizeChildTraversalFact`: direct opcode trap facts are checked
@@ -23953,7 +23962,7 @@ fn OiTupleLaneTrapChildTraversalFact::from_node_children(
 ///|
 fn OiTupleLaneTrapFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleLaneTrapFact {
   // This is the tuple-local Binaryen `getDroppedChildrenAndAppend` preservation
   // fact for pure instructions that still may trap when dropped as an unselected
@@ -23999,7 +24008,7 @@ fn OiTupleLaneDiscardFact::must_preserve(self : OiTupleLaneDiscardFact) -> Bool 
 fn OiTupleLaneDiscardFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   localize_fact : OiTupleLaneLocalizeFact,
 ) -> OiTupleLaneDiscardFact {
   if !localize_fact.allows_direct() {
@@ -24049,9 +24058,9 @@ fn OiTupleLaneDiscardFact::from_node(
 ///|
 fn optimize_instructions_tuple_extract_child_for_flat_index(
   func : @ir.HotFunc,
-  tuple_id : Int,
-  index : Int,
-) -> (Int, Int)? {
+  tuple_id : Int32,
+  index : Int32,
+) -> (Int32, Int32)? {
   let tuple = @ir.hot_node_get(func, tuple_id)
   let mut first_result = 0
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
@@ -24113,16 +24122,16 @@ fn OiTupleLaneMaterializeFact::must_emit(
 fn OiTupleLaneMaterializeFact::append_discarded_child(
   self : OiTupleLaneMaterializeFact,
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
   child_results : Array[@lib.ValType],
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   match self {
     TupleLaneEraseDiscarded => ()
     TupleLaneAppendEffectRoot => body.push(child_id)
     TupleLaneDropSingleResult => body.push(@ir.hot_build_drop(func, child_id))
     TupleLaneStoreMultiResultLocals => {
-      let discard_locals : Array[Int] = []
+      let discard_locals : Array[Int32] = []
       for result in child_results {
         discard_locals.push(@ir.hot_append_body_local(func, result))
       }
@@ -24137,7 +24146,7 @@ fn OiTupleLaneMaterializeFact::append_discarded_child(
 
 ///|
 priv struct OiTupleLaneFact {
-  node_id : Int
+  node_id : Int32
   results : Array[@lib.ValType]
   localize_fact : OiTupleLaneLocalizeFact
   discard_fact : OiTupleLaneDiscardFact
@@ -24148,7 +24157,7 @@ priv struct OiTupleLaneFact {
 fn OiTupleLaneFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleLaneFact {
   let localize_fact = OiTupleLaneLocalizeFact::from_node(func, node_id)
   let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
@@ -24177,8 +24186,8 @@ priv enum OiTupleExtractStructuralKind {
 
 ///|
 priv struct OiTupleExtractTupleMakePayloadFact {
-  tuple_id : Int
-  index : Int
+  tuple_id : Int32
+  index : Int32
 }
 
 ///|
@@ -24192,7 +24201,7 @@ fn OiTupleExtractStructuralFact::from_extract(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleExtractStructuralFact {
   // Binaryen v130 `visitTupleExtract` only rewrites a `tuple.extract` fed by a
   // single-use `tuple.make` with a concrete lane index. Keep each structural
@@ -24234,7 +24243,7 @@ priv struct OiTupleSiblingEffectFact {
 ///|
 fn OiTupleSiblingEffectFact::from_lanes(
   lane_facts : Array[OiTupleLaneFact],
-  selected_slot : Int,
+  selected_slot : Int32,
 ) -> OiTupleSiblingEffectFact {
   // Binaryen v130 `visitTupleExtract` rewrites the selected tuple lane to a
   // temporary and lets `getDroppedChildrenAndAppend(make, get)` preserve only
@@ -24274,9 +24283,9 @@ fn OiTupleSiblingEffectFact::needs_selected_local(
 
 ///|
 priv struct OiTupleExtractFact {
-  selected_slot : Int
-  selected_lane : Int
-  selected_id : Int
+  selected_slot : Int32
+  selected_lane : Int32
+  selected_id : Int32
   selected_results : Array[@lib.ValType]
   lane_facts : Array[OiTupleLaneFact]
   sibling_effect_fact : OiTupleSiblingEffectFact
@@ -24287,7 +24296,7 @@ fn OiTupleExtractFact::from_extract(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTupleExtractFact? {
   let structural_fact = OiTupleExtractStructuralFact::from_extract(
     ctx, func, dead, node_id,
@@ -24358,12 +24367,12 @@ priv enum OiTupleSelectedMaterializeKind {
 
 ///|
 priv struct OiTupleSelectedLocalFact {
-  selected_local : Int
+  selected_local : Int32
 }
 
 ///|
 priv struct OiTupleSelectedResultLocalsFact {
-  selected_result_locals : Array[Int]
+  selected_result_locals : Array[Int32]
 }
 
 ///|
@@ -24384,7 +24393,7 @@ fn OiTupleSelectedMaterializeFact::direct_value() -> OiTupleSelectedMaterializeF
 
 ///|
 fn OiTupleSelectedMaterializeFact::single_local(
-  selected_local : Int,
+  selected_local : Int32,
 ) -> OiTupleSelectedMaterializeFact {
   {
     kind: TupleSelectedSingleLocal,
@@ -24395,7 +24404,7 @@ fn OiTupleSelectedMaterializeFact::single_local(
 
 ///|
 fn OiTupleSelectedMaterializeFact::multi_result_locals(
-  selected_result_locals : Array[Int],
+  selected_result_locals : Array[Int32],
 ) -> OiTupleSelectedMaterializeFact {
   {
     kind: TupleSelectedMultiResultLocals,
@@ -24418,7 +24427,7 @@ fn OiTupleSelectedMaterializeFact::from_extract(
   // and multi-result-local payloads distinct so the fact does not use a `-1`
   // selected-local sentinel or parallel helper predicates.
   if tuple_fact.selected_results.length() > 1 {
-    let selected_result_locals : Array[Int] = []
+    let selected_result_locals : Array[Int32] = []
     for result in tuple_fact.selected_results {
       selected_result_locals.push(@ir.hot_append_body_local(func, result))
     }
@@ -24439,7 +24448,7 @@ fn OiTupleSelectedMaterializeFact::append_selected_capture(
   self : OiTupleSelectedMaterializeFact,
   func : @ir.HotFunc,
   tuple_fact : OiTupleExtractFact,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   match self.kind {
     TupleSelectedMultiResultLocals => {
@@ -24481,7 +24490,7 @@ fn OiTupleSelectedMaterializeFact::append_selected_result(
   self : OiTupleSelectedMaterializeFact,
   func : @ir.HotFunc,
   tuple_fact : OiTupleExtractFact,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   match self.kind {
     TupleSelectedMultiResultLocals => {
@@ -24551,7 +24560,7 @@ fn OiTupleExtractRewritePlanFact::apply(
   self : OiTupleExtractRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     TupleExtractForwardSelected => {
@@ -24573,13 +24582,13 @@ fn OiTupleExtractRewritePlanFact::apply_materialized(
   self : OiTupleExtractRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let selected_materialize_fact = match self.selected_materialize_fact {
     Some(fact) => fact
     None => return false
   }
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for slot = 0; slot < self.tuple_fact.lane_facts.length(); slot = slot + 1 {
     let lane_fact = self.tuple_fact.lane_facts[slot]
     if slot == self.tuple_fact.selected_slot {
@@ -24617,7 +24626,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let tuple_fact = match
     OiTupleExtractFact::from_extract(ctx, func, dead, node_id) {
@@ -24638,7 +24647,7 @@ priv enum OiOrderedOperandControlShapeFact {
 ///|
 fn OiOrderedOperandControlShapeFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiOrderedOperandControlShapeFact {
   // Binaryen v130 ordered-effect rewrites rely on ChildLocalizer-like
   // root-shape facts: scalar expression roots can be sequenced by appending
@@ -24695,8 +24704,8 @@ fn OiOrderedOperandDiscardFact::from_results(
 fn OiOrderedOperandDiscardFact::append(
   self : OiOrderedOperandDiscardFact,
   func : @ir.HotFunc,
-  node_id : Int,
-  body : Array[Int],
+  node_id : Int32,
+  body : Array[Int32],
 ) -> Bool {
   match self {
     OrderedOperandAppendEffectRoot => body.push(node_id)
@@ -24723,7 +24732,7 @@ priv struct OiOrderedOperandPurityFact {
 fn OiOrderedOperandPurityFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiOrderedOperandPurityFact {
   // Binaryen's ordered-effect localizer drops pure children while preserving
   // effectful children. Keep the two Starshine purity sources as a single
@@ -24795,7 +24804,7 @@ fn OiOrderedOperandPreservationFact::proves_order_preserved(
 
 ///|
 priv struct OiOrderedOperandFact {
-  node_id : Int
+  node_id : Int32
   discard_fact : OiOrderedOperandDiscardFact
   purity_fact : OiOrderedOperandPurityFact
   preservation_fact : OiOrderedOperandPreservationFact
@@ -24805,7 +24814,7 @@ priv struct OiOrderedOperandFact {
 fn OiOrderedOperandFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiOrderedOperandFact {
   let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
   let control_shape_fact = OiOrderedOperandControlShapeFact::from_node(
@@ -24826,7 +24835,7 @@ fn OiOrderedOperandFact::from_node(
 fn OiOrderedOperandFact::append_discard(
   self : OiOrderedOperandFact,
   func : @ir.HotFunc,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Bool {
   self.discard_fact.append(func, self.node_id, body)
 }
@@ -24835,8 +24844,8 @@ fn OiOrderedOperandFact::append_discard(
 fn optimize_instructions_append_ordered_effects(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  operand_ids : Array[Int],
-  body : Array[Int],
+  operand_ids : Array[Int32],
+  body : Array[Int32],
 ) -> Bool {
   for operand_id in operand_ids {
     let operand_fact = OiOrderedOperandFact::from_node(ctx, func, operand_id)
@@ -24855,8 +24864,8 @@ fn optimize_instructions_append_ordered_effects(
 
 ///|
 priv struct OiChildLocalizationPlanFact {
-  source_ids : Array[Int]
-  drop_ids : Array[Int]
+  source_ids : Array[Int32]
+  drop_ids : Array[Int32]
 }
 
 ///|
@@ -24873,10 +24882,10 @@ priv struct OiArrayNewFixedRepresentativeDefaultFact {
 
 ///|
 priv struct OiArrayNewFixedRepeatedValueFact {
-  node_id : Int
+  node_id : Int32
   type_idx : @lib.TypeIdx
-  size : Int
-  representative_id : Int
+  size : Int32
+  representative_id : Int32
   representative_default_fact : OiArrayNewFixedRepresentativeDefaultFact
   non_default_localization_plan : OiChildLocalizationPlanFact
 }
@@ -24897,7 +24906,7 @@ priv enum OiArrayDefaultFallthroughKind {
 
 ///|
 priv struct OiArrayDefaultFallthroughTraversalFact {
-  fallthrough_id : Int
+  fallthrough_id : Int32
   kind : OiArrayDefaultFallthroughKind
 }
 
@@ -24957,7 +24966,7 @@ priv struct OiArrayStorageDefaultValueFact {
 fn OiArrayStorageDefaultValueFact::from_value(
   func : @ir.HotFunc,
   storage : @lib.StorageType,
-  value_id : Int,
+  value_id : Int32,
 ) -> OiArrayStorageDefaultValueFact {
   // Binaryen's array default rewrites prove the fallthrough initializer equals
   // the field storage default before erasing or replacing allocation operands.
@@ -25033,14 +25042,14 @@ fn OiArrayStorageDefaultValueFact::proves_default(
 fn OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
   func : @ir.HotFunc,
   storage : @lib.StorageType,
-  value_id : Int,
+  value_id : Int32,
 ) -> Bool {
   OiArrayStorageDefaultValueFact::from_value(func, storage, value_id).proves_default()
 }
 
 ///|
 fn OiArrayDefaultFallthroughTraversalFact::from_kind(
-  fallthrough_id : Int,
+  fallthrough_id : Int32,
   kind : OiArrayDefaultFallthroughKind,
 ) -> OiArrayDefaultFallthroughTraversalFact {
   { fallthrough_id, kind, }
@@ -25049,9 +25058,9 @@ fn OiArrayDefaultFallthroughTraversalFact::from_kind(
 ///|
 fn OiArrayDefaultFallthroughTraversalFact::from_value(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  value_id : Int,
-  depth? : Int = 0,
+  node_masks : Array[UInt32],
+  value_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiArrayDefaultFallthroughTraversalFact {
   // Binaryen v130 `visitArrayNew` and `visitArrayNewFixed` use
   // `Properties::getFallthrough` to decide whether an initializer reaches a
@@ -25199,10 +25208,10 @@ fn OiArrayDefaultPreservationFact::from_kind(
 ///|
 fn OiArrayDefaultPreservationFact::from_value(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  value_id : Int,
-  fallthrough_id : Int,
-  depth? : Int = 0,
+  node_masks : Array[UInt32],
+  value_id : Int32,
+  fallthrough_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiArrayDefaultPreservationFact {
   // Binaryen v130 `getDroppedChildrenAndAppend` preserves only wrappers whose
   // evaluation can remain observable while replacing an array default value
@@ -25297,8 +25306,8 @@ fn OiArrayDefaultPreservationFact::proves_preserve_needed(
 ///|
 fn OiArrayDefaultFallthroughFact::from_value(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  value_id : Int,
+  node_masks : Array[UInt32],
+  value_id : Int32,
 ) -> OiArrayDefaultFallthroughFact {
   {
     traversal_fact: OiArrayDefaultFallthroughTraversalFact::from_value(
@@ -25310,7 +25319,7 @@ fn OiArrayDefaultFallthroughFact::from_value(
 ///|
 fn OiArrayDefaultFallthroughFact::fallthrough_id(
   self : OiArrayDefaultFallthroughFact,
-) -> Int {
+) -> Int32 {
   ignore(self.traversal_fact.proves_recorded_traversal_kind())
   self.traversal_fact.fallthrough_id
 }
@@ -25324,7 +25333,7 @@ fn OiChildLocalizationPlanFact::empty() -> OiChildLocalizationPlanFact {
 fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiChildLocalizationPlanFact {
   // Binaryen v130 `visitArrayNewFixed` hands the non-default repeated-value
   // rewrite to `ChildLocalizer`: operands whose evaluation must remain visible
@@ -25333,7 +25342,7 @@ fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
   // fact instead of storing an ad hoc list on the array constructor fact.
   let effects = pass_require_effects(ctx, func)
   let node = @ir.hot_node_get(func, node_id)
-  let source_ids : Array[Int] = []
+  let source_ids : Array[Int32] = []
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if !OiNodeEffectPurityFact::from_node_masks(effects.node_masks, child_id).proves_pure() {
@@ -25353,9 +25362,9 @@ fn OiChildLocalizationPlanFact::needs_localization(
 ///|
 fn OiChildLocalizationPlanFact::from_array_default_fallthrough(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  value_id : Int,
-  fallthrough_id : Int,
+  node_masks : Array[UInt32],
+  value_id : Int32,
+  fallthrough_id : Int32,
 ) -> OiChildLocalizationPlanFact {
   // Binaryen v130 uses `getDroppedChildrenAndAppend` for both `array.new`
   // default-initializer rewrites and default repeated `array.new_fixed`
@@ -25374,7 +25383,7 @@ fn OiChildLocalizationPlanFact::from_array_default_fallthrough(
 
 ///|
 fn OiChildLocalizationPlanFact::from_array_new_default_initializer(
-  value_id : Int,
+  value_id : Int32,
 ) -> OiChildLocalizationPlanFact {
   // Binaryen v130 `visitArrayNew` always sequences `drop(init)` before the
   // converted `array.new_default`, even when the fallthrough default itself is
@@ -25394,7 +25403,7 @@ fn OiChildLocalizationPlanFact::needs_dropped_children(
 fn OiChildLocalizationPlanFact::append_dropped_children(
   self : OiChildLocalizationPlanFact,
   func : @ir.HotFunc,
-  body : Array[Int],
+  body : Array[Int32],
 ) -> Unit {
   for source_id in self.drop_ids {
     body.push(@ir.hot_build_drop(func, source_id))
@@ -25406,9 +25415,9 @@ fn OiChildLocalizationPlanFact::append_localized_inputs(
   self : OiChildLocalizationPlanFact,
   func : @ir.HotFunc,
   value_type : @lib.ValType,
-  representative_id : Int,
-  body : Array[Int],
-) -> Int {
+  representative_id : Int32,
+  body : Array[Int32],
+) -> Int32 {
   let mut representative_local = -1
   for source_id in self.source_ids {
     let local_id = optimize_instructions_add_temp_local(func, value_type)
@@ -25427,7 +25436,7 @@ fn OiChildLocalizationPlanFact::append_localized_inputs(
 ///|
 fn OiArrayDefaultValueFact::from_kind(
   kind : OiArrayDefaultValueKind,
-  preservation_plan? : OiChildLocalizationPlanFact = OiChildLocalizationPlanFact::empty(),
+  preservation_plan~ : OiChildLocalizationPlanFact = OiChildLocalizationPlanFact::empty(),
 ) -> OiArrayDefaultValueFact {
   { kind, preservation_plan, }
 }
@@ -25471,7 +25480,7 @@ fn OiArrayDefaultValueFact::from_array_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   type_idx : @lib.TypeIdx,
-  value_id : Int,
+  value_id : Int32,
 ) -> OiArrayDefaultValueFact {
   // Binaryen v130 `visitArrayNew` and `visitArrayNewFixed` check
   // `getFallthrough(value)` before deciding whether an array initializer or an
@@ -25532,7 +25541,7 @@ fn OiArrayDefaultValueFact::from_array_value(
 fn OiArrayNewFixedRepeatedValueFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiArrayNewFixedRepeatedValueFact? {
   let node = @ir.hot_node_get(func, node_id)
   let (type_idx, size) = match @ir.hot_node_exact_instr(func, node_id) {
@@ -25603,7 +25612,7 @@ fn OiArrayNewFixedRepeatedValueFact::apply_non_default_localized_rewrite(
     _ => return false
   }
   let original = @ir.hot_node_get(func, self.node_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   let representative_value_id = self.non_default_localization_plan.append_localized_inputs(
     func,
     value_type,
@@ -25652,7 +25661,7 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
     self.apply_non_default_localized_rewrite(ctx, func) {
     return
   }
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if self.representative_default_fact.proves_default() {
     for slot = 0
         slot < @ir.hot_child_count(func, self.node_id)
@@ -25726,7 +25735,7 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
 fn optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let fact = match
     OiArrayNewFixedRepeatedValueFact::from_node(ctx, func, node_id) {
@@ -25742,24 +25751,24 @@ fn optimize_instructions_try_rewrite_array_new_fixed_repeated_values(
 
 ///|
 priv struct OiArrayNewDefaultInitRewriteFact {
-  node_id : Int
+  node_id : Int32
   type_idx : @lib.TypeIdx
   preservation_plan : OiChildLocalizationPlanFact
-  len_id : Int
+  len_id : Int32
 }
 
 ///|
 priv struct OiArrayNewSingleFixedFact {
-  node_id : Int
+  node_id : Int32
   type_idx : @lib.TypeIdx
-  init_id : Int
+  init_id : Int32
 }
 
 ///|
 fn OiArrayNewDefaultInitRewriteFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiArrayNewDefaultInitRewriteFact? {
   let node = @ir.hot_node_get(func, node_id)
   let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
@@ -25809,7 +25818,7 @@ fn OiArrayNewDefaultInitRewriteFact::apply_rewrite(
     [val_type] => @lib.BlockType::val_type(val_type)
     _ => @lib.BlockType::void_()
   }
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   self.preservation_plan.append_dropped_children(func, body)
   body.push(temp)
   let replacement_id = @ir.hot_build_block(func, block_type, body)
@@ -25828,7 +25837,7 @@ fn OiArrayNewDefaultInitRewriteFact::apply_rewrite(
 fn optimize_instructions_try_rewrite_array_new_default_init(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let fact = match
     OiArrayNewDefaultInitRewriteFact::from_node(ctx, func, node_id) {
@@ -25842,7 +25851,7 @@ fn optimize_instructions_try_rewrite_array_new_default_init(
 ///|
 fn OiArrayNewSingleFixedFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiArrayNewSingleFixedFact? {
   let node = @ir.hot_node_get(func, node_id)
   let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
@@ -25892,7 +25901,7 @@ fn OiArrayNewSingleFixedFact::apply_rewrite(
 fn optimize_instructions_try_rewrite_array_new_single_fixed(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let fact = match OiArrayNewSingleFixedFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -25907,7 +25916,7 @@ fn optimize_instructions_try_truncate_narrow_store_const_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match
     OiStoredValueRewritePlanFact::from_truncated_const(func, dead, node_id) {
@@ -25921,7 +25930,7 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiStoredValueRewritePlanFact::from_low_bit_mask(func, dead, node_id) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
@@ -25934,7 +25943,7 @@ fn optimize_instructions_try_rewrite_reinterpret_store_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiStoredValueRewritePlanFact::from_reinterpret(func, dead, node_id) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
@@ -25947,7 +25956,7 @@ fn optimize_instructions_try_rewrite_reinterpret_load_result(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match
     OiLoadResultRewritePlanFact::from_reinterpret(ctx, func, dead, node_id) {
@@ -25961,7 +25970,7 @@ fn optimize_instructions_try_rewrite_i64_extend_i32_load_result(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match
     OiLoadResultRewritePlanFact::from_i64_extend_i32(ctx, func, dead, node_id) {
@@ -25975,7 +25984,7 @@ fn optimize_instructions_try_widen_store_of_wrap_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match
     OiStoredValueRewritePlanFact::from_wrap_i64_widen(ctx, func, dead, node_id) {
@@ -25988,10 +25997,10 @@ fn optimize_instructions_try_widen_store_of_wrap_i64(
 fn optimize_instructions_replace_with_dropped_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  operands : Array[Int],
+  node_id : Int32,
+  operands : Array[Int32],
 ) -> Unit {
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   for operand in operands {
     body.push(@ir.hot_build_drop(func, operand))
   }
@@ -26040,7 +26049,7 @@ fn OiBulkMemoryRewritePlanFact::from_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBulkMemoryRewritePlanFact? {
   // Binaryen v130 `optimizeMemoryCopy` first handles trap-relaxed identical
   // addresses, then trap-relaxed zero sizes, then constant tiny load/store
@@ -26092,12 +26101,12 @@ fn OiBulkMemoryRewritePlanFact::from_fill(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBulkMemoryRewritePlanFact? {
   // Binaryen v130 `optimizeMemoryFill` requires a constant size, handles the
   // trap-relaxed zero-size drop, then lowers constant-byte fills and the
-  // nonconstant size-1 store8 case. The feature-dependent no-SIMD size-16 i64
-  // fallback stays outside this plan until Starshine has module-feature facts.
+  // nonconstant size-1 store8 case. SIMD-forbidden size-16 fills keep their
+  // atomic bounds-check/write behavior rather than split into scalar stores.
   let bulk_fact = match OiBulkMemoryFact::from_fill(func, dead, node_id) {
     Some(fact) => fact
     None => return None
@@ -26140,7 +26149,7 @@ fn OiBulkMemoryRewritePlanFact::apply(
   self : OiBulkMemoryRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     BulkMemoryDropSameAddressCopy => {
@@ -26168,7 +26177,7 @@ fn OiBulkMemoryRewritePlanFact::apply_tiny_copy(
   self : OiBulkMemoryRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let copy_fact = match self.copy_fact {
     Some(fact) => fact
@@ -26197,7 +26206,7 @@ fn OiBulkMemoryRewritePlanFact::apply_tiny_fill(
   self : OiBulkMemoryRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let fill_fact = match self.fill_fact {
     Some(fact) => fact
@@ -26225,7 +26234,7 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiBulkMemoryRewritePlanFact::from_copy(ctx, func, dead, node_id) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
@@ -26238,7 +26247,7 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiBulkMemoryRewritePlanFact::from_fill(ctx, func, dead, node_id) {
     Some(plan_fact) => plan_fact.apply(ctx, func, node_id)
@@ -26251,7 +26260,7 @@ fn OiDeadShellRewritePlanFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDeadShellRewritePlanFact? {
   // Binaryen still optimizes selected bulk-memory children under syntactically
   // unreachable shells during the OI walk. Starshine keeps that dead-shell
@@ -26278,7 +26287,7 @@ fn OiDeadShellRewritePlanFact::apply(
   self : OiDeadShellRewritePlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     DeadShellBulkMemoryCopy | DeadShellBulkMemoryFill =>
@@ -26304,8 +26313,8 @@ priv struct OiOrderedBinaryLocalLocalEqualityFact {
 fn OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> OiOrderedBinaryLocalLocalEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal binary nodes as the
   // same operation with recursively equal ordered operands. For the select-arm
@@ -26484,8 +26493,8 @@ priv struct OiOrderedBinaryLocalConstEqualityFact {
 fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> OiOrderedBinaryLocalConstEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal binary nodes as the
   // same operation with recursively equal ordered operands. For the select-arm
@@ -26727,8 +26736,8 @@ priv struct OiUnaryLocalEqualityFact {
 fn OiUnaryLocalEqualityFact::from_nodes(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> OiUnaryLocalEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal unary nodes as the
   // same operation with recursively equal operands. For the select-arm
@@ -26892,8 +26901,8 @@ priv struct OiSimdLeafEqualityFact {
 fn OiSimdLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> OiSimdLeafEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` treats equal SIMD constants as
   // equal leaves and equal splats as equal unary nodes. Keep Starshine's
@@ -26996,8 +27005,8 @@ priv struct OiRefI31PayloadEqualityFact {
 fn OiRefI31PayloadEqualityFact::from_nodes(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> OiRefI31PayloadEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` compares `ref.i31` by comparing
   // its scalar payload. When the enclosing select condition is effectful,
@@ -27112,8 +27121,8 @@ priv struct OiNontrappingReorderableExpressionEqualityFact {
 fn OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiNontrappingReorderableExpressionEqualityFact {
   // Binaryen v130 `visitSelect` preserves an effectful condition before a
   // folded identical arm only when the condition does not invalidate the value's
@@ -27229,8 +27238,8 @@ priv struct OiReferenceLeafEqualityFact {
 ///|
 fn OiReferenceLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiReferenceLeafEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` compares reference leaves by
   // their literal heap/function target. Starshine also accepts HOT-lowered
@@ -27285,8 +27294,8 @@ priv struct OiLocalConstSelectScalarTreeFact {
 ///|
 fn OiLocalConstSelectScalarTreeFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  depth? : Int = 0,
+  node_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiLocalConstSelectScalarTreeFact {
   // Same-value select-arm folding across an effectful condition moves the kept
   // value after that condition. This fact is the source-backed, represented
@@ -27337,8 +27346,8 @@ priv struct OiRefI31ScalarTreeEqualityFact {
 ///|
 fn OiRefI31ScalarTreeEqualityFact::from_nodes(
   func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiRefI31ScalarTreeEqualityFact {
   // Binaryen v130 `ExpressionAnalyzer::equal` compares `ref.i31` shells by
   // recursively comparing their i32 payloads. Binaryen `visitSelect` then uses
@@ -27397,8 +27406,8 @@ fn OiRefI31ScalarTreeEqualityFact::proves_nontrapping_reorderable_equal(
 fn OiIdenticalPureExpressionFact::from_select_arms(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiIdenticalPureExpressionFact {
   // Binaryen v130 `visitSelect` folds identical arms via
   // `ExpressionAnalyzer::equal(ifTrue, ifFalse)` after checking whether the
@@ -27517,8 +27526,8 @@ fn OiIdenticalPureExpressionFact::proves_equal_after_condition_preserved(
 fn optimize_instructions_select_identical_immutable_global_arms(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  if_true : Int,
-  if_false : Int,
+  if_true : Int32,
+  if_false : Int32,
 ) -> Bool {
   match (@ir.hot_node_get(func, if_true), @ir.hot_node_get(func, if_false)) {
     (
@@ -27581,8 +27590,8 @@ fn OiIdempotentCallOperandTreeFact::empty() -> OiIdempotentCallOperandTreeFact {
 fn OiIdempotentCallOperandTreeFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth? : Int = 0,
+  node_id : Int32,
+  depth~ : Int32 = 0,
 ) -> OiIdempotentCallOperandTreeFact {
   // Binaryen v130's idempotent-call exception builds an EffectAnalyzer over
   // every operand subtree, rejects unremovable child effects, and then asks a
@@ -27738,14 +27747,14 @@ priv enum OiIdempotentCallOperandKind {
 ///|
 priv struct OiIdempotentCallOperandFact {
   kind : OiIdempotentCallOperandKind
-  operand_ids : Array[Int]
+  operand_ids : Array[Int32]
   tree_facts : Array[OiIdempotentCallOperandTreeFact]
 }
 
 ///|
 priv struct OiIdempotentCallFact {
-  call_id : Int
-  func_idx : Int
+  call_id : Int32
+  func_idx : Int32
   operand_fact : OiIdempotentCallOperandFact
 }
 
@@ -27753,7 +27762,7 @@ priv struct OiIdempotentCallFact {
 fn OiIdempotentCallFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiIdempotentCallFact? {
   // Binaryen v130 asks `Intrinsics::getCallAnnotations(...).idempotent` before
   // treating a direct call as effect-free for consecutive-input folding. The
@@ -27778,7 +27787,7 @@ fn OiIdempotentCallFact::from_node(
     ) {
     return None
   }
-  let operand_ids : Array[Int] = []
+  let operand_ids : Array[Int32] = []
   let tree_facts : Array[OiIdempotentCallOperandTreeFact] = []
   let mut all_supported = true
   for slot = 0; slot < node.child_count; slot = slot + 1 {
@@ -27866,8 +27875,8 @@ priv struct OiIdempotentCallEqualityFact {
 fn OiIdempotentCallEqualityFact::from_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
 ) -> OiIdempotentCallEqualityFact {
   let left_fact = OiIdempotentCallFact::from_node(ctx, func, left_id)
   let right_fact = OiIdempotentCallFact::from_node(ctx, func, right_id)
@@ -27902,7 +27911,7 @@ priv enum OiConsecutiveInputFoldabilityKind {
 
 ///|
 priv struct OiConsecutiveInputFoldabilityFact {
-  right_id : Int
+  right_id : Int32
   kind : OiConsecutiveInputFoldabilityKind
 }
 
@@ -27911,7 +27920,7 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  right_id : Int,
+  right_id : Int32,
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
@@ -27953,8 +27962,8 @@ priv enum OiConsecutiveSelfSelectKind {
 ///|
 priv struct OiConsecutiveSelfSelectFact {
   kind : OiConsecutiveSelfSelectKind
-  selected_id : Int
-  zero_id : Int
+  selected_id : Int32
+  zero_id : Int32
   equality_fact : OiConsecutiveInputEqualityFact
   foldability_fact : OiConsecutiveInputFoldabilityFact
 }
@@ -27964,10 +27973,10 @@ fn OiConsecutiveSelfSelectFact::from_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  if_true : Int,
-  if_false : Int,
-  condition_id : Int,
+  node_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
+  condition_id : Int32,
 ) -> OiConsecutiveSelfSelectFact? {
   // Binaryen v130 `optimizeSelect`'s paired SCCP compatibility rules rewrite
   // `i32(x) ? i32(x) : 0` to the earlier `x`, and `i32(x) ? 0 : i32(x)` to
@@ -28005,7 +28014,7 @@ fn OiConsecutiveSelfSelectFact::apply(
   self : OiConsecutiveSelfSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !self.equality_fact.proves_equal(func) ||
     !self.foldability_fact.proves_foldable() {
@@ -28041,7 +28050,7 @@ priv enum OiI64ZeroTestConditionKind {
 
 ///|
 priv struct OiI64ZeroTestConditionFact {
-  inner_id : Int
+  inner_id : Int32
   kind : OiI64ZeroTestConditionKind
 }
 
@@ -28049,7 +28058,7 @@ priv struct OiI64ZeroTestConditionFact {
 fn OiI64ZeroTestConditionFact::from_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiI64ZeroTestConditionFact? {
   // Binaryen v130's consecutive i64 self-select rules match either direct
   // `i64.eqz(y)` or the exact `i64.ne(y, 0)` spelling. Keep that polarity and
@@ -28086,8 +28095,8 @@ priv enum OiI64ZeroTestSelfSelectKind {
 ///|
 priv struct OiI64ZeroTestSelfSelectFact {
   kind : OiI64ZeroTestSelfSelectKind
-  selected_id : Int
-  zero_id : Int
+  selected_id : Int32
+  zero_id : Int32
   condition_fact : OiI64ZeroTestConditionFact
   equality_fact : OiConsecutiveInputEqualityFact
   foldability_fact : OiConsecutiveInputFoldabilityFact
@@ -28098,10 +28107,10 @@ fn OiI64ZeroTestSelfSelectFact::from_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  if_true : Int,
-  if_false : Int,
-  condition_id : Int,
+  node_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
+  condition_id : Int32,
 ) -> OiI64ZeroTestSelfSelectFact? {
   // Binaryen v130 `optimizeSelect` has four paired i64 SCCP compatibility
   // forms. Depending on eqz/ne polarity and which arm is zero, they either
@@ -28166,7 +28175,7 @@ fn OiI64ZeroTestSelfSelectFact::apply(
   self : OiI64ZeroTestSelfSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   ignore(self.condition_fact)
   if !self.equality_fact.proves_equal(func) ||
@@ -28205,7 +28214,7 @@ fn OiOneBitI32ValueFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiOneBitI32ValueFact? {
   // Binaryen v130 `optimizeSelect` asks `Bits::getMaxBits` for the condition
   // and both arms before applying boolean algebra. Reuse the fact-owned i32
@@ -28222,7 +28231,7 @@ fn OiOneBitI32ValueFact::from_node(
 }
 
 ///|
-fn OiOneBitI32ValueFact::value_id(self : OiOneBitI32ValueFact) -> Int {
+fn OiOneBitI32ValueFact::value_id(self : OiOneBitI32ValueFact) -> Int32 {
   self.producer_fact.value_id
 }
 
@@ -28235,15 +28244,15 @@ priv enum OiBooleanSelectAlgebraKind {
 ///|
 priv struct OiSynthesizedI32BinaryFact {
   instr : @lib.Instruction
-  left_id : Int
-  right_id : Int
+  left_id : Int32
+  right_id : Int32
 }
 
 ///|
 fn OiSynthesizedI32BinaryFact::new(
   instr : @lib.Instruction,
-  left_id : Int,
-  right_id : Int,
+  left_id : Int32,
+  right_id : Int32,
 ) -> OiSynthesizedI32BinaryFact {
   { instr, left_id, right_id, }
 }
@@ -28254,7 +28263,7 @@ fn OiSynthesizedI32BinaryFact::apply(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let replacement = optimize_instructions_build_i32_binary(
     func,
@@ -28310,10 +28319,10 @@ fn OiBooleanSelectAlgebraFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
-  node_id : Int,
-  if_true : Int,
-  if_false : Int,
-  condition_id : Int,
+  node_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
+  condition_id : Int32,
 ) -> OiBooleanSelectAlgebraFact? {
   // Binaryen v130 `optimizeSelect` rewrites `select(y, 0, x)` to `y & x`
   // and `select(1, y, x)` to `y | x` only after all three i32 inputs are
@@ -28356,7 +28365,7 @@ fn OiBooleanSelectAlgebraFact::apply(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let (instr, left_id) = match self.kind {
     BooleanSelectAndFalseZero =>
@@ -28381,13 +28390,13 @@ priv enum OiEqzSelectArmKind {
 ///|
 priv struct OiEqzSelectArmFact {
   kind : OiEqzSelectArmKind
-  inner_id : Int
+  inner_id : Int32
 }
 
 ///|
 fn OiEqzSelectArmFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiEqzSelectArmFact? {
   // Binaryen v130 `optimizeTernary` matches a direct abstract `EqZ` arm and
   // later rebuilds its child type under the inner ternary. Keep the width and
@@ -28405,15 +28414,15 @@ fn OiEqzSelectArmFact::from_node(
 
 ///|
 priv struct OiTernaryBooleanConstFact {
-  node_id : Int
-  flipped_value : Int
+  node_id : Int32
+  flipped_value : Int32
 }
 
 ///|
 fn OiTernaryBooleanConstFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiTernaryBooleanConstFact? {
   // Binaryen's `bval` matcher accepts exactly i32 zero or one here, then flips
   // the value before changing it to the hoisted eqz input type.
@@ -28435,14 +28444,14 @@ priv struct OiEqzBooleanSelectHoistFact {
   kind : OiEqzBooleanSelectHoistKind
   eqz_arm_fact : OiEqzSelectArmFact
   boolean_const_fact : OiTernaryBooleanConstFact
-  condition_id : Int
+  condition_id : Int32
 }
 
 ///|
 fn OiEqzBooleanSelectHoistFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiEqzBooleanSelectHoistFact? {
   // Binaryen v130 `optimizeTernary` hoists one direct eqz arm across a sibling
   // boolean constant, after ordinary `optimizeSelect` rules have declined.
@@ -28493,7 +28502,7 @@ fn OiEqzBooleanSelectHoistFact::apply(
   self : OiEqzBooleanSelectHoistFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   ignore(self.boolean_const_fact.node_id)
   let (input_type, eqz_instr, flipped_const) = match self.eqz_arm_fact.kind {
@@ -28538,7 +28547,7 @@ fn optimize_instructions_try_hoist_eqz_boolean_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiEqzBooleanSelectHoistFact::from_select(func, dead, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -28609,13 +28618,13 @@ priv struct OiMatchingUnarySelectArmFact {
   instr : @lib.Instruction
   result_type : @lib.ValType
   child_type : @lib.ValType
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
 fn OiMatchingUnarySelectArmFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingUnarySelectArmFact? {
   // Binaryen v130's `optimizeTernary` shallow-equal loop first excludes control
   // structures, requires one child, and later requires equal child types. This
@@ -29014,15 +29023,15 @@ fn OiMatchingUnarySelectArmFact::from_node(
 ///|
 priv struct OiMatchingUnarySelectArmPairFact {
   shell_fact : OiMatchingUnarySelectArmFact
-  if_true_child : Int
-  if_false_child : Int
+  if_true_child : Int32
+  if_false_child : Int32
 }
 
 ///|
 fn OiMatchingUnarySelectArmPairFact::from_arms(
   func : @ir.HotFunc,
-  if_true : Int,
-  if_false : Int,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiMatchingUnarySelectArmPairFact? {
   let true_fact = match OiMatchingUnarySelectArmFact::from_node(func, if_true) {
     Some(fact) => fact
@@ -29105,15 +29114,15 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
 priv struct OiMatchingUnarySelectHoistFact {
   shell_facts : Array[OiMatchingUnarySelectArmFact]
   inner_select_type : @lib.ValType
-  if_true_child : Int
-  if_false_child : Int
-  condition_id : Int
+  if_true_child : Int32
+  if_false_child : Int32
+  condition_id : Int32
 }
 
 ///|
 fn OiMatchingUnarySelectHoistFact::from_select(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingUnarySelectHoistFact? {
   // This is the direct-select subset of Binaryen v130's repeated shallow-equal
   // one-child hoist. Equal selected fact kinds model `shallowEqual`; the exact
@@ -29170,7 +29179,7 @@ fn OiMatchingUnarySelectHoistFact::apply(
   self : OiMatchingUnarySelectHoistFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let mut replacement = @ir.hot_build_select(
     func,
@@ -29195,7 +29204,7 @@ fn OiMatchingUnarySelectHoistFact::apply(
 fn optimize_instructions_try_hoist_matching_unary_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiMatchingUnarySelectHoistFact::from_select(func, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -29207,16 +29216,16 @@ fn optimize_instructions_try_hoist_matching_unary_select(
 priv struct OiMatchingUnaryIfHoistFact {
   shell_facts : Array[OiMatchingUnarySelectArmFact]
   inner_if_type : @lib.ValType
-  if_true_child : Int
-  if_false_child : Int
-  condition_id : Int
-  root_index : Int
+  if_true_child : Int32
+  if_false_child : Int32
+  condition_id : Int32
+  root_index : Int32
 }
 
 ///|
 fn OiMatchingUnaryIfHoistFact::from_if(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingUnaryIfHoistFact? {
   // Binaryen v130 instantiates `optimizeTernary` for If as well as Select and
   // repeatedly moves matching one-child shells. Reuse the exact scalar shell
@@ -29313,7 +29322,7 @@ fn OiMatchingUnaryIfHoistFact::apply(
 fn optimize_instructions_try_hoist_matching_unary_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiMatchingUnaryIfHoistFact::from_if(func, node_id) {
     Some(fact) => fact.apply(ctx, func)
@@ -29330,16 +29339,16 @@ priv enum OiMatchingReferenceSelectShellKind {
 ///|
 priv struct OiMatchingReferenceSelectArmFact {
   kind : OiMatchingReferenceSelectShellKind
-  shell_id : Int
+  shell_id : Int32
   instr : @lib.Instruction?
   child_type : @lib.ValType
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
 fn OiMatchingReferenceSelectArmFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingReferenceSelectArmFact? {
   // Binaryen v130's generic `optimizeTernary` loop accepts shallow-equal
   // one-child shells, equal child types, and side-effect-free select shells.
@@ -29376,18 +29385,18 @@ fn OiMatchingReferenceSelectArmFact::from_node(
 ///|
 priv struct OiMatchingReferenceSelectHoistFact {
   kind : OiMatchingReferenceSelectShellKind
-  shell_id : Int
+  shell_id : Int32
   instr : @lib.Instruction?
   child_type : @lib.ValType
-  if_true_child : Int
-  if_false_child : Int
-  condition_id : Int
+  if_true_child : Int32
+  if_false_child : Int32
+  condition_id : Int32
 }
 
 ///|
 fn OiMatchingReferenceSelectHoistFact::from_select(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingReferenceSelectHoistFact? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -29439,7 +29448,7 @@ fn OiMatchingReferenceSelectHoistFact::apply(
   self : OiMatchingReferenceSelectHoistFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let inner = @ir.hot_build_select(
     func,
@@ -29482,7 +29491,7 @@ fn OiMatchingReferenceSelectHoistFact::apply(
 fn optimize_instructions_try_hoist_matching_reference_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiMatchingReferenceSelectHoistFact::from_select(func, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -29493,19 +29502,19 @@ fn optimize_instructions_try_hoist_matching_reference_select(
 ///|
 priv struct OiMatchingReferenceIfHoistFact {
   kind : OiMatchingReferenceSelectShellKind
-  shell_id : Int
+  shell_id : Int32
   instr : @lib.Instruction?
   child_type : @lib.ValType
-  if_true_child : Int
-  if_false_child : Int
-  condition_id : Int
-  root_index : Int
+  if_true_child : Int32
+  if_false_child : Int32
+  condition_id : Int32
+  root_index : Int32
 }
 
 ///|
 fn OiMatchingReferenceIfHoistFact::from_if(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiMatchingReferenceIfHoistFact? {
   // Binaryen v130 instantiates the same `optimizeTernary` shallow-equal loop
   // for `If`. Unlike Select, moving a shallow shell does not reduce its
@@ -29581,7 +29590,7 @@ fn OiMatchingReferenceIfHoistFact::apply(
   self : OiMatchingReferenceIfHoistFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  _node_id : Int,
+  _node_id : Int32,
 ) -> Bool {
   let inner = @ir.hot_build_if(
     func,
@@ -29629,7 +29638,7 @@ fn OiMatchingReferenceIfHoistFact::apply(
 fn optimize_instructions_try_hoist_matching_reference_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiMatchingReferenceIfHoistFact::from_if(func, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -29652,8 +29661,8 @@ priv struct OiI32BooleanSelectArmFact {
 fn OiI32BooleanSelectArmFact::from_select_arms(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiI32BooleanSelectArmFact? {
   // Binaryen v130 `optimizeBoolean` gives the exact i32 `1,0` and `0,1`
   // select-arm shells special treatment across direct eqz, zero-compare,
@@ -29687,25 +29696,25 @@ priv enum OiEqzConditionSelectRewriteKind {
 
 ///|
 priv struct OiEqzConditionSelectCompareFact {
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
   replacement_instr : @lib.Instruction
 }
 
 ///|
 priv struct OiEqzConditionSelectFact {
-  inner_condition_id : Int
-  if_true_id : Int
-  if_false_id : Int
+  inner_condition_id : Int32
+  if_true_id : Int32
+  if_false_id : Int32
   compare_fact : OiEqzConditionSelectCompareFact?
   kind : OiEqzConditionSelectRewriteKind
 }
 
 ///|
 fn OiEqzConditionSelectFact::no_rewrite_boundary(
-  inner_condition_id : Int,
-  if_true_id : Int,
-  if_false_id : Int,
+  inner_condition_id : Int32,
+  if_true_id : Int32,
+  if_false_id : Int32,
 ) -> OiEqzConditionSelectFact {
   {
     inner_condition_id,
@@ -29718,9 +29727,9 @@ fn OiEqzConditionSelectFact::no_rewrite_boundary(
 
 ///|
 fn OiEqzConditionSelectFact::simple(
-  inner_condition_id : Int,
-  if_true_id : Int,
-  if_false_id : Int,
+  inner_condition_id : Int32,
+  if_true_id : Int32,
+  if_false_id : Int32,
   kind : OiEqzConditionSelectRewriteKind,
 ) -> OiEqzConditionSelectFact {
   { inner_condition_id, if_true_id, if_false_id, compare_fact: None, kind, }
@@ -29728,11 +29737,11 @@ fn OiEqzConditionSelectFact::simple(
 
 ///|
 fn OiEqzConditionSelectFact::compare(
-  inner_condition_id : Int,
-  if_true_id : Int,
-  if_false_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  inner_condition_id : Int32,
+  if_true_id : Int32,
+  if_false_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
   replacement_instr : @lib.Instruction,
   kind : OiEqzConditionSelectRewriteKind,
 ) -> OiEqzConditionSelectFact {
@@ -29749,10 +29758,10 @@ fn OiEqzConditionSelectFact::compare(
 fn OiEqzConditionSelectFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  condition_id : Int,
-  if_true : Int,
-  if_false : Int,
+  node_id : Int32,
+  condition_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiEqzConditionSelectFact? {
   // Binaryen v130 `optimizeBoolean` handles direct `eqz` select conditions
   // before the final boolean-constant select fallback. This fact records the
@@ -29909,7 +29918,7 @@ fn OiEqzConditionSelectFact::apply(
   self : OiEqzConditionSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     EqzConditionSelectNoRewriteBoundary => false
@@ -30020,15 +30029,15 @@ priv enum OiZeroCompareConditionCompareKind {
 
 ///|
 priv struct OiZeroCompareConditionCompareFact {
-  inner_condition_id : Int
+  inner_condition_id : Int32
   kind : OiZeroCompareConditionCompareKind
 }
 
 ///|
 priv struct OiZeroCompareConditionSelectFact {
   compare_fact : OiZeroCompareConditionCompareFact
-  if_true_id : Int
-  if_false_id : Int
+  if_true_id : Int32
+  if_false_id : Int32
   kind : OiZeroCompareConditionSelectRewriteKind
 }
 
@@ -30036,7 +30045,7 @@ priv struct OiZeroCompareConditionSelectFact {
 fn OiZeroCompareConditionCompareFact::from_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiZeroCompareConditionCompareFact? {
   // Binaryen v130 `optimizeBoolean` recognizes direct i32/i64 equality or
   // inequality comparisons against literal zero as the select-condition shell.
@@ -30140,8 +30149,8 @@ fn OiZeroCompareConditionCompareFact::value_select_rewrite_kind(
 ///|
 fn OiZeroCompareConditionSelectFact::no_rewrite_boundary(
   compare_fact : OiZeroCompareConditionCompareFact,
-  if_true_id : Int,
-  if_false_id : Int,
+  if_true_id : Int32,
+  if_false_id : Int32,
 ) -> OiZeroCompareConditionSelectFact {
   {
     compare_fact,
@@ -30154,8 +30163,8 @@ fn OiZeroCompareConditionSelectFact::no_rewrite_boundary(
 ///|
 fn OiZeroCompareConditionSelectFact::simple(
   compare_fact : OiZeroCompareConditionCompareFact,
-  if_true_id : Int,
-  if_false_id : Int,
+  if_true_id : Int32,
+  if_false_id : Int32,
   kind : OiZeroCompareConditionSelectRewriteKind,
 ) -> OiZeroCompareConditionSelectFact {
   { compare_fact, if_true_id, if_false_id, kind, }
@@ -30165,10 +30174,10 @@ fn OiZeroCompareConditionSelectFact::simple(
 fn OiZeroCompareConditionSelectFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-  condition_id : Int,
-  if_true : Int,
-  if_false : Int,
+  node_id : Int32,
+  condition_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiZeroCompareConditionSelectFact? {
   // Binaryen v130 `optimizeBoolean` strips direct integer equality/inequality
   // zero comparisons in select conditions before the generic boolean-arm
@@ -30235,7 +30244,7 @@ fn OiZeroCompareConditionSelectFact::apply(
   self : OiZeroCompareConditionSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let inner_condition_id = self.compare_fact.inner_condition_id
   match self.kind {
@@ -30328,21 +30337,21 @@ priv enum OiIntegerEqualityConditionSelectRewriteKind {
 
 ///|
 priv struct OiIntegerEqualityConditionSelectInvertedCompareFact {
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
   inverted_instr : @lib.Instruction
 }
 
 ///|
 priv struct OiIntegerEqualityConditionSelectFact {
-  condition_id : Int
+  condition_id : Int32
   inverted_compare_fact : OiIntegerEqualityConditionSelectInvertedCompareFact?
   kind : OiIntegerEqualityConditionSelectRewriteKind
 }
 
 ///|
 fn OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
@@ -30353,7 +30362,7 @@ fn OiIntegerEqualityConditionSelectFact::no_rewrite_boundary(
 
 ///|
 fn OiIntegerEqualityConditionSelectFact::keep_compare(
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
@@ -30364,9 +30373,9 @@ fn OiIntegerEqualityConditionSelectFact::keep_compare(
 
 ///|
 fn OiIntegerEqualityConditionSelectFact::invert_compare(
-  condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  condition_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
   inverted_instr : @lib.Instruction,
 ) -> OiIntegerEqualityConditionSelectFact {
   {
@@ -30380,9 +30389,9 @@ fn OiIntegerEqualityConditionSelectFact::invert_compare(
 fn OiIntegerEqualityConditionSelectFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
-  if_true : Int,
-  if_false : Int,
+  condition_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiIntegerEqualityConditionSelectFact? {
   // Binaryen v130 `optimizeBoolean` removes exact i32 boolean select arms
   // around direct integer equality compare conditions. This fact records the
@@ -30453,7 +30462,7 @@ fn OiIntegerEqualityConditionSelectFact::apply(
   self : OiIntegerEqualityConditionSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     IntegerEqualityConditionSelectNoRewriteBoundary => false
@@ -30493,21 +30502,21 @@ priv enum OiDirectCompareConditionSelectRewriteKind {
 
 ///|
 priv struct OiDirectCompareConditionSelectInvertedCompareFact {
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
   inverted_instr : @lib.Instruction
 }
 
 ///|
 priv struct OiDirectCompareConditionSelectFact {
-  condition_id : Int
+  condition_id : Int32
   inverted_compare_fact : OiDirectCompareConditionSelectInvertedCompareFact?
   kind : OiDirectCompareConditionSelectRewriteKind
 }
 
 ///|
 fn OiDirectCompareConditionSelectFact::no_rewrite_boundary(
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
@@ -30518,7 +30527,7 @@ fn OiDirectCompareConditionSelectFact::no_rewrite_boundary(
 
 ///|
 fn OiDirectCompareConditionSelectFact::keep_compare(
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
@@ -30529,9 +30538,9 @@ fn OiDirectCompareConditionSelectFact::keep_compare(
 
 ///|
 fn OiDirectCompareConditionSelectFact::invert_compare(
-  condition_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  condition_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
   inverted_instr : @lib.Instruction,
 ) -> OiDirectCompareConditionSelectFact {
   {
@@ -30545,9 +30554,9 @@ fn OiDirectCompareConditionSelectFact::invert_compare(
 fn OiDirectCompareConditionSelectFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
-  if_true : Int,
-  if_false : Int,
+  condition_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiDirectCompareConditionSelectFact? {
   // Binaryen v130 `optimizeBoolean` removes exact i32 boolean select arms
   // around direct integer-relational and float equality compare conditions.
@@ -30610,7 +30619,7 @@ fn OiDirectCompareConditionSelectFact::apply(
   self : OiDirectCompareConditionSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     DirectCompareConditionSelectNoRewriteBoundary => false
@@ -30649,7 +30658,7 @@ priv enum OiBooleanConstSelectRewriteKind {
 
 ///|
 priv struct OiBooleanConstSelectFact {
-  condition_id : Int
+  condition_id : Int32
   kind : OiBooleanConstSelectRewriteKind
 }
 
@@ -30657,9 +30666,9 @@ priv struct OiBooleanConstSelectFact {
 fn OiBooleanConstSelectFact::from_select_arms(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  condition_id : Int,
-  if_true : Int,
-  if_false : Int,
+  condition_id : Int32,
+  if_true : Int32,
+  if_false : Int32,
 ) -> OiBooleanConstSelectFact? {
   // Binaryen v130 `optimizeBoolean` rewrites exact i32 boolean select arms:
   // `select 1 0 cond` becomes `i32.ne(cond, 0)` and `select 0 1 cond`
@@ -30685,7 +30694,7 @@ fn OiBooleanConstSelectFact::apply(
   self : OiBooleanConstSelectFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     BooleanConstSelectConditionNonzero =>
@@ -30717,9 +30726,9 @@ priv enum OiV131IdenticalSelectPlanKind {
 ///|
 priv struct OiV131IdenticalSelectPlanFact {
   kind : OiV131IdenticalSelectPlanKind
-  if_true : Int
-  if_false : Int
-  condition : Int
+  if_true : Int32
+  if_false : Int32
+  condition : Int32
   result_type : @lib.ValType
 }
 
@@ -30728,9 +30737,9 @@ fn OiV131IdenticalSelectPlanFact::from_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  if_true : Int,
-  if_false : Int,
-  condition : Int,
+  if_true : Int32,
+  if_false : Int32,
+  condition : Int32,
 ) -> OiV131IdenticalSelectPlanFact? {
   // This is the v131 extension after the older cheap identical-arm paths have
   // declined. The shared equality fact handles fallthrough values and annotated
@@ -30801,7 +30810,7 @@ fn OiV131IdenticalSelectPlanFact::apply(
   self : OiV131IdenticalSelectPlanFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match self.kind {
     V131IdenticalSelectScratchFirst => {
@@ -30859,7 +30868,7 @@ fn optimize_instructions_try_fold_const_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -30998,8 +31007,8 @@ fn optimize_instructions_try_fold_const_select(
 
 ///|
 priv struct OiDeMorganAndEqzFact {
-  lhs_operand_id : Int
-  rhs_operand_id : Int
+  lhs_operand_id : Int32
+  rhs_operand_id : Int32
 }
 
 ///|
@@ -31007,8 +31016,8 @@ fn OiDeMorganAndEqzFact::from_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiDeMorganAndEqzFact? {
   // Binaryen v130 `optimizeBoolean` rewrites the direct
   // `i32.and(i32.eqz(x), i32.eqz(y))` shell to `i32.eqz(i32.or(x, y))` while
@@ -31049,7 +31058,7 @@ fn OiDeMorganAndEqzFact::apply(
   self : OiDeMorganAndEqzFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let or_id = @ir.hot_build_binary(
     func,
@@ -31072,10 +31081,10 @@ fn optimize_instructions_try_apply_demorgan_and_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match OiDeMorganAndEqzFact::from_binary(func, dead, instr, lhs_id, rhs_id) {
     Some(fact) => {
@@ -31118,7 +31127,7 @@ fn optimize_instructions_inverted_eqz_compare(
 ///|
 priv struct OiNestedEqzRewriteFact {
   inner_instr : @lib.Instruction
-  value_id : Int
+  value_id : Int32
   folded_result : @lib.I32?
 }
 
@@ -31127,7 +31136,7 @@ fn OiNestedEqzRewriteFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiNestedEqzRewriteFact? {
   // Binaryen v130 rewrites `eqz(eqz(x))` in `visitUnary`; keep the inner
   // boolean producer kind, preserved value, and literal-fold result together so
@@ -31181,7 +31190,7 @@ fn OiNestedEqzRewriteFact::apply(
   self : OiNestedEqzRewriteFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.folded_result {
     Some(folded) =>
@@ -31222,7 +31231,7 @@ priv enum OiEqzZeroCompareRewriteKind {
 ///|
 priv struct OiEqzZeroCompareFact {
   kind : OiEqzZeroCompareRewriteKind
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
@@ -31230,7 +31239,7 @@ fn OiEqzZeroCompareFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiEqzZeroCompareFact? {
   // Binaryen v130 prefers the compact zero-compare spellings before broader
   // compare inversion: `eqz(ne(x, 0))` becomes `eqz(x)`, while `eqz(eq(x, 0))`
@@ -31311,7 +31320,7 @@ fn OiEqzZeroCompareFact::apply(
   self : OiEqzZeroCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     EqzZeroCompareToI32Eqz =>
@@ -31354,15 +31363,15 @@ fn OiEqzZeroCompareFact::apply(
 ///|
 priv struct OiEqzCompareInversionFact {
   inverted_instr : @lib.Instruction
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
 }
 
 ///|
 fn OiEqzCompareInversionFact::from_operand(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiEqzCompareInversionFact? {
   // Binaryen v130 inverts integer relational compares and float eq/ne compares
   // under `i32.eqz`; NaN-sensitive float relational compares are intentionally
@@ -31392,7 +31401,7 @@ fn OiEqzCompareInversionFact::apply(
   self : OiEqzCompareInversionFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_compare(
     ctx,
@@ -31407,15 +31416,15 @@ fn OiEqzCompareInversionFact::apply(
 ///|
 priv struct OiEqzSubCompareFact {
   compare_instr : @lib.Instruction
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
 }
 
 ///|
 fn OiEqzSubCompareFact::from_operand(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiEqzSubCompareFact? {
   // Binaryen v130 rewrites `eqz(x - y)` to equality on the original operands.
   match
@@ -31447,7 +31456,7 @@ fn OiEqzSubCompareFact::apply(
   self : OiEqzSubCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_compare(
     ctx,
@@ -31461,7 +31470,7 @@ fn OiEqzSubCompareFact::apply(
 
 ///|
 priv struct OiI32EqzAddConstCompareFact {
-  value_id : Int
+  value_id : Int32
   negated_const : @lib.I32
 }
 
@@ -31470,7 +31479,7 @@ fn OiI32EqzAddConstCompareFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiI32EqzAddConstCompareFact? {
   // Binaryen v130 rewrites `eqz(x + c)` to `eq(x, -c)` for represented i32
   // addition constants.
@@ -31505,7 +31514,7 @@ fn OiI32EqzAddConstCompareFact::apply(
   self : OiI32EqzAddConstCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_compare(
     ctx,
@@ -31519,7 +31528,7 @@ fn OiI32EqzAddConstCompareFact::apply(
 
 ///|
 priv struct OiI64EqzAddConstCompareFact {
-  value_id : Int
+  value_id : Int32
   negated_const : @lib.I64
 }
 
@@ -31528,7 +31537,7 @@ fn OiI64EqzAddConstCompareFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiI64EqzAddConstCompareFact? {
   // Binaryen v130 rewrites `eqz(x + c)` to `eq(x, -c)` for represented i64
   // addition constants.
@@ -31563,7 +31572,7 @@ fn OiI64EqzAddConstCompareFact::apply(
   self : OiI64EqzAddConstCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_exact_compare(
     ctx,
@@ -31581,9 +31590,9 @@ fn optimize_instructions_try_fold_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Bool {
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return false
@@ -31657,10 +31666,10 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
@@ -31743,8 +31752,8 @@ fn OiI32ExactConstBinaryFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32ExactConstBinaryFact? {
   // Binaryen v130 `visitBinary` asks the literal-evaluable integer constant
   // subset before identity/absorbing rewrites. Keep the represented i32 add/sub
@@ -31777,8 +31786,8 @@ fn OiI64ExactConstBinaryFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64ExactConstBinaryFact? {
   // Same Binaryen literal-evaluable constant add/sub fact for the i64 lane.
   match
@@ -31808,7 +31817,7 @@ fn OiI32ExactConstBinaryFact::apply(
   self : OiI32ExactConstBinaryFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i32(ctx, func, node_id, self.result)
 }
@@ -31818,7 +31827,7 @@ fn OiI64ExactConstBinaryFact::apply(
   self : OiI64ExactConstBinaryFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i64(ctx, func, node_id, self.result)
 }
@@ -31828,10 +31837,10 @@ fn optimize_instructions_try_fold_exact_const_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiI32ExactConstBinaryFact::from_operands(func, dead, instr, lhs_id, rhs_id) {
@@ -31853,21 +31862,21 @@ fn optimize_instructions_try_fold_exact_const_binary(
 
 ///|
 priv struct OiI32BinaryIdentityOperandFact {
-  retained_id : Int
+  retained_id : Int32
 }
 
 ///|
 priv struct OiI64BinaryIdentityOperandFact {
-  retained_id : Int
+  retained_id : Int32
 }
 
 ///|
 fn OiI32BinaryIdentityOperandFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
-  identity : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
+  identity : Int32,
 ) -> OiI32BinaryIdentityOperandFact? {
   // Binaryen v130 `visitBinary` first asks whether a constant identity operand
   // makes the binary operator a no-op. Keep the symmetric i32 proof as a fact
@@ -31891,8 +31900,8 @@ fn OiI32BinaryIdentityOperandFact::from_operands(
 fn OiI64BinaryIdentityOperandFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
   identity : Int64,
 ) -> OiI64BinaryIdentityOperandFact? {
   // Same Binaryen v130 constant-identity operand proof for the i64 lane.
@@ -31913,9 +31922,9 @@ fn OiI64BinaryIdentityOperandFact::from_operands(
 fn OiI32BinaryIdentityOperandFact::from_right_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
-  identity : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
+  identity : Int32,
 ) -> OiI32BinaryIdentityOperandFact? {
   // Noncommutative identity rewrites are one-sided: `x - 0`, `x / 1`, and
   // rotates by zero retain only the left operand. Keep that asymmetry explicit.
@@ -31929,8 +31938,8 @@ fn OiI32BinaryIdentityOperandFact::from_right_operand(
 fn OiI64BinaryIdentityOperandFact::from_right_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
   identity : Int64,
 ) -> OiI64BinaryIdentityOperandFact? {
   // Same one-sided noncommutative identity proof for the i64 lane.
@@ -31954,8 +31963,8 @@ priv struct OiI64RemainderOneFact {
 fn OiI32RemainderOneFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32RemainderOneFact? {
   // Binaryen folds `rem(_, 1)` to zero only when the dividend can be erased
   // without losing effects. Keep that asymmetric trap/effect boundary as a fact
@@ -31972,8 +31981,8 @@ fn OiI32RemainderOneFact::from_operands(
 fn OiI64RemainderOneFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64RemainderOneFact? {
   // Same asymmetric Binaryen `rem(_, 1) -> 0` proof for i64.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
@@ -31989,7 +31998,7 @@ fn OiI32RemainderOneFact::apply(
   self : OiI32RemainderOneFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i32(
     ctx,
@@ -32004,7 +32013,7 @@ fn OiI64RemainderOneFact::apply(
   self : OiI64RemainderOneFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i64(
     ctx,
@@ -32019,10 +32028,10 @@ fn optimize_instructions_try_fold_identity_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   // A constant identity operand makes these binary ops a no-op. The symmetric
   // cases allow the constant on either side; `sub` is asymmetric because
@@ -32194,8 +32203,8 @@ priv struct OiI64AbsorbingZeroFact {
 fn OiI32AbsorbingZeroFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32AbsorbingZeroFact? {
   // Binaryen v130 folds zero-absorbing integer ops to zero only when the other
   // operand can be erased. Keep the constant-side and effect boundary explicit
@@ -32226,8 +32235,8 @@ fn OiI32AbsorbingZeroFact::from_operands(
 fn OiI64AbsorbingZeroFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64AbsorbingZeroFact? {
   // Same Binaryen zero-absorbing fact for the i64 lane.
   let zero_on_lhs = match optimize_instructions_i64_const(func, dead, lhs_id) {
@@ -32257,7 +32266,7 @@ fn OiI32AbsorbingZeroFact::apply(
   self : OiI32AbsorbingZeroFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i32(
     ctx,
@@ -32272,7 +32281,7 @@ fn OiI64AbsorbingZeroFact::apply(
   self : OiI64AbsorbingZeroFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i64(
     ctx,
@@ -32285,21 +32294,21 @@ fn OiI64AbsorbingZeroFact::apply(
 ///|
 priv struct OiI32AbsorbingAllOnesOrFact {
   replacement : @lib.I32
-  drop_id : Int?
+  drop_id : Int32?
 }
 
 ///|
 priv struct OiI64AbsorbingAllOnesOrFact {
   replacement : @lib.I64
-  drop_id : Int?
+  drop_id : Int32?
 }
 
 ///|
 fn OiI32AbsorbingAllOnesOrFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32AbsorbingAllOnesOrFact? {
   // Binaryen v130 treats `or -1` as an absorbing all-ones result while keeping
   // effects from the non-constant operand. Preserve that effectful-drop payload
@@ -32339,8 +32348,8 @@ fn OiI32AbsorbingAllOnesOrFact::from_operands(
 fn OiI64AbsorbingAllOnesOrFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64AbsorbingAllOnesOrFact? {
   // Same all-ones absorbing OR fact for the i64 lane.
   let neg_one_on_lhs = match
@@ -32379,7 +32388,7 @@ fn OiI32AbsorbingAllOnesOrFact::apply(
   self : OiI32AbsorbingAllOnesOrFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.drop_id {
     Some(drop_id) =>
@@ -32405,7 +32414,7 @@ fn OiI64AbsorbingAllOnesOrFact::apply(
   self : OiI64AbsorbingAllOnesOrFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.drop_id {
     Some(drop_id) =>
@@ -32440,8 +32449,8 @@ priv struct OiI64RemainderNegOneFact {
 fn OiI32RemainderNegOneFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32RemainderNegOneFact? {
   // Binaryen also folds signed `rem(_, -1)` to zero only when the dividend can
   // be erased. This remains intentionally separate from `rem(_, 1)` because it
@@ -32458,8 +32467,8 @@ fn OiI32RemainderNegOneFact::from_operands(
 fn OiI64RemainderNegOneFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64RemainderNegOneFact? {
   // Same signed-remainder absorbing fact for i64.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
@@ -32475,7 +32484,7 @@ fn OiI32RemainderNegOneFact::apply(
   self : OiI32RemainderNegOneFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i32(
     ctx,
@@ -32490,7 +32499,7 @@ fn OiI64RemainderNegOneFact::apply(
   self : OiI64RemainderNegOneFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i64(
     ctx,
@@ -32505,10 +32514,10 @@ fn optimize_instructions_try_fold_absorbing_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   // Binaryen v130's absorbing binary folds are now expressed as width-specific
   // facts that carry both constant-side proof and any effect-preserving payload.
@@ -32574,10 +32583,10 @@ fn optimize_instructions_try_rewrite_float_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   // Binaryen v131 canonicalizes a negated right floating operand before the
   // constant-specific rules below: `x + (-y)` becomes `x - y`, and
@@ -32746,7 +32755,7 @@ fn optimize_instructions_try_replace_zero_bits_with_zero(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match
     OiZeroBitsReplacementFact::from_node(ctx, func, dead, scratch, node_id) {
@@ -32763,8 +32772,8 @@ fn optimize_instructions_exact_scalar_conversion_roundtrip_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   outer_instr : @lib.Instruction,
-  operand_id : Int,
-) -> Int? {
+  operand_id : Int32,
+) -> Int32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return None
   }
@@ -32813,9 +32822,9 @@ fn optimize_instructions_try_fold_convert(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Bool {
   match
     optimize_instructions_exact_scalar_conversion_roundtrip_value(
@@ -32870,8 +32879,8 @@ fn optimize_instructions_try_fold_convert(
 fn optimize_instructions_i32_zero_sub_negated_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -32899,8 +32908,8 @@ fn optimize_instructions_i32_zero_sub_negated_operand(
 fn optimize_instructions_i64_zero_sub_negated_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return None
   }
@@ -32928,8 +32937,8 @@ fn optimize_instructions_i64_zero_sub_negated_operand(
 fn OiLeadingOperandSwapFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  a_id : Int,
-  b_id : Int,
+  a_id : Int32,
+  b_id : Int32,
 ) -> OiLeadingOperandSwapFact {
   // Binaryen's leading-operand normalization asks `EffectAnalyzer` whether the
   // two operand subtrees may exchange evaluation order. Keep the bounds check
@@ -32966,10 +32975,10 @@ fn optimize_instructions_try_remove_redundant_unsigned_mask(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::I32And => {
@@ -33008,10 +33017,10 @@ fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::I32Add => {
@@ -33185,10 +33194,10 @@ fn optimize_instructions_try_rewrite_mul_negation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::I32Mul =>
@@ -33236,10 +33245,10 @@ fn optimize_instructions_try_rewrite_mul_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32Mul, Some(@lib.I32(raw))) =>
@@ -33282,10 +33291,10 @@ fn optimize_instructions_try_rewrite_div_rem_power_of_two(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
     (@lib.Instruction::I32DivU, Some(@lib.I32(raw))) =>
@@ -33354,7 +33363,7 @@ fn optimize_instructions_try_rewrite_div_rem_power_of_two(
 ///|
 fn optimize_instructions_required_sign_ext_bits(
   instr : @lib.Instruction,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.Instruction::I32Extend8S | @lib.Instruction::I64Extend8S => 8
     @lib.Instruction::I32Extend16S | @lib.Instruction::I64Extend16S => 16
@@ -33369,9 +33378,9 @@ fn optimize_instructions_try_remove_redundant_sign_ext(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Bool {
   let needed_bits = optimize_instructions_required_sign_ext_bits(instr)
   if needed_bits == 0 {
@@ -33400,10 +33409,10 @@ fn optimize_instructions_try_rewrite_sign_ext_idiom(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let (left_shift_instr, rewrite_instr, shift_amount) = match instr {
     @lib.Instruction::I32ShrS =>
@@ -33471,10 +33480,10 @@ fn optimize_instructions_try_rewrite_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let mask_bits = match optimize_instructions_shift_mask_bits(instr) {
     Some(bits) => bits
@@ -33585,10 +33594,10 @@ fn optimize_instructions_try_combine_nested_const_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let mask_bits = match optimize_instructions_shift_mask_bits(instr) {
     Some(bits) => bits
@@ -33751,10 +33760,10 @@ fn optimize_instructions_try_fold_compare_zero(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   if !OiTriviallyPureOperandFact::proves_live_node_pure(func, dead, lhs_id) {
     return false
@@ -33826,7 +33835,7 @@ priv struct OiRemainderInstructionFact {
 fn OiRemainderInstructionFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRemainderInstructionFact {
   // Binaryen keeps eq-zero wrappers around integer remainder because remainder
   // may trap. Record Starshine's represented direct/local.tee remainder shape as
@@ -33865,7 +33874,7 @@ fn OiRemainderInstructionFact::proves_remainder(
 fn OiRemainderInstructionFact::proves_node_remainder(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   OiRemainderInstructionFact::from_node(func, dead, node_id).proves_remainder()
 }
@@ -33875,10 +33884,10 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::I64Eq => ()
@@ -33919,8 +33928,8 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
 fn optimize_instructions_replace_ref_cast_with_ref_as_non_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  operand_id : Int,
+  node_id : Int32,
+  operand_id : Int32,
 ) -> Bool {
   let result_types = @ir.hot_type_results(
     func,
@@ -33943,8 +33952,8 @@ fn optimize_instructions_replace_ref_cast_with_ref_as_non_null(
 fn optimize_instructions_replace_ref_cast_with_nullref_cast(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  operand_id : Int,
+  node_id : Int32,
+  operand_id : Int32,
 ) -> Bool {
   let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
   let nullref = @lib.ValType::ref_null(none_heap)
@@ -33965,7 +33974,7 @@ fn optimize_instructions_replace_ref_cast_with_nullref_cast(
 fn optimize_instructions_try_narrow_null_cast_boundary_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -34072,7 +34081,7 @@ fn optimize_instructions_try_narrow_null_cast_boundary_block(
 fn optimize_instructions_try_replace_unreachable_guard_cast_branch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => ()
@@ -34094,7 +34103,7 @@ fn optimize_instructions_try_replace_unreachable_guard_cast_branch(
 fn optimize_instructions_try_collapse_dropped_unreachable_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Drop => ()
@@ -34138,7 +34147,7 @@ fn optimize_instructions_try_collapse_dropped_unreachable_block(
 fn optimize_instructions_try_fold_ref_test_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let test_fact = match OiRefTestFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -34154,7 +34163,7 @@ fn optimize_instructions_try_fold_ref_test_null(
 fn optimize_instructions_try_fold_ref_cast_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = match OiRefCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -34170,7 +34179,7 @@ fn optimize_instructions_try_fold_ref_cast_null(
 fn optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let success_fact = match
     OiDescriptorExactSuccessFact::from_node(ctx, func, node_id) {
@@ -34189,7 +34198,7 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let skip_fact = match
     OiDescriptorTnhSkipFact::from_node(ctx, func, dead, node_id) {
@@ -34206,7 +34215,7 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
 fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
@@ -34228,7 +34237,7 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let null_fact = match
     OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
@@ -34272,7 +34281,7 @@ priv struct OiDescriptorNullableIfNoEffectMoveFact {
 fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorNullableIfNoEffectMoveFact {
   // TNH descriptor operand erasure can drop a nullable `if` child when the
   // condition and both single-result arms are side-effect-free. This preserves
@@ -34403,7 +34412,7 @@ priv struct OiDescriptorNullableIfControlMoveFact {
 ///|
 fn OiDescriptorNullableIfControlMoveFact::from_if(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorNullableIfControlMoveFact {
   // Standalone ref.get_desc null-check movement may preserve effectful arms, but
   // only while proving that the condition and both arms have no escaping branch
@@ -34523,7 +34532,7 @@ priv struct OiDescriptorBranchControlFact {
 
 ///|
 priv struct OiDescriptorBranchControlRegionFact {
-  root_count : Int
+  root_count : Int32
   control_fact : OiDescriptorBranchControlSummaryFact
 }
 
@@ -34547,7 +34556,7 @@ priv struct OiDescriptorSkipOrderFact {
 
 ///|
 priv struct OiDescriptorSkipOrderRegionFact {
-  root_count : Int
+  root_count : Int32
   effect_fact : OiDescriptorSkipOrderEffectFact?
 }
 
@@ -34583,7 +34592,7 @@ priv struct OiDescriptorInternalControlEffectFreeFact {
 
 ///|
 priv struct OiDescriptorInternalControlEffectFreeRegionFact {
-  root_count : Int
+  root_count : Int32
   effect_fact : OiDescriptorInternalControlBlockRegionFact
 }
 
@@ -34602,12 +34611,12 @@ priv struct OiDescriptorContainmentFact {
 
 ///|
 priv struct OiDescriptorContainmentRegionTargetFact {
-  region_root_count : Int
+  region_root_count : Int32
 }
 
 ///|
 priv struct OiDescriptorContainmentRegionFact {
-  root_count : Int
+  root_count : Int32
   target_fact : OiDescriptorContainmentRegionTargetFact?
 }
 
@@ -34641,8 +34650,8 @@ fn OiDescriptorContainmentFact::empty() -> OiDescriptorContainmentFact {
 ///|
 fn OiDescriptorContainmentFact::from_node(
   func : @ir.HotFunc,
-  root_id : Int,
-  target_id : Int,
+  root_id : Int32,
+  target_id : Int32,
 ) -> OiDescriptorContainmentFact {
   // Descriptor and standalone ref.get_desc control gates need to know whether a
   // branch target's label owner is contained inside the expression being
@@ -34714,7 +34723,7 @@ fn OiDescriptorContainmentFact::proves_contains_target(
 fn OiDescriptorContainmentRegionFact::from_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  target_id : Int,
+  target_id : Int32,
 ) -> OiDescriptorContainmentRegionFact {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut contains_target = false
@@ -34757,7 +34766,7 @@ fn OiDescriptorContainmentRegionFact::proves_contains_target(
 ///|
 fn OiDescriptorLabelValidityFact::from_label_id(
   func : @ir.HotFunc,
-  label_id : Int,
+  label_id : Int32,
 ) -> OiDescriptorLabelValidityFact {
   if label_id < 0 || label_id >= func.labels.length() {
     { kind: DescriptorLabelInvalid, }
@@ -34779,8 +34788,8 @@ fn OiDescriptorLabelValidityFact::proves_valid_label(
 ///|
 fn OiDescriptorInternalLabelContainmentFact::from_label_owner(
   func : @ir.HotFunc,
-  root_id : Int,
-  label_id : Int,
+  root_id : Int32,
+  label_id : Int32,
 ) -> OiDescriptorInternalLabelContainmentFact {
   {
     owner_fact: OiDescriptorContainmentFact::from_node(
@@ -34801,8 +34810,8 @@ fn OiDescriptorInternalLabelContainmentFact::proves_owner_contained(
 ///|
 fn OiDescriptorInternalLabelFact::from_label(
   func : @ir.HotFunc,
-  root_id : Int,
-  label_id : Int,
+  root_id : Int32,
+  label_id : Int32,
 ) -> OiDescriptorInternalLabelFact {
   // Descriptor branch/control cleanup first proves that a branch label exists,
   // then separately proves that the label owner remains inside the descriptor or
@@ -34888,8 +34897,8 @@ fn OiDescriptorBranchControlFact::empty() -> OiDescriptorBranchControlFact {
 ///|
 fn OiDescriptorBranchControlFact::from_node(
   func : @ir.HotFunc,
-  owner_id : Int,
-  node_id : Int,
+  owner_id : Int32,
+  node_id : Int32,
 ) -> OiDescriptorBranchControlFact {
   // Binaryen's descriptor/ref-get-desc cleanup uses branch-control and escaping
   // branch-control predicates to decide whether a nullable child can be moved or
@@ -35041,7 +35050,7 @@ fn OiDescriptorBranchControlFact::proves_has_escaping_branch_control(
 ///|
 fn OiDescriptorBranchControlRegionFact::from_region(
   func : @ir.HotFunc,
-  owner_id : Int,
+  owner_id : Int32,
   region_ref : @ir.HotRegionRef,
 ) -> OiDescriptorBranchControlRegionFact {
   OiDescriptorBranchControlRegionFact::from_region_range(
@@ -35056,7 +35065,7 @@ fn OiDescriptorBranchControlRegionFact::from_region(
 ///|
 fn OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
   func : @ir.HotFunc,
-  owner_id : Int,
+  owner_id : Int32,
   region_ref : @ir.HotRegionRef,
 ) -> OiDescriptorBranchControlRegionFact {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -35075,10 +35084,10 @@ fn OiDescriptorBranchControlRegionFact::from_region_prefix_excluding_tail(
 ///|
 fn OiDescriptorBranchControlRegionFact::from_region_range(
   func : @ir.HotFunc,
-  owner_id : Int,
+  owner_id : Int32,
   region_ref : @ir.HotRegionRef,
-  start_slot : Int,
-  end_slot : Int,
+  start_slot : Int32,
+  end_slot : Int32,
 ) -> OiDescriptorBranchControlRegionFact {
   let mut has_branch_control = false
   let mut has_escaping_branch_control = false
@@ -35148,7 +35157,7 @@ fn OiDescriptorSkipOrderEffectFact::proves_order_sensitive_effect(
 ///|
 fn OiDescriptorSkipOrderFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorSkipOrderFact {
   // Binaryen's descriptor-cast TNH skip can erase the descriptor immediately
   // only when doing so does not reorder calls, writes, atomics, EH, or other
@@ -35329,8 +35338,8 @@ fn OiDescriptorInternalControlChildEffectFact::proves_effect_free(
 fn OiDescriptorInternalControlEffectFreeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  owner_id : Int,
-  node_id : Int,
+  owner_id : Int32,
+  node_id : Int32,
 ) -> OiDescriptorInternalControlEffectFreeFact {
   // TNH descriptor-null-check removal can ignore internal branch/control edges
   // when all reachable payload work is otherwise effect-free. Preserve that
@@ -35444,7 +35453,7 @@ fn OiDescriptorInternalControlEffectFreeFact::proves_effect_free_allowing_intern
 fn OiDescriptorInternalControlEffectFreeRegionFact::from_region(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  owner_id : Int,
+  owner_id : Int32,
   region_ref : @ir.HotRegionRef,
 ) -> OiDescriptorInternalControlEffectFreeRegionFact {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -35479,7 +35488,7 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let simplification_fact = match
     OiDescriptorOperandSimplificationFact::from_node(func, node_id) {
@@ -35514,7 +35523,7 @@ fn OiResultShapeFact::empty() -> OiResultShapeFact {
 ///|
 fn OiResultShapeFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiResultShapeFact {
   // Binaryen's OI descriptor and standalone ref.get_desc rewrites frequently
   // gate on result arity/nullability before localizing children. Keep those
@@ -35570,36 +35579,36 @@ fn OiResultShapeFact::proves_multivalue_result(
 
 ///|
 priv struct OiStandaloneRefGetDescKnownNullLeafFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
 fn OiStandaloneRefGetDescKnownNullLeafFact::new(
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStandaloneRefGetDescKnownNullLeafFact {
   { node_id, }
 }
 
 ///|
 priv struct OiStandaloneRefGetDescNullableLeafMoveFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
 fn OiStandaloneRefGetDescNullableLeafMoveFact::new(
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStandaloneRefGetDescNullableLeafMoveFact {
   { node_id, }
 }
 
 ///|
 priv struct OiStandaloneRefGetDescNontrappingOperandLeafFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
 fn OiStandaloneRefGetDescNontrappingOperandLeafFact::new(
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStandaloneRefGetDescNontrappingOperandLeafFact {
   { node_id, }
 }
@@ -35623,7 +35632,7 @@ fn OiStandaloneRefGetDescLeafFact::empty() -> OiStandaloneRefGetDescLeafFact {
 ///|
 fn OiStandaloneRefGetDescLeafFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStandaloneRefGetDescLeafFact {
   // Binaryen v130's ref.get_desc path delegates to skipNonNullCast and
   // trapOnNull, so Starshine keeps the represented leaf proofs explicit here:
@@ -35724,7 +35733,7 @@ fn OiStandaloneRefGetDescLocalTeeChildFact::empty() -> OiStandaloneRefGetDescLoc
 ///|
 fn OiStandaloneRefGetDescLocalTeeChildFact::from_tee(
   func : @ir.HotFunc,
-  tee_id : Int,
+  tee_id : Int32,
 ) -> OiStandaloneRefGetDescLocalTeeChildFact {
   // Binaryen v130 standalone ref.get_desc movement only looks through a
   // one-child local.tee when that child is itself one of the represented leaf
@@ -35775,7 +35784,7 @@ fn OiStandaloneRefGetDescLocalTeeFact::empty() -> OiStandaloneRefGetDescLocalTee
 ///|
 fn OiStandaloneRefGetDescLocalTeeFact::from_node(
   func : @ir.HotFunc,
-  tee_id : Int,
+  tee_id : Int32,
 ) -> OiStandaloneRefGetDescLocalTeeFact {
   // Represent the two local.tee ref.get_desc boundaries as data: local.tee of a
   // known-null ref.null can be preserved before the trap, while local.tee of a
@@ -35834,8 +35843,8 @@ fn OiStandaloneRefGetDescControlShapeFact::empty() -> OiStandaloneRefGetDescCont
 ///|
 fn OiStandaloneRefGetDescControlShapeFact::from_node(
   func : @ir.HotFunc,
-  owner_id : Int,
-  node_id : Int,
+  owner_id : Int32,
+  node_id : Int32,
 ) -> OiStandaloneRefGetDescControlShapeFact {
   // Standalone ref.get_desc null-check movement can only preserve a small
   // self-contained control subset. Summarize that represented shape in a fact:
@@ -35937,8 +35946,8 @@ priv struct OiStandaloneRefGetDescLabelOwnerFact {
 ///|
 fn OiStandaloneRefGetDescLabelOwnerFact::from_label(
   func : @ir.HotFunc,
-  label_id : Int,
-  owner_id : Int,
+  label_id : Int32,
+  owner_id : Int32,
 ) -> OiStandaloneRefGetDescLabelOwnerFact {
   // Binaryen-style standalone ref.get_desc movement needs to distinguish
   // branches that stay inside the moved block from escaping branches. Keep that
@@ -35999,8 +36008,8 @@ fn OiStandaloneRefGetDescRootShapeFact::empty() -> OiStandaloneRefGetDescRootSha
 ///|
 fn OiStandaloneRefGetDescRootShapeFact::from_root(
   func : @ir.HotFunc,
-  block_id : Int,
-  root_id : Int,
+  block_id : Int32,
+  root_id : Int32,
 ) -> OiStandaloneRefGetDescRootShapeFact {
   // Standalone ref.get_desc null-check movement accepts only a represented
   // block-root subset: internal br_on_non_null, escaping br_if with safe
@@ -36326,9 +36335,9 @@ fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::empty() -> OiStandaloneRefG
 ///|
 fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
   body : @ir.HotRegionRef,
-  root_count : Int,
+  root_count : Int32,
 ) -> OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
   // Source-order prefix fact for the represented standalone ref.get_desc block
   // movement path: every non-final root must be void and either ordinary
@@ -36373,8 +36382,8 @@ fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::empty() -> OiStandaloneRefGe
 ///|
 fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::from_final_root(
   func : @ir.HotFunc,
-  block_id : Int,
-  final_id : Int,
+  block_id : Int32,
+  final_id : Int32,
   prefix_payload : OiStandaloneRefGetDescBlockMovePrefixPayloadFact,
 ) -> OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
   // The final root is the source-ordered nullable/control handoff: either the
@@ -36420,7 +36429,7 @@ priv struct OiStandaloneRefGetDescBlockMoveFact {
 ///|
 fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
 ) -> OiStandaloneRefGetDescBlockMoveFact {
   // This fact is the represented standalone ref.get_desc block-child proof: all
   // prefix roots must be void, free of unsupported nested control/multivalue,
@@ -36491,9 +36500,9 @@ fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::empty() -> OiStandalon
 ///|
 fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::from_region_prefix(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
   body : @ir.HotRegionRef,
-  root_count : Int,
+  root_count : Int32,
 ) -> OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
   // Source-order prefix fact for the represented known-null standalone
   // ref.get_desc block path: every non-final root must be void/control-safe and
@@ -36538,8 +36547,8 @@ fn OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::empty() -> OiStandalone
 ///|
 fn OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::from_final_root(
   func : @ir.HotFunc,
-  block_id : Int,
-  final_id : Int,
+  block_id : Int32,
+  final_id : Int32,
 ) -> OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
   // Final-root payload for the known-null standalone ref.get_desc block path:
   // the result root must be the represented ref.null leaf and must not carry
@@ -36567,7 +36576,7 @@ priv struct OiStandaloneRefGetDescKnownNullBlockFact {
 ///|
 fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
 ) -> OiStandaloneRefGetDescKnownNullBlockFact {
   // Known-null standalone ref.get_desc block operands are the previous narrow
   // branch-free block subset expressed as a fact: void/control-safe prefix
@@ -36638,7 +36647,7 @@ fn OiStandaloneRefGetDescCallOperandLeafFact::empty() -> OiStandaloneRefGetDescC
 ///|
 fn OiStandaloneRefGetDescCallOperandLeafFact::from_call(
   func : @ir.HotFunc,
-  call_id : Int,
+  call_id : Int32,
 ) -> OiStandaloneRefGetDescCallOperandLeafFact {
   // Standalone ref.get_desc call-child movement keeps Binaryen's skipNonNullCast
   // null-check motion bounded to calls whose operands are represented simple
@@ -36672,7 +36681,7 @@ priv struct OiStandaloneRefGetDescCallMoveFact {
 ///|
 fn OiStandaloneRefGetDescCallMoveFact::from_call(
   func : @ir.HotFunc,
-  call_id : Int,
+  call_id : Int32,
 ) -> OiStandaloneRefGetDescCallMoveFact {
   // The current represented call-child movement subset keeps Binaryen's
   // skipNonNullCast idea but only for calls whose operands are proven by the
@@ -36716,7 +36725,7 @@ fn OiStandaloneRefGetDescCallMoveFact::proves_nullable_ref_call_move_allowed(
 fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
@@ -36744,7 +36753,7 @@ fn optimize_instructions_try_trap_standalone_ref_get_desc_known_null_child(
 fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
@@ -36801,7 +36810,7 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
 fn optimize_instructions_try_move_ref_get_desc_child_null_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  descriptor_id : Int,
+  descriptor_id : Int32,
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
@@ -36823,7 +36832,7 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let miss_fact = match
     OiDescriptorExactMissFact::from_node(ctx, func, dead, node_id) {
@@ -36840,7 +36849,7 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
 fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -36870,7 +36879,7 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let null_fact = match
     OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
@@ -36903,7 +36912,7 @@ priv struct OiDescriptorAllocationEraseFact {
 ///|
 fn OiDescriptorAllocationEraseFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorAllocationEraseFact {
   // Binaryen v130 can drop allocation-only descriptor operands while replacing
   // descriptor casts/tests with statically-known results. Keep Starshine's
@@ -36959,7 +36968,7 @@ priv struct OiDescriptorNullableChildEraseTnhFact {
 fn OiDescriptorNullableChildEraseTnhFact::from_child(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorNullableChildEraseTnhFact {
   // Binaryen v130's traps-never-happen mode may erase a descriptor-side null
   // check when the nullable child can be discarded or localized safely. This is
@@ -37071,7 +37080,7 @@ priv struct OiRefGetDescOperandEraseFact {
 fn OiRefGetDescOperandEraseFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefGetDescOperandEraseFact {
   // Binaryen v130 descriptor rewrites may drop `ref.get_desc` when the operand
   // is already known non-null and side-effect-free, or when TNH lets the
@@ -37181,7 +37190,7 @@ priv struct OiRefAsNonNullDescriptorOperandEraseTnhFact {
 fn OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefAsNonNullDescriptorOperandEraseTnhFact {
   // Under TNH, Binaryen's descriptor operand cleanup can erase an explicit
   // `ref.as_non_null` wrapper if the nullable child itself can be discarded or
@@ -37263,7 +37272,7 @@ fn OiDescriptorOperandEraseFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiDescriptorOperandEraseFact {
   // Binaryen v130's descriptor-cast/test rewrites use `getDroppedChildren...`,
   // trap-on-null, skipNonNullCast, ChildLocalizer, and EffectAnalyzer to decide
@@ -37377,7 +37386,7 @@ fn optimize_instructions_defaultable_descriptor_scratch_type(
 fn optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -37395,7 +37404,7 @@ fn optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
 fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
@@ -37414,7 +37423,7 @@ fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
 fn optimize_instructions_try_remove_ref_as_non_null_local_write_trap_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
     return false
@@ -37453,7 +37462,7 @@ fn optimize_instructions_try_remove_ref_as_non_null_local_write_trap_check(
 fn optimize_instructions_try_fold_ref_as_non_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
@@ -37493,8 +37502,8 @@ fn optimize_instructions_try_fold_ref_as_non_null(
 fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  cast_id : Int,
+  node_id : Int32,
+  cast_id : Int32,
 ) -> Bool {
   let cast_fact = match OiDescriptorCastFact::from_node(func, cast_id) {
     Some(fact) => fact
@@ -37518,13 +37527,13 @@ fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
 
 ///|
 priv struct OiRefEqNonNullLocalFact {
-  local_index : Int?
-  trap_id : Int?
+  local_index : Int32?
+  trap_id : Int32?
 }
 
 ///|
 priv struct OiRefEqI31SourceFact {
-  local_index : Int?
+  local_index : Int32?
   const_value : @lib.I32?
 }
 
@@ -37573,7 +37582,7 @@ priv struct OiRefEqNullabilityFact {
 
 ///|
 priv struct OiRefEqSameLocalFact {
-  local_index : Int?
+  local_index : Int32?
 }
 
 ///|
@@ -37595,7 +37604,7 @@ fn OiRefEqOperandFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqOperandFact {
   // Binaryen v130 `visitRefEq` and nearby null/equality rewrites make their
   // decisions from operand shape, local nullability, i31 facts, and disjoint
@@ -37632,7 +37641,7 @@ fn OiRefEqOperandFact::from_node(
 fn OiRefEqSameLocalFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqSameLocalFact {
   // Binaryen v130 `visitRefEq` first recognizes operands that are provably the
   // same local value, including the represented nullable `ref.cast(local.get)`
@@ -37652,8 +37661,8 @@ fn OiRefEqSameLocalFact::from_node(
 fn OiRefEqSameLocalFact::from_nullable_ref_cast(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if @ir.hot_child_count(func, node_id) != 1 {
     return None
   }
@@ -37689,7 +37698,7 @@ fn OiRefEqSameLocalFact::from_nullable_ref_cast(
 ///|
 fn OiRefEqLocalTypeFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqLocalTypeFact {
   // Keep the direct-local static ref type as a named `visitRefEq` fact. It feeds
   // only the represented local-type nullability, i31-disjointness, and local
@@ -37714,7 +37723,7 @@ fn OiRefEqNonNullLocalFact::none() -> OiRefEqNonNullLocalFact {
 ///|
 fn OiRefEqNonNullLocalFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqNonNullLocalFact {
   // Binaryen v130 can fold `ref.eq` of the same local through `ref.as_non_null`,
   // but the wrapper may still be the operation that traps for nullable locals.
@@ -37760,7 +37769,7 @@ fn OiRefEqNonNullLocalFact::from_node(
 ///|
 fn OiRefEqNullabilityFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   local_ref_type : @lib.RefType?,
   literal_fact : OiRefLiteralFact,
 ) -> OiRefEqNullabilityFact {
@@ -37816,7 +37825,7 @@ fn OiRefEqNullabilityFact::proves_known_non_null(
 fn OiRefEqI31SourceFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqI31SourceFact {
   // Binaryen v130 `visitRefEq` has direct `ref.i31` equality paths for local
   // identity and constant payload equality. Keep that direct-source proof nested
@@ -37845,7 +37854,7 @@ fn OiRefEqI31SourceFact::from_node(
 fn OiRefEqI31Fact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_ref_type : @lib.RefType?,
   literal_fact : OiRefLiteralFact,
 ) -> OiRefEqI31Fact {
@@ -37867,7 +37876,7 @@ fn OiRefEqI31Fact::from_node(
 ///|
 fn OiRefEqI31NonNullFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   local_ref_type : @lib.RefType?,
   literal_fact : OiRefLiteralFact,
 ) -> OiRefEqI31NonNullFact {
@@ -37941,14 +37950,14 @@ priv enum OiRefEqSkipCastShellKind {
 
 ///|
 priv struct OiRefEqSkipCastShellFact {
-  child_id : Int
+  child_id : Int32
   kind : OiRefEqSkipCastShellKind
 }
 
 ///|
 fn OiRefEqSkipCastShellFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqSkipCastShellFact? {
   // Binaryen v130 `visitRefEq` reuses the GC skip-cast shell set for nullable-eq
   // operands: ordinary `ref.cast` and `ref.as_non_null` wrappers are removable
@@ -37977,7 +37986,7 @@ fn OiRefEqSkipCastShellFact::from_node(
 ///|
 fn OiRefEqSkipCastShellFact::replacement_child_id(
   self : OiRefEqSkipCastShellFact,
-) -> Int {
+) -> Int32 {
   match self.kind {
     RefEqSkipCastRefCast | RefEqSkipCastRefAsNonNull => self.child_id
   }
@@ -37985,14 +37994,14 @@ fn OiRefEqSkipCastShellFact::replacement_child_id(
 
 ///|
 priv struct OiRefEqNullableEqRequirementFact {
-  child_id : Int
+  child_id : Int32
 }
 
 ///|
 fn OiRefEqNullableEqRequirementFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqNullableEqRequirementFact? {
   // The cast wrapper is removable only when the child heap is a known match for
   // nullable eqref, matching Binaryen v130 `skipCast(input, (ref null eq))` and
@@ -38023,7 +38032,7 @@ priv struct OiRefEqSkipCastStepFact {
 fn OiRefEqSkipCastStepFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqSkipCastStepFact? {
   let shell_fact = match OiRefEqSkipCastShellFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -38041,14 +38050,14 @@ fn OiRefEqSkipCastStepFact::from_node(
 ///|
 fn OiRefEqSkipCastStepFact::replacement_child_id(
   self : OiRefEqSkipCastStepFact,
-) -> Int {
+) -> Int32 {
   ignore(self.requirement_fact.child_id)
   self.shell_fact.replacement_child_id()
 }
 
 ///|
 priv struct OiRefEqSkipCastOperandFact {
-  replacement_id : Int
+  replacement_id : Int32
   changed : Bool
 }
 
@@ -38056,7 +38065,7 @@ priv struct OiRefEqSkipCastOperandFact {
 fn OiRefEqSkipCastOperandFact::from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiRefEqSkipCastOperandFact {
   // Binaryen v130 `visitRefEq` calls `skipCast(input, (ref null eq))` only
   // under traps-never-happen. The operand fact now walks explicit skip-cast
@@ -38081,8 +38090,8 @@ fn OiRefEqSkipCastOperandFact::from_node(
 
 ///|
 priv struct OiRefEqSkipCastFact {
-  lhs_replacement_id : Int
-  rhs_replacement_id : Int
+  lhs_replacement_id : Int32
+  rhs_replacement_id : Int32
   changed : Bool
 }
 
@@ -38090,8 +38099,8 @@ priv struct OiRefEqSkipCastFact {
 fn OiRefEqSkipCastFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiRefEqSkipCastFact {
   let lhs = OiRefEqSkipCastOperandFact::from_node(ctx, func, lhs_id)
   let rhs = OiRefEqSkipCastOperandFact::from_node(ctx, func, rhs_id)
@@ -38107,7 +38116,7 @@ fn OiRefEqSkipCastFact::apply(
   self : OiRefEqSkipCastFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !self.changed {
     return false
@@ -38129,8 +38138,8 @@ fn OiRefEqRelationFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiRefEqRelationFact {
   {
     lhs: OiRefEqOperandFact::from_node(ctx, func, dead, lhs_id),
@@ -38150,7 +38159,7 @@ priv enum OiRefEqEqualityKind {
 ///|
 priv struct OiRefEqEqualityFact {
   kind : OiRefEqEqualityKind
-  trap_id : Int?
+  trap_id : Int32?
   result : @lib.I32
 }
 
@@ -38246,7 +38255,7 @@ fn OiRefEqEqualityFact::apply(
   self : OiRefEqEqualityFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     RefEqSameLocalNonNullTrapEqual =>
@@ -38296,9 +38305,9 @@ fn OiRefEqImpossibleFact::apply(
   self : OiRefEqImpossibleFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  node_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Unit {
   match self.kind {
     RefEqI31AgainstDisjointHeap | RefEqDisjointLocalHeapTypes =>
@@ -38347,8 +38356,8 @@ fn OiRefEqImpossibleFact::from_relation(
 fn optimize_instructions_replace_with_drop_then_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  drop_id : Int,
+  node_id : Int32,
+  drop_id : Int32,
   value : @lib.I32,
 ) -> Unit {
   let temp = @ir.hot_build_block(
@@ -38371,9 +38380,9 @@ fn optimize_instructions_replace_with_drop_then_const_i32(
 fn optimize_instructions_replace_with_drop_drop_then_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  first_drop_id : Int,
-  second_drop_id : Int,
+  node_id : Int32,
+  first_drop_id : Int32,
+  second_drop_id : Int32,
   value : @lib.I32,
 ) -> Unit {
   let temp = @ir.hot_build_block(
@@ -38400,8 +38409,8 @@ fn optimize_instructions_replace_with_drop_drop_then_const_i32(
 fn optimize_instructions_replace_with_drop_then_const_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  drop_id : Int,
+  node_id : Int32,
+  drop_id : Int32,
   value : @lib.I64,
 ) -> Unit {
   let temp = @ir.hot_build_block(
@@ -38424,9 +38433,9 @@ fn optimize_instructions_replace_with_drop_then_const_i64(
 fn optimize_instructions_replace_with_drop_then_node_id(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  drop_id : Int,
-  value_id : Int,
+  node_id : Int32,
+  drop_id : Int32,
+  value_id : Int32,
 ) -> Bool {
   let block_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -38454,9 +38463,9 @@ fn optimize_instructions_replace_with_drop_then_node_id(
 fn optimize_instructions_replace_with_local_set_then_node_id(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  localize_id : Int,
-  value_id : Int,
+  node_id : Int32,
+  localize_id : Int32,
+  value_id : Int32,
 ) -> Bool {
   let block_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -38494,10 +38503,10 @@ fn optimize_instructions_replace_with_local_set_then_node_id(
 ///|
 fn optimize_instructions_restore_localized_result(
   func : @ir.HotFunc,
-  local_get : Int,
+  local_get : Int32,
   local_type : @lib.ValType,
   result_type : @lib.ValType,
-) -> Int? {
+) -> Int32? {
   if local_type == result_type {
     return Some(local_get)
   }
@@ -38525,9 +38534,9 @@ fn optimize_instructions_restore_localized_result(
 fn optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  value_id : Int,
-  descriptor_id : Int,
+  node_id : Int32,
+  value_id : Int32,
+  descriptor_id : Int32,
 ) -> Bool {
   let result_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -38592,8 +38601,8 @@ fn optimize_instructions_replace_with_localized_node_then_descriptor_then_local_
 fn optimize_instructions_replace_with_drop_then_unreachable(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  drop_id : Int,
+  node_id : Int32,
+  drop_id : Int32,
 ) -> Bool {
   let block_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -38621,9 +38630,9 @@ fn optimize_instructions_replace_with_drop_then_unreachable(
 fn optimize_instructions_replace_with_drop_drop_then_unreachable(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  first_drop_id : Int,
-  second_drop_id : Int,
+  node_id : Int32,
+  first_drop_id : Int32,
+  second_drop_id : Int32,
 ) -> Bool {
   let block_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -38652,7 +38661,7 @@ fn optimize_instructions_replace_with_drop_drop_then_unreachable(
 fn optimize_instructions_node_effects_are_pure(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let effects = pass_require_effects(ctx, func)
   OiNodeEffectPurityFact::from_node_masks(effects.node_masks, node_id).proves_pure()
@@ -38662,9 +38671,9 @@ fn optimize_instructions_node_effects_are_pure(
 fn optimize_instructions_replace_ref_eq_impossible_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  lhs_id : Int,
-  rhs_id : Int,
+  node_id : Int32,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Unit {
   let lhs_pure = optimize_instructions_node_effects_are_pure(ctx, func, lhs_id)
   let rhs_pure = optimize_instructions_node_effects_are_pure(ctx, func, rhs_id)
@@ -38717,13 +38726,13 @@ fn optimize_instructions_replace_ref_eq_impossible_with_const_i32(
 
 ///|
 priv struct OiStructGetNonNullCheckFact {
-  nullable_operand_id : Int
+  nullable_operand_id : Int32
 }
 
 ///|
 fn OiStructGetNonNullCheckFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiStructGetNonNullCheckFact? {
   // Binaryen v130 visitStructGet applies skipNonNullCast before trapOnNull. A
   // direct ref.as_non_null is redundant because struct.get itself traps at the
@@ -38758,7 +38767,7 @@ fn OiStructGetNonNullCheckFact::apply(
   self : OiStructGetNonNullCheckFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   @ir.hot_child_set(func, node_id, 0, self.nullable_operand_id)
   pass_mark_mutated(ctx, func)
@@ -38769,7 +38778,7 @@ fn OiStructGetNonNullCheckFact::apply(
 fn optimize_instructions_try_strip_struct_get_non_null_check(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match OiStructGetNonNullCheckFact::from_node(func, node_id) {
     Some(fact) => fact.apply(ctx, func, node_id)
@@ -38795,7 +38804,7 @@ fn OiRefEqOperandErasabilityFact::from_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> OiRefEqOperandErasabilityFact {
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
     ctx, func, dead, operand_id,
@@ -38838,8 +38847,8 @@ fn OiRefEqOperandErasabilityFact::proves_erasable(
 
 ///|
 priv struct OiRefEqConsecutiveEqualityFact {
-  lhs_id : Int
-  rhs_id : Int
+  lhs_id : Int32
+  rhs_id : Int32
   equality_fact : OiConsecutiveInputEqualityFact
   lhs_erasability_fact : OiRefEqOperandErasabilityFact
   rhs_erasability_fact : OiRefEqOperandErasabilityFact
@@ -38850,8 +38859,8 @@ fn OiRefEqConsecutiveEqualityFact::from_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiRefEqConsecutiveEqualityFact? {
   // Binaryen v131 applies the shared consecutive-input equality machinery to
   // ref.eq. A foldable right operand means only the left evaluation survives;
@@ -38880,7 +38889,7 @@ fn OiRefEqConsecutiveEqualityFact::apply(
   self : OiRefEqConsecutiveEqualityFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !self.equality_fact.proves_equal(func) {
     return false
@@ -38922,7 +38931,7 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
@@ -39055,8 +39064,8 @@ fn OiSameLocalIntegerCompareFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiSameLocalIntegerCompareFact? {
   // Binaryen v130 folds integer relational compares of the same local value to
   // constants in `visitBinary`. Keep the local-equality proof and per-opcode
@@ -39099,7 +39108,7 @@ fn OiSameLocalIntegerCompareFact::apply(
   self : OiSameLocalIntegerCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   optimize_instructions_replace_with_const_i32(ctx, func, node_id, self.result)
 }
@@ -39118,10 +39127,10 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match instr {
     @lib.Instruction::I32Eq
@@ -39224,7 +39233,7 @@ priv struct OiSignedDomainEdgeCompareFact {
 priv struct OiUnsignedDomainEdgeCompareFact {
   edge : OiDomainEdgeKind
   result : @lib.I32
-  lhs_id : Int
+  lhs_id : Int32
   preserve_lhs : Bool
 }
 
@@ -39233,8 +39242,8 @@ fn OiSignedDomainEdgeCompareFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiSignedDomainEdgeCompareFact? {
   // Binaryen v130 folds signed integer comparisons at the unreachable domain
   // endpoints only when the left operand can be erased without preserving
@@ -39290,8 +39299,8 @@ fn OiUnsignedDomainEdgeCompareFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiUnsignedDomainEdgeCompareFact? {
   // Binaryen v130 folds unsigned integer comparisons at the impossible domain
   // endpoints and preserves left-operand effects by dropping the operand before
@@ -39351,7 +39360,7 @@ fn OiSignedDomainEdgeCompareFact::apply(
   self : OiSignedDomainEdgeCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.edge {
     DomainLowerEdge | DomainUpperEdge => ()
@@ -39364,7 +39373,7 @@ fn OiUnsignedDomainEdgeCompareFact::apply(
   self : OiUnsignedDomainEdgeCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.edge {
     DomainLowerEdge | DomainUpperEdge => ()
@@ -39392,10 +39401,10 @@ fn optimize_instructions_try_fold_signed_domain_edge_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiSignedDomainEdgeCompareFact::from_operands(
@@ -39414,10 +39423,10 @@ fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiUnsignedDomainEdgeCompareFact::from_operands(
@@ -39436,10 +39445,10 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiSameLocalIntegerCompareFact::from_operands(
@@ -39463,7 +39472,7 @@ priv enum OiSameLocalIntegerBinaryRewriteKind {
 ///|
 priv struct OiSameLocalIntegerBinaryFact {
   kind : OiSameLocalIntegerBinaryRewriteKind
-  retained_id : Int
+  retained_id : Int32
 }
 
 ///|
@@ -39471,8 +39480,8 @@ fn OiSameLocalIntegerBinaryFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiSameLocalIntegerBinaryFact? {
   // Binaryen v130 folds same-local integer `sub` / `xor` to typed zero and
   // idempotent integer `and` / `or` to the local. Store the same-local proof,
@@ -39506,7 +39515,7 @@ fn OiSameLocalIntegerBinaryFact::apply(
   self : OiSameLocalIntegerBinaryFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match self.kind {
     OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI32Zero =>
@@ -39538,10 +39547,10 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiSameLocalIntegerBinaryFact::from_operands(
@@ -39557,17 +39566,17 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
 
 ///|
 priv struct OiI32SignExtensionRangeFact {
-  child_id : Int
-  min_value : Int
-  max_value : Int
-  mask_value : Int
+  child_id : Int32
+  min_value : Int32
+  max_value : Int32
+  mask_value : Int32
 }
 
 ///|
 fn OiI32SignExtensionRangeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI32SignExtensionRangeFact? {
   // Binaryen v130 recognizes the bounded signed result ranges for i32
   // sign-extension opcodes before applying the equality and unsigned-top compare
@@ -39593,14 +39602,14 @@ fn OiI32SignExtensionRangeFact::from_node(
 
 ///|
 priv struct OiI64SignExtensionNodeFact {
-  node_id : Int
+  node_id : Int32
 }
 
 ///|
 fn OiI64SignExtensionNodeFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiI64SignExtensionNodeFact? {
   // Binaryen v130's unsigned-top i64 compare rewrite only needs proof that the
   // left operand is a live i64 sign-extension unary. Keep that producer proof as
@@ -39623,7 +39632,7 @@ fn OiI64SignExtensionNodeFact::from_node(
 
 ///|
 priv struct OiI32SignExtensionEqualityFoldFact {
-  compare_id : Int
+  compare_id : Int32
   sign_ext_fact : OiI32SignExtensionRangeFact
   result : @lib.I32
 }
@@ -39632,10 +39641,10 @@ priv struct OiI32SignExtensionEqualityFoldFact {
 fn OiI32SignExtensionEqualityFoldFact::from_compare(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  compare_id : Int,
+  compare_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32SignExtensionEqualityFoldFact? {
   let sign_ext_fact = match
     OiI32SignExtensionRangeFact::from_node(func, dead, lhs_id) {
@@ -39687,7 +39696,7 @@ fn OiI32SignExtensionEqualityFoldFact::apply(
 
 ///|
 priv struct OiI32SignExtensionUnsignedTopCompareFact {
-  compare_id : Int
+  compare_id : Int32
   sign_ext_fact : OiI32SignExtensionRangeFact
   replacement_instr : @lib.Instruction
 }
@@ -39696,10 +39705,10 @@ priv struct OiI32SignExtensionUnsignedTopCompareFact {
 fn OiI32SignExtensionUnsignedTopCompareFact::from_compare(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  compare_id : Int,
+  compare_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI32SignExtensionUnsignedTopCompareFact? {
   let sign_ext_fact = match
     OiI32SignExtensionRangeFact::from_node(func, dead, lhs_id) {
@@ -39744,7 +39753,7 @@ fn OiI32SignExtensionUnsignedTopCompareFact::apply(
 
 ///|
 priv struct OiI64SignExtensionUnsignedTopCompareFact {
-  compare_id : Int
+  compare_id : Int32
   sign_ext_fact : OiI64SignExtensionNodeFact
   replacement_instr : @lib.Instruction
 }
@@ -39753,10 +39762,10 @@ priv struct OiI64SignExtensionUnsignedTopCompareFact {
 fn OiI64SignExtensionUnsignedTopCompareFact::from_compare(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  compare_id : Int,
+  compare_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiI64SignExtensionUnsignedTopCompareFact? {
   let sign_ext_fact = match
     OiI64SignExtensionNodeFact::from_node(func, dead, lhs_id) {
@@ -39796,10 +39805,10 @@ fn optimize_instructions_try_fold_i32_sign_extension_equality_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiI32SignExtensionEqualityFoldFact::from_compare(
@@ -39818,10 +39827,10 @@ fn optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiI32SignExtensionUnsignedTopCompareFact::from_compare(
@@ -39840,10 +39849,10 @@ fn optimize_instructions_try_rewrite_i64_sign_extension_unsigned_top_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     OiI64SignExtensionUnsignedTopCompareFact::from_compare(
@@ -39862,8 +39871,8 @@ fn optimize_instructions_i32_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   optimize_instructions_i32_unsigned_max_fact_for_node(
     func, dead, scratch, node_id,
   )
@@ -39872,8 +39881,8 @@ fn optimize_instructions_i32_unsigned_max(
 ///|
 fn optimize_instructions_i32_masked_unsigned_compare_result(
   instr : @lib.Instruction,
-  max_value : Int,
-  rhs : Int,
+  max_value : Int32,
+  rhs : Int32,
 ) -> @lib.I32? {
   let rhs_outside = rhs < 0 || rhs > max_value
   if !rhs_outside {
@@ -39933,10 +39942,10 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let max_value = match
     optimize_instructions_i32_unsigned_max(func, dead, scratch, lhs_id) {
@@ -39980,7 +39989,7 @@ fn optimize_instructions_i64_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
 ) -> Int64? {
   optimize_instructions_i64_unsigned_max_fact_for_node(
     func, dead, scratch, node_id,
@@ -40051,10 +40060,10 @@ fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let max_value = match
     optimize_instructions_i64_unsigned_max(func, dead, scratch, lhs_id) {
@@ -40107,9 +40116,9 @@ priv enum OiEqzBooleanCompareRewriteKind {
 
 ///|
 priv struct OiEqzBooleanCompareOperandFact {
-  eqz_id : Int
-  operand_id : Int
-  const_value : Int
+  eqz_id : Int32
+  operand_id : Int32
+  const_value : Int32
   width : OiEqzBooleanCompareWidthKind
 }
 
@@ -40117,8 +40126,8 @@ priv struct OiEqzBooleanCompareOperandFact {
 fn OiEqzBooleanCompareOperandFact::from_pair(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  eqz_id : Int,
-  const_id : Int,
+  eqz_id : Int32,
+  const_id : Int32,
 ) -> OiEqzBooleanCompareOperandFact? {
   // Binaryen v130 `visitBinary` recognizes equality/inequality compares between
   // a direct `i32.eqz` / `i64.eqz` boolean and exact i32 boolean constants. Keep
@@ -40155,8 +40164,8 @@ fn OiEqzBooleanCompareFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> OiEqzBooleanCompareFact? {
   match instr {
     @lib.Instruction::I32Eq | @lib.Instruction::I32Ne => ()
@@ -40185,7 +40194,7 @@ fn OiEqzBooleanCompareFact::apply(
   self : OiEqzBooleanCompareFact,
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   ignore(self.operand_fact.eqz_id)
   let operand_id = self.operand_fact.operand_id
@@ -40233,10 +40242,10 @@ fn optimize_instructions_try_rewrite_compare_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   if optimize_instructions_should_keep_i64_eq_zero_if_condition(
       func, dead, scratch, node_id, instr, lhs_id, rhs_id,
@@ -40332,7 +40341,7 @@ priv enum OiBooleanContextLeafRewriteKind {
 
 ///|
 priv struct OiBooleanForwardReplacementFact {
-  replacement_id : Int
+  replacement_id : Int32
 }
 
 ///|
@@ -40379,8 +40388,8 @@ fn OiBooleanTryRegionThrowFact::proves_nonthrowing(
 fn OiBooleanTryRegionThrowFact::from_region(
   func : @ir.HotFunc,
   region : @ir.HotRegionRef,
-  states : @hashmap.HashMap[Int, Int],
-  depth : Int,
+  states : @hashmap.HashMap[Int32, Int32],
+  depth : Int32,
 ) -> OiBooleanTryRegionThrowFact? {
   if depth >= 64 {
     return None
@@ -40404,9 +40413,9 @@ fn OiBooleanTryRegionThrowFact::from_region(
 ///|
 fn OiBooleanTryExpressionThrowFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
-  states : @hashmap.HashMap[Int, Int],
-  depth : Int,
+  node_id : Int32,
+  states : @hashmap.HashMap[Int32, Int32],
+  depth : Int32,
 ) -> OiBooleanTryExpressionThrowFact? {
   // Binaryen v130 admits a Try fallthrough only when
   // `EffectAnalyzer(..., try.body).throws()` is false. Prove that narrow
@@ -40472,7 +40481,7 @@ priv enum OiBooleanTryBodyThrowKind {
 ///|
 priv struct OiBooleanTryBodyThrowFact {
   kind : OiBooleanTryBodyThrowKind
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
@@ -40488,7 +40497,7 @@ fn OiBooleanTryBodyThrowFact::proves_nonthrowing(
 ///|
 fn OiBooleanTryBodyThrowFact::from_try_operand(
   func : @ir.HotFunc,
-  try_id : Int,
+  try_id : Int32,
 ) -> OiBooleanTryBodyThrowFact? {
   match @ir.hot_node_get(func, try_id).op {
     @ir.HotOp::Try => ()
@@ -40499,7 +40508,7 @@ fn OiBooleanTryBodyThrowFact::from_try_operand(
   if root_count == 0 {
     return None
   }
-  let states : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  let states : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
   for slot = 0; slot < root_count; slot = slot + 1 {
     match
       OiBooleanTryExpressionThrowFact::from_node(
@@ -40538,13 +40547,13 @@ priv enum OiBooleanEqzFallthroughValueKind {
 ///|
 priv struct OiBooleanEqzFallthroughValueFact {
   kind : OiBooleanEqzFallthroughValueKind
-  value_id : Int
+  value_id : Int32
 }
 
 ///|
 fn OiBooleanEqzFallthroughValueFact::from_operand(
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   expected_type : @lib.ValType,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughValueFact? {
@@ -40704,14 +40713,14 @@ fn OiBooleanEqzFallthroughValueFact::operand_preservation(
 
 ///|
 priv struct OiBooleanEqzFallthroughChainFact {
-  value_id : Int
+  value_id : Int32
   preservation : OiBooleanEqzOperandPreservationKind
 }
 
 ///|
 fn OiBooleanEqzFallthroughChainFact::from_operand(
   func : @ir.HotFunc,
-  operand_id : Int,
+  operand_id : Int32,
   expected_type : @lib.ValType,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughChainFact? {
@@ -40754,8 +40763,8 @@ fn OiBooleanEqzFallthroughChainFact::from_operand(
 
 ///|
 priv struct OiBooleanEqzFallthroughConstFact {
-  operand_id : Int
-  folded_value : Int
+  operand_id : Int32
+  folded_value : Int32
   preservation : OiBooleanEqzOperandPreservationKind
 }
 
@@ -40763,7 +40772,7 @@ priv struct OiBooleanEqzFallthroughConstFact {
 fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
@@ -40804,7 +40813,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
 fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen's sibling EqZInt64 path has the same i32 result and preservation
@@ -40840,16 +40849,16 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
 
 ///|
 priv struct OiBooleanSignedRemainderMaskFact {
-  value_id : Int
-  mask_value : Int
+  value_id : Int32
+  mask_value : Int32
 }
 
 ///|
 fn OiBooleanSignedRemainderMaskFact::from_operands(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  value_id : Int,
-  divisor_id : Int,
+  value_id : Int32,
+  divisor_id : Int32,
 ) -> OiBooleanSignedRemainderMaskFact? {
   // Binaryen v130 accepts signed-min and positive or negative powers of two.
   // Avoid taking abs(INT_MIN) directly; that case selects signed-max.
@@ -40873,7 +40882,7 @@ fn OiBooleanSignedRemainderMaskFact::from_operands(
 ///|
 priv struct OiBooleanContextLeafRewriteFact {
   kind : OiBooleanContextLeafRewriteKind
-  node_id : Int
+  node_id : Int32
   eqz_fallthrough_const_fact : OiBooleanEqzFallthroughConstFact?
   forward_fact : OiBooleanForwardReplacementFact?
   remainder_mask_fact : OiBooleanSignedRemainderMaskFact?
@@ -40883,7 +40892,7 @@ priv struct OiBooleanContextLeafRewriteFact {
 fn OiBooleanContextLeafRewriteFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanContextLeafRewriteFact {
   // Binaryen v130 `optimizeBoolean` forwards exact `i32.ne(x, 0)` and
@@ -40981,7 +40990,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
 fn OiBooleanContextLeafRewriteFact::apply_selected_rewrite(
   self : OiBooleanContextLeafRewriteFact,
   func : @ir.HotFunc,
-) -> Int? {
+) -> Int32? {
   match self.kind {
     BooleanContextLeafFoldEqzFallthroughConst =>
       match self.eqz_fallthrough_const_fact {
@@ -41036,15 +41045,15 @@ fn OiBooleanContextLeafRewriteFact::apply_selected_rewrite(
 
 ///|
 priv struct OiBooleanOrOperandsContextFact {
-  or_id : Int
-  left_id : Int
-  right_id : Int
+  or_id : Int32
+  left_id : Int32
+  right_id : Int32
 }
 
 ///|
 fn OiBooleanOrOperandsContextFact::from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanOrOperandsContextFact? {
   // Binaryen v130 `optimizeBoolean` gives only direct i32.or operands boolean
   // context, and visits both sides independently before continuing.
@@ -41061,16 +41070,16 @@ fn OiBooleanOrOperandsContextFact::from_node(
 
 ///|
 priv struct OiBooleanBlockTailContextFact {
-  block_id : Int
+  block_id : Int32
   body_ref : @ir.HotRegionRef
-  tail_slot : Int
-  tail_id : Int
+  tail_slot : Int32
+  tail_id : Int32
 }
 
 ///|
 fn OiBooleanBlockTailContextFact::from_condition(
   func : @ir.HotFunc,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiBooleanBlockTailContextFact? {
   // Binaryen v130 `optimizeBoolean` recurses only into the final expression of
   // a nonempty i32 block. HOT stores that expression as the final region root.
@@ -41098,15 +41107,15 @@ fn OiBooleanBlockTailContextFact::from_condition(
 
 ///|
 priv struct OiBooleanSelectArmsContextFact {
-  select_id : Int
-  true_id : Int
-  false_id : Int
+  select_id : Int32
+  true_id : Int32
+  false_id : Int32
 }
 
 ///|
 fn OiBooleanSelectArmsContextFact::from_condition(
   func : @ir.HotFunc,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiBooleanSelectArmsContextFact? {
   // Binaryen v130 `optimizeBoolean` recursively optimizes both select value
   // arms without changing the selector.
@@ -41129,8 +41138,8 @@ fn OiBooleanSelectArmsContextFact::from_condition(
 ///|
 priv struct OiBooleanIfArmContextFact {
   region_ref : @ir.HotRegionRef
-  tail_slot : Int
-  tail_id : Int
+  tail_slot : Int32
+  tail_id : Int32
 }
 
 ///|
@@ -41152,7 +41161,7 @@ fn OiBooleanIfArmContextFact::from_region(
 
 ///|
 priv struct OiBooleanIfArmsContextFact {
-  if_id : Int
+  if_id : Int32
   then_arm : OiBooleanIfArmContextFact
   else_arm : OiBooleanIfArmContextFact
 }
@@ -41160,7 +41169,7 @@ priv struct OiBooleanIfArmsContextFact {
 ///|
 fn OiBooleanIfArmsContextFact::from_condition(
   func : @ir.HotFunc,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiBooleanIfArmsContextFact? {
   // Binaryen v130 `optimizeBoolean` recursively optimizes both arms only when
   // the if itself has i32 type. HOT stores each arm expression as a region, so
@@ -41195,7 +41204,7 @@ fn OiBooleanIfArmsContextFact::from_condition(
 
 ///|
 priv struct OiBooleanTryContextFact {
-  try_id : Int
+  try_id : Int32
   body_arm : OiBooleanIfArmContextFact
   catch_arm : OiBooleanIfArmContextFact?
 }
@@ -41203,7 +41212,7 @@ priv struct OiBooleanTryContextFact {
 ///|
 fn OiBooleanTryContextFact::from_condition(
   func : @ir.HotFunc,
-  condition_id : Int,
+  condition_id : Int32,
 ) -> OiBooleanTryContextFact? {
   // Binaryen v130 `optimizeBoolean` recursively optimizes an i32 try body and
   // every catch body independently. HOT's represented legacy Try has one body
@@ -41234,13 +41243,13 @@ fn OiBooleanTryContextFact::from_condition(
 
 ///|
 priv struct OiBooleanContextRewriteOutcome {
-  result_id : Int
+  result_id : Int32
   changed : Bool
 }
 
 ///|
 fn OiBooleanContextRewriteOutcome::unchanged(
-  node_id : Int,
+  node_id : Int32,
 ) -> OiBooleanContextRewriteOutcome {
   { result_id: node_id, changed: false, }
 }
@@ -41249,7 +41258,7 @@ fn OiBooleanContextRewriteOutcome::unchanged(
 fn optimize_instructions_rewrite_boolean_context_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanContextRewriteOutcome {
   // Follow Binaryen v130 `optimizeBoolean` source order: direct unary/binary
@@ -41436,7 +41445,7 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -41497,7 +41506,7 @@ fn optimize_instructions_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
   seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
@@ -42078,10 +42087,10 @@ fn optimize_instructions_visit_node(
 
 ///|
 priv struct OiNoRewriteI32LiteralRevisionFact {
-  revision : Int
-  root_id : Int
-  root_count : Int
-  node_count : Int
+  revision : Int32
+  root_id : Int32
+  root_count : Int32
+  node_count : Int32
 }
 
 ///|

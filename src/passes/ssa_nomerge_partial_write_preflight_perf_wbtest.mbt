@@ -1,6 +1,6 @@
 ///|
 fn ssa_nomerge_partial_write_preflight_perf_body(
-  pair_count : Int,
+  pair_count : Int32,
 ) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<pair_count {
@@ -14,7 +14,7 @@ fn ssa_nomerge_partial_write_preflight_perf_body(
 ///|
 fn ssa_nomerge_partial_write_preflight_perf_bench(
   it : @bench.T,
-  pair_count : Int,
+  pair_count : Int32,
 ) -> Unit {
   let body = ssa_nomerge_partial_write_preflight_perf_body(pair_count)
   if run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(

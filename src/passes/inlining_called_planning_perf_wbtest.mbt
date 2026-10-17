@@ -1,5 +1,5 @@
 ///|
-fn inl_called_planning_fixture(count : Int, active : Bool) -> @lib.Module {
+fn inl_called_planning_fixture(count : Int32, active : Bool) -> @lib.Module {
   let wat : Array[String] = ["(module"]
   if active {
     wat.push(
@@ -21,7 +21,7 @@ fn inl_called_planning_fixture(count : Int, active : Bool) -> @lib.Module {
 ///|
 fn inl_called_planning_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   active : Bool,
   full : Bool,
 ) -> Unit {

@@ -1,6 +1,6 @@
 ///|
 fn cl_live_set_test_fixture(
-  param_count? : Int = 0,
+  param_count~ : Int32 = 0,
 ) -> (@ir.HotFunc, @ir.HotCfg, @ir.HotLiveness) {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(

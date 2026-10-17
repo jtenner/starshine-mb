@@ -2,7 +2,7 @@
 // Frozen eager output-storage boundary; recursive child rewriting is identical.
 fn type_remap_eager_reference(
   instrs : Array[@lib.Instruction],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.Instruction]? {
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
   let mut changed = false
@@ -34,7 +34,7 @@ fn type_remap_eager_reference(
 
 ///|
 test "type remap storage preserves unchanged input and ordered sparse edits" {
-  let remap : Map[UInt, UInt] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   remap[1U] = 0U
   for width in [0, 1, 8] {
     for changed in [false, true] {
@@ -70,7 +70,7 @@ test "type remap storage preserves unchanged input and ordered sparse edits" {
 
 ///|
 test "type remap storage preserves nested control GC references and dense changes" {
-  let remap : Map[UInt, UInt] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   remap[1U] = 0U
   let inner = [
     @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(1U))),
@@ -93,7 +93,7 @@ test "type remap storage preserves nested control GC references and dense change
   ])
   assert_eq(actual[1], @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)))
   assert_eq(actual[2], @lib.Instruction::return_call_ref(@lib.TypeIdx::new(0U)))
-  let identity : Map[UInt, UInt] = Map([])
+  let identity : Map[UInt32, UInt32] = Map([])
   identity[1U] = 1U
   // Existing remapping treats an explicitly present identity mapping as a
   // rewrite. Preserve that contract rather than folding another transform in.
@@ -105,7 +105,7 @@ test "type remap storage preserves nested control GC references and dense change
     dfe_try_rewrite_instruction_array_type_idxs(body, identity).unwrap(),
     body,
   )
-  let absent : Map[UInt, UInt] = Map([])
+  let absent : Map[UInt32, UInt32] = Map([])
   assert_true(dfe_try_rewrite_instruction_array_type_idxs(body, absent) is None)
   // A later remap must observe current input, not reuse an unchanged proof.
   assert_eq(

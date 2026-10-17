@@ -4,7 +4,7 @@
 fn cl_copy_barrier_reference_remove(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> Unit {

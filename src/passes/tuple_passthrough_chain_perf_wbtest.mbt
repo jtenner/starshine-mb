@@ -1,7 +1,7 @@
 ///|
 fn tuple_passthrough_chain_fixture(
-  depth : Int,
-) -> (@ir.HotFunc, @ir.HotUseDef, Int) {
+  depth : Int32,
+) -> (@ir.HotFunc, @ir.HotUseDef, Int32) {
   let instrs : Array[@lib.Instruction] = [
     @lib.Instruction::i32_const(@lib.I32(7)),
   ]
@@ -40,7 +40,7 @@ fn tuple_passthrough_chain_fixture(
 }
 
 ///|
-fn tuple_passthrough_chain_bench(it : @bench.T, depth : Int) -> Unit {
+fn tuple_passthrough_chain_bench(it : @bench.T, depth : Int32) -> Unit {
   let (func, use_def, target_id) = tuple_passthrough_chain_fixture(depth)
   match
     tuple_optimization_find_passthrough_root_chain(func, use_def, target_id) {

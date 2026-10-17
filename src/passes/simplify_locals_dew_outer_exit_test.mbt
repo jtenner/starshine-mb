@@ -10,9 +10,9 @@ test "simplify-locals preserves a local write before an outer block exit" {
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   // Execute structured branches with their actual label depths. The old
   // rewrite moved the write behind the exiting branch and returned zero.
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut value = 0
-  fn execute(instrs : Array[@lib.Instruction]) -> Int? raise {
+  fn execute(instrs : Array[@lib.Instruction]) -> Int32? raise {
     for instr in instrs {
       match instr {
         @lib.Nop => ()

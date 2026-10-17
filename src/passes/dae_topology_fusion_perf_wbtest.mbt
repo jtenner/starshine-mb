@@ -3,8 +3,8 @@
 ///|
 fn dae_boundary_graph_before_topology_fusion(
   mod_ : @lib.Module,
-  topology? : DaeCurrentTopologyExtras? = None,
-  topology_walk_visits? : Array[Int]? = None,
+  topology~ : DaeCurrentTopologyExtras? = None,
+  topology_walk_visits~ : Array[Int32]? = None,
 ) -> DaeCurrentBoundaryGraph {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   {
@@ -32,9 +32,9 @@ fn dae_boundary_graph_before_topology_fusion(
 
 ///|
 fn dae_topology_bench_fixture(
-  count : Int,
-  width : Int,
-  depth : Int,
+  count : Int32,
+  width : Int32,
+  depth : Int32,
 ) -> @lib.Module {
   let wat = ["(module (func $target (param i32) (result i32) local.get 0)"]
   for index in 0..<count {
@@ -58,9 +58,9 @@ fn dae_topology_bench_fixture(
 ///|
 fn dae_topology_fusion_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
-  depth : Int,
+  count : Int32,
+  width : Int32,
+  depth : Int32,
   fused : Bool,
 ) -> Unit {
   let input = dae_topology_bench_fixture(count, width, depth)

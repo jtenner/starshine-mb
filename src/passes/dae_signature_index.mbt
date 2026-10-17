@@ -2,7 +2,7 @@
 fn dae_snapshot_function_types(
   mod_ : @lib.Module,
   indices : Array[@lib.TypeIdx],
-  visited_types? : Array[Int]? = None,
+  visited_types~ : Array[Int32]? = None,
 ) -> Array[@lib.FuncType?] {
   let mut last_needed = -1
   for index in indices {

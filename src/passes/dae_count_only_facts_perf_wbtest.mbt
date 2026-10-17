@@ -1,5 +1,5 @@
 ///|
-fn dae_count_only_facts_fixture(calls : Int, params : Int) -> @lib.Module {
+fn dae_count_only_facts_fixture(calls : Int32, params : Int32) -> @lib.Module {
   let wat : Array[String] = ["(module (func $helper (param"]
   for _ in 0..<params {
     wat.push(" i32")
@@ -19,8 +19,8 @@ fn dae_count_only_facts_fixture(calls : Int, params : Int) -> @lib.Module {
 ///|
 fn dae_count_only_facts_bench(
   it : @bench.T,
-  calls : Int,
-  params : Int,
+  calls : Int32,
+  params : Int32,
   reference : Bool,
 ) -> Unit {
   let input = dae_count_only_facts_fixture(calls, params)

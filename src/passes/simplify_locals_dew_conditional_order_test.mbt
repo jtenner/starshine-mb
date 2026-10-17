@@ -1,13 +1,13 @@
 ///|
 fn sl_dew_conditional_order_execute(
   module_ : @lib.Module,
-  condition : Int,
+  condition : Int32,
 ) -> Unit raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = module_.code_sec.unwrap().0[2]
   let locals = Array::make(body_locals.length() + 1, 0)
   locals[0] = condition
-  let stack : Array[Int] = []
-  let calls : Array[Int] = []
+  let stack : Array[Int32] = []
+  let calls : Array[Int32] = []
   // The two leaf functions return 42 and wrap their i64 argument to i32.
   // All values in this bounded fixture are exactly representable as i32.
   fn execute(instrs : Array[@lib.Instruction]) -> Unit raise {

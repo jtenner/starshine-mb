@@ -7,7 +7,7 @@ test "heap2local sequential write slots sort without root-sized state" {
 
 ///|
 test "bench heap2local sequential write slots=256" (it : @bench.T) {
-  let writes : Array[(Int, Int)] = []
+  let writes : Array[(Int32, Int32)] = []
   for index = 0; index < 256; index = index + 1 {
     writes.push((4096 - index * 7, index))
   }

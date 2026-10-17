@@ -1,5 +1,5 @@
 ///|
-fn vacuum_nested_unary_perf_fixture(depth : Int) -> @lib.Module {
+fn vacuum_nested_unary_perf_fixture(depth : Int32) -> @lib.Module {
   let wat = StringBuilder::new()
   wat.write_string(
     "(module (import \"env\" \"effect\" (func (result i32))) (func (drop ",
@@ -27,7 +27,7 @@ fn vacuum_nested_unary_perf_ctx() -> HotPassContext {
 }
 
 ///|
-fn vacuum_nested_unary_perf_bench(it : @bench.T, depth : Int) -> Unit {
+fn vacuum_nested_unary_perf_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = vacuum_nested_unary_perf_fixture(depth)
   let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(1U))
   let dropped = @ir.hot_root_get(preflight, 0)

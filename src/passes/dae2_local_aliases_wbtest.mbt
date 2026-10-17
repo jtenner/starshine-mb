@@ -2,7 +2,7 @@
 fn local_alias_fixture(
   body : String,
   ty : String,
-  params? : String = "",
+  params~ : String = "",
 ) -> @lib.Module {
   pass_test_module_from_wat(
     "(module (import \"env\" \"produce\" (func $produce (result \{ty}))) (import \"env\" \"consume\" (func $consume (param \{ty}))) (func (export \"run\") \{params} (local \{ty} \{ty}) \{body}))",

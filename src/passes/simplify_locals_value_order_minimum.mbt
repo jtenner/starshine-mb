@@ -1,9 +1,9 @@
 ///|
 priv struct SimplifyLocalsValueOrderMinimums {
   mut owner : @ir.HotFunc?
-  mut revision : Int
-  states : Array[Int]
-  minimums : Array[Int]
+  mut revision : Int32
+  states : Array[Int32]
+  minimums : Array[Int32]
 }
 
 ///|
@@ -15,9 +15,9 @@ fn SimplifyLocalsValueOrderMinimums::new() -> SimplifyLocalsValueOrderMinimums {
 fn SimplifyLocalsValueOrderMinimums::minimum(
   self : SimplifyLocalsValueOrderMinimums,
   func : @ir.HotFunc,
-  node : Int,
-  full_queries? : Array[Int]? = None,
-) -> Int {
+  node : Int32,
+  full_queries~ : Array[Int32]? = None,
+) -> Int32 {
   let count = @ir.hot_node_count(func)
   let revision = @ir.hot_revision_current(func)
   let current = match self.owner {
@@ -55,10 +55,10 @@ fn SimplifyLocalsValueOrderMinimums::region(
   self : SimplifyLocalsValueOrderMinimums,
   func : @ir.HotFunc,
   region : @ir.HotRegionRef,
-) -> Int {
+) -> Int32 {
   let mut minimum = 0x7fffffff
   for index in 0..<@ir.hot_region_root_count(func, region) {
-    minimum = Int::min(
+    minimum = Int32::min(
       minimum,
       self.collect(func, @ir.hot_region_get(func, region, index)),
     )
@@ -70,8 +70,8 @@ fn SimplifyLocalsValueOrderMinimums::region(
 fn SimplifyLocalsValueOrderMinimums::collect(
   self : SimplifyLocalsValueOrderMinimums,
   func : @ir.HotFunc,
-  node : Int,
-) -> Int {
+  node : Int32,
+) -> Int32 {
   if node < 0 ||
     node >= self.states.length() ||
     !@ir.hot_node_is_live(func, node) {
@@ -93,7 +93,7 @@ fn SimplifyLocalsValueOrderMinimums::collect(
   }
   for slot in 0..<@ir.hot_child_count(func, node) {
     if !simplify_locals_is_region_child_slot(func, node, slot) {
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.collect(func, @ir.hot_child_get(func, node, slot)),
       )
@@ -101,36 +101,36 @@ fn SimplifyLocalsValueOrderMinimums::collect(
   }
   match @ir.hot_node_op(func, node) {
     @ir.Block | @ir.Loop =>
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.region(func, @ir.hot_region_body_ref(func, node)),
       )
     @ir.If => {
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.region(func, @ir.hot_region_then_ref(func, node)),
       )
       match @ir.hot_region_else_ref(func, node) {
-        Some(region) => minimum = Int::min(minimum, self.region(func, region))
+        Some(region) => minimum = Int32::min(minimum, self.region(func, region))
         None => ()
       }
     }
     @ir.Try => {
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.region(func, @ir.hot_region_body_ref(func, node)),
       )
       match @ir.hot_region_catch_ref(func, node) {
-        Some(region) => minimum = Int::min(minimum, self.region(func, region))
+        Some(region) => minimum = Int32::min(minimum, self.region(func, region))
         None => ()
       }
     }
     @ir.TryTable => {
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.region(func, @ir.hot_region_body_ref(func, node)),
       )
-      minimum = Int::min(
+      minimum = Int32::min(
         minimum,
         self.region(func, @ir.hot_region_catch_list_ref(func, node)),
       )
@@ -145,10 +145,10 @@ fn SimplifyLocalsValueOrderMinimums::collect(
 ///|
 fn simplify_locals_contains_value_before_with_minimums(
   func : @ir.HotFunc,
-  node : Int,
-  before : Int,
+  node : Int32,
+  before : Int32,
   minimums : SimplifyLocalsValueOrderMinimums?,
-  seen_rows? : Array[Int]? = None,
+  seen_rows~ : Array[Int32]? = None,
 ) -> Bool {
   match minimums {
     Some(minimums) => minimums.minimum(func, node) < before

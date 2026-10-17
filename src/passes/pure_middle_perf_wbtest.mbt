@@ -1,7 +1,7 @@
 ///|
 fn sl_pure_middle_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   repeated_uses : Bool,
   reference : Bool,
 ) -> Unit raise {

@@ -2,7 +2,7 @@
 // literal rewrite lookup. Validation stays outside the timed module pass.
 
 ///|
-fn string_gathering_index_fixture(count : Int) -> @lib.Module {
+fn string_gathering_index_fixture(count : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for index = 0; index < count; index = index + 1 {
     let value = count - index
@@ -14,7 +14,7 @@ fn string_gathering_index_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn string_gathering_index_bench(it : @bench.T, count : Int) -> Unit {
+fn string_gathering_index_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = string_gathering_index_fixture(count)
   let expected = opportunity_run(fixture, "string-gathering", true)
   let original_code = fixture.code_sec

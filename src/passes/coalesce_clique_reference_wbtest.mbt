@@ -1,8 +1,8 @@
 ///|
 fn cl_clique_reference(
   interferences : CLCfgSparseInterferences,
-  live_members : Array[Int],
-) -> Int {
+  live_members : Array[Int32],
+) -> Int32 {
   let mut pair_checks = 0
   for lhs_idx = 0; lhs_idx < live_members.length(); lhs_idx = lhs_idx + 1 {
     for rhs_idx = lhs_idx + 1

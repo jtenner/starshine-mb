@@ -50,7 +50,7 @@ fn gto_map_subtype_indices(
 ///|
 fn gto_remap_type_names(
   mod_ : @lib.Module,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Module {
   let names = match mod_.name_sec {
     Some(n) => n
@@ -61,7 +61,7 @@ fn gto_remap_type_names(
   })
   let field_names = names.field_names.map(fn(n) {
     let @lib.IndirectNameMap(entries) = n
-    let seen : Map[UInt, Bool] = Map([])
+    let seen : Map[UInt32, Bool] = Map([])
     let out : Array[@lib.IndirectNameAssoc] = []
     for @lib.IndirectNameAssoc(t, fields) in entries {
       guard remap.get(t) is Some(next) else { continue }
@@ -103,8 +103,8 @@ fn gto_canonicalize_types(mod_ : @lib.Module) -> @lib.Module {
     Some(@lib.TypeSec(rs)) => rs
     None => return mod_
   }
-  let canonical : Map[Array[@lib.SubType], Int] = Map([])
-  let remap : Map[UInt, UInt] = Map([])
+  let canonical : Map[Array[@lib.SubType], Int32] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   let out : Array[@lib.RecType] = []
   let mut old_base = 0
   let mut next_base = 0
@@ -163,17 +163,17 @@ fn gto_canonicalize_types(mod_ : @lib.Module) -> @lib.Module {
 fn gto_regroup_private_types(
   mod_ : @lib.Module,
   public_ : Array[Bool],
-  type_order : Array[Int],
+  type_order : Array[Int32],
 ) -> @lib.Module {
   let recs = mod_.type_sec.unwrap().0
-  let live : Map[Int, Bool] = Map([])
+  let live : Map[Int32, Bool] = Map([])
   for i in type_order {
     live[i] = true
   }
   let public_groups : Array[@lib.RecType] = []
   let private_types : Array[@lib.SubType] = []
-  let private_old : Array[Int] = []
-  let remap : Map[UInt, UInt] = Map([])
+  let private_old : Array[Int32] = []
+  let remap : Map[UInt32, UInt32] = Map([])
   let mut old_base = 0
   let mut new_base = 0
   for rec in recs {
@@ -213,16 +213,16 @@ fn gto_regroup_private_types(
   }
   // Reverse a queue-based topological order over child-to-parent edges.
   // Start independent roots in IR first-use order, as GlobalTypeRewriter does.
-  let slots : Map[Int, Int] = Map([])
+  let slots : Map[Int32, Int32] = Map([])
   for i, old in private_old {
     slots[old] = i
   }
-  let predecessors : Array[Array[Int]] = private_types.map(fn(t) {
+  let predecessors : Array[Array[Int32]] = private_types.map(fn(t) {
     let refs = t.super_types().copy()
     if t.describes_type() is Some(d) {
       refs.push(d)
     }
-    let out : Array[Int] = []
+    let out : Array[Int32] = []
     for p in refs {
       if slots.get(dae2_type_slot(p, 0)) is Some(slot) {
         out.push(slot)
@@ -237,7 +237,7 @@ fn gto_regroup_private_types(
     }
   }
   let queued = Array::make(private_types.length(), false)
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   for old in type_order + private_old {
     if slots.get(old) is Some(i) && incoming[i] == 0 && !queued[i] {
       queue.push(i)
@@ -300,7 +300,7 @@ fn gto_regroup_private_types(
 ///|
 fn gto_group_key(
   group : Array[@lib.SubType],
-  base : Int,
+  base : Int32,
 ) -> Array[@lib.SubType] {
   group.map(fn(t) {
     gto_map_subtype_indices(t, fn(idx) {

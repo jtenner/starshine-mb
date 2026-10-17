@@ -123,7 +123,7 @@ pub(all) struct SsaFullRewritePlan {
 
 ///|
 fn ssa_full_write_target_local(
-  targets : Array[Int],
+  targets : Array[Int32],
   write_id : @ir.NodeId,
 ) -> @ir.LocalId? {
   if write_id >= 0 && write_id < targets.length() && targets[write_id] >= 0 {
@@ -170,7 +170,7 @@ fn ssa_full_build_inputs_for_merge_get(
 ///|
 fn ssa_full_plan_single_get(
   graph : @ir.HotLocalGraph,
-  targets : Array[Int],
+  targets : Array[Int32],
   get_id : @ir.NodeId,
 ) -> SsaFullGetDecision {
   let sources = @ir.local_graph_reaching_sources_for_get(graph, get_id)
@@ -300,8 +300,8 @@ fn ssa_full_build_default_value(
 fn ssa_full_validate_write_rewrite(
   func : @ir.HotFunc,
   rewrite : SsaFullWriteRewrite,
-  next_local : Int,
-) -> Int? {
+  next_local : Int32,
+) -> Int32? {
   if rewrite.write_id < 0 ||
     !@ir.hot_node_is_live(func, rewrite.write_id) ||
     @ir.hot_child_count(func, rewrite.write_id) != 1 {
@@ -354,8 +354,8 @@ fn ssa_full_validate_get_rewrite(
 fn ssa_full_validate_merge_rewrite(
   func : @ir.HotFunc,
   rewrite : SsaFullMergeGetRewrite,
-  next_local : Int,
-) -> Int? {
+  next_local : Int32,
+) -> Int32? {
   if rewrite.merge_local != next_local ||
     rewrite.inputs.length() < 2 ||
     rewrite.get_id < 0 ||
@@ -523,8 +523,8 @@ fn ssa_full_apply_plan(
 
 ///|
 priv struct SsaFullRawCursor {
-  mut write_cursor : Int
-  mut get_cursor : Int
+  mut write_cursor : Int32
+  mut get_cursor : Int32
   mut changed : Bool
   mut valid : Bool
   merge_locals_by_write : Array[Array[@ir.LocalId]]

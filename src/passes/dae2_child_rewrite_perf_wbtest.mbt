@@ -1,7 +1,7 @@
 ///|
 fn dae2_child_rewrite_bench(
   it : @bench.T,
-  repetitions : Int,
+  repetitions : Int32,
   reference : Bool,
 ) -> Unit {
   it.bench(fn() {

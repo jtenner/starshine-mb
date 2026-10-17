@@ -2,7 +2,7 @@
 // records the same distinct per-function timer names as traced raw passes.
 
 ///|
-fn perf_timer_index_names(count : Int) -> Array[String] {
+fn perf_timer_index_names(count : Int32) -> Array[String] {
   let names : Array[String] = []
   for idx = 0; idx < count; idx = idx + 1 {
     names.push("raw:ssa-nomerge:func:\{idx}")
@@ -20,7 +20,7 @@ fn perf_timer_index_run(names : Array[String]) -> @passes.HotPerfSession {
 }
 
 ///|
-fn perf_timer_index_bench(it : @bench.T, count : Int) -> Unit {
+fn perf_timer_index_bench(it : @bench.T, count : Int32) -> Unit {
   let names = perf_timer_index_names(count)
   let lines : Array[String] = []
   let checked = @passes.HotPerfSession::new(trace=fn(line) { lines.push(line) })

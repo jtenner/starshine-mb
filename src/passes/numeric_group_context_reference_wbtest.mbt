@@ -1,7 +1,7 @@
 ///|
 fn numeric_group_context_reference_module(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
+  touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
   // Opaque name bytes cannot be safely permuted without decoding them.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -12,7 +12,7 @@ fn numeric_group_context_reference_module(
       let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
       let module_ctx = @ir.hot_module_context_from_module(mod_)
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let remaps : Array[Array[Int]?] = []
+      let remaps : Array[Array[Int32]?] = []
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         if touched is Some(selected) &&

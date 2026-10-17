@@ -37,9 +37,9 @@ priv struct DirectizeBlockSignature {
 priv struct DirectizeInfo {
   env : @validate.Env
   func_types : Array[@lib.TypeIdx]
-  imported_func_count : Int
+  imported_func_count : Int32
   tables : Array[DirectizeTableInfo]
-  base_type_count : Int
+  base_type_count : Int32
   block_signatures : Array[DirectizeBlockSignature]
   extra_block_types : Array[@lib.RecType]
 }
@@ -47,16 +47,16 @@ priv struct DirectizeInfo {
 ///|
 priv struct DirectizeFuncContext {
   info : DirectizeInfo
-  base_local_count : Int
+  base_local_count : Int32
   locals : @lib.Locals
   extra_locals : Array[@lib.ValType]
-  original_label_count : Array[Int]
-  inserted_label_before : Array[Int]
+  original_label_count : Array[Int32]
+  inserted_label_before : Array[Int32]
 }
 
 ///|
 priv struct DirectizeSelectRewrite {
-  arg_start : Int
+  arg_start : Int32
   arg_instrs : Array[@lib.Instruction]
   condition_instrs : Array[@lib.Instruction]
   params : Array[@lib.ValType]
@@ -70,7 +70,7 @@ priv struct DirectizeSelectRewrite {
 ///|
 priv struct DirectizeProducerValue {
   ty : @lib.ValType
-  start : Int
+  start : Int32
 }
 
 ///|
@@ -79,14 +79,14 @@ fn directize_summary() -> String {
 }
 
 ///|
-fn directize_table_slot(table_idx : @lib.TableIdx) -> Int {
+fn directize_table_slot(table_idx : @lib.TableIdx) -> Int32 {
   match table_idx {
     @lib.TableIdx(raw) => raw.reinterpret_as_int()
   }
 }
 
 ///|
-fn directize_func_slot(func_idx : @lib.FuncIdx) -> Int {
+fn directize_func_slot(func_idx : @lib.FuncIdx) -> Int32 {
   match func_idx {
     @lib.FuncIdx(raw) => raw.reinterpret_as_int()
   }
@@ -113,7 +113,7 @@ fn directize_func_from_elem_expr(expr : @lib.Expr) -> @lib.FuncIdx?? {
 }
 
 ///|
-fn directize_imported_table_count(mod_ : @lib.Module) -> Int {
+fn directize_imported_table_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -129,7 +129,7 @@ fn directize_imported_table_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn directize_imported_func_count(mod_ : @lib.Module) -> Int {
+fn directize_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -268,7 +268,7 @@ fn directize_mark_runtime_table_instr(
 ///|
 fn directize_runtime_table_facts(
   mod_ : @lib.Module,
-  table_count : Int,
+  table_count : Int32,
 ) -> (Array[Bool], Array[Bool]) {
   let mutated = Array::make(table_count, false)
   let grown = Array::make(table_count, false)
@@ -321,7 +321,7 @@ fn directize_base_table_infos(mod_ : @lib.Module) -> Array[DirectizeTableInfo] {
 ///|
 fn directize_disable_table(
   tables : Array[DirectizeTableInfo],
-  table_slot : Int,
+  table_slot : Int32,
 ) -> Unit {
   if table_slot >= 0 && table_slot < tables.length() {
     tables[table_slot] = { ..tables[table_slot], can_optimize: false, }
@@ -331,7 +331,7 @@ fn directize_disable_table(
 ///|
 fn directize_write_table_entry(
   tables : Array[DirectizeTableInfo],
-  table_slot : Int,
+  table_slot : Int32,
   offset : UInt64,
   value : DirectizeTableEntry,
 ) -> Unit {
@@ -349,7 +349,7 @@ fn directize_write_table_entry(
 ///|
 fn directize_record_elem_funcs(
   tables : Array[DirectizeTableInfo],
-  table_slot : Int,
+  table_slot : Int32,
   base : UInt64,
   funcs : Array[@lib.FuncIdx],
 ) -> Unit {
@@ -372,7 +372,7 @@ fn directize_record_elem_funcs(
 ///|
 fn directize_record_elem_exprs(
   tables : Array[DirectizeTableInfo],
-  table_slot : Int,
+  table_slot : Int32,
   base : UInt64,
   exprs : Array[@lib.Expr],
 ) -> Unit {
@@ -464,7 +464,7 @@ fn directize_populate_table_infos(
 }
 
 ///|
-fn directize_type_count(mod_ : @lib.Module) -> Int {
+fn directize_type_count(mod_ : @lib.Module) -> Int32 {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
       let mut count = 0
@@ -670,8 +670,8 @@ fn directize_instr_is_removable_if_trapped(instr : @lib.Instruction) -> Bool {
 ///|
 fn directize_removable_suffix_lower_bound(
   out : Array[@lib.Instruction],
-  end : Int,
-) -> Int {
+  end : Int32,
+) -> Int32 {
   let mut lower = end
   while lower > 0 && directize_instr_is_removable_if_trapped(out[lower - 1]) {
     lower -= 1
@@ -715,25 +715,32 @@ fn directize_find_removable_arg_suffix(
   out : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   info : DirectizeInfo,
-) -> Int? {
+) -> Int32? {
   let end = out.length() - 1
-  let lower = directize_removable_suffix_lower_bound(out, end)
-  for start = end; start >= lower; start = start - 1 {
-    let suffix : Array[@lib.Instruction] = []
-    for idx = start; idx < end; idx = idx + 1 {
-      suffix.push(out[idx])
-    }
-    if directize_suffix_produces_params(suffix, params, info) {
-      return Some(start)
+  if end < params.length() {
+    return None
+  }
+  // Every removable instruction consumes no operands and produces one value.
+  // Only this boundary can produce exactly the call's argument count. Retain
+  // the validator check for types, subtyping, and local/reference validity.
+  let start = end - params.length()
+  for idx = start; idx < end; idx = idx + 1 {
+    if !directize_instr_is_removable_if_trapped(out[idx]) {
+      return None
     }
   }
-  None
+  let suffix = directize_instr_slice(out, start, end)
+  if directize_suffix_produces_params(suffix, params, info) {
+    Some(start)
+  } else {
+    None
+  }
 }
 
 ///|
 fn directize_truncate_out(
   out : Array[@lib.Instruction],
-  new_length : Int,
+  new_length : Int32,
 ) -> Unit {
   while out.length() > new_length {
     ignore(out.pop())
@@ -743,8 +750,8 @@ fn directize_truncate_out(
 ///|
 fn directize_instr_slice(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for idx = start; idx < end; idx = idx + 1 {
@@ -911,7 +918,7 @@ fn directize_rewrite_nested_instr(
 ///|
 fn directize_stack_suffix(
   stack : Array[@lib.ValType],
-  count : Int,
+  count : Int32,
 ) -> Array[@lib.ValType] {
   let suffix : Array[@lib.ValType] = Array::new(capacity=count)
   let start = stack.length() - count
@@ -925,7 +932,7 @@ fn directize_stack_suffix(
 fn directize_candidate_after_matches(
   before_stack : Array[@lib.ValType],
   after : @validate.TcState,
-  pop_count : Int,
+  pop_count : Int32,
   candidate_after : @validate.TcState,
 ) -> Bool {
   if candidate_after.reachable != after.reachable ||
@@ -950,7 +957,7 @@ fn directize_candidate_after_matches(
 }
 
 ///|
-fn directize_fast_pop_count(instr : @lib.Instruction) -> Int? {
+fn directize_fast_pop_count(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Nop
     | @lib.I32Const(_)
@@ -1126,7 +1133,7 @@ fn directize_instr_pop_count(
   instr : @lib.Instruction,
   before : @validate.TcState,
   after : @validate.TcState,
-) -> Int? {
+) -> Int32? {
   match directize_fast_pop_count(instr) {
     Some(count) if count <= before.stack.length() => return Some(count)
     _ => ()
@@ -1155,7 +1162,7 @@ fn directize_instr_pop_count(
 ///|
 fn directize_scan_producer_instr(
   instr : @lib.Instruction,
-  instr_idx : Int,
+  instr_idx : Int32,
   state : @validate.TcState,
   values : Array[DirectizeProducerValue],
 ) -> @validate.TcState? {
@@ -1193,8 +1200,8 @@ fn directize_scan_producer_instr(
 ///|
 fn directize_producer_stack_before(
   out : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   info : DirectizeInfo,
 ) -> Array[DirectizeProducerValue] {
   let values : Array[DirectizeProducerValue] = []
@@ -1221,7 +1228,7 @@ fn directize_producer_stack_before(
 ///|
 fn directize_find_select_rewrite(
   out : Array[@lib.Instruction],
-  scan_start : Int,
+  scan_start : Int32,
   type_idx : @lib.TypeIdx,
   table_idx : @lib.TableIdx,
   ctx : DirectizeFuncContext,
@@ -1393,10 +1400,10 @@ fn directize_apply_select_rewrite(
 ///|
 fn directize_call_input_producer(
   out : Array[@lib.Instruction],
-  scan_start : Int,
+  scan_start : Int32,
   type_idx : @lib.TypeIdx,
   info : DirectizeInfo,
-) -> (Int, Int, Bool)? {
+) -> (Int32, Int32, Bool)? {
   let (params, results) = match directize_call_signature(info, type_idx) {
     Some(signature) => signature
     None => return None
@@ -1423,10 +1430,10 @@ fn directize_call_input_producer(
 ///|
 fn directize_try_rewrite_call_tail(
   out : Array[@lib.Instruction],
-  scan_start : Int,
+  scan_start : Int32,
   instr : @lib.Instruction,
   ctx : DirectizeFuncContext,
-) -> (Int, Bool)? {
+) -> (Int32, Bool)? {
   let info = ctx.info
   if out.length() == 0 {
     return None
@@ -1700,8 +1707,8 @@ fn directize_append_block_types(
 ///|
 fn directize_remap_label_names(
   mod_ : @lib.Module,
-  imported_funcs : Int,
-  insertions : Array[Array[Int]?],
+  imported_funcs : Int32,
+  insertions : Array[Array[Int32]?],
 ) -> @lib.Module {
   let names = match mod_.name_sec {
     Some(names) => names
@@ -1762,10 +1769,10 @@ fn directize_remap_label_names(
 
 ///|
 fn directize_insertion_count_at_or_before(
-  positions : Array[Int],
-  target : Int,
-  visits : Array[Int]?,
-) -> Int {
+  positions : Array[Int32],
+  target : Int32,
+  visits : Array[Int32]?,
+) -> Int32 {
   let mut low = 0
   let mut high = positions.length()
   while low < high {
@@ -1838,7 +1845,10 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let imported_funcs = directize_imported_func_count(mod_)
   let rewritten : Array[@lib.Func] = []
-  let label_insertions : Array[Array[Int]?] = Array::make(funcs.length(), None)
+  let label_insertions : Array[Array[Int32]?] = Array::make(
+    funcs.length(),
+    None,
+  )
   let mut changed = false
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let func = funcs[code_idx]

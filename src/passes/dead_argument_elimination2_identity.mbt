@@ -76,10 +76,10 @@ fn dae2_identity_subtype(
 }
 
 ///|
-fn dae2_identity_partition(types : @lib.TypeSec) -> Array[Int] {
+fn dae2_identity_partition(types : @lib.TypeSec) -> Array[Int32] {
   let @lib.TypeSec(groups) = types
-  let identities : Array[Int] = []
-  let interned : @hashmap.HashMap[Array[@lib.SubType], Int] = @hashmap.new()
+  let identities : Array[Int32] = []
+  let interned : @hashmap.HashMap[Array[@lib.SubType], Int32] = @hashmap.new()
   let embedded = [false]
   for group in groups {
     let members = match group {
@@ -121,7 +121,7 @@ fn dae2_identity_partition(types : @lib.TypeSec) -> Array[Int] {
 ///|
 fn dae2_identity_dependencies(
   types : @lib.TypeSec,
-  total : Int,
+  total : Int32,
   embedded : Array[Bool],
 ) -> Dae2Graph {
   let dependencies = Dae2Graph::new()
@@ -161,7 +161,7 @@ fn dae2_preserve_type_identity(
   types : @lib.TypeSec,
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
 ) -> Unit {
   if !type_infos.any(fn(index) {
       index >= 0 && dae2_signature_changes(graph, infos[index])

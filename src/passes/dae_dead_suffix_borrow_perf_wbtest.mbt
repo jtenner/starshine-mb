@@ -1,8 +1,8 @@
 ///|
 fn dae_dead_suffix_borrow_bench(
   it : @bench.T,
-  width : Int,
-  root_position : Int,
+  width : Int32,
+  root_position : Int32,
   reference : Bool,
 ) -> Unit {
   let body = Array::make(width, @lib.Instruction::nop())

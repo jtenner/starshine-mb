@@ -1,5 +1,12 @@
 ///|
-fn p00_ssa_branch_operand_fixture() -> (@ir.HotFunc, Int, Int, Int, Int, Int) {
+fn p00_ssa_branch_operand_fixture() -> (
+  @ir.HotFunc,
+  Int32,
+  Int32,
+  Int32,
+  Int32,
+  Int32,
+) {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i32(),

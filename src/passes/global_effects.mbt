@@ -40,7 +40,7 @@ fn ge_body_cannot_suspend(body : @lib.Expr) -> Bool {
 ///|
 fn ge_target_cannot_suspend(
   funcs : Array[@lib.Func],
-  defined_idx : Int,
+  defined_idx : Int32,
   summaries : Array[Bool?],
 ) -> Bool {
   match summaries[defined_idx] {
@@ -87,7 +87,7 @@ fn ge_rewrite_fresh_resumes(
   body : @lib.Expr,
   funcs : Array[@lib.Func],
   summaries : Array[Bool?],
-  imported_funcs : Int,
+  imported_funcs : Int32,
   changed : Array[Bool],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = body

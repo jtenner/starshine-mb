@@ -36,8 +36,8 @@ fn pass_lower_map_children(
 ///|
 fn pass_lower_count_locals(
   instrs : Array[@lib.Instruction],
-  gets : Array[Int],
-  writes : Array[Int],
+  gets : Array[Int32],
+  writes : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -52,8 +52,8 @@ fn pass_lower_count_locals(
 ///|
 fn pass_lower_count_child_locals(
   instr : @lib.Instruction,
-  gets : Array[Int],
-  writes : Array[Int],
+  gets : Array[Int32],
+  writes : Array[Int32],
 ) -> Unit {
   match instr {
     @lib.Block(_, @lib.Expr(body))
@@ -84,10 +84,10 @@ fn pass_lower_count_child_locals(
 ///|
 fn pass_lower_remove_balanced_captures(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  gets : Array[Int],
-  writes : Array[Int],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
+  start : Int32,
+  gets : Array[Int32],
+  writes : Array[Int32],
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let removed = Array::make(instrs.length(), false)
@@ -181,7 +181,7 @@ fn pass_lower_remove_balanced_captures(
 ///|
 fn pass_lower_remap_locals(
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let visit_body = fn(body) { pass_lower_remap_locals(body, indices) }
   let out = Array::new(capacity=instrs.length())
@@ -209,6 +209,16 @@ fn pass_lower_remap_locals(
           @lib.Instruction::local_tee(
             @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
           )
+        @lib.Select(Some(types)) =>
+          @lib.Instruction::select(types=Some(types.copy()))
+        @lib.BrTable(targets, fallback) =>
+          @lib.Instruction::br_table(targets.copy(), fallback)
+        @lib.TryTable(bt, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            bt,
+            catches.copy(),
+            @lib.Expr::new(visit_body(body)),
+          )
         _ => pass_lower_map_children(instr, visit_body)
       },
     )
@@ -221,9 +231,12 @@ fn pass_lower_compact_captures_with_map(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
-  propagate_parameter_aliases? : Bool = false,
-) -> (@lib.Func, Array[Int]) {
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
+  propagate_parameter_aliases~ : Bool = false,
+  reorder_body_locals~ : Bool = false,
+  local_name_sec~ : @lib.NameSec? = None,
+  function_abs~ : Int32 = -1,
+) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
   if locals.length() <= original_locals.length() {
@@ -253,7 +266,10 @@ fn pass_lower_compact_captures_with_map(
   }
   if !has_capture &&
     !has_unused &&
-    (!has_single_write || !dae2_has_parameter_alias(body, start, writes)) {
+    (
+      !has_single_write ||
+      !dae2_has_parameter_alias(body, start, writes, stack_effects~)
+    ) {
     // Capture removal needs single-read, single-write locals. With
     // no such pair, no dead declaration and no alias, the exact map is identity.
     let runs = locals.runs
@@ -308,7 +324,7 @@ fn pass_lower_compact_captures_with_map(
   // plan chosen for an overlapping computed value.
   let (body, unread_aliases) = if propagate_parameter_aliases &&
     (!has_unused || gets.any(fn(reads) { reads > 0 })) {
-    dae2_cleanup_parameter_aliases(body, start, gets, writes)
+    dae2_cleanup_parameter_aliases(body, start, gets, writes, stack_effects~)
   } else {
     (body, None)
   }
@@ -332,6 +348,19 @@ fn pass_lower_compact_captures_with_map(
     } else {
       indices[index] = -1
     }
+  }
+  if reorder_body_locals && start == params.length() {
+    ignore(
+      dae2_order_compacted_local_indices(
+        indices,
+        gets,
+        writes,
+        params.length(),
+        retained,
+        local_name_sec,
+        function_abs,
+      ),
+    )
   }
   (
     @lib.Func::new(
@@ -361,9 +390,9 @@ fn pass_lower_flatten_branchless_blocks_into(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   out : Array[@lib.Instruction],
-  label_keep? : Array[Bool]? = None,
-  flatten_parameter_blocks? : Bool = false,
-  flatten_scalar_identity_blocks? : Bool = false,
+  label_keep~ : Array[Bool]? = None,
+  flatten_parameter_blocks~ : Bool = false,
+  flatten_scalar_identity_blocks~ : Bool = false,
 ) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
@@ -457,33 +486,7 @@ fn pass_lower_flatten_branchless_blocks_into(
     }
     children_branchless = true
     let instr = pass_lower_map_children(instr, visit_body)
-    let transfers_control = match instr {
-      @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.BrOnCastDescEq(_, _, _)
-      | @lib.BrOnCastDescEqFail(_, _, _)
-      | @lib.Return
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_)
-      | @lib.Unreachable
-      | @lib.Try(_, _, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Throw(_)
-      | @lib.ThrowRef
-      | @lib.Rethrow(_)
-      | @lib.Suspend(_)
-      | @lib.Resume(_, _)
-      | @lib.ResumeThrow(_, _, _)
-      | @lib.ResumeThrowRef(_, _)
-      | @lib.StackSwitch(_, _) => true
-      _ => false
-    }
+    let transfers_control = pass_lower_instruction_transfers_control(instr)
     branchless = branchless && children_branchless && !transfers_control
     out.push(instr)
   }
@@ -494,9 +497,9 @@ fn pass_lower_flatten_branchless_blocks_into(
 fn pass_lower_flatten_branchless_blocks(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-  label_keep? : Array[Bool]? = None,
-  flatten_parameter_blocks? : Bool = false,
-  flatten_scalar_identity_blocks? : Bool = false,
+  label_keep~ : Array[Bool]? = None,
+  flatten_parameter_blocks~ : Bool = false,
+  flatten_scalar_identity_blocks~ : Bool = false,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let (changed, branchless) = pass_lower_flatten_branchless_blocks_into(
@@ -514,14 +517,47 @@ fn pass_lower_flatten_branchless_blocks(
 fn pass_lower_cleanup_branchless_blocks(
   func : @lib.Func,
   mod_ : @lib.Module,
-  module_env? : @validate.Env? = None,
-  flatten_parameter_blocks? : Bool = false,
-  flatten_scalar_identity_blocks? : Bool = false,
+  module_env~ : @validate.Env? = None,
+  flatten_parameter_blocks~ : Bool = false,
+  flatten_scalar_identity_blocks~ : Bool = false,
+  rewrite_work~ : Array[Int32]? = None,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
+  let has_candidate = if body.length() == 1 ||
+    (body.length() == 2 && pass_lower_branchless_leaf(body[1])) {
+    match body[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(child)) => {
+        let summary = pass_lower_branchless_summary(child)
+        if summary.branchless && !summary.has_children {
+          // A void header needs no module lookup. Leaf instructions have no
+          // nested mutable body arrays that the old worker would rebuild.
+          // Copy into a fresh root array to preserve its output ownership.
+          let next = Array::new(capacity=child.length() + body.length() - 1)
+          for instr in child {
+            next.push(instr)
+          }
+          if body.length() == 2 {
+            next.push(body[1])
+          }
+          return (@lib.Func::new(locals, @lib.Expr::new(next)), true)
+        }
+        summary.has_candidate || summary.branchless
+      }
+      _ => pass_lower_branchless_summary(body).has_candidate
+    }
+  } else {
+    pass_lower_branchless_summary(body).has_candidate
+  }
+  if !has_candidate {
+    return (func, false)
+  }
   let env = match module_env {
     Some(env) => env
     None => @validate.Env::new().with_module(mod_)
+  }
+  match rewrite_work {
+    Some(work) => work[0] += 1
+    None => ()
   }
   let (body, changed, _) = pass_lower_flatten_branchless_blocks(
     body,

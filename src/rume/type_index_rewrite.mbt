@@ -4,7 +4,7 @@
 ///|
 fn dfe_rewrite_type_idx(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeIdx {
   match idx {
     @lib.TypeIdx(raw) => @lib.TypeIdx::new(remap.get(raw).unwrap_or(raw))
@@ -15,7 +15,7 @@ fn dfe_rewrite_type_idx(
 ///|
 fn dfe_try_rewrite_type_idx(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeIdx? {
   match idx {
     @lib.TypeIdx(raw) =>
@@ -35,7 +35,7 @@ fn dfe_try_rewrite_type_idx(
 ///|
 fn dfe_type_idx_is_remapped(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match idx {
     @lib.TypeIdx(raw) => remap.get(raw) != None
@@ -46,7 +46,7 @@ fn dfe_type_idx_is_remapped(
 ///|
 fn dfe_type_metadata_uses_remap(
   metadata : @lib.TypeMetadata,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let { describes, descriptor, .. } = metadata
   match describes {
@@ -62,7 +62,7 @@ fn dfe_type_metadata_uses_remap(
 ///|
 fn dfe_heap_type_uses_remap(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
@@ -75,7 +75,7 @@ fn dfe_heap_type_uses_remap(
 ///|
 fn dfe_ref_type_uses_remap(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match ref_type {
     @lib.HeapTypeRefType(_, _, heap_type) =>
@@ -87,7 +87,7 @@ fn dfe_ref_type_uses_remap(
 ///|
 fn dfe_val_type_uses_remap(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match val_type {
     @lib.RefTypeValType(ref_type) => dfe_ref_type_uses_remap(ref_type, remap)
@@ -98,7 +98,7 @@ fn dfe_val_type_uses_remap(
 ///|
 fn dfe_storage_type_uses_remap(
   storage_type : @lib.StorageType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
@@ -110,7 +110,7 @@ fn dfe_storage_type_uses_remap(
 ///|
 fn dfe_field_type_uses_remap(
   field_type : @lib.FieldType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let @lib.FieldType(storage_type, _) = field_type
   dfe_storage_type_uses_remap(storage_type, remap)
@@ -119,7 +119,7 @@ fn dfe_field_type_uses_remap(
 ///|
 fn dfe_field_types_use_remap(
   field_types : Array[@lib.FieldType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < field_types.length() {
@@ -134,7 +134,7 @@ fn dfe_field_types_use_remap(
 ///|
 fn dfe_val_types_use_remap(
   val_types : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < val_types.length() {
@@ -149,7 +149,7 @@ fn dfe_val_types_use_remap(
 ///|
 fn dfe_comp_type_uses_remap(
   comp_type : @lib.CompType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match comp_type {
     @lib.ArrayCompType(field_type) =>
@@ -166,7 +166,7 @@ fn dfe_comp_type_uses_remap(
 ///|
 fn dfe_type_idxs_use_remap(
   type_idxs : Array[@lib.TypeIdx],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < type_idxs.length() {
@@ -181,7 +181,7 @@ fn dfe_type_idxs_use_remap(
 ///|
 fn dfe_sub_type_uses_remap(
   subtype : @lib.SubType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match subtype {
     @lib.SubType(_, supers, metadata, comp_type) =>
@@ -197,7 +197,7 @@ fn dfe_sub_type_uses_remap(
 ///|
 fn dfe_sub_types_use_remap(
   subtypes : Array[@lib.SubType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < subtypes.length() {
@@ -212,7 +212,7 @@ fn dfe_sub_types_use_remap(
 ///|
 fn dfe_rec_type_uses_remap(
   rec_type : @lib.RecType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match rec_type {
     @lib.SingleRecType(subtype) => dfe_sub_type_uses_remap(subtype, remap)
@@ -223,7 +223,7 @@ fn dfe_rec_type_uses_remap(
 ///|
 fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeMetadata {
   let { describes, descriptor, shared, } = metadata
   @lib.TypeMetadata::new(
@@ -242,7 +242,7 @@ fn dfe_rewrite_type_metadata(
 ///|
 fn dfe_rewrite_heap_type(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.HeapType {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => heap_type
@@ -258,7 +258,7 @@ fn dfe_rewrite_heap_type(
 ///|
 fn dfe_rewrite_ref_type(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RefType {
   match ref_type {
     @lib.HeapTypeRefType(nullable, exact, heap_type) =>
@@ -274,7 +274,7 @@ fn dfe_rewrite_ref_type(
 ///|
 fn dfe_try_rewrite_heap_type(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.HeapType? {
   if dfe_heap_type_uses_remap(heap_type, remap) {
     Some(dfe_rewrite_heap_type(heap_type, remap))
@@ -286,7 +286,7 @@ fn dfe_try_rewrite_heap_type(
 ///|
 fn dfe_try_rewrite_ref_type(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RefType? {
   if dfe_ref_type_uses_remap(ref_type, remap) {
     Some(dfe_rewrite_ref_type(ref_type, remap))
@@ -298,7 +298,7 @@ fn dfe_try_rewrite_ref_type(
 ///|
 fn dfe_rewrite_val_type(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ValType {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
@@ -310,7 +310,7 @@ fn dfe_rewrite_val_type(
 ///|
 fn dfe_try_rewrite_val_type(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ValType? {
   if dfe_val_type_uses_remap(val_type, remap) {
     Some(dfe_rewrite_val_type(val_type, remap))
@@ -322,7 +322,7 @@ fn dfe_try_rewrite_val_type(
 ///|
 fn dfe_try_rewrite_val_types(
   val_types : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.ValType]? {
   let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
   let mut changed = false
@@ -355,7 +355,7 @@ fn dfe_try_rewrite_val_types(
 ///|
 fn dfe_rewrite_storage_type(
   storage_type : @lib.StorageType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.StorageType {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
@@ -367,7 +367,7 @@ fn dfe_rewrite_storage_type(
 ///|
 fn dfe_rewrite_field_type(
   field_type : @lib.FieldType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.FieldType {
   let @lib.FieldType(storage_type, mutability) = field_type
   @lib.FieldType::new(dfe_rewrite_storage_type(storage_type, remap), mutability)
@@ -376,7 +376,7 @@ fn dfe_rewrite_field_type(
 ///|
 fn dfe_rewrite_result_type(
   values : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.ValType] {
   let rewritten : Array[@lib.ValType] = []
   for value in values {
@@ -388,7 +388,7 @@ fn dfe_rewrite_result_type(
 ///|
 fn dfe_rewrite_comp_type(
   comp_type : @lib.CompType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.CompType {
   match comp_type {
     @lib.ArrayCompType(field_type) =>
@@ -413,7 +413,7 @@ fn dfe_rewrite_comp_type(
 ///|
 fn dfe_rewrite_sub_type(
   subtype : @lib.SubType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.SubType {
   match subtype {
     @lib.SubType(is_final, supers, metadata, comp_type) => {
@@ -439,7 +439,7 @@ fn dfe_rewrite_sub_type(
 ///|
 fn dfe_rewrite_rec_type(
   rec_type : @lib.RecType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RecType {
   match rec_type {
     @lib.SingleRecType(subtype) =>
@@ -457,7 +457,7 @@ fn dfe_rewrite_rec_type(
 ///|
 fn dfe_rewrite_block_type(
   block_type : @lib.BlockType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.BlockType {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
@@ -471,7 +471,7 @@ fn dfe_rewrite_block_type(
 ///|
 fn dfe_try_rewrite_block_type(
   block_type : @lib.BlockType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.BlockType? {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
@@ -491,7 +491,7 @@ fn dfe_try_rewrite_block_type(
 ///|
 fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.Instruction]? {
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
   let mut changed = false
@@ -524,7 +524,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
 ///|
 fn dfe_try_rewrite_expr_type_idxs(
   expr : @lib.Expr,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Expr? {
   let @lib.Expr(instrs) = expr
   match dfe_try_rewrite_instruction_array_type_idxs(instrs, remap) {
@@ -536,7 +536,7 @@ fn dfe_try_rewrite_expr_type_idxs(
 ///|
 fn dfe_try_rewrite_locals_type_idxs(
   locals : @lib.Locals,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Locals? {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -570,7 +570,7 @@ fn dfe_try_rewrite_locals_type_idxs(
 ///|
 fn dfe_try_rewrite_func_type_idxs(
   func : @lib.Func,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Func? {
   let @lib.Func(locals, body) = func
   let rewritten_locals = dfe_try_rewrite_locals_type_idxs(locals, remap)
@@ -593,7 +593,7 @@ fn dfe_try_rewrite_func_type_idxs(
 ///|
 fn dfe_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, expr) =>
@@ -870,7 +870,7 @@ fn dfe_rewrite_instruction_type_idxs(
 ///|
 fn dfe_try_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Instruction? {
   match instr {
     @lib.Block(block_type, expr) => {
@@ -1306,7 +1306,7 @@ fn dfe_try_rewrite_instruction_type_idxs(
 ///|
 fn dfe_rewrite_expr_type_idxs(
   expr : @lib.Expr,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
@@ -1319,7 +1319,7 @@ fn dfe_rewrite_expr_type_idxs(
 ///|
 fn _dfe_rewrite_locals_type_idxs(
   locals : @lib.Locals,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Locals {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -1337,7 +1337,7 @@ fn _dfe_rewrite_locals_type_idxs(
 ///|
 fn dfe_rewrite_extern_type(
   extern_type : @lib.ExternType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ExternType {
   match extern_type {
     @lib.FuncExternType(type_idx) =>
@@ -1363,7 +1363,7 @@ fn dfe_rewrite_extern_type(
 ///|
 fn dfe_rewrite_import_type_idxs(
   import_ : @lib.Import,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Import {
   let @lib.Import(module_name, field_name, extern_type) = import_
   @lib.Import::new(
@@ -1376,7 +1376,7 @@ fn dfe_rewrite_import_type_idxs(
 ///|
 fn dfe_rewrite_table_type_idxs(
   table : @lib.Table,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Table {
   let @lib.Table(@lib.TableType(ref_type, limits), init) = table
   @lib.Table::new(
@@ -1391,7 +1391,7 @@ fn dfe_rewrite_table_type_idxs(
 ///|
 fn dfe_rewrite_global_type_idxs(
   global : @lib.Global,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Global {
   let @lib.Global(@lib.GlobalType(val_type, mutable_), expr) = global
   @lib.Global::new(
@@ -1403,7 +1403,7 @@ fn dfe_rewrite_global_type_idxs(
 ///|
 fn dfe_rewrite_elem_mode_type_idxs(
   mode : @lib.ElemMode,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ElemMode {
   match mode {
     @lib.Active(table_idx, expr) =>
@@ -1415,7 +1415,7 @@ fn dfe_rewrite_elem_mode_type_idxs(
 ///|
 fn dfe_rewrite_elem_kind_type_idxs(
   kind : @lib.ElemKind,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(_) => kind
@@ -1442,7 +1442,7 @@ fn dfe_rewrite_elem_kind_type_idxs(
 ///|
 fn dfe_rewrite_elem_type_idxs(
   elem : @lib.Elem,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Elem {
   let @lib.Elem(mode, kind) = elem
   @lib.Elem::new(
@@ -1454,7 +1454,7 @@ fn dfe_rewrite_elem_type_idxs(
 ///|
 fn dfe_rewrite_data_mode_type_idxs(
   mode : @lib.DataMode,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.DataMode {
   match mode {
     @lib.Active(mem_idx, expr) =>
@@ -1466,7 +1466,7 @@ fn dfe_rewrite_data_mode_type_idxs(
 ///|
 fn dfe_rewrite_data_type_idxs(
   data : @lib.Data,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Data {
   let @lib.Data(mode, bytes) = data
   @lib.Data::new(dfe_rewrite_data_mode_type_idxs(mode, remap), bytes)
@@ -1475,7 +1475,7 @@ fn dfe_rewrite_data_type_idxs(
 ///|
 fn dfe_rewrite_module_type_idxs(
   mod_ : @lib.Module,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.type_sec {

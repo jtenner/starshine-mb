@@ -18,16 +18,16 @@ pub fn dead_code_elimination_summary() -> String {
 
 ///|
 priv struct DeadCodeEliminationNodeUseCache {
-  mut revision : Int
+  mut revision : Int32
   mut use_def : @ir.HotUseDef?
-  first_unreachable_revision : Array[Int]
+  first_unreachable_revision : Array[Int32]
   first_unreachable_absent : @bitset.BitSet
-  first_unreachable_visits : Array[Int]?
+  first_unreachable_visits : Array[Int32]?
 }
 
 ///|
 priv struct DeadCodeEliminationFallthroughCache {
-  revision : Array[Int]
+  revision : Array[Int32]
   result : @bitset.BitSet
 }
 
@@ -35,27 +35,27 @@ priv struct DeadCodeEliminationFallthroughCache {
 priv struct DeadCodeEliminationBranchUserCache {
   mut has_any_branch : Bool?
   mut has_incoming_by_label : @bitset.BitSet?
-  mut by_label : Array[Array[Int]]?
+  mut by_label : Array[Array[Int32]]?
 }
 
 ///|
 priv struct DeadCodeEliminationPurityCache {
-  revision : Array[Int]
+  revision : Array[Int32]
   result : @bitset.BitSet
 }
 
 ///|
 priv struct DeadCodeEliminationStackedForwarderTail {
-  payload_if : Int
+  payload_if : Int32
   rewrite_region : @ir.HotRegionRef
-  rewrite_idx : Int
+  rewrite_idx : Int32
 }
 
 ///|
 fn dead_code_elimination_build_i32_eqz(
   func : @ir.HotFunc,
-  operand : Int,
-) -> Int {
+  operand : Int32,
+) -> Int32 {
   @ir.hot_build_select(
     func,
     @lib.ValType::i32(),
@@ -68,7 +68,7 @@ fn dead_code_elimination_build_i32_eqz(
 ///|
 fn DeadCodeEliminationNodeUseCache::new(
   func : @ir.HotFunc,
-  first_unreachable_visits? : Array[Int]? = None,
+  first_unreachable_visits~ : Array[Int32]? = None,
 ) -> DeadCodeEliminationNodeUseCache {
   let node_count = @ir.hot_node_count(func)
   {
@@ -83,7 +83,7 @@ fn DeadCodeEliminationNodeUseCache::new(
 ///|
 fn dead_code_elimination_ensure_first_unreachable_cache_capacity(
   cache : DeadCodeEliminationNodeUseCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   while cache.first_unreachable_revision.length() <= node_id {
     cache.first_unreachable_revision.push(-1)
@@ -117,7 +117,7 @@ fn dead_code_elimination_new_fallthrough_cache(
 ///|
 fn dead_code_elimination_ensure_fallthrough_cache_capacity(
   cache : DeadCodeEliminationFallthroughCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   while cache.revision.length() <= node_id {
     cache.revision.push(-1)
@@ -137,7 +137,7 @@ fn dead_code_elimination_new_purity_cache(
 ///|
 fn dead_code_elimination_ensure_purity_cache_capacity(
   cache : DeadCodeEliminationPurityCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   while cache.revision.length() <= node_id {
     cache.revision.push(-1)
@@ -146,7 +146,7 @@ fn dead_code_elimination_ensure_purity_cache_capacity(
 }
 
 ///|
-fn dead_code_elimination_flags_force_impure(flags : UInt) -> Bool {
+fn dead_code_elimination_flags_force_impure(flags : UInt32) -> Bool {
   (flags & @ir.HOT_FLAG_CONTROL) != 0U ||
   (flags & @ir.HOT_FLAG_BRANCH) != 0U ||
   (flags & @ir.HOT_FLAG_TERMINATOR) != 0U ||
@@ -159,7 +159,7 @@ fn dead_code_elimination_flags_force_impure(flags : UInt) -> Bool {
 ///|
 fn dead_code_elimination_node_is_intrinsically_impure(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if dead_code_elimination_flags_force_impure(@ir.hot_node_flags(func, node_id)) {
     return true
@@ -213,8 +213,8 @@ fn dead_code_elimination_require_node_uses(
 fn dead_code_elimination_node_use_count(
   cache : DeadCodeEliminationNodeUseCache,
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let use_def = dead_code_elimination_require_node_uses(cache, func)
   @ir.node_use_count(use_def, node_id)
 }
@@ -222,9 +222,9 @@ fn dead_code_elimination_node_use_count(
 ///|
 fn dead_code_elimination_collect_detached_nodes(
   func : @ir.HotFunc,
-  node_id : Int,
-  out : Array[Int],
-  limit : Int,
+  node_id : Int32,
+  out : Array[Int32],
+  limit : Int32,
 ) -> Unit {
   if out.length() > limit || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -249,7 +249,7 @@ fn dead_code_elimination_collect_detached_nodes(
 fn dead_code_elimination_region_result_arity(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Int {
+) -> Int32 {
   if region_ref == @ir.HotRegionRef::root() {
     return @ir.hot_region_result_arity(func, region_ref)
   }
@@ -267,7 +267,7 @@ fn dead_code_elimination_delete_unused_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   _node_use_cache : DeadCodeEliminationNodeUseCache,
-  node_ids : Array[Int],
+  node_ids : Array[Int32],
 ) -> Unit {
   // Large detached subgraphs do not affect lowered output once roots/child
   // edges are gone; eagerly collecting them here is disproportionately
@@ -301,7 +301,7 @@ fn dead_code_elimination_delete_unused_nodes(
     return
   }
   let candidate_span = last_candidate - first_candidate + 1
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   let in_candidate = @bitset.BitSet::new(candidate_span)
   for node_id in node_ids {
     if node_id < first_candidate ||
@@ -361,7 +361,7 @@ fn dead_code_elimination_delete_unused_nodes(
       }
     }
   }
-  let deleted : Array[Int] = []
+  let deleted : Array[Int32] = []
   let mut progressed = true
   while progressed {
     progressed = false
@@ -396,7 +396,7 @@ fn dead_code_elimination_delete_unused_nodes(
 fn dead_code_elimination_node_is_pure(
   purity_cache : DeadCodeEliminationPurityCache,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
@@ -428,10 +428,10 @@ fn dead_code_elimination_node_is_pure(
 
 ///|
 fn dead_code_elimination_record_branch_target(
-  branch_users_by_label : Array[Array[Int]],
-  last_seen_branch : Array[Int],
-  branch_id : Int,
-  target : Int,
+  branch_users_by_label : Array[Array[Int32]],
+  last_seen_branch : Array[Int32],
+  branch_id : Int32,
+  target : Int32,
 ) -> Unit {
   if target < 0 || target >= branch_users_by_label.length() {
     return
@@ -446,7 +446,7 @@ fn dead_code_elimination_record_branch_target(
 ///|
 fn dead_code_elimination_record_incoming_branch_target(
   has_incoming_by_label : @bitset.BitSet,
-  target : Int,
+  target : Int32,
 ) -> Unit {
   if target < 0 || target >= has_incoming_by_label.length() {
     return
@@ -457,9 +457,9 @@ fn dead_code_elimination_record_incoming_branch_target(
 ///|
 fn dead_code_elimination_build_branch_users_by_label(
   func : @ir.HotFunc,
-) -> Array[Array[Int]] {
-  let branch_users_by_label : Array[Array[Int]] = []
-  let last_seen_branch : Array[Int] = []
+) -> Array[Array[Int32]] {
+  let branch_users_by_label : Array[Array[Int32]] = []
+  let last_seen_branch : Array[Int32] = []
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     branch_users_by_label.push([])
     last_seen_branch.push(-1)
@@ -540,8 +540,8 @@ fn dead_code_elimination_build_has_incoming_branches_by_label(
 ///|
 fn dead_code_elimination_build_empty_branch_users_by_label(
   func : @ir.HotFunc,
-) -> Array[Array[Int]] {
-  let branch_users_by_label : Array[Array[Int]] = []
+) -> Array[Array[Int32]] {
+  let branch_users_by_label : Array[Array[Int32]] = []
   for _ in 0..<func.labels.length() {
     branch_users_by_label.push([])
   }
@@ -604,7 +604,7 @@ fn dead_code_elimination_require_has_incoming_branches_by_label(
 fn dead_code_elimination_require_branch_users_by_label(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
-) -> Array[Array[Int]] {
+) -> Array[Array[Int32]] {
   match cache.by_label {
     Some(existing) => existing
     None => {
@@ -624,7 +624,7 @@ fn dead_code_elimination_can_voidify_control(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) == 0 {
     return false
@@ -664,7 +664,7 @@ fn dead_code_elimination_can_voidify_control(
 ///|
 fn dead_code_elimination_label_has_incoming_branch(
   has_incoming_by_label : @bitset.BitSet,
-  label_id : Int,
+  label_id : Int32,
 ) -> Bool {
   label_id >= 0 &&
   label_id < has_incoming_by_label.length() &&
@@ -690,7 +690,7 @@ fn dead_code_elimination_region_has_incoming_branches(
 fn dead_code_elimination_has_incoming_internal_region_branches(
   func : @ir.HotFunc,
   has_incoming_by_label : @bitset.BitSet,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::If => {
@@ -819,8 +819,8 @@ fn dead_code_elimination_region_has_terminal_last_live_root(
 fn dead_code_elimination_region_has_source_preceding_tail_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   // Lifted result roots can be stored after a terminator even though lowering
   // schedules them before it. Equal orders are repeated lanes of one
@@ -852,8 +852,8 @@ fn dead_code_elimination_try_restore_source_order_before_terminator(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   if !@ir.hot_is_terminator_node(func, node_id) {
     return false
@@ -887,7 +887,7 @@ fn dead_code_elimination_try_restore_source_order_before_terminator(
   if tail_end == idx {
     return false
   }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for tail_idx = idx + 1; tail_idx <= tail_end; tail_idx = tail_idx + 1 {
     replacement.push(@ir.hot_region_get(func, region_ref, tail_idx))
   }
@@ -910,7 +910,7 @@ fn dead_code_elimination_node_may_fallthrough(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
@@ -935,7 +935,7 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
@@ -1045,8 +1045,8 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
 ///|
 fn dead_code_elimination_branch_payload_count(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Br | @ir.HotOp::Delegate => node.child_count
@@ -1067,9 +1067,9 @@ fn dead_code_elimination_branch_payload_count(
 
 ///|
 fn DeadCodeEliminationStackedForwarderTail::new(
-  payload_if : Int,
+  payload_if : Int32,
   rewrite_region : @ir.HotRegionRef,
-  rewrite_idx : Int,
+  rewrite_idx : Int32,
 ) -> DeadCodeEliminationStackedForwarderTail {
   { payload_if, rewrite_region, rewrite_idx, }
 }
@@ -1077,9 +1077,9 @@ fn DeadCodeEliminationStackedForwarderTail::new(
 ///|
 fn dead_code_elimination_try_extract_stacked_forwarder_tail(
   func : @ir.HotFunc,
-  candidate_node : Int,
+  candidate_node : Int32,
   rewrite_region : @ir.HotRegionRef,
-  rewrite_idx : Int,
+  rewrite_idx : Int32,
 ) -> DeadCodeEliminationStackedForwarderTail? {
   if candidate_node < 0 ||
     !@ir.hot_node_is_live(func, candidate_node) ||
@@ -1146,7 +1146,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let trace_reason = fn(reason : String) { ignore(reason) }
   let trace_shape = fn(kind : String, payload : String) {
@@ -1463,7 +1463,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_value_subtree(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1517,7 +1517,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_subtree(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -1533,7 +1533,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_subtree(
     _ => return false
   }
   if @ir.hot_node_count(func) > 10000 {
-    let walk_chain = fn(start : Int) -> Bool {
+    let walk_chain = fn(start : Int32) -> Bool {
       let mut current = start
       for _ in 0..<16 {
         if current < 0 || !@ir.hot_node_is_live(func, current) {
@@ -1615,7 +1615,7 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_control_tree(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1698,8 +1698,8 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   ignore(idx)
   let trace_split = fn(reason : String) { ignore(reason) }
@@ -1998,7 +1998,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
                       @ir.hot_node_result_arity(func, body_payload) != 1 {
                       return false
                     }
-                    let body_prefix : Array[Int] = []
+                    let body_prefix : Array[Int32] = []
                     for root_idx = 0
                         root_idx < body_tail_idx
                         root_idx = root_idx + 1 {
@@ -2128,7 +2128,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
             return false
           }
         }
-        let lifted_payload_roots : Array[Int] = []
+        let lifted_payload_roots : Array[Int32] = []
         for root_idx = 0; root_idx < payload_root_count; root_idx = root_idx + 1 {
           lifted_payload_roots.push(
             @ir.hot_region_get(func, payload_body, root_idx),
@@ -2147,7 +2147,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
           outer_br,
           @ir.hot_node_get(func, lifted_outer_br),
         )
-        let payload_wrapper_roots : Array[Int] = [outer_wrapper]
+        let payload_wrapper_roots : Array[Int32] = [outer_wrapper]
         for root_idx = 1; root_idx < outer_root_count; root_idx = root_idx + 1 {
           payload_wrapper_roots.push(
             @ir.hot_region_get(func, outer_body, root_idx),
@@ -2281,7 +2281,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
     }
   }
 
-  let node_roots : Array[Int] = []
+  let node_roots : Array[Int32] = []
   for root_idx = 0; root_idx < payload_root_count; root_idx = root_idx + 1 {
     node_roots.push(@ir.hot_region_get(func, payload_body, root_idx))
   }
@@ -2312,7 +2312,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
     inner_br,
     @ir.hot_node_get(func, inner_br_replacement),
   )
-  let wrapper_roots : Array[Int] = []
+  let wrapper_roots : Array[Int32] = []
   for root_idx = 0
       root_idx < outer_wrapper_root_count - 2
       root_idx = root_idx + 1 {
@@ -2353,8 +2353,8 @@ fn dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   if idx <= 0 ||
     node_id < 0 ||
@@ -2413,13 +2413,13 @@ fn dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
 
 ///|
 priv struct DeadCodeEliminationPreservedCleanupRoot {
-  node_id : Int
+  node_id : Int32
   needs_drop : Bool
 }
 
 ///|
 fn DeadCodeEliminationPreservedCleanupRoot::new(
-  node_id : Int,
+  node_id : Int32,
   needs_drop : Bool,
 ) -> DeadCodeEliminationPreservedCleanupRoot {
   { node_id, needs_drop, }
@@ -2429,7 +2429,7 @@ fn DeadCodeEliminationPreservedCleanupRoot::new(
 fn dead_code_elimination_append_preserved_prefix_root(
   func : @ir.HotFunc,
   out : Array[DeadCodeEliminationPreservedCleanupRoot],
-  child_id : Int,
+  child_id : Int32,
 ) -> Bool {
   if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
     return false
@@ -2447,7 +2447,7 @@ fn dead_code_elimination_append_preserved_prefix_root(
 fn dead_code_elimination_collect_first_unreachable_child_cleanup(
   cache : DeadCodeEliminationNodeUseCache,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Array[DeadCodeEliminationPreservedCleanupRoot]? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -2517,8 +2517,8 @@ fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
   func : @ir.HotFunc,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   let plan = match
     dead_code_elimination_collect_first_unreachable_child_cleanup(
@@ -2530,7 +2530,7 @@ fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
   if plan.length() == 1 && plan[0].node_id == node_id && !plan[0].needs_drop {
     return false
   }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for root in plan {
     replacement.push(
       if root.needs_drop {
@@ -2551,8 +2551,8 @@ fn dead_code_elimination_try_replace_literal_unreachable_loop_root(
   func : @ir.HotFunc,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2590,8 +2590,8 @@ fn dead_code_elimination_try_voidify_split_drop_control(
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -2636,8 +2636,8 @@ fn dead_code_elimination_try_flatten_untargeted_void_block_root(
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   if region_ref != @ir.HotRegionRef::root() ||
     node_id < 0 ||
@@ -2672,7 +2672,7 @@ fn dead_code_elimination_try_flatten_untargeted_void_block_root(
       _ => ()
     }
   }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for root_idx = 0
       root_idx < @ir.hot_region_root_count(func, body_ref)
       root_idx = root_idx + 1 {
@@ -2691,7 +2691,7 @@ fn dead_code_elimination_visit_node_regions(
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -2778,7 +2778,7 @@ fn dead_code_elimination_voidify_control(
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !dead_code_elimination_can_voidify_control(
       func, branch_user_cache, fallthrough_cache, node_id,
@@ -2803,7 +2803,7 @@ fn dead_code_elimination_voidify_control(
   let branch_users_by_label = dead_code_elimination_require_branch_users_by_label(
     branch_user_cache, func,
   )
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   let branch_rewrites : Array[@ir.HotChildSpanRewrite] = []
   if !is_loop {
     if label_id < 0 || label_id >= branch_users_by_label.length() {
@@ -2834,7 +2834,7 @@ fn dead_code_elimination_voidify_control(
           break
         }
       }
-      let new_children : Array[Int] = []
+      let new_children : Array[Int32] = []
       if payload_count < @ir.hot_child_count(func, branch_id) {
         new_children.push(
           @ir.hot_child_get(
@@ -2874,7 +2874,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
   node_use_cache : DeadCodeEliminationNodeUseCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   purity_cache : DeadCodeEliminationPurityCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block => ()
@@ -2906,7 +2906,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
   if branch_users_by_label[label_id].length() != 1 {
     return false
   }
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   let branch_rewrites : Array[@ir.HotChildSpanRewrite] = []
   for branch_id in branch_users_by_label[label_id] {
     if !@ir.hot_node_is_live(func, branch_id) {
@@ -2935,7 +2935,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
         break
       }
     }
-    let new_children : Array[Int] = []
+    let new_children : Array[Int32] = []
     if payload_count < @ir.hot_child_count(func, branch_id) {
       new_children.push(
         @ir.hot_child_get(
@@ -2970,8 +2970,8 @@ fn dead_code_elimination_remove_roots(
   func : @ir.HotFunc,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  remove_count : Int,
+  idx : Int32,
+  remove_count : Int32,
 ) -> Bool {
   if remove_count <= 0 {
     return false
@@ -2984,7 +2984,7 @@ fn dead_code_elimination_remove_roots(
     remove_count,
     [],
   )
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   for node_id in removed_roots {
     dead_code_elimination_collect_detached_nodes(func, node_id, detached, 32)
     if detached.length() > 32 {
@@ -3001,8 +3001,8 @@ fn dead_code_elimination_replace_root_with_child(
   func : @ir.HotFunc,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  child_id : Int,
+  idx : Int32,
+  child_id : Int32,
 ) -> Bool {
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [child_id])
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
@@ -3012,7 +3012,7 @@ fn dead_code_elimination_replace_root_with_child(
 ///|
 fn dead_code_elimination_needs_explicit_unreachable_tail(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -3033,7 +3033,7 @@ fn dead_code_elimination_needs_explicit_unreachable_tail(
 fn dead_code_elimination_has_explicit_unreachable_tail(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   let tail_idx = idx + 1
   if tail_idx < 0 || tail_idx >= @ir.hot_region_root_count(func, region_ref) {
@@ -3054,7 +3054,7 @@ fn dead_code_elimination_ensure_explicit_unreachable_tail(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if dead_code_elimination_has_explicit_unreachable_tail(func, region_ref, idx) {
     return false
@@ -3074,8 +3074,8 @@ fn dead_code_elimination_finish_nonfallthrough_final_root(
   branch_user_cache : DeadCodeEliminationBranchUserCache,
   fallthrough_cache : DeadCodeEliminationFallthroughCache,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  node_id : Int,
+  idx : Int32,
+  node_id : Int32,
 ) -> Bool {
   idx + 1 == @ir.hot_region_root_count(func, region_ref) &&
   dead_code_elimination_needs_explicit_unreachable_tail(func, node_id) &&

@@ -1,5 +1,5 @@
 ///|
-fn ssa_result_if_suffix_perf_body(count : Int) -> Array[@lib.Instruction] {
+fn ssa_result_if_suffix_perf_body(count : Int32) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<count {
     body.push(@lib.Instruction::i32_const(0))
@@ -18,7 +18,7 @@ fn ssa_result_if_suffix_perf_body(count : Int) -> Array[@lib.Instruction] {
 }
 
 ///|
-fn ssa_result_if_suffix_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn ssa_result_if_suffix_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let body = ssa_result_if_suffix_perf_body(count)
   ssa_result_if_suffix_perf_check_positive(2)
   ssa_result_if_suffix_perf_check_positive(32)
@@ -56,7 +56,7 @@ test "bench SSA result-If new short preflight" (it : @bench.T) {
 }
 
 ///|
-fn ssa_result_if_suffix_perf_check_positive(count : Int) -> Unit {
+fn ssa_result_if_suffix_perf_check_positive(count : Int32) -> Unit {
   let body = ssa_result_if_suffix_perf_body(count)
   body.push(
     @lib.Instruction::if_(

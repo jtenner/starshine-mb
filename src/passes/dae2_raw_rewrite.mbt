@@ -1,16 +1,57 @@
 ///|
-// A qualified scalar stack slot has one consumer. Keep original instruction
-// order while projecting that stack onto demanded values. Observable producers
-// still run; unused retained results are dropped at their production point.
 fn dae2_rewrite_raw_function(
   module_graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
+  index : Int32,
   original : @lib.Func,
   context : @ir.HotModuleContext,
   kept_params : Array[@lib.ValType],
   removed_params : Array[@lib.ValType],
-) -> (@lib.Func, Array[Int])? {
+) -> (@lib.Func, Array[Int32])? {
+  let @lib.Func(_, @lib.Expr(body)) = original
+  if body.any(fn(instr) {
+      instr is @lib.Block(_, _) ||
+      instr is @lib.Loop(_, _) ||
+      instr is @lib.If(_, _, _)
+    }) {
+    // Flattening a block first loses the control boundary that lets HOT defer
+    // a pure parent operand until after the block's effects.
+    match
+      dae2_rewrite_raw_structured_function(
+        module_graph, infos, index, original, context, kept_params, removed_params,
+      ) {
+      Some(result) => return Some(result)
+      None => ()
+    }
+    return dae2_rewrite_raw_flat_function(
+      module_graph, infos, index, original, context, kept_params, removed_params,
+    )
+  }
+  match
+    dae2_rewrite_raw_flat_function(
+      module_graph, infos, index, original, context, kept_params, removed_params,
+    ) {
+    Some(result) => Some(result)
+    None =>
+      dae2_rewrite_raw_structured_function(
+        module_graph, infos, index, original, context, kept_params, removed_params,
+      )
+  }
+}
+
+///|
+// A qualified scalar stack slot has one consumer. Keep original instruction
+// order while projecting that stack onto demanded values. Observable producers
+// still run; unused retained results are dropped at their production point.
+fn dae2_rewrite_raw_flat_function(
+  module_graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  index : Int32,
+  original : @lib.Func,
+  context : @ir.HotModuleContext,
+  kept_params : Array[@lib.ValType],
+  removed_params : Array[@lib.ValType],
+) -> (@lib.Func, Array[Int32])? {
   let info = infos[index]
   if !info.raw_analysis || info.results.length() > 1 {
     return None
@@ -39,9 +80,9 @@ fn dae2_rewrite_raw_function(
   let graph = Dae2Graph::new()
   ignore(graph.locations(instructions.length()))
   let kinds = Array::make(instructions.length(), -1)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let definitions = Array::make(info.params.length() + locals.length(), -1)
-  let mut tee_writes : Array[Int]? = None
+  let mut tee_writes : Array[Int32]? = None
   for position in 0..<instructions.length() {
     let instr = instructions[position]
     let pure = dae2_raw_pure_arity(instr)
@@ -80,6 +121,20 @@ fn dae2_rewrite_raw_function(
       return None
     }
     let start = stack.length() - consumed
+    if start > 0 && (kind == 1 || kind == 2 || kind == 4) {
+      match instructions[stack[start - 1]] {
+        @lib.LocalGet(@lib.LocalIdx(raw)) => {
+          let local_id = raw.reinterpret_as_int()
+          if local_id < info.params.length() && definitions[local_id] < 0 {
+            // HOT can defer this parameter read until its actual consumer.
+            // Let structured replay prove that no emitted local write crosses
+            // that read. The lexical flat emitter cannot change its order.
+            return None
+          }
+        }
+        _ => ()
+      }
+    }
     kinds[position] = kind
     match kind {
       0 | 3 | 8 => {

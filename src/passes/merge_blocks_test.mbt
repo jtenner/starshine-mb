@@ -1,5 +1,5 @@
 ///|
-fn merge_blocks_test_count_substring(text : String, needle : String) -> Int {
+fn merge_blocks_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -23,7 +23,7 @@ test "merge-blocks keeps a SIMD store after an earlier call" {
     "(module (memory 1) (func $reader (result i32) (i32.load (i32.const 0))) (func (export \"run\") (result i32) (i32.add (call $reader) (block (result i32) (v128.store (i32.const 0) (v128.const i32x4 1 2 3 4)) (i32.const 1)))))",
     ["merge-blocks"],
   ).unwrap()
-  let events : Array[Int] = []
+  let events : Array[Int32] = []
   merge_blocks_test_collect_call_store(audit_body(output, index=1), events)
   assert_eq(events, [1, 2])
 }
@@ -31,7 +31,7 @@ test "merge-blocks keeps a SIMD store after an earlier call" {
 ///|
 fn merge_blocks_test_collect_call_store(
   body : Array[@lib.Instruction],
-  events : Array[Int],
+  events : Array[Int32],
 ) -> Unit {
   for instr in body {
     match instr {
@@ -3361,7 +3361,7 @@ fn merge_blocks_ordered_atomic_test_module() -> @lib.Module {
 fn merge_blocks_test_top_level_instr_index(
   body : Array[@lib.Instruction],
   predicate : (@lib.Instruction) -> Bool,
-) -> Int {
+) -> Int32 {
   for idx = 0; idx < body.length(); idx = idx + 1 {
     if predicate(body[idx]) {
       return idx

@@ -1,9 +1,9 @@
 ///|
 fn dae2_sparse_edges_reference(
-  count : Int,
-  dense? : Bool = false,
+  count : Int32,
+  dense~ : Bool = false,
 ) -> Array[Bool] {
-  let edges : Array[Array[Int]] = []
+  let edges : Array[Array[Int32]] = []
   let used : Array[Bool] = []
   for _ in 0..<count {
     edges.push([])
@@ -40,7 +40,10 @@ fn dae2_sparse_edges_reference(
 }
 
 ///|
-fn dae2_sparse_edges_current(count : Int, dense? : Bool = false) -> Array[Bool] {
+fn dae2_sparse_edges_current(
+  count : Int32,
+  dense~ : Bool = false,
+) -> Array[Bool] {
   let graph = Dae2Graph::new()
   for _ in 0..<count {
     ignore(graph.location())
@@ -66,9 +69,9 @@ fn dae2_sparse_edges_current(count : Int, dense? : Bool = false) -> Array[Bool] 
 ///|
 fn dae2_sparse_edges_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
-  dense? : Bool = false,
+  dense~ : Bool = false,
 ) -> Unit {
   if dae2_sparse_edges_current(count, dense~) !=
     dae2_sparse_edges_reference(count, dense~) {

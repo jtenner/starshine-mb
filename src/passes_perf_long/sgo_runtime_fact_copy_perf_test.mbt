@@ -1,5 +1,8 @@
 ///|
-fn sgo_fact_copy_fixture(global_count : Int, block_count : Int) -> @lib.Module {
+fn sgo_fact_copy_fixture(
+  global_count : Int32,
+  block_count : Int32,
+) -> @lib.Module {
   let globals : Array[@lib.Global] = []
   for idx in 0..<global_count {
     globals.push(
@@ -49,7 +52,7 @@ fn sgo_fact_copy_fixture(global_count : Int, block_count : Int) -> @lib.Module {
 }
 
 ///|
-fn sgo_fact_copy_bench(it : @bench.T, count : Int) -> Unit {
+fn sgo_fact_copy_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = sgo_fact_copy_fixture(count, count)
   let output = match
     @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [

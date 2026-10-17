@@ -2,9 +2,9 @@
 // Frozen v3 epoch traversal: compare complete source-query work and ownership.
 fn dae2_entry_epoch_reference(
   func : @ir.HotFunc,
-  visits? : Array[Int]? = None,
-) -> Array[Int]? {
-  let root_writes : Array[Int] = []
+  visits~ : Array[Int32]? = None,
+) -> Array[Int32]? {
+  let root_writes : Array[Int32] = []
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_get(func, root).op is @ir.LocalSet {
       root_writes.push(root)
@@ -43,7 +43,7 @@ fn dae2_entry_epoch_reference(
   }
   let completed = Array::make(writes.length(), false)
   let sources = Array::make(@ir.hot_node_count(func), -2)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut epoch = 0
   for root in @ir.hot_root_span(func) {
     if root < 0 {
@@ -116,8 +116,8 @@ fn dae2_entry_epoch_reference(
 ///|
 fn dae2_entry_interval_bench(
   it : @bench.T,
-  writes : Int,
-  depth : Int,
+  writes : Int32,
+  depth : Int32,
   reference : Bool,
 ) -> Unit {
   let func = @ir.HotFunc::new(

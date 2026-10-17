@@ -1,7 +1,7 @@
 ///|
 fn rume_perf_repeated_indirect_call_fixture(
-  candidate_count : Int,
-  call_count : Int,
+  candidate_count : Int32,
+  call_count : Int32,
 ) -> @lib.Module {
   let type_idx = @lib.TypeIdx::new(0U)
   let func_types : Array[@lib.TypeIdx] = []
@@ -87,8 +87,8 @@ test "RUME scans repeated identical indirect-call candidates once" {
 
 ///|
 fn rume_perf_direct_type_root_fixture(
-  rooted_type_count : Int,
-  total_type_count : Int,
+  rooted_type_count : Int32,
+  total_type_count : Int32,
 ) -> @lib.Module {
   let rec_types : Array[@lib.RecType] = []
   let func_types : Array[@lib.TypeIdx] = []

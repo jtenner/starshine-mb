@@ -1,7 +1,7 @@
 ///|
 fn sl_zero_read_before_identity(
   body : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   for instr in body {

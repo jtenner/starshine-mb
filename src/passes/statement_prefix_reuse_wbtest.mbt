@@ -3,7 +3,7 @@ fn sl_prefix_reference(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   allow_escape : Bool,
-) -> Int {
+) -> Int32 {
   for end = 1; end <= instrs.length(); end = end + 1 {
     let prefix = Array::makei(end, fn(index) { instrs[index] })
     match
@@ -31,7 +31,7 @@ fn sl_prefix_reference(
 }
 
 ///|
-fn sl_prefix_fixture(width : Int) -> Array[@lib.Instruction] {
+fn sl_prefix_fixture(width : Int32) -> Array[@lib.Instruction] {
   let body = Array::make(width, @lib.Instruction::i32_const(@lib.I32(1)))
   for _ in 0..<width {
     body.push(@lib.Instruction::drop())

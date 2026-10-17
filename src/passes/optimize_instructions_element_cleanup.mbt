@@ -1,7 +1,7 @@
 ///|
 fn oi_collect_declared_ref_funcs(
   body : Array[@lib.Instruction],
-  declared : Map[UInt, Bool],
+  declared : Map[UInt32, Bool],
 ) -> Unit {
   for instr in body {
     if instr is @lib.RefFunc(@lib.FuncIdx(index)) {
@@ -19,7 +19,7 @@ fn oi_collect_declared_ref_funcs(
 ///|
 fn oi_collect_elem_declarations(
   kind : @lib.ElemKind,
-  declared : Map[UInt, Bool],
+  declared : Map[UInt32, Bool],
 ) -> Unit {
   match kind {
     @lib.FuncsElemKind(funcs) =>
@@ -61,7 +61,7 @@ fn oi_cleanup_declarative_elements(mod_ : @lib.Module) -> @lib.Module {
       elem is @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(_))
     }) &&
     !o4z_canonicalize_final_size_module_has_ref_func(mod_)
-  let declared : Map[UInt, Bool] = Map([])
+  let declared : Map[UInt32, Bool] = Map([])
   // Match validation's declaration sources: body ref.func and start do not
   // declare a function. Seed coverage only with sites that will be retained.
   match mod_.export_sec {
@@ -98,7 +98,7 @@ fn oi_cleanup_declarative_elements(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   let kept : Array[@lib.Elem] = []
-  let remap : Array[Int] = []
+  let remap : Array[Int32] = []
   for elem in elems {
     match elem {
       @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(funcs)) => {

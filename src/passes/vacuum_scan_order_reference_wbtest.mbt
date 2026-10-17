@@ -1,7 +1,7 @@
 // Frozen 15255efd6 predicates: only the order of the unreachable query changes.
 
 ///|
-fn vacuum_scan_order_reference_0(body : Array[@lib.Instruction]) -> UInt? {
+fn vacuum_scan_order_reference_0(body : Array[@lib.Instruction]) -> UInt32? {
   let non_nops : Array[@lib.Instruction] = []
   for instr in body {
     match instr {
@@ -100,7 +100,7 @@ fn vacuum_scan_order_reference_0(body : Array[@lib.Instruction]) -> UInt? {
 fn vacuum_scan_order_reference_1(
   body : Array[@lib.Instruction],
   parent_body : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
   if non_nops.length() < 13 ||

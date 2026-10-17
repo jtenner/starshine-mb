@@ -1,7 +1,7 @@
 ///|
 fn inl_measure_cache_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let body = Array::make(width, @lib.Instruction::nop())
@@ -54,7 +54,7 @@ test "bench reuse-campaign inlining repeated body facts width=1024 cached" (
 ///|
 fn inl_measure_dirty_cache_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let body = Array::make(width, @lib.Instruction::nop())

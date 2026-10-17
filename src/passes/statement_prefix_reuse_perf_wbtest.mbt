@@ -1,5 +1,5 @@
 ///|
-fn sl_prefix_bench(it : @bench.T, width : Int, reference : Bool) -> Unit {
+fn sl_prefix_bench(it : @bench.T, width : Int32, reference : Bool) -> Unit {
   let body = sl_prefix_fixture(width)
   let env = @validate.Env::new()
   let expected = sl_prefix_reference(body, env, false)

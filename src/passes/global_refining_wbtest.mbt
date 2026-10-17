@@ -2,7 +2,7 @@
 fn gr_wbtest_old_collect_heaptype_candidates(
   heap_type : @lib.HeapType,
   env : @validate.Env,
-  temporary_arrays : Array[Int],
+  temporary_arrays : Array[Int32],
 ) -> Array[@lib.HeapType] {
   temporary_arrays[0] += 3
   let out : Array[@lib.HeapType] = []
@@ -58,7 +58,7 @@ fn gr_wbtest_old_typeidx_is_declared_subtype(
   source : @lib.TypeIdx,
   target : @lib.TypeIdx,
   env : @validate.Env,
-  temporary_arrays : Array[Int],
+  temporary_arrays : Array[Int32],
 ) -> Bool {
   temporary_arrays[0] += 2
   let work : Array[@lib.TypeIdx] = [source]
@@ -88,7 +88,7 @@ fn gr_wbtest_old_heaptype_matches_join_candidate(
   source : @lib.HeapType,
   candidate : @lib.HeapType,
   env : @validate.Env,
-  temporary_arrays : Array[Int],
+  temporary_arrays : Array[Int32],
 ) -> Bool {
   match (source, candidate) {
     (@lib.HeapType(source), @lib.HeapType(candidate)) =>
@@ -104,7 +104,7 @@ fn gr_wbtest_old_join_heaptypes(
   left : @lib.HeapType,
   right : @lib.HeapType,
   env : @validate.Env,
-  temporary_arrays : Array[Int],
+  temporary_arrays : Array[Int32],
 ) -> @lib.HeapType? {
   if gr_wbtest_old_heaptype_matches_join_candidate(
       left, right, env, temporary_arrays,

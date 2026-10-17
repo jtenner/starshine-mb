@@ -3,7 +3,7 @@ test "dae unchanged snapshot keeps body epochs even with NaN constants" {
   let base = pass_test_module_from_wat(
     "(module (func (result f32) f32.const 0))",
   )
-  let nan_module = fn(bits : UInt) {
+  let nan_module = fn(bits : UInt32) {
     base.with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(

@@ -4,7 +4,7 @@
 // replayed in the parent. Indexed, tuple and other control stays on HOT.
 fn dae2_raw_branchless_instructions(
   instructions : Array[@lib.Instruction],
-  first_block? : Int = -1,
+  first_block~ : Int32 = -1,
 ) -> Array[@lib.Instruction]? {
   let mut first = first_block
   if first < 0 {

@@ -1,5 +1,5 @@
 ///|
-fn dealign_noop_fixture(function_count : Int) -> @lib.Module {
+fn dealign_noop_fixture(function_count : Int32) -> @lib.Module {
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
   let body = Array::make(64, @lib.Instruction::nop())
@@ -18,7 +18,7 @@ fn dealign_noop_fixture(function_count : Int) -> @lib.Module {
 }
 
 ///|
-fn dealign_noop_bench(it : @bench.T, function_count : Int) -> Unit {
+fn dealign_noop_bench(it : @bench.T, function_count : Int32) -> Unit {
   let fixture = dealign_noop_fixture(function_count)
   if dealign_run_module_pass(fixture) != fixture {
     abort("no-op dealign fixture changed")
@@ -27,7 +27,10 @@ fn dealign_noop_bench(it : @bench.T, function_count : Int) -> Unit {
 }
 
 ///|
-fn dealign_changed_fixture(function_count : Int, sparse : Bool) -> @lib.Module {
+fn dealign_changed_fixture(
+  function_count : Int32,
+  sparse : Bool,
+) -> @lib.Module {
   let base = dealign_noop_fixture(function_count)
   let funcs : Array[@lib.Func] = []
   let changed_instrs : Array[@lib.Instruction] = []
@@ -62,7 +65,7 @@ fn dealign_changed_fixture(function_count : Int, sparse : Bool) -> @lib.Module {
 ///|
 fn dealign_changed_bench(
   it : @bench.T,
-  function_count : Int,
+  function_count : Int32,
   sparse : Bool,
 ) -> Unit {
   let fixture = dealign_changed_fixture(function_count, sparse)
@@ -74,7 +77,7 @@ fn dealign_changed_bench(
 
 ///|
 test "Dealign no-op guard still rewrites nested unaligned loads" {
-  let nested = fn(align : UInt) {
+  let nested = fn(align : UInt32) {
     @lib.Expr::new([
       @lib.Instruction::block(
         @lib.BlockType::void_(),

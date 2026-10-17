@@ -3,8 +3,8 @@
 // instruction rewriter; no complete-old-recursive-scan claim is made.
 fn type_remap_lazy_bench(
   it : @bench.T,
-  width : Int,
-  pattern : Int,
+  width : Int32,
+  pattern : Int32,
   before : Bool,
 ) -> Unit raise {
   let body : Array[@lib.Instruction] = []
@@ -17,7 +17,7 @@ fn type_remap_lazy_bench(
       },
     )
   }
-  let remap : Map[UInt, UInt] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   remap[1U] = 0U
   let expected = type_remap_eager_reference(body, remap)
   assert_eq(dfe_try_rewrite_instruction_array_type_idxs(body, remap), expected)

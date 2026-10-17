@@ -1,5 +1,5 @@
 ///|
-fn cl_copy_remap_bench(it : @bench.T, count : Int, reference : Bool) -> Unit {
+fn cl_copy_remap_bench(it : @bench.T, count : Int32, reference : Bool) -> Unit {
   let input = cl_copy_remap_fixture(count)
   let mapping = [0, 2, 1]
   let module_ = pass_test_module_from_wat(

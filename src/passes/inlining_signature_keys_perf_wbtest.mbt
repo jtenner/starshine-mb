@@ -1,7 +1,7 @@
 ///|
 fn inl_signature_keys_perf_fixture(
-  type_count : Int,
-  func_count : Int,
+  type_count : Int32,
+  func_count : Int32,
 ) -> (@lib.Module, Array[@lib.TypeIdx]) {
   let rec_types : Array[@lib.RecType] = []
   for _ in 0..<type_count {
@@ -17,8 +17,8 @@ fn inl_signature_keys_perf_fixture(
 ///|
 fn inl_signature_keys_perf_bench(
   it : @bench.T,
-  type_count : Int,
-  func_count : Int,
+  type_count : Int32,
+  func_count : Int32,
 ) -> Unit {
   let (mod_, indices) = inl_signature_keys_perf_fixture(type_count, func_count)
   let preflight = inl_build_func_signature_keys(mod_, indices, func_count)

@@ -77,7 +77,7 @@ test "vacuum removes dropped call without effects while preserving its effectful
     let source = "(module (type $target (func (param i32) (result i32))) (import \"\{module_name}\" \"call.without.effects\" (func $invoke (param i32 funcref) (result i32))) (import \"env\" \"argument\" (func $argument (result i32))) (func $target (type $target) (local.get 0)) (elem declare func $target) (func (export \"run\") (drop (call $invoke (call $argument) (ref.func $target)))))"
     let output = pass_test_run_pipeline(source, ["vacuum"]).unwrap()
     let hot = @ir.hot_lift_func(output, @lib.FuncIdx::new(3U))
-    let calls : Array[Int] = []
+    let calls : Array[Int32] = []
     for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
       let data = @ir.hot_node_get(hot, node)
       if data.op is @ir.HotOp::Call {

@@ -1,26 +1,26 @@
 ///|
 // The established flat planner runs first. This separate preflight accepts only
-// fallthrough, no-input void/single-value controls; branches/loops/handlers stay HOT.
+// no-input void/single-value controls and terminal returns/traps. Branches,
+// loops, handlers and materialized dead tails stay HOT.
 fn dae2_raw_conditional_qualified(
   instructions : Array[@lib.Instruction],
   context : @ir.HotModuleContext?,
-  nested : Bool,
 ) -> Bool {
-  for position, instr in instructions {
+  for instr in instructions {
     match instr {
       @lib.Block(bt, @lib.Expr(body)) =>
         if !(bt is @lib.VoidBlockType || bt is @lib.ValTypeBlockType(_)) ||
-          !dae2_raw_conditional_qualified(body, context, true) {
+          !dae2_raw_conditional_qualified(body, context) {
           return false
         }
       @lib.If(bt, yes, no) => {
         if !(bt is @lib.VoidBlockType || bt is @lib.ValTypeBlockType(_)) ||
-          !dae2_raw_conditional_qualified(yes, context, true) {
+          !dae2_raw_conditional_qualified(yes, context) {
           return false
         }
         match no {
           Some(body) =>
-            if !dae2_raw_conditional_qualified(body, context, true) {
+            if !dae2_raw_conditional_qualified(body, context) {
               return false
             }
           None => if !(bt is @lib.VoidBlockType) { return false }
@@ -32,8 +32,9 @@ fn dae2_raw_conditional_qualified(
       | @lib.LocalTee(_)
       | @lib.Call(_)
       | @lib.CallIndirect(_, _)
-      | @lib.CallRef(_) => ()
-      @lib.Return if !nested && position == instructions.length() - 1 => ()
+      | @lib.CallRef(_)
+      | @lib.Return
+      | @lib.Unreachable => ()
       _ =>
         if dae2_raw_pure_arity(instr) < 0 &&
           dae2_raw_observer_arity(instr) < 0 &&
@@ -47,8 +48,8 @@ fn dae2_raw_conditional_qualified(
 
 ///|
 priv struct Dae2RawArmWrites {
-  order : Array[Int]
-  values : @hashmap.HashMap[Int, Int]
+  order : Array[Int32]
+  values : @hashmap.HashMap[Int32, Int32]
 }
 
 ///|
@@ -60,23 +61,25 @@ fn Dae2RawArmWrites::new() -> Dae2RawArmWrites {
 priv struct Dae2RawControlState {
   plan : Dae2RawPlan
   infos : Array[Dae2Function]
-  type_infos : Array[Int]
+  type_infos : Array[Int32]
   intrinsic_imports : Array[Bool]?
   context : @ir.HotModuleContext?
-  stack : Array[Int]
-  locals : Array[Int]
-  undo_locals : Array[Int]
-  undo_values : Array[Int]
-  mut arm_depth : Int
+  result_location : Int32
+  result_count : Int32
+  stack : Array[Int32]
+  locals : Array[Int32]
+  undo_locals : Array[Int32]
+  undo_values : Array[Int32]
+  mut arm_depth : Int32
 }
 
 ///|
 fn Dae2RawControlState::new(
   plan : Dae2RawPlan,
   infos : Array[Dae2Function],
-  index : Int,
-  type_infos : Array[Int],
-  local_count : Int,
+  index : Int32,
+  type_infos : Array[Int32],
+  local_count : Int32,
   intrinsic_imports : Array[Bool]?,
   context : @ir.HotModuleContext?,
 ) -> Dae2RawControlState {
@@ -91,6 +94,8 @@ fn Dae2RawControlState::new(
     type_infos,
     intrinsic_imports,
     context,
+    result_location: info.result_location,
+    result_count: info.results.length(),
     stack: [],
     locals,
     undo_locals: [],
@@ -102,8 +107,8 @@ fn Dae2RawControlState::new(
 ///|
 fn Dae2RawControlState::assign(
   self : Dae2RawControlState,
-  local_id : Int,
-  value : Int,
+  local_id : Int32,
+  value : Int32,
 ) -> Unit {
   if self.arm_depth > 0 {
     self.undo_locals.push(local_id)
@@ -118,7 +123,7 @@ fn Dae2RawControlState::assign(
 // record merged assignments separately, so nested undo segments stay isolated.
 fn Dae2RawControlState::restore_arm(
   self : Dae2RawControlState,
-  mark : Int,
+  mark : Int32,
 ) -> Dae2RawArmWrites? {
   if self.undo_locals.length() == mark {
     return None
@@ -179,12 +184,26 @@ fn Dae2RawControlState::join_arms(
 }
 
 ///|
+fn Dae2RawControlState::apply_arm(
+  self : Dae2RawControlState,
+  writes : Dae2RawArmWrites?,
+) -> Unit {
+  match writes {
+    Some(writes) =>
+      for local_id in writes.order {
+        self.assign(local_id, writes.values.get(local_id).unwrap())
+      }
+    None => ()
+  }
+}
+
+///|
 // Leaf dependency contracts intentionally mirror the flat planner. The stack
 // floor prevents an arm/block from consuming values belonging to its parent.
 fn Dae2RawControlState::leaf(
   self : Dae2RawControlState,
   instr : @lib.Instruction,
-  floor : Int,
+  floor : Int32,
 ) -> Bool {
   let stack = self.stack
   let plan = self.plan
@@ -309,7 +328,7 @@ fn Dae2RawControlState::leaf(
 }
 
 ///|
-fn dae2_raw_control_arity(bt : @lib.BlockType) -> Int {
+fn dae2_raw_control_arity(bt : @lib.BlockType) -> Int32 {
   match bt {
     @lib.VoidBlockType => 0
     @lib.ValTypeBlockType(_) => 1
@@ -321,74 +340,125 @@ fn dae2_raw_control_arity(bt : @lib.BlockType) -> Int {
 fn Dae2RawControlState::body(
   self : Dae2RawControlState,
   instructions : Array[@lib.Instruction],
-  floor : Int,
-  result_count : Int,
-  top : Bool,
-) -> Bool {
-  for position, instr in instructions {
+  floor : Int32,
+  result_count : Int32,
+) -> Bool? {
+  // None rejects qualification. Some(false) has no fallthrough; only the
+  // surviving arm can supply definitions and results after a conditional.
+  let mut falls_through = true
+  for instr in instructions {
+    if !falls_through {
+      // HOT Drop has no DAE2 child demand, even for a concrete result slot
+      // after a nonreturning control. These tails add no writes or exits.
+      match instr {
+        @lib.Drop | @lib.Nop | @lib.Unreachable => continue
+        _ => return None
+      }
+    }
     match instr {
       @lib.Block(bt, @lib.Expr(body)) => {
         let arity = dae2_raw_control_arity(bt)
-        if arity < 0 || !self.body(body, self.stack.length(), arity, false) {
-          return false
+        if arity < 0 {
+          return None
+        }
+        match self.body(body, self.stack.length(), arity) {
+          Some(fallthrough) => falls_through = fallthrough
+          None => return None
         }
       }
       @lib.If(bt, yes, no) => {
         let arity = dae2_raw_control_arity(bt)
         if arity < 0 || self.stack.length() == floor {
-          return false
+          return None
         }
         // HOT observes conditions even when every arm result is dead.
         self.plan.observations.push(self.stack.pop().unwrap())
         let arm_floor = self.stack.length()
         let mark = self.undo_locals.length()
         self.arm_depth += 1
-        if !self.body(yes, arm_floor, arity, false) {
-          return false
+        let yes_fallthrough = match self.body(yes, arm_floor, arity) {
+          Some(fallthrough) => fallthrough
+          None => return None
         }
-        let yes_value = if arity == 1 { self.stack.pop().unwrap() } else { -1 }
+        let yes_value = if yes_fallthrough && arity == 1 {
+          self.stack.pop().unwrap()
+        } else {
+          -1
+        }
         let yes_writes = self.restore_arm(mark)
-        let no_value = match no {
+        let (no_value, no_fallthrough) = match no {
           Some(body) => {
-            if !self.body(body, arm_floor, arity, false) {
-              return false
+            let fallthrough = match self.body(body, arm_floor, arity) {
+              Some(fallthrough) => fallthrough
+              None => return None
             }
-            if arity == 1 {
+            let value = if fallthrough && arity == 1 {
               self.stack.pop().unwrap()
             } else {
               -1
             }
+            (value, fallthrough)
           }
           None => {
             if arity != 0 {
-              return false
+              return None
             }
-            -1
+            (-1, true)
           }
         }
         let no_writes = self.restore_arm(mark)
         self.arm_depth -= 1
-        self.join_arms(yes_writes, no_writes)
-        if arity == 1 {
+        match (yes_fallthrough, no_fallthrough) {
+          (true, true) => self.join_arms(yes_writes, no_writes)
+          (true, false) => self.apply_arm(yes_writes)
+          (false, true) => self.apply_arm(no_writes)
+          (false, false) => ()
+        }
+        falls_through = yes_fallthrough || no_fallthrough
+        if falls_through && arity == 1 {
+          // A terminated arm has no result source, represented by -1.
           self.stack.push(self.plan.join(yes_value, no_value))
         }
       }
-      @lib.Return =>
-        if !top || position != instructions.length() - 1 {
-          return false
+      @lib.Return => {
+        if self.stack.length() - floor < self.result_count {
+          return None
         }
-      _ => if !self.leaf(instr, floor) { return false }
+        let start = self.stack.length() - self.result_count
+        for slot in start..<self.stack.length() {
+          self.plan.edge(self.result_location, self.stack[slot])
+        }
+        falls_through = false
+      }
+      @lib.Unreachable => {
+        // Unlike Return, HOT leaves preceding concrete values in the region's
+        // roots at a trap. Decline this shape rather than omit those edges.
+        if self.stack.length() != floor {
+          return None
+        }
+        falls_through = false
+      }
+      _ => if !self.leaf(instr, floor) { return None }
+    }
+    if !falls_through {
+      self.stack.truncate(floor)
     }
   }
-  self.stack.length() == floor + result_count
+  if !falls_through {
+    Some(false)
+  } else if self.stack.length() == floor + result_count {
+    Some(true)
+  } else {
+    None
+  }
 }
 
 ///|
 fn dae2_raw_conditional_dependency_plan(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
-  type_infos : Array[Int],
+  index : Int32,
+  type_infos : Array[Int32],
   body : @lib.Func,
   intrinsic_imports : Array[Bool]?,
   context : @ir.HotModuleContext?,
@@ -405,8 +475,10 @@ fn dae2_raw_conditional_dependency_plan(
       }
     _ => ()
   }
-  if !dae2_raw_conditional_qualified(instructions, context, false) {
-    return None
+  if !dae2_raw_conditional_qualified(instructions, context) {
+    return dae2_raw_forward_dependency_plan(
+      graph, infos, index, type_infos, body, intrinsic_imports, context,
+    )
   }
   let plan = Dae2RawPlan::new(graph.used.length())
   let state = Dae2RawControlState::new(
@@ -418,8 +490,9 @@ fn dae2_raw_conditional_dependency_plan(
     intrinsic_imports,
     context,
   )
-  if !state.body(instructions, 0, infos[index].results.length(), true) {
-    return None
+  match state.body(instructions, 0, infos[index].results.length()) {
+    Some(_) => ()
+    None => return None
   }
   for source in state.stack {
     plan.edge(infos[index].result_location, source)

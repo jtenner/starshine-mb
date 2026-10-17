@@ -1,5 +1,5 @@
 ///|
-fn h2l_default_probe_fixture(fields : Int) -> @lib.Module {
+fn h2l_default_probe_fixture(fields : Int32) -> @lib.Module {
   let source = StringBuilder::new()
   source.write_string("(module (type (struct")
   for _ in 0..<fields {
@@ -10,7 +10,7 @@ fn h2l_default_probe_fixture(fields : Int) -> @lib.Module {
 }
 
 ///|
-fn h2l_default_probe_alloc(hot : @ir.HotFunc) -> Int {
+fn h2l_default_probe_alloc(hot : @ir.HotFunc) -> Int32 {
   for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
     if @ir.hot_node_exact_instr(hot, node) is Some(@lib.StructNewDefault(_)) {
       return node
@@ -50,7 +50,7 @@ test "Heap2Local default-array eligibility leaves the node arena unchanged" {
 }
 
 ///|
-fn h2l_default_probe_bench(it : @bench.T, fields : Int) -> Unit {
+fn h2l_default_probe_bench(it : @bench.T, fields : Int32) -> Unit {
   let fixture = h2l_default_probe_fixture(fields)
   let ctx = @ir.hot_module_context_from_module(fixture)
   it.bench(fn() {

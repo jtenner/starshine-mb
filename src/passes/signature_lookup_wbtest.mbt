@@ -1,5 +1,5 @@
 ///|
-fn signature_lookup_fixture(count : Int) -> @lib.Module {
+fn signature_lookup_fixture(count : Int32) -> @lib.Module {
   let rec_types = Array::makei(count, fn(i) {
     @lib.RecType::new(
       @lib.SubType::comp_type(

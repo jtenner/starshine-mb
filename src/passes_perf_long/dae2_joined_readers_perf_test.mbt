@@ -1,5 +1,5 @@
 ///|
-fn perf_long_dae2_joined_readers(count : Int) -> @lib.Module {
+fn perf_long_dae2_joined_readers(count : Int32) -> @lib.Module {
   let body = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::if_(
@@ -14,7 +14,7 @@ fn perf_long_dae2_joined_readers(count : Int) -> @lib.Module {
       ]),
     ),
   ]
-  fn append_sum(reads : Int) -> Unit {
+  fn append_sum(reads : Int32) -> Unit {
     if reads == 1 {
       body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
     } else {
@@ -101,7 +101,7 @@ test "DAE2 joined-reader fixture actively removes its unused argument" {
 ///|
 fn perf_long_dae2_joined_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   pass : String,
 ) -> Unit {
   // Balanced operands isolate reader fanout from deep-recursion costs.

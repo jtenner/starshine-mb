@@ -192,7 +192,7 @@ test "inlining iteration requires a touched body or function-count change" {
 
 ///|
 test "inlining graph reachability preserves cycle-only self reachability" {
-  let graph : Array[Array[Int]] = [[1], [2], [1], []]
+  let graph : Array[Array[Int32]] = [[1], [2], [1], []]
   let reachability = inl_build_graph_reachability(graph)
   assert_true(inl_reachability_reaches(reachability, 0, 1))
   assert_true(inl_reachability_reaches(reachability, 0, 2))
@@ -212,7 +212,7 @@ test "inlining graph reachability preserves cycle-only self reachability" {
 ///|
 test "inlining SCC member indexing scales across disconnected singletons" {
   let count = 512
-  let graph : Array[Array[Int]] = []
+  let graph : Array[Array[Int32]] = []
   for _ in 0..<count {
     graph.push([])
   }
@@ -373,7 +373,7 @@ test "inlining pads exact unreachable helpers to predicted signature counts" {
     #|  (func (export "run") (type $root)
     #|    unreachable))
   let mod_ = pass_test_module_from_wat(source)
-  let predicted : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let predicted : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let key = inl_func_signature_key(mod_, inl_collect_func_type_indices(mod_), 0)
   predicted.set(key, 2)
   let padded = inl_pad_unreachable_to_predicted_counts(mod_, predicted)

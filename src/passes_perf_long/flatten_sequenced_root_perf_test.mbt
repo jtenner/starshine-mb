@@ -1,7 +1,7 @@
 ///|
 fn flatten_perf_payload_branch_suffix_module(
-  function_count : Int,
-  branches_per_function : Int,
+  function_count : Int32,
+  branches_per_function : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -45,9 +45,9 @@ test "flatten long perf lane measures effective-terminal suffix routing" {
 
 ///|
 fn flatten_perf_nested_no_fallthrough_module(
-  function_count : Int,
-  regions_per_function : Int,
-  dead_roots_per_region : Int,
+  function_count : Int32,
+  regions_per_function : Int32,
+  dead_roots_per_region : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -102,8 +102,8 @@ test "flatten long perf lane measures candidate-dense region summaries" {
 #skip("manual native-release sequenced-root lookup benchmark")
 test "flatten long perf lane measures sequenced-root pair lookup" {
   for candidate_count in [256, 512] {
-    let holders : Array[Int] = []
-    let nodes : Array[Int] = []
+    let holders : Array[Int32] = []
+    let nodes : Array[Int32] = []
     for candidate = 0; candidate < candidate_count; candidate = candidate + 1 {
       holders.push(candidate / 8)
       nodes.push(candidate * 2 + 1)
@@ -135,16 +135,16 @@ test "flatten long perf lane measures sequenced-root pair lookup" {
 fn flatten_perf_candidate_binary(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  left : Int,
-  right : Int,
-) -> Int {
+  left : Int32,
+  right : Int32,
+) -> Int32 {
   let node = @ir.hot_build_binary(func, @lib.ValType::i32(), left, right)
   @ir.hot_node_exact_instr_set(func, node, instr)
   node
 }
 
 ///|
-fn flatten_perf_candidate_argument(func : @ir.HotFunc, family : Int) -> Int {
+fn flatten_perf_candidate_argument(func : @ir.HotFunc, family : Int32) -> Int32 {
   let mul0 = flatten_perf_candidate_binary(
     func,
     @lib.Instruction::i32_mul(),
@@ -188,7 +188,7 @@ fn flatten_perf_candidate_argument(func : @ir.HotFunc, family : Int) -> Int {
 }
 
 ///|
-fn flatten_perf_candidate_func(family : Int) -> @ir.HotFunc {
+fn flatten_perf_candidate_func(family : Int32) -> @ir.HotFunc {
   let func = @ir.HotFunc::new()
   let i32_type = @lib.ValType::i32()
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))

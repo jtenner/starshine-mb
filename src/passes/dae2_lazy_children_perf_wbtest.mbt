@@ -1,7 +1,7 @@
 ///|
 fn dae2_lazy_children_bench(
   it : @bench.T,
-  repetitions : Int,
+  repetitions : Int32,
   lazy : Bool,
 ) -> Unit {
   let (graph, infos, func, root, state) = dae2_lazy_children_fixture(true)

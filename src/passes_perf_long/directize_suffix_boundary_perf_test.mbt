@@ -1,5 +1,5 @@
 ///|
-fn directize_suffix_boundary_fixture(prefix : Int) -> @lib.Module {
+fn directize_suffix_boundary_fixture(prefix : Int32) -> @lib.Module {
   let base = directize_perf_module(0, 0)
   let @lib.CodeSec(funcs) = base.code_sec.unwrap()
   let body : Array[@lib.Instruction] = []
@@ -23,7 +23,7 @@ fn directize_suffix_boundary_fixture(prefix : Int) -> @lib.Module {
 }
 
 ///|
-fn directize_suffix_boundary_bench(it : @bench.T, prefix : Int) -> Unit {
+fn directize_suffix_boundary_bench(it : @bench.T, prefix : Int32) -> Unit {
   let fixture = directize_suffix_boundary_fixture(prefix)
   let expected = opportunity_run(fixture, "directize", true)
   if expected == fixture {

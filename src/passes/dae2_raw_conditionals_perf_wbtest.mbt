@@ -4,10 +4,10 @@
 // of the timed loop.
 fn raw_conditional_perf_run(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
-  local_count : Int,
-  shape : Int,
+  helpers : Int32,
+  width : Int32,
+  local_count : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let locals = Array::make(local_count, "i32").join(" ")
@@ -48,7 +48,7 @@ fn raw_conditional_perf_run(
     @binary.encode_module(output).unwrap(),
     @binary.encode_module(old).unwrap(),
   )
-  assert_eq(new_lifts[0], if shape == 3 { helpers } else { 0 })
+  assert_eq(new_lifts[0], 0)
   assert_eq(old_lifts[0], if shape == 2 { 0 } else { helpers })
   let context = @ir.hot_module_context_from_module(output)
   let @lib.FuncType(params, _) = @ir.hot_module_resolve_func_type(

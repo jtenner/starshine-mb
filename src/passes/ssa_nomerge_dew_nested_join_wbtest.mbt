@@ -28,15 +28,15 @@ fn ssa_dew_nested_join_module() -> @lib.Module {
 ///|
 fn ssa_dew_nested_join_execute(
   func : @lib.Func,
-  params : Array[Int],
-) -> Int raise {
+  params : Array[Int32],
+) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(params.length() + body_locals.length(), 0)
   for index, value in params {
     locals[index] = value
   }
-  let stack : Array[Int] = []
-  fn execute(instrs : Array[@lib.Instruction]) -> Int? raise {
+  let stack : Array[Int32] = []
+  fn execute(instrs : Array[@lib.Instruction]) -> Int32? raise {
     for instr in instrs {
       match instr {
         @lib.Nop => ()

@@ -1,7 +1,7 @@
 ///|
 fn numeric_group_context_bench(
   it : @bench.T,
-  instructions : Int,
+  instructions : Int32,
   reference : Bool,
 ) -> Unit {
   let body = Array::make(instructions, "nop").join(" ")

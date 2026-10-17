@@ -1,8 +1,8 @@
 ///|
 fn sl_get_count_cache_fixture(
-  width : Int,
-  reads : Int,
-  locals_count? : Int = 1,
+  width : Int32,
+  reads : Int32,
+  locals_count~ : Int32 = 1,
 ) -> @ir.HotFunc {
   let body = ["(module (func (result i32) (local"]
   for _ in 0..<locals_count {
@@ -116,7 +116,7 @@ test "SL main and dead cleanup share unchanged read counts without changing the 
   let cache = simplify_locals_new_get_count_cache(func)
   assert_true(cache is Some(_))
   let scans = [0]
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   let (changed, _) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -172,7 +172,7 @@ fn sl_get_count_run_fixture(
   input : @lib.Module,
   policy : SimplifyLocalsPolicy,
   reuse : Bool,
-  protected? : Bool = false,
+  protected~ : Bool = false,
 ) -> @lib.Module {
   let context = @ir.hot_module_context_from_module(input)
   let func = @ir.hot_lift_func_with_context_result(
@@ -212,7 +212,7 @@ fn sl_get_count_run_fixture(
 }
 
 ///|
-fn sl_get_count_active_fixture(width : Int) -> @lib.Module {
+fn sl_get_count_active_fixture(width : Int32) -> @lib.Module {
   let wat = [
     "(module (func (export \"run\") (param i32) (result i32) (local i32 i32) local.get 0 i32.const 1 i32.add local.set 1 local.get 1 local.set 2 local.get 2 drop",
   ]

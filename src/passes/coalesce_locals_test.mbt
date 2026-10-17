@@ -59,7 +59,7 @@ fn cl_test_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
-fn cl_test_count_local_tees(instrs : Array[@lib.Instruction]) -> Int {
+fn cl_test_count_local_tees(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -116,7 +116,7 @@ fn cl_test_instrs_contain_local_tee(
 }
 
 ///|
-fn cl_test_local_idx_raw(idx : @lib.LocalIdx) -> Int {
+fn cl_test_local_idx_raw(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -124,7 +124,7 @@ fn cl_test_local_idx_raw(idx : @lib.LocalIdx) -> Int {
 ///|
 fn cl_test_instrs_contain_body_to_body_copy_set(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Bool {
   let mut idx = 0
   while idx + 1 < instrs.length() {

@@ -1,7 +1,7 @@
 ///|
 fn dae_trap_summary_test_scan(
   body : Array[@lib.Instruction],
-  active? : Bool = true,
+  active~ : Bool = true,
 ) -> (Bool, DaeCurrentCallFacts, Array[DaeFunctionInfo]) {
   let direct_calls = [0, 0]
   let tail_calls = [false, false]

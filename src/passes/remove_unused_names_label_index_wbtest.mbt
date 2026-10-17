@@ -39,11 +39,11 @@ test "remove-unused-names reuses removed-label workspace across sibling chains" 
       @ir.hot_build_block(func, @lib.BlockType::void_(), [inner]),
     )
   }
-  let removed_ids : Array[Int] = []
-  let peeled_roots : Array[Int] = []
+  let removed_ids : Array[Int32] = []
+  let peeled_roots : Array[Int32] = []
   let used_labels = remove_unused_names_compute_live_label_uses(func)
   let removed_labels = @bitset.BitSet::new(func.labels.length())
-  let touched_removed_labels : Array[Int] = []
+  let touched_removed_labels : Array[Int32] = []
   assert_true(
     remove_unused_names_visit_region(
       func,

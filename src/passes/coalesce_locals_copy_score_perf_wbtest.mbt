@@ -1,13 +1,13 @@
 ///|
 fn cl_cfg_copy_score_perf_fixture(
-  count : Int,
+  count : Int32,
 ) -> (
-  Array[Int],
+  Array[Int32],
   Array[@lib.ValType],
   CLCfgSparseInterferences,
   CLCfgSparseWeights,
 ) {
-  let order : Array[Int] = []
+  let order : Array[Int32] = []
   for idx in 0..<count {
     order.push(idx)
   }
@@ -23,7 +23,7 @@ fn cl_cfg_copy_score_perf_fixture(
 }
 
 ///|
-fn cl_cfg_copy_score_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn cl_cfg_copy_score_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (order, types, interferences, weights) = cl_cfg_copy_score_perf_fixture(
     count,
   )
@@ -72,7 +72,7 @@ test "Coalesce indexed copy weights keep preferred slot" {
 }
 
 ///|
-fn cl_cfg_copy_weight_build_perf_fixture(count : Int) -> CLCfgSparseWeights {
+fn cl_cfg_copy_weight_build_perf_fixture(count : Int32) -> CLCfgSparseWeights {
   let weights = CLCfgSparseWeights::new(count)
   for lhs = 0; lhs < count; lhs = lhs + 1 {
     for rhs = lhs + 1; rhs < count; rhs = rhs + 1 {
@@ -93,7 +93,7 @@ test "Coalesce dense copy weight builder keeps symmetric repeated edges" {
 }
 
 ///|
-fn cl_cfg_copy_weight_build_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn cl_cfg_copy_weight_build_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let weights = cl_cfg_copy_weight_build_perf_fixture(count)
   if weights.rows[0].length() != count - 1 ||
     weights.rows[count - 1].length() != count - 1 {

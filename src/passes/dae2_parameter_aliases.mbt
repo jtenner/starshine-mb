@@ -1,23 +1,25 @@
 ///|
 priv struct Dae2ParameterAliases {
-  start : Int
+  start : Int32
   mut established : Array[Bool]?
-  reads : Array[Int]
-  writes : Array[Int]
-  active : Array[Int]
+  reads : Array[Int32]
+  writes : Array[Int32]
+  active : Array[Int32]
   mut forwarded : Bool
   targets : Array[Int64]
-  undo : Array[Int]
+  undo : Array[Int32]
   mut width_body : Array[@lib.Instruction]?
   mut index_bounds : Array[Int64]?
+  stack_effects : ((@lib.Instruction) -> (Int32, Int32)?)?
 }
 
 ///|
 fn Dae2ParameterAliases::new(
-  start : Int,
-  reads : Array[Int],
-  writes : Array[Int],
-  width_body? : Array[@lib.Instruction]? = None,
+  start : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
+  width_body~ : Array[@lib.Instruction]? = None,
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Dae2ParameterAliases {
   {
     start,
@@ -30,14 +32,77 @@ fn Dae2ParameterAliases::new(
     undo: [],
     width_body,
     index_bounds: None,
+    stack_effects,
   }
 }
 
 ///|
-fn dae2_alias_source_is_nonwidening(source : Int, target : Int) -> Bool {
+fn dae2_alias_source_is_nonwidening(source : Int32, target : Int32) -> Bool {
   // Compaction never increases indices. A reverse edge is safe only when both
   // indices already fit in one byte; equal wider LEB widths may later diverge.
   source != target && (source < target || source < 128)
+}
+
+///|
+// Find the local.get consumed by a writer through a small packet of leaf
+// producers and local.sets. Other instructions end the proof. Both discovery
+// and remapping use the same bound; deleting earlier pairs only shortens it.
+fn dae2_alias_packet_get_position(
+  instrs : Array[@lib.Instruction],
+  end : Int32,
+) -> Int32 {
+  let mut needed = 1
+  for position = end - 1
+      position >= 0 && position >= end - 64
+      position = position - 1 {
+    match instrs[position] {
+      @lib.LocalGet(_) => {
+        needed -= 1
+        if needed == 0 {
+          return position
+        }
+      }
+      @lib.LocalSet(_) => needed += 1
+      leaf if dae2_stack_suffix_discardable_leaf(leaf) => {
+        needed -= 1
+        if needed == 0 {
+          return -1
+        }
+      }
+      _ => return -1
+    }
+  }
+  -1
+}
+
+///|
+fn dae2_alias_packet_source(
+  instrs : Array[@lib.Instruction],
+  end : Int32,
+  writes : Array[Int32],
+) -> Int32 {
+  let position = dae2_alias_packet_get_position(instrs, end)
+  if position < 0 {
+    return -1
+  }
+  match instrs[position] {
+    @lib.LocalGet(@lib.LocalIdx(source)) if writes[source.to_int()] <= 1 => {
+      // Discovery also requires the single ordinary writer to dominate this
+      // copy. Do not confuse a write inside the packet with a definition that
+      // already preceded the captured read.
+      if writes[source.to_int()] == 1 {
+        for scan in (position + 1)..<end {
+          match instrs[scan] {
+            @lib.LocalSet(@lib.LocalIdx(written)) if written == source =>
+              return -1
+            _ => ()
+          }
+        }
+      }
+      source.to_int()
+    }
+    _ => -1
+  }
 }
 
 ///|
@@ -52,7 +117,8 @@ fn Dae2ParameterAliases::discover(
 ) -> Unit {
   let mark = self.undo.length()
   let mut previous_get = -1
-  for instr in instrs {
+  for position in 0..<instrs.length() {
+    let instr = instrs[position]
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) => {
         let local_id = raw.to_int()
@@ -73,7 +139,22 @@ fn Dae2ParameterAliases::discover(
       @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) if self.writes[raw.to_int()] ==
         1 => {
         let local_id = raw.to_int()
-        let source = previous_get
+        let source = if previous_get >= 0 {
+          previous_get
+        } else if local_id >= self.start && instr is @lib.LocalSet(_) {
+          // Held reads need an unchanged source through the packet as well as
+          // the ordinary dominance proof used by adjacent local copies.
+          dae2_alias_packet_source(instrs, position, self.writes)
+        } else if local_id >= self.start && instr is @lib.LocalTee(_) {
+          dae2_alias_held_tee_source(
+            instrs,
+            position,
+            self.writes,
+            self.stack_effects,
+          )
+        } else {
+          -1
+        }
         let is_alias = local_id >= self.start &&
           source >= 0 &&
           (
@@ -155,7 +236,7 @@ fn Dae2ParameterAliases::discover_children(
 ///|
 fn Dae2ParameterAliases::is_established(
   self : Dae2ParameterAliases,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match self.established {
     Some(facts) => facts[local_id]
@@ -166,40 +247,51 @@ fn Dae2ParameterAliases::is_established(
 ///|
 fn dae2_has_parameter_alias(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  writes : Array[Int],
+  start : Int32,
+  writes : Array[Int32],
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Bool {
   for position in 0..<instrs.length() {
     match instrs[position] {
       @lib.LocalSet(@lib.LocalIdx(target))
       | @lib.LocalTee(@lib.LocalIdx(target)) if position > 0 &&
         target.to_int() >= start &&
-        writes[target.to_int()] == 1 =>
+        writes[target.to_int()] == 1 => {
         match instrs[position - 1] {
           @lib.LocalGet(@lib.LocalIdx(source)) if source != target &&
             writes[source.to_int()] <= 1 => return true
           _ => ()
         }
+        if instrs[position] is @lib.LocalSet(_) &&
+          dae2_alias_packet_source(instrs, position, writes) >= 0 {
+          return true
+        }
+        if instrs[position] is @lib.LocalTee(_) &&
+          dae2_alias_held_tee_source(instrs, position, writes, stack_effects) >=
+          0 {
+          return true
+        }
+      }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if dae2_has_parameter_alias(body, start, writes) {
+        if dae2_has_parameter_alias(body, start, writes, stack_effects~) {
           return true
         }
       @lib.If(_, yes, no) => {
-        if dae2_has_parameter_alias(yes, start, writes) {
+        if dae2_has_parameter_alias(yes, start, writes, stack_effects~) {
           return true
         }
         match no {
           Some(body) =>
-            if dae2_has_parameter_alias(body, start, writes) {
+            if dae2_has_parameter_alias(body, start, writes, stack_effects~) {
               return true
             }
           None => ()
         }
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        if dae2_has_parameter_alias(body, start, writes) {
+        if dae2_has_parameter_alias(body, start, writes, stack_effects~) {
           return true
         }
         for catch_ in catches {
@@ -207,7 +299,7 @@ fn dae2_has_parameter_alias(
             @lib.LegacyCatch(_, @lib.Expr(body))
             | @lib.LegacyCatchAll(@lib.Expr(body)) => body
           }
-          if dae2_has_parameter_alias(body, start, writes) {
+          if dae2_has_parameter_alias(body, start, writes, stack_effects~) {
             return true
           }
         }
@@ -221,11 +313,12 @@ fn dae2_has_parameter_alias(
 ///|
 fn dae2_cleanup_parameter_aliases(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  reads : Array[Int],
-  writes : Array[Int],
+  start : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> (Array[@lib.Instruction], Dae2ParameterAliases?) {
-  if !dae2_has_parameter_alias(instrs, start, writes) {
+  if !dae2_has_parameter_alias(instrs, start, writes, stack_effects~) {
     return (instrs, None)
   }
   let aliases = Dae2ParameterAliases::new(
@@ -233,6 +326,7 @@ fn dae2_cleanup_parameter_aliases(
     reads,
     writes,
     width_body=Some(instrs),
+    stack_effects~,
   )
   aliases.discover(instrs)
   let mut unread = false
@@ -269,7 +363,7 @@ fn dae2_cleanup_parameter_aliases(
 fn Dae2ParameterAliases::remap(
   self : Dae2ParameterAliases,
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let mark = self.undo.length()
   let out = Array::new(capacity=instrs.length())
@@ -283,9 +377,15 @@ fn Dae2ParameterAliases::remap(
         self.undo.push(local_id)
         if indices[local_id] < 0 {
           if instr is @lib.LocalSet(_) {
-            match out.pop() {
-              Some(@lib.LocalGet(_)) => ()
-              _ => abort("missing local alias producer")
+            match out.last() {
+              Some(@lib.LocalGet(_)) => ignore(out.pop())
+              _ => {
+                let producer = dae2_alias_packet_get_position(out, out.length())
+                if producer < 0 {
+                  abort("missing local alias producer")
+                }
+                ignore(out.remove(producer))
+              }
             }
           }
           continue
@@ -318,6 +418,16 @@ fn Dae2ParameterAliases::remap(
         @lib.LocalTee(@lib.LocalIdx(raw)) =>
           @lib.Instruction::local_tee(
             @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),
+          )
+        @lib.Select(Some(types)) =>
+          @lib.Instruction::select(types=Some(types.copy()))
+        @lib.BrTable(targets, fallback) =>
+          @lib.Instruction::br_table(targets.copy(), fallback)
+        @lib.TryTable(bt, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            bt,
+            catches.copy(),
+            @lib.Expr::new(visit_body(body)),
           )
         _ => pass_lower_map_children(instr, visit_body)
       },

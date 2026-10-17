@@ -1,0 +1,88 @@
+///|
+fn raw_forward_label_perf_run(
+  it : @bench.T,
+  width : Int32,
+  conditional_branch : Bool,
+  reference : Bool,
+) -> Unit raise {
+  let branch = if conditional_branch {
+    "local.get 0 br_if $out"
+  } else {
+    "local.get 0 if br $out end"
+  }
+  let item = "\{branch} local.get 4 i32.const 1 i32.add local.set 4"
+  let input = pass_test_module_from_wat(
+    "(module (func $h (param i32 i32 i32 i64) (result i32) (local i32) local.get 1 local.set 4 block $out \{Array::make(width, item).join(" ")} end local.get 4) (func (export \"run\") (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i64.const 9 call $h))",
+  )
+  @validate.validate_module(input).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  let old_lifts = [0]
+  let new_lifts = [0]
+  let rewrite_lifts = [0]
+  let old = dae2_run_module_pass(
+    input,
+    false,
+    raw_conditionals=false,
+    analysis_lifts=Some(old_lifts),
+  ).unwrap()
+  let output = dae2_run_module_pass(
+    input,
+    false,
+    analysis_lifts=Some(new_lifts),
+    rewrite_lifts=Some(rewrite_lifts),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @binary.encode_module(output).unwrap(),
+    @binary.encode_module(old).unwrap(),
+  )
+  assert_eq(old_lifts[0], 1)
+  assert_eq(new_lifts[0], 0)
+  assert_eq(rewrite_lifts[0], 0)
+  it.bench(fn() {
+    it.keep(
+      dae2_run_module_pass(input, false, raw_conditionals=!reference).unwrap(),
+    )
+  })
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}
+
+///|
+test "bench raw forward labels br width=4 HOT" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 4, false, true)
+}
+
+///|
+test "bench raw forward labels br width=4 raw" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 4, false, false)
+}
+
+///|
+test "bench raw forward labels br width=128 HOT" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 128, false, true)
+}
+
+///|
+test "bench raw forward labels br width=128 raw" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 128, false, false)
+}
+
+///|
+test "bench raw forward labels br_if width=4 HOT" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 4, true, true)
+}
+
+///|
+test "bench raw forward labels br_if width=4 raw" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 4, true, false)
+}
+
+///|
+test "bench raw forward labels br_if width=128 HOT" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 128, true, true)
+}
+
+///|
+test "bench raw forward labels br_if width=128 raw" (it : @bench.T) {
+  raw_forward_label_perf_run(it, 128, true, false)
+}

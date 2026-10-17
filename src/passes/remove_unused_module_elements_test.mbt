@@ -832,7 +832,7 @@ fn rume_test_nullfuncref_active_elem_live_table_fixture() -> @lib.Module {
 ///|
 fn rume_test_live_access_targets(
   mod_ : @lib.Module,
-) -> (UInt, UInt, UInt) raise {
+) -> (UInt32, UInt32, UInt32) raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs {
@@ -858,7 +858,7 @@ fn rume_test_live_access_targets(
 }
 
 ///|
-fn rume_test_memarg_target(mod_ : @lib.Module) -> UInt raise {
+fn rume_test_memarg_target(mod_ : @lib.Module) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs {
@@ -3100,11 +3100,11 @@ test "remove-unused-module-elements configureAll rejects underspecified intrinsi
 ///|
 fn rume_test_configure_all_module(
   tail : Bool,
-  target_offset : Int,
-  target_size : Int,
+  target_offset : Int32,
+  target_size : Int32,
   include_unrelated : Bool,
   later_call : Bool,
-  multiple_array_operands? : Bool = false,
+  multiple_array_operands~ : Bool = false,
 ) -> @lib.Module {
   let void_type_idx = @lib.TypeIdx::new(0U)
   let array_type_idx = @lib.TypeIdx::new(1U)

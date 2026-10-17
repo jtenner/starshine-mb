@@ -1,5 +1,5 @@
 ///|
-fn tuple_root_copy_analysis_perf_fixture(count : Int) -> String {
+fn tuple_root_copy_analysis_perf_fixture(count : Int32) -> String {
   let wat = StringBuilder::new()
   wat.write_string(
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0",
@@ -12,7 +12,7 @@ fn tuple_root_copy_analysis_perf_fixture(count : Int) -> String {
 }
 
 ///|
-fn tuple_root_copy_analysis_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn tuple_root_copy_analysis_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let func = @ir.ir_test_build_hot_from_wat(
       tuple_root_copy_analysis_perf_fixture(count),
     ).hot_func
@@ -21,7 +21,7 @@ fn tuple_root_copy_analysis_perf_bench(it : @bench.T, count : Int) -> Unit {
   if analysis.groups.is_empty() {
     abort("tuple root-copy benchmark lost its multivalue group")
   }
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   for node_id in 0..<@ir.hot_node_count(func) {
     if @ir.hot_node_get(func, node_id).op is @ir.HotOp::Block &&
       @ir.hot_node_result_arity(func, node_id) == 1 {

@@ -4,7 +4,7 @@ fn cl_add_source_write_dest_read_interferences_reference(
   actions : Array[CLAction],
   effective : Array[Bool],
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
   let (writers, readers) = cl_source_write_dest_read_active_flags(

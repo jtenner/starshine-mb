@@ -3,24 +3,24 @@
 // Reference zero is null; positive references index distinct fresh objects.
 fn fourth_audit_heap_eval(
   module_ : @lib.Module,
-  args : Array[Int],
-  field_count? : Int = 1,
-  globals? : Array[Int] = [],
-) -> Array[Int] raise {
+  args : Array[Int32],
+  field_count~ : Int32 = 1,
+  globals~ : Array[Int32] = [],
+) -> Array[Int32] raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = module_.code_sec.unwrap().0[0]
   let locals = args.copy()
   for _ in 0..<body_locals.length() {
     locals.push(0)
   }
-  let stack : Array[Int] = []
-  let heap : Array[Array[Int]] = [[]]
-  fn object(ref_ : Int) -> Array[Int] raise {
+  let stack : Array[Int32] = []
+  let heap : Array[Array[Int32]] = [[]]
+  fn object(ref_ : Int32) -> Array[Int32] raise {
     if ref_ <= 0 || ref_ >= heap.length() {
       fail("fixture null reference trap")
     }
     heap[ref_]
   }
-  fn allocate(count : Int) -> Unit {
+  fn allocate(count : Int32) -> Unit {
     let fields = Array::make(count, 0)
     for i = count - 1; i >= 0; i = i - 1 {
       fields[i] = stack.pop().unwrap()

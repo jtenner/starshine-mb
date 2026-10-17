@@ -1,28 +1,28 @@
 ///|
 #valtype
 priv struct SlRootConstant {
-  store : Int
+  store : Int32
   literal : @lib.Instruction
   wrapped : Bool
   dropped_tee : Bool
-  growth : Int
-  saved : Int
+  growth : Int32
+  saved : Int32
 }
 
 ///|
 fn SlRootConstant::new(
-  store : Int,
+  store : Int32,
   literal : @lib.Instruction,
   wrapped : Bool,
   dropped_tee : Bool,
-  growth : Int,
-  saved : Int,
+  growth : Int32,
+  saved : Int32,
 ) -> SlRootConstant {
   { store, literal, wrapped, dropped_tee, growth, saved, }
 }
 
 ///|
-fn sl_root_constant_bytes(instr : @lib.Instruction) -> Int {
+fn sl_root_constant_bytes(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.I32Const(@lib.I32(value)) => {
       let mut value = value
@@ -54,13 +54,13 @@ fn sl_root_constant_bytes(instr : @lib.Instruction) -> Int {
 // dominated by it. Budgets are small encoded-byte savings, saturated at -1.
 fn sl_root_constant_census(
   body : Array[@lib.Instruction],
-  root : Int,
+  root : Int32,
   top : Bool,
-  indices : Map[Int, Int],
+  indices : Map[Int32, Int32],
   candidates : Array[SlRootConstant],
-  writes : Array[Int],
+  writes : Array[Int32],
   reads : Array[Bool],
-  budgets : Array[Int],
+  budgets : Array[Int32],
 ) -> Unit {
   for i = 0; i < body.length(); i = i + 1 {
     let ordinal = if top { i } else { root }
@@ -113,9 +113,9 @@ fn sl_root_constant_census(
 ///|
 fn sl_root_constant_rewrite(
   body : Array[@lib.Instruction],
-  root : Int,
+  root : Int32,
   top : Bool,
-  indices : Map[Int, Int],
+  indices : Map[Int32, Int32],
   candidates : Array[SlRootConstant],
   selected : Array[Bool],
   removed : Array[Bool],
@@ -263,7 +263,7 @@ fn sl_inline_root_constants(
   body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
   let mut candidates : Array[SlRootConstant]? = None
-  let mut indices : Map[Int, Int]? = None
+  let mut indices : Map[Int32, Int32]? = None
   for i = 0; i < body.length(); i = i + 1 {
     let mut literal = body[i]
     let mut write = body[i]

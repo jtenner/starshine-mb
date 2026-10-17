@@ -88,11 +88,11 @@ fn vacuum_scan_order_parent() -> Array[@lib.Instruction] {
 
 ///|
 fn vacuum_scan_order_result(
-  kind : Int,
+  kind : Int32,
   body : Array[@lib.Instruction],
   parent : Array[@lib.Instruction],
   reference : Bool,
-) -> UInt? {
+) -> UInt32? {
   if kind == 0 {
     if reference {
       vacuum_scan_order_reference_0(body)
@@ -139,7 +139,7 @@ fn vacuum_scan_order_bodies() -> Array[Array[@lib.Instruction]] {
 test "vacuum shape-first queries preserve all admitted shapes nops and ownership" {
   let parent = vacuum_scan_order_parent()
   for index, original in vacuum_scan_order_bodies() {
-    let kind = Int::min(index, 2)
+    let kind = Int32::min(index, 2)
     let body = run_hot_pipeline_raw_vacuum_strip_top_level_nops(original)
     let padded : Array[@lib.Instruction] = [@lib.Instruction::nop()]
     for instr in body {
@@ -163,7 +163,7 @@ test "vacuum shape-first queries preserve all admitted shapes nops and ownership
 test "vacuum shape-first queries intentionally reject mismatched fixed prefixes" {
   let parent = vacuum_scan_order_parent()
   for index, original in vacuum_scan_order_bodies() {
-    let kind = Int::min(index, 2)
+    let kind = Int32::min(index, 2)
     let body = run_hot_pipeline_raw_vacuum_strip_top_level_nops(original)
     let prefix_len = if kind == 0 { 15 } else if kind == 1 { 13 } else { 4 }
     for offset in 0..<prefix_len {
@@ -195,7 +195,7 @@ test "vacuum shape-first queries retain nested unreachable barriers on matching 
     @lib.Instruction::if_(@lib.BlockType::void_(), [], Some(trap)),
   ]
   for index, original in vacuum_scan_order_bodies() {
-    let kind = Int::min(index, 2)
+    let kind = Int32::min(index, 2)
     let body = run_hot_pipeline_raw_vacuum_strip_top_level_nops(original)
     let last = body.length() - 1
     guard body[last] is @lib.If(bt, then_body, else_body) else {

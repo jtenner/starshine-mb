@@ -1,6 +1,6 @@
 ///|
 fn slns_loop_guard_fixture(
-  initializers : Int,
+  initializers : Int32,
   parameter_style : Bool,
 ) -> Array[@lib.Instruction] {
   let instrs : Array[@lib.Instruction] = []
@@ -37,7 +37,7 @@ fn slns_loop_guard_fixture(
 ///|
 fn slns_loop_guard_bench(
   it : @bench.T,
-  initializers : Int,
+  initializers : Int32,
   parameter_style : Bool,
 ) -> Unit {
   let fixture = slns_loop_guard_fixture(initializers, parameter_style)

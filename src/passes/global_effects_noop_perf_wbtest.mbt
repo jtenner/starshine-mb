@@ -1,5 +1,5 @@
 ///|
-fn ge_noop_perf_fixture(function_count : Int) -> @lib.Module {
+fn ge_noop_perf_fixture(function_count : Int32) -> @lib.Module {
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
   let body = Array::make(64, @lib.Instruction::nop())
@@ -21,7 +21,7 @@ fn ge_noop_perf_fixture(function_count : Int) -> @lib.Module {
 }
 
 ///|
-fn ge_noop_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn ge_noop_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = ge_noop_perf_fixture(count)
   if global_effects_run_module_pass(fixture) != fixture {
     abort("GlobalEffects no-op fixture changed")
@@ -47,7 +47,7 @@ fn ge_positive_perf_fixture() -> @lib.Module {
 }
 
 ///|
-fn ge_mixed_perf_fixture(extra_functions : Int) -> @lib.Module {
+fn ge_mixed_perf_fixture(extra_functions : Int32) -> @lib.Module {
   let positive = ge_positive_perf_fixture()
   let type_idxs = match positive.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.copy()
@@ -73,7 +73,7 @@ fn ge_mixed_perf_fixture(extra_functions : Int) -> @lib.Module {
 }
 
 ///|
-fn ge_mixed_perf_bench(it : @bench.T, extra_functions : Int) -> Unit {
+fn ge_mixed_perf_bench(it : @bench.T, extra_functions : Int32) -> Unit {
   let fixture = ge_mixed_perf_fixture(extra_functions)
   let rewritten = global_effects_run_module_pass(fixture)
   if rewritten == fixture || @validate.validate_module(rewritten).is_err() {

@@ -1,5 +1,5 @@
 ///|
-fn cl_copy_barrier_full_matrix(size : Int) -> CLBitMatrix {
+fn cl_copy_barrier_full_matrix(size : Int32) -> CLBitMatrix {
   let matrix = CLBitMatrix::new(size)
   for lhs in 0..<size {
     for rhs in (lhs + 1)..<size {

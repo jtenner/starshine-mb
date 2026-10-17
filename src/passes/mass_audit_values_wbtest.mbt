@@ -61,7 +61,7 @@ fn mass_audit_values_run(
 fn mass_audit_values_count(
   body : Array[@lib.Instruction],
   predicate : (@lib.Instruction) -> Bool,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     if predicate(instr) {

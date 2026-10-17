@@ -1,7 +1,7 @@
 ///|
 fn gr_public_type_perf_fixture(
-  type_count : Int,
-  global_count : Int,
+  type_count : Int32,
+  global_count : Int32,
 ) -> @lib.Module {
   let wat = StringBuilder::new()
   wat.write_string("(module\n")
@@ -22,8 +22,8 @@ fn gr_public_type_perf_fixture(
 ///|
 fn gr_public_type_perf_bench(
   it : @bench.T,
-  type_count : Int,
-  global_count : Int,
+  type_count : Int32,
+  global_count : Int32,
 ) -> Unit {
   let fixture = gr_public_type_perf_fixture(type_count, global_count)
   let output = gr_refine_module(fixture)

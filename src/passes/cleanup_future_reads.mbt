@@ -1,14 +1,14 @@
 ///|
 #valtype
 priv struct SlCleanupFutureReadProbe {
-  outcome : Int
-  visited : Int
+  outcome : Int32
+  visited : Int32
 }
 
 ///|
 fn SlCleanupFutureReadProbe::new(
-  outcome : Int,
-  visited : Int,
+  outcome : Int32,
+  visited : Int32,
 ) -> SlCleanupFutureReadProbe {
   { outcome, visited, }
 }
@@ -18,10 +18,10 @@ fn SlCleanupFutureReadProbe::new(
 // credits and value results avoid a mutable heap owner on cheap repeated reads.
 fn sl_cleanup_probe_future_read(
   body : Array[@lib.Instruction],
-  start : Int,
-  local : Int,
-  limit : Int,
-  visits : Array[Int]?,
+  start : Int32,
+  local : Int32,
+  limit : Int32,
+  visits : Array[Int32]?,
 ) -> SlCleanupFutureReadProbe {
   let mut visited = 0
   for idx = start; idx < body.length(); idx = idx + 1 {
@@ -124,9 +124,9 @@ fn sl_cleanup_probe_future_read(
 #inline
 fn sl_cleanup_future_read_with_visits(
   body : Array[@lib.Instruction],
-  start : Int,
-  local : Int,
-  visits : Array[Int]?,
+  start : Int32,
+  local : Int32,
+  visits : Array[Int32]?,
 ) -> Bool {
   match visits {
     None =>
@@ -144,7 +144,7 @@ fn sl_cleanup_future_read_with_visits(
 fn sl_cleanup_collect_reachable_read_instr(
   reads : SlCleanupReadSet,
   instr : @lib.Instruction,
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> Unit {
   if visits is Some(visits) {
     visits[0] += 1
@@ -178,7 +178,7 @@ fn sl_cleanup_collect_reachable_read_instr(
 fn sl_cleanup_collect_reachable_reads(
   reads : SlCleanupReadSet,
   body : Array[@lib.Instruction],
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> Unit {
   for instr in body {
     if run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
@@ -196,7 +196,7 @@ fn sl_cleanup_collect_reachable_reads(
 ///|
 fn sl_cleanup_build_future_read_mask(
   body : Array[@lib.Instruction],
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> Array[Bool] {
   let mask = Array::make(body.length(), false)
   let mut reads = SlCleanupReadSet::new([])
@@ -230,11 +230,11 @@ fn sl_cleanup_build_future_read_mask(
 #inline
 fn sl_cleanup_future_read_query(
   body : Array[@lib.Instruction],
-  read : Int,
-  start : Int,
-  local : Int,
+  read : Int32,
+  start : Int32,
+  local : Int32,
   mask : Array[Bool]?,
-  visits : Array[Int]?,
+  visits : Array[Int32]?,
 ) -> Bool {
   match mask {
     Some(mask) => mask[read]

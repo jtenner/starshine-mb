@@ -1,5 +1,5 @@
 ///|
-fn structured_lifetime_summary_bench(it : @bench.T, count : Int) -> Unit {
+fn structured_lifetime_summary_bench(it : @bench.T, count : Int32) -> Unit {
   let body = structured_lifetime_summary_fixture(count)
   if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
       body,
@@ -26,7 +26,10 @@ test "bench structured lifetime candidate prefixes=256" (it : @bench.T) {
 }
 
 ///|
-fn structured_lifetime_candidate_free_bench(it : @bench.T, count : Int) -> Unit {
+fn structured_lifetime_candidate_free_bench(
+  it : @bench.T,
+  count : Int32,
+) -> Unit {
   let body = structured_lifetime_candidate_free_fixture(count)
   if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
       body,

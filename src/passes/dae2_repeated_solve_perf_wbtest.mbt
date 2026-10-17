@@ -1,5 +1,5 @@
 ///|
-fn dae2_repeated_solve_perf_run(count : Int) -> Dae2Graph {
+fn dae2_repeated_solve_perf_run(count : Int32) -> Dae2Graph {
   let graph = Dae2Graph::new()
   for _ in 0..<count {
     ignore(graph.location())
@@ -12,7 +12,7 @@ fn dae2_repeated_solve_perf_run(count : Int) -> Dae2Graph {
 }
 
 ///|
-fn dae2_repeated_solve_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dae2_repeated_solve_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let preflight = dae2_repeated_solve_perf_run(count)
   if preflight.work.length() != count || !preflight.used.all(fn(used) { used }) {
     abort("DAE2 repeated-solve fixture did not observe every location")

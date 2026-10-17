@@ -1,7 +1,7 @@
 ///|
 fn cl_copy_remap_instrs(
   instrs : Array[@lib.Instruction],
-  old_to_new : Array[Int],
+  old_to_new : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {

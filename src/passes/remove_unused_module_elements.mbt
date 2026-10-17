@@ -9,20 +9,20 @@ pub fn rume_nonfunction_summary() -> String {
 }
 
 ///|
-fn rume_imported_global_count(mod_ : @lib.Module) -> Int {
+fn rume_imported_global_count(mod_ : @lib.Module) -> Int32 {
   @rume.rume_imported_global_count(mod_)
 }
 
 ///|
 fn rume_rewrite_instruction(
   instr : @lib.Instruction,
-  func_remap : Array[Int],
-  global_remap : Array[Int],
-  table_remap : Array[Int],
-  mem_remap : Array[Int],
-  tag_remap : Array[Int],
-  elem_remap : Array[Int],
-  data_remap : Array[Int],
+  func_remap : Array[Int32],
+  global_remap : Array[Int32],
+  table_remap : Array[Int32],
+  mem_remap : Array[Int32],
+  tag_remap : Array[Int32],
+  elem_remap : Array[Int32],
+  data_remap : Array[Int32],
 ) -> @lib.Instruction {
   @rume.rume_rewrite_instruction(
     instr, func_remap, global_remap, table_remap, mem_remap, tag_remap, elem_remap,
@@ -41,8 +41,8 @@ pub fn rume_extract_functions(
 ///|
 pub fn rume_run_module_pass(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   @rume.rume_run_module_pass(mod_, traps_never_happen~, closed_world~)
 }
@@ -50,8 +50,8 @@ pub fn rume_run_module_pass(
 ///|
 pub fn rume_run_nonfunction_module_pass(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   @rume.rume_run_nonfunction_module_pass(
     mod_,

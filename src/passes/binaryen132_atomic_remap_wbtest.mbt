@@ -8,7 +8,7 @@ test "Binaryen 132 aggregate atomics remap every type annotation and preserve or
       @lib.AtomicOrder::relaxed(),
     ] {
     for kind = 0; kind < 8; kind = kind + 1 {
-      let make = fn(index : UInt) {
+      let make = fn(index : UInt32) {
         let ty = @lib.TypeIdx::new(index)
         match kind {
           0 => @lib.Instruction::struct_atomic_set(order, ty, 3U)

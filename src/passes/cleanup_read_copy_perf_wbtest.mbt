@@ -9,11 +9,11 @@ fn sl_cleanup_read_copy_reference(
 ///|
 fn sl_cleanup_read_copy_bench(
   it : @bench.T,
-  width : Int,
-  stride : Int,
+  width : Int32,
+  stride : Int32,
   reference : Bool,
-  mutate? : Bool = true,
-  probe? : Bool = true,
+  mutate~ : Bool = true,
+  probe~ : Bool = true,
 ) -> Unit raise {
   let source = SlCleanupReadSet::new(
     Array::makei(width, fn(index) { index * stride }),

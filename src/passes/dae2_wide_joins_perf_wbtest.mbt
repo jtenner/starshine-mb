@@ -1,8 +1,8 @@
 ///|
 fn dae2_wide_joins_bench(
   it : @bench.T,
-  helpers : Int,
-  joins : Int,
+  helpers : Int32,
+  joins : Int32,
   optimizing : Bool,
 ) -> Unit {
   let wat = ["(module"]

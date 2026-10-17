@@ -1,8 +1,8 @@
 ///|
 fn dae_restore_admission_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let wat = ["(module"]

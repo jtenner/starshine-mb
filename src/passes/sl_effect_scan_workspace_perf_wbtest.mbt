@@ -1,7 +1,7 @@
 ///|
 fn sl_effect_scan_workspace_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
   leaf : Bool,
 ) -> Unit {

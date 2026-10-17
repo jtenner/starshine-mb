@@ -1,8 +1,8 @@
 ///|
 fn sl_suffix_storage_bench(
   it : @bench.T,
-  width : Int,
-  shape : Int,
+  width : Int32,
+  shape : Int32,
   effectful : Bool,
   reference : Bool,
 ) -> Unit raise {

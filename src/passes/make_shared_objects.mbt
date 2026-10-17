@@ -125,7 +125,7 @@ fn mso_rewrite_expr(
   types : Array[@lib.SubType],
   refs : MsoReferences,
   function_table : @lib.TableIdx,
-  scratch? : (@lib.Locals, Int)? = None,
+  scratch~ : (@lib.Locals, Int32)? = None,
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
@@ -467,7 +467,7 @@ fn mso_append_signature(
   rec_types : Array[@lib.RecType],
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
-  flat_count : Array[Int],
+  flat_count : Array[Int32],
   signatures : @hashmap.HashMap[String, @lib.TypeIdx],
 ) -> @lib.TypeIdx {
   let key = dae_simple_func_type_key(params, results)
@@ -584,7 +584,7 @@ fn mso_to_ref_func(table_idx : @lib.TableIdx) -> @lib.Func {
 ///|
 fn mso_retarget_import_calls(
   expr : @lib.Expr,
-  redirects : Map[UInt, UInt],
+  redirects : Map[UInt32, UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
@@ -889,7 +889,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => []
   }
   let all_func_types : Array[@lib.TypeIdx] = []
-  let import_specs : Array[(UInt, @lib.TypeIdx)] = []
+  let import_specs : Array[(UInt32, @lib.TypeIdx)] = []
   let mut import_count = 0
   for import_ in orig_imports {
     match import_ {
@@ -906,8 +906,8 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   for type_idx in orig_func_types {
     all_func_types.push(type_idx)
   }
-  let export_specs : Array[(UInt, @lib.TypeIdx)] = []
-  let export_redirects : Map[UInt, UInt] = Map([])
+  let export_specs : Array[(UInt32, @lib.TypeIdx)] = []
+  let export_redirects : Map[UInt32, UInt32] = Map([])
   for export_ in orig_exports {
     match export_ {
       @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(raw))) if raw.to_int() <
@@ -934,7 +934,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     @lib.TypeSec::new(rewritten_types),
   )
   let next_imports : Array[@lib.Import] = []
-  let redirects : Map[UInt, UInt] = Map([])
+  let redirects : Map[UInt32, UInt32] = Map([])
   for import_ in orig_imports {
     match import_ {
       @lib.Import(module_name, field_name, @lib.FuncExternType(type_idx)) => {
@@ -1256,7 +1256,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let extra_import_count = (if needs_any_to_extern[0] { 1 } else { 0 }) +
     (if needs_extern_to_any[0] { 1 } else { 0 })
   if extra_import_count > 0 {
-    let remap : Array[UInt] = []
+    let remap : Array[UInt32] = []
     for idx = 0; idx < import_count + next_funcs.length(); idx = idx + 1 {
       remap.push(
         (if idx < import_count { idx } else { idx + extra_import_count }).to_uint(),
@@ -1334,7 +1334,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         (@lib.SingleRecType(first), @lib.SingleRecType(second)) if first.get_comptype()
           is @lib.FuncCompType(_, _) &&
           second.get_comptype() is @lib.StructCompType(_) => {
-          let remap : Map[UInt, UInt] = Map([])
+          let remap : Map[UInt32, UInt32] = Map([])
           remap[0U] = 1U
           remap[1U] = 0U
           let rewritten = dfe_rewrite_module_type_idxs(candidate, remap)

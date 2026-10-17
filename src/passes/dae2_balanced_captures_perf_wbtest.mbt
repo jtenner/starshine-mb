@@ -1,7 +1,7 @@
 ///|
 fn dae2_balanced_capture_perf_run(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   original : Bool,
 ) -> Unit {
   let captures = Array::makei(count, fn(i) {

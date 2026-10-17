@@ -184,7 +184,7 @@ test "precompute preserves folded tee writes observed after stack-carried values
   fn count_writes(
     instrs : Array[@lib.Instruction],
     written : @lib.LocalIdx,
-    write_count : Array[Int],
+    write_count : Array[Int32],
   ) -> Unit {
     for instr in instrs {
       match instr {
@@ -495,6 +495,31 @@ test "precompute-propagate folds constant selects while retaining chosen effects
   assert_false(pretty.contains("select"), msg=pretty)
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "precompute folds a constant select inside an observable checksum" {
+  let source =
+    #|(module
+    #|  (global $checksum (export "checksum") (mut i32) (i32.const 0))
+    #|  (func (export "run")
+    #|    (global.set $checksum
+    #|      (i32.add
+    #|        (select
+    #|          (i32.const 2)
+    #|          (i32.const 3)
+    #|          (i32.const 1))
+    #|        (global.get $checksum)))))
+  for pass in ["precompute", "precompute-propagate"] {
+    let output = match pass_test_run_pipeline(source, [pass]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected observable select precompute success: \{err}")
+    }
+    ignore(@validate.validate_module(output).unwrap())
+    let pretty = output.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_false(pretty.contains("select"), msg="\{pass}: \{pretty}")
+    assert_true(pretty.contains("I32(2)"), msg="\{pass}: \{pretty}")
+  }
 }
 
 ///|

@@ -1,7 +1,7 @@
 ///|
 fn sl_zero_read_identity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nested : Bool,
   active : Bool,
   reference : Bool,

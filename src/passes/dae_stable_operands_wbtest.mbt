@@ -1,7 +1,7 @@
 ///|
 fn dae_stable_operands_fixture(
-  calls : Int,
-  params : Int,
+  calls : Int32,
+  params : Int32,
 ) -> DaeCurrentBoundaryGraph {
   let text = StringBuilder::new()
   text.write_string("(module (func $helper (param")

@@ -1,7 +1,7 @@
 ///|
 fn dae2_local_counting_perf_run(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nested : Bool,
   direct : Bool,
 ) -> Unit raise {

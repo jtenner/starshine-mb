@@ -11,7 +11,10 @@ fn dfe_test_type_sec() -> @lib.TypeSec {
 }
 
 ///|
-fn dfe_test_call_target(mod_ : @lib.Module, defined_idx : Int) -> UInt raise {
+fn dfe_test_call_target(
+  mod_ : @lib.Module,
+  defined_idx : Int32,
+) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -25,8 +28,8 @@ fn dfe_test_call_target(mod_ : @lib.Module, defined_idx : Int) -> UInt raise {
 ///|
 fn dfe_test_ref_func_target(
   mod_ : @lib.Module,
-  defined_idx : Int,
-) -> UInt raise {
+  defined_idx : Int32,
+) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -45,7 +48,7 @@ fn dfe_test_ref_func_target(
 }
 
 ///|
-fn dfe_test_block_type(mod_ : @lib.Module, defined_idx : Int) -> UInt raise {
+fn dfe_test_block_type(mod_ : @lib.Module, defined_idx : Int32) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -64,8 +67,8 @@ fn dfe_test_block_type(mod_ : @lib.Module, defined_idx : Int) -> UInt raise {
 ///|
 fn dfe_test_select_ref_type_idx(
   mod_ : @lib.Module,
-  defined_idx : Int,
-) -> UInt raise {
+  defined_idx : Int32,
+) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -983,7 +986,7 @@ fn dfe_test_run(input : @lib.Module) -> @lib.Module raise {
 }
 
 ///|
-fn dfe_test_defined_func_count(mod_ : @lib.Module) -> Int raise {
+fn dfe_test_defined_func_count(mod_ : @lib.Module) -> Int32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.length()
     None => fail("expected code section")
@@ -993,8 +996,8 @@ fn dfe_test_defined_func_count(mod_ : @lib.Module) -> Int raise {
 ///|
 fn dfe_test_export_func_target(
   mod_ : @lib.Module,
-  export_idx : Int,
-) -> UInt raise {
+  export_idx : Int32,
+) -> UInt32 raise {
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
       match exports[export_idx] {
@@ -1370,7 +1373,7 @@ test "duplicate-function-elimination keeps exported identities across a duplicat
 ///|
 fn dfe_test_instruction_references_func_idx(
   instr : @lib.Instruction,
-  target : UInt,
+  target : UInt32,
 ) -> Bool {
   match instr {
     @lib.Call(@lib.FuncIdx(raw))
@@ -1400,7 +1403,7 @@ fn dfe_test_instruction_references_func_idx(
 }
 
 ///|
-fn dfe_test_expr_references_func_idx(expr : @lib.Expr, target : UInt) -> Bool {
+fn dfe_test_expr_references_func_idx(expr : @lib.Expr, target : UInt32) -> Bool {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
     if dfe_test_instruction_references_func_idx(instr, target) {

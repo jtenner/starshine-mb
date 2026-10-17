@@ -1,5 +1,5 @@
 ///|
-fn vacuum_label_guard_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn vacuum_label_guard_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let wat = StringBuilder::new()
   wat.write_string("(module (func (param i32)")
   for _ in 0..<count {
@@ -22,7 +22,7 @@ fn vacuum_label_guard_perf_bench(it : @bench.T, count : Int) -> Unit {
   if @ir.hot_region_root_count(func, roots) != count {
     abort("Vacuum label guard fixture root count changed")
   }
-  let if_nodes : Array[Int] = []
+  let if_nodes : Array[Int32] = []
   for idx in 0..<count {
     let drop = @ir.hot_region_get(func, roots, idx)
     if_nodes.push(@ir.hot_child_get(func, drop, 0))
@@ -54,7 +54,7 @@ test "bench Vacuum rejected targeted result-if sink count=256" (it : @bench.T) {
 }
 
 ///|
-fn vacuum_nonempty_else_guard_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn vacuum_nonempty_else_guard_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let wat = StringBuilder::new()
   wat.write_string("(module (func (param i32)")
   for _ in 0..<count {
@@ -102,7 +102,7 @@ test "bench Vacuum nonempty else guard count=256" (it : @bench.T) {
 }
 
 ///|
-fn vacuum_concrete_arm_fixture(count : Int) -> @lib.Module {
+fn vacuum_concrete_arm_fixture(count : Int32) -> @lib.Module {
   let wat = StringBuilder::new()
   wat.write_string(
     "(module (import \"e\" \"value\" (func $value (param i32) (result i32))) (func (param i32)",
@@ -117,7 +117,7 @@ fn vacuum_concrete_arm_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn vacuum_concrete_arm_run(input : @lib.Module, count : Int) -> @ir.HotFunc {
+fn vacuum_concrete_arm_run(input : @lib.Module, count : Int32) -> @ir.HotFunc {
   let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(1U))
   let ctx = HotPassContext::new(
     @ir.HotPassDescriptor::new("vacuum", requires=[], invalidates=[]),

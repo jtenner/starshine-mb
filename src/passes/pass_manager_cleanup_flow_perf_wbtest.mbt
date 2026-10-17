@@ -1,5 +1,5 @@
 ///|
-fn cleanup_flow_bench(it : @bench.T, depth : Int, branches : Bool) -> Unit {
+fn cleanup_flow_bench(it : @bench.T, depth : Int32, branches : Bool) -> Unit {
   let leaf : Array[@lib.Instruction] = []
   for _ in 0..<128 {
     leaf.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))

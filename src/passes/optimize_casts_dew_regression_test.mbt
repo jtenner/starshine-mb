@@ -28,7 +28,7 @@ test "optimize-casts preserves call order when removing a pending cast" {
   // cast must keep that call before the second call and its local write.
   for module_ in [input, output] {
     let @lib.Func(_, @lib.Expr(body)) = module_.code_sec.unwrap().0[2]
-    let calls : Array[UInt] = []
+    let calls : Array[UInt32] = []
     for instr in body {
       match instr {
         @lib.Call(@lib.FuncIdx(index)) => calls.push(index)

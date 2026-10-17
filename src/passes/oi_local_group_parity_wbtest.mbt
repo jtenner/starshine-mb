@@ -249,5 +249,25 @@ test "OI local grouping excludes compiler fact removal from its size decision" {
       ),
     )
   assert_true(@validate.validate_module(input).is_ok())
-  @debug.assert_eq(oi_group_numeric_locals_if_smaller(input), input)
+  let baseline = input.without_compiler_fact_custom_section()
+  let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(input)
+  let (before, grouped_size) = @binary.encoded_module_sizes(baseline, grouped).unwrap()
+  // Type grouping alone grows the code. Removing compiler facts must not
+  // count as its profit; the independent frequency candidate saves real bytes.
+  assert_true(grouped_size >= before)
+  let selected = oi_group_numeric_locals_if_smaller(input)
+  let (_, selected_size) = @binary.encoded_module_sizes(baseline, selected).unwrap()
+  assert_true(selected_size < before)
+  assert_true(@validate.validate_module(selected).is_ok())
+  @debug.assert_eq(selected.compiler_fact_custom_section, None)
+  let @lib.Func(locals, @lib.Expr(body)) = selected.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals, @lib.Locals::single(1U, @lib.ValType::i32()))
+  @debug.assert_eq(body.length(), 16)
+  for index in 0..<8 {
+    @debug.assert_eq(
+      body[index * 2],
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    )
+    @debug.assert_eq(body[index * 2 + 1], @lib.Instruction::drop())
+  }
 }

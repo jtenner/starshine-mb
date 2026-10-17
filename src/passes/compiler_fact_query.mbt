@@ -181,7 +181,7 @@ fn compiler_fact_query_fact_heap_type_indices_valid(
 fn compiler_fact_query_invalid_effect_indices(
   effects : @representation.EffectFacts,
   env : @validate.Env,
-) -> Int {
+) -> Int32 {
   let mut invalid = 0
   let check_globals = fn(set : @representation.ClosedGlobalSet?) -> Unit {
     match set {
@@ -254,7 +254,7 @@ fn compiler_fact_query_invalid_effect_indices(
 fn compiler_fact_query_invalid_resource_indices(
   facts : @representation.OptimizationFactsSec,
   env : @validate.Env,
-) -> Int {
+) -> Int32 {
   let mut invalid = 0
   for function in facts.functions {
     match function.effects {
@@ -330,7 +330,7 @@ fn compiler_fact_query_value_indices_valid(
 ///|
 fn compiler_fact_query_result_type(
   instruction : @lib.Instruction,
-  result : UInt,
+  result : UInt32,
   env : @validate.Env,
 ) -> @lib.ValType? {
   let result_slot = result.reinterpret_as_int()
@@ -366,22 +366,22 @@ fn compiler_fact_query_result_type(
 
 ///|
 priv struct CompilerFactQuery {
-  version : UInt
+  version : UInt32
   policy : CompilerFactUsePolicy
   index : CompilerFactIndex
   env : @validate.Env
-  sites : Array[Array[(UInt, @lib.Instruction)]]
-  imported_functions : Int
+  sites : Array[Array[(UInt32, @lib.Instruction)]]
+  imported_functions : Int32
   stats : CompilerFactMaterializationStats
 }
 
 ///|
 fn CompilerFactQuery::new(
   module_ : @lib.Module,
-  version : UInt,
+  version : UInt32,
   policy : CompilerFactUsePolicy,
   index : CompilerFactIndex,
-  sites : Array[Array[(UInt, @lib.Instruction)]],
+  sites : Array[Array[(UInt32, @lib.Instruction)]],
   stats : CompilerFactMaterializationStats,
 ) -> CompilerFactQuery {
   {
@@ -434,7 +434,7 @@ fn CompilerFactQuery::site_resolves(
 ///|
 fn CompilerFactQuery::value_facts(
   self : CompilerFactQuery,
-  function : UInt,
+  function : UInt32,
   site : @representation.ValueSite,
   instruction : @lib.Instruction,
   expected : @lib.ValType,
@@ -644,7 +644,7 @@ fn compiler_fact_query_integer_domain_from_facts(
 ///|
 fn CompilerFactQuery::integer_domain(
   self : CompilerFactQuery,
-  function : UInt,
+  function : UInt32,
   site : @representation.ValueSite,
   instruction : @lib.Instruction,
   expected : @lib.ValType,
@@ -659,11 +659,11 @@ fn CompilerFactQuery::integer_domain(
 ///|
 fn CompilerFactQuery::exact_call_target(
   self : CompilerFactQuery,
-  function : UInt,
+  function : UInt32,
   call_site : @representation.CodeSite,
   call_instruction : @lib.Instruction,
-  target? : (@representation.ValueSite, @lib.Instruction)? = None,
-) -> UInt? {
+  target~ : (@representation.ValueSite, @lib.Instruction)? = None,
+) -> UInt32? {
   if self.version != 1U {
     self.stats.unsupported_versions += 1
     return None
@@ -727,7 +727,7 @@ fn CompilerFactQuery::exact_call_target(
 ///|
 fn CompilerFactQuery::null_test(
   self : CompilerFactQuery,
-  function : UInt,
+  function : UInt32,
   site : @representation.ValueSite,
   instruction : @lib.Instruction,
   expected : @lib.ValType,

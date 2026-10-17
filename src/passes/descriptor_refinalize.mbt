@@ -43,8 +43,8 @@ fn pass_instrs_have_descriptor_branches(
 ///|
 fn pass_refinalize_descriptor_schedule_children(
   func : @ir.HotFunc,
-  node : Int,
-  work : Array[(Int, Bool)],
+  node : Int32,
+  work : Array[(Int32, Bool)],
 ) -> Unit {
   // Scheduling only needs child IDs; the ready phase materializes the one span
   // it uses for the node's summaries.
@@ -68,7 +68,7 @@ fn pass_refinalize_descriptor_bottoms(
   let nulls = Array::make(count, false)
   let never = Array::make(count, false)
   let branches = Array::make(count, false)
-  let work : Array[(Int, Bool)] = []
+  let work : Array[(Int32, Bool)] = []
   for root in @ir.hot_root_span(func) {
     work.push((root, false))
   }

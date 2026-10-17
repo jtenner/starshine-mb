@@ -3,39 +3,59 @@
 // retained arguments precede all discarded arguments. Results are an indivisible
 // boundary in DAE2: either every original result remains, or every one is gone.
 priv struct Dae2StackSuffixPlan {
-  suffixes : Array[Int]
-  removed_results : Array[Int]
+  suffixes : Array[Int32]
+  removed_results : Array[Int32]
 }
 
 ///|
 // Optional rewrite metadata does not enlarge every dependency function record,
 // including type-family records that can never own a raw body.
 priv struct Dae2StackSuffixState {
-  admissions : Array[Int]
-  original_writes : Array[Array[(Int, Int)]?]
+  admissions : Array[Int32]
+  original_writes : Array[Array[(Int32, Int32)]?]
+  context : @ir.HotModuleContext?
 }
 
 ///|
-fn Dae2StackSuffixState::new(count : Int) -> Dae2StackSuffixState {
+fn Dae2StackSuffixState::new(
+  count : Int32,
+  context? : @ir.HotModuleContext,
+) -> Dae2StackSuffixState {
   {
     admissions: Array::make(count, 0),
     original_writes: Array::make(count, None),
+    context,
+  }
+}
+
+///|
+// A no-result loop keeps the same entry stack and branch payload types. The
+// caller separately proves that none of its referenced type families changes.
+fn dae2_stack_suffix_indexed_loop_has_no_results(
+  context : @ir.HotModuleContext?,
+  index : @lib.TypeIdx,
+) -> Bool {
+  match context {
+    Some(context) =>
+      @ir.hot_module_resolve_type_func_type(context, index)
+      is Some(@lib.FuncType(_, []))
+    None => false
   }
 }
 
 ///|
 priv struct Dae2StackSuffixWriteDemand {
-  base : Int
-  original_writes : Array[(Int, Int)]?
+  base : Int32
+  original_writes : Array[(Int32, Int32)]?
   graph : Dae2Graph
-  mut cursor : Int
+  mut cursor : Int32
 }
 
 ///|
 fn Dae2StackSuffixWriteDemand::new(
   info : Dae2Function,
   graph : Dae2Graph,
-  original_writes : Array[(Int, Int)]?,
+  original_writes : Array[(Int32, Int32)]?,
 ) -> Dae2StackSuffixWriteDemand {
   // HOT provenance uses relative node IDs; raw conditional provenance records
   // absolute dependency locations. Both rows follow original source-write order.
@@ -50,7 +70,7 @@ fn Dae2StackSuffixWriteDemand::new(
 ///|
 fn Dae2StackSuffixWriteDemand::allows(
   self : Dae2StackSuffixWriteDemand,
-  local : Int,
+  local : Int32,
   read : Bool,
 ) -> Bool {
   match self.original_writes {
@@ -163,7 +183,7 @@ fn dae2_stack_suffix_mark_reads(
 }
 
 ///|
-fn dae2_stack_suffix_callee(instr : @lib.Instruction) -> Int {
+fn dae2_stack_suffix_callee(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.Call(@lib.FuncIdx(raw)) | @lib.ReturnCall(@lib.FuncIdx(raw)) =>
       raw.to_int()
@@ -177,8 +197,8 @@ fn dae2_stack_suffix_callee(instr : @lib.Instruction) -> Int {
 fn dae2_stack_suffix_next_call(
   instrs : Array[@lib.Instruction],
   plan : Dae2StackSuffixPlan,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   for position in start..<instrs.length() {
     let callee = dae2_stack_suffix_callee(instrs[position])
     if callee >= 0 &&
@@ -196,7 +216,7 @@ fn dae2_stack_suffix_next_call(
 // either has no body-local dependency or must execute with its inputs intact.
 fn dae2_stack_suffix_keeps_discard_cleanup(
   instr : @lib.Instruction,
-  params : Int,
+  params : Int32,
 ) -> Bool {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => raw.to_int() < params
@@ -210,9 +230,9 @@ fn dae2_stack_suffix_keeps_discard_cleanup(
 ///|
 fn dae2_stack_suffix_discard_qualifies(
   instrs : Array[@lib.Instruction],
-  position : Int,
+  position : Int32,
   reads : Array[Bool],
-  params : Int,
+  params : Int32,
 ) -> Bool {
   let mut producer = position - 1
   while producer >= 0 {
@@ -239,13 +259,53 @@ fn dae2_stack_suffix_drop_value(out : Array[@lib.Instruction]) -> Unit {
 }
 
 ///|
+// A no-result control followed by a write consumes an earlier held value.
+// HOT materializes that capture before the control. Its local placement can
+// avoid splitting otherwise contiguous local declaration groups, so retain
+// HOT lowering for this shape until raw replay reproduces that capture plan.
+fn dae2_stack_suffix_needs_control_capture(
+  instrs : Array[@lib.Instruction],
+  position : Int32,
+  context : @ir.HotModuleContext?,
+  params~ : Int32 = 0,
+  uniform_body_locals~ : Bool = false,
+) -> Bool {
+  if position == 0 {
+    return false
+  }
+  // With one source local run, moving a body-local value to an appended HOT
+  // capture cannot merge interior declaration runs. Keep its natural stack
+  // form instead of adding captures throughout the function. Parameter writes
+  // retain the general path because removed parameters can add other types.
+  if uniform_body_locals {
+    match instrs[position] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) if raw.to_int() >= params =>
+        return false
+      _ => ()
+    }
+  }
+  match instrs[position - 1] {
+    @lib.Block(@lib.VoidBlockType, _)
+    | @lib.Loop(@lib.VoidBlockType, _)
+    | @lib.If(@lib.VoidBlockType, _, _)
+    | @lib.TryTable(@lib.VoidBlockType, _, _)
+    | @lib.Try(@lib.VoidBlockType, _, _, _) => true
+    @lib.Loop(@lib.TypeIdxBlockType(index), _) =>
+      dae2_stack_suffix_indexed_loop_has_no_results(context, index)
+    _ => false
+  }
+}
+
+///|
 fn dae2_stack_suffix_qualifies(
   instrs : Array[@lib.Instruction],
   plan : Dae2StackSuffixPlan,
-  local_map : Array[Int],
+  local_map : Array[Int32],
   reads : Array[Bool],
-  params : Int,
+  params : Int32,
   writes : Dae2StackSuffixWriteDemand,
+  context : @ir.HotModuleContext?,
+  uniform_body_locals~ : Bool = false,
 ) -> Bool {
   let mut result_discards = 0
   let mut suffix_call = dae2_stack_suffix_next_call(instrs, plan, 0)
@@ -274,23 +334,53 @@ fn dae2_stack_suffix_qualifies(
       suffix_call = dae2_stack_suffix_next_call(instrs, plan, position + 1)
     }
     match instrs[position] {
-      // Input-bearing and tuple control headers retain their general HOT
-      // normalization and type-family rewrite; this path preserves scalar or
-      // void headers whose stack boundary is unchanged.
+      // Result-bearing indexed headers and exception scopes retain their
+      // general HOT normalization. Only unchanged no-result indexed loops
+      // preserve their complete entry and backedge stack through raw edits.
       @lib.Block(@lib.TypeIdxBlockType(_), _)
-      | @lib.Loop(@lib.TypeIdxBlockType(_), _)
       | @lib.If(@lib.TypeIdxBlockType(_), _, _)
       | @lib.TryTable(@lib.TypeIdxBlockType(_), _, _)
       | @lib.Try(@lib.TypeIdxBlockType(_), _, _, _) => return false
+      @lib.Loop(@lib.TypeIdxBlockType(index), @lib.Expr(body)) =>
+        if !dae2_stack_suffix_indexed_loop_has_no_results(context, index) ||
+          !dae2_stack_suffix_qualifies(
+            body,
+            plan,
+            local_map,
+            reads,
+            params,
+            writes,
+            context,
+            uniform_body_locals~,
+          ) {
+          return false
+        }
       @lib.LocalGet(@lib.LocalIdx(raw))
       | @lib.LocalSet(@lib.LocalIdx(raw))
       | @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local = raw.reinterpret_as_int()
-        if local < 0 || local >= local_map.length() || local_map[local] < 0 {
+        if local < 0 || local >= local_map.length() {
+          return false
+        }
+        // An unread numeric parameter write disappears before local remapping.
+        // Every surviving read or write must still name an owned body slot.
+        if local_map[local] < 0 &&
+          (reads[local] || instrs[position] is @lib.LocalGet(_)) {
           return false
         }
         if !(instrs[position] is @lib.LocalGet(_)) &&
           !writes.allows(local, reads[local]) {
+          return false
+        }
+        if instrs[position] is @lib.LocalSet(_) &&
+          reads[local] &&
+          dae2_stack_suffix_needs_control_capture(
+            instrs,
+            position,
+            context,
+            params~,
+            uniform_body_locals~,
+          ) {
           return false
         }
         if instrs[position] is @lib.LocalSet(_) && !reads[local] {
@@ -349,20 +439,41 @@ fn dae2_stack_suffix_qualifies(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if !dae2_stack_suffix_qualifies(
-            body, plan, local_map, reads, params, writes,
+            body,
+            plan,
+            local_map,
+            reads,
+            params,
+            writes,
+            context,
+            uniform_body_locals~,
           ) {
           return false
         }
       @lib.If(_, then_, else_) => {
         if !dae2_stack_suffix_qualifies(
-            then_, plan, local_map, reads, params, writes,
+            then_,
+            plan,
+            local_map,
+            reads,
+            params,
+            writes,
+            context,
+            uniform_body_locals~,
           ) {
           return false
         }
         match else_ {
           Some(body) =>
             if !dae2_stack_suffix_qualifies(
-                body, plan, local_map, reads, params, writes,
+                body,
+                plan,
+                local_map,
+                reads,
+                params,
+                writes,
+                context,
+                uniform_body_locals~,
               ) {
               return false
             }
@@ -371,7 +482,14 @@ fn dae2_stack_suffix_qualifies(
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
         if !dae2_stack_suffix_qualifies(
-            body, plan, local_map, reads, params, writes,
+            body,
+            plan,
+            local_map,
+            reads,
+            params,
+            writes,
+            context,
+            uniform_body_locals~,
           ) {
           return false
         }
@@ -381,7 +499,14 @@ fn dae2_stack_suffix_qualifies(
             | @lib.LegacyCatchAll(@lib.Expr(body)) => body
           }
           if !dae2_stack_suffix_qualifies(
-              body, plan, local_map, reads, params, writes,
+              body,
+              plan,
+              local_map,
+              reads,
+              params,
+              writes,
+              context,
+              uniform_body_locals~,
             ) {
             return false
           }
@@ -397,7 +522,7 @@ fn dae2_stack_suffix_qualifies(
 fn dae2_stack_suffix_rewrite_body(
   instrs : Array[@lib.Instruction],
   plan : Dae2StackSuffixPlan,
-  local_map : Array[Int],
+  local_map : Array[Int32],
   reads : Array[Bool],
 ) -> Array[@lib.Instruction] {
   let out = Array::new(capacity=instrs.length())
@@ -478,10 +603,10 @@ fn dae2_rewrite_stack_suffix_function(
   plan : Dae2StackSuffixPlan,
   graph : Dae2Graph,
   info : Dae2Function,
-  index : Int,
+  index : Int32,
   original : @lib.Func,
   state : Dae2StackSuffixState,
-) -> (@lib.Func, Array[Int])? {
+) -> (@lib.Func, Array[Int32])? {
   if state.admissions[index] != 1 ||
     plan.removed_results[index] > 0 ||
     (!info.raw_analysis && state.original_writes[index] is None) {
@@ -489,6 +614,66 @@ fn dae2_rewrite_stack_suffix_function(
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let local_map = Array::make(info.params.length() + locals.length(), -1)
+  let numeric : Array[Int32] = []
+  let reads = Array::make(local_map.length(), true)
+  for param in 0..<info.params.length() {
+    if !graph.used[info.param_locations[param]] {
+      match info.params[param] {
+        @lib.NumTypeValType(_) | @lib.VecTypeValType => {
+          numeric.push(param)
+          reads[param] = false
+        }
+        _ => ()
+      }
+    }
+  }
+  for local in info.params.length()..<reads.length() {
+    reads[local] = false
+  }
+  if !locals.is_empty() || !numeric.is_empty() {
+    dae2_stack_suffix_mark_reads(instrs, reads, plan)
+  }
+  // Only numeric parameters with emitted reads need a body declaration.
+  // Unread writes disappear through the existing tee/set cleanup below.
+  let mut retained_numeric = 0
+  for slot in 0..<numeric.length() {
+    let param = numeric[slot]
+    if reads[param] {
+      numeric[retained_numeric] = param
+      retained_numeric += 1
+      local_map[param] = -2
+    }
+  }
+  numeric.truncate(retained_numeric)
+  // Preserve HOT cleanup when an entry read is only part of a dead expression.
+  // This narrow lane requires every relocated read to follow an unconditional
+  // root-prefix write. Reuse the not-yet-published map as sparse proof marks.
+  if !numeric.is_empty() {
+    for instr in instrs {
+      match instr {
+        @lib.LocalGet(@lib.LocalIdx(local)) =>
+          if local_map[local.to_int()] == -2 {
+            return None
+          }
+        @lib.LocalSet(@lib.LocalIdx(local))
+        | @lib.LocalTee(@lib.LocalIdx(local)) =>
+          if local_map[local.to_int()] == -2 {
+            local_map[local.to_int()] = -3
+          }
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _)
+        | @lib.Try(_, _, _, _) => break
+        _ => ()
+      }
+    }
+    for param in numeric {
+      if local_map[param] != -3 {
+        return None
+      }
+    }
+  }
   let mut next = 0
   for param in 0..<info.params.length() {
     if graph.used[info.param_locations[param]] {
@@ -500,12 +685,8 @@ fn dae2_rewrite_stack_suffix_function(
     local_map[local] = next
     next += 1
   }
-  let reads = Array::make(local_map.length(), true)
-  if !locals.is_empty() {
-    for local in info.params.length()..<reads.length() {
-      reads[local] = false
-    }
-    dae2_stack_suffix_mark_reads(instrs, reads, plan)
+  for slot in 0..<numeric.length() {
+    local_map[numeric[slot]] = next + numeric.length() - 1 - slot
   }
   let writes = Dae2StackSuffixWriteDemand::new(
     info,
@@ -519,6 +700,8 @@ fn dae2_rewrite_stack_suffix_function(
       reads,
       info.params.length(),
       writes,
+      state.context,
+      uniform_body_locals=locals.run_count() == 1,
     ) {
     return None
   }
@@ -526,15 +709,35 @@ fn dae2_rewrite_stack_suffix_function(
     Some(original) if writes.cursor != original.length() => return None
     _ => ()
   }
+  let body = dae2_stack_suffix_rewrite_body(instrs, plan, local_map, reads)
+  if numeric.is_empty() {
+    return Some((@lib.Func::new(locals, @lib.Expr::new(body)), local_map))
+  }
+  let kept_params : Array[@lib.ValType] = []
+  for param in 0..<info.params.length() {
+    if graph.used[info.param_locations[param]] {
+      kept_params.push(info.params[param])
+    }
+  }
+  let new_locals = locals.copy()
+  for slot = numeric.length() - 1; slot >= 0; slot = slot - 1 {
+    new_locals.push(info.params[numeric[slot]])
+  }
+  let (rewritten, capture_map) = pass_lower_compact_captures_with_map(
+    @lib.Func::new(new_locals, @lib.Expr::new(body)),
+    original,
+    kept_params,
+  )
   Some(
     (
-      @lib.Func::new(
-        locals,
-        @lib.Expr::new(
-          dae2_stack_suffix_rewrite_body(instrs, plan, local_map, reads),
-        ),
-      ),
-      local_map,
+      rewritten,
+      local_map.map(fn(local) {
+        if local < 0 {
+          -1
+        } else {
+          capture_map[local]
+        }
+      }),
     ),
   )
 }

@@ -140,7 +140,7 @@ test "directize remaps label names after synthetic select if" {
 
 ///|
 test "directize label insertion prefix lookup is logarithmic" {
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   for idx in 0..<1024 {
     positions.push(idx * 2)
   }

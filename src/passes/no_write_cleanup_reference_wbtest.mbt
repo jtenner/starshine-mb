@@ -3,9 +3,9 @@
 fn sl_cleanup_nowrite_reference(
   instrs : Array[@lib.Instruction],
   live_after : SlCleanupReadSet,
-  child_liveout_contexts? : Array[Int]? = None,
-  suffix_root_visits? : Array[Int]? = None,
-  future_read_visits? : Array[Int]? = None,
+  child_liveout_contexts~ : Array[Int32]? = None,
+  suffix_root_visits~ : Array[Int32]? = None,
+  future_read_visits~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   let has_children = instrs.any(fn(instr) {
     match instr {

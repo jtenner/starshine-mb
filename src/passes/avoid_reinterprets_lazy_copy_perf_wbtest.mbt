@@ -1,5 +1,5 @@
 ///|
-fn ar_lazy_copy_perf_fixture(extra_functions : Int) -> @lib.Module {
+fn ar_lazy_copy_perf_fixture(extra_functions : Int32) -> @lib.Module {
   let positive = pass_test_module_from_wat(
     "(module (memory 1) (func i32.const 0 f32.load i32.reinterpret_f32 drop))",
   )
@@ -26,7 +26,7 @@ fn ar_lazy_copy_perf_fixture(extra_functions : Int) -> @lib.Module {
 }
 
 ///|
-fn ar_lazy_copy_perf_bench(it : @bench.T, extra_functions : Int) -> Unit {
+fn ar_lazy_copy_perf_bench(it : @bench.T, extra_functions : Int32) -> Unit {
   let fixture = ar_lazy_copy_perf_fixture(extra_functions)
   let output = avoid_reinterprets_run_module_pass(fixture)
   if output == fixture || @validate.validate_module(output).is_err() {

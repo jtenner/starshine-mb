@@ -4,7 +4,7 @@ pub fn global_refining_summary() -> String {
 }
 
 ///|
-fn gr_imported_func_count(mod_ : @lib.Module) -> Int {
+fn gr_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -20,7 +20,7 @@ fn gr_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn gr_imported_global_count(mod_ : @lib.Module) -> Int {
+fn gr_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -36,7 +36,7 @@ fn gr_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn gr_slot_for_abs_idx(slots : Array[Int], abs_idx : UInt) -> Int {
+fn gr_slot_for_abs_idx(slots : Array[Int32], abs_idx : UInt32) -> Int32 {
   let slot = abs_idx.reinterpret_as_int()
   if slot < 0 || slot >= slots.length() {
     -1
@@ -148,8 +148,8 @@ fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
 
 ///|
 priv struct GrPublicTypeScratch {
-  states : Array[Int]
-  visited : Array[Int]
+  states : Array[Int32]
+  visited : Array[Int32]
 }
 
 ///|
@@ -319,24 +319,24 @@ fn gr_refined_export_type_is_public(
 
 ///|
 priv struct GrNominalAncestryStats {
-  mut declared_subtype_queries : Int
-  mut visited_type_nodes : Int
-  mut candidate_collections : Int
-  mut declared_ancestor_collections : Int
-  mut candidate_nodes_visited : Int
-  temporary_arrays_allocated : Int
+  mut declared_subtype_queries : Int32
+  mut visited_type_nodes : Int32
+  mut candidate_collections : Int32
+  mut declared_ancestor_collections : Int32
+  mut candidate_nodes_visited : Int32
+  temporary_arrays_allocated : Int32
 }
 
 ///|
 priv struct GrNominalAncestryScratch {
-  mut generation : Int
-  marks : Array[Int]
+  mut generation : Int32
+  marks : Array[Int32]
   type_work : Array[@lib.TypeIdx]
   non_absolute_visited : Array[@lib.TypeIdx]
   heap_work : Array[@lib.HeapType]
   candidates : Array[@lib.HeapType]
   abstract_fallbacks : Array[@lib.HeapType]
-  failed_ref_slots : @hashmap.HashMap[Int, Bool]
+  failed_ref_slots : @hashmap.HashMap[Int32, Bool]
   stats : GrNominalAncestryStats
 }
 
@@ -367,7 +367,7 @@ fn GrNominalAncestryScratch::new(
 ///|
 fn GrNominalAncestryScratch::next_generation(
   self : GrNominalAncestryScratch,
-) -> Int {
+) -> Int32 {
   if self.generation >= 0x7FFFFFFF {
     for idx = 0; idx < self.marks.length(); idx = idx + 1 {
       self.marks[idx] = 0
@@ -382,7 +382,7 @@ fn GrNominalAncestryScratch::next_generation(
 ///|
 fn GrNominalAncestryScratch::observed_work(
   self : GrNominalAncestryScratch,
-) -> Int {
+) -> Int32 {
   self.stats.declared_subtype_queries +
   self.stats.visited_type_nodes +
   self.stats.candidate_collections +
@@ -392,7 +392,7 @@ fn GrNominalAncestryScratch::observed_work(
 }
 
 ///|
-fn gr_absolute_type_slot(type_idx : @lib.TypeIdx, type_count : Int) -> Int {
+fn gr_absolute_type_slot(type_idx : @lib.TypeIdx, type_count : Int32) -> Int32 {
   match type_idx {
     @lib.TypeIdx(raw) => {
       let slot = raw.reinterpret_as_int()
@@ -423,7 +423,7 @@ fn gr_append_unique_heaptype(
 fn gr_append_abs_heap_supertypes(
   out : Array[@lib.HeapType],
   abs : @lib.AbsHeapType,
-  shared? : Bool = false,
+  shared~ : Bool = false,
 ) -> Unit {
   let make_heap = fn(abs) {
     if shared {
@@ -447,7 +447,7 @@ fn gr_append_abs_heap_supertypes(
 fn gr_append_shape_heap_supertypes(
   out : Array[@lib.HeapType],
   comp_type : @lib.CompType,
-  shared? : Bool = false,
+  shared~ : Bool = false,
 ) -> Unit {
   let make_heap = fn(abs) {
     if shared {
@@ -605,7 +605,7 @@ fn gr_mark_declared_ancestors(
   source : @lib.TypeIdx,
   env : @validate.Env,
   scratch : GrNominalAncestryScratch,
-) -> Int {
+) -> Int32 {
   scratch.stats.declared_ancestor_collections += 1
   let generation = scratch.next_generation()
   scratch.type_work.clear()
@@ -639,7 +639,7 @@ fn gr_mark_declared_ancestors(
 ///|
 fn gr_declared_ancestor_was_marked(
   candidate : @lib.TypeIdx,
-  generation : Int,
+  generation : Int32,
   scratch : GrNominalAncestryScratch,
 ) -> Bool {
   let slot = gr_absolute_type_slot(candidate, scratch.marks.length())
@@ -799,7 +799,7 @@ fn gr_join_reftypes(
 ///|
 fn gr_note_ref_type(
   noted : Array[@lib.RefType?],
-  slot : Int,
+  slot : Int32,
   next : @lib.RefType,
   env : @validate.Env,
   scratch : GrNominalAncestryScratch,
@@ -825,7 +825,7 @@ fn gr_note_ref_type(
 ///|
 fn gr_scan_candidate_sets(
   instrs : Array[@lib.Instruction],
-  candidate_slots : Array[Int],
+  candidate_slots : Array[Int32],
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -862,12 +862,12 @@ fn gr_scan_candidate_sets(
 ///|
 fn gr_collect_func_global_sets(
   hot_func : @ir.HotFunc,
-  candidate_slots : Array[Int],
+  candidate_slots : Array[Int32],
   noted : Array[@lib.RefType?],
   env : @validate.Env,
   scratch : GrNominalAncestryScratch,
 ) -> Unit {
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for root_idx = @ir.hot_root_count(hot_func) - 1
       root_idx >= 0
       root_idx = root_idx - 1 {
@@ -1051,12 +1051,12 @@ fn gr_null_write_producers(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> Array[Int] {
+) -> Array[Int32] {
   let producers = Array::make(instrs.length(), -1)
   // Track the known suffix of the operand stack. An unsupported or
   // polymorphic instruction clears that suffix, but later independent leaves
   // can immediately begin a new one.
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     if instrs[idx] is @lib.GlobalSet(_) && !stack.is_empty() {
       producers[idx] = stack[stack.length() - 1]
@@ -1126,7 +1126,7 @@ fn gr_rewrite_ref_null_sets_in_code(
 ///|
 fn gr_refine_module(
   mod_ : @lib.Module,
-  closed_world? : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) {
     return mod_
@@ -1160,7 +1160,7 @@ fn gr_refine_module(
   }
 
   let candidate_slots = Array::make(total_globals, -1)
-  let candidate_abs_globals : Array[Int] = []
+  let candidate_abs_globals : Array[Int32] = []
   for defined_idx = 0
       defined_idx < globals.length()
       defined_idx = defined_idx + 1 {
@@ -1305,7 +1305,7 @@ fn gr_refine_module(
 ///|
 pub fn global_refining_run_module_pass(
   mod_ : @lib.Module,
-  closed_world? : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_

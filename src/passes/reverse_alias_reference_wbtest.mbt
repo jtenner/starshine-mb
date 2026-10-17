@@ -3,20 +3,20 @@
 
 ///|
 priv struct ReverseAliasReference {
-  start : Int
+  start : Int32
   mut established : Array[Bool]?
-  reads : Array[Int]
-  writes : Array[Int]
+  reads : Array[Int32]
+  writes : Array[Int32]
   active : Array[@lib.Instruction?]
   targets : Array[Int64]
-  undo : Array[Int]
+  undo : Array[Int32]
 }
 
 ///|
 fn ReverseAliasReference::new(
-  start : Int,
-  reads : Array[Int],
-  writes : Array[Int],
+  start : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
 ) -> ReverseAliasReference {
   {
     start,
@@ -120,7 +120,7 @@ fn ReverseAliasReference::replace_reads(
 ///|
 fn ReverseAliasReference::is_established(
   self : ReverseAliasReference,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match self.established {
     Some(facts) => facts[local_id]
@@ -131,8 +131,8 @@ fn ReverseAliasReference::is_established(
 ///|
 fn reverse_alias_reference_has_parameter_alias(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  writes : Array[Int],
+  start : Int32,
+  writes : Array[Int32],
 ) -> Bool {
   for position in 0..<instrs.length() {
     match instrs[position] {
@@ -187,9 +187,9 @@ fn reverse_alias_reference_has_parameter_alias(
 ///|
 fn reverse_alias_reference_cleanup_parameter_aliases(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  reads : Array[Int],
-  writes : Array[Int],
+  start : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
 ) -> (Array[@lib.Instruction], Array[Int64]?) {
   if !reverse_alias_reference_has_parameter_alias(instrs, start, writes) {
     return (instrs, None)
@@ -223,7 +223,7 @@ fn reverse_alias_reference_cleanup_parameter_aliases(
 // to use the original exact-sized map without allocating this visitor/output.
 fn reverse_alias_reference_parameter_aliases_remap(
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
   aliases : Array[Int64],
 ) -> Array[@lib.Instruction] {
   let out = Array::new(capacity=instrs.length())
@@ -269,9 +269,9 @@ fn reverse_alias_reference_compact(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
-  propagate_parameter_aliases? : Bool = false,
-) -> (@lib.Func, Array[Int]) {
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
+  propagate_parameter_aliases~ : Bool = false,
+) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
   if locals.length() <= original_locals.length() {

@@ -1,8 +1,8 @@
 ///|
 fn dae2_writefacts_bench(
   it : @bench.T,
-  width : Int,
-  mode : Int,
+  width : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit raise {
   let parts : Array[String] = []

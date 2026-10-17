@@ -1,6 +1,6 @@
 ///|
 fn tuple_lane_traffic_perf_fixture(
-  count : Int,
+  count : Int32,
 ) -> (@ir.HotFunc, @ir.HotUseDef, HotTupleOptimizationAnalysis) {
   let wat = StringBuilder::new()
   wat.write_string(
@@ -18,7 +18,7 @@ fn tuple_lane_traffic_perf_fixture(
 }
 
 ///|
-fn tuple_lane_traffic_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn tuple_lane_traffic_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, use_def, analysis) = tuple_lane_traffic_perf_fixture(count)
   let mut matched = false
   for group in analysis.groups {

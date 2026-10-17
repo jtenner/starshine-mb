@@ -70,7 +70,7 @@ fn oc_subtype_as_heap_matches(
   module_ctx : @ir.HotModuleContext,
   subtype : @lib.SubType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -145,7 +145,7 @@ fn oc_heap_matches(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if oc_heap_identical(module_ctx, source, target) {
     return true
@@ -193,7 +193,7 @@ fn oc_heap_matches(
 }
 
 ///|
-fn oc_ref_type_from_node(func : @ir.HotFunc, node_id : Int) -> @lib.RefType? {
+fn oc_ref_type_from_node(func : @ir.HotFunc, node_id : Int32) -> @lib.RefType? {
   let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
   if results.length() != 1 {
     return None
@@ -207,7 +207,7 @@ fn oc_ref_type_from_node(func : @ir.HotFunc, node_id : Int) -> @lib.RefType? {
 ///|
 fn oc_refinement_type_from_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.RefType? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(_, _, _))
@@ -358,7 +358,7 @@ fn oc_ref_never_matches(
 fn oc_replace_with_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   if @ir.hot_child_count(func, node_id) != 1 {
     return
@@ -376,8 +376,8 @@ fn oc_replace_with_child(
 ///|
 fn oc_is_known_null_value(
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> Bool {
   if depth <= 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -407,7 +407,7 @@ fn oc_is_known_null_value(
 fn oc_replace_nullable_known_null_desc_eq(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   target_ref : @lib.RefType,
 ) -> Bool {
   if !target_ref.is_nullable() || @ir.hot_child_count(func, node_id) != 2 {
@@ -455,10 +455,10 @@ fn oc_replace_nullable_known_null_desc_eq(
 fn oc_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  value : Int,
+  node_id : Int32,
+  value : Int32,
 ) -> Unit {
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for child in oc_node_children(func, node_id) {
     let pure_read = match @ir.hot_node_get(func, child).op {
       @ir.HotOp::LocalGet
@@ -492,10 +492,10 @@ fn oc_replace_with_const_i32(
 fn oc_replace_with_unconditional_br(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   let node = @ir.hot_node_get(func, node_id)
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for i = 0; i < @ir.hot_child_count(func, node_id); i = i + 1 {
     values.push(@ir.hot_child_get(func, node_id, i))
   }
@@ -506,8 +506,8 @@ fn oc_replace_with_unconditional_br(
 }
 
 ///|
-fn oc_node_children(func : @ir.HotFunc, node_id : Int) -> Array[Int] {
-  let children : Array[Int] = []
+fn oc_node_children(func : @ir.HotFunc, node_id : Int32) -> Array[Int32] {
+  let children : Array[Int32] = []
   for i = 0; i < @ir.hot_child_count(func, node_id); i = i + 1 {
     children.push(@ir.hot_child_get(func, node_id, i))
   }
@@ -517,8 +517,8 @@ fn oc_node_children(func : @ir.HotFunc, node_id : Int) -> Array[Int] {
 ///|
 fn oc_node_is_local_get(
   func : @ir.HotFunc,
-  node_id : Int,
-  local_id : Int,
+  node_id : Int32,
+  local_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -530,9 +530,9 @@ fn oc_node_is_local_get(
 ///|
 fn oc_collect_local_get_counts(
   func : @ir.HotFunc,
-  node_id : Int,
-  counts : Array[Int],
-  touched : Array[Int],
+  node_id : Int32,
+  counts : Array[Int32],
+  touched : Array[Int32],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
     return
@@ -556,9 +556,9 @@ fn oc_collect_local_get_counts(
 /// Test helper for measuring a single-local walk independently of batching.
 fn oc_count_local_gets(
   func : @ir.HotFunc,
-  node_id : Int,
-  local_id : Int,
-) -> Int {
+  node_id : Int32,
+  local_id : Int32,
+) -> Int32 {
   if !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -581,9 +581,9 @@ fn oc_count_local_gets(
 // Restore a proven non-null result only when its storage was weakened.
 fn oc_restore_capture_type(
   func : @ir.HotFunc,
-  value_id : Int,
+  value_id : Int32,
   ref_type : @lib.RefType,
-) -> Int {
+) -> Int32 {
   if ref_type.is_nullable() {
     return value_id
   }
@@ -603,11 +603,11 @@ fn oc_restore_capture_type(
 fn oc_retarget_local_gets_from_map(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   retarget : Array[Bool],
-  fresh_locals : Array[Int],
-  best_casts : Array[Int],
-) -> Int {
+  fresh_locals : Array[Int32],
+  best_casts : Array[Int32],
+) -> Int32 {
   if !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -648,10 +648,10 @@ fn oc_retarget_local_gets_from_map(
 fn oc_retarget_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  local_id : Int,
-  fresh_local : Int,
-) -> Int {
+  node_id : Int32,
+  local_id : Int32,
+  fresh_local : Int32,
+) -> Int32 {
   if !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
@@ -678,8 +678,8 @@ fn oc_retarget_local_gets(
 ///|
 fn oc_collect_written_locals(
   func : @ir.HotFunc,
-  node_id : Int,
-  writes : Array[Int],
+  node_id : Int32,
+  writes : Array[Int32],
   write_mask : Array[Bool],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
@@ -705,7 +705,7 @@ fn oc_collect_written_locals(
 ///|
 fn oc_source_local_requires_nullable_check(
   func : @ir.HotFunc,
-  source_id : Int,
+  source_id : Int32,
   requires_nullable_source : Bool,
 ) -> Bool {
   if !requires_nullable_source {
@@ -720,9 +720,9 @@ fn oc_source_local_requires_nullable_check(
 ///|
 fn oc_plain_block_source_local(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
   requires_nullable_source : Bool,
-) -> Int? {
+) -> Int32? {
   if !oc_block_is_plain_fallthrough(func, block_id) {
     return None
   }
@@ -755,9 +755,9 @@ fn oc_plain_block_source_local(
 ///|
 fn oc_refinement_child_source_local(
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
   requires_nullable_source : Bool,
-) -> Int? {
+) -> Int32? {
   let child = @ir.hot_node_get(func, child_id)
   match child.op {
     @ir.HotOp::LocalGet | @ir.HotOp::LocalTee =>
@@ -775,7 +775,10 @@ fn oc_refinement_child_source_local(
 }
 
 ///|
-fn oc_is_nested_ref_as_nullable_cast(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn oc_is_nested_ref_as_nullable_cast(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefAsNonNull) => ()
     _ => return false
@@ -793,8 +796,8 @@ fn oc_is_nested_ref_as_nullable_cast(func : @ir.HotFunc, node_id : Int) -> Bool 
 ///|
 fn oc_nested_ref_as_cast_source_local(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !oc_is_nested_ref_as_nullable_cast(func, node_id) {
     return None
   }
@@ -807,7 +810,7 @@ fn oc_nested_ref_as_cast_source_local(
 }
 
 ///|
-fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int32) -> Int32? {
   let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => false
     Some(@lib.Instruction::RefAsNonNull) => true
@@ -825,7 +828,10 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
 }
 
 ///|
-fn oc_early_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+fn oc_early_refinement_source_local(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> Int32? {
   let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => false
     Some(@lib.Instruction::RefAsNonNull) => true
@@ -869,7 +875,7 @@ fn oc_early_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
 }
 
 ///|
-fn oc_contains_local(locals : Array[Int], local_id : Int) -> Bool {
+fn oc_contains_local(locals : Array[Int32], local_id : Int32) -> Bool {
   for written in locals {
     if written == local_id {
       return true
@@ -919,7 +925,10 @@ fn oc_op_is_linear_block_barrier(op : @ir.HotOp) -> Bool {
 }
 
 ///|
-fn oc_node_has_linear_block_barrier(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn oc_node_has_linear_block_barrier(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -937,7 +946,7 @@ fn oc_node_has_linear_block_barrier(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
-fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int) -> Bool {
+fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int32) -> Bool {
   let body = @ir.hot_region_body_ref(func, block_id)
   for idx = 0; idx < @ir.hot_region_root_count(func, body); idx = idx + 1 {
     if oc_node_has_linear_block_barrier(
@@ -953,8 +962,8 @@ fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int) -> Bool {
 ///|
 fn oc_plain_fallthrough_block_for_root(
   func : @ir.HotFunc,
-  root_id : Int,
-) -> Int? {
+  root_id : Int32,
+) -> Int32? {
   let root = @ir.hot_node_get(func, root_id)
   match root.op {
     @ir.HotOp::Block => Some(root_id)
@@ -976,8 +985,8 @@ fn oc_plain_fallthrough_block_for_root(
 // A refinement describes the value at the cast, so a later write to the same
 // local in this expression kills it. Visit operands in evaluation order.
 fn oc_forget_refinements_for_local(
-  out : Array[(Int, Int)],
-  local_id : Int,
+  out : Array[(Int32, Int32)],
+  local_id : Int32,
 ) -> Unit {
   let mut kept = 0
   for idx = 0; idx < out.length(); idx = idx + 1 {
@@ -994,8 +1003,8 @@ fn oc_forget_refinements_for_local(
 ///|
 fn oc_collect_refinements(
   func : @ir.HotFunc,
-  node_id : Int,
-  out : Array[(Int, Int)],
+  node_id : Int32,
+  out : Array[(Int32, Int32)],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
     return
@@ -1031,8 +1040,8 @@ fn oc_collect_refinements(
 ///|
 fn oc_collect_refinement_tee_source_aliases(
   func : @ir.HotFunc,
-  node_id : Int,
-  out : Array[(Int, Int)],
+  node_id : Int32,
+  out : Array[(Int32, Int32)],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
     return
@@ -1084,8 +1093,8 @@ fn oc_collect_refinement_tee_source_aliases(
 ///|
 fn oc_existing_fresh_can_feed_refinement_source(
   func : @ir.HotFunc,
-  candidate_id : Int,
-  current_id : Int,
+  candidate_id : Int32,
+  current_id : Int32,
 ) -> Bool {
   match
     (
@@ -1101,13 +1110,13 @@ fn oc_existing_fresh_can_feed_refinement_source(
 fn oc_indexed_refinement_blocks_retarget(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
-  refinements : Array[(Int, Int)],
-  refinement_heads : Array[Int],
-  refinement_next : Array[Int],
-  local_id : Int,
-  best_cast : Int,
+  refinements : Array[(Int32, Int32)],
+  refinement_heads : Array[Int32],
+  refinement_next : Array[Int32],
+  local_id : Int32,
+  best_cast : Int32,
   has_existing_fresh : Bool,
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
 ) -> Bool {
   let mut at = refinement_heads[local_id]
   while at >= 0 {
@@ -1153,11 +1162,11 @@ fn oc_indexed_refinement_blocks_retarget(
 ///|
 fn oc_marked_equal_refinement_source_get(
   func : @ir.HotFunc,
-  refinements : Array[(Int, Int)],
-  local_id : Int,
-  best_cast : Int,
-  moved_refinalized_refinements : Array[Int],
-) -> Int? {
+  refinements : Array[(Int32, Int32)],
+  local_id : Int32,
+  best_cast : Int32,
+  moved_refinalized_refinements : Array[Int32],
+) -> Int32? {
   for refinement in refinements {
     if refinement.0 == local_id &&
       oc_contains_local(moved_refinalized_refinements, refinement.1) &&
@@ -1185,9 +1194,9 @@ fn oc_refinalize_marked_ref_cast_to_best(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  root_id : Int,
-  best_cast : Int,
-  moved_refinalized_refinements : Array[Int],
+  root_id : Int32,
+  best_cast : Int32,
+  moved_refinalized_refinements : Array[Int32],
 ) -> Bool {
   let cast_id = match oc_single_dropped_child(func, root_id) {
     Some(child_id) => child_id
@@ -1233,8 +1242,8 @@ fn oc_refinalize_marked_ref_cast_to_best(
 fn oc_ref_cast_source_can_read_best_cast(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
-  candidate_id : Int,
-  current_id : Int,
+  candidate_id : Int32,
+  current_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, current_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => ()
@@ -1265,8 +1274,8 @@ fn oc_ref_cast_source_can_read_best_cast(
 fn oc_nullable_best_cast_feeds_ref_as_non_null(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
-  candidate_id : Int,
-  current_id : Int,
+  candidate_id : Int32,
+  current_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, current_id) {
     Some(@lib.Instruction::RefAsNonNull) => ()
@@ -1292,8 +1301,8 @@ fn oc_nullable_best_cast_feeds_ref_as_non_null(
 fn oc_cast_is_more_refined(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
-  candidate_id : Int,
-  current_id : Int,
+  candidate_id : Int32,
+  current_id : Int32,
 ) -> Bool {
   let candidate = match oc_refinement_type_from_node(func, candidate_id) {
     Some(ref_type) => ref_type
@@ -1310,8 +1319,8 @@ fn oc_cast_is_more_refined(
 fn oc_best_cast_can_feed_refinement_source(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
-  candidate_id : Int,
-  current_id : Int,
+  candidate_id : Int32,
+  current_id : Int32,
 ) -> Bool {
   oc_cast_is_more_refined(module_ctx, func, candidate_id, current_id) ||
   oc_nullable_best_cast_feeds_ref_as_non_null(
@@ -1323,8 +1332,8 @@ fn oc_best_cast_can_feed_refinement_source(
 fn oc_wrap_refinement_with_tee(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  cast_id : Int,
-  fresh_local : Int,
+  cast_id : Int32,
+  fresh_local : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, cast_id) {
     return false
@@ -1351,7 +1360,7 @@ fn oc_wrap_refinement_with_tee(
 }
 
 ///|
-fn oc_dropped_local_get(func : @ir.HotFunc, root_id : Int) -> (Int, Int)? {
+fn oc_dropped_local_get(func : @ir.HotFunc, root_id : Int32) -> (Int32, Int32)? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -1372,7 +1381,7 @@ fn oc_dropped_local_get(func : @ir.HotFunc, root_id : Int) -> (Int, Int)? {
 }
 
 ///|
-fn oc_nontrapping_pure_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
+fn oc_nontrapping_pure_local_set(func : @ir.HotFunc, root_id : Int32) -> Int32? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -1394,7 +1403,7 @@ fn oc_nontrapping_pure_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
 }
 
 ///|
-fn oc_nontrapping_pure_tee_value(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn oc_nontrapping_pure_tee_value(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -1407,8 +1416,8 @@ fn oc_nontrapping_pure_tee_value(func : @ir.HotFunc, node_id : Int) -> Bool {
 ///|
 fn oc_dropped_nontrapping_pure_local_tee(
   func : @ir.HotFunc,
-  root_id : Int,
-) -> Int? {
+  root_id : Int32,
+) -> Int32? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -1441,8 +1450,8 @@ fn oc_dropped_nontrapping_pure_local_tee(
 ///|
 fn oc_direct_dropped_refinement(
   func : @ir.HotFunc,
-  root_id : Int,
-) -> (Int, Int)? {
+  root_id : Int32,
+) -> (Int32, Int32)? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -1464,8 +1473,8 @@ fn oc_direct_dropped_refinement(
 ///|
 fn oc_direct_refinement_source_get(
   func : @ir.HotFunc,
-  cast_id : Int,
-) -> (Int, Int)? {
+  cast_id : Int32,
+) -> (Int32, Int32)? {
   let requires_nullable_source = match @ir.hot_node_exact_instr(func, cast_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => false
     Some(@lib.Instruction::RefAsNonNull) => true
@@ -1490,7 +1499,7 @@ fn oc_direct_refinement_source_get(
 }
 
 ///|
-fn oc_single_dropped_child(func : @ir.HotFunc, root_id : Int) -> Int? {
+fn oc_single_dropped_child(func : @ir.HotFunc, root_id : Int32) -> Int32? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -1508,8 +1517,8 @@ fn oc_single_dropped_child(func : @ir.HotFunc, root_id : Int) -> Int? {
 ///|
 fn oc_nullable_ref_cast_early_source_local(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(true, _, _)) => ()
     _ => return None
@@ -1520,8 +1529,8 @@ fn oc_nullable_ref_cast_early_source_local(
 ///|
 fn oc_ref_as_non_null_early_source_local(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefAsNonNull) => ()
     _ => return None
@@ -1532,9 +1541,9 @@ fn oc_ref_as_non_null_early_source_local(
 ///|
 fn oc_separate_ref_as_cast_pair(
   func : @ir.HotFunc,
-  first_root : Int,
-  second_root : Int,
-) -> (Int, Int, Int)? {
+  first_root : Int32,
+  second_root : Int32,
+) -> (Int32, Int32, Int32)? {
   let first_child = match oc_single_dropped_child(func, first_root) {
     Some(child_id) => child_id
     None => return None
@@ -1571,10 +1580,10 @@ fn oc_separate_ref_as_cast_pair(
 ///|
 fn oc_build_nested_ref_as_cast_from_pair(
   func : @ir.HotFunc,
-  source_local : Int,
-  cast_id : Int,
-  ref_as_id : Int,
-) -> Int? {
+  source_local : Int32,
+  cast_id : Int32,
+  ref_as_id : Int32,
+) -> Int32? {
   match @ir.hot_node_exact_instr(func, cast_id) {
     Some(@lib.Instruction::RefCast(true, _, _)) => ()
     _ => return None
@@ -1617,9 +1626,9 @@ fn oc_build_nested_ref_as_cast_from_pair(
 ///|
 fn oc_clone_refinement_replacing_source_get(
   func : @ir.HotFunc,
-  node_id : Int,
-  source_local : Int,
-) -> Int {
+  node_id : Int32,
+  source_local : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet =>
@@ -1649,8 +1658,8 @@ fn oc_clone_refinement_replacing_source_get(
 fn oc_duplicate_refinement_at_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  get_id : Int,
-  cast_id : Int,
+  get_id : Int32,
+  cast_id : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, get_id) || !@ir.hot_node_is_live(func, cast_id) {
     return false
@@ -1684,9 +1693,9 @@ fn oc_duplicate_refinement_at_get(
 fn oc_duplicate_separate_ref_as_cast_at_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  get_id : Int,
-  cast_id : Int,
-  ref_as_id : Int,
+  get_id : Int32,
+  cast_id : Int32,
+  ref_as_id : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, get_id) {
     return false
@@ -1714,9 +1723,9 @@ fn oc_duplicate_separate_ref_as_cast_at_get(
 
 ///|
 fn oc_clear_pending_get(
-  pending_gets : Array[Int],
-  pending_get_best_refinements : Array[Int],
-  local_id : Int,
+  pending_gets : Array[Int32],
+  pending_get_best_refinements : Array[Int32],
+  local_id : Int32,
 ) -> Unit {
   pending_gets[local_id] = -1
   pending_get_best_refinements[local_id] = -1
@@ -1724,8 +1733,8 @@ fn oc_clear_pending_get(
 
 ///|
 fn oc_clear_pending_gets(
-  pending_gets : Array[Int],
-  pending_get_best_refinements : Array[Int],
+  pending_gets : Array[Int32],
+  pending_get_best_refinements : Array[Int32],
 ) -> Unit {
   for i = 0; i < pending_gets.length(); i = i + 1 {
     oc_clear_pending_get(pending_gets, pending_get_best_refinements, i)
@@ -1736,10 +1745,10 @@ fn oc_clear_pending_gets(
 fn oc_flush_pending_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  pending_gets : Array[Int],
-  pending_get_best_refinements : Array[Int],
-  moved_refinalized_refinements : Array[Int],
-  local_id : Int,
+  pending_gets : Array[Int32],
+  pending_get_best_refinements : Array[Int32],
+  moved_refinalized_refinements : Array[Int32],
+  local_id : Int32,
 ) -> Bool {
   let get_id = pending_gets[local_id]
   let best_refinement = pending_get_best_refinements[local_id]
@@ -1760,9 +1769,9 @@ fn oc_flush_pending_get(
 fn oc_flush_pending_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  pending_gets : Array[Int],
-  pending_get_best_refinements : Array[Int],
-  moved_refinalized_refinements : Array[Int],
+  pending_gets : Array[Int32],
+  pending_get_best_refinements : Array[Int32],
+  moved_refinalized_refinements : Array[Int32],
 ) -> Bool {
   let mut changed = false
   for local_id = 0; local_id < pending_gets.length(); local_id = local_id + 1 {
@@ -1778,8 +1787,8 @@ fn oc_flush_pending_gets(
 
 ///|
 fn oc_clear_pending_refinements(
-  pending_refinement_casts : Array[Int],
-  pending_refinement_gets : Array[Int],
+  pending_refinement_casts : Array[Int32],
+  pending_refinement_gets : Array[Int32],
 ) -> Unit {
   for i = 0; i < pending_refinement_casts.length(); i = i + 1 {
     pending_refinement_casts[i] = -1
@@ -1789,12 +1798,12 @@ fn oc_clear_pending_refinements(
 
 ///|
 fn oc_clear_later_reuse(
-  best_casts : Array[Int],
-  fresh_locals : Array[Int],
+  best_casts : Array[Int32],
+  fresh_locals : Array[Int32],
   active_best_mask : Array[Bool],
-  active_best_locals : Array[Int],
-  fresh_by_cast : Array[Int],
-  fresh_cast_ids : Array[Int],
+  active_best_locals : Array[Int32],
+  fresh_by_cast : Array[Int32],
+  fresh_cast_ids : Array[Int32],
 ) -> Unit {
   for local_id in active_best_locals {
     best_casts[local_id] = -1
@@ -1812,8 +1821,8 @@ fn oc_clear_later_reuse(
 // -2 marks an inner-frame cast without an allocated carrier.
 // The site mark can remain across barriers; it does not retain a reuse fact.
 fn oc_mark_scope_limited_cast(
-  fresh_by_cast : Array[Int],
-  cast_id : Int,
+  fresh_by_cast : Array[Int32],
+  cast_id : Int32,
 ) -> Unit {
   if cast_id >= 0 &&
     cast_id < fresh_by_cast.length() &&
@@ -1824,9 +1833,9 @@ fn oc_mark_scope_limited_cast(
 
 ///|
 fn oc_find_fresh_local_for_cast(
-  fresh_by_cast : Array[Int],
-  cast_id : Int,
-) -> Int? {
+  fresh_by_cast : Array[Int32],
+  cast_id : Int32,
+) -> Int32? {
   if cast_id >= 0 &&
     cast_id < fresh_by_cast.length() &&
     fresh_by_cast[cast_id] >= 0 {
@@ -1838,8 +1847,8 @@ fn oc_find_fresh_local_for_cast(
 ///|
 fn oc_i32_nontrapping_pure_tree(
   func : @ir.HotFunc,
-  node_id : Int,
-  fuel : Int,
+  node_id : Int32,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1887,7 +1896,10 @@ fn oc_i32_nontrapping_pure_tree(
 }
 
 ///|
-fn oc_dropped_nontrapping_pure_root(func : @ir.HotFunc, root_id : Int) -> Bool {
+fn oc_dropped_nontrapping_pure_root(
+  func : @ir.HotFunc,
+  root_id : Int32,
+) -> Bool {
   if !@ir.hot_node_is_live(func, root_id) {
     return false
   }
@@ -1909,13 +1921,13 @@ fn oc_early_motion_scan_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  local_count : Int,
-  pending_gets : Array[Int],
-  pending_get_best_refinements : Array[Int],
-  pending_refinement_casts : Array[Int],
-  pending_refinement_gets : Array[Int],
+  local_count : Int32,
+  pending_gets : Array[Int32],
+  pending_get_best_refinements : Array[Int32],
+  pending_refinement_casts : Array[Int32],
+  pending_refinement_gets : Array[Int32],
   seen_refinements : Array[Bool],
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -2096,7 +2108,7 @@ fn oc_early_motion_scan_fresh_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
@@ -2117,7 +2129,7 @@ fn oc_early_motion_scan_nested_regions(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = oc_early_motion_scan_fresh_region(
@@ -2211,7 +2223,7 @@ fn oc_early_motion_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
 ) -> Bool {
   oc_early_motion_scan_nested_regions(
     ctx,
@@ -2223,36 +2235,130 @@ fn oc_early_motion_run(
 }
 
 ///|
+// A fixed visit budget keeps the additional proof independent of large
+// structured bodies. Nested control, calls and continuation edges stay closed.
+fn oc_flat_fallthrough_node_cost(
+  func : @ir.HotFunc,
+  node_id : Int32,
+  budget : Int32,
+) -> Int32 {
+  if budget <= 0 || !@ir.hot_node_is_live(func, node_id) {
+    return -1
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if oc_op_is_linear_block_barrier(node.op) ||
+    (
+      node.flags &
+      (@ir.HOT_FLAG_CALL | @ir.HOT_FLAG_BRANCH | @ir.HOT_FLAG_TERMINATOR)
+    ) !=
+    0U {
+    return -1
+  }
+  let mut cost = 1
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_cost = oc_flat_fallthrough_node_cost(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      budget - cost,
+    )
+    if child_cost < 0 {
+      return -1
+    }
+    cost += child_cost
+  }
+  cost
+}
+
+///|
+fn oc_flat_fallthrough_region_cost(
+  func : @ir.HotFunc,
+  region : @ir.HotRegionRef,
+  budget : Int32,
+) -> Int32 {
+  let mut cost = 0
+  for idx = 0; idx < @ir.hot_region_root_count(func, region); idx = idx + 1 {
+    let root_cost = oc_flat_fallthrough_node_cost(
+      func,
+      @ir.hot_region_get(func, region, idx),
+      budget - cost,
+    )
+    if root_cost < 0 {
+      return -1
+    }
+    cost += root_cost
+  }
+  cost
+}
+
+///|
+fn oc_if_has_flat_fallthrough(func : @ir.HotFunc, node_id : Int32) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if !(node.op is @ir.HotOp::If) {
+    return false
+  }
+  let mut budget = 256
+  // Include the condition and typed entry operands without treating the arm
+  // region containers as nested control frames.
+  for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+    let cost = oc_flat_fallthrough_node_cost(
+      func,
+      @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, idx)),
+      budget,
+    )
+    if cost < 0 {
+      return false
+    }
+    budget -= cost
+  }
+  let then_cost = oc_flat_fallthrough_region_cost(
+    func,
+    @ir.hot_region_then_ref(func, node_id),
+    budget,
+  )
+  if then_cost < 0 {
+    return false
+  }
+  budget -= then_cost
+  match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => oc_flat_fallthrough_region_cost(func, region, budget) >= 0
+    None => true
+  }
+}
+
+///|
 fn oc_later_reuse_scan_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  local_count : Int,
-  best_casts : Array[Int],
-  fresh_locals : Array[Int],
-  moved_refinalized_refinements : Array[Int],
-  local_get_counts : Array[Int],
-  touched_get_locals : Array[Int],
+  local_count : Int32,
+  best_casts : Array[Int32],
+  fresh_locals : Array[Int32],
+  moved_refinalized_refinements : Array[Int32],
+  local_get_counts : Array[Int32],
+  touched_get_locals : Array[Int32],
   retarget_mask : Array[Bool],
-  retarget_locals : Array[Int],
+  retarget_locals : Array[Int32],
   write_mask : Array[Bool],
-  writes : Array[Int],
-  refinements : Array[(Int, Int)],
-  refinement_aliases : Array[(Int, Int)],
-  refinement_heads : Array[Int],
-  refinement_next : Array[Int],
-  refinement_head_touched : Array[Int],
+  writes : Array[Int32],
+  refinements : Array[(Int32, Int32)],
+  refinement_aliases : Array[(Int32, Int32)],
+  refinement_heads : Array[Int32],
+  refinement_next : Array[Int32],
+  refinement_head_touched : Array[Int32],
   active_best_mask : Array[Bool],
-  active_best_locals : Array[Int],
-  fresh_by_cast : Array[Int],
-  fresh_cast_ids : Array[Int],
+  active_best_locals : Array[Int32],
+  fresh_by_cast : Array[Int32],
+  fresh_cast_ids : Array[Int32],
   region : @ir.HotRegionRef,
   inside_control_frame : Bool,
 ) -> Bool {
   let mut changed = false
+  let mut previous_flat_if = false
   let root_count = @ir.hot_region_root_count(func, region)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let root_id = @ir.hot_region_get(func, region, root_idx)
+    let follows_flat_if = previous_flat_if
+    previous_flat_if = false
     match oc_plain_fallthrough_block_for_root(func, root_id) {
       Some(block_id) =>
         if oc_block_is_plain_fallthrough(func, block_id) {
@@ -2293,6 +2399,47 @@ fn oc_later_reuse_scan_region(
     }
     writes.clear()
     oc_collect_written_locals(func, root_id, writes, write_mask)
+    if !inside_control_frame &&
+      !active_best_locals.is_empty() &&
+      oc_if_has_flat_fallthrough(func, root_id) {
+      for local_id in writes {
+        best_casts[local_id] = -1
+        fresh_locals[local_id] = -1
+      }
+      // Preserve only incoming facts. Do not rewrite arm reads or publish
+      // refinements that execute on just one branch.
+      previous_flat_if = true
+      continue
+    }
+    if follows_flat_if {
+      match oc_single_dropped_child(func, root_id) {
+        Some(cast_id) =>
+          match @ir.hot_node_exact_instr(func, cast_id) {
+            Some(@lib.RefCast(_, _, _)) =>
+              match oc_direct_refinement_source_get(func, cast_id) {
+                Some((local_id, _)) if local_id >= 0 && local_id < local_count => {
+                  let best_cast = best_casts[local_id]
+                  if best_cast >= 0 &&
+                    !write_mask[local_id] &&
+                    oc_existing_fresh_can_feed_refinement_source(
+                      func, best_cast, cast_id,
+                    ) {
+                    // The preceding cast already proved this same unchanged
+                    // value. Change only the discarded root occurrence so a
+                    // shared cast node keeps its earlier trap. No carrier is needed.
+                    @ir.hot_root_set(func, root_idx, @ir.hot_build_nop(func))
+                    pass_mark_mutated(ctx, func)
+                    changed = true
+                    continue
+                  }
+                }
+                _ => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
+    }
     for local_id in refinement_head_touched {
       refinement_heads[local_id] = -1
     }
@@ -2466,26 +2613,26 @@ fn oc_later_reuse_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  moved_refinalized_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int32],
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let best_casts = Array::make(local_count, -1)
   let fresh_locals = Array::make(local_count, -1)
   let local_get_counts = Array::make(local_count, 0)
-  let touched_get_locals : Array[Int] = []
+  let touched_get_locals : Array[Int32] = []
   let retarget_mask = Array::make(local_count, false)
-  let retarget_locals : Array[Int] = []
+  let retarget_locals : Array[Int32] = []
   let write_mask = Array::make(local_count, false)
-  let writes : Array[Int] = []
-  let refinements : Array[(Int, Int)] = []
-  let refinement_aliases : Array[(Int, Int)] = []
+  let writes : Array[Int32] = []
+  let refinements : Array[(Int32, Int32)] = []
+  let refinement_aliases : Array[(Int32, Int32)] = []
   let refinement_heads = Array::make(local_count, -1)
-  let refinement_next : Array[Int] = []
-  let refinement_head_touched : Array[Int] = []
+  let refinement_next : Array[Int32] = []
+  let refinement_head_touched : Array[Int32] = []
   let active_best_mask = Array::make(local_count, false)
-  let active_best_locals : Array[Int] = []
+  let active_best_locals : Array[Int32] = []
   let fresh_by_cast = Array::make(@ir.hot_node_count(func), -1)
-  let fresh_cast_ids : Array[Int] = []
+  let fresh_cast_ids : Array[Int32] = []
   oc_later_reuse_scan_region(
     ctx,
     func,
@@ -2519,7 +2666,7 @@ fn oc_rewrite_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2676,7 +2823,7 @@ pub fn optimize_casts_run(
     None => return HotPassResult::unchanged()
   }
   let mut changed = false
-  let moved_refinalized_refinements : Array[Int] = []
+  let moved_refinalized_refinements : Array[Int32] = []
   if oc_static_fold_run(ctx, func, module_ctx) {
     changed = true
   }

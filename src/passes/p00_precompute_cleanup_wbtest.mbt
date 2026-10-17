@@ -71,7 +71,7 @@ test "precompute removes all transparent operands in one phase and retains call 
   let lowered = @ir.hot_lower_func(func)
   @validate.validate_module(input.with_code_sec(@lib.CodeSec::new([lowered]))).unwrap()
   let @lib.Func(_, @lib.Expr(body)) = lowered
-  let calls : Array[UInt] = []
+  let calls : Array[UInt32] = []
   for instr in body {
     match instr {
       @lib.Call(@lib.FuncIdx(index)) => calls.push(index)

@@ -1,8 +1,8 @@
 ///|
 fn vacuum_scan_order_bench(
   it : @bench.T,
-  kind : Int,
-  depth : Int,
+  kind : Int32,
+  depth : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit raise {

@@ -1,6 +1,6 @@
 ///|
 fn msf_shape_collision_perf_fixture(
-  count : Int,
+  count : Int32,
 ) -> (Array[@lib.Func], Array[MsfFunctionSummary], Array[@lib.TypeIdx?]) {
   let type_idxs = Array::make(count, @lib.TypeIdx::new(0U))
   let signatures : Array[@lib.FuncType?] = []
@@ -25,7 +25,7 @@ fn msf_shape_collision_perf_fixture(
 }
 
 ///|
-fn msf_shape_collision_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn msf_shape_collision_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (funcs, summaries, call_types) = msf_shape_collision_perf_fixture(count)
   if !msf_collect_classes(funcs, summaries, call_types).is_empty() {
     abort("MergeSimilar collision fixture unexpectedly formed a class")

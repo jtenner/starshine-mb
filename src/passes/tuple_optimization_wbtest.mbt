@@ -168,7 +168,7 @@ fn tuple_optimization_test_analyze(
 ///|
 fn tuple_optimization_test_analyze_via_binary(
   text : String,
-  func_idx : UInt,
+  func_idx : UInt32,
 ) -> HotTupleOptimizationAnalysis {
   let mod_ = pass_test_module_from_wat(text)
   let encoded = match @binary.encode_module(mod_) {
@@ -194,7 +194,7 @@ fn tuple_optimization_test_analyze_via_binary(
 fn tuple_optimization_test_count_substring(
   text : String,
   needle : String,
-) -> Int {
+) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -247,7 +247,7 @@ fn tuple_optimization_test_rewrite(text : String) -> @ir.IrTestHotFixture {
 ///|
 fn tuple_optimization_test_pipeline_pretty(
   text : String,
-  func_idx : UInt,
+  func_idx : UInt32,
 ) -> String {
   let optimized = match pass_test_run_pipeline(text, ["tuple-optimization"]) {
     Ok(mod_) => mod_
@@ -664,9 +664,9 @@ test "tuple-optimization root-slot use-def lookup survives shifted root slots" {
 ///|
 fn tuple_optimization_assert_local_traffic(
   use_def : @ir.HotUseDef,
-  local_id : Int,
-  writes : Int,
-  reads : Int,
+  local_id : Int32,
+  writes : Int32,
+  reads : Int32,
 ) -> Unit {
   let actual_writes = @ir.local_write_nodes_borrowed(use_def, local_id).length()
   let actual_reads = @ir.local_read_nodes_borrowed(use_def, local_id).length()
@@ -959,30 +959,85 @@ test "tuple-optimization rewrite preserves host local.tee value flow with a scal
 }
 
 ///|
+fn tuple_optimization_host_tee_execute(
+  func : @lib.Func,
+  tri_lanes : Array[Int32],
+) -> Int32 raise {
+  let @lib.Func(body_locals, @lib.Expr(body)) = func
+  let locals = Array::make(body_locals.length(), 0)
+  let stack : Array[Int32] = []
+  let calls : Array[Int32] = []
+  assert_true(body.length() < 64)
+  for instr in body {
+    match instr {
+      @lib.I32Const(@lib.I32(value)) => stack.push(value)
+      @lib.Drop => ignore(stack.pop().unwrap())
+      @lib.LocalGet(@lib.LocalIdx(index)) => stack.push(locals[index.to_int()])
+      @lib.LocalSet(@lib.LocalIdx(index)) =>
+        locals[index.to_int()] = stack.pop().unwrap()
+      @lib.LocalTee(@lib.LocalIdx(index)) =>
+        locals[index.to_int()] = stack[stack.length() - 1]
+      @lib.Call(index) =>
+        if index == @lib.FuncIdx::new(0U) {
+          assert_eq(stack.pop().unwrap(), 10000)
+          assert_eq(stack.pop().unwrap(), 42)
+          for value in tri_lanes {
+            stack.push(value)
+          }
+          calls.push(0)
+        } else {
+          assert_eq(index, @lib.FuncIdx::new(1U))
+          let lane2 = stack.pop().unwrap()
+          let lane1 = stack.pop().unwrap()
+          let lane0 = stack.pop().unwrap()
+          assert_eq([lane0, lane1, lane2], tri_lanes)
+          stack.push(lane0 + lane1 + lane2)
+          calls.push(1)
+        }
+      _ => fail("unsupported host tee fixture instruction: \{instr}")
+    }
+  }
+  assert_eq(calls, [0, 1])
+  assert_eq(stack.length(), 1)
+  stack[0]
+}
+
+///|
 test "tuple-optimization rewrite keeps the exact host tee repro scalarized and valid" {
-  let optimized = match
-    pass_test_run_pipeline(
-      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32) i32.const 1 drop i32.const 10000 local.set 3 i32.const 42 local.get 3 call 0 local.set 2 local.set 1 local.tee 0 local.get 1 local.get 2 call 1))",
-      ["tuple-optimization"],
-    ) {
+  let text = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32) i32.const 1 drop i32.const 10000 local.set 3 i32.const 42 local.get 3 call 0 local.set 2 local.set 1 local.tee 0 local.get 1 local.get 2 call 1))"
+  let input = pass_test_module_from_wat(text)
+  let optimized = match pass_test_run_pipeline(text, ["tuple-optimization"]) {
     Ok(mod_) => mod_
     Err(err) =>
       fail("expected host tee repro tuple-optimization success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(
-    pretty.contains(
-      "(local.get (Local 4))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
-    ),
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    tuple_optimization_test_count_substring(pretty, "local.tee"),
-    0,
-    msg=pretty,
-  )
+  let decoded = @binary.decode_module(@binary.encode_module(optimized).unwrap()).unwrap()
+  ignore(@validate.validate_module(decoded).unwrap())
+  let @lib.Func(body_locals, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
+  // Keeping lane zero on the stack saves one i32 local and two local operations
+  // against the prior output; all three distinct call results still reach show.
+  assert_eq(body_locals.length(), 6)
+  let mut local_ops = 0
+  for instr in body {
+    match instr {
+      @lib.LocalGet(_) | @lib.LocalSet(_) => local_ops += 1
+      @lib.LocalTee(_) => fail("the host tee should remain scalarized")
+      _ => ()
+    }
+  }
+  assert_eq(local_ops, 10)
+  for lanes in [[11, 100, 999], [-7, 10000, 42], [-2147483648, 2147483647, 0]] {
+    let expected = lanes[0] + lanes[1] + lanes[2]
+    assert_eq(
+      tuple_optimization_host_tee_execute(input.code_sec.unwrap().0[0], lanes),
+      expected,
+    )
+    assert_eq(
+      tuple_optimization_host_tee_execute(decoded.code_sec.unwrap().0[0], lanes),
+      expected,
+    )
+  }
 }
 
 ///|
@@ -1133,12 +1188,12 @@ test "tuple-optimization preserves a copyback from a different tuple lane" {
 // values independently of the optimizer's scratch-local numbering.
 fn tuple_optimization_assert_overlap_values(
   mod_ : @lib.Module,
-  expected? : Array[Int] = [42, 101, 202],
+  expected~ : Array[Int32] = [42, 101, 202],
 ) -> Unit raise {
   let @lib.Func(decls, @lib.Expr(body)) = mod_.code_sec.unwrap().0[0]
   let locals = Array::make(decls.length(), 0)
-  let stack : Array[Int] = []
-  let calls : Array[Array[Int]] = []
+  let stack : Array[Int32] = []
+  let calls : Array[Array[Int32]] = []
   fn run(instructions : Array[@lib.Instruction]) -> Unit raise {
     for instruction in instructions {
       match instruction {

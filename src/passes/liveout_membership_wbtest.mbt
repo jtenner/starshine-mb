@@ -7,7 +7,7 @@ test "cleanup read collection preserves encounter order with bounded membership 
     @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(nested)),
   ]
   let saved = sl_leaf_bytes(body)
-  let reads : Array[Int] = []
+  let reads : Array[Int32] = []
   let probes = [0]
   run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
     body,

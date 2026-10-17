@@ -1,7 +1,7 @@
 ///|
 fn cl_hazard_program_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   dense : Bool,
   reference : Bool,
 ) -> Unit {

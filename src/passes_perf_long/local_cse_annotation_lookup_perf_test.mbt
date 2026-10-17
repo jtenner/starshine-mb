@@ -1,5 +1,5 @@
 ///|
-fn lcse_annotation_lookup_fixture(count : Int) -> @lib.Module {
+fn lcse_annotation_lookup_fixture(count : Int32) -> @lib.Module {
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
   let entries : Array[@lib.FuncAnnotationAssoc] = []
@@ -24,7 +24,7 @@ fn lcse_annotation_lookup_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn lcse_annotation_lookup_bench(it : @bench.T, count : Int) -> Unit {
+fn lcse_annotation_lookup_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = lcse_annotation_lookup_fixture(count)
   match
     @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [

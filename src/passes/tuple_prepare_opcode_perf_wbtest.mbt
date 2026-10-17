@@ -27,7 +27,7 @@ fn tuple_prepare_string_reference(
 ///|
 fn tuple_prepare_opcode_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]

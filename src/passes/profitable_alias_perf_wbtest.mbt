@@ -1,8 +1,8 @@
 ///|
 fn profitable_alias_bench_discover(
   body : Array[@lib.Instruction],
-  reads : Array[Int],
-  writes : Array[Int],
+  reads : Array[Int32],
+  writes : Array[Int32],
   reference : Bool,
 ) -> Dae2ParameterAliases {
   let aliases = Dae2ParameterAliases::new(
@@ -22,8 +22,8 @@ fn profitable_alias_bench_discover(
 ///|
 fn profitable_alias_bench(
   it : @bench.T,
-  stable : Int,
-  copies : Int,
+  stable : Int32,
+  copies : Int32,
   tee : Bool,
   multi : Bool,
   reference : Bool,

@@ -3,16 +3,16 @@
 // producers and default-initialized locals have symbol -1; unary operators
 // alias their operand. Qualification never mutates the module-wide graph.
 priv struct Dae2RawPlan {
-  base : Int
-  mut count : Int
-  consumers : Array[Int]
-  sources : Array[Int]
-  observations : Array[Int]
-  mut write_locations : Array[(Int, Int)]?
+  base : Int32
+  mut count : Int32
+  consumers : Array[Int32]
+  sources : Array[Int32]
+  observations : Array[Int32]
+  mut write_locations : Array[(Int32, Int32)]?
 }
 
 ///|
-fn Dae2RawPlan::new(base : Int) -> Dae2RawPlan {
+fn Dae2RawPlan::new(base : Int32) -> Dae2RawPlan {
   {
     base,
     count: 0,
@@ -24,7 +24,11 @@ fn Dae2RawPlan::new(base : Int) -> Dae2RawPlan {
 }
 
 ///|
-fn Dae2RawPlan::edge(self : Dae2RawPlan, consumer : Int, source : Int) -> Unit {
+fn Dae2RawPlan::edge(
+  self : Dae2RawPlan,
+  consumer : Int32,
+  source : Int32,
+) -> Unit {
   if consumer >= 0 && source >= 0 {
     self.consumers.push(consumer)
     self.sources.push(source)
@@ -32,7 +36,7 @@ fn Dae2RawPlan::edge(self : Dae2RawPlan, consumer : Int, source : Int) -> Unit {
 }
 
 ///|
-fn Dae2RawPlan::join(self : Dae2RawPlan, left : Int, right : Int) -> Int {
+fn Dae2RawPlan::join(self : Dae2RawPlan, left : Int32, right : Int32) -> Int32 {
   if left < 0 {
     return right
   }
@@ -49,7 +53,11 @@ fn Dae2RawPlan::join(self : Dae2RawPlan, left : Int, right : Int) -> Int {
 ///|
 // Conditional replay needs demand for each source write, including constants.
 // Name only writes, preserving lexical order without a full expression graph.
-fn Dae2RawPlan::write(self : Dae2RawPlan, local_id : Int, source : Int) -> Int {
+fn Dae2RawPlan::write(
+  self : Dae2RawPlan,
+  local_id : Int32,
+  source : Int32,
+) -> Int32 {
   let location = self.base + self.count
   self.count += 1
   self.edge(location, source)
@@ -81,7 +89,7 @@ fn Dae2RawPlan::commit(self : Dae2RawPlan, graph : Dae2Graph) -> Unit {
 ///|
 // Match pass_can_discard_unused_value's scalar numeric families. In particular,
 // generic SIMD, integer division, trapping conversions and GC reads stay HOT.
-fn dae2_raw_pure_arity(instr : @lib.Instruction) -> Int {
+fn dae2_raw_pure_arity(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -223,7 +231,7 @@ fn dae2_raw_pure_arity(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn dae2_raw_observer_arity(instr : @lib.Instruction) -> Int {
+fn dae2_raw_observer_arity(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.GlobalSet(_) => 1
     @lib.I32Store(_)
@@ -248,7 +256,7 @@ fn dae2_raw_observer_arity(instr : @lib.Instruction) -> Int {
 fn dae2_raw_observed_producer_arity(
   instr : @lib.Instruction,
   context : @ir.HotModuleContext?,
-) -> Int {
+) -> Int32 {
   match instr {
     @lib.StructNewDefault(_) => 0
     @lib.I32Load(_)
@@ -365,12 +373,12 @@ fn dae2_raw_qualified_instructions(
 fn dae2_raw_dependency_plan(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
-  type_infos : Array[Int],
+  index : Int32,
+  type_infos : Array[Int32],
   body : @lib.Func,
   intrinsic_imports : Array[Bool]?,
-  module_context? : @ir.HotModuleContext? = None,
-  conditionals? : Bool = true,
+  module_context~ : @ir.HotModuleContext? = None,
+  conditionals~ : Bool = true,
 ) -> Dae2RawPlan? {
   let @lib.Func(locals, @lib.Expr(original_instructions)) = body
   let instructions = match
@@ -387,7 +395,7 @@ fn dae2_raw_dependency_plan(
   }
   let info = infos[index]
   let plan = Dae2RawPlan::new(graph.used.length())
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let values = Array::make(info.params.length() + locals.length(), -1)
   for param in 0..<info.params.length() {
     values[param] = info.param_locations[param]
@@ -459,9 +467,13 @@ fn dae2_raw_dependency_plan(
         if local < 0 || local >= values.length() || stack.is_empty() {
           return None
         }
-        values[local] = stack[stack.length() - 1]
+        // Keep exact lexical write demand for direct replay, including bodies
+        // whose branchless blocks were flattened during qualification.
+        values[local] = plan.write(local, stack[stack.length() - 1])
         if instr is @lib.LocalSet(_) {
           ignore(stack.pop())
+        } else {
+          stack[stack.length() - 1] = values[local]
         }
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
@@ -529,7 +541,7 @@ fn dae2_raw_dependency_plan(
 // the module graph remains solved and sealed throughout the rewrite phase.
 fn Dae2Graph::for_raw_rewrite(
   self : Dae2Graph,
-  boundary_count : Int,
+  boundary_count : Int32,
 ) -> Dae2Graph {
   let replay = Dae2Graph::new()
   ignore(replay.locations(boundary_count))
@@ -547,7 +559,7 @@ fn Dae2Graph::for_raw_rewrite(
 fn Dae2Graph::reset_for_raw_rewrite(
   self : Dae2Graph,
   source : Dae2Graph,
-  boundary_count : Int,
+  boundary_count : Int32,
 ) -> Unit {
   self.cursor = 0
   self.edges.clear()

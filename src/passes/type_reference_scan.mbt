@@ -3,7 +3,7 @@
 // A type enters the queue exactly once; source arrays are never rewritten here.
 priv struct DfeTypeRefs {
   live : Array[Bool]
-  pending : Array[Int]
+  pending : Array[Int32]
 }
 
 ///|

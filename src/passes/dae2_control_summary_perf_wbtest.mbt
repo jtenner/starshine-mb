@@ -1,5 +1,5 @@
 ///|
-fn dae2_control_summary_fixture(count : Int) -> @lib.Module {
+fn dae2_control_summary_fixture(count : Int32) -> @lib.Module {
   let wat : Array[String] = [
     "(module (type $dead (func (param i32) (result i32))) (type $keep (func (result i32))) (func $helper (type $dead) i32.const 7) (func (export \"run\") (result i32) i32.const 9 call $helper)",
   ]
@@ -15,7 +15,7 @@ fn dae2_control_summary_fixture(count : Int) -> @lib.Module {
 ///|
 fn dae2_control_summary_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   optimizing : Bool,
 ) -> Unit {
   let mod_ = dae2_control_summary_fixture(count)

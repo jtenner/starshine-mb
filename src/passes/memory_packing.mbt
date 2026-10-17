@@ -6,12 +6,12 @@ pub fn memory_packing_summary() -> String {
 ///|
 priv struct MpRange {
   is_zero : Bool
-  start : Int
-  end_ : Int
+  start : Int32
+  end_ : Int32
 }
 
 ///|
-fn MpRange::new(is_zero : Bool, start : Int, end_ : Int) -> MpRange {
+fn MpRange::new(is_zero : Bool, start : Int32, end_ : Int32) -> MpRange {
   { is_zero, start, end_, }
 }
 
@@ -29,7 +29,7 @@ fn MpSpan::new(start : UInt64, end_ : UInt64, end_at_limit : Bool) -> MpSpan {
 
 ///|
 priv enum MpBaseOffset {
-  I32(UInt)
+  I32(UInt32)
   I64(UInt64)
 }
 
@@ -61,7 +61,7 @@ fn mp_address_val_type(address_type : MpMemoryAddressType) -> @lib.ValType {
 ///|
 fn mp_address_const(
   address_type : MpMemoryAddressType,
-  value : Int,
+  value : Int32,
 ) -> @lib.Instruction {
   match address_type {
     I32Address => @lib.Instruction::i32_const(@lib.I32(value))
@@ -103,7 +103,7 @@ fn MpDataUsage::new(has_non_drop : Bool, has_drop : Bool) -> MpDataUsage {
 }
 
 ///|
-fn mp_imported_mem_count(mod_ : @lib.Module) -> Int {
+fn mp_imported_mem_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -119,7 +119,7 @@ fn mp_imported_mem_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn mp_defined_mem_count(mod_ : @lib.Module) -> Int {
+fn mp_defined_mem_count(mod_ : @lib.Module) -> Int32 {
   match mod_.mem_sec {
     Some(@lib.MemSec(mems)) => mems.length()
     None => 0
@@ -166,7 +166,7 @@ fn mp_memory_initial_pages(mem_type : @lib.MemType) -> UInt64 {
 fn mp_provably_in_bounds(
   mem_type : @lib.MemType,
   offset : UInt64,
-  size : Int,
+  size : Int32,
 ) -> Bool {
   let size_u = size.reinterpret_as_uint().to_uint64()
   let end_ = offset + size_u
@@ -202,7 +202,7 @@ fn mp_base_offset_u64(base : MpBaseOffset) -> UInt64 {
 
 ///|
 // The active rewrite proves that every retained byte offset is representable.
-fn mp_shift_base_offset(base : MpBaseOffset, delta : Int) -> @lib.Expr {
+fn mp_shift_base_offset(base : MpBaseOffset, delta : Int32) -> @lib.Expr {
   match base {
     I32(value) => {
       let shifted = value.to_uint64() + delta.reinterpret_as_uint().to_uint64()
@@ -224,7 +224,7 @@ fn mp_shift_base_offset(base : MpBaseOffset, delta : Int) -> @lib.Expr {
 }
 
 ///|
-fn mp_slice_bytes(bytes : Bytes, start : Int, end_ : Int) -> Bytes {
+fn mp_slice_bytes(bytes : Bytes, start : Int32, end_ : Int32) -> Bytes {
   let out = @buffer.new(size_hint=end_ - start)
   for i = start; i < end_; i = i + 1 {
     out.write_byte(bytes[i])
@@ -259,7 +259,7 @@ fn mp_collect_ranges(bytes : Bytes) -> Array[MpRange] {
 ///|
 fn mp_merge_small_zero_ranges(
   ranges : Array[MpRange],
-  threshold : Int,
+  threshold : Int32,
 ) -> Array[MpRange] {
   if ranges.is_empty() {
     return []
@@ -290,7 +290,7 @@ fn mp_merge_small_zero_ranges(
 ///|
 fn mp_preserve_trapping_top_byte(
   ranges : Array[MpRange],
-  size : Int,
+  size : Int32,
 ) -> Array[MpRange] {
   if ranges.is_empty() {
     return ranges
@@ -312,7 +312,7 @@ fn mp_preserve_trapping_top_byte(
 fn mp_should_preserve_trap(
   mod_ : @lib.Module,
   base : MpBaseOffset,
-  size : Int,
+  size : Int32,
 ) -> Bool {
   match mp_sole_memory_type(mod_) {
     Some((mem_type, _)) =>
@@ -451,7 +451,7 @@ fn mp_active_rewrite(
 }
 
 ///|
-fn mp_active_span(start : UInt64, size : Int) -> MpSpan? {
+fn mp_active_span(start : UInt64, size : Int32) -> MpSpan? {
   if size == 0 {
     return None
   }
@@ -468,7 +468,7 @@ fn mp_active_span(start : UInt64, size : Int) -> MpSpan? {
 }
 
 ///|
-fn mp_active_span_order(lhs : MpSpan, rhs : MpSpan) -> Int {
+fn mp_active_span_order(lhs : MpSpan, rhs : MpSpan) -> Int32 {
   if lhs.start < rhs.start {
     -1
   } else if lhs.start > rhs.start {
@@ -510,10 +510,10 @@ fn mp_active_spans_are_disjoint(spans : Array[MpSpan]) -> Bool {
 ///|
 fn mp_trampled_overlap_range(
   earlier_start : UInt64,
-  earlier_size : Int,
+  earlier_size : Int32,
   later_start : UInt64,
-  later_size : Int,
-) -> (Int, Int)? {
+  later_size : Int32,
+) -> (Int32, Int32)? {
   let earlier_size_u = earlier_size.reinterpret_as_uint().to_uint64()
   let later_size_u = later_size.reinterpret_as_uint().to_uint64()
   let (overlap_start_u, overlap_size_u) = if later_start >= earlier_start {
@@ -632,10 +632,10 @@ fn mp_span_merge(lhs : MpSpan, rhs : MpSpan) -> MpSpan {
 ///|
 priv struct MpSpanUnion {
   spans : Array[MpSpan]
-  left : Array[Int]
-  right : Array[Int]
-  height : Array[Int]
-  mut root : Int
+  left : Array[Int32]
+  right : Array[Int32]
+  height : Array[Int32]
+  mut root : Int32
 }
 
 ///|
@@ -644,7 +644,7 @@ fn MpSpanUnion::new() -> MpSpanUnion {
 }
 
 ///|
-fn mp_span_union_height(union : MpSpanUnion, node : Int) -> Int {
+fn mp_span_union_height(union : MpSpanUnion, node : Int32) -> Int32 {
   if node < 0 {
     0
   } else {
@@ -653,7 +653,7 @@ fn mp_span_union_height(union : MpSpanUnion, node : Int) -> Int {
 }
 
 ///|
-fn mp_span_union_update_height(union : MpSpanUnion, node : Int) -> Unit {
+fn mp_span_union_update_height(union : MpSpanUnion, node : Int32) -> Unit {
   let left_height = mp_span_union_height(union, union.left[node])
   let right_height = mp_span_union_height(union, union.right[node])
   union.height[node] = 1 +
@@ -661,7 +661,7 @@ fn mp_span_union_update_height(union : MpSpanUnion, node : Int) -> Unit {
 }
 
 ///|
-fn mp_span_union_rotate_left(union : MpSpanUnion, node : Int) -> Int {
+fn mp_span_union_rotate_left(union : MpSpanUnion, node : Int32) -> Int32 {
   let pivot = union.right[node]
   union.right[node] = union.left[pivot]
   union.left[pivot] = node
@@ -671,7 +671,7 @@ fn mp_span_union_rotate_left(union : MpSpanUnion, node : Int) -> Int {
 }
 
 ///|
-fn mp_span_union_rotate_right(union : MpSpanUnion, node : Int) -> Int {
+fn mp_span_union_rotate_right(union : MpSpanUnion, node : Int32) -> Int32 {
   let pivot = union.left[node]
   union.left[node] = union.right[pivot]
   union.right[pivot] = node
@@ -681,7 +681,7 @@ fn mp_span_union_rotate_right(union : MpSpanUnion, node : Int) -> Int {
 }
 
 ///|
-fn mp_span_union_rebalance(union : MpSpanUnion, node : Int) -> Int {
+fn mp_span_union_rebalance(union : MpSpanUnion, node : Int32) -> Int32 {
   if node < 0 {
     return node
   }
@@ -710,9 +710,9 @@ fn mp_span_union_rebalance(union : MpSpanUnion, node : Int) -> Int {
 ///|
 fn mp_span_union_insert_node(
   union : MpSpanUnion,
-  root : Int,
-  node : Int,
-) -> Int {
+  root : Int32,
+  node : Int32,
+) -> Int32 {
   if root < 0 {
     return node
   }
@@ -729,7 +729,7 @@ fn mp_span_union_insert_node(
 }
 
 ///|
-fn mp_span_union_min_node(union : MpSpanUnion, root : Int) -> Int {
+fn mp_span_union_min_node(union : MpSpanUnion, root : Int32) -> Int32 {
   let mut node = root
   while union.left[node] >= 0 {
     node = union.left[node]
@@ -740,9 +740,9 @@ fn mp_span_union_min_node(union : MpSpanUnion, root : Int) -> Int {
 ///|
 fn mp_span_union_delete_node(
   union : MpSpanUnion,
-  root : Int,
+  root : Int32,
   start : UInt64,
-) -> Int {
+) -> Int32 {
   if root < 0 {
     return root
   }
@@ -771,7 +771,7 @@ fn mp_span_union_delete_node(
 }
 
 ///|
-fn mp_span_union_lower_bound(union : MpSpanUnion, start : UInt64) -> Int {
+fn mp_span_union_lower_bound(union : MpSpanUnion, start : UInt64) -> Int32 {
   let mut node = union.root
   let mut best = -1
   while node >= 0 {
@@ -786,7 +786,7 @@ fn mp_span_union_lower_bound(union : MpSpanUnion, start : UInt64) -> Int {
 }
 
 ///|
-fn mp_span_union_predecessor(union : MpSpanUnion, start : UInt64) -> Int {
+fn mp_span_union_predecessor(union : MpSpanUnion, start : UInt64) -> Int32 {
   let mut node = union.root
   let mut best = -1
   while node >= 0 {
@@ -801,7 +801,7 @@ fn mp_span_union_predecessor(union : MpSpanUnion, start : UInt64) -> Int {
 }
 
 ///|
-fn mp_span_union_successor(union : MpSpanUnion, start : UInt64) -> Int {
+fn mp_span_union_successor(union : MpSpanUnion, start : UInt64) -> Int32 {
   let mut node = union.root
   let mut best = -1
   while node >= 0 {
@@ -816,7 +816,7 @@ fn mp_span_union_successor(union : MpSpanUnion, start : UInt64) -> Int {
 }
 
 ///|
-fn mp_span_union_first_overlap(union : MpSpanUnion, span : MpSpan) -> Int {
+fn mp_span_union_first_overlap(union : MpSpanUnion, span : MpSpan) -> Int32 {
   let predecessor = mp_span_union_predecessor(union, span.start)
   if predecessor >= 0 {
     let candidate = union.spans[predecessor]
@@ -1008,7 +1008,7 @@ fn mp_can_optimize(
 }
 
 ///|
-fn mp_data_idx_slot(idx : @lib.DataIdx) -> Int {
+fn mp_data_idx_slot(idx : @lib.DataIdx) -> Int32 {
   let @lib.DataIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -1088,7 +1088,7 @@ fn mp_collect_data_usage_instr(
 ///|
 fn mp_collect_data_usages(
   mod_ : @lib.Module,
-  data_count : Int,
+  data_count : Int32,
 ) -> Array[MpDataUsage] {
   let usages = Array::make(data_count, MpDataUsage::new(false, false))
   match mod_.code_sec {
@@ -1104,9 +1104,9 @@ fn mp_collect_data_usages(
 
 ///|
 fn mp_data_segment_limit_exceeded(
-  emitted_count : Int,
-  candidate_count : Int,
-  remaining_original_count : Int,
+  emitted_count : Int32,
+  candidate_count : Int32,
+  remaining_original_count : Int32,
 ) -> Bool {
   emitted_count + candidate_count + remaining_original_count > 100000
 }
@@ -1124,35 +1124,39 @@ fn mp_needs_data_usage_scan(datas : Array[@lib.Data]) -> Bool {
 
 ///|
 priv struct MpSplitPart {
-  start : Int
-  end_ : Int
-  data_idx : Int
+  start : Int32
+  end_ : Int32
+  data_idx : Int32
 }
 
 ///|
-fn MpSplitPart::new(start : Int, end_ : Int, data_idx : Int) -> MpSplitPart {
+fn MpSplitPart::new(
+  start : Int32,
+  end_ : Int32,
+  data_idx : Int32,
+) -> MpSplitPart {
   { start, end_, data_idx, }
 }
 
 ///|
 priv struct MpSegmentPlan {
-  remap : Int
+  remap : Int32
   split_parts : Array[MpSplitPart]
   is_active : Bool
   was_split : Bool
   needs_drop_state : Bool
-  runtime_size : Int
-  mut drop_state_offset : Int
+  runtime_size : Int32
+  mut drop_state_offset : Int32
 }
 
 ///|
 fn MpSegmentPlan::new(
-  remap : Int,
+  remap : Int32,
   split_parts : Array[MpSplitPart],
   is_active : Bool,
   was_split : Bool,
   needs_drop_state : Bool,
-  runtime_size : Int,
+  runtime_size : Int32,
 ) -> MpSegmentPlan {
   {
     remap,
@@ -1170,17 +1174,17 @@ priv struct MpPassiveUserScan {
   has_memory_init : Bool
   all_memory_init_const : Bool
   has_array_data : Bool
-  memory_init_count : Int
-  data_drop_count : Int
+  memory_init_count : Int32
+  data_drop_count : Int32
 }
 
 ///|
 fn MpPassiveUserScan::new(
-  has_memory_init? : Bool = false,
-  all_memory_init_const? : Bool = true,
-  has_array_data? : Bool = false,
-  memory_init_count? : Int = 0,
-  data_drop_count? : Int = 0,
+  has_memory_init~ : Bool = false,
+  all_memory_init_const~ : Bool = true,
+  has_array_data~ : Bool = false,
+  memory_init_count~ : Int32 = 0,
+  data_drop_count~ : Int32 = 0,
 ) -> MpPassiveUserScan {
   {
     has_memory_init,
@@ -1214,7 +1218,7 @@ fn mp_instr_is_i32_const(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn mp_instr_i32_const_value(instr : @lib.Instruction) -> Int? {
+fn mp_instr_i32_const_value(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.I32Const(@lib.I32(value)) => Some(value)
     _ => None
@@ -1236,7 +1240,7 @@ fn mp_string_starts_with(text : String, prefix : String) -> Bool {
 ///|
 fn mp_data_names_by_idx(
   mod_ : @lib.Module,
-  data_count : Int,
+  data_count : Int32,
 ) -> Array[@lib.Name?] {
   let names : Array[@lib.Name?] = Array::make(data_count, None)
   match mod_.name_sec {
@@ -1266,7 +1270,7 @@ fn mp_data_name_has_prefix(name : @lib.Name?, prefix : String) -> Bool {
 }
 
 ///|
-fn mp_imported_global_count(mod_ : @lib.Module) -> Int {
+fn mp_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -1282,7 +1286,7 @@ fn mp_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn mp_defined_global_count(mod_ : @lib.Module) -> Int {
+fn mp_defined_global_count(mod_ : @lib.Module) -> Int32 {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
     None => 0
@@ -1292,7 +1296,7 @@ fn mp_defined_global_count(mod_ : @lib.Module) -> Int {
 ///|
 fn mp_append_drop_state_global(
   mod_ : @lib.Module,
-  need_drop_state : Int,
+  need_drop_state : Int32,
 ) -> (@lib.GlobalSec?, @lib.GlobalIdx?) {
   if need_drop_state == 0 {
     return (mod_.global_sec, None)
@@ -1319,7 +1323,7 @@ fn mp_append_drop_state_global(
 }
 
 ///|
-fn mp_type_idx_flat_slot(idx : @lib.TypeIdx) -> Int? {
+fn mp_type_idx_flat_slot(idx : @lib.TypeIdx) -> Int32? {
   match idx {
     @lib.TypeIdx(raw) => Some(raw.reinterpret_as_int())
     @lib.RecIdx(_) => None
@@ -1327,7 +1331,7 @@ fn mp_type_idx_flat_slot(idx : @lib.TypeIdx) -> Int? {
 }
 
 ///|
-fn mp_subtype_func_param_count(subtype : @lib.SubType) -> Int? {
+fn mp_subtype_func_param_count(subtype : @lib.SubType) -> Int32? {
   match subtype {
     @lib.CompTypeSubType(_, @lib.FuncCompType(params, _)) =>
       Some(params.length())
@@ -1340,7 +1344,7 @@ fn mp_subtype_func_param_count(subtype : @lib.SubType) -> Int? {
 fn mp_type_sec_func_param_count(
   type_sec : @lib.TypeSec?,
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   let target = match mp_type_idx_flat_slot(type_idx) {
     Some(slot) => slot
     None => return 0
@@ -1377,7 +1381,7 @@ fn mp_type_sec_func_param_count(
 }
 
 ///|
-fn mp_defined_func_param_counts(mod_ : @lib.Module) -> Array[Int] {
+fn mp_defined_func_param_counts(mod_ : @lib.Module) -> Array[Int32] {
   let type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
     None => return []
@@ -1395,7 +1399,7 @@ fn mp_defined_func_param_counts(mod_ : @lib.Module) -> Array[Int] {
       last_slot = slot
     }
   }
-  let by_type : Array[Int] = []
+  let by_type : Array[Int32] = []
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) =>
       for rec in rec_types {
@@ -1482,7 +1486,7 @@ fn mp_collect_segment_user_instrs(
 // split profitability, and active GC-identity checks. Never rescan per segment.
 fn mp_collect_segment_users(
   mod_ : @lib.Module,
-  count : Int,
+  count : Int32,
 ) -> Array[MpPassiveUserScan] {
   let scans = Array::make(count, MpPassiveUserScan::new())
   if mod_.code_sec is Some(@lib.CodeSec(funcs)) {
@@ -1498,7 +1502,7 @@ fn mp_collect_segment_users(
 fn mp_passive_split_parts(
   scan : MpPassiveUserScan,
   bytes : Bytes,
-  first_new_idx : Int,
+  first_new_idx : Int32,
 ) -> (Array[MpSplitPart], Bool) {
   if bytes.length() == 0 {
     return ([], false)
@@ -1556,7 +1560,7 @@ fn mp_name_map_from_entries(entries : Array[@lib.NameAssoc]) -> @lib.NameMap? {
 }
 
 ///|
-fn mp_imported_func_count(mod_ : @lib.Module) -> Int {
+fn mp_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -1597,7 +1601,7 @@ fn mp_changed_defined_funcs(
 ///|
 fn mp_drop_touched_label_names(
   label_names : @lib.IndirectNameMap?,
-  imported_funcs : Int,
+  imported_funcs : Int32,
   changed_defined_funcs : Array[Bool],
 ) -> @lib.IndirectNameMap? {
   let entries = match label_names {
@@ -1622,7 +1626,7 @@ fn mp_drop_touched_label_names(
 }
 
 ///|
-fn mp_suffixed_data_name(name : @lib.Name, suffix : Int) -> @lib.Name {
+fn mp_suffixed_data_name(name : @lib.Name, suffix : Int32) -> @lib.Name {
   @lib.Name::from_string(mp_name_to_string(name) + "." + suffix.to_string())
 }
 
@@ -1630,8 +1634,8 @@ fn mp_suffixed_data_name(name : @lib.Name, suffix : Int) -> @lib.Name {
 fn mp_append_data_name_entries(
   entries : Array[@lib.NameAssoc],
   name : @lib.Name?,
-  first_new_idx : Int,
-  count : Int,
+  first_new_idx : Int32,
+  count : Int32,
 ) -> Unit {
   match name {
     Some(name) =>
@@ -1656,7 +1660,7 @@ fn mp_append_data_name_entries(
 fn mp_rewrite_name_sec(
   name_sec : @lib.NameSec?,
   data_name_entries : Array[@lib.NameAssoc],
-  imported_funcs : Int,
+  imported_funcs : Int32,
   changed_defined_funcs : Array[Bool],
 ) -> @lib.NameSec? {
   match name_sec {
@@ -1729,17 +1733,17 @@ fn mp_plan_data_idx(
 }
 
 ///|
-fn mp_data_idx_from_int(idx : Int) -> @lib.DataIdx {
+fn mp_data_idx_from_int(idx : Int32) -> @lib.DataIdx {
   @lib.DataIdx::new(idx.reinterpret_as_uint())
 }
 
 ///|
-fn mp_local_idx_from_int(idx : Int) -> @lib.LocalIdx {
+fn mp_local_idx_from_int(idx : Int32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(idx.reinterpret_as_uint())
 }
 
 ///|
-fn mp_i32_const(value : Int) -> @lib.Instruction {
+fn mp_i32_const(value : Int32) -> @lib.Instruction {
   @lib.Instruction::i32_const(@lib.I32(value))
 }
 
@@ -1747,7 +1751,7 @@ fn mp_i32_const(value : Int) -> @lib.Instruction {
 fn mp_append_dest_with_delta(
   out : Array[@lib.Instruction],
   dest : @lib.Instruction,
-  delta : Int,
+  delta : Int32,
   tmp : @lib.LocalIdx?,
   address_type : MpMemoryAddressType,
 ) -> Unit {
@@ -1793,9 +1797,9 @@ fn mp_emit_drop_state_check(
 fn mp_emit_memory_fill(
   out : Array[@lib.Instruction],
   dest : @lib.Instruction,
-  src_start : Int,
-  fill_start : Int,
-  fill_end : Int,
+  src_start : Int32,
+  fill_start : Int32,
+  fill_end : Int32,
   mem_idx : @lib.MemIdx,
   tmp : @lib.LocalIdx?,
   address_type : MpMemoryAddressType,
@@ -1820,9 +1824,9 @@ fn mp_emit_memory_fill(
 fn mp_emit_memory_init_part(
   out : Array[@lib.Instruction],
   dest : @lib.Instruction,
-  src_start : Int,
-  copy_start : Int,
-  copy_end : Int,
+  src_start : Int32,
+  copy_start : Int32,
+  copy_end : Int32,
   part : MpSplitPart,
   mem_idx : @lib.MemIdx,
   tmp : @lib.LocalIdx?,
@@ -1867,11 +1871,11 @@ fn mp_plan_drop_global(
 fn mp_emit_destination_preflight(
   out : Array[@lib.Instruction],
   dest : @lib.Instruction,
-  size : Int,
+  size : Int32,
   mem_idx : @lib.MemIdx,
   tmp : @lib.LocalIdx?,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> Unit {
   let constant_offset = match (tmp, dest) {
     (None, @lib.I32Const(@lib.I32(value))) =>
@@ -1972,13 +1976,13 @@ fn mp_append_passive_memory_init_replacement(
   out : Array[@lib.Instruction],
   plan : MpSegmentPlan,
   dest : @lib.Instruction,
-  src_start : Int,
-  size : Int,
+  src_start : Int32,
+  size : Int32,
   mem_idx : @lib.MemIdx,
   tmp : @lib.LocalIdx?,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> Unit {
   if src_start != 0 || size != 0 {
     match global_idx {
@@ -2075,7 +2079,7 @@ fn MpMemoryInitOperands::new(
 }
 
 ///|
-fn mp_block_type_result_count(block_type : @lib.BlockType) -> Int? {
+fn mp_block_type_result_count(block_type : @lib.BlockType) -> Int32? {
   match block_type {
     @lib.VoidBlockType => Some(0)
     @lib.ValTypeBlockType(_) => Some(1)
@@ -2084,7 +2088,7 @@ fn mp_block_type_result_count(block_type : @lib.BlockType) -> Int? {
 }
 
 ///|
-fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
+fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int32, Int32)? {
   match instr {
     @lib.Nop => Some((0, 0))
     @lib.Unreachable => Some((0, 1))
@@ -2338,7 +2342,7 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
 }
 
 ///|
-fn mp_find_value_start(out : Array[@lib.Instruction], end_ : Int) -> Int? {
+fn mp_find_value_start(out : Array[@lib.Instruction], end_ : Int32) -> Int32? {
   let mut need = 1
   let mut idx = end_ - 1
   while idx >= 0 {
@@ -2368,8 +2372,8 @@ priv struct MpSegmentOpPreflight {
 
 ///|
 fn MpSegmentOpPreflight::new(
-  rewritable? : Bool = true,
-  has_data_ops? : Bool = false,
+  rewritable~ : Bool = true,
+  has_data_ops~ : Bool = false,
 ) -> MpSegmentOpPreflight {
   { rewritable, has_data_ops, func_has_data_ops: [], }
 }
@@ -2504,11 +2508,13 @@ fn mp_append_consumed_memory_init_operands(
   out : Array[@lib.Instruction],
   operands : MpMemoryInitOperands,
 ) -> Unit {
-  mp_append_memory_init_operand_eval(out, operands.dest_instrs)
-  out.push(operands.src_instr)
-  out.push(@lib.Instruction::drop())
-  out.push(operands.size_instr)
-  out.push(@lib.Instruction::drop())
+  // Operand extraction admits only constant source and length operands. They
+  // have no observable evaluation to preserve before a proven source trap.
+  // Keep every dynamic destination operation, including its effects and traps.
+  match operands.dest_instrs {
+    [@lib.I32Const(_)] | [@lib.I64Const(_)] => ()
+    _ => mp_append_memory_init_operand_eval(out, operands.dest_instrs)
+  }
 }
 
 ///|
@@ -2529,9 +2535,9 @@ fn mp_memory_init_dest_is_const(
 
 ///|
 fn mp_memory_init_source_range_is_valid(
-  src : Int,
-  size : Int,
-  runtime_size : Int,
+  src : Int32,
+  size : Int32,
+  runtime_size : Int32,
 ) -> Bool {
   if src < 0 || size < 0 {
     return false
@@ -2569,10 +2575,10 @@ fn mp_append_memory_init_dest(
 fn mp_rewrite_active_memory_init(
   out : Array[@lib.Instruction],
   locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
   mem_idx : @lib.MemIdx,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> Bool {
   let operands = match mp_pop_three_operands(out) {
     Some(operands) => operands
@@ -2629,11 +2635,11 @@ fn mp_rewrite_passive_split_memory_init(
   out : Array[@lib.Instruction],
   plan : MpSegmentPlan,
   locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
   mem_idx : @lib.MemIdx,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> Bool {
   let operands = match mp_pop_three_operands(out) {
     Some(operands) => operands
@@ -2717,10 +2723,10 @@ fn mp_rewrite_instrs_full(
   instrs : Array[@lib.Instruction],
   plans : Array[MpSegmentPlan],
   locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -2942,10 +2948,10 @@ fn mp_rewrite_expr_full(
   expr : @lib.Expr,
   plans : Array[MpSegmentPlan],
   locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
-  initial_pages? : UInt64 = 0UL,
+  initial_pages~ : UInt64 = 0UL,
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   @lib.Expr::new(
@@ -2968,7 +2974,7 @@ fn mp_rewrite_code_sec_full(
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
   func_has_data_ops : Array[Bool],
-  rebuilt_count? : Array[Int]? = None,
+  rebuilt_count~ : Array[Int32]? = None,
 ) -> @lib.CodeSec? {
   let initial_pages = match mp_sole_memory_type(mod_) {
     Some((mem_type, _)) => mp_memory_initial_pages(mem_type)
@@ -3023,8 +3029,8 @@ fn mp_should_skip_data_rewrite(name : @lib.Name?) -> Bool {
 ///|
 pub fn memory_packing_run_module_pass(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  zero_filled_memory? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  zero_filled_memory~ : Bool = false,
 ) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -3280,7 +3286,7 @@ pub fn memory_packing_run_module_pass(
   )
   let invalidates_compiler_facts = code_changed ||
     next_global_sec != mod_.global_sec
-  @lib.Module::new(
+  let candidate = @lib.Module::new(
     custom_secs=mod_.custom_secs,
     compiler_fact_custom_section=if invalidates_compiler_facts {
       None
@@ -3305,4 +3311,17 @@ pub fn memory_packing_run_module_pass(
     name_sec=next_name_sec,
     raw_name_sec_payload=None,
   )
+  // Range thresholds only admit a candidate. Retained names, rewritten code,
+  // and body/section framing must still produce a strict complete-byte saving.
+  // Discarded compiler facts cannot pay for an otherwise larger data rewrite.
+  let baseline = if invalidates_compiler_facts &&
+    mod_.compiler_fact_custom_section is Some(_) {
+    mod_.without_compiler_fact_custom_section()
+  } else {
+    mod_
+  }
+  match @binary.encoded_module_sizes(baseline, candidate) {
+    Ok((before, after)) if after < before => candidate
+    _ => mod_
+  }
 }

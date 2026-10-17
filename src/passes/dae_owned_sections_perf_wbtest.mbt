@@ -1,8 +1,8 @@
 ///|
 fn dae_owned_sections_bench(
   it : @bench.T,
-  count : Int,
-  mode : Int,
+  count : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let groups = Array::makei(count, fn(_) {

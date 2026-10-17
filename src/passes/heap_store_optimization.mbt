@@ -23,8 +23,8 @@ pub fn heap_store_optimization_summary() -> String {
 
 ///|
 priv struct HsoTypeCache {
-  struct_field_counts : Array[Int]
-  default_field_counts : Array[Int]
+  struct_field_counts : Array[Int32]
+  default_field_counts : Array[Int32]
   default_field_types : Array[Array[@lib.ValType]?]
 }
 
@@ -44,29 +44,29 @@ priv struct HsoOrderEffects {
 
 ///|
 priv struct HsoPredicateCache {
-  readonly_revision : Array[Int]
+  readonly_revision : Array[Int32]
   readonly_result : @bitset.BitSet
-  skip_revision : Array[Int]
+  skip_revision : Array[Int32]
   skip_result : @bitset.BitSet
-  order_revision : Array[Int]
+  order_revision : Array[Int32]
   order_result : Array[HsoOrderEffects?]
 }
 
 ///|
 priv struct HsoExternalRoots {
-  root_arrays : Array[Array[Int]]
-  starts : Array[Int]
+  root_arrays : Array[Array[Int32]]
+  starts : Array[Int32]
 }
 
 ///|
 priv struct HsoLocalOrderWorkspace {
-  maxima : Array[Int]
-  stamps : Array[Int]
-  mut generation : Int
+  maxima : Array[Int32]
+  stamps : Array[Int32]
+  mut generation : Int32
 }
 
 ///|
-fn hso_new_local_order_workspace(local_count : Int) -> HsoLocalOrderWorkspace {
+fn hso_new_local_order_workspace(local_count : Int32) -> HsoLocalOrderWorkspace {
   {
     maxima: Array::make(local_count, -1),
     stamps: Array::make(local_count, 0),
@@ -82,8 +82,8 @@ fn hso_local_order_workspace_begin(workspace : HsoLocalOrderWorkspace) -> Unit {
 ///|
 fn hso_local_order_workspace_note(
   workspace : HsoLocalOrderWorkspace,
-  local_id : Int,
-  root_id : Int,
+  local_id : Int32,
+  root_id : Int32,
 ) -> Unit {
   if local_id < 0 || local_id >= workspace.maxima.length() {
     return
@@ -92,15 +92,15 @@ fn hso_local_order_workspace_note(
     workspace.stamps[local_id] = workspace.generation
     workspace.maxima[local_id] = root_id
   } else {
-    workspace.maxima[local_id] = Int::max(workspace.maxima[local_id], root_id)
+    workspace.maxima[local_id] = Int32::max(workspace.maxima[local_id], root_id)
   }
 }
 
 ///|
 fn hso_local_order_workspace_get(
   workspace : HsoLocalOrderWorkspace,
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   if local_id < 0 ||
     local_id >= workspace.maxima.length() ||
     workspace.stamps[local_id] != workspace.generation {
@@ -333,7 +333,7 @@ fn hso_order_effects_for_node(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_id : Int,
+  node_id : Int32,
 ) -> HsoOrderEffects {
   if node_id < 0 ||
     node_id >= @ir.hot_node_count(func) ||
@@ -359,7 +359,10 @@ fn hso_order_effects_for_node(
       hso_order_effects_note_exact_instr(effects, module_ctx, instr)
     None => ()
   }
-  if (@ir.effects_for_node(func, node_id) & @ir.EFFECT_MASK_CALL) != 0U {
+  // Descendant call barriers merge through the operand and region summaries
+  // below. Only this node's flag is needed here; a subtree effect query would
+  // repeat those walks and allocate arena-sized scratch for each non-leaf.
+  if @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_CALL) {
     effects.shared_memory_read = true
     effects.shared_memory_write = true
     effects.shared_struct_read = true
@@ -492,8 +495,8 @@ fn hso_release_memory_before_shared_gc_read_can_reorder(
 ///|
 fn hso_subtree_local_write_conflicts(
   func : @ir.HotFunc,
-  node_id : Int,
-  other_id : Int,
+  node_id : Int32,
+  other_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -518,8 +521,8 @@ fn hso_subtree_local_write_conflicts(
 ///|
 fn hso_local_order_conflicts(
   func : @ir.HotFunc,
-  first_id : Int,
-  second_id : Int,
+  first_id : Int32,
+  second_id : Int32,
 ) -> Bool {
   hso_subtree_local_write_conflicts(func, first_id, second_id) ||
   hso_subtree_local_write_conflicts(func, second_id, first_id)
@@ -530,10 +533,10 @@ fn hso_ordered_before(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  first_id : Int,
-  first_mask : UInt,
-  second_id : Int,
-  second_mask : UInt,
+  first_id : Int32,
+  first_mask : UInt32,
+  second_id : Int32,
+  second_mask : UInt32,
 ) -> Bool {
   if hso_local_order_conflicts(func, first_id, second_id) ||
     hso_mask_ordered_before(first_mask, second_mask) {
@@ -569,7 +572,7 @@ fn hso_new_type_cache() -> HsoTypeCache {
 ///|
 fn hso_ensure_predicate_cache_capacity(
   cache : HsoPredicateCache,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   while cache.readonly_revision.length() <= node_id {
     cache.readonly_revision.push(-1)
@@ -584,7 +587,7 @@ fn hso_ensure_predicate_cache_capacity(
 ///|
 fn hso_ensure_type_cache_capacity(
   cache : HsoTypeCache,
-  type_slot : Int,
+  type_slot : Int32,
 ) -> Unit {
   while cache.default_field_counts.length() <= type_slot {
     cache.struct_field_counts.push(-2)
@@ -617,7 +620,7 @@ fn hso_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
-fn hso_i32_const_at(func : @ir.HotFunc, node_id : Int) -> Int? {
+fn hso_i32_const_at(func : @ir.HotFunc, node_id : Int32) -> Int32? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -633,7 +636,7 @@ fn hso_i32_const_at(func : @ir.HotFunc, node_id : Int) -> Int? {
 }
 
 ///|
-fn hso_i64_const_at(func : @ir.HotFunc, node_id : Int) -> Int64? {
+fn hso_i64_const_at(func : @ir.HotFunc, node_id : Int32) -> Int64? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -649,7 +652,7 @@ fn hso_i64_const_at(func : @ir.HotFunc, node_id : Int) -> Int64? {
 }
 
 ///|
-fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
@@ -687,7 +690,7 @@ fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
-fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if hso_exact_div_rem_is_known_safe(func, node_id) {
     false
   } else {
@@ -699,9 +702,9 @@ fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int) -> Bool {
 ///|
 fn hso_effects_without_descendant_trap(
   func : @ir.HotFunc,
-  node_id : Int,
-  mask : UInt,
-) -> UInt {
+  node_id : Int32,
+  mask : UInt32,
+) -> UInt32 {
   let descendants_checked_separately = match
     @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Drop
@@ -722,9 +725,9 @@ fn hso_effects_without_descendant_trap(
 ///|
 fn hso_effects_for_node(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> UInt {
+  node_masks : Array[UInt32],
+  node_id : Int32,
+) -> UInt32 {
   let base_mask = if node_id >= 0 && node_id < node_masks.length() {
     node_masks[node_id]
   } else {
@@ -747,9 +750,9 @@ fn hso_effects_for_node(
 fn hso_reorder_effect_mask(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> UInt {
+  node_masks : Array[UInt32],
+  node_id : Int32,
+) -> UInt32 {
   let mask = hso_effects_for_node(func, node_masks, node_id)
   if (mask & @ir.EFFECT_MASK_CONTROL) == 0U {
     return mask
@@ -762,7 +765,7 @@ fn hso_reorder_effect_mask(
 }
 
 ///|
-fn hso_mask_has_control_transfer(mask : UInt) -> Bool {
+fn hso_mask_has_control_transfer(mask : UInt32) -> Bool {
   (
     mask &
     (@ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)
@@ -771,7 +774,7 @@ fn hso_mask_has_control_transfer(mask : UInt) -> Bool {
 }
 
 ///|
-fn hso_mask_ordered_before(barrier_mask : UInt, moved_mask : UInt) -> Bool {
+fn hso_mask_ordered_before(barrier_mask : UInt32, moved_mask : UInt32) -> Bool {
   if hso_mask_is_pure(barrier_mask) || hso_mask_is_pure(moved_mask) {
     return false
   }
@@ -823,7 +826,7 @@ fn hso_mask_ordered_before(barrier_mask : UInt, moved_mask : UInt) -> Bool {
 }
 
 ///|
-fn hso_mask_is_pure(mask : UInt) -> Bool {
+fn hso_mask_is_pure(mask : UInt32) -> Bool {
   mask == 0U
 }
 
@@ -835,8 +838,8 @@ fn hso_new_external_roots() -> HsoExternalRoots {
 ///|
 fn hso_external_roots_push(
   external_roots : HsoExternalRoots,
-  roots : Array[Int],
-  start : Int,
+  roots : Array[Int32],
+  start : Int32,
 ) -> Unit {
   external_roots.root_arrays.push(roots)
   external_roots.starts.push(start)
@@ -852,7 +855,7 @@ fn hso_external_roots_pop(external_roots : HsoExternalRoots) -> Unit {
 fn hso_external_roots_touch_local(
   func : @ir.HotFunc,
   external_roots : HsoExternalRoots,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for segment_idx = 0
       segment_idx < external_roots.root_arrays.length()
@@ -872,7 +875,7 @@ fn hso_external_roots_touch_local(
 fn hso_region_touches_local(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_touches_local(
@@ -891,7 +894,7 @@ fn hso_region_accesses_global(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  global_id : Int,
+  global_id : Int32,
   want_write : Bool,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -912,8 +915,8 @@ fn hso_region_accesses_global(
 fn hso_subtree_accesses_global(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
-  node_id : Int,
-  global_id : Int,
+  node_id : Int32,
+  global_id : Int32,
   want_write : Bool,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -1018,8 +1021,8 @@ fn hso_subtree_accesses_global(
 fn hso_subtree_global_order_conflicts(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
-  barrier_id : Int,
-  moved_id : Int,
+  barrier_id : Int32,
+  moved_id : Int32,
 ) -> Bool {
   if barrier_id < 0 || !@ir.hot_node_is_live(func, barrier_id) {
     return false
@@ -1129,7 +1132,7 @@ fn hso_region_global_order_conflicts(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  moved_id : Int,
+  moved_id : Int32,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_global_order_conflicts(
@@ -1145,7 +1148,7 @@ fn hso_region_global_order_conflicts(
 }
 
 ///|
-fn hso_subtree_has_global_write(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_subtree_has_global_write(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -1212,8 +1215,8 @@ fn hso_region_has_global_write(
 ///|
 fn hso_subtree_touches_local(
   func : @ir.HotFunc,
-  node_id : Int,
-  local_id : Int,
+  node_id : Int32,
+  local_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1299,7 +1302,7 @@ fn hso_subtree_touches_local(
 fn hso_region_may_skip_local_set(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  active_owners : Array[Int],
+  active_owners : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_may_skip_local_set_from_root(
@@ -1315,8 +1318,8 @@ fn hso_region_may_skip_local_set(
 
 ///|
 fn hso_active_owners_contains(
-  active_owners : Array[Int],
-  owner_id : Int,
+  active_owners : Array[Int32],
+  owner_id : Int32,
 ) -> Bool {
   for active_owner_id in active_owners {
     if active_owner_id == owner_id {
@@ -1329,10 +1332,10 @@ fn hso_active_owners_contains(
 ///|
 fn hso_branch_escapes_active_owners(
   func : @ir.HotFunc,
-  active_owners : Array[Int],
-  node_id : Int,
+  active_owners : Array[Int32],
+  node_id : Int32,
 ) -> Bool {
-  let targets : Array[Int] = []
+  let targets : Array[Int32] = []
   match @ir.hot_branch_target(func, node_id) {
     Some(label_id) => targets.push(label_id)
     None => ()
@@ -1356,7 +1359,7 @@ fn hso_branch_escapes_active_owners(
 fn hso_subtree_may_skip_local_set(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1366,7 +1369,7 @@ fn hso_subtree_may_skip_local_set(
   if cache.skip_revision[node_id] == revision {
     return cache.skip_result[node_id]
   }
-  let active_owners : Array[Int] = []
+  let active_owners : Array[Int32] = []
   let result = hso_subtree_may_skip_local_set_from_root(
     func, node_id, active_owners,
   )
@@ -1378,7 +1381,7 @@ fn hso_subtree_may_skip_local_set(
 ///|
 fn hso_subtree_may_escape_to_active_catch(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1458,7 +1461,7 @@ fn hso_subtree_may_escape_to_active_catch(
 }
 
 ///|
-fn hso_subtree_contains_try_table(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_subtree_contains_try_table(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -1538,7 +1541,7 @@ fn hso_region_contains_try_table(
 ///|
 fn hso_subtree_has_catchable_try_table_escape(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1646,7 +1649,7 @@ fn hso_region_may_escape_to_active_catch(
 }
 
 ///|
-fn hso_subtree_skip_is_branch_only(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_subtree_skip_is_branch_only(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
   }
@@ -1748,8 +1751,8 @@ fn hso_region_skip_is_branch_only(
 ///|
 fn hso_subtree_may_skip_local_set_from_root(
   func : @ir.HotFunc,
-  node_id : Int,
-  active_owners : Array[Int],
+  node_id : Int32,
+  active_owners : Array[Int32],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1862,7 +1865,7 @@ fn hso_subtree_may_skip_local_set_from_root(
 fn hso_region_is_trapless_readonly(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
+  node_masks : Array[UInt32],
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -1882,8 +1885,8 @@ fn hso_region_is_trapless_readonly(
 fn hso_compute_subtree_is_trapless_readonly(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1990,8 +1993,8 @@ fn hso_compute_subtree_is_trapless_readonly(
 fn hso_subtree_is_trapless_readonly(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2013,9 +2016,9 @@ fn hso_subtree_is_trapless_readonly(
 fn hso_region_is_trapless_reorderable(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
+  node_masks : Array[UInt32],
   region_ref : @ir.HotRegionRef,
-  active_owners : Array[Int],
+  active_owners : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if !hso_subtree_is_trapless_reorderable(
@@ -2035,9 +2038,9 @@ fn hso_region_is_trapless_reorderable(
 fn hso_subtree_is_trapless_reorderable(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-  active_owners : Array[Int],
+  node_masks : Array[UInt32],
+  node_id : Int32,
+  active_owners : Array[Int32],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2184,9 +2187,9 @@ fn hso_subtree_is_trapless_reorderable(
 fn hso_region_is_trapless_readonly_contained_control(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
+  node_masks : Array[UInt32],
   region_ref : @ir.HotRegionRef,
-  active_owners : Array[Int],
+  active_owners : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if !hso_subtree_is_trapless_readonly_contained_control(
@@ -2206,9 +2209,9 @@ fn hso_region_is_trapless_readonly_contained_control(
 fn hso_subtree_is_trapless_readonly_contained_control(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  node_id : Int,
-  active_owners : Array[Int],
+  node_masks : Array[UInt32],
+  node_id : Int32,
+  active_owners : Array[Int32],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2356,11 +2359,11 @@ fn hso_nodes_can_reorder(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  barrier_id : Int,
-  barrier_mask : UInt,
-  moved_id : Int,
-  moved_mask : UInt,
+  node_masks : Array[UInt32],
+  barrier_id : Int32,
+  barrier_mask : UInt32,
+  moved_id : Int32,
+  moved_mask : UInt32,
 ) -> Bool {
   // Descriptor operand masks deliberately omit local reads. Keep their real
   // read/write dependencies before applying the coarser effect relaxations.
@@ -2442,7 +2445,7 @@ fn hso_nodes_can_reorder(
 fn hso_desc_region_has_loop_control_barrier(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  active_loop_id : Int,
+  active_loop_id : Int32,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_desc_node_has_loop_control_barrier(
@@ -2459,8 +2462,8 @@ fn hso_desc_region_has_loop_control_barrier(
 ///|
 fn hso_desc_node_has_loop_control_barrier(
   func : @ir.HotFunc,
-  node_id : Int,
-  active_loop_id : Int,
+  node_id : Int32,
+  active_loop_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2559,9 +2562,9 @@ fn hso_desc_node_has_loop_control_barrier(
 fn hso_desc_operand_effects_for_region(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
+  node_masks : Array[UInt32],
   region_ref : @ir.HotRegionRef,
-) -> UInt {
+) -> UInt32 {
   let mut mask = 0U
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     mask = mask |
@@ -2579,9 +2582,9 @@ fn hso_desc_operand_effects_for_region(
 fn hso_desc_operand_effects_for_node(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  node_id : Int,
-) -> UInt {
+  node_masks : Array[UInt32],
+  node_id : Int32,
+) -> UInt32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return 0U
   }
@@ -2745,9 +2748,9 @@ fn hso_desc_operand_effects_for_node(
 fn hso_struct_new_operand_effect_mask(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  struct_new_id : Int,
-) -> UInt {
+  node_masks : Array[UInt32],
+  struct_new_id : Int32,
+) -> UInt32 {
   let mut mask = 0U
   if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
     return mask
@@ -2768,8 +2771,8 @@ fn hso_struct_new_operand_effect_mask(
 fn hso_struct_new_global_read_conflicts_with_write(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
-  struct_new_id : Int,
-  blocker_id : Int,
+  struct_new_id : Int32,
+  blocker_id : Int32,
 ) -> Bool {
   if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
     return false
@@ -2801,10 +2804,10 @@ fn hso_struct_new_global_read_conflicts_with_write(
 fn hso_global_only_ordering_can_be_ignored(
   module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
-  moved_struct_new_id : Int,
-  moved_mask : UInt,
-  blocker_id : Int,
-  blocker_mask : UInt,
+  moved_struct_new_id : Int32,
+  moved_mask : UInt32,
+  blocker_id : Int32,
+  blocker_mask : UInt32,
 ) -> Bool {
   let moved_without_global = moved_mask ^
     (moved_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
@@ -2824,7 +2827,7 @@ fn hso_global_only_ordering_can_be_ignored(
 ///|
 fn hso_subtree_has_tail_or_throw_escape(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2918,7 +2921,7 @@ fn hso_region_has_tail_or_throw_escape(
 }
 
 ///|
-fn hso_try_table_allows_swap(func : @ir.HotFunc, try_id : Int) -> Bool {
+fn hso_try_table_allows_swap(func : @ir.HotFunc, try_id : Int32) -> Bool {
   if try_id < 0 || !@ir.hot_node_is_live(func, try_id) {
     return false
   }
@@ -2935,14 +2938,14 @@ fn hso_try_table_allows_swap(func : @ir.HotFunc, try_id : Int) -> Bool {
 ///|
 fn hso_result_try_table_allows_drop_swap(
   func : @ir.HotFunc,
-  try_id : Int,
+  try_id : Int32,
 ) -> Bool {
   hso_try_table_allows_swap(func, try_id) &&
   hso_sequence_result_type(func, try_id) != None
 }
 
 ///|
-fn hso_is_void_try_table_block(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_is_void_try_table_block(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -2968,7 +2971,7 @@ fn hso_is_void_try_table_block(func : @ir.HotFunc, node_id : Int) -> Bool {
 ///|
 fn hso_is_dropped_result_try_table_block(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3026,10 +3029,10 @@ fn hso_wrapped_try_table_swap_allowed(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  moved_struct_new_id : Int,
-  blocker_id : Int,
-  target_local_id : Int,
+  node_masks : Array[UInt32],
+  moved_struct_new_id : Int32,
+  blocker_id : Int32,
+  target_local_id : Int32,
 ) -> Bool {
   if !hso_is_dropped_result_try_table_block(func, blocker_id) &&
     !hso_is_void_try_table_block(func, blocker_id) {
@@ -3064,10 +3067,10 @@ fn hso_root_can_swap_before_local_struct_new(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  moved_struct_new_id : Int,
-  blocker_id : Int,
-  target_local_id : Int,
+  node_masks : Array[UInt32],
+  moved_struct_new_id : Int32,
+  blocker_id : Int32,
+  target_local_id : Int32,
 ) -> Bool {
   if blocker_id < 0 || !@ir.hot_node_is_live(func, blocker_id) {
     return false
@@ -3145,9 +3148,9 @@ fn hso_root_can_swap_before_local_struct_new(
 fn hso_swapped_readonly_roots_respect_ref_order(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  swapped_roots : Array[Int],
-  ref_id : Int,
+  node_masks : Array[UInt32],
+  swapped_roots : Array[Int32],
+  ref_id : Int32,
 ) -> Bool {
   let ref_node = @ir.hot_node_get(func, ref_id)
   let ref_local = match ref_node.op {
@@ -3171,7 +3174,7 @@ fn hso_swapped_readonly_roots_respect_ref_order(
 fn hso_note_region_local_max_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  root_id : Int,
+  root_id : Int32,
   local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -3187,8 +3190,8 @@ fn hso_note_region_local_max_root(
 ///|
 fn hso_note_subtree_local_max_root(
   func : @ir.HotFunc,
-  node_id : Int,
-  root_id : Int,
+  node_id : Int32,
+  root_id : Int32,
   local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -3265,8 +3268,8 @@ fn hso_note_subtree_local_max_root(
 fn hso_note_swapped_readonly_root(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  root_id : Int,
+  node_masks : Array[UInt32],
+  root_id : Int32,
   local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) {
@@ -3275,22 +3278,22 @@ fn hso_note_swapped_readonly_root(
 }
 
 ///|
-fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
+fn hso_build_const_f32(func : @ir.HotFunc) -> Int32 {
   @ir.hot_build_const_f32(func, @lib.F32(0.0))
 }
 
 ///|
-fn hso_build_const_f64(func : @ir.HotFunc) -> Int {
+fn hso_build_const_f64(func : @ir.HotFunc) -> Int32 {
   @ir.hot_build_const_f64(func, @lib.F64(0.0))
 }
 
 ///|
-fn hso_build_const_v128_zero(func : @ir.HotFunc) -> Int {
+fn hso_build_const_v128_zero(func : @ir.HotFunc) -> Int32 {
   @ir.hot_build_const_v128_zero(func)
 }
 
 ///|
-fn hso_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
+fn hso_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int32? {
   match vt {
     @lib.NumTypeValType(@lib.I32NumType) =>
       Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
@@ -3314,7 +3317,7 @@ fn hso_type_struct_field_count(
   type_cache : HsoTypeCache,
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> Int32? {
   let type_slot = match type_idx {
     @lib.TypeIdx(raw_idx) | @lib.RecIdx(raw_idx) => raw_idx.reinterpret_as_int()
   }
@@ -3389,7 +3392,7 @@ fn hso_type_has_defaultable_struct_fields(
   type_cache : HsoTypeCache,
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> Int32? {
   match
     hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
     Some(field_types) => Some(field_types.length())
@@ -3403,16 +3406,16 @@ fn hso_build_default_struct_new_children(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
-  field_idx : Int,
-  replacement_id : Int,
-  desc_id : Int?,
-) -> Array[Int]? {
+  field_idx : Int32,
+  replacement_id : Int32,
+  desc_id : Int32?,
+) -> Array[Int32]? {
   let field_types = match
     hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
     Some(field_types) => field_types
     None => return None
   }
-  let children : Array[Int] = []
+  let children : Array[Int32] = []
   for idx = 0; idx < field_types.length(); idx = idx + 1 {
     if idx == field_idx {
       children.push(replacement_id)
@@ -3435,8 +3438,8 @@ fn hso_supported_struct_new(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_id : Int,
-) -> (@lib.TypeIdx, Int, Int?, Bool)? {
+  node_id : Int32,
+) -> (@lib.TypeIdx, Int32, Int32?, Bool)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -3492,7 +3495,10 @@ fn hso_supported_struct_new(
 }
 
 ///|
-fn hso_struct_new_shallow_effects(func : @ir.HotFunc, node_id : Int) -> UInt {
+fn hso_struct_new_shallow_effects(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> UInt32 {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructNew(_))
     | Some(@lib.Instruction::StructNewDefault(_)) => 0U
@@ -3527,8 +3533,8 @@ fn hso_struct_new_shallow_effects(func : @ir.HotFunc, node_id : Int) -> UInt {
 ///|
 fn hso_struct_set_parts(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> (@lib.TypeIdx, Int, Int, Int)? {
+  node_id : Int32,
+) -> (@lib.TypeIdx, Int32, Int32, Int32)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -3560,7 +3566,7 @@ fn hso_struct_set_parts(
 ///|
 fn hso_sequence_result_type(
   func : @ir.HotFunc,
-  value_id : Int,
+  value_id : Int32,
 ) -> @lib.BlockType? {
   let results = @ir.hot_type_results(func, @ir.hot_node_get(func, value_id).ty)
   if results.length() != 1 {
@@ -3573,10 +3579,10 @@ fn hso_sequence_result_type(
 fn hso_build_preserved_replacement(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  old_value_id : Int,
-  new_value_id : Int,
-) -> Int? {
+  node_masks : Array[UInt32],
+  old_value_id : Int32,
+  new_value_id : Int32,
+) -> Int32? {
   if hso_subtree_is_trapless_readonly(cache, func, node_masks, old_value_id) ||
     hso_subtree_is_trapless_readonly_contained_control(
       cache,
@@ -3599,11 +3605,11 @@ fn hso_build_preserved_replacement(
 ///|
 fn hso_branch_exits_owner(
   func : @ir.HotFunc,
-  owner_id : Int,
-  active_owners : Array[Int],
-  node_id : Int,
+  owner_id : Int32,
+  active_owners : Array[Int32],
+  node_id : Int32,
 ) -> Bool {
-  let targets : Array[Int] = []
+  let targets : Array[Int32] = []
   match @ir.hot_branch_target(func, node_id) {
     Some(label_id) => targets.push(label_id)
     None => ()
@@ -3628,8 +3634,8 @@ fn hso_branch_exits_owner(
 fn hso_region_exits_owner(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  owner_id : Int,
-  active_owners : Array[Int],
+  owner_id : Int32,
+  active_owners : Array[Int32],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
@@ -3643,9 +3649,9 @@ fn hso_region_exits_owner(
 ///|
 fn hso_subtree_exits_owner(
   func : @ir.HotFunc,
-  node_id : Int,
-  owner_id : Int,
-  active_owners : Array[Int],
+  node_id : Int32,
+  owner_id : Int32,
+  active_owners : Array[Int32],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3744,8 +3750,8 @@ fn hso_subtree_exits_owner(
 ///|
 fn hso_subtree_targets_owner_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  owner_id : Int,
+  node_id : Int32,
+  owner_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3836,7 +3842,7 @@ fn hso_subtree_targets_owner_label(
 fn hso_region_targets_owner_label(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  owner_id : Int,
+  owner_id : Int32,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_targets_owner_label(
@@ -3851,7 +3857,7 @@ fn hso_region_targets_owner_label(
 }
 
 ///|
-fn hso_try_flatten_block_wrapper(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_try_flatten_block_wrapper(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -3917,7 +3923,7 @@ fn hso_try_flatten_block_wrapper(func : @ir.HotFunc, node_id : Int) -> Bool {
 // Incomplete ownership scans reject before any mutation.
 fn hso_wrapper_has_one_reference_bounded(
   func : @ir.HotFunc,
-  target : Int,
+  target : Int32,
 ) -> Bool {
   let node_count = @ir.hot_node_count(func)
   let root_count = @ir.hot_root_count(func)
@@ -3972,9 +3978,9 @@ fn hso_wrapper_has_one_reference_bounded(
 ///|
 fn hso_retarget_subtree_label(
   func : @ir.HotFunc,
-  node_id : Int,
-  from_label_id : Int,
-  to_label_id : Int,
+  node_id : Int32,
+  from_label_id : Int32,
+  to_label_id : Int32,
 ) -> Unit {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -4005,7 +4011,7 @@ fn hso_retarget_subtree_label(
 }
 
 ///|
-fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -4072,7 +4078,7 @@ fn hso_trim_unreachable_subtree(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn hso_trim_unreachable_region_tails(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  owner_id : Int,
+  owner_id : Int32,
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -4096,16 +4102,16 @@ fn hso_trim_unreachable_region_tails(
 
 ///|
 fn hso_array_insert_prefix_roots(
-  roots : Array[Int],
-  idx : Int,
-  inserted : Array[Int],
-  count : Int,
+  roots : Array[Int32],
+  idx : Int32,
+  inserted : Array[Int32],
+  count : Int32,
 ) -> Unit {
   if count <= 0 {
     return
   }
   let suffix_count = roots.length() - idx
-  let suffix : Array[Int] = Array::make(suffix_count, 0)
+  let suffix : Array[Int32] = Array::make(suffix_count, 0)
   for suffix_idx = 0; suffix_idx < suffix_count; suffix_idx = suffix_idx + 1 {
     suffix[suffix_idx] = roots[idx + suffix_idx]
   }
@@ -4125,11 +4131,11 @@ fn hso_liftable_swapped_block_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  moved_struct_new_id : Int,
-  node_id : Int,
-  local_id : Int,
-) -> Array[Int]? {
+  node_masks : Array[UInt32],
+  moved_struct_new_id : Int32,
+  node_id : Int32,
+  local_id : Int32,
+) -> Array[Int32]? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -4164,16 +4170,16 @@ fn hso_peel_reorderable_value_prefix_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  struct_new_id : Int,
-  field_idx : Int,
-  field_count : Int,
-  desc_id : Int?,
+  node_masks : Array[UInt32],
+  struct_new_id : Int32,
+  field_idx : Int32,
+  field_count : Int32,
+  desc_id : Int32?,
   needs_default_materialization : Bool,
-  value_id : Int,
-  local_id : Int,
-  active_catch_depth : Int,
-) -> Array[Int]? {
+  value_id : Int32,
+  local_id : Int32,
+  active_catch_depth : Int32,
+) -> Array[Int32]? {
   if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
     return None
   }
@@ -4195,7 +4201,7 @@ fn hso_peel_reorderable_value_prefix_roots(
   if hso_sequence_result_type(func, final_root_id) != Some(block_type) {
     return Some([])
   }
-  let prefix_roots : Array[Int] = Array::new(capacity=roots.length() - 1)
+  let prefix_roots : Array[Int32] = Array::new(capacity=roots.length() - 1)
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     let root_id = roots[idx]
     let uncaught_call_can_lift = if active_catch_depth == 0 &&
@@ -4297,16 +4303,16 @@ fn hso_try_fold_into_struct_new(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  struct_new_id : Int,
+  node_masks : Array[UInt32],
+  struct_new_id : Int32,
   type_idx : @lib.TypeIdx,
-  field_idx : Int,
-  value_id : Int,
-  local_id : Int,
-  active_catch_depth : Int,
-  skip_owner_id : Int?,
+  field_idx : Int32,
+  value_id : Int32,
+  local_id : Int32,
+  active_catch_depth : Int32,
+  skip_owner_id : Int32?,
   external_roots : HsoExternalRoots,
-) -> Array[Int]? {
+) -> Array[Int32]? {
   let (new_type_idx, field_count, desc_id, needs_default_materialization) = match
     hso_supported_struct_new(type_cache, func, module_ctx, struct_new_id) {
     Some(parts) => parts
@@ -4494,10 +4500,10 @@ fn hso_try_fold_tee_wrapped_struct_set(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  node_id : Int,
-  active_catch_depth : Int,
-) -> Array[Int]? {
+  node_masks : Array[UInt32],
+  node_id : Int32,
+  active_catch_depth : Int32,
+) -> Array[Int32]? {
   let (type_idx, field_idx, ref_id, value_id) = match
     hso_struct_set_parts(func, node_id) {
     Some(parts) => parts
@@ -4536,7 +4542,7 @@ fn hso_try_fold_tee_wrapped_struct_set(
   }
   let local_set_id = @ir.hot_build_local_set(func, ref_node.imm0, struct_new_id)
   let replacement_count = lifted_prefix_roots.length() + 1
-  let replacement_roots : Array[Int] = Array::make(replacement_count, 0)
+  let replacement_roots : Array[Int32] = Array::make(replacement_count, 0)
   for idx = 0; idx < lifted_prefix_roots.length(); idx = idx + 1 {
     replacement_roots[idx] = lifted_prefix_roots[idx]
   }
@@ -4547,8 +4553,8 @@ fn hso_try_fold_tee_wrapped_struct_set(
 ///|
 fn hso_tee_wrapped_struct_set_local_id(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   let (_, _, ref_id, _) = match hso_struct_set_parts(func, node_id) {
     Some(parts) => parts
     None => return None
@@ -4567,10 +4573,10 @@ fn hso_tee_wrapped_struct_set_local_id(
 fn hso_tee_fold_has_adjacent_readonly_prefix(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
-  roots : Array[Int],
-  idx : Int,
-  local_id : Int,
+  node_masks : Array[UInt32],
+  roots : Array[Int32],
+  idx : Int32,
+  local_id : Int32,
 ) -> Bool {
   if idx <= 0 || idx + 1 >= roots.length() {
     return false
@@ -4595,8 +4601,8 @@ fn hso_local_set_struct_new(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_id : Int,
-) -> (Int, Int, @lib.TypeIdx)? {
+  node_id : Int32,
+) -> (Int32, Int32, @lib.TypeIdx)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -4618,10 +4624,10 @@ fn hso_local_set_struct_new(
 ///|
 fn hso_struct_set_for_local(
   func : @ir.HotFunc,
-  node_id : Int,
-  local_id : Int,
+  node_id : Int32,
+  local_id : Int32,
   expected_type_idx : @lib.TypeIdx,
-) -> (Int, Int, Int)? {
+) -> (Int32, Int32, Int32)? {
   let (type_idx, field_idx, ref_id, value_id) = match
     hso_struct_set_parts(func, node_id) {
     Some(parts) => parts
@@ -4644,9 +4650,9 @@ fn hso_process_node_regions(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  node_id : Int,
-  active_catch_depth : Int,
+  node_masks : Array[UInt32],
+  node_id : Int32,
+  active_catch_depth : Int32,
   external_roots : HsoExternalRoots,
   local_order : HsoLocalOrderWorkspace,
 ) -> Bool {
@@ -4808,9 +4814,9 @@ fn hso_node_may_have_regions(op : @ir.HotOp) -> Bool {
 fn hso_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Array[Int] {
+) -> Array[Int32] {
   let root_count = @ir.hot_region_root_count(func, region_ref)
-  let roots : Array[Int] = Array::make(root_count, 0)
+  let roots : Array[Int32] = Array::make(root_count, 0)
   for idx = 0; idx < root_count; idx = idx + 1 {
     roots[idx] = @ir.hot_region_get(func, region_ref, idx)
   }
@@ -4818,7 +4824,7 @@ fn hso_region_roots(
 }
 
 ///|
-fn hso_fast_chain_leaf(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn hso_fast_chain_leaf(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -4834,13 +4840,13 @@ fn hso_fast_chain_leaf(func : @ir.HotFunc, node_id : Int) -> Bool {
 ///|
 fn hso_try_fold_pure_plain_struct_set_chain(
   func : @ir.HotFunc,
-  roots : Array[Int],
-  idx : Int,
-  root_id : Int,
-  local_id : Int,
-  struct_new_id : Int,
+  roots : Array[Int32],
+  idx : Int32,
+  root_id : Int32,
+  local_id : Int32,
+  struct_new_id : Int32,
   type_idx : @lib.TypeIdx,
-) -> (Array[Int], Int)? {
+) -> (Array[Int32], Int32)? {
   let exact_type_idx = match @ir.hot_node_exact_instr(func, struct_new_id) {
     Some(@lib.Instruction::StructNew(exact_type_idx)) => exact_type_idx
     _ => return None
@@ -4860,7 +4866,7 @@ fn hso_try_fold_pure_plain_struct_set_chain(
       return None
     }
   }
-  let replacements : Array[Int] = Array::make(field_count, -1)
+  let replacements : Array[Int32] = Array::make(field_count, -1)
   let mut next_idx = idx + 1
   let mut set_count = 0
   while next_idx < roots.length() {
@@ -4895,13 +4901,13 @@ fn hso_try_fold_pure_default_struct_set_chain(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  roots : Array[Int],
-  idx : Int,
-  root_id : Int,
-  local_id : Int,
-  struct_new_id : Int,
+  roots : Array[Int32],
+  idx : Int32,
+  root_id : Int32,
+  local_id : Int32,
+  struct_new_id : Int32,
   type_idx : @lib.TypeIdx,
-) -> (Array[Int], Int)? {
+) -> (Array[Int32], Int32)? {
   let module_ctx = match module_ctx {
     Some(module_ctx) => module_ctx
     None => return None
@@ -4918,7 +4924,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
     Some(field_count) => field_count
     None => return None
   }
-  let replacements : Array[Int] = Array::make(field_count, -1)
+  let replacements : Array[Int32] = Array::make(field_count, -1)
   let mut next_idx = idx + 1
   let mut set_count = 0
   let mut missing_count = field_count
@@ -4944,7 +4950,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
   if set_count < 2 {
     return None
   }
-  let children : Array[Int] = if missing_count == 0 {
+  let children : Array[Int32] = if missing_count == 0 {
     replacements
   } else {
     let field_types = match
@@ -4952,7 +4958,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
       Some(field_types) => field_types
       None => return None
     }
-    let children : Array[Int] = Array::make(field_count, 0)
+    let children : Array[Int32] = Array::make(field_count, 0)
     for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
       if replacements[field_idx] >= 0 {
         children[field_idx] = replacements[field_idx]
@@ -4977,8 +4983,8 @@ fn hso_try_fold_pure_default_struct_set_chain(
 ///|
 fn hso_plain_local_set_struct_new_fast(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> (Int, Int, @lib.TypeIdx, Int)? {
+  node_id : Int32,
+) -> (Int32, Int32, @lib.TypeIdx, Int32)? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -5053,7 +5059,7 @@ fn hso_try_fold_tiny_pure_plain_region(
 }
 
 ///|
-fn hso_chain_scratch_capacity(remaining_root_count : Int) -> Int {
+fn hso_chain_scratch_capacity(remaining_root_count : Int32) -> Int32 {
   if remaining_root_count <= 8 {
     remaining_root_count
   } else {
@@ -5067,18 +5073,18 @@ fn hso_process_local_set_chain(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
-  roots : Array[Int],
-  root_id : Int,
-  idx : Int,
-  local_id : Int,
-  struct_new_id : Int,
+  node_masks : Array[UInt32],
+  roots : Array[Int32],
+  root_id : Int32,
+  idx : Int32,
+  local_id : Int32,
+  struct_new_id : Int32,
   type_idx : @lib.TypeIdx,
-  active_catch_depth : Int,
-  owner_id : Int?,
+  active_catch_depth : Int32,
+  owner_id : Int32?,
   external_roots : HsoExternalRoots,
   local_order : HsoLocalOrderWorkspace,
-) -> (Array[Int], Int, Bool) {
+) -> (Array[Int32], Int32, Bool) {
   match
     hso_try_fold_pure_plain_struct_set_chain(
       func, roots, idx, root_id, local_id, struct_new_id, type_idx,
@@ -5095,7 +5101,7 @@ fn hso_process_local_set_chain(
     None => ()
   }
   let scratch_capacity = hso_chain_scratch_capacity(roots.length() - idx)
-  let segment_roots : Array[Int] = Array::new(capacity=scratch_capacity)
+  let segment_roots : Array[Int32] = Array::new(capacity=scratch_capacity)
   segment_roots.push(root_id)
   hso_local_order_workspace_begin(local_order)
   let mut segment_local_set_idx = 0
@@ -5277,10 +5283,10 @@ fn hso_process_region(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
+  node_masks : Array[UInt32],
   region_ref : @ir.HotRegionRef,
-  active_catch_depth : Int,
-  owner_id : Int?,
+  active_catch_depth : Int32,
+  owner_id : Int32?,
   external_roots : HsoExternalRoots,
   local_order : HsoLocalOrderWorkspace,
 ) -> Bool {
@@ -5309,7 +5315,7 @@ fn hso_process_region(
     }
   }
 
-  let next_roots : Array[Int] = Array::new(capacity=roots.length())
+  let next_roots : Array[Int32] = Array::new(capacity=roots.length())
   let mut idx = 0
   while idx < roots.length() {
     let root_id = roots[idx]

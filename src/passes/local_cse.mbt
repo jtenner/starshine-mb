@@ -28,35 +28,35 @@ priv struct LcseRawRewrite {
 
 ///|
 priv struct LcseRawExpr {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   instr : @lib.Instruction
-  key : Int
+  key : Int32
   ty : @lib.ValType
-  size : Int
-  children : Array[Int]
-  reads_locals : Array[Int]
+  size : Int32
+  children : Array[Int32]
+  reads_locals : Array[Int32]
   // Memory, size, table, global, heap, atomic and call dependencies: bits 0..6.
-  read_flags : Int
+  read_flags : Int32
   cache_child_for_replay : Bool
-  mut repeat_of : Int
-  mut local_id : Int
-  mut replay_local_ids : Array[Int]
+  mut repeat_of : Int32
+  mut local_id : Int32
+  mut replay_local_ids : Array[Int32]
 }
 
 ///|
 priv struct LcseRawNestedRepeat {
-  parent_idx : Int
-  start : Int
-  end : Int
-  original : Int
+  parent_idx : Int32
+  start : Int32
+  end : Int32
+  original : Int32
 }
 
 ///|
 priv struct LcseRawMaterializePoint {
-  instr_idx : Int
-  original : Int
-  child_slot : Int
+  instr_idx : Int32
+  original : Int32
+  child_slot : Int32
 }
 
 ///|
@@ -67,7 +67,7 @@ priv struct LcseRawCallInfo {
 }
 
 ///|
-fn lcse_simd_pure_operand_count(instr : @lib.Instruction) -> Int? {
+fn lcse_simd_pure_operand_count(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(0)
@@ -354,7 +354,7 @@ fn lcse_simd_pure_result_type(instr : @lib.Instruction) -> @lib.ValType? {
 }
 
 ///|
-fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
+fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.Instruction::I32Add => 1
     @lib.Instruction::I32Sub => 2
@@ -1050,7 +1050,7 @@ fn lcse_raw_atomic_cmpxchg_result_type(
 }
 
 ///|
-fn lcse_raw_func_idx_raw(idx : @lib.FuncIdx) -> Int {
+fn lcse_raw_func_idx_raw(idx : @lib.FuncIdx) -> Int32 {
   let @lib.FuncIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -1075,7 +1075,7 @@ fn lcse_raw_call_is_idempotent(
 }
 
 ///|
-fn lcse_raw_u32_to_nonnegative_int(value : @lib.U32) -> Int? {
+fn lcse_raw_u32_to_nonnegative_int(value : @lib.U32) -> Int32? {
   let @lib.U32(raw) = value
   let count = raw.reinterpret_as_int()
   if count < 0 {
@@ -1089,7 +1089,7 @@ fn lcse_raw_u32_to_nonnegative_int(value : @lib.U32) -> Int? {
 fn lcse_raw_struct_field_count(
   subtypes : Array[@lib.SubType],
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> Int32? {
   let subtype = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
     Some(st) => st
     None => return None
@@ -1132,7 +1132,7 @@ fn lcse_raw_instr_operand_count(
   instr : @lib.Instruction,
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.Instruction::LocalGet(_)
     | @lib.Instruction::GlobalGet(_)
@@ -1527,7 +1527,7 @@ fn lcse_raw_result_type(
   first_child_type : @lib.ValType?,
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
-  env? : @validate.Env? = None,
+  env~ : @validate.Env? = None,
 ) -> @lib.ValType? {
   match instr {
     @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) => {
@@ -1831,9 +1831,9 @@ fn lcse_raw_result_type(
 ///|
 fn lcse_cancel_request_tree(
   exprs : Array[LcseRawExpr],
-  expr_id : Int,
+  expr_id : Int32,
   cancelled : Array[Bool],
-  pending : Array[Int],
+  pending : Array[Int32],
 ) -> Unit {
   if expr_id < 0 || expr_id >= exprs.length() || cancelled[expr_id] {
     return
@@ -1911,7 +1911,7 @@ fn lcse_raw_child_cache_type(
 ///|
 fn lcse_raw_can_cache_child_for_replay(
   exprs : Array[LcseRawExpr],
-  children : Array[Int],
+  children : Array[Int32],
 ) -> Bool {
   if children.length() == 0 {
     return false
@@ -1929,7 +1929,10 @@ fn lcse_raw_can_cache_child_for_replay(
 }
 
 ///|
-fn lcse_raw_compact_active(active : Array[Int], retain : (Int) -> Bool) -> Unit {
+fn lcse_raw_compact_active(
+  active : Array[Int32],
+  retain : (Int32) -> Bool,
+) -> Unit {
   let mut kept = 0
   for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
     let expr_id = active[read_idx]
@@ -1946,7 +1949,7 @@ fn lcse_raw_compact_active(active : Array[Int], retain : (Int) -> Bool) -> Unit 
 ///|
 fn lcse_raw_filter_active_without_memory(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
@@ -1958,7 +1961,7 @@ fn lcse_raw_filter_active_without_memory(
 ///|
 fn lcse_raw_filter_active_without_memory_or_size(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
@@ -1968,7 +1971,7 @@ fn lcse_raw_filter_active_without_memory_or_size(
 }
 
 ///|
-fn lcse_raw_expr_reads_local(expr : LcseRawExpr, local_idx : Int) -> Bool {
+fn lcse_raw_expr_reads_local(expr : LcseRawExpr, local_idx : Int32) -> Bool {
   for read_idx in expr.reads_locals {
     if read_idx == local_idx {
       return true
@@ -1980,8 +1983,8 @@ fn lcse_raw_expr_reads_local(expr : LcseRawExpr, local_idx : Int) -> Bool {
 ///|
 fn lcse_raw_filter_active_without_local(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
-  local_idx : Int,
+  active : Array[Int32],
+  local_idx : Int32,
 ) -> Unit {
   let mut kept = 0
   for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
@@ -1999,7 +2002,7 @@ fn lcse_raw_filter_active_without_local(
 }
 
 ///|
-fn lcse_raw_remove_active_expr(active : Array[Int], target : Int) -> Unit {
+fn lcse_raw_remove_active_expr(active : Array[Int32], target : Int32) -> Unit {
   let mut kept = 0
   for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
     let expr_id = active[read_idx]
@@ -2016,7 +2019,7 @@ fn lcse_raw_remove_active_expr(active : Array[Int], target : Int) -> Unit {
 ///|
 fn lcse_raw_filter_active_without_call(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
@@ -2028,7 +2031,7 @@ fn lcse_raw_filter_active_without_call(
 ///|
 fn lcse_raw_filter_active_without_global(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
@@ -2040,7 +2043,7 @@ fn lcse_raw_filter_active_without_global(
 ///|
 fn lcse_raw_filter_active_local_only(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     if expr_id >= 0 && expr_id < exprs.length() {
@@ -2055,9 +2058,9 @@ fn lcse_raw_filter_active_local_only(
 ///|
 fn lcse_raw_filter_active_for_idempotent_call(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
   instr : @lib.Instruction,
-  children : Array[Int],
+  children : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     if expr_id < 0 || expr_id >= exprs.length() {
@@ -2087,7 +2090,7 @@ fn lcse_raw_filter_active_for_idempotent_call(
 ///|
 fn lcse_raw_filter_active_without_heap(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
@@ -2112,9 +2115,9 @@ fn lcse_raw_stable_leaf(instr : @lib.Instruction) -> Bool {
 ///|
 fn lcse_raw_exprs_match(
   exprs : Array[LcseRawExpr],
-  lhs_id : Int,
+  lhs_id : Int32,
   instr : @lib.Instruction,
-  children : Array[Int],
+  children : Array[Int32],
 ) -> Bool {
   if lhs_id < 0 || lhs_id >= exprs.length() {
     return false
@@ -2149,7 +2152,7 @@ fn lcse_raw_exprs_match(
 }
 
 ///|
-fn lcse_raw_append_active(active : Array[Int], expr_id : Int) -> Unit {
+fn lcse_raw_append_active(active : Array[Int32], expr_id : Int32) -> Unit {
   // Keep availability work bounded on large straight-line regions. Small
   // regions retain their original candidate order and replay decisions.
   if active.length() == 64 {
@@ -2164,10 +2167,10 @@ fn lcse_raw_append_active(active : Array[Int], expr_id : Int) -> Unit {
 ///|
 fn lcse_raw_find_active_match(
   exprs : Array[LcseRawExpr],
-  active : Array[Int],
+  active : Array[Int32],
   instr : @lib.Instruction,
-  children : Array[Int],
-) -> Int {
+  children : Array[Int32],
+) -> Int32 {
   for active_id in active {
     if lcse_raw_exprs_match(exprs, active_id, instr, children) {
       return active_id
@@ -2179,10 +2182,10 @@ fn lcse_raw_find_active_match(
 ///|
 fn lcse_raw_instr_slice_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   body : Array[@lib.Instruction],
-  body_start : Int,
+  body_start : Int32,
 ) -> Bool {
   let len = end - start + 1
   if len <= 0 || body_start + len > body.length() {
@@ -2232,11 +2235,11 @@ fn lcse_raw_instr_clears_nested_window(instr : @lib.Instruction) -> Bool {
 
 ///|
 fn lcse_raw_scan_nested_repeats(
-  parent_idx : Int,
+  parent_idx : Int32,
   outer_instrs : Array[@lib.Instruction],
   body : Array[@lib.Instruction],
   exprs : Array[LcseRawExpr],
-  outer_active : Array[Int],
+  outer_active : Array[Int32],
   repeats : Array[LcseRawNestedRepeat],
   call_infos : Array[LcseRawCallInfo],
 ) -> Unit {
@@ -2359,7 +2362,7 @@ fn lcse_raw_schedule_materialization(
   exprs : Array[LcseRawExpr],
   points : Array[LcseRawMaterializePoint],
   scheduled : Array[Bool],
-  original_id : Int,
+  original_id : Int32,
 ) -> Unit {
   if original_id < 0 || original_id >= exprs.length() || scheduled[original_id] {
     return
@@ -2413,7 +2416,7 @@ fn lcse_raw_materialize_point_type(
 fn lcse_raw_record_materialized_local(
   exprs : Array[LcseRawExpr],
   point : LcseRawMaterializePoint,
-  local_id : Int,
+  local_id : Int32,
 ) -> Unit {
   if point.child_slot >= 0 {
     let original = exprs[point.original]
@@ -2433,9 +2436,9 @@ fn lcse_raw_record_materialized_local(
 ///|
 fn lcse_raw_rewrite_nested_with_outer_repeats(
   body : Array[@lib.Instruction],
-  parent_idx : Int,
+  parent_idx : Int32,
   repeats : Array[LcseRawNestedRepeat],
-  first_repeat : Int,
+  first_repeat : Int32,
   exprs : Array[LcseRawExpr],
 ) -> (Array[@lib.Instruction], Bool) {
   if first_repeat < 0 {
@@ -2475,15 +2478,15 @@ fn lcse_raw_rewrite_instrs(
   subtypes : Array[@lib.SubType],
   has_shared_memory : Bool,
   allow_nondefault_result_locals : Bool,
-  env? : @validate.Env? = None,
+  env~ : @validate.Env? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   // These empty rows remain read-only. Allocate owned rows only for writes.
-  let empty_ids : Array[Int] = []
+  let empty_ids : Array[Int32] = []
   let exprs : Array[LcseRawExpr] = []
   let cancelled : Array[Bool] = []
-  let cancel_pending : Array[Int] = []
-  let stack : Array[Int] = []
-  let active : Array[Int] = []
+  let cancel_pending : Array[Int32] = []
+  let stack : Array[Int32] = []
+  let active : Array[Int32] = []
   let nested_repeats : Array[LcseRawNestedRepeat] = []
   let mut has_nested_controls = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -2517,7 +2520,11 @@ fn lcse_raw_rewrite_instrs(
       active.clear()
       continue
     }
-    let children : Array[Int] = if operand_count == 0 { empty_ids } else { [] }
+    let children : Array[Int32] = if operand_count == 0 {
+      empty_ids
+    } else {
+      []
+    }
     let first_child_stack = stack.length() - operand_count
     for child_idx = first_child_stack
         child_idx < stack.length()
@@ -2625,7 +2632,7 @@ fn lcse_raw_rewrite_instrs(
       Some(ty) => {
         let mut start = idx
         let mut size = 1
-        let mut reads_locals : Array[Int] = empty_ids
+        let mut reads_locals : Array[Int32] = empty_ids
         let mut reads_locals_owned = false
         let mut read_flags = if lcse_instr_reads_memory(instr) { 1 } else { 0 }
         match instr {
@@ -3065,8 +3072,8 @@ fn lcse_raw_rewrite_func(
   params : Array[@lib.ValType],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
-  has_shared_memory? : Bool = false,
-  env? : @validate.Env? = None,
+  has_shared_memory~ : Bool = false,
+  env~ : @validate.Env? = None,
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let has_repeated_candidate = lcse_instrs_may_have_repeated_candidate(instrs)
@@ -3111,7 +3118,7 @@ fn lcse_raw_rewrite_func(
 fn local_cse_run_raw_func_with_params(
   func : @lib.Func,
   params : Array[@lib.ValType],
-  has_shared_memory? : Bool = false,
+  has_shared_memory~ : Bool = false,
 ) -> (@lib.Func, Bool) {
   let rewrite = lcse_raw_rewrite_func(func, params, [], [], has_shared_memory~)
   (rewrite.func, rewrite.changed)
@@ -3140,7 +3147,7 @@ fn lcse_raw_func_type_for_idx(
 ///|
 fn lcse_raw_idempotent_annotation_flags(
   sec : @lib.FuncAnnotationSec?,
-  func_count : Int,
+  func_count : Int32,
 ) -> Array[Bool] {
   let flags = Array::make(func_count, false)
   match sec {
@@ -3275,21 +3282,21 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 priv enum LcsePlace {
-  Region(@ir.HotRegionRef, Int)
-  Child(Int, Int)
+  Region(@ir.HotRegionRef, Int32)
+  Child(Int32, Int32)
 }
 
 ///|
 priv struct LcseBinding {
-  original : Int
+  original : Int32
   place : LcsePlace
-  mut local_id : Int
+  mut local_id : Int32
   ty : @lib.ValType
 }
 
 ///|
 priv struct LcseState {
-  mut bindings : @hashmap.HashMap[Int, LcseBinding]
+  mut bindings : @hashmap.HashMap[Int32, LcseBinding]
 }
 
 ///|
@@ -3310,20 +3317,20 @@ fn LcseState::clear(self : LcseState) -> Unit {
 
 ///|
 priv struct LcseStructuralIndex {
-  classes : Array[Int]
-  sizes : Array[Int]
+  classes : Array[Int32]
+  sizes : Array[Int32]
   has_local_write_or_string : Array[Bool]
-  representatives : Array[Int]
-  hash_heads : @hashmap.HashMap[Int, Int]
-  next_collision : Array[Int]
-  fact_visits : Array[Int]?
+  representatives : Array[Int32]
+  hash_heads : @hashmap.HashMap[Int32, Int32]
+  next_collision : Array[Int32]
+  fact_visits : Array[Int32]?
   captures : PassSourceCaptures
 }
 
 ///|
 fn LcseStructuralIndex::new(
   func : @ir.HotFunc,
-  fact_visits? : Array[Int]? = None,
+  fact_visits~ : Array[Int32]? = None,
 ) -> LcseStructuralIndex {
   let count = @ir.hot_node_count(func)
   {
@@ -3366,8 +3373,8 @@ fn lcse_structural_exact_equal(
 fn LcseStructuralIndex::nodes_equal(
   self : LcseStructuralIndex,
   func : @ir.HotFunc,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   let lhs = @ir.hot_node_get(func, lhs_id)
   let rhs = @ir.hot_node_get(func, rhs_id)
@@ -3401,8 +3408,8 @@ fn LcseStructuralIndex::nodes_equal(
 fn LcseStructuralIndex::node_hash(
   self : LcseStructuralIndex,
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   // The exact comparison above is authoritative. This deliberately cheap hash
   // keeps allocation-free lookup while collision chains preserve correctness.
   let node = @ir.hot_node_get(func, node_id)
@@ -3423,7 +3430,7 @@ fn LcseStructuralIndex::node_hash(
 fn LcseStructuralIndex::refresh_node(
   self : LcseStructuralIndex,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   self.ensure_capacity(func)
   if node_id < 0 ||
@@ -3483,7 +3490,7 @@ fn LcseStructuralIndex::refresh_node(
 }
 
 ///|
-fn lcse_result_type(func : @ir.HotFunc, node_id : Int) -> @lib.ValType? {
+fn lcse_result_type(func : @ir.HotFunc, node_id : Int32) -> @lib.ValType? {
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [ty] => Some(ty)
     _ => None
@@ -3506,8 +3513,8 @@ fn lcse_candidate_class(
   func : @ir.HotFunc,
   effects : @ir.HotEffectsSummary,
   structural : LcseStructuralIndex,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   if lcse_result_type(func, node_id) is None {
     return -1
@@ -3534,7 +3541,7 @@ fn lcse_candidate_class(
 fn lcse_barrier_clears_window(
   func : @ir.HotFunc,
   effects : @ir.HotEffectsSummary,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3553,7 +3560,7 @@ fn lcse_wrap_original(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   binding : LcseBinding,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   if binding.local_id >= 0 {
     return (binding.local_id, -1)
   }
@@ -3575,8 +3582,8 @@ fn lcse_replace_repeat(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   place : LcsePlace,
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   let get_id = @ir.hot_build_local_get(func, local_id)
   match place {
     LcsePlace::Region(region_ref, idx) =>
@@ -3595,7 +3602,7 @@ fn lcse_consider_candidate(
   effects : @ir.HotEffectsSummary,
   structural : LcseStructuralIndex,
   state : LcseState,
-  node_id : Int,
+  node_id : Int32,
   place : LcsePlace,
 ) -> Bool {
   let class_id = lcse_candidate_class(func, effects, structural, node_id)
@@ -3635,10 +3642,10 @@ fn lcse_visit_node(
   effects : @ir.HotEffectsSummary,
   structural : LcseStructuralIndex,
   state : LcseState,
-  node_id : Int,
+  node_id : Int32,
   place : LcsePlace,
-  capture_entry? : Bool = false,
-  force_eval? : Bool = false,
+  capture_entry~ : Bool = false,
+  force_eval~ : Bool = false,
 ) -> Unit {
   if !force_eval && structural.captures.contains(node_id) {
     return
@@ -3664,9 +3671,9 @@ fn lcse_visit_node_uncaptured(
   effects : @ir.HotEffectsSummary,
   structural : LcseStructuralIndex,
   state : LcseState,
-  node_id : Int,
+  node_id : Int32,
   place : LcsePlace,
-  capture_entry? : Bool = false,
+  capture_entry~ : Bool = false,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -3822,7 +3829,7 @@ fn lcse_visit_region(
 fn local_cse_run_impl(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  fact_visits? : Array[Int]? = None,
+  fact_visits~ : Array[Int32]? = None,
 ) -> HotPassResult {
   let before_revision = @ir.hot_revision_current(func)
   let effects = pass_require_effects(ctx, func)
@@ -3839,7 +3846,7 @@ fn local_cse_run_impl(
 fn local_cse_run_with_fact_visits(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  fact_visits : Array[Int],
+  fact_visits : Array[Int32],
 ) -> HotPassResult {
   local_cse_run_impl(ctx, func, fact_visits=Some(fact_visits))
 }

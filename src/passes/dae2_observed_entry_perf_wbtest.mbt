@@ -1,5 +1,5 @@
 ///|
-fn dae2_observed_entry_fixture(siblings : Int, stores : Int) -> @lib.Module {
+fn dae2_observed_entry_fixture(siblings : Int32, stores : Int32) -> @lib.Module {
   let wat = [
     "(module (memory 1) (global $g (mut i32) (i32.const 0)) (func $h (param i32) (result i32) i32.const 7) (func (export \"run\") (result i32) i32.const 9 call $h)",
   ]
@@ -19,8 +19,8 @@ fn dae2_observed_entry_fixture(siblings : Int, stores : Int) -> @lib.Module {
 ///|
 fn dae2_observed_entry_bench(
   it : @bench.T,
-  siblings : Int,
-  stores : Int,
+  siblings : Int32,
+  stores : Int32,
   optimizing : Bool,
 ) -> Unit {
   let input = dae2_observed_entry_fixture(siblings, stores)

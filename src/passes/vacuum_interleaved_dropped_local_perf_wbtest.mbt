@@ -1,5 +1,5 @@
 ///|
-fn vacuum_interleaved_dropped_local_fixture(count : Int) -> @lib.Module {
+fn vacuum_interleaved_dropped_local_fixture(count : Int32) -> @lib.Module {
   let wat = StringBuilder::new()
   wat.write_string(
     "(module (global (mut i32) (i32.const 0)) (func (param i32) (local i32)",
@@ -14,7 +14,7 @@ fn vacuum_interleaved_dropped_local_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn vacuum_interleaved_dropped_local_bench(it : @bench.T, count : Int) -> Unit {
+fn vacuum_interleaved_dropped_local_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = vacuum_interleaved_dropped_local_fixture(count)
   let ctx = HotPassContext::new(
     @ir.HotPassDescriptor::new("vacuum", requires=[], invalidates=[]),

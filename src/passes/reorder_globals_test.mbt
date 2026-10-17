@@ -6,7 +6,7 @@ fn rg_test_func_type_sec() -> @lib.TypeSec {
 }
 
 ///|
-fn rg_test_i32_global(value : Int) -> @lib.Global {
+fn rg_test_i32_global(value : Int32) -> @lib.Global {
   @lib.Global::new(
     @lib.GlobalType::new(@lib.ValType::i32(), false),
     @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(value))]),
@@ -14,7 +14,7 @@ fn rg_test_i32_global(value : Int) -> @lib.Global {
 }
 
 ///|
-fn rg_test_dependent_i32_global(dep : UInt) -> @lib.Global {
+fn rg_test_dependent_i32_global(dep : UInt32) -> @lib.Global {
   @lib.Global::new(
     @lib.GlobalType::new(@lib.ValType::i32(), false),
     @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(dep))]),
@@ -22,7 +22,7 @@ fn rg_test_dependent_i32_global(dep : UInt) -> @lib.Global {
 }
 
 ///|
-fn rg_test_globals(count : Int) -> Array[@lib.Global] {
+fn rg_test_globals(count : Int32) -> Array[@lib.Global] {
   let globals : Array[@lib.Global] = Array::new(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     globals.push(rg_test_i32_global(idx))
@@ -31,7 +31,7 @@ fn rg_test_globals(count : Int) -> Array[@lib.Global] {
 }
 
 ///|
-fn rg_test_body_using_global(raw : UInt, repetitions : Int) -> @lib.Expr {
+fn rg_test_body_using_global(raw : UInt32, repetitions : Int32) -> @lib.Expr {
   let body : Array[@lib.Instruction] = []
   for rep = 0; rep < repetitions; rep = rep + 1 {
     ignore(rep)
@@ -65,7 +65,7 @@ fn rg_test_imported_i32_global(name : String) -> @lib.Import {
 }
 
 ///|
-fn rg_test_import_only_module(count : Int, hot : UInt) -> @lib.Module {
+fn rg_test_import_only_module(count : Int32, hot : UInt32) -> @lib.Module {
   let imports : Array[@lib.Import] = Array::new(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     imports.push(rg_test_imported_i32_global("g\{idx}"))
@@ -172,7 +172,7 @@ fn rg_test_global_import_bases(mod_ : @lib.Module) -> Array[String] {
 }
 
 ///|
-fn rg_test_global_const_value(mod_ : @lib.Module, idx : Int) -> Int raise {
+fn rg_test_global_const_value(mod_ : @lib.Module, idx : Int32) -> Int32 raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
       match globals[idx] {
@@ -184,7 +184,7 @@ fn rg_test_global_const_value(mod_ : @lib.Module, idx : Int) -> Int raise {
 }
 
 ///|
-fn rg_test_first_body_global_get(mod_ : @lib.Module) -> UInt raise {
+fn rg_test_first_body_global_get(mod_ : @lib.Module) -> UInt32 raise {
   match mod_.code_sec {
     Some(
       @lib.CodeSec(

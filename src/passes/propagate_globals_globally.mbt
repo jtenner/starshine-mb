@@ -4,7 +4,7 @@ pub fn propagate_globals_globally_summary() -> String {
 }
 
 ///|
-fn pgg_imported_global_count(mod_ : @lib.Module) -> Int {
+fn pgg_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -22,7 +22,7 @@ fn pgg_imported_global_count(mod_ : @lib.Module) -> Int {
 ///|
 fn pgg_rewrite_globals(
   global_sec : @lib.GlobalSec?,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> (@lib.GlobalSec?, Array[@lib.Instruction?], Bool) {
   let defined_globals = match global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()

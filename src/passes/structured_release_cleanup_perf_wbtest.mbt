@@ -1,5 +1,5 @@
 ///|
-fn release_cleanup_scaled_fixture(width : Int) -> String {
+fn release_cleanup_scaled_fixture(width : Int32) -> String {
   let body = Array::makei(width, fn(i) {
     "local.get 0 i32.load offset=4 local.set \{i + 3} local.get 1 local.get \{i + 3} i32.ge_s drop"
   }).join(" ")
@@ -8,7 +8,7 @@ fn release_cleanup_scaled_fixture(width : Int) -> String {
 }
 
 ///|
-fn release_cleanup_scaled_bench(it : @bench.T, width : Int) -> Unit raise {
+fn release_cleanup_scaled_bench(it : @bench.T, width : Int32) -> Unit raise {
   let input = pass_test_module_from_wat(release_cleanup_scaled_fixture(width))
   let saved = @binary.encode_module(input).unwrap()
   let options = HotPipelineOptions::new()

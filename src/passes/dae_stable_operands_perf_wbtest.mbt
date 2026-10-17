@@ -1,5 +1,5 @@
 ///|
-fn dae_stable_operands_bench(it : @bench.T, calls : Int) -> Unit {
+fn dae_stable_operands_bench(it : @bench.T, calls : Int32) -> Unit {
   let graph = dae_stable_operands_fixture(calls, 16)
   it.bench(fn() {
     let cache = DaeUniformResolutionCache::new(
@@ -39,7 +39,7 @@ test "bench DAE stable parameter queries calls=128" (it : @bench.T) {
 ///|
 fn dae_current_call_facts_bench(
   it : @bench.T,
-  calls : Int,
+  calls : Int32,
   stable : Bool,
 ) -> Unit {
   let graph = dae_stable_operands_fixture(calls, 2)

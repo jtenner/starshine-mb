@@ -1,5 +1,5 @@
 ///|
-fn sgo_runtime_trace_nested_block_fixture(depth : Int) -> @lib.Expr {
+fn sgo_runtime_trace_nested_block_fixture(depth : Int32) -> @lib.Expr {
   let mut body = @lib.Expr::new([@lib.Instruction::nop()])
   for _ in 0..<depth {
     body = @lib.Expr::new([
@@ -10,7 +10,7 @@ fn sgo_runtime_trace_nested_block_fixture(depth : Int) -> @lib.Expr {
 }
 
 ///|
-fn sgo_runtime_trace_nested_block_bench(it : @bench.T, depth : Int) -> Unit {
+fn sgo_runtime_trace_nested_block_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = sgo_runtime_trace_nested_block_fixture(depth)
   let (preflight, changed) = sgo_rewrite_runtime_trace_expr(fixture, [])
   if changed || preflight != fixture {
@@ -67,8 +67,8 @@ test "SGO runtime trace carries nested block barriers" {
 
 ///|
 fn sgo_runtime_trace_sparse_barrier_fixture(
-  global_count : Int,
-  barrier_count : Int,
+  global_count : Int32,
+  barrier_count : Int32,
 ) -> (@lib.Expr, Array[SgoGlobalInfo]) {
   let globals : Array[@lib.Global] = []
   for idx in 0..<global_count {
@@ -91,7 +91,7 @@ fn sgo_runtime_trace_sparse_barrier_fixture(
 }
 
 ///|
-fn sgo_runtime_trace_sparse_barrier_bench(it : @bench.T, count : Int) -> Unit {
+fn sgo_runtime_trace_sparse_barrier_bench(it : @bench.T, count : Int32) -> Unit {
   let (fixture, infos) = sgo_runtime_trace_sparse_barrier_fixture(count, count)
   let (preflight, changed) = sgo_rewrite_runtime_trace_expr(fixture, infos)
   if changed || preflight != fixture {

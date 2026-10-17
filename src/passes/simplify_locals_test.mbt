@@ -1,5 +1,8 @@
 ///|
-fn simplify_locals_test_count_substring(text : String, needle : String) -> Int {
+fn simplify_locals_test_count_substring(
+  text : String,
+  needle : String,
+) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -24,7 +27,7 @@ fn simplify_locals_test_assert_strings_in_order(
 ) -> Unit raise {
   let mut start = 0
   for needle in needles {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let limit = text.length() - needle.length()
     let mut i = start
     while i <= limit {

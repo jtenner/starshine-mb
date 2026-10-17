@@ -43,7 +43,10 @@ test "DAE transaction identity recognizes distinct identical NaN global bits" {
 }
 
 ///|
-fn dae_snapshot_bits_nested(value : @lib.Instruction, kind : Int) -> @lib.Expr {
+fn dae_snapshot_bits_nested(
+  value : @lib.Instruction,
+  kind : Int32,
+) -> @lib.Expr {
   let body = @lib.Expr::new([value])
   let type_ = @lib.BlockType::val_type(@lib.ValType::f32())
   let instruction = match kind {
@@ -61,10 +64,10 @@ test "DAE transaction identity compares float bits in every structured body and 
   let plus = @lib.Instruction::f32_const(@lib.F32(0.0))
   let minus = @lib.Instruction::f32_const(@lib.F32(-0.0))
   let nan = @lib.Instruction::f32_const(
-    @lib.F32((0x7fc00001 : Int).reinterpret_as_float()),
+    @lib.F32((0x7fc00001 : Int32).reinterpret_as_float()),
   )
   let other_nan = @lib.Instruction::f32_const(
-    @lib.F32((0x7fc00002 : Int).reinterpret_as_float()),
+    @lib.F32((0x7fc00002 : Int32).reinterpret_as_float()),
   )
   for kind in 0..<5 {
     assert_false(

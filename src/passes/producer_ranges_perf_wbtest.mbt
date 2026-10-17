@@ -1,8 +1,8 @@
 ///|
 fn sl_producer_range_bench(
   it : @bench.T,
-  width : Int,
-  shape : Int,
+  width : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let fragment = match shape {

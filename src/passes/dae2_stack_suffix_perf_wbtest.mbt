@@ -1,5 +1,8 @@
 ///|
-fn dae2_stack_suffix_perf_fixture(helpers : Int, width : Int) -> @lib.Module {
+fn dae2_stack_suffix_perf_fixture(
+  helpers : Int32,
+  width : Int32,
+) -> @lib.Module {
   let definitions = Array::makei(helpers, fn(i) {
     let calls = Array::make(width, "local.get 0 i32.const 9 call $sink\{i}").join(
       " ",
@@ -14,8 +17,8 @@ fn dae2_stack_suffix_perf_fixture(helpers : Int, width : Int) -> @lib.Module {
 ///|
 fn dae2_stack_suffix_perf_run(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   direct : Bool,
 ) -> Unit raise {
   let input = dae2_stack_suffix_perf_fixture(helpers, width)

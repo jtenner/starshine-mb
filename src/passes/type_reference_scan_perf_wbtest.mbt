@@ -73,7 +73,7 @@ fn type_reference_probe_reference(mod_ : @lib.Module) -> @lib.Module {
         return mod_
       }
       let without_types = mod_.with_type_sec(@lib.TypeSec::new([]))
-      let bulk_probe : Map[UInt, UInt] = Map([])
+      let bulk_probe : Map[UInt32, UInt32] = Map([])
       let mut candidate_count = 0
       for candidate_idx = 0
           candidate_idx < rec_types.length()
@@ -91,7 +91,7 @@ fn type_reference_probe_reference(mod_ : @lib.Module) -> @lib.Module {
       if needs_individual_probes {
         while idx < rec_types.length() {
           if !live[idx] {
-            let probe : Map[UInt, UInt] = Map([])
+            let probe : Map[UInt32, UInt32] = Map([])
             let raw_idx = idx.reinterpret_as_uint()
             probe[raw_idx] = rec_types.length().reinterpret_as_uint()
             if dfe_module_type_refs_use_remap(without_types, probe) {
@@ -110,7 +110,7 @@ fn type_reference_probe_reference(mod_ : @lib.Module) -> @lib.Module {
             let mut dependency_idx = 0
             while dependency_idx < rec_types.length() {
               if !live[dependency_idx] {
-                let probe : Map[UInt, UInt] = Map([])
+                let probe : Map[UInt32, UInt32] = Map([])
                 let raw_dependency_idx = dependency_idx.reinterpret_as_uint()
                 probe[raw_dependency_idx] = rec_types
                   .length()
@@ -127,7 +127,7 @@ fn type_reference_probe_reference(mod_ : @lib.Module) -> @lib.Module {
         }
       }
       let kept : Array[@lib.RecType] = []
-      let remap : Map[UInt, UInt] = Map([])
+      let remap : Map[UInt32, UInt32] = Map([])
       idx = 0
       while idx < rec_types.length() {
         if live[idx] {
@@ -156,7 +156,7 @@ fn type_reference_probe_reference(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn type_reference_scan_benchmark(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let input = type_reference_scan_fixture(count, 2048)

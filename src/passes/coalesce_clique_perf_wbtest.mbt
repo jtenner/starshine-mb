@@ -1,9 +1,9 @@
 ///|
 fn cl_clique_bench(
   it : @bench.T,
-  width : Int,
-  members : Int,
-  stride : Int,
+  width : Int32,
+  members : Int32,
+  stride : Int32,
   reference : Bool,
 ) -> Unit {
   let live = Array::makei(members, fn(i) { i * stride })

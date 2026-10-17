@@ -1,7 +1,7 @@
 ///|
 fn cl_branch_depth_merge_reference(
-  depths : Array[Int],
-  source : Array[Int],
+  depths : Array[Int32],
+  source : Array[Int32],
   shift_outward : Bool,
 ) -> Unit {
   for depth in source {
@@ -14,7 +14,7 @@ fn cl_branch_depth_merge_reference(
 
 ///|
 test "branch depth merging retains first-occurrence order through mask collisions and shifts" {
-  let rows : Array[Array[Int]] = [
+  let rows : Array[Array[Int32]] = [
     [],
     [0],
     [0, 1, 1, 3],

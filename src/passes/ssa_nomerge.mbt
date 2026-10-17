@@ -57,7 +57,7 @@ pub(all) struct SsaNoMergeRewritePlan {
 
 ///|
 fn ssa_nomerge_fresh_local_for_write(
-  fresh_by_write : Array[Int],
+  fresh_by_write : Array[Int32],
   write_id : @ir.NodeId,
 ) -> @ir.LocalId? {
   if write_id >= 0 &&
@@ -72,7 +72,7 @@ fn ssa_nomerge_fresh_local_for_write(
 ///|
 fn ssa_nomerge_plan_get_decision(
   graph : @ir.HotLocalGraph,
-  fresh_by_write : Array[Int],
+  fresh_by_write : Array[Int32],
   get_id : @ir.NodeId,
 ) -> SsaNoMergeGetDecision {
   if @ir.local_graph_get_is_merge(graph, get_id) {
@@ -99,9 +99,9 @@ fn ssa_nomerge_plan_get_decision(
 
 ///|
 fn ssa_nomerge_note_loop_local_access(
-  first_accesses : Array[Int],
+  first_accesses : Array[Int32],
   local_id : @ir.LocalId,
-  access : Int,
+  access : Int32,
 ) -> Unit {
   if local_id >= 0 &&
     local_id < first_accesses.length() &&
@@ -115,7 +115,7 @@ fn ssa_nomerge_collect_loop_body_accesses_in_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   writes : @bitset.BitSet,
-  first_accesses : Array[Int],
+  first_accesses : Array[Int32],
   visited : @bitset.BitSet,
 ) -> Unit {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -134,7 +134,7 @@ fn ssa_nomerge_collect_loop_body_accesses_in_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
   writes : @bitset.BitSet,
-  first_accesses : Array[Int],
+  first_accesses : Array[Int32],
   visited : @bitset.BitSet,
 ) -> Unit {
   if node_id < 0 ||
@@ -517,7 +517,7 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-fn ssa_nomerge_is_control_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
+fn ssa_nomerge_is_control_region_slot(op : @ir.HotOp, slot : Int32) -> Bool {
   match op {
     @ir.HotOp::Block | @ir.HotOp::Loop => true
     @ir.HotOp::If => slot == 1 || slot == 2
@@ -557,7 +557,7 @@ fn ssa_nomerge_subtree_has_local_or_terminator(
 fn ssa_nomerge_is_simple_nested_value_block_operand(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
-  slot : Int,
+  slot : Int32,
   child_id : @ir.NodeId,
 ) -> Bool {
   @ir.ssa_simple_drop_value_block_allowed(func, parent_id, slot, child_id)
@@ -567,7 +567,7 @@ fn ssa_nomerge_is_simple_nested_value_block_operand(
 fn ssa_nomerge_is_simple_nested_result_if_operand(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
-  slot : Int,
+  slot : Int32,
   child_id : @ir.NodeId,
 ) -> Bool {
   @ir.ssa_simple_drop_result_if_allowed(func, parent_id, slot, child_id)
@@ -607,7 +607,7 @@ fn ssa_nomerge_if_in_supported_drop_result_if(
 fn ssa_nomerge_is_supported_result_if_condition_value_block(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
-  parent_slot : Int,
+  parent_slot : Int32,
   block_id : @ir.NodeId,
 ) -> Bool {
   if parent_slot != 0 ||
@@ -632,7 +632,7 @@ fn ssa_nomerge_is_supported_result_if_condition_value_block(
 fn ssa_nomerge_nested_cfg_node_is_fail_closed(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
-  parent_slot : Int,
+  parent_slot : Int32,
   node_id : @ir.NodeId,
 ) -> Bool {
   if ssa_nomerge_is_simple_nested_value_block_operand(
@@ -659,7 +659,7 @@ fn ssa_nomerge_has_nested_cfg_control_node(
   node_id : @ir.NodeId,
   is_region_root : Bool,
   parent_id : @ir.NodeId,
-  parent_slot : Int,
+  parent_slot : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false

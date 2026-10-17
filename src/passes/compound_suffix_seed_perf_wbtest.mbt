@@ -2,9 +2,9 @@
 fn sl_compound_seed_batch(
   body : Array[@lib.Instruction],
   env : @validate.Env,
-  queries : Int,
+  queries : Int32,
   reuse : Bool,
-) -> Int {
+) -> Int32 {
   let mut seed : SlStatementTypeSeed? = None
   let mut completed = 0
   let wide_environment = reuse && env.locals.length() >= 128
@@ -39,8 +39,8 @@ fn sl_compound_seed_batch(
 ///|
 fn sl_compound_seed_bench(
   it : @bench.T,
-  locals : Int,
-  queries : Int,
+  locals : Int32,
+  queries : Int32,
   leaf : Bool,
   reuse : Bool,
 ) -> Unit raise {

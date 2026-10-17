@@ -1,14 +1,14 @@
 ///|
 enum SimplifyLocalsDewArrayValue {
-  Scalar(Int)
-  Elements(Array[Int])
+  Scalar(Int32)
+  Elements(Array[Int32])
   Fields(Array[SimplifyLocalsDewArrayValue])
 }
 
 ///|
 fn simplify_locals_dew_array_int(
   value : SimplifyLocalsDewArrayValue,
-) -> Int raise {
+) -> Int32 raise {
   match value {
     Scalar(value) => value
     _ => fail("expected scalar in array-pop execution")
@@ -18,13 +18,13 @@ fn simplify_locals_dew_array_int(
 ///|
 fn simplify_locals_dew_array_execute(
   func : @lib.Func,
-  elements : Array[Int],
-) -> (Int, Array[Int]) raise {
+  elements : Array[Int32],
+) -> (Int32, Array[Int32]) raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(body_locals.length() + 1, Scalar(0))
   locals[0] = Fields([Elements(elements), Scalar(elements.length())])
   let stack : Array[SimplifyLocalsDewArrayValue] = []
-  let events : Array[Int] = []
+  let events : Array[Int32] = []
   fn execute(instrs : Array[@lib.Instruction]) -> Unit raise {
     for instr in instrs {
       match instr {

@@ -1,5 +1,5 @@
 ///|
-fn dae2_raw_analysis_fixture(helpers : Int, width : Int) -> @lib.Module {
+fn dae2_raw_analysis_fixture(helpers : Int32, width : Int32) -> @lib.Module {
   let wat = ["(module"]
   for index in 0..<helpers {
     wat.push("(func $h\{index} (param i32 i32 i32) (result i32) local.get 1")
@@ -17,9 +17,9 @@ fn dae2_raw_analysis_fixture(helpers : Int, width : Int) -> @lib.Module {
 ///|
 fn dae2_raw_analysis_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
-  mode : Int,
+  helpers : Int32,
+  width : Int32,
+  mode : Int32,
 ) -> Unit {
   let input = dae2_raw_analysis_fixture(helpers, width)
   let saved = @binary.encode_module(input).unwrap()

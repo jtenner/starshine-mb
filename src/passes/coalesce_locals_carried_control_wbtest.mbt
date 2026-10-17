@@ -1,10 +1,10 @@
 ///|
-fn cl_carried_control_execute(func : @lib.Func) -> Int raise {
+fn cl_carried_control_execute(func : @lib.Func) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(body_locals.length(), 0)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut fuel = 300
-  fn execute(instrs : Array[@lib.Instruction]) -> Int? raise {
+  fn execute(instrs : Array[@lib.Instruction]) -> Int32? raise {
     for instr in instrs {
       fuel -= 1
       assert_true(

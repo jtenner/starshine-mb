@@ -3,7 +3,7 @@ fn cl_structured_live_reference(
   actions : Array[CLAction],
   liveness : CLLiveness,
   types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
 ) -> CLBitMatrix {
   let total_locals = types.length()
   let interferences = CLBitMatrix::new(total_locals)

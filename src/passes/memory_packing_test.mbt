@@ -1,10 +1,30 @@
 ///|
+fn mp_test_profitable_split_payload() -> Bytes {
+  let bytes = Array::make(130, b'\x00')
+  bytes[0] = b'A'
+  bytes[129] = b'B'
+  Bytes::from_array(bytes)
+}
+
+///|
+fn mp_test_expect_size_saving(
+  before : @lib.Module,
+  after : @lib.Module,
+) -> Unit raise {
+  assert_true(
+    @binary.encode_module(after).unwrap().length() <
+    @binary.encode_module(before).unwrap().length(),
+    msg="the positive memory-packing fixture must save complete encoded bytes",
+  )
+}
+
+///|
 fn mp_test_active_data_segments(
   mod_ : @lib.Module,
-) -> Array[(UInt, Int, Bytes)] {
+) -> Array[(UInt32, Int32, Bytes)] {
   match mod_.data_sec {
     Some(@lib.DataSec(datas)) => {
-      let segments : Array[(UInt, Int, Bytes)] = []
+      let segments : Array[(UInt32, Int32, Bytes)] = []
       for data in datas {
         match data {
           @lib.Data(
@@ -263,7 +283,7 @@ fn mp_test_instr_has_i32_div_s(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn mp_test_count_data_drop_instrs(instrs : Array[@lib.Instruction]) -> Int {
+fn mp_test_count_data_drop_instrs(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += mp_test_count_data_drop_instr(instr)
@@ -272,7 +292,7 @@ fn mp_test_count_data_drop_instrs(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn mp_test_count_data_drop_instr(instr : @lib.Instruction) -> Int {
+fn mp_test_count_data_drop_instr(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.DataDrop(_) => 1
     @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) => {
@@ -292,7 +312,7 @@ fn mp_test_count_data_drop_instr(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn mp_test_has_active_i32_offset(mod_ : @lib.Module, offset : Int) -> Bool {
+fn mp_test_has_active_i32_offset(mod_ : @lib.Module, offset : Int32) -> Bool {
   for segment in mp_test_active_data_segments(mod_) {
     match segment {
       (_, actual, _) => if actual == offset { return true }
@@ -515,16 +535,14 @@ test "memory-packing does not mutate input overlapping data segments" {
 
 ///|
 test "memory-packing preserves trailing trap after a nonzero prefix" {
-  let input =
-    #| (module
-    #|   (memory 1)
-    #|   (data (i32.const 65534) "A\00\00"))
-    #|
+  let zeros = "\\00".repeat(128)
+  let input = "(module (memory 1) (data (i32.const 65534) \"A\{zeros}\"))"
   let optimized = match pass_test_run_pipeline(input, ["memory-packing"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected memory-packing pipeline success, got \{err}")
   }
 
+  mp_test_expect_size_saving(pass_test_module_from_wat(input), optimized)
   let segments = mp_test_active_data_segments(optimized)
   @debug.assert_eq(segments.length(), 2)
   match segments[0] {
@@ -537,7 +555,7 @@ test "memory-packing preserves trailing trap after a nonzero prefix" {
   match segments[1] {
     (mem_idx, offset, bytes) => {
       @debug.assert_eq(mem_idx, 0U)
-      @debug.assert_eq(offset, 65536)
+      @debug.assert_eq(offset, 65662)
       @debug.assert_eq(bytes, b"\x00")
     }
   }
@@ -1066,6 +1084,7 @@ test "memory-packing rewrites out-of-range active memory.init to an explicit tra
     )
 
   let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_size_saving(input, optimized)
   let body = mp_test_first_func_body(optimized)
   if mp_test_instrs_have_memory_init(body) {
     fail("expected active memory.init source trap to be lowered away")
@@ -1100,6 +1119,7 @@ test "memory-packing preserves active memory.init trap operand side effects" {
   mp_test_expect_valid(
     optimized, "active memory.init trap operand side effects",
   )
+  mp_test_expect_size_saving(pass_test_module_from_wat(input), optimized)
   let body = mp_test_first_func_body(optimized)
   if mp_test_instrs_have_memory_init(body) {
     fail("expected active memory.init source trap to be lowered away")
@@ -1211,13 +1231,30 @@ test "memory-packing preserves zero-size active memory.init trapping operands" {
     #|       (i32.const 0)
     #|       (i32.const 0))))
     #|
-  let optimized = match pass_test_run_pipeline(input, ["memory-packing"]) {
+  let payload = Array::make(131, b'\x00')
+  payload[0] = b'a'
+  payload[1] = b'b'
+  payload[2] = b'c'
+  let input = pass_test_module_from_wat(input).with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        Bytes::from_array(payload),
+      ),
+    ]),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected memory-packing pipeline success, got \{err}")
   }
   mp_test_expect_valid(
     optimized, "zero-size active memory.init trapping operand",
   )
+  mp_test_expect_size_saving(input, optimized)
   let body = mp_test_first_func_body(optimized)
   if mp_test_instrs_have_memory_init(body) {
     fail("expected zero-size active memory.init to be lowered away")
@@ -1437,7 +1474,7 @@ test "memory-packing allocates a temp local for dynamic passive memory.init dest
       @lib.DataSec::new([
         @lib.Data::new(
           @lib.DataMode::passive(),
-          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+          mp_test_profitable_split_payload(),
         ),
       ]),
     )
@@ -1448,7 +1485,7 @@ test "memory-packing allocates a temp local for dynamic passive memory.init dest
           @lib.Expr::new([
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::i32_const(@lib.I32(0)),
-            @lib.Instruction::i32_const(@lib.I32(34)),
+            @lib.Instruction::i32_const(@lib.I32(130)),
             @lib.Instruction::memory_init(
               @lib.DataIdx::new(0U),
               @lib.MemIdx::new(0U),
@@ -1459,6 +1496,7 @@ test "memory-packing allocates a temp local for dynamic passive memory.init dest
     )
 
   let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_size_saving(input, optimized)
   if mp_test_first_func_locals(optimized).length() == 0 {
     fail(
       "expected dynamic passive memory.init replacement to allocate a destination temp local",
@@ -1486,7 +1524,7 @@ fn mp_test_dynamic_split_with_named_label() -> @lib.Module {
     @lib.DataSec::new([
       @lib.Data::new(
         @lib.DataMode::passive(),
-        b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+        mp_test_profitable_split_payload(),
       ),
     ]),
   )
@@ -1497,7 +1535,7 @@ fn mp_test_dynamic_split_with_named_label() -> @lib.Module {
         @lib.Expr::new([
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
           @lib.Instruction::i32_const(@lib.I32(0)),
-          @lib.Instruction::i32_const(@lib.I32(34)),
+          @lib.Instruction::i32_const(@lib.I32(130)),
           @lib.Instruction::memory_init(
             @lib.DataIdx::new(0U),
             @lib.MemIdx::new(0U),
@@ -1545,6 +1583,7 @@ fn mp_test_dynamic_split_with_named_label() -> @lib.Module {
 test "memory-packing drops stale labels after dynamic passive split" {
   let input = mp_test_dynamic_split_with_named_label()
   let direct = memory_packing_run_module_pass(input)
+  mp_test_expect_size_saving(input, direct)
   @debug.assert_eq(
     direct.name_sec.unwrap().label_names,
     Some(
@@ -1563,6 +1602,7 @@ test "memory-packing drops stale labels after dynamic passive split" {
     Ok(module_) => module_
     Err(err) => fail("expected named passive split dispatch, got \{err}")
   }
+  mp_test_expect_size_saving(input, dispatched)
   @debug.assert_eq(dispatched.name_sec, direct.name_sec)
 }
 
@@ -1783,7 +1823,7 @@ test "memory-packing gives split data segments suffixed names" {
       @lib.DataSec::new([
         @lib.Data::new(
           @lib.DataMode::passive(),
-          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+          mp_test_profitable_split_payload(),
         ),
       ]),
     )
@@ -1794,7 +1834,7 @@ test "memory-packing gives split data segments suffixed names" {
           @lib.Expr::new([
             @lib.Instruction::i32_const(@lib.I32(0)),
             @lib.Instruction::i32_const(@lib.I32(0)),
-            @lib.Instruction::i32_const(@lib.I32(34)),
+            @lib.Instruction::i32_const(@lib.I32(130)),
             @lib.Instruction::memory_init(
               @lib.DataIdx::new(0U),
               @lib.MemIdx::new(0U),
@@ -1814,6 +1854,7 @@ test "memory-packing gives split data segments suffixed names" {
     )
 
   let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_size_saving(input, optimized)
   @debug.assert_eq(mp_test_data_name_entries(optimized), [
     @lib.NameAssoc::new(0U, @lib.Name::from_string("payload")),
     @lib.NameAssoc::new(1U, @lib.Name::from_string("payload.1")),
@@ -1984,7 +2025,7 @@ test "memory-packing uses i64 destination locals for memory64 passive splits" {
       @lib.DataSec::new([
         @lib.Data::new(
           @lib.DataMode::passive(),
-          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+          mp_test_profitable_split_payload(),
         ),
       ]),
     )
@@ -1995,7 +2036,7 @@ test "memory-packing uses i64 destination locals for memory64 passive splits" {
           @lib.Expr::new([
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::i32_const(@lib.I32(0)),
-            @lib.Instruction::i32_const(@lib.I32(34)),
+            @lib.Instruction::i32_const(@lib.I32(130)),
             @lib.Instruction::memory_init(
               @lib.DataIdx::new(0U),
               @lib.MemIdx::new(0U),
@@ -2006,6 +2047,7 @@ test "memory-packing uses i64 destination locals for memory64 passive splits" {
     )
 
   let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_size_saving(input, optimized)
   mp_test_expect_valid(optimized, "memory64 passive split")
   @debug.assert_eq(
     mp_test_first_func_locals(optimized),

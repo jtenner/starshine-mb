@@ -1,5 +1,5 @@
 ///|
-fn ca_module_env_fixture(count : Int) -> @lib.Module {
+fn ca_module_env_fixture(count : Int32) -> @lib.Module {
   let wat = ["(module (type $result (func (result i32)))"]
   for index in 0..<count {
     wat.push(
@@ -53,7 +53,7 @@ fn ca_module_env_outputs(
 ///|
 fn ca_module_env_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   refinalize : Bool,
   shared : Bool,
 ) -> Unit {

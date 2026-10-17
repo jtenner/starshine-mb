@@ -1,7 +1,7 @@
 ///|
 fn sgo_import_alias_scan_fixture(
-  defined_globals : Int,
-  writes : Int,
+  defined_globals : Int32,
+  writes : Int32,
 ) -> @lib.Module {
   let globals : Array[@lib.Global] = []
   for idx in 0..<defined_globals {
@@ -52,7 +52,7 @@ fn sgo_import_alias_scan_fixture(
 }
 
 ///|
-fn sgo_import_alias_scan_bench(it : @bench.T, defined_globals : Int) -> Unit {
+fn sgo_import_alias_scan_bench(it : @bench.T, defined_globals : Int32) -> Unit {
   let fixture = sgo_import_alias_scan_fixture(defined_globals, 256)
   let output = match
     @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [

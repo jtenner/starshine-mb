@@ -1,16 +1,16 @@
 ///|
 fn dae_parameter_loop_admission(
   mod_ : @lib.Module,
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   function_infos : Array[DaeFunctionInfo],
-  type_visits? : Array[Int]? = None,
+  type_visits~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let admitted = Array::make(defined, true)
   match mod_.type_sec {
     Some(_) => {
       let indices : Array[@lib.TypeIdx] = []
-      let owners : Array[Int] = []
+      let owners : Array[Int32] = []
       for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
         let abs = imported + def_idx
         if abs < 0 || abs >= function_infos.length() {

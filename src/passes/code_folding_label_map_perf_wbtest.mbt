@@ -1,5 +1,5 @@
 ///|
-fn code_folding_label_map_bench(it : @bench.T, count : Int) -> Unit {
+fn code_folding_label_map_bench(it : @bench.T, count : Int32) -> Unit {
   let left_base = 100000
   let right_base = 200000
   it.bench(fn() {

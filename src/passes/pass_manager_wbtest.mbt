@@ -2446,9 +2446,9 @@ test "dae dropped-result definition helper returns exact caller touched flag" {
 
 ///|
 fn pass_manager_test_vacuum_tag_cascade_body(
-  group_count : Int,
-  start_value : Int,
-  tag_value : Int,
+  group_count : Int32,
+  start_value : Int32,
+  tag_value : Int32,
 ) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = [@lib.Instruction::nop()]
   for group = 0; group < group_count; group = group + 1 {
@@ -2606,8 +2606,8 @@ fn pass_manager_test_vacuum_strip_nops(
 ///|
 fn pass_manager_test_vacuum_first_local_set_depth(
   instrs : Array[@lib.Instruction],
-  depth : Int,
-) -> Int? {
+  depth : Int32,
+) -> Int32? {
   for instr in instrs {
     match instr {
       @lib.LocalSet(_) => return Some(depth)
@@ -2730,7 +2730,7 @@ test "raw vacuum instruction scan detects nested constant result ifs once" {
 
 ///|
 test "raw vacuum deep singleton call-leaf fast path rejects nearby shapes" {
-  let wrap = fn(depth : Int, leaf : Array[@lib.Instruction]) {
+  let wrap = fn(depth : Int32, leaf : Array[@lib.Instruction]) {
     let mut body = leaf
     for level = 0; level < depth; level = level + 1 {
       body = [
@@ -8446,11 +8446,11 @@ test "raw vacuum preclean flattens f4919 call-if wrapper before tag99 return" {
 
 ///|
 fn pass_manager_test_vacuum_f5027_release_selected_payload_branch(
-  selector : UInt,
-  alias_raw : UInt,
-  payload : UInt,
-  count : UInt,
-  selected : UInt,
+  selector : UInt32,
+  alias_raw : UInt32,
+  payload : UInt32,
+  count : UInt32,
+  selected : UInt32,
   branch : @lib.Instruction?,
 ) -> Array[@lib.Instruction] {
   let offset0 = @lib.MemArg::new(0U, None, 0UL)
@@ -16690,23 +16690,23 @@ test "pass registry public lookup stays detached from cached descriptors" {
 ///|
 #cfg(target="native")
 test "raw simplify-locals branchy structured gate accepts target-like stats" {
-  let accepted = {
-    locals_count: 184,
-    instr_count: 1072,
-    has_structured_control: true,
-    if_count: 53,
-    block_count: 24,
-    loop_count: 0,
-    local_set_count: 69,
-    local_tee_count: 0,
-    local_get_count: 315,
-    call_count: 107,
-    return_count: 7,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=184,
+    instr_count=1072,
+    has_structured_control=true,
+    if_count=53,
+    block_count=24,
+    loop_count=0,
+    local_set_count=69,
+    local_tee_count=0,
+    local_get_count=315,
+    call_count=107,
+    return_count=7,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
       accepted,
@@ -16734,23 +16734,23 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
 
 ///|
 test "raw simplify-locals unchecked small structured call mesh gate accepts artifact-like stats" {
-  let accepted = {
-    locals_count: 4,
-    instr_count: 257,
-    has_structured_control: true,
-    if_count: 15,
-    block_count: 2,
-    loop_count: 1,
-    local_set_count: 6,
-    local_tee_count: 0,
-    local_get_count: 94,
-    call_count: 59,
-    return_count: 7,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=4,
+    instr_count=257,
+    has_structured_control=true,
+    if_count=15,
+    block_count=2,
+    loop_count=1,
+    local_set_count=6,
+    local_tee_count=0,
+    local_get_count=94,
+    call_count=59,
+    return_count=7,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats(
       accepted,
@@ -16774,23 +16774,23 @@ test "raw simplify-locals unchecked small structured call mesh gate accepts arti
 
 ///|
 test "raw simplify-locals giant validator gate accepts artifact-like stats" {
-  let accepted = {
-    locals_count: 1368,
-    instr_count: 10699,
-    has_structured_control: true,
-    if_count: 584,
-    block_count: 136,
-    loop_count: 4,
-    local_set_count: 1577,
-    local_tee_count: 0,
-    local_get_count: 2853,
-    call_count: 1227,
-    return_count: 14,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=1368,
+    instr_count=10699,
+    has_structured_control=true,
+    if_count=584,
+    block_count=136,
+    loop_count=4,
+    local_set_count=1577,
+    local_tee_count=0,
+    local_get_count=2853,
+    call_count=1227,
+    return_count=14,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
       accepted,
@@ -16814,23 +16814,23 @@ test "raw simplify-locals giant validator gate accepts artifact-like stats" {
 
 ///|
 test "raw simplify-locals block-rich structured call-heavy gate accepts target-like stats" {
-  let accepted = {
-    locals_count: 128,
-    instr_count: 579,
-    has_structured_control: true,
-    if_count: 32,
-    block_count: 32,
-    loop_count: 0,
-    local_set_count: 67,
-    local_tee_count: 0,
-    local_get_count: 165,
-    call_count: 130,
-    return_count: 0,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=128,
+    instr_count=579,
+    has_structured_control=true,
+    if_count=32,
+    block_count=32,
+    loop_count=0,
+    local_set_count=67,
+    local_tee_count=0,
+    local_get_count=165,
+    call_count=130,
+    return_count=0,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
       accepted,
@@ -16868,23 +16868,23 @@ test "raw simplify-locals block-rich structured call-heavy gate accepts target-l
 
 ///|
 test "raw simplify-locals call-dense structured walker gate accepts target-like stats" {
-  let accepted = {
-    locals_count: 164,
-    instr_count: 1170,
-    has_structured_control: true,
-    if_count: 171,
-    block_count: 14,
-    loop_count: 3,
-    local_set_count: 37,
-    local_tee_count: 0,
-    local_get_count: 1068,
-    call_count: 552,
-    return_count: 3,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=164,
+    instr_count=1170,
+    has_structured_control=true,
+    if_count=171,
+    block_count=14,
+    loop_count=3,
+    local_set_count=37,
+    local_tee_count=0,
+    local_get_count=1068,
+    call_count=552,
+    return_count=3,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
       accepted,
@@ -17531,15 +17531,15 @@ extern "c" fn pass_manager_test_native_fopen(
 
 ///|
 #cfg(target="native")
-extern "c" fn pass_manager_test_native_fclose(stream : UInt64) -> Int = "fclose"
+extern "c" fn pass_manager_test_native_fclose(stream : UInt64) -> Int32 = "fclose"
 
 ///|
 #cfg(target="native")
 extern "c" fn pass_manager_test_native_fseek(
   stream : UInt64,
-  offset : Int,
-  whence : Int,
-) -> Int = "fseek"
+  offset : Int32,
+  whence : Int32,
+) -> Int32 = "fseek"
 
 ///|
 #cfg(target="native")
@@ -17616,7 +17616,7 @@ fn pass_manager_test_native_read_repo_fixture(path : String) -> Bytes? {
 #cfg(target="native")
 fn pass_manager_test_dae_core_apply_iters(
   mod_ : @lib.Module,
-  limit : Int,
+  limit : Int32,
 ) -> @lib.Module {
   let original_type_indices = dae_collect_func_type_indices(mod_)
   let original_param_counts = dae_collect_original_param_counts_with_type_indices(
@@ -17762,8 +17762,8 @@ fn pass_manager_test_dae_core_apply_iters(
 #cfg(target="native")
 fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
   mod_ : @lib.Module,
-  limit : Int,
-) -> Array[Int] {
+  limit : Int32,
+) -> Array[Int32] {
   let original_type_indices = dae_collect_func_type_indices(mod_)
   let original_param_counts = dae_collect_original_param_counts_with_type_indices(
     mod_, original_type_indices,
@@ -17826,7 +17826,7 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
     original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
     original_dead_suffix_mutual_calls,
   )
-  let primary_defs : Array[Int] = []
+  let primary_defs : Array[Int32] = []
   let mut current = mod_
   let mut iter = 0
   while iter < limit {
@@ -17870,8 +17870,8 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
 #cfg(target="native")
 fn pass_manager_test_dae_core_primary_defs(
   mod_ : @lib.Module,
-  limit : Int,
-) -> Array[Int] {
+  limit : Int32,
+) -> Array[Int32] {
   let original_type_indices = dae_collect_func_type_indices(mod_)
   let original_param_counts = dae_collect_original_param_counts_with_type_indices(
     mod_, original_type_indices,
@@ -17979,7 +17979,7 @@ fn pass_manager_test_dae_core_primary_defs(
     original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
     original_dead_suffix_mutual_calls,
   )
-  let primary_defs : Array[Int] = []
+  let primary_defs : Array[Int32] = []
   let graph = dae_current_boundary_graph_new(mod_)
   let mut current = mod_
   let mut iter = 0
@@ -18018,13 +18018,13 @@ fn pass_manager_test_dae_core_primary_defs(
 #cfg(target="native")
 fn pass_manager_test_first_shape_failure_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
-  entry_stack_values : Int,
-  caller_abs : Int,
+  callee_abs : Int32,
+  param_count : Int32,
+  entry_stack_values : Int32,
+  caller_abs : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let mut idx = 0
   while idx < instrs.length() {
     match instrs[idx] {
@@ -18101,9 +18101,9 @@ fn pass_manager_test_first_shape_failure_instrs(
 #cfg(target="native")
 fn pass_manager_test_first_shape_failure(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
-) -> (Int, Int)? {
+  callee_abs : Int32,
+  param_count : Int32,
+) -> (Int32, Int32)? {
   let imported = dae_imported_func_count(mod_)
   let func_type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
@@ -18135,14 +18135,14 @@ fn pass_manager_test_first_shape_failure(
 #cfg(target="native")
 fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
-  param_idx : Int,
-  entry_stack_values : Int,
-  caller_abs : Int,
+  callee_abs : Int32,
+  param_count : Int32,
+  param_idx : Int32,
+  entry_stack_values : Int32,
+  caller_abs : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Int, Array[@lib.Instruction])? {
+) -> (Int32, Array[@lib.Instruction])? {
   let mut idx = 0
   while idx < instrs.length() {
     match instrs[idx] {
@@ -18232,10 +18232,10 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
 #cfg(target="native")
 fn pass_manager_test_first_nonconst_i32_actual_instrs(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
-  param_idx : Int,
-) -> (Int, Array[@lib.Instruction])? {
+  callee_abs : Int32,
+  param_count : Int32,
+  param_idx : Int32,
+) -> (Int32, Array[@lib.Instruction])? {
   let imported = dae_imported_func_count(mod_)
   let func_type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
@@ -18268,9 +18268,9 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs(
 #cfg(target="native")
 fn pass_manager_test_rewrite_call_progress(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
-) -> (Int, Int, Int)? {
+) -> (Int32, Int32, Int32)? {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
@@ -18295,9 +18295,9 @@ fn pass_manager_test_rewrite_call_progress(
 #cfg(target="native")
 fn pass_manager_test_total_rewritten_calls(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
-) -> Int {
+) -> Int32 {
   let type_indices = dae_collect_func_type_indices(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -18482,7 +18482,7 @@ fn pass_manager_test_instrs_contain_func71_split_value_wrapper(
 
 ///|
 #cfg(target="native")
-fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int {
+fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -18501,7 +18501,7 @@ fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int {
 #cfg(target="native")
 fn pass_manager_test_try_rewrite_exact_literal_candidate(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -18576,8 +18576,8 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
 #cfg(target="native")
 fn pass_manager_test_collect_uniform_const_actuals(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Array[@lib.Instruction?]? {
   let graph = dae_current_boundary_graph_new(mod_)
   dae_collect_uniform_const_actuals_from_current_call_facts(
@@ -18594,7 +18594,7 @@ fn pass_manager_test_collect_uniform_const_actuals(
 #cfg(target="native")
 fn pass_manager_test_defined_func_params(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Array[@lib.ValType] {
   let type_idx = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs[def_idx]
@@ -18625,13 +18625,13 @@ let pass_manager_test_debug_artifact_bytes_cache : Ref[Bytes?] = Ref::new(None)
 ///|
 #cfg(target="native")
 let pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache : Ref[
-  Array[Int]?,
+  Array[Int32]?,
 ] = Ref::new(None)
 
 ///|
 #cfg(target="native")
 let pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache : Ref[
-  Array[Int]?,
+  Array[Int32]?,
 ] = Ref::new(None)
 
 ///|
@@ -18692,8 +18692,11 @@ fn pass_manager_test_debug_artifact_module() -> @lib.Module {
 
 ///|
 #cfg(target="native")
-fn pass_manager_test_take_ints(values : Array[Int], count : Int) -> Array[Int] {
-  let taken : Array[Int] = []
+fn pass_manager_test_take_ints(
+  values : Array[Int32],
+  count : Int32,
+) -> Array[Int32] {
+  let taken : Array[Int32] = []
   let mut idx = 0
   while idx < count && idx < values.length() {
     taken.push(values[idx])
@@ -18704,7 +18707,7 @@ fn pass_manager_test_take_ints(values : Array[Int], count : Int) -> Array[Int] {
 
 ///|
 #cfg(target="native")
-fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int] {
+fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int32] {
   match pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache.val {
     Some(primary_defs) => primary_defs
     None => {
@@ -18723,7 +18726,7 @@ fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int] {
 ///|
 #cfg(target="native")
 fn pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20() -> Array[
-  Int,
+  Int32,
 ] {
   match
     pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache.val {
@@ -19383,7 +19386,7 @@ test "dae core debug artifact Func 42 rewrite does not leave add-zero memory.cop
 }
 
 ///|
-fn pass_manager_test_count_selected_defs(selected : Array[Bool]) -> Int {
+fn pass_manager_test_count_selected_defs(selected : Array[Bool]) -> Int32 {
   let mut count = 0
   for item in selected {
     if item {
@@ -20747,23 +20750,23 @@ test "raw simplify-locals skips giant structured local churn debug artifact Func
 
 ///|
 test "raw simplify-locals branch-dense structured call-heavy gate accepts target-like stats" {
-  let accepted = {
-    locals_count: 64,
-    instr_count: 673,
-    has_structured_control: true,
-    if_count: 96,
-    block_count: 0,
-    loop_count: 0,
-    local_set_count: 3,
-    local_tee_count: 0,
-    local_get_count: 289,
-    call_count: 193,
-    return_count: 0,
-    exact_tail_count: 0,
-    has_global_state: false,
-    has_memory_size: false,
-    has_stack_effect_hazard: false,
-  }
+  let accepted = RawSimplifyLocalsGateStats::new(
+    locals_count=64,
+    instr_count=673,
+    has_structured_control=true,
+    if_count=96,
+    block_count=0,
+    loop_count=0,
+    local_set_count=3,
+    local_tee_count=0,
+    local_get_count=289,
+    call_count=193,
+    return_count=0,
+    exact_tail_count=0,
+    has_global_state=false,
+    has_memory_size=false,
+    has_stack_effect_hazard=false,
+  )
   assert_true(
     run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
       accepted,

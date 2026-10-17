@@ -8,7 +8,7 @@ fn ssa_test_first_defined_func(
 ///|
 fn ssa_test_defined_func(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -21,7 +21,7 @@ fn ssa_test_defined_func(
 }
 
 ///|
-fn ssa_test_type_count(mod_ : @lib.Module) -> Int raise {
+fn ssa_test_type_count(mod_ : @lib.Module) -> Int32 raise {
   match mod_.type_sec {
     Some(@lib.TypeSec(types)) => types.length()
     None => fail("expected type section")
@@ -40,7 +40,7 @@ fn ssa_test_local_types(locals : @lib.Locals) -> Array[@lib.ValType] {
 ///|
 fn ssa_test_collect_local_write_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -66,8 +66,8 @@ fn ssa_test_collect_local_write_indices(
 ///|
 fn ssa_test_local_write_indices(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_test_collect_local_write_indices(instrs, out)
   out
 }
@@ -75,7 +75,7 @@ fn ssa_test_local_write_indices(
 ///|
 fn ssa_test_collect_local_set_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -97,8 +97,10 @@ fn ssa_test_collect_local_set_indices(
 }
 
 ///|
-fn ssa_test_local_set_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
-  let out : Array[UInt] = []
+fn ssa_test_local_set_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_test_collect_local_set_indices(instrs, out)
   out
 }
@@ -106,7 +108,7 @@ fn ssa_test_local_set_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
 ///|
 fn ssa_test_collect_local_tee_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -128,8 +130,10 @@ fn ssa_test_collect_local_tee_indices(
 }
 
 ///|
-fn ssa_test_local_tee_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
-  let out : Array[UInt] = []
+fn ssa_test_local_tee_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_test_collect_local_tee_indices(instrs, out)
   out
 }
@@ -137,7 +141,7 @@ fn ssa_test_local_tee_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
 ///|
 fn ssa_test_body_has_mask_update_tee_from_local(
   instrs : Array[@lib.Instruction],
-  local_id : UInt,
+  local_id : UInt32,
 ) -> Bool {
   let mut saw_source_get = false
   let mut saw_and = false
@@ -204,8 +208,8 @@ fn ssa_test_has_stale_mask_eqz_after_nested_update(
 ///|
 fn ssa_test_root_i32_add_local_tee_targets(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   let mut previous_was_i32_add = false
   for instr in instrs {
     match instr {
@@ -225,8 +229,8 @@ fn ssa_test_root_i32_add_local_tee_targets(
 ///|
 fn ssa_test_root_i32_and_local_tee_targets(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   let mut previous_was_i32_and = false
   for instr in instrs {
     match instr {
@@ -246,7 +250,7 @@ fn ssa_test_root_i32_and_local_tee_targets(
 ///|
 fn ssa_test_collect_i32_sub_local_set_targets(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   let mut previous_was_i32_sub = false
   for instr in instrs {
@@ -281,8 +285,8 @@ fn ssa_test_collect_i32_sub_local_set_targets(
 ///|
 fn ssa_test_i32_sub_local_set_targets(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_test_collect_i32_sub_local_set_targets(instrs, out)
   out
 }
@@ -290,7 +294,7 @@ fn ssa_test_i32_sub_local_set_targets(
 ///|
 fn ssa_test_has_ssa_temp_local_writes(
   instrs : Array[@lib.Instruction],
-  canonical_local : UInt,
+  canonical_local : UInt32,
 ) -> Bool {
   ssa_test_local_write_indices(instrs).any(fn(idx) { idx > canonical_local })
 }
@@ -329,28 +333,28 @@ fn ssa_nomerge_test_get_decision(
 
 ///|
 struct SsaNoMergeShadowSummary {
-  plan_freshen_writes : Int
-  plan_keep_writes : Int
-  plan_retarget_gets : Int
-  plan_default_gets : Int
-  plan_keep_gets : Int
-  current_added_body_locals : Int
-  current_local_gets : Array[UInt]
+  plan_freshen_writes : Int32
+  plan_keep_writes : Int32
+  plan_retarget_gets : Int32
+  plan_default_gets : Int32
+  plan_keep_gets : Int32
+  current_added_body_locals : Int32
+  current_local_gets : Array[UInt32]
 } derive(Debug)
 
 ///|
 struct SsaNoMergeMixedPlanSummary {
-  plan_freshen_writes : Int
-  plan_keep_writes : Int
-  plan_retarget_gets : Int
-  plan_default_gets : Int
-  plan_keep_gets : Int
+  plan_freshen_writes : Int32
+  plan_keep_writes : Int32
+  plan_retarget_gets : Int32
+  plan_default_gets : Int32
+  plan_keep_gets : Int32
 } derive(Debug)
 
 ///|
 fn ssa_nomerge_test_count_plan_freshen_writes(
   plan : SsaNoMergeRewritePlan,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for rewrite in plan.write_rewrites {
     match rewrite.decision {
@@ -362,7 +366,9 @@ fn ssa_nomerge_test_count_plan_freshen_writes(
 }
 
 ///|
-fn ssa_nomerge_test_count_plan_keep_writes(plan : SsaNoMergeRewritePlan) -> Int {
+fn ssa_nomerge_test_count_plan_keep_writes(
+  plan : SsaNoMergeRewritePlan,
+) -> Int32 {
   let mut count = 0
   for rewrite in plan.write_rewrites {
     match rewrite.decision {
@@ -376,7 +382,7 @@ fn ssa_nomerge_test_count_plan_keep_writes(plan : SsaNoMergeRewritePlan) -> Int 
 ///|
 fn ssa_nomerge_test_count_plan_retarget_gets(
   plan : SsaNoMergeRewritePlan,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for rewrite in plan.get_rewrites {
     match rewrite.decision {
@@ -390,7 +396,7 @@ fn ssa_nomerge_test_count_plan_retarget_gets(
 ///|
 fn ssa_nomerge_test_count_plan_default_gets(
   plan : SsaNoMergeRewritePlan,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for rewrite in plan.get_rewrites {
     match rewrite.decision {
@@ -402,7 +408,7 @@ fn ssa_nomerge_test_count_plan_default_gets(
 }
 
 ///|
-fn ssa_nomerge_test_count_plan_keep_gets(plan : SsaNoMergeRewritePlan) -> Int {
+fn ssa_nomerge_test_count_plan_keep_gets(plan : SsaNoMergeRewritePlan) -> Int32 {
   let mut count = 0
   for rewrite in plan.get_rewrites {
     match rewrite.decision {
@@ -416,7 +422,7 @@ fn ssa_nomerge_test_count_plan_keep_gets(plan : SsaNoMergeRewritePlan) -> Int {
 ///|
 fn ssa_nomerge_test_collect_local_get_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -441,14 +447,14 @@ fn ssa_nomerge_test_collect_local_get_indices(
 ///|
 fn ssa_nomerge_test_local_get_indices(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_nomerge_test_collect_local_get_indices(instrs, out)
   out
 }
 
 ///|
-fn ssa_nomerge_test_count_drops(instrs : Array[@lib.Instruction]) -> Int {
+fn ssa_nomerge_test_count_drops(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -1175,7 +1181,7 @@ fn ssa_test_instrs_have_br_on_cast_fail(
 ///|
 fn ssa_test_has_adjacent_call_drop(
   instrs : Array[@lib.Instruction],
-  target : UInt,
+  target : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
@@ -1192,8 +1198,8 @@ fn ssa_test_has_adjacent_call_drop(
 ///|
 fn ssa_test_instrs_have_i32_const_call(
   instrs : Array[@lib.Instruction],
-  value : Int,
-  target : UInt,
+  value : Int32,
+  target : UInt32,
 ) -> Bool {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
@@ -1233,7 +1239,7 @@ fn ssa_test_instrs_have_i32_const_call(
 ///|
 fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
   instrs : Array[@lib.Instruction],
-  canonical_local : UInt,
+  canonical_local : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -1301,7 +1307,7 @@ fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
 ///|
 fn ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
   instrs : Array[@lib.Instruction],
-  canonical_local : UInt,
+  canonical_local : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -1480,7 +1486,7 @@ fn ssa_test_instrs_have_nonvoid_loop(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn ssa_test_instrs_have_block_type_idx(
   instrs : Array[@lib.Instruction],
-  expected : UInt,
+  expected : UInt32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -1516,7 +1522,7 @@ fn ssa_test_instrs_have_multi_param_loop_store_backedge(
 ) -> Bool {
   fn body_has_loop_backedge(
     body : Array[@lib.Instruction],
-    depth : UInt,
+    depth : UInt32,
   ) -> Bool {
     for instr in body {
       match instr {
@@ -1600,7 +1606,7 @@ fn ssa_test_instrs_have_br(instrs : Array[@lib.Instruction]) -> Bool {
 
 ///|
 fn ssa_test_instrs_have_loop_backedge(instrs : Array[@lib.Instruction]) -> Bool {
-  fn body_has_backedge(body : Array[@lib.Instruction], depth : UInt) -> Bool {
+  fn body_has_backedge(body : Array[@lib.Instruction], depth : UInt32) -> Bool {
     for instr in body {
       match instr {
         @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
@@ -1724,7 +1730,7 @@ fn ssa_test_instrs_have_loop_param_br_table_proxy(
 ) -> Bool {
   fn body_has_br_table_depth(
     body : Array[@lib.Instruction],
-    depth : UInt,
+    depth : UInt32,
   ) -> Bool {
     for instr in body {
       match instr {
@@ -1815,7 +1821,7 @@ fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
 ) -> Bool {
   fn body_has_branch_depth(
     body : Array[@lib.Instruction],
-    depth : UInt,
+    depth : UInt32,
   ) -> Bool {
     for instr in body {
       match instr {
@@ -6924,7 +6930,7 @@ fn ssa_test_hot_path_revision_changed(source : String) -> Bool raise {
 }
 
 ///|
-fn ssa_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+fn ssa_test_bytes_from_ints(values : Array[Int32]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
     out.write_byte(value.to_byte())
@@ -6933,7 +6939,7 @@ fn ssa_test_bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
-fn ssa_test_decode_wasm_bytes(values : Array[Int]) -> @lib.Module {
+fn ssa_test_decode_wasm_bytes(values : Array[Int32]) -> @lib.Module {
   match @binary.decode_module(ssa_test_bytes_from_ints(values)) {
     Ok(mod_) => mod_
     Err(err) => abort("expected SSA wasm fixture decode success, got \{err}")
@@ -7004,7 +7010,7 @@ fn ssa_test_pipeline_expected_mutation_valid(
 // executable contract here is no committed rewrite of the unsafe branch input.
 fn ssa_test_problem1_fail_closed_reference_branch_input(
   input : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
   context : String,
   has_branch : (Array[@lib.Instruction]) -> Bool,
 ) -> Unit raise {
@@ -7241,7 +7247,7 @@ fn ssa_test_assert_no_ssa_nomerge_mutation_trace(
 ///|
 fn ssa_test_expect_null_branch_boundary_module_output(
   input : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
   context : String,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   let trace : Array[String] = []
@@ -7269,7 +7275,7 @@ fn ssa_test_expect_null_branch_boundary_module_output(
 ///|
 fn ssa_test_expect_cast_branch_boundary_module_output(
   input : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
   context : String,
 ) -> (@lib.Locals, Array[@lib.Instruction], Array[String]) raise {
   let trace : Array[String] = []
@@ -8081,7 +8087,7 @@ test "ssa-nomerge preserves delegate shapes without hot local corruption" {
 ///|
 fn ssa_test_expect_scalar_loop_param_branch_proxy(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
   expect_br_if : Bool,
 ) -> Unit raise {
   let trace : Array[String] = []
@@ -8116,7 +8122,7 @@ fn ssa_test_expect_scalar_loop_param_branch_proxy(
 ///|
 fn ssa_test_expect_scalar_loop_param_br_if_proxy(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
 ) -> Unit raise {
   ssa_test_expect_scalar_loop_param_branch_proxy(source, min_local_count, true)
 }
@@ -8124,7 +8130,7 @@ fn ssa_test_expect_scalar_loop_param_br_if_proxy(
 ///|
 fn ssa_test_expect_typed_loop_boundary_output(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
   context : String,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   ssa_test_expect_typed_loop_boundary_output_with_reason(
@@ -8135,7 +8141,7 @@ fn ssa_test_expect_typed_loop_boundary_output(
 ///|
 fn ssa_test_expect_typed_loop_boundary_output_with_reason(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
   context : String,
   reason : String,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
@@ -8168,7 +8174,7 @@ fn ssa_test_expect_typed_loop_boundary_output_with_reason(
 ///|
 fn ssa_test_expect_typed_loop_module_boundary_output(
   input : @lib.Module,
-  min_local_count : Int,
+  min_local_count : Int32,
   context : String,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   let trace : Array[String] = []
@@ -8202,7 +8208,7 @@ fn ssa_test_expect_typed_loop_module_boundary_output(
 ///|
 fn ssa_test_expect_loop_param_store_model(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
 ) -> Unit raise {
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, min_local_count, "store-model",
@@ -8216,7 +8222,7 @@ fn ssa_test_expect_loop_param_store_model(
 ///|
 fn ssa_test_expect_loop_param_br_table_proxy(
   source : String,
-  min_local_count : Int,
+  min_local_count : Int32,
 ) -> Unit raise {
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, min_local_count, "br_table proxy",
@@ -26315,7 +26321,7 @@ fn ssa_test_large_structured_branch_fixture() -> String {
 ///|
 fn ssa_test_assert_raw_structured_rewrite_added_alias_local(
   optimized : @lib.Module,
-  original_local_count : Int,
+  original_local_count : Int32,
   context : String,
 ) -> Unit raise {
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
@@ -26361,7 +26367,7 @@ test "ssa-nomerge rewrites moderately large structured branch functions without 
 }
 
 ///|
-fn ssa_test_large_structured_local_write_fixture(if_count : Int) -> String {
+fn ssa_test_large_structured_local_write_fixture(if_count : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (local i32) ")
   for i = 0; i < if_count; i = i + 1 {
@@ -26482,7 +26488,9 @@ test "ssa-nomerge rewrites larger no-branch structured functions without binarye
 }
 
 ///|
-fn ssa_test_large_structured_branch_if_prefix_fixture(if_count : Int) -> String {
+fn ssa_test_large_structured_branch_if_prefix_fixture(
+  if_count : Int32,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (local i32) block i32.const 0 br 0 end ")
   for i = 0; i < if_count; i = i + 1 {
@@ -31366,8 +31374,8 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
 ///|
 fn ssa_test_local_set_after_i32_const(
   instrs : Array[@lib.Instruction],
-  value : Int,
-) -> UInt? {
+  value : Int32,
+) -> UInt32? {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
       (@lib.I32Const(@lib.I32(found)), @lib.LocalSet(@lib.LocalIdx(raw))) =>
@@ -31383,8 +31391,8 @@ fn ssa_test_local_set_after_i32_const(
 ///|
 fn ssa_test_local_tee_after_i32_const(
   instrs : Array[@lib.Instruction],
-  value : Int,
-) -> UInt? {
+  value : Int32,
+) -> UInt32? {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
       (@lib.I32Const(@lib.I32(found)), @lib.LocalTee(@lib.LocalIdx(raw))) =>
@@ -31400,8 +31408,8 @@ fn ssa_test_local_tee_after_i32_const(
 ///|
 fn ssa_test_local_set_from_local_get(
   instrs : Array[@lib.Instruction],
-  source : UInt,
-) -> UInt? {
+  source : UInt32,
+) -> UInt32? {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
       (@lib.LocalGet(@lib.LocalIdx(found)), @lib.LocalSet(@lib.LocalIdx(raw))) =>

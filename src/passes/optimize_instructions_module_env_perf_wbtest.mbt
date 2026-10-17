@@ -1,5 +1,5 @@
 ///|
-fn oi_module_env_bench(it : @bench.T, count : Int, shared : Bool) -> Unit {
+fn oi_module_env_bench(it : @bench.T, count : Int32, shared : Bool) -> Unit {
   let input = oi_module_env_fixture(count)
   let ctx = @ir.hot_module_context_from_module(input)
   let options = HotPipelineOptions::new()

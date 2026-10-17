@@ -25,8 +25,8 @@ fn profitable_alias_test_calls(
 ///|
 fn profitable_alias_fixture(
   tail : String,
-  ty? : String = "i32",
-  type_defs? : String = "",
+  ty~ : String = "i32",
+  type_defs~ : String = "",
 ) -> @lib.Module {
   let locals = Array::make(201, ty).join(" ")
   // 128 immutable noncopy slots survive; target 127 is deliberately excluded.

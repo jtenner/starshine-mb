@@ -1,6 +1,6 @@
 ///|
 fn compiler_fact_call_index_perf_fixture(
-  count : Int,
+  count : Int32,
 ) -> (CompilerFactIndex, Array[@representation.CodeSite]) {
   let calls : Array[@representation.CallSiteFacts] = []
   let sites : Array[@representation.CodeSite] = []
@@ -41,7 +41,7 @@ test "compiler fact call index keeps first duplicate and containing function" {
 }
 
 ///|
-fn compiler_fact_call_index_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn compiler_fact_call_index_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (index, sites) = compiler_fact_call_index_perf_fixture(count)
   if index.call_facts(sites[count - 1]).unwrap().direct_target !=
     Some((count - 1).to_uint()) {

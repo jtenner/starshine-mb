@@ -2,7 +2,7 @@
 // Fixture validation and output checks stay outside the timed pass run.
 
 ///|
-fn remove_unused_names_loop_fixture(depth : Int) -> @lib.Module {
+fn remove_unused_names_loop_fixture(depth : Int32) -> @lib.Module {
   let mut body : Array[@lib.Instruction] = [@lib.Instruction::nop()]
   for _ in 0..<depth {
     body = [
@@ -13,7 +13,7 @@ fn remove_unused_names_loop_fixture(depth : Int) -> @lib.Module {
 }
 
 ///|
-fn remove_unused_names_loop_bench(it : @bench.T, depth : Int) -> Unit {
+fn remove_unused_names_loop_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = remove_unused_names_loop_fixture(depth)
   ignore(opportunity_run(fixture, "remove-unused-names", true))
   let ctx = @passes.HotPassContext::new(

@@ -1,8 +1,8 @@
 ///|
 fn dae_reverse_signature_bench(
   it : @bench.T,
-  types : Int,
-  helpers : Int,
+  types : Int32,
+  helpers : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit {

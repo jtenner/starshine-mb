@@ -1,7 +1,7 @@
 ///|
 fn sl_cleanup_reads_reference(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
+  reads : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -30,7 +30,7 @@ fn sl_cleanup_reads_reference(
 ///|
 fn sl_cleanup_membership_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit raise {
   let instrs = Array::makei(width, fn(index) {
@@ -40,13 +40,13 @@ fn sl_cleanup_membership_bench(
     @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(instrs)),
   ]
   let saved = sl_leaf_bytes(body)
-  let expected : Array[Int] = []
-  let actual : Array[Int] = []
+  let expected : Array[Int32] = []
+  let actual : Array[Int32] = []
   sl_cleanup_reads_reference(body, expected)
   run_hot_pipeline_simplify_locals_lowered_collect_local_reads(body, actual)
   assert_eq(actual, expected)
   it.bench(fn() {
-    let reads : Array[Int] = []
+    let reads : Array[Int32] = []
     if reference {
       sl_cleanup_reads_reference(body, reads)
     } else {

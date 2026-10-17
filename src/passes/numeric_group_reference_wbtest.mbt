@@ -2,7 +2,7 @@
 fn numeric_group_reference_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
-) -> (@lib.Func, Array[Int]?) {
+) -> (@lib.Func, Array[Int32]?) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= 1 {
     return (func, None)
@@ -26,7 +26,7 @@ fn numeric_group_reference_func(
   }
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
-  let local_remap : Array[Int] = []
+  let local_remap : Array[Int32] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
     local_remap.push(local_id)
   }

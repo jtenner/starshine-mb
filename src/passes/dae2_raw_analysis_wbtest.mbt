@@ -45,13 +45,13 @@ test "DAE2 prunes parameters used only by dropped flat pure expressions" {
 }
 
 ///|
-test "DAE2 analyzes flat writes and trapping producers and fallthrough ifs with HOT fallback for loops" {
+test "DAE2 analyzes flat writes trapping producers conditionals and loops without HOT" {
   for
     (body, expected_lifts) in [
       ("i32.const 11 local.set 0 local.get 0 global.set $g", 0),
       ("i32.const 8 local.get 0 i32.div_s drop", 0),
       ("local.get 0 if i32.const 11 global.set $g end", 0),
-      ("local.get 0 if loop i32.const 11 global.set $g end end", 1),
+      ("local.get 0 if loop i32.const 11 global.set $g end end", 0),
     ] {
     let input = pass_test_module_from_wat(
       "(module (global $g (mut i32) (i32.const 0)) (func $h (param i32) \{body}) (func (export \"run\") (param i32) local.get 0 call $h))",
@@ -176,9 +176,12 @@ test "DAE2 raw dependency plans commit atomically and preserve graph seeds and a
   let saved_work = graph.work.copy()
   let @lib.Func(locals, @lib.Expr(instructions)) = body
   let unsupported = instructions.copy()
-  // A branchless scalar block is supported; loops intentionally retain HOT.
+  // An indexed loop without module type context intentionally retains HOT.
   unsupported.push(
-    @lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new([])),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([]),
+    ),
   )
   assert_true(
     dae2_raw_dependency_plan(

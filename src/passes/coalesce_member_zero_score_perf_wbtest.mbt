@@ -1,7 +1,7 @@
 ///|
 fn cl_member_zero_score_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   weighted : Bool,
   reference : Bool,
 ) -> Unit raise {

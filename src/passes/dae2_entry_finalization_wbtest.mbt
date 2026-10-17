@@ -1,17 +1,17 @@
 ///|
 fn dae2_entry_finalization_reference(
   func : @ir.HotFunc,
-  visits? : Array[Int]? = None,
-  interval_builds? : Array[Int]? = None,
-  known_writes? : Array[Int]? = None,
-  opaque? : Bool = false,
-  write_census_visits? : Array[Int]? = None,
-  entry_row_slots? : Array[Int]? = None,
-) -> Array[Int]? {
+  visits~ : Array[Int32]? = None,
+  interval_builds~ : Array[Int32]? = None,
+  known_writes~ : Array[Int32]? = None,
+  opaque~ : Bool = false,
+  write_census_visits~ : Array[Int32]? = None,
+  entry_row_slots~ : Array[Int32]? = None,
+) -> Array[Int32]? {
   if opaque {
     return None
   }
-  let root_writes : Array[Int] = []
+  let root_writes : Array[Int32] = []
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
       root_writes.push(root)
@@ -35,7 +35,7 @@ fn dae2_entry_finalization_reference(
       writes
     }
   }
-  let mut entry_writes : Array[Int]? = None
+  let mut entry_writes : Array[Int32]? = None
   let mut single_local = -1
   let mut single_write = -1
   let mut admitted = 0
@@ -88,8 +88,8 @@ fn dae2_entry_finalization_reference(
   let write_roots = Array::make(writes.length(), -1)
   let sources = Array::make(count, -2)
   let first_roots = Array::make(count, root_count)
-  let postorder : Array[Int] = []
-  let stack : Array[Int] = []
+  let postorder : Array[Int32] = []
+  let stack : Array[Int32] = []
   // First obtain a unique DAG postorder. Sources doubles as the discovery
   // marker and then the greatest reaching root ordinal, avoiding a seen array.
   for root in @ir.hot_root_span(func) {
@@ -193,9 +193,9 @@ fn dae2_entry_finalization_reference(
 
 ///|
 fn dae2_entry_finalization_fixture(
-  depth : Int,
-  two_writes? : Bool = true,
-) -> (@ir.HotFunc, Array[Int]) {
+  depth : Int32,
+  two_writes~ : Bool = true,
+) -> (@ir.HotFunc, Array[Int32]) {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=Array::make(3, @lib.ValType::i32())),
   )

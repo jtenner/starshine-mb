@@ -1,5 +1,5 @@
 ///|
-fn sl_type_seed_env(width : Int) -> @validate.Env {
+fn sl_type_seed_env(width : Int32) -> @validate.Env {
   @validate.Env::new().with_locals(
     @lib.Locals::from_types(Array::make(width, @lib.ValType::i32())),
   )

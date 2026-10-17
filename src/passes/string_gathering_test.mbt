@@ -15,7 +15,7 @@ fn sg_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
 }
 
 ///|
-fn sg_test_global_count(mod_ : @lib.Module) -> Int {
+fn sg_test_global_count(mod_ : @lib.Module) -> Int32 {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
     None => 0
@@ -23,7 +23,10 @@ fn sg_test_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn sg_test_global_init_instr(mod_ : @lib.Module, idx : Int) -> @lib.Instruction {
+fn sg_test_global_init_instr(
+  mod_ : @lib.Module,
+  idx : Int32,
+) -> @lib.Instruction {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => {
       let @lib.Global(_, @lib.Expr(instrs)) = globals[idx]

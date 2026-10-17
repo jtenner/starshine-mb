@@ -1,9 +1,9 @@
 ///|
 fn cl_branch_depth_filter_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   collisions : Bool,
-  overlap? : Bool = false,
+  overlap~ : Bool = false,
 ) -> Unit {
   let initial = Array::makei(count, fn(i) {
     i * (if collisions { 64 } else { 1 })

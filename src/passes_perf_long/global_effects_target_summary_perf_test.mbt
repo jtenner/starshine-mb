@@ -1,5 +1,5 @@
 ///|
-fn global_effects_target_summary_fixture(count : Int) -> @lib.Module {
+fn global_effects_target_summary_fixture(count : Int32) -> @lib.Module {
   let target_body : Array[@lib.Instruction] = []
   for _ in 0..<count {
     target_body.push(@lib.Instruction::nop())
@@ -39,7 +39,7 @@ fn global_effects_target_summary_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn global_effects_target_summary_bench(it : @bench.T, count : Int) -> Unit {
+fn global_effects_target_summary_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = global_effects_target_summary_fixture(count)
   let expected = opportunity_run(fixture, "global-effects", true)
   let @lib.Func(_, @lib.Expr(body)) = expected.code_sec.unwrap().0[1]

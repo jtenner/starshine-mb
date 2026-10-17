@@ -1,7 +1,7 @@
 ///|
 fn mp_overlap_copy_fixture(
-  segments : Int,
-  bytes_per_segment : Int,
+  segments : Int32,
+  bytes_per_segment : Int32,
 ) -> @lib.Module {
   let payload = Bytes::from_array(
     Array::make(bytes_per_segment, (65).to_byte()),
@@ -26,7 +26,7 @@ fn mp_overlap_copy_fixture(
 }
 
 ///|
-fn mp_overlap_copy_bench(it : @bench.T, segments : Int) -> Unit {
+fn mp_overlap_copy_bench(it : @bench.T, segments : Int32) -> Unit {
   let fixture = mp_overlap_copy_fixture(segments, 4096)
   let original_data = fixture.data_sec
   let expected = opportunity_run(fixture, "memory-packing", true)

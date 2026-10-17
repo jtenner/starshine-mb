@@ -88,14 +88,21 @@ test "dae2 streaming suffix rewrite remaps unread parameters and preserves branc
 }
 
 ///|
-test "dae2 suffix replay keeps a trapping discarded producer on its HOT path" {
+test "dae2 structured scalar replay keeps a trapping discarded producer without HOT" {
   let input = pass_test_module_from_wat(
     "(module (global $g (mut i32) (i32.const 0)) (memory 1) (func $sink (param i32 i32) local.get 0 global.set $g) (func (export \"run\") (param i32) loop local.get 0 i32.const 65536 i32.load call $sink end))",
   )
   let rewrite = [0]
   let output = dae2_run_module_pass(input, false, rewrite_lifts=Some(rewrite)).unwrap()
   @validate.validate_module(output).unwrap()
-  assert_true(rewrite[0] > 0)
+  assert_eq(rewrite[0], 0)
+  let @lib.Func(_, @lib.Expr(caller)) = output.code_sec.unwrap().0[1]
+  let loop_body = match caller[0] {
+    @lib.Loop(_, @lib.Expr(body)) => body
+    _ => fail("missing loop")
+  }
+  assert_true(loop_body.any(fn(instr) { instr is @lib.I32Load(_) }))
+  assert_true(loop_body.any(fn(instr) { instr is @lib.Drop }))
   let reference = dae2_run_module_pass(input, false, raw_rewrite=false).unwrap()
   assert_eq(
     @binary.encode_module(output).unwrap(),
@@ -154,14 +161,24 @@ test "dae2 structured suffix replay preserves retained producer and callee effec
 }
 
 ///|
-test "dae2 structured suffix replay intentionally leaves interleaved argument pruning to HOT" {
+test "dae2 structured scalar replay prunes interleaved arguments without HOT" {
   let input = pass_test_module_from_wat(
     "(module (import \"env\" \"consume\" (func $consume (param i32))) (func $h (param i64 i32) local.get 1 call $consume) (func (export \"run\") (param i32) loop i64.const 9 local.get 0 call $h end))",
   )
   let lifts = [0]
   let output = dae2_run_module_pass(input, false, rewrite_lifts=Some(lifts)).unwrap()
   @validate.validate_module(output).unwrap()
-  assert_true(lifts[0] > 0)
+  assert_eq(lifts[0], 0)
+  let @lib.Func(_, @lib.Expr(caller)) = output.code_sec.unwrap().0[1]
+  assert_eq(caller, [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+      ]),
+    ),
+  ])
   let reference = dae2_run_module_pass(input, false, raw_rewrite=false).unwrap()
   assert_eq(
     @binary.encode_module(output).unwrap(),

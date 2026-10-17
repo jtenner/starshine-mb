@@ -37,15 +37,15 @@ fn dae_wbtest_call_summary_fixture() -> @lib.Module {
 
 ///|
 fn dae_original_result_removal_prune_row(
-  def_idx : Int,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_active_parameterized_result_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  def_idx : Int32,
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_active_parameterized_result_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_block_undropped_self_calls : Array[Bool],
@@ -53,12 +53,12 @@ fn dae_original_result_removal_prune_row(
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
   original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
-  original_later_dead_suffix_dropped_call_counts : Array[Int],
+  original_later_dead_suffix_dropped_call_counts : Array[Int32],
   original_dead_suffix_mutual_calls : Array[Bool],
-  original_private_result_dead_suffix_call_counts : Array[Int],
+  original_private_result_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_result_other_calls : Array[Bool],
-  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int],
-  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int],
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int32],
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int32],
 ) -> DaeOriginalResultRemovalPruneRow {
   {
     param_count: dae_original_int_fact_at(original_param_counts, def_idx),
@@ -365,8 +365,8 @@ test "dae bounded singleton-selected core rewrite stops after first no-op" {
   let mut producer_calls = 0
   let observed_active_modules : Array[Bool] = []
   let observed_selection : Array[Bool] = []
-  let productive_iterations : Array[Int] = []
-  let productive_primary_defs : Array[Int] = []
+  let productive_iterations : Array[Int32] = []
+  let productive_primary_defs : Array[Int32] = []
   let rewrite = fn(
     active : @lib.Module,
     active_selected : Array[Bool],
@@ -395,7 +395,7 @@ test "dae bounded singleton-selected core rewrite stops after first no-op" {
     { mod_out: active, touched: [], changed: false, primary_def: -1, }
   }
   let on_applied = fn(
-    iteration : Int,
+    iteration : Int32,
     application : DaeCoreResultApplication,
   ) -> Unit {
     productive_iterations.push(iteration)
@@ -731,10 +731,10 @@ test "dae first productive selected function rewrite preserves scan order" {
     @lib.NameSec::new(module_name=Some(@lib.Name::from_string("dae-fixture"))),
   )
   let selected = [true, true, true]
-  let visited : Array[Int] = []
+  let visited : Array[Int32] = []
   let rewrite_func = fn(
     func : @lib.Func,
-    def_idx : Int,
+    def_idx : Int32,
     type_sec : @lib.TypeSec?,
   ) -> @lib.Func? {
     visited.push(def_idx)
@@ -3702,7 +3702,7 @@ test "dae direct-caller scope application is transactional and count verified" {
       @lib.Expr::new([@lib.Instruction::unreachable_()]),
     ),
   ]
-  let visited : Array[Int] = []
+  let visited : Array[Int32] = []
   let rewrite = fn(func, def_idx) {
     visited.push(def_idx)
     if def_idx == 0 {
@@ -7267,10 +7267,10 @@ test "dae multi result operand sequence evidence shares specialized and fallback
   ]
   let specialize = fn(
     _ : Array[@lib.Instruction],
-    operand_start : Int,
-    operand_end : Int,
-    result_idx : Int,
-  ) -> (Int, Int)? {
+    operand_start : Int32,
+    operand_end : Int32,
+    result_idx : Int32,
+  ) -> (Int32, Int32)? {
     if result_idx == 0 && operand_start < operand_end {
       Some((operand_start, operand_start + 1))
     } else {
@@ -7291,10 +7291,10 @@ test "dae multi result operand sequence evidence shares specialized and fallback
   }
   let reject_all = fn(
     _ : Array[@lib.Instruction],
-    _ : Int,
-    _ : Int,
-    _ : Int,
-  ) -> (Int, Int)? {
+    _ : Int32,
+    _ : Int32,
+    _ : Int32,
+  ) -> (Int32, Int32)? {
     None
   }
   match
@@ -14915,7 +14915,7 @@ test "dae stable callsites collect active uniform actuals without caller rescans
 
 ///|
 fn dae_scalar_rewrite_plan_fixture(
-  tail_call? : Bool = false,
+  tail_call~ : Bool = false,
 ) -> (
   @lib.Module,
   DaeOriginalBoundarySnapshot,
@@ -15215,7 +15215,7 @@ test "dae localized scalar candidate reaches a bounded common-core fixed point" 
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
   let mut current = mod_
-  let productive_defs : Array[Int] = []
+  let productive_defs : Array[Int32] = []
   for iteration = 0; iteration < 16; iteration = iteration + 1 {
     let call_counts = match current.code_sec {
       Some(@lib.CodeSec(funcs)) =>
@@ -17456,7 +17456,7 @@ fn dae_test_rewrite_unused_first_param_with_graph(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaePassResult raise {
   let def_idx = callee_abs - graph.snapshot.imported
   let funcs = match mod_.code_sec {
@@ -17497,7 +17497,7 @@ fn dae_test_rewrite_unused_first_param_with_graph(
 ///|
 fn dae_test_assert_dropped_result_scalar_differential(
   source : String,
-  scalar_abs : Int,
+  scalar_abs : Int32,
 ) -> Unit raise {
   let mod_ = pass_test_module_from_wat(source)
   let original = dae_collect_original_boundary_snapshot(mod_)
@@ -17659,7 +17659,7 @@ test "dae retained dropped-result graph rebases nested imported and tail-call pa
 }
 
 ///|
-fn dae_test_generated_retained_graph_source(case_idx : Int) -> String {
+fn dae_test_generated_retained_graph_source(case_idx : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string(
     (
@@ -20550,7 +20550,7 @@ test "dae global suffix candidates honor unselected empty and truncated callers"
 }
 
 ///|
-fn dae_test_sparse_callee_benchmark_module(caller_count : Int) -> String {
+fn dae_test_sparse_callee_benchmark_module(caller_count : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (func)\n  (func)\n  (func)\n  (func)\n")
@@ -21738,7 +21738,7 @@ test "dae diagnostic counters aggregate stable reason events" {
 }
 
 ///|
-fn dae_wb_param_count(mod_ : @lib.Module, func_abs : Int) -> Int {
+fn dae_wb_param_count(mod_ : @lib.Module, func_abs : Int32) -> Int32 {
   let type_indices = dae_collect_func_type_indices(mod_)
   match dae_resolve_func_type(mod_, type_indices, func_abs) {
     Some(@lib.FuncType(params, _)) => params.length()
@@ -22692,7 +22692,7 @@ test "dae shared boundary guard blocks signature change on protected targets" {
 ///|
 fn dae_wb_defined_body(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Array[@lib.Instruction] {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -22706,8 +22706,8 @@ fn dae_wb_defined_body(
 ///|
 fn dae_wb_find_direct_call(
   body : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> Int {
+  callee_abs : Int32,
+) -> Int32 {
   let mut idx = 0
   while idx < body.length() {
     match body[idx] {
@@ -22725,8 +22725,8 @@ fn dae_wb_find_direct_call(
 ///|
 fn dae_wb_call_slices(
   mod_ : @lib.Module,
-  caller_def : Int,
-  callee_abs : Int,
+  caller_def : Int32,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
   call_kind : DaeDirectCallKind,
 ) -> DaeDirectCallOperandSlices {

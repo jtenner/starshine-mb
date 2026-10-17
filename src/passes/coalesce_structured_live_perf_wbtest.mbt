@@ -1,8 +1,8 @@
 ///|
 fn cl_structured_live_bench(
   it : @bench.T,
-  width : Int,
-  repetitions : Int,
+  width : Int32,
+  repetitions : Int32,
   reference : Bool,
 ) -> Unit {
   let (actions, liveness, types) = cl_structured_live_fixture(

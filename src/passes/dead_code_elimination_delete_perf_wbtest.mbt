@@ -1,9 +1,9 @@
 ///|
 fn dce_delete_perf_fixture(
-  live_count : Int,
-  detached_count : Int,
-  nonleaf? : Bool = false,
-) -> (@ir.HotFunc, Array[Int]) {
+  live_count : Int32,
+  detached_count : Int32,
+  nonleaf~ : Bool = false,
+) -> (@ir.HotFunc, Array[Int32]) {
   let func = @ir.HotFunc::new()
   for _ in 0..<live_count {
     if nonleaf {
@@ -15,7 +15,7 @@ fn dce_delete_perf_fixture(
       @ir.hot_append_root(func, @ir.hot_build_nop(func))
     }
   }
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   for idx in 0..<detached_count {
     detached.push(@ir.hot_build_const_i32(func, @lib.I32(idx)))
   }
@@ -36,8 +36,8 @@ fn dce_delete_perf_ctx() -> HotPassContext {
 ///|
 fn dce_delete_perf_bench(
   it : @bench.T,
-  live_count : Int,
-  nonleaf? : Bool = false,
+  live_count : Int32,
+  nonleaf~ : Bool = false,
 ) -> Unit {
   let (preflight, detached) = dce_delete_perf_fixture(live_count, 16, nonleaf~)
   dead_code_elimination_delete_unused_nodes(
@@ -164,7 +164,7 @@ test "bench DCE small deletion nonleaf live=1024" (it : @bench.T) {
 }
 
 ///|
-fn dce_label_owned_delete_perf_bench(it : @bench.T, live_count : Int) -> Unit {
+fn dce_label_owned_delete_perf_bench(it : @bench.T, live_count : Int32) -> Unit {
   it.bench(fn() {
     let (func, _) = dce_delete_perf_fixture(live_count, 0)
     let ctx = dce_delete_perf_ctx()

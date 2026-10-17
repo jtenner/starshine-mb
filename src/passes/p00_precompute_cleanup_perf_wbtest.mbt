@@ -1,5 +1,5 @@
 ///|
-fn p00_precompute_cleanup_fixture(width : Int) -> @lib.Module {
+fn p00_precompute_cleanup_fixture(width : Int32) -> @lib.Module {
   let input = pass_test_module_from_wat(
     "(module (import \"host\" \"value\" (func (result i32))) (func))",
   )
@@ -50,7 +50,7 @@ fn p00_precompute_cleanup_batch(input : @lib.Module) -> @ir.HotFunc {
 }
 
 ///|
-fn p00_precompute_cleanup_bench(it : @bench.T, width : Int) -> Unit {
+fn p00_precompute_cleanup_bench(it : @bench.T, width : Int32) -> Unit {
   let input = p00_precompute_cleanup_fixture(width)
   @validate.validate_module(input).unwrap()
   let func = p00_precompute_cleanup_batch(input)

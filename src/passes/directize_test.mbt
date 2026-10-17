@@ -335,8 +335,8 @@ test "directize lowers return-call select of known targets" {
 
 ///|
 fn directize_v131_ref_func_initializer_fixture(
-  grow? : Bool = false,
-  call_offset? : Int = 0,
+  grow~ : Bool = false,
+  call_offset~ : Int32 = 0,
 ) -> @lib.Module {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),

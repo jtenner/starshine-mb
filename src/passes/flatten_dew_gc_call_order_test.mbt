@@ -1,15 +1,15 @@
 ///|
 fn flatten_dew_gc_call_execute(
   func : @lib.Func,
-  initial : Int,
-  condition : Int,
-  helper_delta : Int,
-) -> (Int, Int, Array[Int]) raise {
+  initial : Int32,
+  condition : Int32,
+  helper_delta : Int32,
+) -> (Int32, Int32, Array[Int32]) raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = Array::make(body_locals.length() + 2, 0)
   locals[1] = condition
-  let stack : Array[Int] = []
-  let events : Array[Int] = []
+  let stack : Array[Int32] = []
+  let events : Array[Int32] = []
   let mut field = initial
   let mut fuel = 300
   fn execute(instrs : Array[@lib.Instruction]) -> Bool raise {
@@ -122,13 +122,13 @@ test "flatten spills a carried call before a GC field write" {
 ///|
 fn flatten_dew_tee_prerequisite_execute(
   func : @lib.Func,
-  field : Int,
-) -> Int raise {
+  field : Int32,
+) -> Int32 raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   // -1 represents a null reference. Parameter 0 is the non-null box.
   let locals = Array::make(body_locals.length() + 1, -1)
   locals[0] = 0
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut fuel = 300
   for instr in body {
     fuel -= 1

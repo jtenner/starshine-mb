@@ -33,13 +33,13 @@ test "fifth audit SSA intentionally unrelated loop exit local True" {
 }
 
 ///|
-fn fifth_audit_execute_locals(func : @lib.Func, param : Int) -> Int raise {
+fn fifth_audit_execute_locals(func : @lib.Func, param : Int32) -> Int32 raise {
   let @lib.Func(types, @lib.Expr(body)) = func
   let locals = Array::make(types.length() + 1, 0)
   locals[0] = param
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut fuel = 200
-  fn execute(body : Array[@lib.Instruction]) -> Int? raise {
+  fn execute(body : Array[@lib.Instruction]) -> Int32? raise {
     for instr in body {
       fuel -= 1
       assert_true(fuel > 0)

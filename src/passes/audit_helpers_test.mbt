@@ -15,7 +15,10 @@ fn audit_run(wat : String, pass : String) -> @lib.Module raise {
 }
 
 ///|
-fn audit_body(mod_ : @lib.Module, index? : Int = 0) -> Array[@lib.Instruction] {
+fn audit_body(
+  mod_ : @lib.Module,
+  index~ : Int32 = 0,
+) -> Array[@lib.Instruction] {
   let @lib.Func(_, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index]
   body
 }
@@ -24,7 +27,7 @@ fn audit_body(mod_ : @lib.Module, index? : Int = 0) -> Array[@lib.Instruction] {
 fn audit_count(
   body : Array[@lib.Instruction],
   predicate : (@lib.Instruction) -> Bool,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     if predicate(instr) {

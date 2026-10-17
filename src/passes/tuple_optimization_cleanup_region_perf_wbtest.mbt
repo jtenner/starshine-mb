@@ -1,7 +1,7 @@
 ///|
 fn tuple_cleanup_region_perf_fixture(
-  count : Int,
-) -> (@ir.HotFunc, Array[Int], Array[@ir.HotRegionRef]) {
+  count : Int32,
+) -> (@ir.HotFunc, Array[Int32], Array[@ir.HotRegionRef]) {
   let wat = StringBuilder::new()
   wat.write_string("(module (func")
   for _ in 0..<count {
@@ -9,7 +9,7 @@ fn tuple_cleanup_region_perf_fixture(
   }
   wat.write_string("))")
   let func = @ir.ir_test_build_hot_from_wat(wat.to_string()).hot_func
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   let regions : Array[@ir.HotRegionRef] = []
   let root_ref = @ir.HotRegionRef::root()
   if @ir.hot_region_root_count(func, root_ref) != count {
@@ -25,7 +25,7 @@ fn tuple_cleanup_region_perf_fixture(
 
 ///|
 fn tuple_cleanup_region_perf_plan(
-  node_count : Int,
+  node_count : Int32,
 ) -> HotTupleOptimizationRewriteCleanupPlan {
   {
     removable_root_defs: @bitset.BitSet::new(node_count),
@@ -41,9 +41,9 @@ fn tuple_cleanup_region_perf_plan(
 
 ///|
 fn tuple_cleanup_region_perf_register(
-  roots : Array[Int],
+  roots : Array[Int32],
   regions : Array[@ir.HotRegionRef],
-  node_count : Int,
+  node_count : Int32,
 ) -> HotTupleOptimizationRewriteCleanupPlan {
   let plan = tuple_cleanup_region_perf_plan(node_count)
   for idx in 0..<roots.length() {
@@ -90,7 +90,7 @@ test "tuple cleanup plan records root region once" {
 }
 
 ///|
-fn tuple_cleanup_region_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn tuple_cleanup_region_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, roots, regions) = tuple_cleanup_region_perf_fixture(count)
   let node_count = @ir.hot_node_count(func)
   it.bench(fn() {

@@ -1,8 +1,8 @@
 ///|
 fn dae2_live_control_fixture(
-  depth : Int,
+  depth : Int32,
   debris : Bool,
-) -> (Dae2Graph, Array[Dae2Function], @ir.HotFunc, Int, HotPipelineLowerState) {
+) -> (Dae2Graph, Array[Dae2Function], @ir.HotFunc, Int32, HotPipelineLowerState) {
   let parts : Array[String] = ["(module (func (result i32)"]
   for _ in 0..<depth {
     parts.push("(block (result i32) (loop (result i32)")

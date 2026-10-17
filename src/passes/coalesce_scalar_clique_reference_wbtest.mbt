@@ -2,14 +2,14 @@
 // Frozen1c8485122 worker, including sparse and existing dense-word guards.
 fn cl_scalar_clique_original(
   interferences : CLCfgSparseInterferences,
-  live_members : Array[Int],
-) -> Int {
+  live_members : Array[Int32],
+) -> Int32 {
   // Sparse small sets avoid allocating a mask. Larger cliques update each
   // valid row a word at a time; source membership order does not affect bits.
   if live_members.length() >= 16 {
     let size = interferences.rows.length()
     let mask = @bitset.BitSet::new(size)
-    let words : Array[Int] = []
+    let words : Array[Int32] = []
     for member in live_members {
       if member >= 0 && member < size {
         let word = member / 64

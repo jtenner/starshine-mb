@@ -1,5 +1,5 @@
 ///|
-fn compiler_fact_test_imported_func_count(module_ : @lib.Module) -> Int {
+fn compiler_fact_test_imported_func_count(module_ : @lib.Module) -> Int32 {
   let mut count = 0
   match module_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -17,7 +17,7 @@ fn compiler_fact_test_imported_func_count(module_ : @lib.Module) -> Int {
 ///|
 fn compiler_fact_test_call_site(
   module_ : @lib.Module,
-  function : UInt,
+  function : UInt32,
 ) -> @representation.CodeSite {
   let imported = compiler_fact_test_imported_func_count(module_)
   let defined = function.reinterpret_as_int() - imported
@@ -35,9 +35,9 @@ fn compiler_fact_test_call_site(
 ///|
 fn compiler_fact_test_attach_exact_target(
   module_ : @lib.Module,
-  function : UInt,
-  target : UInt,
-  producer? : @representation.ProducerInfo? = None,
+  function : UInt32,
+  target : UInt32,
+  producer~ : @representation.ProducerInfo? = None,
 ) -> @lib.Module {
   let site = compiler_fact_test_call_site(module_, function)
   module_.with_compiler_fact_custom_section(
@@ -73,7 +73,7 @@ test "apply compiler facts ignore and hints-only tolerate sparse high-bit facts"
 }
 
 ///|
-fn compiler_fact_test_simple_call_ref(tail? : Bool = false) -> @lib.Module {
+fn compiler_fact_test_simple_call_ref(tail~ : Bool = false) -> @lib.Module {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
   let callee_type = @lib.RecType::new(
@@ -215,6 +215,308 @@ test "compiler fact use policy defaults do not trust assertions" {
     @debug.assert_eq(result.stats.call_ref_converted, 0)
     @debug.assert_eq(result.stats.ignored_untrusted_assertions, 1)
   }
+}
+
+///|
+fn compiler_fact_test_attach_function_inline_policy(
+  module_ : @lib.Module,
+  function : UInt32,
+  policy : @representation.InlinePolicy,
+) -> @lib.Module {
+  module_.with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(
+      @representation.OptimizationFactsSec::new(functions=[
+        @representation.FunctionFacts::new(function, inline_policy=Some(policy)),
+      ]),
+    ),
+  )
+}
+
+///|
+test "trusted compiler facts materialize always-inline policy before inlining" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $countdown (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    block
+      #|      loop
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.sub
+      #|        local.tee 1
+      #|        br_if 0
+      #|      end
+      #|    end
+      #|    local.get 1)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $countdown
+      #|    local.get 0
+      #|    call $countdown
+      #|    i32.add))
+    ),
+  )
+  let with_hint = compiler_fact_test_attach_function_inline_policy(
+    input,
+    0U,
+    @representation.InlinePolicy::always(),
+  )
+  let output = run_hot_pipeline(
+    with_hint,
+    HotPipelineOptions::new(
+      compiler_fact_policy=CompilerFactUsePolicy::trust_assertions(),
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+      inlining_allow_functions_with_loops=false,
+    ),
+    ["inlining"],
+  ).unwrap()
+  assert_eq(output.compiler_fact_custom_section, None)
+  let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+  assert_eq(type_indices.length(), 1)
+  let rendered = output.pretty_print_defined_func(0U)
+  assert_false(rendered.contains("call (Func 0)"), msg=rendered)
+  assert_true(rendered.contains("loop"), msg=rendered)
+}
+
+///|
+test "trusted compiler facts materialize never-inline policy before inlining" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $tiny (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run") (result i32)
+      #|    call $tiny))
+    ),
+  )
+  let with_hint = compiler_fact_test_attach_function_inline_policy(
+    input,
+    0U,
+    @representation.InlinePolicy::never(),
+  )
+  let output = run_hot_pipeline(
+    with_hint,
+    HotPipelineOptions::new(
+      compiler_fact_policy=CompilerFactUsePolicy::trust_assertions(),
+    ),
+    ["inlining"],
+  ).unwrap()
+  assert_eq(output.compiler_fact_custom_section, None)
+  let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+  assert_eq(type_indices.length(), 2)
+  let rendered = output.pretty_print_defined_func(1U)
+  assert_true(rendered.contains("call (Func 0)"), msg=rendered)
+}
+
+///|
+test "ignore leaves compiler fact inline policies inert" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $countdown (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    block
+      #|      loop
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.sub
+      #|        local.tee 1
+      #|        br_if 0
+      #|      end
+      #|    end
+      #|    local.get 1)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $countdown))
+    ),
+  )
+  let with_hint = compiler_fact_test_attach_function_inline_policy(
+    input,
+    0U,
+    @representation.InlinePolicy::always(),
+  )
+  let output = run_hot_pipeline(
+    with_hint,
+    HotPipelineOptions::new(
+      compiler_fact_policy=CompilerFactUsePolicy::ignore(),
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+      inlining_allow_functions_with_loops=false,
+    ),
+    ["inlining"],
+  ).unwrap()
+  let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+  assert_eq(type_indices.length(), 2)
+  let rendered = output.pretty_print_defined_func(1U)
+  assert_true(rendered.contains("call (Func 0)"), msg=rendered)
+}
+
+///|
+test "hints-only compiler facts materialize always-inline policy" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $countdown (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    block
+      #|      loop
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.sub
+      #|        local.tee 1
+      #|        br_if 0
+      #|      end
+      #|    end
+      #|    local.get 1)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $countdown))
+    ),
+  )
+  let output = run_hot_pipeline(
+    compiler_fact_test_attach_function_inline_policy(
+      input,
+      0U,
+      @representation.InlinePolicy::always(),
+    ),
+    HotPipelineOptions::new(
+      compiler_fact_policy=CompilerFactUsePolicy::hints_only(),
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+      inlining_allow_functions_with_loops=false,
+    ),
+    ["inlining"],
+  ).unwrap()
+  let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+  assert_eq(type_indices.length(), 1)
+  let rendered = output.pretty_print_defined_func(0U)
+  assert_false(rendered.contains("call (Func 0)"), msg=rendered)
+  assert_true(rendered.contains("loop"), msg=rendered)
+}
+
+///|
+test "repeated hints-only compiler facts do not duplicate inline policy" {
+  let input = compiler_fact_test_attach_function_inline_policy(
+    compiler_fact_test_simple_call_ref(),
+    0U,
+    @representation.InlinePolicy::always(),
+  )
+  let first = apply_compiler_facts(input, CompilerFactUsePolicy::hints_only()).unwrap().module_
+  let second = apply_compiler_facts(first, CompilerFactUsePolicy::hints_only()).unwrap().module_
+  assert_eq(second, first)
+}
+
+///|
+test "compiler fact inline policy replaces older recognized policies" {
+  let input = compiler_fact_test_attach_function_inline_policy(
+    compiler_fact_test_simple_call_ref().with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+          @lib.FuncAnnotation::new("binaryen.inline", args=["\"\\00\""]),
+          @lib.FuncAnnotation::new("binaryen.inline", args=["\"\\7f\""]),
+        ]),
+      ]),
+    ),
+    0U,
+    @representation.InlinePolicy::never(),
+  )
+  let output = apply_compiler_facts(input, CompilerFactUsePolicy::hints_only()).unwrap().module_
+  assert_eq(
+    output.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.inline", args=["\"\\00\""]),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
+test "trusted default and prefer inline policies remain inert" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $countdown (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    block
+      #|      loop
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.sub
+      #|        local.tee 1
+      #|        br_if 0
+      #|      end
+      #|    end
+      #|    local.get 1)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $countdown))
+    ),
+  )
+  for
+    inline_policy in [
+      @representation.InlinePolicy::default_(),
+      @representation.InlinePolicy::prefer(),
+    ] {
+    let output = run_hot_pipeline(
+      compiler_fact_test_attach_function_inline_policy(input, 0U, inline_policy),
+      HotPipelineOptions::new(
+        compiler_fact_policy=CompilerFactUsePolicy::trust_assertions(),
+        inlining_always_inline_max_size=0,
+        inlining_one_caller_inline_max_size=0,
+        inlining_flexible_inline_max_size=0,
+        inlining_allow_functions_with_loops=false,
+      ),
+      ["inlining"],
+    ).unwrap()
+    assert_eq(output.func_annotation_sec, None)
+    let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+    assert_eq(type_indices.length(), 2)
+  }
+}
+
+///|
+test "trusted compiler fact inline policy has precedence over older annotations" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (@binaryen.inline "\\7f")
+      #|  (func $tiny (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run") (result i32)
+      #|    call $tiny))
+    ),
+  )
+  let output = run_hot_pipeline(
+    compiler_fact_test_attach_function_inline_policy(
+      input,
+      0U,
+      @representation.InlinePolicy::never(),
+    ),
+    HotPipelineOptions::new(
+      compiler_fact_policy=CompilerFactUsePolicy::trust_assertions(),
+    ),
+    ["inlining"],
+  ).unwrap()
+  let @lib.FuncSec(type_indices) = output.func_sec.unwrap()
+  assert_eq(type_indices.length(), 2)
+  let rendered = output.pretty_print_defined_func(1U)
+  assert_true(rendered.contains("call (Func 0)"), msg=rendered)
 }
 
 ///|
@@ -544,7 +846,7 @@ test "trusted exact target fails closed on an incompatible signature" {
 ///|
 fn compiler_fact_test_first_plain_call_site(
   module_ : @lib.Module,
-  function : UInt,
+  function : UInt32,
 ) -> @representation.CodeSite {
   let imported = compiler_fact_test_imported_func_count(module_)
   let defined = function.reinterpret_as_int() - imported
@@ -560,11 +862,11 @@ fn compiler_fact_test_first_plain_call_site(
 ///|
 fn compiler_fact_test_attach_value_fact(
   module_ : @lib.Module,
-  function : UInt,
+  function : UInt32,
   facts : @representation.ValueFacts,
-  version? : UInt = 1U,
-  fact_function? : UInt? = None,
-  fact_offset? : UInt? = None,
+  version~ : UInt32 = 1U,
+  fact_function~ : UInt32? = None,
+  fact_offset~ : UInt32? = None,
 ) -> @lib.Module {
   let producer = compiler_fact_test_first_plain_call_site(module_, function)
   let fact_owner = match fact_function {

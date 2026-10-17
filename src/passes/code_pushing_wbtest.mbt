@@ -218,7 +218,7 @@ test "code-pushing batches independent root rewrites in one scan" {
 ///|
 fn code_pushing_wbtest_expect_op(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   expected : String,
 ) -> Unit {
   let op = @ir.hot_node_get(func, node_id).op
@@ -235,7 +235,7 @@ fn code_pushing_wbtest_expect_op(
 fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
   prefix_reads_moved : Bool,
   guard_reads_moved : Bool,
-  second_set? : Bool = false,
+  second_set~ : Bool = false,
 ) -> @ir.HotFunc {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::externref()
@@ -264,7 +264,7 @@ fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
     [],
   )
   let target = @ir.hot_control_node_label(func, block_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   body.push(
     @ir.hot_build_local_set(
       func,
@@ -321,8 +321,8 @@ fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
 ///|
 fn code_pushing_wbtest_find_first_block(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block => return node_id
     _ => ()
@@ -340,7 +340,7 @@ fn code_pushing_wbtest_find_first_block(
 }
 
 ///|
-fn code_pushing_wbtest_root_block(func : @ir.HotFunc) -> Int {
+fn code_pushing_wbtest_root_block(func : @ir.HotFunc) -> Int32 {
   for slot = 0; slot < @ir.hot_root_count(func); slot = slot + 1 {
     let found = code_pushing_wbtest_find_first_block(
       func,
@@ -475,7 +475,7 @@ test "code-pushing moves lowered generated br_on_non_null prefix payload sets af
     [],
   )
   let target = @ir.hot_control_node_label(func, block_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   body.push(
     @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
   )
@@ -565,7 +565,7 @@ test "code-pushing moves exact generated br_on_non_null prefix payload sets afte
   )
   let target = @ir.hot_control_node_label(func, block_id)
   let prefix = @ir.hot_build_const_i32(func, @lib.I32(42))
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   body.push(
     @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
   )

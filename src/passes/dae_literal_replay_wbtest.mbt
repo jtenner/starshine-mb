@@ -2,12 +2,12 @@
 fn dae_literal_replay_fixture_run(
   mod_ : @lib.Module,
   original_boundary_snapshot : DaeOriginalBoundarySnapshot,
-  original_builds : Array[Int],
-  reference? : Bool = false,
-  supplied_graph? : DaeCurrentBoundaryGraph? = None,
-  graph_builds? : Array[Int]? = None,
-  type_resolutions? : Array[Int]? = None,
-  reuse_function_types? : Bool = true,
+  original_builds : Array[Int32],
+  reference~ : Bool = false,
+  supplied_graph~ : DaeCurrentBoundaryGraph? = None,
+  graph_builds~ : Array[Int32]? = None,
+  type_resolutions~ : Array[Int32]? = None,
+  reuse_function_types~ : Bool = true,
 ) -> DaePassResult {
   let original_param_counts = original_boundary_snapshot.param_counts
   let original_call_summary = original_boundary_snapshot.call_summary

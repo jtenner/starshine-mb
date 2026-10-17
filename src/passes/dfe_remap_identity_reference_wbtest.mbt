@@ -1,7 +1,7 @@
 ///|
 fn dfe_remap_before_instruction(
   instr : @lib.Instruction,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, expr) =>
@@ -46,7 +46,7 @@ fn dfe_remap_before_instruction(
 }
 
 ///|
-fn dfe_remap_before_expr(expr : @lib.Expr, remap : Array[UInt]) -> @lib.Expr {
+fn dfe_remap_before_expr(expr : @lib.Expr, remap : Array[UInt32]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
   for instr in instrs {
@@ -56,7 +56,7 @@ fn dfe_remap_before_expr(expr : @lib.Expr, remap : Array[UInt]) -> @lib.Expr {
 }
 
 ///|
-fn dfe_remap_before_func(func : @lib.Func, remap : Array[UInt]) -> @lib.Func {
+fn dfe_remap_before_func(func : @lib.Func, remap : Array[UInt32]) -> @lib.Func {
   let @lib.Func(locals, body) = func
   @lib.Func::new(locals, dfe_remap_before_expr(body, remap))
 }

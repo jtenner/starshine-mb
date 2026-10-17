@@ -14,7 +14,7 @@ fn binaryen133_run_new_pass(
 }
 
 ///|
-fn binaryen133_export_count(mod_ : @lib.Module) -> Int {
+fn binaryen133_export_count(mod_ : @lib.Module) -> Int32 {
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) => exports.length()
     None => 0

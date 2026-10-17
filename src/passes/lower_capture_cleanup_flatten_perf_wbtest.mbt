@@ -1,5 +1,5 @@
 ///|
-fn pass_lower_flatten_perf_fixture(depth : Int) -> Array[@lib.Instruction] {
+fn pass_lower_flatten_perf_fixture(depth : Int32) -> Array[@lib.Instruction] {
   let mut body = @lib.Expr::new([@lib.Instruction::nop()])
   for _ in 0..<depth {
     body = @lib.Expr::new([
@@ -12,7 +12,7 @@ fn pass_lower_flatten_perf_fixture(depth : Int) -> Array[@lib.Instruction] {
 }
 
 ///|
-fn pass_lower_flatten_perf_bench(it : @bench.T, depth : Int) -> Unit {
+fn pass_lower_flatten_perf_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = pass_lower_flatten_perf_fixture(depth)
   let env = @validate.Env::new().with_module(@lib.Module::new())
   let (preflight, changed, branchless) = pass_lower_flatten_branchless_blocks(

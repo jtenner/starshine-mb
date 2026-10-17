@@ -1,5 +1,5 @@
 ///|
-fn inl_dead_suffix_marked_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn inl_dead_suffix_marked_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let body : Array[@lib.Instruction] = [@lib.Instruction::unreachable_()]
   for idx in 0..<count {
     body.push(@lib.Instruction::i32_const(@lib.I32(idx)))

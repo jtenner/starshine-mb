@@ -18,10 +18,10 @@ test "inlining initialization visits the body once for all callee locals" {
 
 ///|
 test "inlining initialization preserves branch handler and loop write boundaries" {
-  let get = fn(index : Int) {
+  let get = fn(index : Int32) {
     @lib.Instruction::local_get(@lib.LocalIdx::new(index.to_uint()))
   }
-  let set = fn(index : Int) {
+  let set = fn(index : Int32) {
     @lib.Instruction::local_set(@lib.LocalIdx::new(index.to_uint()))
   }
   let fixtures = [

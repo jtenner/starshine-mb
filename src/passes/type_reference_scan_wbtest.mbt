@@ -1,5 +1,5 @@
 ///|
-fn type_reference_scan_fixture(count : Int, body_size : Int) -> @lib.Module {
+fn type_reference_scan_fixture(count : Int32, body_size : Int32) -> @lib.Module {
   let types = Array::make(
     count,
     @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
@@ -48,13 +48,13 @@ test "type pruning scans module roots once and remaps a body-only signature" {
 ///|
 fn type_reference_assert_roots(
   input : @lib.Module,
-  expected : Array[Int],
+  expected : Array[Int32],
 ) -> Unit raise {
   let refs : DfeTypeRefs = { live: Array::make(16, false), pending: [], }
   dfe_type_refs_module_roots(input, refs)
   for idx in 0..<16 {
     assert_eq(refs.live[idx], expected.contains(idx))
-    let probe : Map[UInt, UInt] = Map([])
+    let probe : Map[UInt32, UInt32] = Map([])
     probe[idx.to_uint()] = 16U
     assert_eq(refs.live[idx], dfe_module_type_refs_use_remap(input, probe))
   }
@@ -62,12 +62,12 @@ fn type_reference_assert_roots(
 }
 
 ///|
-fn type_reference_ref(idx : UInt) -> @lib.RefType {
+fn type_reference_ref(idx : UInt32) -> @lib.RefType {
   @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(idx)))
 }
 
 ///|
-fn type_reference_expr(idx : UInt) -> @lib.Expr {
+fn type_reference_expr(idx : UInt32) -> @lib.Expr {
   @lib.Expr::new([@lib.Instruction::ref_null_type(type_reference_ref(idx))])
 }
 
@@ -311,7 +311,7 @@ test "type dependency collector includes supertypes descriptors and embedded def
   )
   for idx in 0..<16 {
     assert_eq(refs.live[idx], idx >= 2 && idx <= 6)
-    let probe : Map[UInt, UInt] = Map([])
+    let probe : Map[UInt32, UInt32] = Map([])
     probe[idx.to_uint()] = 16U
     assert_eq(refs.live[idx], dfe_rec_type_uses_remap(rec_type, probe))
   }
@@ -326,7 +326,7 @@ test "type root collector agrees with rewrites for GC descriptor cast and call o
   let heap = @lib.HeapType::new(idx)
   let target = @lib.HeapType::new(other)
   let order = @lib.AtomicOrder::seq_cst()
-  let cases : Array[(@lib.Instruction, Array[Int])] = [
+  let cases : Array[(@lib.Instruction, Array[Int32])] = [
     (@lib.Instruction::call_ref(idx), [3]),
     (@lib.Instruction::return_call_ref(idx), [3]),
     (@lib.Instruction::struct_new(idx), [3]),

@@ -1,8 +1,8 @@
 ///|
 fn wide_reverse_alias_perf_discover(
   body : Array[@lib.Instruction],
-  reads : Array[Int],
-  writes : Array[Int],
+  reads : Array[Int32],
+  writes : Array[Int32],
   bounded : Bool,
 ) -> Dae2ParameterAliases {
   let aliases = Dae2ParameterAliases::new(
@@ -18,8 +18,8 @@ fn wide_reverse_alias_perf_discover(
 ///|
 fn wide_reverse_alias_perf_run(
   it : @bench.T,
-  stable : Int,
-  copies : Int,
+  stable : Int32,
+  copies : Int32,
   bounded : Bool,
 ) -> Unit raise {
   let prefix = Array::makei(stable, fn(i) {

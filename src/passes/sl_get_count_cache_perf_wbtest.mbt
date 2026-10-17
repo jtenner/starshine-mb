@@ -1,7 +1,7 @@
 ///|
 fn sl_get_count_cache_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = sl_get_count_cache_fixture(width, 3)
@@ -61,9 +61,9 @@ test "bench SL unchanged count stages width=4096 cached" (it : @bench.T) {
 ///|
 fn sl_get_count_active_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reuse : Bool,
-  mode : Int,
+  mode : Int32,
 ) -> Unit {
   let input = sl_get_count_active_fixture(width)
   let policy = sl_get_count_policies()[mode].1

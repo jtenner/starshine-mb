@@ -7,11 +7,12 @@ fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   allow_escape : Bool,
-  start? : Int = 0,
-  typed_instructions? : Array[Int]? = None,
-  typed_seed? : SlStatementTypeSeed? = None,
-  flat_only? : Bool = false,
-) -> Int {
+  start~ : Int32 = 0,
+  typed_instructions~ : Array[Int32]? = None,
+  typed_seed~ : SlStatementTypeSeed? = None,
+  initialization_slots~ : Array[Int32]? = None,
+  flat_only~ : Bool = false,
+) -> Int32 {
   // Balanced local forwarding rejects any completed statement containing
   // structured control or an early terminator. Reject that same candidate
   // before recursively typechecking it, including unused error rendering.
@@ -24,7 +25,13 @@ fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
   }
   let mut state = match typed_seed {
     Some(seed) => seed.fresh_state()
-    None => @validate.make_state_owned(env, [])
+    None => {
+      match initialization_slots {
+        Some(slots) => slots[0] += env.locals.length()
+        None => ()
+      }
+      @validate.make_state_owned(env, [])
+    }
   }
   for index = start; index < instrs.length(); index = index + 1 {
     if flat_only && sl_statement_prefix_rejects_control(instrs[index]) {
@@ -63,15 +70,19 @@ fn sl_statement_prefix_rejects_control(instr : @lib.Instruction) -> Bool {
 // Own only the complete statement; callers do not need a copied remaining tail.
 fn sl_statement_at(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   env : @validate.Env,
-  allow_escape? : Bool = false,
+  allow_escape~ : Bool = false,
+  typed_seed~ : SlStatementTypeSeed? = None,
+  initialization_slots~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
     instrs,
     env,
     allow_escape,
     start~,
+    typed_seed~,
+    initialization_slots~,
   )
   Array::makei(end - start, fn(index) { instrs[start + index] })
 }

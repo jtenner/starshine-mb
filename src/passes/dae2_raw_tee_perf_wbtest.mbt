@@ -1,5 +1,5 @@
 ///|
-fn dae2_raw_tee_fixture(helpers : Int, width : Int) -> @lib.Module {
+fn dae2_raw_tee_fixture(helpers : Int32, width : Int32) -> @lib.Module {
   let wat = ["(module"]
   for index in 0..<helpers {
     wat.push("(func $h\{index} (param i32 i32 i32) (result i32) local.get 1")
@@ -17,8 +17,8 @@ fn dae2_raw_tee_fixture(helpers : Int, width : Int) -> @lib.Module {
 ///|
 fn dae2_raw_tee_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let input = dae2_raw_tee_fixture(helpers, width)
@@ -68,8 +68,8 @@ test "bench DAE2 scalar tee helpers=32 width=128 direct mutation" (
 ///|
 fn dae2_raw_tee_pipeline_bench(
   it : @bench.T,
-  helpers : Int,
-  width : Int,
+  helpers : Int32,
+  width : Int32,
   optimizing : Bool,
 ) -> Unit {
   let input = dae2_raw_tee_fixture(helpers, width)

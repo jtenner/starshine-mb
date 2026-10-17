@@ -27,7 +27,7 @@ fn release_cleanup_fixture(kind : String) -> String {
 }
 
 ///|
-fn release_cleanup_count_sets(body : Array[@lib.Instruction]) -> Int {
+fn release_cleanup_count_sets(body : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {

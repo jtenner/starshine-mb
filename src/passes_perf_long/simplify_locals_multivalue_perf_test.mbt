@@ -17,7 +17,7 @@ fn perf_long_join_lines(lines : Array[String]) -> String {
 
 ///|
 fn perf_long_make_optimize_instructions_nested_block_module(
-  depth : Int,
+  depth : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -42,7 +42,7 @@ fn perf_long_make_optimize_instructions_nested_block_module(
 
 ///|
 fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -85,7 +85,7 @@ fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
 
 ///|
 fn perf_long_make_simplify_locals_multivalue_status_tail_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -131,7 +131,7 @@ fn perf_long_make_simplify_locals_multivalue_status_tail_ladder_module(
 
 ///|
 fn perf_long_make_simplify_locals_multivalue_call_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")
@@ -193,7 +193,7 @@ fn perf_long_make_simplify_locals_multivalue_call_ladder_module(
 
 ///|
 fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
-  repetitions : Int,
+  repetitions : Int32,
 ) -> String {
   let expr = StringBuilder::new()
   expr.write_string("(i32.const 0) (local.get 0)")

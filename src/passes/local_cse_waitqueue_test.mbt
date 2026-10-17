@@ -2,7 +2,7 @@
 test "local cse treats waitqueue synchronization as nested reuse barriers" {
   let output = audit_run(local_cse_waitqueue_barrier_wat(), "local-cse")
   assert_true(@validate.validate_module(output) is Ok(_))
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   for idx = 0; idx < 3; idx = idx + 1 {
     counts.push(
       audit_count(audit_body(output, index=idx), fn(instr) {

@@ -4,7 +4,7 @@
 fn ssa_nomerge_raw_label_live(
   labels : Array[@bitset.BitSet],
   label : @lib.LabelIdx,
-  local_count : Int,
+  local_count : Int32,
 ) -> @bitset.BitSet {
   let @lib.LabelIdx(raw) = label
   let index = labels.length() - 1 - raw.reinterpret_as_int()
@@ -22,7 +22,7 @@ fn ssa_nomerge_raw_loop_live(
   body : Array[@lib.Instruction],
   live_after : @bitset.BitSet,
   labels : Array[@bitset.BitSet],
-  body_scans? : Array[Int]? = None,
+  body_scans~ : Array[Int32]? = None,
 ) -> @bitset.BitSet {
   let header = @bitset.BitSet::new(live_after.length())
   let nested_labels = labels.copy()
@@ -41,7 +41,7 @@ fn ssa_nomerge_raw_loop_live(
 ///|
 fn ssa_nomerge_raw_live_before(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   live_after : @bitset.BitSet,
   labels : Array[@bitset.BitSet],
 ) -> @bitset.BitSet {

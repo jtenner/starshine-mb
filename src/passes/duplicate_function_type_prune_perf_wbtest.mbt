@@ -1,5 +1,5 @@
 ///|
-fn dfe_type_prune_perf_fixture(count : Int, add_unused : Bool) -> @lib.Module {
+fn dfe_type_prune_perf_fixture(count : Int32, add_unused : Bool) -> @lib.Module {
   let types : Array[@lib.RecType] = []
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
@@ -37,7 +37,7 @@ fn dfe_type_prune_perf_fixture(count : Int, add_unused : Bool) -> @lib.Module {
 }
 
 ///|
-fn dfe_type_prune_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_type_prune_perf_fixture(count, false)
   if dfe_prune_unused_simple_types(fixture) != fixture {
     abort("DFE live-type fixture was unexpectedly pruned")
@@ -46,7 +46,7 @@ fn dfe_type_prune_perf_bench(it : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn dfe_imported_type_prune_perf_fixture(count : Int) -> @lib.Module {
+fn dfe_imported_type_prune_perf_fixture(count : Int32) -> @lib.Module {
   let fixture = dfe_type_prune_perf_fixture(count, true)
   let imports : Array[@lib.Import] = []
   for idx in 0..<count {
@@ -69,7 +69,7 @@ fn dfe_imported_type_prune_perf_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_imported_type_prune_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_imported_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_imported_type_prune_perf_fixture(count)
   let result = dfe_prune_unused_simple_types(fixture)
   match result.type_sec {
@@ -170,7 +170,7 @@ test "bench DFE imported types plus one unused count=128" (it : @bench.T) {
 }
 
 ///|
-fn dfe_tag_type_prune_perf_fixture(count : Int) -> @lib.Module {
+fn dfe_tag_type_prune_perf_fixture(count : Int32) -> @lib.Module {
   let types : Array[@lib.RecType] = [
     @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
   ]
@@ -213,7 +213,7 @@ fn dfe_tag_type_prune_perf_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_tag_type_prune_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_tag_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_tag_type_prune_perf_fixture(count)
   if @validate.validate_module(fixture).is_err() {
     abort("DFE tag signature benchmark input is invalid")
@@ -240,7 +240,7 @@ test "bench DFE defined tag signatures count=128" (it : @bench.T) {
 }
 
 ///|
-fn dfe_unused_type_probe_fixture(count : Int) -> @lib.Module {
+fn dfe_unused_type_probe_fixture(count : Int32) -> @lib.Module {
   let types : Array[@lib.RecType] = [
     @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
   ]
@@ -275,7 +275,7 @@ fn dfe_unused_type_probe_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_unused_type_probe_bench(it : @bench.T, count : Int) -> Unit {
+fn dfe_unused_type_probe_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_unused_type_probe_fixture(count)
   if @validate.validate_module(fixture).is_err() {
     abort("DFE unused-type probe fixture is invalid")

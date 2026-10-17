@@ -1,7 +1,7 @@
 ///|
 fn or_test_defined_func_instrs(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> Array[@lib.Instruction] raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>

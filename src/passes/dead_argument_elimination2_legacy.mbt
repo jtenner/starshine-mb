@@ -7,21 +7,21 @@ priv struct Dae2LegacyState {
   env : @validate.Env
   types : HotPipelineLowerState
   locals : Array[@lib.ValType]
-  params : Int
+  params : Int32
   needs_exception_identity : Bool
   mut changed : Bool
 }
 
 ///|
 priv struct Dae2LegacyLabelWorkspace {
-  heads : Array[Int]
-  offset_prefixes : Array[Int]
+  heads : Array[Int32]
+  offset_prefixes : Array[Int32]
 }
 
 ///|
 priv struct Dae2LegacyLabels {
   workspace : Dae2LegacyLabelWorkspace
-  length : Int
+  length : Int32
 }
 
 ///|
@@ -32,8 +32,8 @@ fn Dae2LegacyLabels::root() -> Dae2LegacyLabels {
 ///|
 fn Dae2LegacyLabels::push(
   self : Dae2LegacyLabels,
-  head : Int,
-  tail_offset : Int,
+  head : Int32,
+  tail_offset : Int32,
 ) -> Dae2LegacyLabels {
   let index = self.length
   let prefix = self.workspace.offset_prefixes[index - 1] + tail_offset
@@ -48,7 +48,7 @@ fn Dae2LegacyLabels::push(
 }
 
 ///|
-fn Dae2LegacyLabels::resolve(self : Dae2LegacyLabels, depth : Int) -> Int {
+fn Dae2LegacyLabels::resolve(self : Dae2LegacyLabels, depth : Int32) -> Int32 {
   if depth < 0 || depth >= self.length {
     abort("invalid legacy label depth")
   }
@@ -59,7 +59,7 @@ fn Dae2LegacyLabels::resolve(self : Dae2LegacyLabels, depth : Int) -> Int {
 }
 
 ///|
-fn Dae2LegacyLabels::frame_count(self : Dae2LegacyLabels) -> Int {
+fn Dae2LegacyLabels::frame_count(self : Dae2LegacyLabels) -> Int32 {
   self.length
 }
 
@@ -138,8 +138,8 @@ fn dae2_legacy_handlers(
 ///|
 #valtype
 priv struct Dae2LegacyExceptionFrame {
-  source_label_count : Int
-  local_id : Int
+  source_label_count : Int32
+  local_id : Int32
 }
 
 ///|
@@ -490,9 +490,9 @@ fn Dae2LegacySetup::new(mod_ : @lib.Module) -> Dae2LegacySetup {
 ///|
 fn dae2_legacy_signature_param_count(
   idx : @lib.TypeIdx,
-  arities : Array[Int],
-  last_group_start : Int,
-) -> Int {
+  arities : Array[Int32],
+  last_group_start : Int32,
+) -> Int32 {
   let slot = match idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
     @lib.RecIdx(raw) => {
@@ -510,8 +510,8 @@ fn dae2_legacy_signature_param_count(
 // Match Env::with_module's ordered function table, including its omission of
 // unresolved/non-function signatures. This is O(types + declarations), without
 // body feature scans or unrelated imported/defined member environments.
-fn dae2_legacy_signature_param_counts(mod_ : @lib.Module) -> Array[Int] {
-  let arities : Array[Int] = []
+fn dae2_legacy_signature_param_counts(mod_ : @lib.Module) -> Array[Int32] {
+  let arities : Array[Int32] = []
   let mut last_group_start = 0
   if mod_.type_sec is Some(@lib.TypeSec(groups)) {
     for group in groups {
@@ -536,7 +536,7 @@ fn dae2_legacy_signature_param_counts(mod_ : @lib.Module) -> Array[Int] {
       }
     }
   }
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   if mod_.import_sec is Some(@lib.ImportSec(imports)) {
     for import_ in imports {
       if import_ is @lib.Import(_, _, @lib.FuncExternType(idx)) {
@@ -565,7 +565,7 @@ fn dae2_legacy_signature_param_counts(mod_ : @lib.Module) -> Array[Int] {
 ///|
 fn dae2_prepare_legacy_handlers(
   mod_ : @lib.Module,
-  setup_counts? : Array[Int]? = None,
+  setup_counts~ : Array[Int32]? = None,
 ) -> Result[@lib.Module, String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -687,7 +687,7 @@ fn dae2_known_local_throw_target(
   catches : Array[@lib.Catch],
   body : Array[@lib.Instruction],
   env : @validate.Env,
-  imported_tags : Int,
+  imported_tags : Int32,
 ) -> @lib.LabelIdx? {
   let thrown = match body.last() {
     Some(@lib.Throw(tag)) => tag
@@ -736,7 +736,7 @@ fn dae2_known_local_throw_target(
 fn dae2_fold_known_local_throws_body(
   body : Array[@lib.Instruction],
   env : @validate.Env,
-  imported_tags : Int,
+  imported_tags : Int32,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -815,7 +815,7 @@ fn dae2_body_has_exception_or_continuation(
 // Body-scoped admission only: bit 1 identifies a possible known throw fold,
 // bit 2 a legacy multi-handler adaptation. All nested handler bodies matter.
 // Signature and tag proofs remain in the admitted transformations.
-fn dae2_handler_admission(body : Array[@lib.Instruction]) -> Int {
+fn dae2_handler_admission(body : Array[@lib.Instruction]) -> Int32 {
   let mut flags = 0
   for instr in body {
     match instr {

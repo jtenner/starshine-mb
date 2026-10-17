@@ -83,7 +83,7 @@ fn pass_registry_entry_module(
 ///|
 fn pass_registry_entry_boundary_only(
   name : String,
-  summary? : String = "Legacy boundary-only pass; not available in the hot pipeline.",
+  summary~ : String = "Legacy boundary-only pass; not available in the hot pipeline.",
 ) -> HotPassRegistryEntry {
   {
     name,
@@ -97,7 +97,7 @@ fn pass_registry_entry_boundary_only(
 ///|
 fn pass_registry_entry_removed(
   name : String,
-  summary? : String = "Legacy pass removed from the active hot pipeline until its IR2 port lands.",
+  summary~ : String = "Legacy pass removed from the active hot pipeline until its IR2 port lands.",
 ) -> HotPassRegistryEntry {
   {
     name,
@@ -418,14 +418,14 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
 ///|
 priv struct HotPassRegistryCache {
   entries : Array[HotPassRegistryEntry]
-  lookup : @hashmap.HashMap[String, Int]
+  lookup : @hashmap.HashMap[String, Int32]
   help_entries : Array[HotPassRegistryEntry]
 }
 
 ///|
 fn HotPassRegistryCache::new() -> HotPassRegistryCache {
   let entries = pass_registry_entries()
-  let lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+  let lookup : @hashmap.HashMap[String, Int32] = @hashmap.new(
     capacity=entries.length() * 2 + 1,
   )
   let help_entries : Array[HotPassRegistryEntry] = []
@@ -451,7 +451,7 @@ pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry] {
 }
 
 ///|
-fn pass_registry_lookup_index(name : String) -> Int? {
+fn pass_registry_lookup_index(name : String) -> Int32? {
   pass_registry_cache.lookup.get(name)
 }
 
@@ -690,13 +690,13 @@ fn hot_pipeline_module_has_complex_memory_shape(mod_ : @lib.Module) -> Bool {
 
 ///|
 priv struct InitialFlattenSimdFacts {
-  mut const_count : Int
-  mut xor_count : Int
-  mut i64_mul_count : Int
-  mut i64_div_s_count : Int
-  mut total_instr_count : Int
-  mut br_if_count : Int
-  mut unreachable_count : Int
+  mut const_count : Int32
+  mut xor_count : Int32
+  mut i64_mul_count : Int32
+  mut i64_div_s_count : Int32
+  mut total_instr_count : Int32
+  mut br_if_count : Int32
+  mut unreachable_count : Int32
   mut has_unreachable : Bool
   mut has_table_copy : Bool
 }
@@ -882,8 +882,8 @@ fn hot_pipeline_module_feature_facts(
 
 ///|
 fn default_function_optimization_passes_with_features(
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
   features : HotPipelineFeatureFacts,
 ) -> Array[String] {
   let passes : Array[String] = []
@@ -959,8 +959,8 @@ fn default_function_optimization_passes_with_features(
 
 ///|
 pub fn default_function_optimization_passes(
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> Array[String] {
   default_function_optimization_passes_with_features(
     optimize_level,
@@ -972,8 +972,8 @@ pub fn default_function_optimization_passes(
 ///|
 pub fn default_function_optimization_passes_for_module(
   mod_ : @lib.Module,
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> Array[String] {
   default_function_optimization_passes_with_features(
     optimize_level,
@@ -984,8 +984,8 @@ pub fn default_function_optimization_passes_for_module(
 
 ///|
 pub fn inlining_nested_function_pipeline_passes(
-  optimize_level : Int,
-  shrink_level : Int,
+  optimize_level : Int32,
+  shrink_level : Int32,
 ) -> Array[String] {
   default_function_optimization_passes(optimize_level, shrink_level)
 }
@@ -999,6 +999,35 @@ fn hot_pipeline_o4z_late_convergence_passes() -> Array[String] {
     "vacuum", "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg",
     "reorder-locals", "vacuum",
   ]
+}
+
+///|
+// Passive splitting uses separate lower bounds for edges (>9) and interior
+// ranges (>21); a nonempty all-zero payload needs no retained segment. This
+// allocation-free admission leaves exact user-count and size checks to packing.
+fn hot_pipeline_has_late_passive_packing_candidate(mod_ : @lib.Module) -> Bool {
+  if mod_.data_sec is Some(@lib.DataSec(datas)) {
+    for data_index = 0; data_index < datas.length(); data_index = data_index + 1 {
+      if datas[data_index] is @lib.Data(@lib.Passive, bytes) &&
+        bytes.length() > 0 {
+        let mut zero_run = 0
+        for index = 0; index < bytes.length(); index = index + 1 {
+          if bytes[index] == b'\x00' {
+            zero_run += 1
+            if zero_run > 21 || (zero_run > 9 && zero_run == index + 1) {
+              return true
+            }
+          } else {
+            zero_run = 0
+          }
+        }
+        if zero_run > 9 || zero_run == bytes.length() {
+          return true
+        }
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -1047,10 +1076,8 @@ fn hot_pipeline_full_preset_passes_with_features(
   }
   passes.push("duplicate-function-elimination")
   passes.push("duplicate-import-elimination")
-  // Binaryen runs merge-similar-functions at shrink level 2+, but that pass is
-  // still boundary-only in Starshine. Keep the preset runnable and leave the
-  // unsupported owner explicit in the backlog instead of silently accepting a
-  // requested no-op.
+  // MergeSimilarFunctions is an active module pass. The command's validated
+  // shrink portfolio runs it without changing this locked compatibility queue.
   if optimize_level >= 2 || shrink_level >= 2 {
     passes.push("simplify-globals-optimizing")
   }
@@ -1148,7 +1175,7 @@ fn shrink_preset_passes_for_module(
 }
 
 ///|
-fn run_hot_pipeline_imported_func_count(mod_ : @lib.Module) -> Int {
+fn run_hot_pipeline_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -1291,7 +1318,7 @@ fn run_hot_pipeline_entry_can_stack(entry : HotPassRegistryEntry) -> Bool {
 ///|
 fn run_hot_pipeline_entries_match_names(
   entries : Array[(HotPassRegistryEntry, Bool)],
-  start : Int,
+  start : Int32,
   names : Array[String],
 ) -> Bool {
   if start < 0 || start + names.length() > entries.length() {
@@ -1379,6 +1406,19 @@ pub fn run_hot_pipeline(
   let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+  // A successful caught-try transaction returns only the prepared module.
+  // Validate before omitting its discarded preset work. Invalid inputs retain
+  // the existing execution and error behavior, including validation-off mode.
+  let execution_entries = if artifact_scale_o4z_preset &&
+    original_has_caught_try_table &&
+    @validate.validate_module(prepared_module) is Ok(_) {
+    (options.trace)(
+      "pipeline:o4z-transaction:skip preset-work reason=caught-try-table",
+    )
+    []
+  } else {
+    entries
+  }
   let mut ssa_wave = 0
   let mut skip_o4z_late_convergence_entries = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
@@ -1409,7 +1449,7 @@ pub fn run_hot_pipeline(
     pending_hot_passes.clear()
     Ok(())
   }
-  for entry_idx, item in entries {
+  for entry_idx, item in execution_entries {
     let (entry, from_preset) = item
     if skip_o4z_late_convergence_entries > 0 {
       (options.trace)(
@@ -1418,11 +1458,13 @@ pub fn run_hot_pipeline(
       skip_o4z_late_convergence_entries -= 1
       continue
     }
-    // A host can observe function references through exports, tables, globals,
-    // and imported callbacks. Keep preset DFE's whole-module merge for closed
-    // modules, where no function identity can cross the module boundary.
+    // Full O4z uses DFE's per-function identity guard: exports and references
+    // materialized in bodies, tables, globals, and active/passive elements stay
+    // distinct while private equal helpers can merge. Short presets retain
+    // their existing conservative host-boundary policy.
     if from_preset &&
       entry.name == "duplicate-function-elimination" &&
+      !(options.optimize_level >= 4 && options.shrink_level >= 4) &&
       (
         run_hot_pipeline_has_host_boundary(mod_) ||
         run_hot_pipeline_has_host_boundary(current)
@@ -1520,10 +1562,65 @@ pub fn run_hot_pipeline(
           Ok(_) => ()
           Err(err) => return Err(err)
         }
+        let before_module_pass = current
         current = match
           run_hot_pipeline_apply_module_pass(current, entry, options) {
           Ok(next) => next
           Err(err) => return Err(err)
+        }
+        // Inlining can replace dynamic segment operands with constants after
+        // the early packing slot. A profitable passive range admits one rerun.
+        if from_preset &&
+          entry.name == "inlining-optimizing" &&
+          !physical_equal(before_module_pass, current) &&
+          hot_pipeline_has_late_passive_packing_candidate(current) {
+          let packing = pass_registry_lookup_cached("memory-packing").unwrap()
+          current = match
+            run_hot_pipeline_apply_module_pass(current, packing, options) {
+            Ok(next) => next
+            Err(err) => return Err(err)
+          }
+        }
+        // The full preset directizes after its ordinary inlining slot. Only a
+        // real Directize rewrite can expose new direct targets here; run one
+        // cleanup wave, without changing explicit or short preset rosters.
+        // Directize returns the original module on every unchanged path.
+        // Its rebuilt module is therefore an O(1) change notification.
+        if from_preset &&
+          entry.name == "directize" &&
+          !physical_equal(before_module_pass, current) {
+          let before_finish = current
+          for
+            name in [
+              "inlining-optimizing", "remove-unused-module-elements", "vacuum",
+            ] {
+            let finish = pass_registry_lookup_cached(name).unwrap()
+            current = match finish.category {
+              HotPassRegistryCategory::HotPass =>
+                match
+                  run_hot_pipeline_apply_hot_pass(current, finish, options) {
+                  Ok(next) => next
+                  Err(err) => return Err(err)
+                }
+              _ =>
+                match
+                  run_hot_pipeline_apply_module_pass(current, finish, options) {
+                  Ok(next) => next
+                  Err(err) => return Err(err)
+                }
+            }
+          }
+          // Pruning can remove the last dynamic segment user after the newly
+          // exposed call is inlined. Check after the complete finish wave.
+          if !physical_equal(before_finish, current) &&
+            hot_pipeline_has_late_passive_packing_candidate(current) {
+            let packing = pass_registry_lookup_cached("memory-packing").unwrap()
+            current = match
+              run_hot_pipeline_apply_module_pass(current, packing, options) {
+              Ok(next) => next
+              Err(err) => return Err(err)
+            }
+          }
         }
       }
       _ => ()

@@ -1,8 +1,8 @@
 ///|
 fn sgo_full_pipeline_bench(
   it : @bench.T,
-  globals : Int,
-  functions : Int,
+  globals : Int32,
+  functions : Int32,
   candidate : Bool,
 ) -> Unit {
   let wat : Array[String] = ["(module"]

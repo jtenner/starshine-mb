@@ -1,7 +1,7 @@
 ///|
 fn dae_dropped_identity_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   nested : Bool,
   active : Bool,
   reference : Bool,

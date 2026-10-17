@@ -3,8 +3,8 @@
 
 ///|
 fn code_pushing_inventory_fixture(
-  local_count : Int,
-  read_count : Int,
+  local_count : Int32,
+  read_count : Int32,
 ) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for idx = 0; idx < read_count; idx = idx + 1 {
@@ -21,8 +21,8 @@ fn code_pushing_inventory_fixture(
 ///|
 fn code_pushing_inventory_bench(
   it : @bench.T,
-  local_count : Int,
-  read_count : Int,
+  local_count : Int32,
+  read_count : Int32,
 ) -> Unit {
   let fixture = code_pushing_inventory_fixture(local_count, read_count)
   ignore(opportunity_run(fixture, "code-pushing", true))

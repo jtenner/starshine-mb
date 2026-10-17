@@ -3,8 +3,8 @@ fn cl_tee_control_cleanup_reference(
   rewritten_instrs : Array[@lib.Instruction],
   original_instrs : Array[@lib.Instruction],
   effective : Array[Bool],
-  action_cursor : Array[Int],
-  control_visits? : Array[Int]? = None,
+  action_cursor : Array[Int32],
+  control_visits~ : Array[Int32]? = None,
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -134,7 +134,7 @@ fn cl_tee_control_cleanup_reference(
 }
 
 ///|
-fn cl_tee_control_bench(it : @bench.T, depth : Int, reference : Bool) -> Unit {
+fn cl_tee_control_bench(it : @bench.T, depth : Int32, reference : Bool) -> Unit {
   let input = cl_tee_control_fixture(depth)
   @validate.validate_module(input).unwrap()
   let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
@@ -210,11 +210,11 @@ fn cl_control_liveness_reference(
   actions : Array[CLAction],
   effective : Array[Bool],
   write_live_hazards : CLBitMatrix,
-  visited_actions : Array[Int],
+  visited_actions : Array[Int32],
   live_after : Array[Bool],
   label_lives : Array[Array[Bool]],
-  action_cursor : Array[Int],
-  exception_live? : Array[Bool] = [],
+  action_cursor : Array[Int32],
+  exception_live~ : Array[Bool] = [],
 ) -> Array[Bool] {
   let live = live_after.copy()
   let reachable_len = cl_reachable_prefix_len(instrs)
@@ -402,7 +402,7 @@ fn cl_control_liveness_reference(
 ///|
 fn cl_control_liveness_bench(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   reference : Bool,
 ) -> Unit {
   let input = cl_tee_control_fixture(depth)

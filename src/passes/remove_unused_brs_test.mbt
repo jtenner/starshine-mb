@@ -1,5 +1,5 @@
 ///|
-fn remove_unused_brs_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+fn remove_unused_brs_test_bytes_from_ints(values : Array[Int32]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
     out.write_byte(value.to_byte())
@@ -8,7 +8,7 @@ fn remove_unused_brs_test_bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
-fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
+fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int32 {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -22,7 +22,7 @@ fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
 }
 
 ///|
-fn remove_unused_brs_test_first_live_try_table(func : @ir.HotFunc) -> Int {
+fn remove_unused_brs_test_first_live_try_table(func : @ir.HotFunc) -> Int32 {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -38,8 +38,8 @@ fn remove_unused_brs_test_first_live_try_table(func : @ir.HotFunc) -> Int {
 ///|
 fn remove_unused_brs_test_try_table_first_catch_target(
   func : @ir.HotFunc,
-  try_table_id : Int,
-) -> Int {
+  try_table_id : Int32,
+) -> Int32 {
   if try_table_id < 0 || !@ir.hot_node_is_live(func, try_table_id) {
     abort("expected live try_table before reading catch target")
   }
@@ -59,7 +59,7 @@ fn remove_unused_brs_test_try_table_first_catch_target(
 ///|
 fn remove_unused_brs_test_has_eqz_br_if_to_label(
   func : @ir.HotFunc,
-  target_label : Int,
+  target_label : Int32,
 ) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -93,7 +93,7 @@ fn remove_unused_brs_test_has_eqz_br_if_to_label(
 ///|
 fn remove_unused_brs_test_has_childless_br_to_label(
   func : @ir.HotFunc,
-  target_label : Int,
+  target_label : Int32,
 ) -> Bool {
   remove_unused_brs_test_has_br_to_label_with_child_count(func, target_label, 0)
 }
@@ -101,8 +101,8 @@ fn remove_unused_brs_test_has_childless_br_to_label(
 ///|
 fn remove_unused_brs_test_has_br_to_label_with_child_count(
   func : @ir.HotFunc,
-  target_label : Int,
-  child_count : Int,
+  target_label : Int32,
+  child_count : Int32,
 ) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -121,7 +121,7 @@ fn remove_unused_brs_test_has_br_to_label_with_child_count(
 ///|
 fn remove_unused_brs_test_has_br_if_to_label(
   func : @ir.HotFunc,
-  target_label : Int,
+  target_label : Int32,
 ) -> Bool {
   remove_unused_brs_test_has_br_if_to_label_with_child_count(
     func, target_label, -1,
@@ -131,8 +131,8 @@ fn remove_unused_brs_test_has_br_if_to_label(
 ///|
 fn remove_unused_brs_test_has_br_if_to_label_with_child_count(
   func : @ir.HotFunc,
-  target_label : Int,
-  child_count : Int,
+  target_label : Int32,
+  child_count : Int32,
 ) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -7363,7 +7363,7 @@ test "remove-unused-brs preserves mixed-depth tail-return if ladders with outer 
 ///|
 fn remove_unused_brs_test_defined_func_instrs(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> Array[@lib.Instruction] raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
@@ -7657,7 +7657,7 @@ test "remove-unused-brs preserves division traps in same-target if conditions" {
 ///|
 fn remove_unused_brs_test_assert_branch_payload_shape(
   source : String,
-  shrink_level : Int,
+  shrink_level : Int32,
   keep_conditional : Bool,
 ) -> Unit raise {
   let optimized = match
@@ -7687,7 +7687,7 @@ fn remove_unused_brs_test_assert_branch_payload_shape(
 
 ///|
 fn remove_unused_brs_test_branch_payload_costs(
-  shrink_level : Int,
+  shrink_level : Int32,
 ) -> Unit raise {
   for cost in [0, 4, 5, 7, 8] {
     let mut payload = "(local.get 1)"

@@ -2,14 +2,14 @@
 fn dead_code_elimination_test_count_occurrences(
   text : String,
   needle : String,
-) -> Int {
+) -> Int32 {
   if needle == "" {
     return 0
   }
   let mut count = 0
   let mut start = 0
   while start <= text.length() - needle.length() {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let mut i = start
     while i <= text.length() - needle.length() {
       if text.sub(start=i, end=i + needle.length()).to_owned() == needle {

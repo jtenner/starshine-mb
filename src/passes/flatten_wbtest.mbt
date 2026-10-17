@@ -1,5 +1,5 @@
 ///|
-fn flatten_test_count_substring(text : String, needle : String) -> Int {
+fn flatten_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -18,7 +18,7 @@ fn flatten_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
-fn flatten_test_build_rich_drop(func : @ir.HotFunc) -> Array[Int] {
+fn flatten_test_build_rich_drop(func : @ir.HotFunc) -> Array[Int32] {
   let rich = @ir.hot_build_binary(
     func,
     @lib.ValType::i32(),
@@ -51,9 +51,9 @@ test "flatten synthetic legacy-WAST detector rejects a mixed-result block-loop l
 ///|
 fn flatten_test_assert_hard_unsupported_no_mutation(
   func : @ir.HotFunc,
-  rich : Int,
-  drop_id : Int,
-  unsupported_id : Int,
+  rich : Int32,
+  drop_id : Int32,
+  unsupported_id : Int32,
 ) -> Unit raise {
   @ir.hot_root_append(func, drop_id)
   @ir.hot_root_append(func, unsupported_id)
@@ -791,7 +791,7 @@ test "flatten preserves a typed payload vector with two direct rethrows" {
   )
   let invalid_first_drop = @ir.hot_build_drop(invalid, invalid_first)
   let invalid_second_drop = @ir.hot_build_drop(invalid, invalid_second)
-  let invalid_rethrows : Array[Int] = []
+  let invalid_rethrows : Array[Int32] = []
   for depth in [0, 0, 1] {
     invalid_rethrows.push(
       @ir.hot_build_node(
@@ -5643,7 +5643,7 @@ test "flatten recognizes two add-of-two-multiplies suffix roots" {
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let drops : Array[Int] = []
+  let drops : Array[Int32] = []
   for base in [9, 13] {
     let left_multiply = @ir.hot_build_binary(
       func,
@@ -5874,7 +5874,7 @@ test "flatten recognizes two subtract-multiply-const suffix roots" {
   let try_id = fixture[0]
   let label_id = fixture[1]
   let table_id = fixture[2]
-  let drops : Array[Int] = []
+  let drops : Array[Int32] = []
   for base in [9, 12] {
     let multiply = flatten_test_build_direct_binary(
       func,
@@ -5942,7 +5942,7 @@ test "flatten recognizes two subtract-const-multiply suffix roots" {
   let try_id = fixture[0]
   let label_id = fixture[1]
   let table_id = fixture[2]
-  let drops : Array[Int] = []
+  let drops : Array[Int32] = []
   for base in [9, 12] {
     let multiply = flatten_test_build_direct_binary(
       func,
@@ -6151,7 +6151,7 @@ test "flatten recognizes two subtract-of-two-multiplies suffix roots" {
   let try_id = fixture[0]
   let label_id = fixture[1]
   let table_id = fixture[2]
-  let drops : Array[Int] = []
+  let drops : Array[Int32] = []
   for base in [9, 13] {
     let left = flatten_test_build_direct_binary(
       func,
@@ -7056,7 +7056,7 @@ test "flatten keeps other trapping-binary-argument call opcodes gated" {
 ///|
 fn flatten_test_build_scalar_try_table_suffix_fixture(
   func : @ir.HotFunc,
-) -> Array[Int] {
+) -> Array[Int32] {
   let i32_type = @lib.ValType::i32()
   let try_id = @ir.hot_build_try(
     func,
@@ -7080,9 +7080,9 @@ fn flatten_test_build_scalar_try_table_suffix_fixture(
 fn flatten_test_build_direct_binary(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  left_value : Int,
-  right_value : Int,
-) -> Array[Int] {
+  left_value : Int32,
+  right_value : Int32,
+) -> Array[Int32] {
   let left = @ir.hot_build_const_i32(func, @lib.I32(left_value))
   let right = @ir.hot_build_const_i32(func, @lib.I32(right_value))
   let binary = @ir.hot_build_binary(func, @lib.ValType::i32(), left, right)
@@ -7094,9 +7094,9 @@ fn flatten_test_build_direct_binary(
 fn flatten_test_build_direct_binary_drop(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  left_value : Int,
-  right_value : Int,
-) -> Array[Int] {
+  left_value : Int32,
+  right_value : Int32,
+) -> Array[Int32] {
   let binary = flatten_test_build_direct_binary(
     func, instr, left_value, right_value,
   )
@@ -7491,8 +7491,8 @@ fn flatten_test_recognize_four_direct_binary_suffix_roots(
       @lib.Instruction::i32_and(),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root_index = 0
       root_index < instructions.length()
       root_index = root_index + 1 {
@@ -7535,10 +7535,10 @@ test "flatten recognizes an and-multiply-subtract-add try-table suffix sequence"
 fn flatten_wbtest_build_direct_unary_drop(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  input_value : Int,
+  input_value : Int32,
   result_type : @lib.ValType,
   convert : Bool,
-) -> Array[Int] {
+) -> Array[Int32] {
   let input = @ir.hot_build_const_i32(func, @lib.I32(input_value))
   let value = if convert {
     @ir.hot_build_convert(func, result_type, input)
@@ -7618,8 +7618,8 @@ fn flatten_wbtest_recognize_mixed_nontrapping_suffix_roots(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -7767,8 +7767,8 @@ fn flatten_wbtest_recognize_middle_divzero_suffix_roots(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -7881,8 +7881,8 @@ fn flatten_wbtest_recognize_sequence_with_unreachable_root(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -7959,8 +7959,8 @@ fn flatten_wbtest_recognize_sequence_with_direct_call(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -7993,7 +7993,7 @@ test "flatten recognizes an extend-callarg-and try-table suffix sequence" {
 ///|
 fn flatten_wbtest_recognize_sequence_with_binary_argument_call(
   argument_instr : @lib.Instruction,
-  right_value : Int,
+  right_value : Int32,
 ) -> Unit raise {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
@@ -8115,7 +8115,7 @@ fn flatten_wbtest_recognize_sequence_with_unary_or_conversion_argument_call(
     call,
     last[0],
   ])
-  let expected : Array[Int] = [
+  let expected : Array[Int32] = [
     first[0],
     first[1],
     first[2],
@@ -8202,8 +8202,8 @@ fn flatten_wbtest_recognize_sequence_with_two_constant_argument_call(
       false,
     )
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, [call, first_argument, second_argument], last] {
     body.push(root[0])
     for node_id in root {
@@ -8258,7 +8258,7 @@ fn flatten_wbtest_recognize_sequence_with_constant_argument_vector(
       10,
     )
   }
-  let arguments : Array[Int] = if four_arguments {
+  let arguments : Array[Int32] = if four_arguments {
     [
       @ir.hot_build_const_i64(func, @lib.I64(10L)),
       @ir.hot_build_const_i32(func, @lib.I32(11)),
@@ -8289,8 +8289,8 @@ fn flatten_wbtest_recognize_sequence_with_constant_argument_vector(
       false,
     )
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   body.push(first[0])
   for node_id in first {
     expected.push(node_id)
@@ -8395,8 +8395,8 @@ fn flatten_wbtest_recognize_sequence_with_binary_and_constant_arguments(
   } else {
     [@ir.hot_build_unreachable(func)]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   let call_nodes = if rich_first {
     [call, rich[0], constant, rich[1], rich[2]]
   } else {
@@ -8499,8 +8499,8 @@ fn flatten_wbtest_recognize_sequence_with_unary_or_conversion_and_constant_argum
   } else {
     [call, rich[1], constant, rich[2]]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, call_nodes, last] {
     body.push(root[0])
     for node_id in root {
@@ -8593,7 +8593,7 @@ fn flatten_wbtest_recognize_sequence_with_one_rich_argument_vector(
   } else {
     flatten_test_build_direct_binary(func, @lib.Instruction::i32_add(), 12, 13)
   }
-  let arguments : Array[Int] = if conversion {
+  let arguments : Array[Int32] = if conversion {
     [
       @ir.hot_build_const_i32(func, @lib.I32(10)),
       @ir.hot_build_const_i64(func, @lib.I64(11L)),
@@ -8624,8 +8624,8 @@ fn flatten_wbtest_recognize_sequence_with_one_rich_argument_vector(
       false,
     )
   }
-  let body : Array[Int] = [table_id, first[0], call, last[0]]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id, first[0], call, last[0]]
+  let expected : Array[Int32] = []
   for node_id in first {
     expected.push(node_id)
   }
@@ -8732,8 +8732,8 @@ fn flatten_wbtest_recognize_sequence_with_binary_and_unary_arguments(
   } else {
     [call, binary[0], unary, binary[1], binary[2], unary_input]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, call_nodes, last] {
     body.push(root[0])
     for node_id in root {
@@ -8842,8 +8842,8 @@ fn flatten_wbtest_recognize_sequence_with_binary_and_conversion_arguments(
   } else {
     [call, binary[0], conversion, binary[1], binary[2], conversion_input]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, call_nodes, last] {
     body.push(root[0])
     for node_id in root {
@@ -8940,8 +8940,8 @@ fn flatten_wbtest_recognize_sequence_with_two_binary_arguments(
   } else {
     [call, add[0], division[0], add[1], add[2], division[1], division[2]]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, call_nodes, last] {
     body.push(root[0])
     for node_id in root {
@@ -9073,8 +9073,8 @@ fn flatten_wbtest_recognize_sequence_with_two_unary_or_conversion_arguments(
   let call_nodes = [
     call, first_argument, second_argument, first_input, second_input,
   ]
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in [first, call_nodes, last] {
     body.push(root[0])
     for node_id in root {
@@ -9222,8 +9222,8 @@ fn flatten_wbtest_build_one_multiply_child_drop(
   func : @ir.HotFunc,
   outer_instr : @lib.Instruction,
   multiply_on_left : Bool,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let multiply_left = @ir.hot_build_const_i32(func, @lib.I32(base))
   let multiply_right = @ir.hot_build_const_i32(func, @lib.I32(base + 1))
   let multiply = @ir.hot_build_binary(
@@ -9321,8 +9321,8 @@ fn flatten_wbtest_recognize_sequence_with_one_multiply_child_drop(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -9356,8 +9356,8 @@ test "flatten recognizes an extend-nested-submul-and try-table suffix sequence" 
 fn flatten_wbtest_build_two_multiply_children_drop(
   func : @ir.HotFunc,
   outer_instr : @lib.Instruction,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let left = flatten_test_build_direct_binary(
     func,
     @lib.Instruction::i32_mul(),
@@ -9436,8 +9436,8 @@ fn flatten_wbtest_recognize_sequence_with_two_multiply_children_drop(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -9471,8 +9471,8 @@ test "flatten recognizes an extend-tworichsub-and try-table suffix sequence" {
 fn flatten_wbtest_build_deeper_two_multiply_children_drop(
   func : @ir.HotFunc,
   subtract_tree : Bool,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let rich = flatten_wbtest_build_two_multiply_children_drop(
     func,
     if subtract_tree {
@@ -9572,8 +9572,8 @@ fn flatten_wbtest_recognize_sequence_with_deeper_two_multiply_children_drop(
       ),
     ]
   }
-  let body : Array[Int] = [table_id]
-  let expected : Array[Int] = []
+  let body : Array[Int32] = [table_id]
+  let expected : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -9869,8 +9869,8 @@ test "flatten no-fallthrough cache fails closed for unseen post-mutation regions
 ///|
 test "flatten terminal proof caches keep sparse entries sorted" {
   let func = @ir.HotFunc::new()
-  let label_ids : Array[Int] = []
-  let table_ids : Array[Int] = []
+  let label_ids : Array[Int32] = []
+  let table_ids : Array[Int32] = []
   for value in [1, 3, 5] {
     let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
     let try_id = fixture[0]
@@ -9923,7 +9923,7 @@ test "flatten terminal proof caches keep sparse entries sorted" {
 ///|
 test "flatten scalar try proof cache keeps sparse entries sorted" {
   let func = @ir.HotFunc::new()
-  let try_ids : Array[Int] = []
+  let try_ids : Array[Int32] = []
   for value in [1, 3, 5] {
     let try_id = @ir.hot_build_try(
       func,
@@ -10151,7 +10151,7 @@ test "flatten admission node index shares the exact live-node scan" {
 
 ///|
 test "flatten branch index deduplicates only the current node target" {
-  let branch_nodes : Array[Array[Int]] = [[], []]
+  let branch_nodes : Array[Array[Int32]] = [[], []]
   let last_recorded_node = [-1, -1]
   flatten_record_label_branch_node(branch_nodes, last_recorded_node, 1, 5)
   flatten_record_label_branch_node(branch_nodes, last_recorded_node, 1, 5)
@@ -10636,7 +10636,7 @@ test "flatten inputful loop proof cache keeps sparse entries sorted" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32) (result i32))) (func call 1 loop (type $carrier) drop i32.const 7 end drop call 1 loop (type $carrier) drop i32.const 8 end drop call 1 loop (type $carrier) drop i32.const 9 end drop) (func (result i32) i32.const 1))",
   )
-  let loop_ids : Array[Int] = []
+  let loop_ids : Array[Int32] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Loop => loop_ids.push(node_id)
@@ -10925,7 +10925,7 @@ test "flatten conditional proof caches allocate only admitted entries" {
 test "flatten multivalue conditional proof cache keeps sparse entries sorted" {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let func = @ir.HotFunc::new()
-  let branch_ids : Array[Int] = []
+  let branch_ids : Array[Int32] = []
   for candidate = 0; candidate < 3; candidate = candidate + 1 {
     let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
     @ir.hot_control_result_type_set(
@@ -10986,7 +10986,7 @@ test "flatten multivalue conditional proof cache keeps sparse entries sorted" {
 test "flatten tuple conditional proof cache keeps sparse entries sorted" {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let func = @ir.HotFunc::new()
-  let branch_ids : Array[Int] = []
+  let branch_ids : Array[Int32] = []
   for candidate = 0; candidate < 3; candidate = candidate + 1 {
     let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
     @ir.hot_control_result_type_set(
@@ -11052,7 +11052,7 @@ test "flatten scalar conditional proof caches keep sparse entries sorted" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (drop (block (result i32) i32.const 7 local.get 0 br_if 0 drop i32.const 9)) (drop (block (result i32) i32.const 11 local.get 0 br_if 0 drop i32.const 13)) (drop (block (result i32) i32.const 15 local.get 0 br_if 0 drop i32.const 17))))",
   )
-  let branch_ids : Array[Int] = []
+  let branch_ids : Array[Int32] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::BrIf => branch_ids.push(node_id)
@@ -11233,7 +11233,7 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
   let branch_id = @ir.hot_build_br(func, label_id, values=[
     @ir.hot_build_const_i32(func, @lib.I32(7)),
   ])
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for i = 0; i < 256; i = i + 1 {
     roots.push(@ir.hot_build_nop(func))
   }
@@ -11279,8 +11279,8 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
 
 ///|
 test "flatten sequenced root cache keeps sparse pairs sorted" {
-  let holders : Array[Int] = []
-  let nodes : Array[Int] = []
+  let holders : Array[Int32] = []
+  let nodes : Array[Int32] = []
   assert_true(flatten_sequenced_root_record(holders, nodes, 4, 19))
   assert_true(flatten_sequenced_root_record(holders, nodes, 1, 12))
   assert_true(flatten_sequenced_root_record(holders, nodes, 4, 3))
@@ -11378,7 +11378,7 @@ test "flatten multivalue flow payload slots preserve exact source positions" {
 
 ///|
 test "flatten unique table target marks preserve first source order" {
-  let targets : Array[Int] = []
+  let targets : Array[Int32] = []
   let seen = @bitset.BitSet::new(8)
   assert_true(flatten_record_unique_br_table_target(targets, seen, 5))
   assert_false(flatten_record_unique_br_table_target(targets, seen, 5))
@@ -11395,7 +11395,7 @@ test "flatten unique table target marks preserve first source order" {
 
 ///|
 test "flatten tuple flow slot marks preserve exact first positions" {
-  let slots : Array[Int] = []
+  let slots : Array[Int32] = []
   let seen = Array::make(8, false)
   assert_true(flatten_record_distinct_flow_slot(slots, seen, 5))
   assert_true(flatten_record_distinct_flow_slot(slots, seen, 2))
@@ -11412,7 +11412,7 @@ test "flatten tuple flow slot marks preserve exact first positions" {
 
 ///|
 test "flatten terminal payload cache keeps sparse entries sorted" {
-  let payloads : Array[Int] = []
+  let payloads : Array[Int32] = []
   assert_true(flatten_terminal_payload_record(payloads, 19))
   assert_true(flatten_terminal_payload_record(payloads, 4))
   assert_true(flatten_terminal_payload_record(payloads, 12))
@@ -11530,12 +11530,12 @@ test "flatten reuses frozen structural parents and generation marks" {
 ///|
 test "flatten reuses one prelude buffer per active region depth" {
   let func = @ir.HotFunc::new()
-  let inner_roots : Array[Int] = []
+  let inner_roots : Array[Int32] = []
   for idx = 0; idx < 128; idx = idx + 1 {
     inner_roots.push(@ir.hot_build_nop(func))
   }
   let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), inner_roots)
-  let outer_roots : Array[Int] = [inner]
+  let outer_roots : Array[Int32] = [inner]
   for idx = 0; idx < 128; idx = idx + 1 {
     outer_roots.push(@ir.hot_build_nop(func))
   }

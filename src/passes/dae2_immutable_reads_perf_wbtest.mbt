@@ -1,5 +1,5 @@
 ///|
-fn dae2_immutable_reads_fixture(count : Int, mixed : Bool) -> @lib.Module {
+fn dae2_immutable_reads_fixture(count : Int32, mixed : Bool) -> @lib.Module {
   let wat : Array[String] = ["(module"]
   for index in 0..<count {
     wat.push("(func $h\{index} (param i32 i32) (result i32)")
@@ -16,7 +16,11 @@ fn dae2_immutable_reads_fixture(count : Int, mixed : Bool) -> @lib.Module {
 }
 
 ///|
-fn dae2_immutable_reads_bench(it : @bench.T, count : Int, mixed : Bool) -> Unit {
+fn dae2_immutable_reads_bench(
+  it : @bench.T,
+  count : Int32,
+  mixed : Bool,
+) -> Unit {
   let input = dae2_immutable_reads_fixture(count, mixed)
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["dae2"]).unwrap()
   @validate.validate_module(output).unwrap()

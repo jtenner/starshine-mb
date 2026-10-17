@@ -100,7 +100,7 @@ test "optimize-casts write index deduplicates repeated writes" {
     @ir.hot_build_const_i32(func, @lib.I32(2)),
   )
   let root = @ir.hot_build_block(func, @lib.BlockType::void_(), [first, second])
-  let writes : Array[Int] = []
+  let writes : Array[Int32] = []
   let write_mask = Array::make(1, false)
   oc_collect_written_locals(func, root, writes, write_mask)
   @debug.assert_eq(writes, [0])

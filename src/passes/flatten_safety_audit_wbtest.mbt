@@ -47,7 +47,7 @@ test "flatten admission preserves older local reads across nested control roots"
 ///|
 test "flatten local dependency admission visits a wide region linearly" {
   let func = pass_test_lift_first_func("(module (func (local i32)))")
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for value = 0; value < 256; value = value + 1 {
     roots.push(
       @ir.hot_build_local_set(

@@ -226,7 +226,7 @@ test "raw scratch preserves an appended loop carrier" {
 fn p00_scratch_write_count(
   body : Array[@lib.Instruction],
   target : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {

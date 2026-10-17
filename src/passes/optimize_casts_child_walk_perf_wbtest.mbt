@@ -1,5 +1,5 @@
 ///|
-fn oc_child_walk_perf_fixture(count : Int) -> (@ir.HotFunc, Int) {
+fn oc_child_walk_perf_fixture(count : Int32) -> (@ir.HotFunc, Int32) {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -17,7 +17,7 @@ fn oc_child_walk_perf_fixture(count : Int) -> (@ir.HotFunc, Int) {
 }
 
 ///|
-fn oc_child_walk_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn oc_child_walk_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, root) = oc_child_walk_perf_fixture(count)
   if oc_count_local_gets(func, root, 0) != count {
     abort("OptimizeCasts child-walk fixture count is wrong")
@@ -58,7 +58,7 @@ test "OptimizeCasts retarget walk changes each matching local get" {
 }
 
 ///|
-fn oc_retarget_child_walk_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn oc_retarget_child_walk_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, root) = oc_child_walk_perf_fixture(count)
   let ctx = oc_retarget_child_walk_perf_ctx()
   if oc_retarget_local_gets(ctx, func, root, 1, 0) != 0 {

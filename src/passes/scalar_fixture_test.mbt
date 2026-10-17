@@ -3,7 +3,7 @@
 // regressions. Unsupported fixture instructions fail instead of being ignored.
 enum ScalarFixtureFlow {
   Next
-  Branch(Int)
+  Branch(Int32)
   Returned
 }
 
@@ -11,11 +11,11 @@ enum ScalarFixtureFlow {
 fn scalar_fixture_run(
   func : @lib.Func,
   args : Array[Int64],
-  globals? : Array[Int64] = [],
-  call_params? : Array[Int] = [],
-  call? : ((UInt, Array[Int64]) -> Array[Int64])? = None,
-  load? : ((Int64) -> Int64)? = None,
-  array_new? : ((Int64, Int64) -> Int64)? = None,
+  globals~ : Array[Int64] = [],
+  call_params~ : Array[Int32] = [],
+  call~ : ((UInt32, Array[Int64]) -> Array[Int64])? = None,
+  load~ : ((Int64) -> Int64)? = None,
+  array_new~ : ((Int64, Int64) -> Int64)? = None,
 ) -> Array[Int64] raise {
   let @lib.Func(body_locals, @lib.Expr(body)) = func
   let locals = args.copy()
@@ -24,14 +24,14 @@ fn scalar_fixture_run(
   }
   let stack : Array[Int64] = []
   let mut steps = 0
-  fn arity(bt : @lib.BlockType) -> Int raise {
+  fn arity(bt : @lib.BlockType) -> Int32 raise {
     match bt {
       @lib.VoidBlockType => 0
       @lib.ValTypeBlockType(_) => 1
       _ => fail("scalar fixture requires a direct block result type")
     }
   }
-  fn finish(base : Int, result_count : Int) -> Unit raise {
+  fn finish(base : Int32, result_count : Int32) -> Unit raise {
     if stack.length() < base + result_count {
       fail("scalar fixture stack underflow")
     }

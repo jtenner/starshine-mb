@@ -5,7 +5,7 @@
 fn sl_suffix_storage_reference_pure_suffix_local_sets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -272,7 +272,7 @@ fn sl_suffix_storage_reference_pure_suffix_local_sets_flat(
 fn sl_suffix_storage_reference_pure_suffix_local_sets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {
@@ -340,7 +340,7 @@ fn sl_suffix_storage_reference_pure_suffix_local_sets(
 fn sl_suffix_storage_reference_effectful_suffix_local_gets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
   let mut scan_idx = 0
@@ -522,7 +522,7 @@ fn sl_suffix_storage_reference_effectful_suffix_local_gets_flat(
 fn sl_suffix_storage_reference_effectful_suffix_local_gets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   for instr in instrs {

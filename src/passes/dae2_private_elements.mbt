@@ -1,7 +1,7 @@
 ///|
 priv struct Dae2PrivateGroup {
   signatures : Array[@lib.SubType]
-  slots : Array[Int]
+  slots : Array[Int32]
 }
 
 ///|
@@ -264,7 +264,7 @@ fn dae2_private_element_mask(
   }
   // A unique singleton type owned by one function cannot split an equivalent
   // source identity. Count shared keys without cloning their operand arrays.
-  let counts : @hashmap.HashMap[@lib.CompType, Int] = @hashmap.new()
+  let counts : @hashmap.HashMap[@lib.CompType, Int32] = @hashmap.new()
   for subtype in context.subtypes {
     let key = subtype.get_comptype()
     counts.set(key, counts.get(key).unwrap_or(0) + 1)
@@ -321,7 +321,7 @@ fn dae2_prune_private_element_source_types(mod_ : @lib.Module) -> @lib.Module {
   }
   dfe_type_refs_module_roots(mod_, refs)
   let kept : Array[@lib.RecType] = []
-  let remap : Map[UInt, UInt] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   let mut source = 0
   let mut destination = 0
   for group in groups {

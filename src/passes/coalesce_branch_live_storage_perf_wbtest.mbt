@@ -1,8 +1,8 @@
 ///|
 fn cl_branch_live_storage_bench(
   it : @bench.T,
-  branch_count : Int,
-  local_count : Int,
+  branch_count : Int32,
+  local_count : Int32,
 ) -> Unit raise {
   let locals = Array::make(local_count - 1, "i32").join(" ")
   let source = Array::make(

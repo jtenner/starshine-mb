@@ -2,9 +2,9 @@
 // Frozen V73 pending-map implementation for equal-feature native controls.
 fn sl_constant_sink_map_reference(
   instrs : Array[@lib.Instruction],
-  scan_visits? : Array[Int]? = None,
-) -> (Array[@lib.Instruction], Int) {
-  let mut pending : Map[Int, Int]? = None
+  scan_visits~ : Array[Int32]? = None,
+) -> (Array[@lib.Instruction], Int32) {
+  let mut pending : Map[Int32, Int32]? = None
   let mut sinks : Array[SlConstantStoreSink]? = None
   let mut last_barrier = -1
   for idx in 0..<instrs.length() {
@@ -38,7 +38,7 @@ fn sl_constant_sink_map_reference(
           let entries = match pending {
             Some(entries) => entries
             None => {
-              let entries : Map[Int, Int] = Map([])
+              let entries : Map[Int32, Int32] = Map([])
               pending = Some(entries)
               entries
             }

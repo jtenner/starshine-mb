@@ -3,7 +3,7 @@
 fn dae_pure_suffix_array_reference(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-) -> Int? {
+) -> Int32? {
   if out.length() == 0 {
     return None
   }
@@ -14,7 +14,7 @@ fn dae_pure_suffix_array_reference(
   // ref.null, which makes nullable ref.cast nontrapping while still preserving
   // null-trapping ref.as_non_null and non-nullable ref.cast. Need marker 3 is
   // for nullable ref.cast targets that accept both null and ref.i31 roots.
-  let needs : Array[Int] = [0]
+  let needs : Array[Int32] = [0]
   for start = out.length() - 1; start >= 0; start = start - 1 {
     let need = match needs.pop() {
       Some(v) => v
@@ -86,7 +86,7 @@ fn dae_pure_suffix_array_reference(
 ///|
 fn dae_scalar_needs_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   refs : Bool,
   reference : Bool,
 ) -> Unit {

@@ -1,5 +1,5 @@
 ///|
-fn dae_forwarding_facts_bench(it : @bench.T, count : Int) -> Unit {
+fn dae_forwarding_facts_bench(it : @bench.T, count : Int32) -> Unit {
   let graph = dae_forwarding_facts_fixture(count)
   let dependencies = dae_boundary_dependency_graph_build(graph)
   if dependencies.parameter_forwarding_edges.length() != count {

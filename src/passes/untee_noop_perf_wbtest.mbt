@@ -1,5 +1,8 @@
 ///|
-fn untee_noop_perf_fixture(function_count : Int, sparse : Bool) -> @lib.Module {
+fn untee_noop_perf_fixture(
+  function_count : Int32,
+  sparse : Bool,
+) -> @lib.Module {
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
   let unchanged = Array::make(64, @lib.Instruction::nop())
@@ -33,7 +36,7 @@ fn untee_noop_perf_fixture(function_count : Int, sparse : Bool) -> @lib.Module {
 }
 
 ///|
-fn untee_noop_perf_bench(it : @bench.T, count : Int, sparse : Bool) -> Unit {
+fn untee_noop_perf_bench(it : @bench.T, count : Int32, sparse : Bool) -> Unit {
   let fixture = untee_noop_perf_fixture(count, sparse)
   let result = untee_run_module_pass(fixture)
   if (result == fixture) == sparse {

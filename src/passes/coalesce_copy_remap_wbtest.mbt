@@ -1,5 +1,5 @@
 ///|
-fn cl_copy_remap_fixture(count : Int) -> Array[@lib.Instruction] {
+fn cl_copy_remap_fixture(count : Int32) -> Array[@lib.Instruction] {
   Array::makei(count, fn(_) {
     @lib.Instruction::block(
       @lib.BlockType::void_(),

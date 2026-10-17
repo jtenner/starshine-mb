@@ -7,10 +7,10 @@
 // an extra tuple allocation at every existing split-wrapper call.
 fn sl_leaf_reference_suffix_at(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  count : Int,
+  end : Int32,
+  count : Int32,
   env : @validate.Env,
-  typed_instructions? : Array[Int]? = None,
+  typed_instructions~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction] {
   if count <= 0 {
     return []
@@ -23,7 +23,7 @@ fn sl_leaf_reference_suffix_at(
     if known {
       match sl_value_suffix_stack_effect(instrs[start], env) {
         Some((inputs, outputs)) => {
-          required = Int::max(inputs, required + inputs - outputs)
+          required = Int32::max(inputs, required + inputs - outputs)
           net += outputs - inputs
         }
         None => known = false

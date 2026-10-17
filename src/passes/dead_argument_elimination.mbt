@@ -63,34 +63,34 @@ priv enum DaeBoundarySurface {
 
 ///|
 priv struct DaeDiagnostics {
-  reason_counts : Array[Int]
-  mut boundaries_analyzed : Int
-  mut candidates_produced : Int
-  mut candidates_applied : Int
-  mut parameters_removed : Int
-  mut parameters_materialized : Int
-  mut parameter_types_refined : Int
-  mut result_types_refined : Int
-  mut results_removed : Int
-  mut callsites_rewritten : Int
-  mut return_call_sites_rewritten : Int
-  mut effectful_operands_replayed : Int
-  mut localization_retries : Int
-  mut scratch_locals_added : Int
-  mut scratch_locals_reused : Int
-  mut type_entries_reused : Int
-  mut type_entries_appended : Int
-  mut candidate_requeues : Int
-  mut candidate_stale_retries : Int
-  mut validation_rollbacks : Int
-  mut selected_only_rewrites : Int
-  mut guard_based_skips : Int
-  mut nested_functions_touched : Int
-  mut nested_passes_executed : Int
+  reason_counts : Array[Int32]
+  mut boundaries_analyzed : Int32
+  mut candidates_produced : Int32
+  mut candidates_applied : Int32
+  mut parameters_removed : Int32
+  mut parameters_materialized : Int32
+  mut parameter_types_refined : Int32
+  mut result_types_refined : Int32
+  mut results_removed : Int32
+  mut callsites_rewritten : Int32
+  mut return_call_sites_rewritten : Int32
+  mut effectful_operands_replayed : Int32
+  mut localization_retries : Int32
+  mut scratch_locals_added : Int32
+  mut scratch_locals_reused : Int32
+  mut type_entries_reused : Int32
+  mut type_entries_appended : Int32
+  mut candidate_requeues : Int32
+  mut candidate_stale_retries : Int32
+  mut validation_rollbacks : Int32
+  mut selected_only_rewrites : Int32
+  mut guard_based_skips : Int32
+  mut nested_functions_touched : Int32
+  mut nested_passes_executed : Int32
 }
 
 ///|
-fn dae_decision_reason_index(reason : DaeDecisionReason) -> Int {
+fn dae_decision_reason_index(reason : DaeDecisionReason) -> Int32 {
   match reason {
     DaeCandidateApplied => 0
     DaeCandidateProduced => 1
@@ -277,9 +277,9 @@ fn dae_function_exposure_primary_reason(
 /// Outgoing call/tail facts describe instructions in a function body; they do
 /// not expose that function as an unseen incoming-call target.
 priv struct DaeCurrentTopologyExtras {
-  direct_return_callers : Array[Array[Int]]
-  direct_return_callees_by_caller : Array[Array[Int]]
-  adjacency_membership : @hashmap.HashMap[(Int, Int, Int), Bool]
+  direct_return_callers : Array[Array[Int32]]
+  direct_return_callees_by_caller : Array[Array[Int32]]
+  adjacency_membership : @hashmap.HashMap[DaeAdjacencyKey, Bool]
   has_outgoing_call_indirect : Array[Bool]
   has_outgoing_call_ref : Array[Bool]
   has_outgoing_return_call : Array[Bool]
@@ -295,7 +295,7 @@ priv struct DaeBoundaryFacts {
   original : DaeOriginalBoundarySnapshot
   graph : DaeCurrentBoundaryGraph
   mut incoming_param_live_by_def : Array[Array[Bool]]
-  mut incoming_param_live_body_epochs : Array[Int]
+  mut incoming_param_live_body_epochs : Array[Int32]
 }
 
 ///|
@@ -313,12 +313,12 @@ fn dae_boundary_facts_topology(
 }
 
 ///|
-fn dae_abs_func_idx(imported : Int, def_idx : Int) -> Int {
+fn dae_abs_func_idx(imported : Int32, def_idx : Int32) -> Int32 {
   imported + def_idx
 }
 
 ///|
-fn dae_def_idx_of_abs(imported : Int, func_abs : Int) -> Int? {
+fn dae_def_idx_of_abs(imported : Int32, func_abs : Int32) -> Int32? {
   if func_abs < imported {
     None
   } else {
@@ -404,7 +404,7 @@ fn dae_diagnostics_record_reason(
 fn dae_diagnostics_reason_count(
   diagnostics : DaeDiagnostics,
   reason : DaeDecisionReason,
-) -> Int {
+) -> Int32 {
   diagnostics.reason_counts[dae_decision_reason_index(reason)]
 }
 
@@ -554,8 +554,8 @@ fn dae_diagnostics_record_commit_effects(
 
 ///|
 priv struct DaeCallShape {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   pure : Bool
 }
 
@@ -593,8 +593,8 @@ priv enum DaeOperandRewriteAction {
 
 ///|
 priv struct DaeOperandDisposition {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   droppable_without_repair : Bool
   preserve_effects_on_removal : Bool
   has_branch : Bool
@@ -621,8 +621,8 @@ priv struct DaeOperandRewriteDisposition {
 
 ///|
 priv struct DaeOperandRemovalPlan {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   keep_operand : Bool
   replay_operand : Bool
   append_drop : Bool
@@ -637,14 +637,14 @@ priv struct DaeOperandRemovalPlan {
 /// inventing a parallel carrier.
 #warnings("-unused_field")
 priv struct DaeValueSlice {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   pure : Bool
   has_branch : Bool
   has_effect_or_branch : Bool
   disposition : DaeOperandDisposition
-  input_arity : Int
-  output_arity : Int
+  input_arity : Int32
+  output_arity : Int32
   value_type : @lib.ValType?
   producer_kind : DaeValueProducerKind
   has_observable_effect : Bool
@@ -652,85 +652,85 @@ priv struct DaeValueSlice {
   has_escaping_branch : Bool
   produces_unreachable : Bool
   call_kind : DaeDirectCallKind?
-  call_idx : Int
-  caller_def : Int
-  callee_abs : Int
-  module_epoch : Int
-  call_epoch : Int
-  type_epoch : Int
-  signature_epoch : Int
-  body_epoch : Int
+  call_idx : Int32
+  caller_def : Int32
+  callee_abs : Int32
+  module_epoch : Int32
+  call_epoch : Int32
+  type_epoch : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
 }
 
 ///|
 #warnings("-unused_field")
 priv struct DaeDirectCallOperandSlices {
-  call_idx : Int
+  call_idx : Int32
   call_kind : DaeDirectCallKind
-  callee_abs : Int
+  callee_abs : Int32
   slices : Array[DaeValueSlice]
-  cursor : Int
-  module_epoch : Int
-  call_epoch : Int
-  type_epoch : Int
-  signature_epoch : Int
-  body_epoch : Int
+  cursor : Int32
+  module_epoch : Int32
+  call_epoch : Int32
+  type_epoch : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
 }
 
 ///|
 priv struct DaeCallsiteValueSliceEvidence {
-  call_idx : Int
-  arg_count : Int
-  entry_stack_values : Int
+  call_idx : Int32
+  arg_count : Int32
+  entry_stack_values : Int32
   slices : Array[DaeValueSlice]
-  cursor : Int
+  cursor : Int32
 }
 
 ///|
 priv struct DaeMultiResultSuffixBoundsEvidence {
-  suffix_start : Int
-  operand_end : Int
+  suffix_start : Int32
+  operand_end : Int32
   has_terminal_return : Bool
 }
 
 ///|
 priv struct DaeMultiResultOperandSequenceEvidence {
   bounds : DaeMultiResultSuffixBoundsEvidence
-  operand_starts : Array[Int]
-  value_instr_indices : Array[Int]
+  operand_starts : Array[Int32]
+  value_instr_indices : Array[Int32]
   specialized_slots : Array[Bool]
 }
 
 ///|
 priv struct DaeFlatMultiResultSuffixEvidence {
-  start : Int
-  end : Int
-  result_count : Int
+  start : Int32
+  end : Int32
+  result_count : Int32
   has_terminal_return : Bool
 }
 
 ///|
 priv struct DaeDroppedOperandPairSkipEvidence {
-  start : Int
-  end : Int
-  next : Int
-  skipped_pairs : Int
+  start : Int32
+  end : Int32
+  next : Int32
+  skipped_pairs : Int32
 }
 
 ///|
 priv struct DaeMultiResultOperandSlotEvidence {
-  start : Int
-  end : Int
-  operand_start : Int
-  next : Int
-  skipped_pairs : Int
+  start : Int32
+  end : Int32
+  operand_start : Int32
+  next : Int32
+  skipped_pairs : Int32
   consumed_single_producer : Bool
 }
 
 ///|
 priv struct DaeLocalGetRangeEvidence {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   has_local_get : Bool
   local_free : Bool
   singleton : Bool
@@ -739,7 +739,7 @@ priv struct DaeLocalGetRangeEvidence {
 
 ///|
 priv struct DaeRedundantAccessCleanupEvidence {
-  cleanup_kind : Int
+  cleanup_kind : Int32
   pop_previous : Bool
   skip_current : Bool
   replacement : Array[@lib.Instruction]
@@ -747,17 +747,17 @@ priv struct DaeRedundantAccessCleanupEvidence {
 
 ///|
 priv struct DaeDroppedLocalTeeSuffixCleanupEvidence {
-  cleanup_kind : Int
-  start : Int
-  end : Int
-  next_idx : Int
+  cleanup_kind : Int32
+  start : Int32
+  end : Int32
+  next_idx : Int32
   replacement : Array[@lib.Instruction]
 }
 
 ///|
 priv struct DaeDroppablePureStackEvidence {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   has_local_get : Bool
   local_free : Bool
   local_range : DaeLocalGetRangeEvidence
@@ -765,19 +765,19 @@ priv struct DaeDroppablePureStackEvidence {
 
 ///|
 priv struct DaeLiveLocalCopyCleanupEvidence {
-  start : Int
-  end : Int
-  next_idx : Int
-  copy_count : Int
+  start : Int32
+  end : Int32
+  next_idx : Int32
+  copy_count : Int32
   requires_local_free_stack : Bool
   replacement : Array[@lib.Instruction]
 }
 
 ///|
 priv struct DaeDroppedPureLeafSubjectEvidence {
-  start : Int
-  end : Int
-  prefix_end : Int
+  start : Int32
+  end : Int32
+  prefix_end : Int32
   instr : @lib.Instruction
   range_allows_cleanup : Bool
   prefix_has_observable_effect : Bool
@@ -793,56 +793,56 @@ priv struct DaeDroppedPureLeafCleanupEvidence {
 
 ///|
 priv struct DaeDroppedPureExpressionCleanupEvidence {
-  cleanup_kind : Int
-  start : Int
-  end : Int
-  next_idx : Int
-  operand_count : Int
-  operator_count : Int
+  cleanup_kind : Int32
+  start : Int32
+  end : Int32
+  next_idx : Int32
+  operand_count : Int32
+  operator_count : Int32
   uses_leaf_preservation_policy : Bool
 }
 
 ///|
 priv struct DaeDroppablePureControlValueEvidence {
-  input_count : Int
-  output_count : Int
-  condition_arity : Int
-  body_count : Int
-  primary_body_length : Int
-  secondary_body_length : Int
-  catch_count : Int
+  input_count : Int32
+  output_count : Int32
+  condition_arity : Int32
+  body_count : Int32
+  primary_body_length : Int32
+  secondary_body_length : Int32
+  catch_count : Int32
 }
 
 ///|
 priv struct DaeEmptyZeroResultControlCleanupEvidence {
-  input_count : Int
-  output_count : Int
-  rewritten_body_length : Int
-  primary_body_length : Int
-  secondary_body_length : Int
-  body_count : Int
+  input_count : Int32
+  output_count : Int32
+  rewritten_body_length : Int32
+  primary_body_length : Int32
+  secondary_body_length : Int32
+  body_count : Int32
   drops_empty_control : Bool
 }
 
 ///|
 priv struct DaeControlEntryStackEvidence {
-  entry_stack_values : Int
-  result_stack_values : Int
+  entry_stack_values : Int32
+  result_stack_values : Int32
 }
 
 ///|
 priv struct DaeNestedControlEntryEvidence {
-  entry_stack_values : Int
-  result_stack_values : Int
-  control_kind : Int
+  entry_stack_values : Int32
+  result_stack_values : Int32
+  control_kind : Int32
   has_else_arm : Bool
 }
 
 ///|
 priv struct DaeNestedControlChildrenEvidence {
-  entry_stack_values : Int
-  result_stack_values : Int
-  control_kind : Int
+  entry_stack_values : Int32
+  result_stack_values : Int32
+  control_kind : Int32
   has_else_arm : Bool
   primary_body : Array[@lib.Instruction]
   secondary_body : Array[@lib.Instruction]?
@@ -852,8 +852,8 @@ priv struct DaeNestedControlChildrenEvidence {
 priv struct DaeControlBlockTypeSignatureEvidence {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
-  input_count : Int
-  output_count : Int
+  input_count : Int32
+  output_count : Int32
   type_idx : @lib.TypeIdx?
 }
 
@@ -861,7 +861,7 @@ priv struct DaeControlBlockTypeSignatureEvidence {
 priv struct DaeI32ParamZeroResultLoopEvidence {
   signature : DaeControlBlockTypeSignatureEvidence
   body : Array[@lib.Instruction]
-  body_length : Int
+  body_length : Int32
   iteration_local : @lib.LocalIdx?
 }
 
@@ -869,7 +869,7 @@ priv struct DaeI32ParamZeroResultLoopEvidence {
 #warnings("-unused_field")
 priv struct DaeControlBlockTypeGcResultEvidence {
   signature : DaeControlBlockTypeSignatureEvidence
-  result_index : Int
+  result_index : Int32
   candidate : @lib.ValType
 }
 
@@ -881,59 +881,59 @@ priv enum DaeControlBlockTypeGcResultSlot {
 
 ///|
 priv struct DaeStackOperandWindowEvidence {
-  start : Int
-  end : Int
-  requested_operands : Int
-  available_operands : Int
+  start : Int32
+  end : Int32
+  requested_operands : Int32
+  available_operands : Int32
 }
 
 ///|
 priv struct DaeStackEffectEvidence {
-  inputs : Int
-  outputs : Int
+  inputs : Int32
+  outputs : Int32
 }
 
 ///|
 priv struct DaeStackSliceSimulationEvidence {
-  start : Int
-  end : Int
-  initial_stack_values : Int
-  final_stack_values : Int
-  max_stack_values : Int
+  start : Int32
+  end : Int32
+  initial_stack_values : Int32
+  final_stack_values : Int32
+  max_stack_values : Int32
   saw_effect_or_branch : Bool
 }
 
 ///|
 priv struct DaeStackSliceTransitionEvidence {
   simulation : DaeStackSliceSimulationEvidence
-  expected_final_stack_values : Int
+  expected_final_stack_values : Int32
 }
 
 ///|
 priv struct DaeStackSliceLocalizationPolicy {
-  initial_stack_values : Int
-  expected_final_stack_values : Int
-  depth : Int
+  initial_stack_values : Int32
+  expected_final_stack_values : Int32
+  depth : Int32
   instr_allowed : (@lib.Instruction) -> Bool
 }
 
 ///|
 priv struct DaeStackSliceLocalizationRequest {
   body : Array[@lib.Instruction]
-  start : Int
-  end : Int
-  initial_stack_values : Int
-  expected_final_stack_values : Int
-  depth : Int
+  start : Int32
+  end : Int32
+  initial_stack_values : Int32
+  expected_final_stack_values : Int32
+  depth : Int32
   instr_allowed : (@lib.Instruction) -> Bool
 }
 
 ///|
 priv struct DaeEscapingBranchEvidence {
-  start : Int
-  end : Int
-  depth : Int
-  instr_count : Int
+  start : Int32
+  end : Int32
+  depth : Int32
+  instr_count : Int32
   has_escaping_branch : Bool
 }
 
@@ -948,9 +948,9 @@ priv struct DaeStackSliceLocalizationEvidence {
 
 ///|
 priv struct DaeSelectConditionLocalizationEvidence {
-  start : Int
-  end : Int
-  instr_count : Int
+  start : Int32
+  end : Int32
+  instr_count : Int32
   singleton_trivially_droppable : Bool
   singleton_producer : DaeStackEffectEvidence?
   stack_slice : DaeStackSliceLocalizationEvidence?
@@ -966,7 +966,7 @@ priv struct DaeNoEscapeSliceEvidence {
 priv struct DaeTerminalNoEscapePrefixEvidence {
   prefix : DaeNoEscapeSliceEvidence
   terminal : @lib.Instruction
-  terminal_idx : Int
+  terminal_idx : Int32
 }
 
 ///|
@@ -978,15 +978,15 @@ priv struct DaeTerminalIfNoEscapeCarrierEvidence {
 
 ///|
 priv struct DaeDeadSuffixEvidence {
-  root_idx : Int
-  suffix_start : Int
+  root_idx : Int32
+  suffix_start : Int32
   body : Array[@lib.Instruction]
 }
 
 ///|
 priv struct DaeCallsiteSingleInstructionActualEvidence {
-  param_idx : Int
-  actual_idx : Int
+  param_idx : Int32
+  actual_idx : Int32
   instr : @lib.Instruction
 }
 
@@ -995,15 +995,15 @@ priv struct DaeSelectValueSlices {
   left : DaeValueSlice
   right : DaeValueSlice
   condition : DaeSelectConditionLocalizationEvidence
-  select_idx : Int
+  select_idx : Int32
 }
 
 ///|
 priv struct DaeControlResultSlice {
   body : Array[@lib.Instruction]
   slice : DaeValueSlice
-  result_count : Int
-  carrier_kind : Int
+  result_count : Int32
+  carrier_kind : Int32
   flattened : Bool
   terminal_return : Bool
 }
@@ -1011,7 +1011,7 @@ priv struct DaeControlResultSlice {
 ///|
 priv struct DaeEffectFreeBodyEvidence {
   body : Array[@lib.Instruction]
-  body_length : Int
+  body_length : Int32
   has_observable_effect_or_branch : Bool
   effect_free : Bool
 }
@@ -1019,9 +1019,9 @@ priv struct DaeEffectFreeBodyEvidence {
 ///|
 priv struct DaeTerminalReturnBodyEvidence {
   body : Array[@lib.Instruction]
-  body_length : Int
-  return_idx : Int
-  prefix_length : Int
+  body_length : Int32
+  return_idx : Int32
+  prefix_length : Int32
   prefix_has_observable_effect_or_branch : Bool
   terminal_return_only : Bool
 }
@@ -1029,7 +1029,7 @@ priv struct DaeTerminalReturnBodyEvidence {
 ///|
 priv struct DaeSingleBlockResultCarrierEvidence {
   body : Array[@lib.Instruction]
-  result_count : Int
+  result_count : Int32
   body_has_effect_or_branch : Bool
   effect_free_body : DaeEffectFreeBodyEvidence
 }
@@ -1051,15 +1051,15 @@ priv struct DaeGcSelectValueSlicesEvidence {
 ///|
 priv struct DaeIndirectGcResultSliceEvidence {
   candidate : @lib.ValType
-  param_count : Int
-  stack_value_count : Int
+  param_count : Int32
+  stack_value_count : Int32
 }
 
 ///|
 priv struct DaeDirectGcCallResultEvidence {
   candidate : @lib.ValType
   refined_candidate : @lib.ValType?
-  param_count : Int
+  param_count : Int32
 }
 
 ///|
@@ -1079,29 +1079,29 @@ priv struct DaeSingleResultControlPairGcEvidence {
 ///|
 priv struct DaeSingleResultControlPairApplicationEvidence {
   result_is_void : Bool
-  then_body_length : Int
-  else_body_length : Int
+  then_body_length : Int32
+  else_body_length : Int32
 }
 
 ///|
 priv struct DaeIndexedInstructionRewriteApplicationEvidence {
-  target_count : Int
-  rewrite_count : Int
+  target_count : Int32
+  rewrite_count : Int32
   body_changed : Bool
 }
 
 ///|
 priv struct DaeRecursiveBodyRewriteApplicationEvidence {
   applied_to_current_body : Bool
-  target_count : Int
-  rewrite_count : Int
+  target_count : Int32
+  rewrite_count : Int32
   body_changed : Bool
 }
 
 ///|
 priv struct DaeBodyRewriteFixpointEvidence {
-  max_iters : Int
-  iteration_count : Int
+  max_iters : Int32
+  iteration_count : Int32
   reached_limit : Bool
   body_changed : Bool
 }
@@ -1115,7 +1115,7 @@ priv struct DaeSingleResultControlPairRepairEvidence {
 
 ///|
 priv struct DaeSingleBodyControlShapeEvidence {
-  control_kind : Int
+  control_kind : Int32
   block_type : @lib.BlockType
   catches : Array[@lib.Catch]
   body : Array[@lib.Instruction]
@@ -1137,7 +1137,7 @@ priv struct DaeSingleResultControlGcCandidateEvidence {
 
 ///|
 priv struct DaeTypeidxControlRewritePlan {
-  control_kind : Int
+  control_kind : Int32
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   body : Array[@lib.Instruction]
@@ -1167,8 +1167,8 @@ priv enum DaeGcActualShapeKind {
 
 ///|
 priv struct DaeGcActualShapeDiscoveryEvidence {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   kind : DaeGcActualShapeKind
 }
 
@@ -1186,7 +1186,7 @@ priv struct DaeControlResultGcEvidence {
   refined_candidates : Array[@lib.ValType?]
   rewrites : Array[@lib.Instruction?]
   body : Array[@lib.Instruction]
-  result_start : Int
+  result_start : Int32
   rewritten_body : Array[@lib.Instruction]
   body_changed : Bool
   saw_candidate : Bool
@@ -1204,43 +1204,43 @@ priv struct DaeControlResultPairGcEvidence {
 
 ///|
 priv struct DaeOptionalRefinedResultSlotsApplicationEvidence {
-  result_count : Int
-  applied_count : Int
-  next_results_length : Int
-  refined_results_length : Int
+  result_count : Int32
+  applied_count : Int32
+  next_results_length : Int32
+  refined_results_length : Int32
 }
 
 ///|
 priv struct DaeControlResultPairRefinementApplicationEvidence {
-  result_count : Int
-  next_results_length : Int
-  refined_results_length : Int
+  result_count : Int32
+  next_results_length : Int32
+  refined_results_length : Int32
   saw_refinement : Bool
 }
 
 ///|
 priv struct DaeControlResultSingleRefinementApplicationEvidence {
-  result_count : Int
-  next_results_length : Int
-  refined_results_length : Int
+  result_count : Int32
+  next_results_length : Int32
+  refined_results_length : Int32
   body_changed : Bool
   saw_refinement : Bool
 }
 
 ///|
 priv struct DaeResultRewriteApplicationEvidence {
-  start : Int
-  result_count : Int
-  rewrite_count : Int
+  start : Int32
+  result_count : Int32
+  rewrite_count : Int32
   body_changed : Bool
 }
 
 ///|
 priv struct DaeSelectValueRewriteApplicationEvidence {
-  left_idx : Int
-  right_idx : Int
-  select_idx : Int
-  rewrite_count : Int
+  left_idx : Int32
+  right_idx : Int32
+  select_idx : Int32
+  rewrite_count : Int32
   body_changed : Bool
 }
 
@@ -1264,7 +1264,7 @@ priv struct DaeMixedSingleResultReturnArmGcEvidence {
 ///|
 priv struct DaeMixedMultiResultReturnArmGcEvidence {
   body : Array[@lib.Instruction]
-  result_start : Int
+  result_start : Int32
   flattened : Bool
   has_return : Bool
   effect_free_fallthrough : Bool
@@ -1274,7 +1274,7 @@ priv struct DaeMixedMultiResultReturnArmGcEvidence {
 ///|
 priv struct DaeEffectFreeFallthroughEvidence {
   body : Array[@lib.Instruction]
-  body_length : Int
+  body_length : Int32
   has_observable_effect_or_branch : Bool
   effect_free_fallthrough : Bool
 }
@@ -1288,7 +1288,7 @@ priv struct DaeMixedMultiResultReturnArmRewriteEvidence {
 ///|
 priv struct DaeRewriteResult {
   instrs : Array[@lib.Instruction]
-  calls_rewritten : Int
+  calls_rewritten : Int32
   ok : Bool
 }
 
@@ -1303,10 +1303,10 @@ priv struct DaeCallsiteRewritePlan {
 ///|
 priv struct DaeCallsiteRewriteApplicationEvidence {
   instrs : Array[@lib.Instruction]
-  new_call_idx : Int
+  new_call_idx : Int32
   scratch_local_types : Array[@lib.ValType]
   localized_params : Array[Bool]
-  localization_count : Int
+  localization_count : Int32
 }
 
 ///|
@@ -1325,24 +1325,24 @@ priv struct DaeRemovedParamCalleeRewriteEvidence {
 
 ///|
 priv struct DaeBoundaryParamBatchPlan {
-  def_idx : Int
-  callee_abs : Int
+  def_idx : Int32
+  callee_abs : Int32
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   remove : Array[Bool]
   const_params : Array[@lib.Instruction?]
   local_use : DaeLocalUse
-  direct_call_count : Int
-  direct_caller_defs : Array[Int]
+  direct_call_count : Int32
+  direct_caller_defs : Array[Int32]
 }
 
 ///|
 priv struct DaeDroppedResultBatchPlan {
-  def_idx : Int
-  callee_abs : Int
+  def_idx : Int32
+  callee_abs : Int32
   params : Array[@lib.ValType]
-  direct_call_count : Int
-  direct_caller_defs : Array[Int]
+  direct_call_count : Int32
+  direct_caller_defs : Array[Int32]
 }
 
 ///|
@@ -1357,13 +1357,13 @@ priv struct DaeGcParameterLubEvidence {
 priv struct DaeGcParameterLubActualCollection {
   candidates : Array[@lib.ValType?]
   rejected : Array[Bool]
-  calls_seen : Int
+  calls_seen : Int32
   collect_ok : Bool
 }
 
 ///|
 priv struct DaeCallsiteLocalizationContext {
-  first_scratch_local : Int
+  first_scratch_local : Int32
   param_types : Array[@lib.ValType]
   scratch_local_types : Array[@lib.ValType]
   localized_params : Array[Bool]
@@ -1382,15 +1382,15 @@ priv struct DaeLocalUse {
 priv struct DaeUniformResolutionCache {
   local_uses : Array[DaeLocalUse?]
   local_use_ready : Array[Bool]
-  local_use_scans : Array[Int]?
+  local_use_scans : Array[Int32]?
   forwarded_values : Array[Array[@lib.Instruction?]]
   forwarded_ready : Array[Array[Bool]]
   forwarded_resolving : Array[Array[Bool]]
-  forwarded_resolution_scans : Array[Int]?
+  forwarded_resolution_scans : Array[Int32]?
   function_infos : Array[DaeFunctionInfo]?
-  stable_callsite_resolutions : Array[Int]?
+  stable_callsite_resolutions : Array[Int32]?
   mut callsite_operands : @hashmap.HashMap[
-    (Int, Int),
+    (Int32, Int32),
     DaeUniformCallsiteOperands,
   ]?
   visited : Array[Bool]
@@ -1398,13 +1398,13 @@ priv struct DaeUniformResolutionCache {
 
 ///|
 fn DaeUniformResolutionCache::new(
-  defined : Int,
-  total : Int,
-  local_use_scans? : Array[Int]? = None,
-  forwarded_resolution_scans? : Array[Int]? = None,
-  function_infos? : Array[DaeFunctionInfo]? = None,
-  stable_callsite_resolutions? : Array[Int]? = None,
-  visited_allocations? : Array[Int]? = None,
+  defined : Int32,
+  total : Int32,
+  local_use_scans~ : Array[Int32]? = None,
+  forwarded_resolution_scans~ : Array[Int32]? = None,
+  function_infos~ : Array[DaeFunctionInfo]? = None,
+  stable_callsite_resolutions~ : Array[Int32]? = None,
+  visited_allocations~ : Array[Int32]? = None,
 ) -> DaeUniformResolutionCache {
   let forwarded_values : Array[Array[@lib.Instruction?]] = []
   let forwarded_ready : Array[Array[Bool]] = []
@@ -1436,15 +1436,15 @@ fn DaeUniformResolutionCache::new(
 ///|
 priv struct DaeLocalUsageEvidence {
   target_local : @lib.LocalIdx
-  get_count : Int
-  write_count : Int
+  get_count : Int32
+  write_count : Int32
   has_try_table : Bool
 }
 
 ///|
 priv struct DaeLocalReferenceExtentEvidence {
-  limit : Int
-  max_referenced_local_slot : Int
+  limit : Int32
+  max_referenced_local_slot : Int32
   references_at_or_above_limit : Bool
 }
 
@@ -1452,7 +1452,7 @@ priv struct DaeLocalReferenceExtentEvidence {
 priv struct DaeLocalCopyTargetEvidence {
   temp_local : @lib.LocalIdx
   target_local : @lib.LocalIdx
-  protected_local_slots : Int
+  protected_local_slots : Int32
 }
 
 ///|
@@ -1460,7 +1460,7 @@ priv struct DaePassResult {
   mod_out : @lib.Module
   touched : Array[Bool]
   changed : Bool
-  primary_def : Int
+  primary_def : Int32
 }
 
 ///|
@@ -1492,15 +1492,15 @@ priv struct DaeCommitEffects {
   caller_bottom_repaired : Array[Bool]
   control_refinalization_required : Array[Bool]
   local_projection_changed : Array[Bool]
-  candidates_produced : Int
-  candidates_applied : Int
-  effectful_operands_replayed : Int
-  scratch_locals_added : Int
-  scratch_locals_reused : Int
-  type_entries_reused : Int
-  type_entries_appended : Int
-  selected_only_rewrites : Int
-  guard_based_skips : Int
+  candidates_produced : Int32
+  candidates_applied : Int32
+  effectful_operands_replayed : Int32
+  scratch_locals_added : Int32
+  scratch_locals_reused : Int32
+  type_entries_reused : Int32
+  type_entries_appended : Int32
+  selected_only_rewrites : Int32
+  guard_based_skips : Int32
   type_section_changed : Bool
   metadata_changed : Bool
   invalidation_domains : Array[DaeInvalidationDomain]
@@ -1508,7 +1508,7 @@ priv struct DaeCommitEffects {
 } derive(Eq, Debug)
 
 ///|
-fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
+fn dae_commit_effects_empty(defined : Int32) -> DaeCommitEffects {
   {
     structurally_touched: Array::make(defined, false),
     worth_decided: Array::make(defined, false),
@@ -1541,11 +1541,11 @@ fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
 
 ///|
 fn dae_commit_effects_parameter_change(
-  defined : Int,
-  target_def : Int,
-  structurally_touched_defs : Array[Int],
+  defined : Int32,
+  target_def : Int32,
+  structurally_touched_defs : Array[Int32],
   body_materialized : Bool,
-  body_localized_callers : Array[Int],
+  body_localized_callers : Array[Int32],
 ) -> DaeCommitEffects {
   let effects = dae_commit_effects_empty(defined)
   for def_idx in structurally_touched_defs {
@@ -1684,7 +1684,7 @@ priv struct DaeCoreRunResult {
   mod_out : @lib.Module
   touched : Array[Bool]
   changed : Bool
-  primary_def : Int
+  primary_def : Int32
   effects : DaeCommitEffects
   diagnostics : DaeDiagnostics
   single_caller_throttle_consumed : Bool
@@ -1696,7 +1696,7 @@ priv struct DaeCoreResultApplication {
   touched : Array[Bool]
   changed : Bool
   applied : Bool
-  primary_def : Int
+  primary_def : Int32
   effects : DaeCommitEffects
 }
 
@@ -1706,7 +1706,7 @@ priv struct DaeDroppedResultBatchApplication {
   touched : Array[Bool]
   changed : Bool
   applied : Bool
-  primary_def : Int
+  primary_def : Int32
   effects : DaeCommitEffects
   post_graph : DaeCurrentBoundaryGraph?
 }
@@ -1725,23 +1725,23 @@ priv struct DaeExactLiteralWorklistApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
   changed : Bool
-  productive_defs : Array[Int]
+  productive_defs : Array[Int32]
   effects : DaeCommitEffects
 }
 
 ///|
 priv struct DaeDroppedResultPayoffChainCandidate {
-  wrapper_def : Int
-  callee_def : Int
-  payoff : Int
+  wrapper_def : Int32
+  callee_def : Int32
+  payoff : Int32
 }
 
 ///|
 priv struct DaeBroadExactParamAdjacentCleanupCandidate {
-  root_def : Int
-  first_def : Int
-  second_def : Int
-  payoff : Int
+  root_def : Int32
+  first_def : Int32
+  second_def : Int32
+  payoff : Int32
 }
 
 ///|
@@ -1754,8 +1754,8 @@ priv struct DaeBroadExactParamAdjacentCleanupApplication {
 
 ///|
 priv struct DaeForwardedParamNode {
-  callee_abs : Int
-  param_idx : Int
+  callee_abs : Int32
+  param_idx : Int32
 }
 
 ///|
@@ -1770,8 +1770,8 @@ priv enum DaeParameterFlowState {
 
 ///|
 priv struct DaeParameterFlowFact {
-  def_idx : Int
-  param_idx : Int
+  def_idx : Int32
+  param_idx : Int32
   mut state : DaeParameterFlowState
 }
 
@@ -1784,8 +1784,8 @@ priv struct DaeParameterFlowSolution {
 priv struct DaeForwardedParamSccApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
-  defs : Array[Int]
-  param_count : Int
+  defs : Array[Int32]
+  param_count : Int32
 }
 
 ///|
@@ -1793,58 +1793,58 @@ priv struct DaeForwardedParamSccApplication {
 priv struct DaeForwardedParamDeadCalleeApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
-  sink_defs : Array[Int]
-  cycle_defs : Array[Int]
+  sink_defs : Array[Int32]
+  cycle_defs : Array[Int32]
 }
 
 ///|
 priv struct DaeOriginalCallSummary {
-  call_counts : Array[Int]
-  prior_call_counts : Array[Int]
-  nonself_undropped_call_counts : Array[Int]
-  active_nonself_call_counts : Array[Int]
-  active_parameterized_nonself_call_counts : Array[Int]
-  active_parameterized_result_nonself_call_counts : Array[Int]
-  prior_undropped_call_counts : Array[Int]
-  self_call_counts : Array[Int]
+  call_counts : Array[Int32]
+  prior_call_counts : Array[Int32]
+  nonself_undropped_call_counts : Array[Int32]
+  active_nonself_call_counts : Array[Int32]
+  active_parameterized_nonself_call_counts : Array[Int32]
+  active_parameterized_result_nonself_call_counts : Array[Int32]
+  prior_undropped_call_counts : Array[Int32]
+  self_call_counts : Array[Int32]
 }
 
 ///|
 #warnings("-unused_field")
 priv struct DaeOriginalBoundarySnapshot {
-  imported : Int
-  defined : Int
-  total : Int
+  imported : Int32
+  defined : Int32
+  total : Int32
   type_indices : Array[@lib.TypeIdx]
   escaped : Array[Bool]
   exposure : Array[DaeFunctionExposure]
-  param_counts : Array[Int]
+  param_counts : Array[Int32]
   large_unreachable_prefixes : Array[Bool]
   call_summary : DaeOriginalCallSummary
-  private_result_dead_suffix_call_counts : Array[Int]
-  private_result_same_operand_call_counts : Array[Int]
+  private_result_dead_suffix_call_counts : Array[Int32]
+  private_result_same_operand_call_counts : Array[Int32]
   escaped_result_operand_call_facts : DaeOriginalEscapedResultOperandCallFacts
-  private_result_dead_suffix_calls_from_escaped_operand_callees : Array[Int]
-  escaped_dead_suffix_call_counts : Array[Int]
-  escaped_undropped_dead_suffix_call_counts : Array[Int]
+  private_result_dead_suffix_calls_from_escaped_operand_callees : Array[Int32]
+  escaped_dead_suffix_call_counts : Array[Int32]
+  escaped_undropped_dead_suffix_call_counts : Array[Int32]
   dead_suffix_other_calls : Array[Bool]
   dead_suffix_undropped_self_calls : Array[Bool]
   dead_suffix_dropped_self_calls : Array[Bool]
   dead_suffix_block_undropped_self_calls : Array[Bool]
   dead_suffix_dropped_self_call_full_param_forwards : Array[Bool]
-  dead_suffix_result_calls_from_undropped_self_callers : Array[Int]
-  dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[Int]
+  dead_suffix_result_calls_from_undropped_self_callers : Array[Int32]
+  dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[Int32]
   dead_suffix_undropped_calls_from_parameterized_dropped_self_callers : Array[
-    Int,
+    Int32,
   ]
-  dead_suffix_dropped_calls_from_parameterized_self_callers : Array[Int]
-  dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int]
-  dead_suffix_mixed_dropped_undropped_call_counts : Array[Int]
+  dead_suffix_dropped_calls_from_parameterized_self_callers : Array[Int32]
+  dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int32]
+  dead_suffix_mixed_dropped_undropped_call_counts : Array[Int32]
   dead_suffix_dropped_earlier_result_calls : Array[Bool]
-  later_dead_suffix_dropped_call_counts : Array[Int]
+  later_dead_suffix_dropped_call_counts : Array[Int32]
   dead_suffix_same_self_result_operand_calls : Array[Bool]
   dead_suffix_undropped_self_call_param_operands : Array[Bool]
-  dead_suffix_calls_from_param_operand_self_result_callers : Array[Int]
+  dead_suffix_calls_from_param_operand_self_result_callers : Array[Int32]
   dead_suffix_result_other_calls : Array[Bool]
   dead_suffix_self_recursive_void_side_calls : Array[Bool]
   dead_suffix_self_recursive_result_side_calls : Array[Bool]
@@ -1853,26 +1853,30 @@ priv struct DaeOriginalBoundarySnapshot {
 }
 
 ///|
+#valtype
 priv struct DaeStablePathNode {
-  parent : Int
-  value : Int
-  depth : Int
+  parent : Int32
+  value : Int32
+  depth : Int32
+  first_child : Int32
 }
 
 ///|
 priv struct DaeStablePathWorkspace {
   nodes : Array[DaeStablePathNode]
-  children : @hashmap.HashMap[(Int, Int), Int]
-  active_stamps : Array[Int]
-  call_stamps : Array[Int]
-  mut generation : Int
+  mut children : @hashmap.HashMap[UInt64, Int32]?
+  mut root_first_child : Int32
+  active_stamps : Array[Int32]
+  call_stamps : Array[Int32]
+  mut generation : Int32
 }
 
 ///|
+#valtype
 priv struct DaeStablePath {
   workspace : DaeStablePathWorkspace
-  tail : Int
-  length : Int
+  tail : Int32
+  length : Int32
 }
 
 ///|
@@ -1880,7 +1884,8 @@ fn DaeStablePath::empty() -> DaeStablePath {
   {
     workspace: {
       nodes: [],
-      children: @hashmap.new(),
+      children: None,
+      root_first_child: -1,
       active_stamps: [],
       call_stamps: [],
       generation: 0,
@@ -1891,9 +1896,39 @@ fn DaeStablePath::empty() -> DaeStablePath {
 }
 
 ///|
-fn DaeStablePath::append(self : DaeStablePath, value : Int) -> DaeStablePath {
-  let key = (self.tail, value)
-  let tail = match self.workspace.children.get(key) {
+#inline
+fn dae_stable_path_key(parent : Int32, value : Int32) -> UInt64 {
+  (parent.reinterpret_as_uint().to_uint64() << 32) |
+  value.reinterpret_as_uint().to_uint64()
+}
+
+///|
+/// Shared lookup for canonical path construction and sparse rewrite selection.
+#inline
+fn dae_stable_path_child(
+  workspace : DaeStablePathWorkspace,
+  parent : Int32,
+  value : Int32,
+) -> Int32? {
+  let first = if parent == -1 {
+    workspace.root_first_child
+  } else if parent >= 0 && parent < workspace.nodes.length() {
+    workspace.nodes[parent].first_child
+  } else {
+    -1
+  }
+  if first >= 0 && workspace.nodes[first].value == value {
+    return Some(first)
+  }
+  match workspace.children {
+    Some(children) => children.get(dae_stable_path_key(parent, value))
+    None => None
+  }
+}
+
+///|
+fn DaeStablePath::append(self : DaeStablePath, value : Int32) -> DaeStablePath {
+  let tail = match dae_stable_path_child(self.workspace, self.tail, value) {
     Some(node) => node
     None => {
       let node = self.workspace.nodes.length()
@@ -1901,10 +1936,41 @@ fn DaeStablePath::append(self : DaeStablePath, value : Int) -> DaeStablePath {
         parent: self.tail,
         value,
         depth: self.length + 1,
+        first_child: -1,
       })
       self.workspace.active_stamps.push(0)
       self.workspace.call_stamps.push(0)
-      self.workspace.children.set(key, node)
+      let first = if self.tail == -1 {
+        if self.workspace.root_first_child < 0 {
+          self.workspace.root_first_child = node
+          true
+        } else {
+          false
+        }
+      } else if self.tail >= 0 && self.tail < node {
+        let parent = self.workspace.nodes[self.tail]
+        if parent.first_child < 0 {
+          // Nodes are values. Replace the owned array slot; changing a copied
+          // parent value would leave the canonical first-child link unset.
+          self.workspace.nodes[self.tail] = { ..parent, first_child: node, }
+          true
+        } else {
+          false
+        }
+      } else {
+        false
+      }
+      if !first {
+        let children = match self.workspace.children {
+          Some(children) => children
+          None => {
+            let children = @hashmap.new()
+            self.workspace.children = Some(children)
+            children
+          }
+        }
+        children.set(dae_stable_path_key(self.tail, value), node)
+      }
       node
     }
   }
@@ -1912,12 +1978,12 @@ fn DaeStablePath::append(self : DaeStablePath, value : Int) -> DaeStablePath {
 }
 
 ///|
-fn DaeStablePath::length(self : DaeStablePath) -> Int {
+fn DaeStablePath::length(self : DaeStablePath) -> Int32 {
   self.length
 }
 
 ///|
-fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int]) -> Unit {
+fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int32]) -> Unit {
   let base = out.length()
   let length = self.length()
   out.resize(base + length, 0)
@@ -1938,14 +2004,14 @@ fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int]) -> Unit {
 }
 
 ///|
-fn DaeStablePath::to_array(self : DaeStablePath) -> Array[Int] {
+fn DaeStablePath::to_array(self : DaeStablePath) -> Array[Int32] {
   let out = Array::new(capacity=self.length())
   self.append_to(out)
   out
 }
 
 ///|
-fn dae_stable_path_from_array(path : Array[Int]) -> DaeStablePath {
+fn dae_stable_path_from_array(path : Array[Int32]) -> DaeStablePath {
   let mut stable = DaeStablePath::empty()
   for value in path {
     stable = stable.append(value)
@@ -1984,10 +2050,11 @@ fn dae_stable_path_equal(left : DaeStablePath, right : DaeStablePath) -> Bool {
 }
 
 ///|
+#valtype
 priv struct DaeStableCallsite {
-  caller_def : Int
+  caller_def : Int32
   path : DaeStablePath
-  callee_abs : Int
+  callee_abs : Int32
   active : Bool
   dropped : Bool
   tail : Bool
@@ -2000,7 +2067,7 @@ priv struct DaeFunctionInfo {
   calls : Array[DaeStableCallsite]
   dropped_calls : Array[DaeStableCallsite]
   mut has_tail_calls : Bool
-  tail_callees : Array[Int]
+  tail_callees : Array[Int32]
   loop_type_indices : Array[@lib.TypeIdx]
   mut has_adjacent_local_set_get : Bool
   mut has_unseen_calls : Bool
@@ -2008,10 +2075,10 @@ priv struct DaeFunctionInfo {
 
 ///|
 priv struct DaeCurrentCallFacts {
-  direct_calls : Array[Int]
+  direct_calls : Array[Int32]
   tail_calls : Array[Bool]
-  direct_callers : Array[Array[Int]]
-  dropped_calls : Array[Int]
+  direct_callers : Array[Array[Int32]]
+  dropped_calls : Array[Int32]
   escaped : Array[Bool]
 }
 
@@ -2027,9 +2094,9 @@ priv struct DaeFunctionAnalysis {
 priv struct DaeCallBoundaryFacts {
   escaped : Array[Bool]
   tail_calls : Array[Bool]
-  direct_callers : Array[Array[Int]]
-  direct_calls : Array[Int]
-  dropped_calls : Array[Int]
+  direct_callers : Array[Array[Int32]]
+  direct_calls : Array[Int32]
+  dropped_calls : Array[Int32]
 }
 
 ///|
@@ -2037,9 +2104,9 @@ priv struct DaeCallBoundaryCandidate {
   owned : Bool
   tail_callee : Bool
   decision_reason : DaeDecisionReason
-  direct_call_count : Int
-  dropped_call_count : Int
-  direct_callers : Array[Int]
+  direct_call_count : Int32
+  dropped_call_count : Int32
+  direct_callers : Array[Int32]
   has_self_direct_caller : Bool
   allows_nonself_direct_rewrite : Bool
 }
@@ -2047,7 +2114,7 @@ priv struct DaeCallBoundaryCandidate {
 ///|
 priv struct DaeDirectCallerRewriteEvidence {
   func : @lib.Func
-  calls_rewritten : Int
+  calls_rewritten : Int32
   changed : Bool
   ok : Bool
 }
@@ -2055,7 +2122,7 @@ priv struct DaeDirectCallerRewriteEvidence {
 ///|
 priv struct DaeDirectCallerScopeApplication {
   funcs : Array[@lib.Func]
-  calls_rewritten : Int
+  calls_rewritten : Int32
   changed_defs : Array[Bool]
   changed : Bool
   ok : Bool
@@ -2069,22 +2136,22 @@ priv enum DaeTargetCallsiteMode {
 
 ///|
 priv struct DaeTargetCallsiteEvidence {
-  callee_abs : Int
+  callee_abs : Int32
   is_return_call : Bool
 }
 
 ///|
 priv struct DaeAdjacentParamForwardEvidence {
-  start : Int
-  end : Int
-  param_count : Int
+  start : Int32
+  end : Int32
+  param_count : Int32
 }
 
 ///|
 priv struct DaeModuleBoundarySnapshot {
-  imported : Int
-  defined : Int
-  total : Int
+  imported : Int32
+  defined : Int32
+  total : Int32
   type_indices : Array[@lib.TypeIdx]
   function_types : Array[@lib.FuncType?]
   funcs : Array[@lib.Func]
@@ -2097,18 +2164,18 @@ priv struct DaeModuleBoundarySnapshot {
 
 ///|
 priv struct DaeFunctionEpochs {
-  mut signature_epoch : Int
-  mut body_epoch : Int
+  mut signature_epoch : Int32
+  mut body_epoch : Int32
 }
 
 ///|
 priv struct DaeCandidateEpoch {
-  def_idx : Int
-  module_epoch : Int
-  call_epoch : Int
-  type_epoch : Int
-  signature_epoch : Int
-  body_epoch : Int
+  def_idx : Int32
+  module_epoch : Int32
+  call_epoch : Int32
+  type_epoch : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
 }
 
 ///|
@@ -2117,47 +2184,47 @@ priv struct DaeCurrentBoundaryGraph {
   mut snapshot : DaeModuleBoundarySnapshot
   mut topology : DaeCurrentTopologyExtras
   mut function_epochs : Array[DaeFunctionEpochs]
-  mut module_epoch : Int
-  mut call_epoch : Int
-  mut type_epoch : Int
+  mut module_epoch : Int32
+  mut call_epoch : Int32
+  mut type_epoch : Int32
   mut dependency_cache : DaeBoundaryDependencyGraph?
 }
 
 ///|
 #warnings("-unused_value")
 priv struct DaeParameterForwardingEdge {
-  caller_def : Int
-  caller_param_idx : Int
-  callee_def : Int
-  callee_param_idx : Int
+  caller_def : Int32
+  caller_param_idx : Int32
+  callee_def : Int32
+  callee_param_idx : Int32
   direct_tail : Bool
   source_type : @lib.ValType
-  caller_signature_epoch : Int
-  caller_body_epoch : Int
-  callee_signature_epoch : Int
-  callee_body_epoch : Int
+  caller_signature_epoch : Int32
+  caller_body_epoch : Int32
+  callee_signature_epoch : Int32
+  callee_body_epoch : Int32
 } derive(Eq, Debug)
 
 ///|
 #warnings("-unused_field")
 priv struct DaeBoundaryDependencyGraph {
-  callers_by_def : Array[Array[Int]]
-  callees_by_def : Array[Array[Int]]
-  return_callers_by_def : Array[Array[Int]]
+  callers_by_def : Array[Array[Int32]]
+  callees_by_def : Array[Array[Int32]]
+  return_callers_by_def : Array[Array[Int32]]
   parameter_forwarding_edges : Array[DaeParameterForwardingEdge]
-  parameter_forwarders_by_def : Array[Array[Int]]
-  uniform_value_forwarders_by_def : Array[Array[Int]]
-  result_forwarders_by_def : Array[Array[Int]]
-  result_dependencies_by_def : Array[Array[Int]]
-  result_observers_by_def : Array[Array[Int]]
-  tail_result_dependencies_by_def : Array[Array[Int]]
-  type_dependencies_by_def : Array[Array[Int]]
-  body_use_dependencies_by_def : Array[Array[Int]]
-  nested_cleanup_dependencies_by_def : Array[Array[Int]]
-  component_by_def : Array[Int]
-  component_members : Array[Array[Int]]
-  forwarding_component_by_def : Array[Int]
-  forwarding_component_members : Array[Array[Int]]
+  parameter_forwarders_by_def : Array[Array[Int32]]
+  uniform_value_forwarders_by_def : Array[Array[Int32]]
+  result_forwarders_by_def : Array[Array[Int32]]
+  result_dependencies_by_def : Array[Array[Int32]]
+  result_observers_by_def : Array[Array[Int32]]
+  tail_result_dependencies_by_def : Array[Array[Int32]]
+  type_dependencies_by_def : Array[Array[Int32]]
+  body_use_dependencies_by_def : Array[Array[Int32]]
+  nested_cleanup_dependencies_by_def : Array[Array[Int32]]
+  component_by_def : Array[Int32]
+  component_members : Array[Array[Int32]]
+  forwarding_component_by_def : Array[Int32]
+  forwarding_component_members : Array[Array[Int32]]
 }
 
 ///|
@@ -2178,18 +2245,18 @@ priv enum DaeWorkFamily {
 ///|
 #warnings("-unused_value")
 priv struct DaeWorkItem {
-  target_def : Int
-  component_id : Int
-  component_members : Array[Int]
+  target_def : Int32
+  component_id : Int32
+  component_members : Array[Int32]
   family : DaeWorkFamily
   uniform_values : Array[@lib.Instruction?]
   allow_immutable_global_get : Bool
   allow_immediate_i32_suffix_fallback : Bool
-  expected_module_epoch : Int
-  expected_call_epoch : Int
-  expected_type_epoch : Int
-  expected_signature_epoch : Int
-  expected_body_epoch : Int
+  expected_module_epoch : Int32
+  expected_call_epoch : Int32
+  expected_type_epoch : Int32
+  expected_signature_epoch : Int32
+  expected_body_epoch : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -2203,12 +2270,12 @@ priv enum DaeWorkOutcome {
 
 ///|
 priv struct DaeBoundaryWorklist {
-  queue : Array[Int]
+  queue : Array[Int32]
   queued : Array[Bool]
-  mut cursor : Int
+  mut cursor : Int32
   family_queue : Array[DaeWorkItem]
   family_queued : Array[Array[Bool]]
-  mut family_cursor : Int
+  mut family_cursor : Int32
 }
 
 ///|
@@ -2233,10 +2300,10 @@ priv enum DaeResultAction {
 ///|
 #warnings("-unused_value")
 priv struct DaeDirectCallIdentity {
-  caller_def : Int
+  caller_def : Int32
   path : DaeStablePath
   call_kind : DaeDirectCallKind
-  callee_abs : Int
+  callee_abs : Int32
 }
 
 ///|
@@ -2268,24 +2335,24 @@ fn dae_direct_call_identities_equal(
 
 ///|
 priv struct DaeCallerEpochExpectation {
-  def_idx : Int
-  signature_epoch : Int
-  body_epoch : Int
-  direct_calls : Int
-  return_calls : Int
+  def_idx : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
+  direct_calls : Int32
+  return_calls : Int32
 }
 
 ///|
 priv struct DaeCallerRewritePlan {
-  def_idx : Int
+  def_idx : Int32
   func : @lib.Func
-  calls_rewritten : Int
-  return_calls_rewritten : Int
+  calls_rewritten : Int32
+  return_calls_rewritten : Int32
 }
 
 ///|
 priv struct DaeLocalProjectionPlan {
-  local_map : Array[Int]
+  local_map : Array[Int32]
   preserved_removed_params : Array[Bool]
 }
 
@@ -2305,17 +2372,17 @@ priv struct DaeFunctionSectionRewritePlan {
 ///|
 priv struct DaeRewritePlan {
   effects : DaeCommitEffects
-  target_def : Int
-  target_abs : Int
-  expected_module_epoch : Int
-  expected_call_epoch : Int
-  expected_type_epoch : Int
-  expected_target_signature_epoch : Int
-  expected_target_body_epoch : Int
+  target_def : Int32
+  target_abs : Int32
+  expected_module_epoch : Int32
+  expected_call_epoch : Int32
+  expected_type_epoch : Int32
+  expected_target_signature_epoch : Int32
+  expected_target_body_epoch : Int32
   expected_callers : Array[DaeCallerEpochExpectation]
   expected_call_identities : Array[DaeDirectCallIdentity]
-  expected_direct_call_count : Int
-  expected_return_call_count : Int
+  expected_direct_call_count : Int32
+  expected_return_call_count : Int32
   parameter_actions : Array[DaeParameterAction]
   result_actions : Array[DaeResultAction]
   old_signature : @lib.FuncType
@@ -2326,7 +2393,7 @@ priv struct DaeRewritePlan {
   type_section_rewrite : DaeTypeSectionRewritePlan
   function_section_rewrite : DaeFunctionSectionRewritePlan
   touched_functions : Array[Bool]
-  invalidated_dependencies : Array[Int]
+  invalidated_dependencies : Array[Int32]
   rewritten_funcs : Array[@lib.Func]
   candidate : @lib.Module
   decision_reason : DaeDecisionReason
@@ -2343,10 +2410,10 @@ priv struct DaeRewritePlanApplication {
 ///|
 priv struct DaeFamilyRewritePlan {
   effects : DaeCommitEffects
-  target_def : Int
-  expected_module_epoch : Int
-  expected_call_epoch : Int
-  expected_type_epoch : Int
+  target_def : Int32
+  expected_module_epoch : Int32
+  expected_call_epoch : Int32
+  expected_type_epoch : Int32
   expected_functions : Array[DaeComponentMemberExpectation]
   expected_call_identities : Array[DaeDirectCallIdentity]
   validate_call_identities : Bool
@@ -2356,29 +2423,29 @@ priv struct DaeFamilyRewritePlan {
 
 ///|
 priv struct DaeComponentMemberExpectation {
-  def_idx : Int
-  signature_epoch : Int
-  body_epoch : Int
-  direct_calls : Int
-  return_calls : Int
+  def_idx : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
+  direct_calls : Int32
+  return_calls : Int32
 }
 
 ///|
 priv struct DaeComponentCallerExpectation {
-  def_idx : Int
-  signature_epoch : Int
-  body_epoch : Int
+  def_idx : Int32
+  signature_epoch : Int32
+  body_epoch : Int32
 }
 
 ///|
 #warnings("-unused_field")
 priv struct DaeComponentRewritePlan {
   effects : DaeCommitEffects
-  component_id : Int
-  member_defs : Array[Int]
-  expected_module_epoch : Int
-  expected_call_epoch : Int
-  expected_type_epoch : Int
+  component_id : Int32
+  member_defs : Array[Int32]
+  expected_module_epoch : Int32
+  expected_call_epoch : Int32
+  expected_type_epoch : Int32
   expected_call_identities : Array[DaeDirectCallIdentity]
   expected_members : Array[DaeComponentMemberExpectation]
   expected_callers : Array[DaeComponentCallerExpectation]
@@ -2403,7 +2470,7 @@ priv enum DaeComponentRewritePlanApplication {
 
 ///|
 priv struct DaeDroppedResultScope {
-  caller_defs : Array[Int]
+  caller_defs : Array[Int32]
 }
 
 ///|
@@ -2415,8 +2482,8 @@ priv enum DaeDroppedResultDeadSuffixRepairKind {
 ///|
 priv struct DaeDroppedResultRepairPlan {
   scope : DaeDroppedResultScope
-  callee_abs : Int
-  skip_def : Int
+  callee_abs : Int32
+  skip_def : Int32
   repair_kind : DaeDroppedResultDeadSuffixRepairKind
   remove_dropped_call_drops : Bool
   remove_dropped_call_drops_before_repair : Bool
@@ -2443,10 +2510,10 @@ priv struct DaeDroppedResultUnreachableCalleeRewritePlan {
 
 ///|
 priv struct DaeDroppedResultCandidate {
-  callee_abs : Int
-  direct_call_count : Int
-  dropped_call_count : Int
-  direct_callers : Array[Int]
+  callee_abs : Int32
+  direct_call_count : Int32
+  dropped_call_count : Int32
+  direct_callers : Array[Int32]
   owned : Bool
   all_direct_calls_dropped : Bool
   owned_dropped_result_candidate : Bool
@@ -2454,7 +2521,7 @@ priv struct DaeDroppedResultCandidate {
 
 ///|
 priv struct DaeDroppedResultRemovalLegalityEvidence {
-  result_count : Int
+  result_count : Int32
   skip_large_result_cleanup : Bool
   has_live_tail_call : Bool
   has_undropped_direct_call : Bool
@@ -2464,13 +2531,13 @@ priv struct DaeDroppedResultRemovalLegalityEvidence {
 ///|
 priv struct DaeDroppedResultCachedPrecheck {
   result_removal_legality : DaeDroppedResultRemovalLegalityEvidence
-  self_call_count : Int
+  self_call_count : Int32
 }
 
 ///|
 priv struct DaeDroppedResultCalleeRewriteEvidence {
-  param_count : Int
-  result_count : Int
+  param_count : Int32
+  result_count : Int32
   original_unreachable_only : Bool
   simplified_unreachable_only : Bool
   has_dropped_dead_suffix_call : Bool
@@ -2481,6 +2548,7 @@ priv struct DaeDroppedResultCalleeRewriteEvidence {
 }
 
 ///|
+#valtype
 priv struct DaeTailCallBoundaryEvidence {
   has_direct_tail_call : Bool
   has_indirect_tail_call : Bool
@@ -2490,8 +2558,8 @@ priv struct DaeTailCallBoundaryEvidence {
 
 ///|
 priv struct DaeDirectCallTargetEvidence {
-  direct_call_count : Int
-  dropped_direct_call_count : Int
+  direct_call_count : Int32
+  dropped_direct_call_count : Int32
   has_direct_call : Bool
   has_undropped_direct_call : Bool
   has_live_undropped_direct_call : Bool
@@ -2499,8 +2567,8 @@ priv struct DaeDirectCallTargetEvidence {
 
 ///|
 priv struct DaeDroppedResultScopeDirectCallEvidence {
-  direct_call_count : Int
-  dropped_direct_call_count : Int
+  direct_call_count : Int32
+  dropped_direct_call_count : Int32
   has_direct_call : Bool
   has_undropped_direct_call : Bool
   has_live_undropped_direct_call : Bool
@@ -2515,7 +2583,7 @@ priv struct DaeDeadSuffixDirectCallEvidence {
 ///|
 priv struct DaeControlResultUndroppedDirectCallEvidence {
   result_arity_known : Bool
-  result_arity : Int
+  result_arity : Int32
   has_result : Bool
   primary_has_undropped_direct_call : Bool
   secondary_has_undropped_direct_call : Bool
@@ -2525,9 +2593,9 @@ priv struct DaeControlResultUndroppedDirectCallEvidence {
 
 ///|
 priv struct DaeDeadSuffixDirectTargetEvidence {
-  direct_targets : Array[Int]
-  dropped_direct_targets : Array[Int]
-  undropped_direct_targets : Array[Int]
+  direct_targets : Array[Int32]
+  dropped_direct_targets : Array[Int32]
+  undropped_direct_targets : Array[Int32]
 }
 
 ///|
@@ -2544,13 +2612,13 @@ priv struct DaeOriginalDeadSuffixEscapedResultCallFacts {
 
 ///|
 priv struct DaeOriginalEscapedResultOperandCallFacts {
-  dead_suffix_escaped_result_operand_call_counts : Array[Int]
-  private_result_escaped_operand_call_counts : Array[Int]
+  dead_suffix_escaped_result_operand_call_counts : Array[Int32]
+  private_result_escaped_operand_call_counts : Array[Int32]
 }
 
 ///|
 priv struct DaeModuleSignatureContext {
-  def_idx : Int
+  def_idx : Int32
   type_idxs : Array[@lib.TypeIdx]
   funcs : Array[@lib.Func]
   type_sec : @lib.TypeSec
@@ -2559,7 +2627,7 @@ priv struct DaeModuleSignatureContext {
 ///|
 priv struct DaeDroppedResultModuleContext {
   signature : DaeModuleSignatureContext
-  imported : Int
+  imported : Int32
   type_indices : Array[@lib.TypeIdx]
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
@@ -2576,20 +2644,20 @@ priv struct DaeSpecializedResultFacts {
   original : DaeOriginalBoundarySnapshot
   graph : DaeCurrentBoundaryGraph
   context : DaeDroppedResultModuleContext
-  target_abs : Int
-  target_def : Int
+  target_abs : Int32
+  target_def : Int32
   original_owned : Bool
   expected_type_idx : @lib.TypeIdx
   expected_results : Array[@lib.ValType]
-  expected_module_epoch : Int
-  expected_call_epoch : Int
-  expected_type_epoch : Int
-  expected_signature_epoch : Int
-  expected_body_epoch : Int
-  result_epoch : Int
+  expected_module_epoch : Int32
+  expected_call_epoch : Int32
+  expected_type_epoch : Int32
+  expected_signature_epoch : Int32
+  expected_body_epoch : Int32
+  result_epoch : Int32
   active_call_identities : Array[DaeDirectCallIdentity]
-  result_observers : Array[Int]
-  direct_tail_callers : Array[Int]
+  result_observers : Array[Int32]
+  direct_tail_callers : Array[Int32]
   has_outgoing_tail : Bool
   direct_tail_callee : Bool
 }
@@ -2616,13 +2684,13 @@ priv struct DaeOriginalResultCleanupPreservationEvidence {
 
 ///|
 priv struct DaeOriginalNoParamDroppedCallerGuardEvidence {
-  param_count : Int
-  call_count : Int
-  active_nonself_call_count : Int
-  active_parameterized_nonself_call_count : Int
-  nonself_undropped_call_count : Int
-  self_call_count : Int
-  escaped_dead_suffix_call_count : Int
+  param_count : Int32
+  call_count : Int32
+  active_nonself_call_count : Int32
+  active_parameterized_nonself_call_count : Int32
+  nonself_undropped_call_count : Int32
+  self_call_count : Int32
+  escaped_dead_suffix_call_count : Int32
   dead_suffix_undropped_self_call : Bool
   dead_suffix_undropped_self_call_param_operand : Bool
   dead_suffix_result_other_call : Bool
@@ -2631,86 +2699,88 @@ priv struct DaeOriginalNoParamDroppedCallerGuardEvidence {
 
 ///|
 priv struct DaeOriginalParameterizedUndroppedSelfSideChainEvidence {
-  param_count : Int
-  call_count : Int
-  active_parameterized_nonself_call_count : Int
-  self_call_count : Int
-  escaped_dead_suffix_call_count : Int
+  param_count : Int32
+  call_count : Int32
+  active_parameterized_nonself_call_count : Int32
+  self_call_count : Int32
+  escaped_dead_suffix_call_count : Int32
   dead_suffix_undropped_self_call : Bool
   dead_suffix_result_other_call : Bool
 }
 
 ///|
 priv struct DaeOriginalResultPreservationContext {
-  original_param_counts : Array[Int]
-  original_call_counts : Array[Int]
-  original_active_nonself_call_counts : Array[Int]
-  original_active_parameterized_nonself_call_counts : Array[Int]
-  original_nonself_undropped_call_counts : Array[Int]
-  original_self_call_counts : Array[Int]
+  original_param_counts : Array[Int32]
+  original_call_counts : Array[Int32]
+  original_active_nonself_call_counts : Array[Int32]
+  original_active_parameterized_nonself_call_counts : Array[Int32]
+  original_nonself_undropped_call_counts : Array[Int32]
+  original_self_call_counts : Array[Int32]
   original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
-    Int,
+    Int32,
   ]
-  original_escaped_dead_suffix_call_counts : Array[Int]
+  original_escaped_dead_suffix_call_counts : Array[Int32]
   original_dead_suffix_undropped_self_calls : Array[Bool]
   original_dead_suffix_dropped_self_calls : Array[Bool]
   original_dead_suffix_block_undropped_self_calls : Array[Bool]
-  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int]
+  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int32]
   original_dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[
-    Int,
+    Int32,
   ]
   original_dead_suffix_same_self_result_operand_calls : Array[Bool]
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool]
   original_dead_suffix_result_other_calls : Array[Bool]
   original_dead_suffix_dropped_escaped_result_calls : Array[Bool]
   original_dead_suffix_mutual_calls : Array[Bool]
-  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int]
-  original_dead_suffix_escaped_result_operand_call_counts : Array[Int]
+  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[
+    Int32,
+  ]
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int32]
   original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
-    Int,
+    Int32,
   ]
 }
 
 ///|
 priv struct DaeOriginalResultBoundaryContext {
   preservation : DaeOriginalResultPreservationContext
-  original_private_result_escaped_operand_call_counts : Array[Int]
+  original_private_result_escaped_operand_call_counts : Array[Int32]
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool]
   original_dead_suffix_other_calls : Array[Bool]
   original_dead_suffix_self_recursive_void_side_calls : Array[Bool]
   original_dead_suffix_self_recursive_result_side_calls : Array[Bool]
-  original_active_parameterized_result_nonself_call_counts : Array[Int]
+  original_active_parameterized_result_nonself_call_counts : Array[Int32]
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool]
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool]
-  original_later_dead_suffix_dropped_call_counts : Array[Int]
-  original_private_result_dead_suffix_call_counts : Array[Int]
-  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int]
-  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int]
+  original_later_dead_suffix_dropped_call_counts : Array[Int32]
+  original_private_result_dead_suffix_call_counts : Array[Int32]
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int32]
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int32]
 }
 
 ///|
 priv struct DaeOriginalResultPreservationRow {
-  param_count : Int
-  call_count : Int
-  active_nonself_call_count : Int
-  active_parameterized_nonself_call_count : Int
-  nonself_undropped_call_count : Int
-  self_call_count : Int
-  private_result_dead_suffix_calls_from_escaped_operand_callees : Int
-  escaped_dead_suffix_call_count : Int
+  param_count : Int32
+  call_count : Int32
+  active_nonself_call_count : Int32
+  active_parameterized_nonself_call_count : Int32
+  nonself_undropped_call_count : Int32
+  self_call_count : Int32
+  private_result_dead_suffix_calls_from_escaped_operand_callees : Int32
+  escaped_dead_suffix_call_count : Int32
   dead_suffix_undropped_self_call : Bool
   dead_suffix_dropped_self_call : Bool
   dead_suffix_block_undropped_self_call : Bool
-  dead_suffix_result_calls_from_undropped_self_caller : Int
-  dead_suffix_result_calls_from_no_param_undropped_self_caller : Int
+  dead_suffix_result_calls_from_undropped_self_caller : Int32
+  dead_suffix_result_calls_from_no_param_undropped_self_caller : Int32
   dead_suffix_same_self_result_operand_call : Bool
   dead_suffix_undropped_self_call_param_operand : Bool
   dead_suffix_result_other_call : Bool
   dead_suffix_dropped_escaped_result_call : Bool
   dead_suffix_mutual_call : Bool
-  dead_suffix_calls_from_param_operand_self_result_caller : Int
-  dead_suffix_escaped_result_operand_call_count : Int
-  dead_suffix_dropped_calls_from_parameterized_self_caller : Int
+  dead_suffix_calls_from_param_operand_self_result_caller : Int32
+  dead_suffix_escaped_result_operand_call_count : Int32
+  dead_suffix_dropped_calls_from_parameterized_self_caller : Int32
 }
 
 ///|
@@ -2723,14 +2793,14 @@ priv struct DaeOriginalResultBoundaryRow {
 
 ///|
 priv struct DaeOriginalResultEscapeRow {
-  private_result_escaped_operand_call_count : Int
+  private_result_escaped_operand_call_count : Int32
   dead_suffix_undropped_escaped_result_call : Bool
-  private_result_dead_suffix_calls_from_escaped_operand_callees : Int
-  escaped_dead_suffix_call_count : Int
-  dead_suffix_result_calls_from_undropped_self_caller : Int
-  dead_suffix_result_calls_from_no_param_undropped_self_caller : Int
-  dead_suffix_calls_from_param_operand_self_result_caller : Int
-  dead_suffix_escaped_result_operand_call_count : Int
+  private_result_dead_suffix_calls_from_escaped_operand_callees : Int32
+  escaped_dead_suffix_call_count : Int32
+  dead_suffix_result_calls_from_undropped_self_caller : Int32
+  dead_suffix_result_calls_from_no_param_undropped_self_caller : Int32
+  dead_suffix_calls_from_param_operand_self_result_caller : Int32
+  dead_suffix_escaped_result_operand_call_count : Int32
 }
 
 ///|
@@ -2744,14 +2814,14 @@ priv struct DaeOriginalResultSideCallRow {
 
 ///|
 priv struct DaeOriginalResultRemovalPruneRow {
-  param_count : Int
-  call_count : Int
-  active_nonself_call_count : Int
-  active_parameterized_nonself_call_count : Int
-  active_parameterized_result_nonself_call_count : Int
-  nonself_undropped_call_count : Int
-  self_call_count : Int
-  escaped_dead_suffix_call_count : Int
+  param_count : Int32
+  call_count : Int32
+  active_nonself_call_count : Int32
+  active_parameterized_nonself_call_count : Int32
+  active_parameterized_result_nonself_call_count : Int32
+  nonself_undropped_call_count : Int32
+  self_call_count : Int32
+  escaped_dead_suffix_call_count : Int32
   dead_suffix_undropped_self_call : Bool
   dead_suffix_dropped_self_call : Bool
   dead_suffix_block_undropped_self_call : Bool
@@ -2759,12 +2829,12 @@ priv struct DaeOriginalResultRemovalPruneRow {
   dead_suffix_dropped_self_call_full_param_forward : Bool
   dead_suffix_dropped_escaped_result_call : Bool
   dead_suffix_dropped_earlier_result_call : Bool
-  later_dead_suffix_dropped_call_count : Int
+  later_dead_suffix_dropped_call_count : Int32
   dead_suffix_mutual_call : Bool
-  private_result_dead_suffix_call_count : Int
+  private_result_dead_suffix_call_count : Int32
   dead_suffix_result_other_call : Bool
-  dead_suffix_dropped_calls_from_no_param_result_caller : Int
-  dead_suffix_mixed_dropped_undropped_call_count : Int
+  dead_suffix_dropped_calls_from_no_param_result_caller : Int32
+  dead_suffix_mixed_dropped_undropped_call_count : Int32
 }
 
 ///|
@@ -2798,7 +2868,7 @@ priv struct DaeOriginalDeadSuffixSideCallEvidence {
 fn dae_make_call_boundary_facts(
   escaped : Array[Bool],
   tail_calls : Array[Bool],
-  direct_callers : Array[Array[Int]],
+  direct_callers : Array[Array[Int32]],
 ) -> DaeCallBoundaryFacts {
   { escaped, tail_calls, direct_callers, direct_calls: [], dropped_calls: [], }
 }
@@ -2819,8 +2889,8 @@ fn dae_call_boundary_facts_from_current(
 ///|
 fn dae_collect_module_boundary_snapshot(
   mod_ : @lib.Module,
-  perf? : HotPerfSession? = None,
-  topology_out? : DaeCurrentTopologyExtras? = None,
+  perf~ : HotPerfSession? = None,
+  topology_out~ : DaeCurrentTopologyExtras? = None,
 ) -> DaeModuleBoundarySnapshot {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -2873,14 +2943,23 @@ fn dae_collect_module_boundary_snapshot(
 ///|
 fn dae_collect_defined_function_types(
   mod_ : @lib.Module,
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   type_indices : Array[@lib.TypeIdx],
 ) -> Array[@lib.FuncType?] {
+  if defined <= 0 {
+    return []
+  }
+  let function_types = dae_snapshot_function_types(mod_, type_indices)
   let out : Array[@lib.FuncType?] = []
   let mut def_idx = 0
   while def_idx < defined {
-    out.push(dae_resolve_func_type(mod_, type_indices, imported + def_idx))
+    out.push(
+      match function_types.get(imported + def_idx) {
+        Some(signature) => signature
+        None => None
+      },
+    )
     def_idx += 1
   }
   out
@@ -2900,9 +2979,9 @@ fn dae_current_call_facts_equal(
 
 ///|
 fn dae_make_function_epochs(
-  count : Int,
-  signature_epoch : Int,
-  body_epoch : Int,
+  count : Int32,
+  signature_epoch : Int32,
+  body_epoch : Int32,
 ) -> Array[DaeFunctionEpochs] {
   let epochs : Array[DaeFunctionEpochs] = []
   let mut def_idx = 0
@@ -2916,7 +2995,7 @@ fn dae_make_function_epochs(
 ///|
 fn dae_current_topology_extras_shape_matches(
   topology : DaeCurrentTopologyExtras,
-  total : Int,
+  total : Int32,
 ) -> Bool {
   topology.direct_return_callers.length() == total &&
   topology.direct_return_callees_by_caller.length() == total &&
@@ -2930,8 +3009,8 @@ fn dae_current_topology_extras_shape_matches(
 ///|
 fn dae_current_boundary_graph_new(
   mod_ : @lib.Module,
-  topology? : DaeCurrentTopologyExtras? = None,
-  topology_walk_visits? : Array[Int]? = None,
+  topology~ : DaeCurrentTopologyExtras? = None,
+  topology_walk_visits~ : Array[Int32]? = None,
 ) -> DaeCurrentBoundaryGraph {
   ignore(topology_walk_visits)
   let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
@@ -2968,7 +3047,7 @@ fn dae_current_boundary_graph_new(
 /// direct-return or indirect/reference topology extras.
 fn dae_typed_batch_boundary_graph_new(
   mod_ : @lib.Module,
-  perf? : HotPerfSession? = None,
+  perf~ : HotPerfSession? = None,
 ) -> DaeCurrentBoundaryGraph {
   let snapshot = dae_collect_module_boundary_snapshot(mod_, perf~)
   {
@@ -2986,7 +3065,7 @@ fn dae_typed_batch_boundary_graph_new(
 ///|
 fn dae_boundary_candidate_epoch(
   graph : DaeCurrentBoundaryGraph,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> DaeCandidateEpoch {
   if def_idx < 0 || def_idx >= graph.function_epochs.length() {
     return {
@@ -3027,10 +3106,10 @@ fn dae_candidate_epoch_is_current(
 }
 
 ///|
-fn dae_current_boundary_graph_refresh(
+fn dae_current_boundary_graph_refresh_full(
   graph : DaeCurrentBoundaryGraph,
   mod_ : @lib.Module,
-  topology_walk_visits? : Array[Int]? = None,
+  topology_walk_visits~ : Array[Int32]? = None,
 ) -> Unit {
   let previous_mod = graph.mod_
   let previous = graph.snapshot
@@ -3098,7 +3177,7 @@ fn dae_current_boundary_graph_refresh(
 }
 
 ///|
-fn dae_empty_topology_extras(total_funcs : Int) -> DaeCurrentTopologyExtras {
+fn dae_empty_topology_extras(total_funcs : Int32) -> DaeCurrentTopologyExtras {
   {
     direct_return_callers: dae_make_direct_callers(total_funcs),
     direct_return_callees_by_caller: dae_make_direct_callers(total_funcs),
@@ -3112,17 +3191,34 @@ fn dae_empty_topology_extras(total_funcs : Int) -> DaeCurrentTopologyExtras {
 }
 
 ///|
+#valtype
+priv struct DaeAdjacencyKey {
+  kind : Int32
+  row : Int32
+  value : Int32
+} derive(Eq, Hash)
+
+///|
+fn DaeAdjacencyKey::new(
+  kind : Int32,
+  row : Int32,
+  value : Int32,
+) -> DaeAdjacencyKey {
+  { kind, row, value, }
+}
+
+///|
 fn dae_adjacency_add_unique(
-  rows : Array[Array[Int]],
-  row : Int,
-  value : Int,
-  kind : Int,
-  membership : @hashmap.HashMap[(Int, Int, Int), Bool],
+  rows : Array[Array[Int32]],
+  row : Int32,
+  value : Int32,
+  kind : Int32,
+  membership : @hashmap.HashMap[DaeAdjacencyKey, Bool],
 ) -> Unit {
   if row < 0 || row >= rows.length() {
     return
   }
-  let key = (kind, row, value)
+  let key = DaeAdjacencyKey::new(kind, row, value)
   if membership.get(key) is None {
     membership.set(key, true)
     rows[row].push(value)
@@ -3132,10 +3228,10 @@ fn dae_adjacency_add_unique(
 ///|
 fn dae_scan_topology_extras_instrs(
   instrs : Array[@lib.Instruction],
-  caller_abs : Int,
+  caller_abs : Int32,
   topology : DaeCurrentTopologyExtras,
   active : Bool,
-  walk_visits? : Array[Int]? = None,
+  walk_visits~ : Array[Int32]? = None,
 ) -> Unit {
   let mut idx = 0
   let mut current_active = active
@@ -3265,7 +3361,7 @@ fn dae_scan_topology_extras_instrs(
 fn dae_collect_current_topology_extras(
   mod_ : @lib.Module,
   snapshot : DaeModuleBoundarySnapshot,
-  walk_visits? : Array[Int]? = None,
+  walk_visits~ : Array[Int32]? = None,
 ) -> DaeCurrentTopologyExtras {
   let topology = dae_empty_topology_extras(snapshot.total)
   match mod_.code_sec {
@@ -3290,7 +3386,7 @@ fn dae_collect_current_topology_extras(
 
 ///|
 fn dae_incoming_parameter_liveness_fail_closed(
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[Bool] {
   Array::make(param_count, true)
 }
@@ -3298,8 +3394,8 @@ fn dae_incoming_parameter_liveness_fail_closed(
 ///|
 fn dae_incoming_parameter_liveness(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Array[Bool] {
   if param_count <= 0 {
     return []
@@ -3373,8 +3469,8 @@ fn dae_collect_incoming_param_live_for_module(
 ///|
 fn dae_collect_incoming_param_live_body_epochs(
   graph : DaeCurrentBoundaryGraph,
-) -> Array[Int] {
-  let out : Array[Int] = []
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut def_idx = 0
   while def_idx < graph.snapshot.defined {
     if def_idx < graph.function_epochs.length() {
@@ -3440,7 +3536,10 @@ fn dae_boundary_facts_refresh_current(
 /// Rejects only when the target itself has an unseen incoming call or other
 /// exact exposure. Outgoing call_indirect / call_ref / return_call* do not
 /// block parameter removal.
-fn dae_can_change_parameters(facts : DaeBoundaryFacts, func_abs : Int) -> Bool {
+fn dae_can_change_parameters(
+  facts : DaeBoundaryFacts,
+  func_abs : Int32,
+) -> Bool {
   let exposure = dae_boundary_facts_exposure(facts)
   if func_abs < 0 || func_abs >= exposure.length() {
     return false
@@ -3462,7 +3561,7 @@ fn dae_can_change_parameters(facts : DaeBoundaryFacts, func_abs : Int) -> Bool {
 ///|
 fn dae_can_change_family_signature(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> Bool {
   if dae_can_change_parameters(facts, func_abs) {
     return true
@@ -3484,7 +3583,7 @@ fn dae_can_change_family_signature(
 ///|
 fn dae_can_change_parameters_reason(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> DaeDecisionReason {
   let exposure = dae_boundary_facts_exposure(facts)
   if func_abs < 0 || func_abs >= exposure.length() {
@@ -3516,7 +3615,7 @@ fn dae_can_change_parameters_reason(
 fn dae_can_remove_function_result_with_exposure(
   exposure : Array[DaeFunctionExposure],
   graph : DaeCurrentBoundaryGraph,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> Bool {
   if func_abs < 0 || func_abs >= exposure.length() {
     return false
@@ -3562,7 +3661,7 @@ fn dae_can_remove_function_result_with_exposure(
 ///|
 fn dae_can_remove_function_result(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> Bool {
   dae_can_remove_function_result_with_exposure(
     dae_boundary_facts_exposure(facts),
@@ -3575,7 +3674,7 @@ fn dae_can_remove_function_result(
 #warnings("-unused_value")
 fn dae_can_remove_function_result_reason(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> DaeDecisionReason {
   if !dae_can_change_parameters(facts, func_abs) {
     return dae_can_change_parameters_reason(facts, func_abs)
@@ -3613,7 +3712,7 @@ fn dae_can_remove_function_result_reason(
 /// Compatibility alias: parameter ownership only (not result-tail legality).
 fn dae_can_change_function_boundary(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> Bool {
   dae_can_change_parameters(facts, func_abs)
 }
@@ -3622,7 +3721,7 @@ fn dae_can_change_function_boundary(
 #warnings("-unused_value")
 fn dae_can_change_function_boundary_reason(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
+  func_abs : Int32,
 ) -> DaeDecisionReason {
   dae_can_change_parameters_reason(facts, func_abs)
 }
@@ -3631,8 +3730,8 @@ fn dae_can_change_function_boundary_reason(
 #warnings("-unused_value")
 fn dae_is_incoming_parameter_live(
   facts : DaeBoundaryFacts,
-  func_abs : Int,
-  param_idx : Int,
+  func_abs : Int32,
+  param_idx : Int32,
 ) -> Bool {
   match dae_def_idx_of_abs(facts.graph.snapshot.imported, func_abs) {
     None => true
@@ -3652,8 +3751,8 @@ fn dae_is_incoming_parameter_live(
 }
 
 ///|
-fn dae_dependency_adjacency_new(defined : Int) -> Array[Array[Int]] {
-  let out : Array[Array[Int]] = []
+fn dae_dependency_adjacency_new(defined : Int32) -> Array[Array[Int32]] {
+  let out : Array[Array[Int32]] = []
   let mut def_idx = 0
   while def_idx < defined {
     out.push([])
@@ -3664,9 +3763,9 @@ fn dae_dependency_adjacency_new(defined : Int) -> Array[Array[Int]] {
 
 ///|
 fn dae_dependency_adjacency_copy(
-  source : Array[Array[Int]],
-) -> Array[Array[Int]] {
-  let out : Array[Array[Int]] = []
+  source : Array[Array[Int32]],
+) -> Array[Array[Int32]] {
+  let out : Array[Array[Int32]] = []
   for row in source {
     out.push(row.copy())
   }
@@ -3675,16 +3774,16 @@ fn dae_dependency_adjacency_copy(
 
 ///|
 fn dae_dependency_adjacency_union(
-  left : Array[Array[Int]],
-  right : Array[Array[Int]],
-) -> Array[Array[Int]] {
+  left : Array[Array[Int32]],
+  right : Array[Array[Int32]],
+) -> Array[Array[Int32]] {
   let count = if left.length() > right.length() {
     left.length()
   } else {
     right.length()
   }
   let out = dae_dependency_adjacency_new(count)
-  let membership : @hashmap.HashMap[(Int, Int, Int), Bool] = @hashmap.new()
+  let membership : @hashmap.HashMap[DaeAdjacencyKey, Bool] = @hashmap.new()
   let mut def_idx = 0
   while def_idx < count {
     if def_idx < left.length() {
@@ -3704,15 +3803,15 @@ fn dae_dependency_adjacency_union(
 
 ///|
 fn dae_boundary_scc_visit(
-  node : Int,
-  edges : Array[Array[Int]],
-  next_index : Array[Int],
-  indices : Array[Int],
-  lowlinks : Array[Int],
-  stack : Array[Int],
+  node : Int32,
+  edges : Array[Array[Int32]],
+  next_index : Array[Int32],
+  indices : Array[Int32],
+  lowlinks : Array[Int32],
+  stack : Array[Int32],
   on_stack : Array[Bool],
-  raw_component_by_def : Array[Int],
-  raw_component_count : Array[Int],
+  raw_component_by_def : Array[Int32],
+  raw_component_count : Array[Int32],
 ) -> Unit {
   indices[node] = next_index[0]
   lowlinks[node] = next_index[0]
@@ -3751,13 +3850,13 @@ fn dae_boundary_scc_visit(
 
 ///|
 fn dae_boundary_components(
-  callees_by_def : Array[Array[Int]],
-) -> (Array[Int], Array[Array[Int]]) {
+  callees_by_def : Array[Array[Int32]],
+) -> (Array[Int32], Array[Array[Int32]]) {
   let defined = callees_by_def.length()
   let indices = Array::make(defined, -1)
   let lowlinks = Array::make(defined, -1)
   let on_stack = Array::make(defined, false)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let raw_component_by_def = Array::make(defined, -1)
   let next_index = [0]
   let raw_component_count = [0]
@@ -3773,7 +3872,7 @@ fn dae_boundary_components(
   }
   let normalized_by_raw = Array::make(raw_component_count[0], -1)
   let component_by_def = Array::make(defined, -1)
-  let component_members : Array[Array[Int]] = []
+  let component_members : Array[Array[Int32]] = []
   def_idx = 0
   while def_idx < defined {
     let raw_component = raw_component_by_def[def_idx]
@@ -3791,16 +3890,16 @@ fn dae_boundary_components(
 
 ///|
 priv struct DaeForwardingMembership {
-  edges : @hashmap.HashMap[(Int, Int, Int, Int, Bool), Bool]
-  callers : @hashmap.HashMap[(Int, Int), Bool]
+  edges : @hashmap.HashMap[(Int32, Int32, Int32, Int32, Bool), Bool]
+  callers : @hashmap.HashMap[(Int32, Int32), Bool]
 }
 
 ///|
 fn DaeForwardingMembership::new(
   edges : Array[DaeParameterForwardingEdge],
-  callers : Array[Array[Int]],
+  callers : Array[Array[Int32]],
 ) -> DaeForwardingMembership {
-  let edge_keys : @hashmap.HashMap[(Int, Int, Int, Int, Bool), Bool] = @hashmap.new()
+  let edge_keys : @hashmap.HashMap[(Int32, Int32, Int32, Int32, Bool), Bool] = @hashmap.new()
   for edge in edges {
     edge_keys.set(
       (
@@ -3813,7 +3912,7 @@ fn DaeForwardingMembership::new(
       true,
     )
   }
-  let caller_keys : @hashmap.HashMap[(Int, Int), Bool] = @hashmap.new()
+  let caller_keys : @hashmap.HashMap[(Int32, Int32), Bool] = @hashmap.new()
   for target in 0..<callers.length() {
     if callers[target].length() > 4 {
       for caller in callers[target] {
@@ -3828,9 +3927,9 @@ fn DaeForwardingMembership::new(
 fn dae_forwarding_func_type(
   mod_ : @lib.Module,
   indices : Array[@lib.TypeIdx],
-  abs : Int,
+  abs : Int32,
   snapshot : Array[@lib.FuncType?]?,
-  resolutions : Array[Int]?,
+  resolutions : Array[Int32]?,
 ) -> @lib.FuncType? {
   match snapshot {
     Some(types) =>
@@ -3852,21 +3951,21 @@ fn dae_forwarding_func_type(
 ///|
 fn dae_record_parameter_forwarding_dependency(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  entry_stack_values : Int,
+  call_idx : Int32,
+  entry_stack_values : Int32,
   current : @lib.Module,
-  caller_def : Int,
-  caller_param_count : Int,
+  caller_def : Int32,
+  caller_param_count : Int32,
   type_indices : Array[@lib.TypeIdx],
-  target_abs : Int,
+  target_abs : Int32,
   direct_tail : Bool,
   function_epochs : Array[DaeFunctionEpochs],
   edges : Array[DaeParameterForwardingEdge],
-  out : Array[Array[Int]],
+  out : Array[Array[Int32]],
   membership : DaeForwardingMembership,
-  function_types? : Array[@lib.FuncType?]? = None,
-  type_resolutions? : Array[Int]? = None,
-  edge_probes? : Array[Int]? = None,
+  function_types~ : Array[@lib.FuncType?]? = None,
+  type_resolutions~ : Array[Int32]? = None,
+  edge_probes~ : Array[Int32]? = None,
 ) -> Unit {
   let imported = dae_imported_func_count(current)
   let target_def = target_abs - imported
@@ -3971,19 +4070,19 @@ fn dae_record_parameter_forwarding_dependency(
 ///|
 fn dae_collect_parameter_forwarding_dependencies_instrs(
   instrs : Array[@lib.Instruction],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   current : @lib.Module,
-  caller_def : Int,
-  caller_param_count : Int,
+  caller_def : Int32,
+  caller_param_count : Int32,
   type_indices : Array[@lib.TypeIdx],
   function_epochs : Array[DaeFunctionEpochs],
   edges : Array[DaeParameterForwardingEdge],
-  out : Array[Array[Int]],
-  visits? : Array[Int]? = None,
-  membership? : DaeForwardingMembership? = None,
-  function_types? : Array[@lib.FuncType?]? = None,
-  type_resolutions? : Array[Int]? = None,
-  edge_probes? : Array[Int]? = None,
+  out : Array[Array[Int32]],
+  visits~ : Array[Int32]? = None,
+  membership~ : DaeForwardingMembership? = None,
+  function_types~ : Array[@lib.FuncType?]? = None,
+  type_resolutions~ : Array[Int32]? = None,
+  edge_probes~ : Array[Int32]? = None,
 ) -> Unit {
   // Only formal parameter reads can create forwarding edges. Calls and
   // result observers are collected independently by the boundary graph.
@@ -4093,7 +4192,7 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
 ///|
 fn dae_boundary_dependency_graph_new(
   graph : DaeCurrentBoundaryGraph,
-  builds? : Array[Int]? = None,
+  builds~ : Array[Int32]? = None,
 ) -> DaeBoundaryDependencyGraph {
   match graph.dependency_cache {
     Some(dependencies) => dependencies
@@ -4108,7 +4207,8 @@ fn dae_boundary_dependency_graph_new(
 ///|
 fn dae_boundary_dependency_graph_build(
   graph : DaeCurrentBoundaryGraph,
-  builds? : Array[Int]? = None,
+  builds~ : Array[Int32]? = None,
+  result_edge_work~ : Array[Int32]? = None,
 ) -> DaeBoundaryDependencyGraph {
   match builds {
     Some(count) => count[0] += 1
@@ -4122,7 +4222,6 @@ fn dae_boundary_dependency_graph_build(
   let result_forwarders_by_def = dae_dependency_adjacency_new(defined)
   let result_dependencies_by_def = dae_dependency_adjacency_new(defined)
   let result_observers_by_def = dae_dependency_adjacency_new(defined)
-  let adjacency_membership : @hashmap.HashMap[(Int, Int, Int), Bool] = @hashmap.new()
   let direct_callers = graph.snapshot.call_facts.direct_callers
   let mut callee_def = 0
   while callee_def < defined {
@@ -4143,29 +4242,62 @@ fn dae_boundary_dependency_graph_build(
   while callee_def < defined {
     let callee_abs = imported + callee_def
     if callee_abs >= 0 && callee_abs < graph.snapshot.function_infos.length() {
+      // Each callee owns a fresh sparse map. No retained-capacity clear or
+      // function-count-sized table is needed. Masks: tail=1, observer=2, both=3.
+      let mut caller_kinds : @hashmap.HashMap[Int32, Int32]? = None
+      let mut last_caller = -1
+      let mut last_mask = 0
       for callsite in graph.snapshot.function_infos[callee_abs].calls {
         let caller_def = callsite.caller_def
-        if callsite.active && caller_def >= 0 && caller_def < defined {
-          if callsite.tail {
-            dae_adjacency_add_unique(
-              return_callers_by_def, callee_def, caller_def, 2, adjacency_membership,
-            )
-            dae_adjacency_add_unique(
-              result_forwarders_by_def, callee_def, caller_def, 3, adjacency_membership,
-            )
-            dae_adjacency_add_unique(
-              result_dependencies_by_def, caller_def, callee_def, 4, adjacency_membership,
-            )
-          } else if !callsite.dropped {
-            dae_adjacency_add_unique(
-              result_observers_by_def, callee_def, caller_def, 5, adjacency_membership,
-            )
-            dae_adjacency_add_unique(
-              result_forwarders_by_def, callee_def, caller_def, 3, adjacency_membership,
-            )
-            dae_adjacency_add_unique(
-              result_dependencies_by_def, caller_def, callee_def, 4, adjacency_membership,
-            )
+        if callsite.active &&
+          caller_def >= 0 &&
+          caller_def < defined &&
+          (callsite.tail || !callsite.dropped) {
+          if caller_def != last_caller {
+            last_caller = caller_def
+            last_mask = match caller_kinds {
+              Some(kinds) => {
+                match result_edge_work {
+                  Some(count) => count[1] += 1
+                  None => ()
+                }
+                kinds.get(caller_def).unwrap_or(0)
+              }
+              None => 0
+            }
+          }
+          let new_kind = if callsite.tail {
+            last_mask == 0 || last_mask == 2
+          } else {
+            last_mask == 0 || last_mask == 1
+          }
+          if new_kind {
+            if callsite.tail {
+              return_callers_by_def[callee_def].push(caller_def)
+            } else {
+              result_observers_by_def[callee_def].push(caller_def)
+            }
+            if last_mask == 0 {
+              result_forwarders_by_def[callee_def].push(caller_def)
+              result_dependencies_by_def[caller_def].push(callee_def)
+            }
+            last_mask += if callsite.tail { 1 } else { 2 }
+            match result_edge_work {
+              Some(count) => count[2] += 1
+              None => ()
+            }
+            match caller_kinds {
+              Some(kinds) => kinds.set(caller_def, last_mask)
+              None => {
+                let kinds : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
+                kinds.set(caller_def, last_mask)
+                caller_kinds = Some(kinds)
+                match result_edge_work {
+                  Some(count) => count[3] += 1
+                  None => ()
+                }
+              }
+            }
           }
         }
       }
@@ -4259,8 +4391,8 @@ fn dae_boundary_dependency_graph_build(
 
 ///|
 fn dae_mark_dependency_row(
-  rows : Array[Array[Int]],
-  def_idx : Int,
+  rows : Array[Array[Int32]],
+  def_idx : Int32,
   invalidated : Array[Bool],
 ) -> Unit {
   if def_idx >= 0 && def_idx < rows.length() {
@@ -4275,7 +4407,7 @@ fn dae_mark_dependency_row(
 ///|
 fn dae_mark_dependency_domain(
   graph : DaeBoundaryDependencyGraph,
-  def_idx : Int,
+  def_idx : Int32,
   domain : DaeInvalidationDomain,
   invalidated : Array[Bool],
 ) -> Unit {
@@ -4357,9 +4489,9 @@ fn dae_boundary_dependency_invalidations(
   before : DaeBoundaryDependencyGraph,
   after : DaeBoundaryDependencyGraph,
   touched : Array[Bool],
-  primary_def : Int,
+  primary_def : Int32,
   effects : DaeCommitEffects,
-) -> Array[Int] {
+) -> Array[Int32] {
   let defined = if before.callers_by_def.length() >
     after.callers_by_def.length() {
     before.callers_by_def.length()
@@ -4381,7 +4513,7 @@ fn dae_boundary_dependency_invalidations(
     }
     def_idx += 1
   }
-  let out : Array[Int] = []
+  let out : Array[Int32] = []
   def_idx = 0
   while def_idx < defined {
     if invalidated[def_idx] {
@@ -4393,7 +4525,7 @@ fn dae_boundary_dependency_invalidations(
 }
 
 ///|
-fn dae_work_family_slot(family : DaeWorkFamily) -> Int {
+fn dae_work_family_slot(family : DaeWorkFamily) -> Int32 {
   match family {
     DaeUnusedParameterWork => 0
     DaeUniformActualWork => 1
@@ -4413,7 +4545,7 @@ fn dae_work_family_slot(family : DaeWorkFamily) -> Int {
 fn dae_work_item_new(
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
-  target_def : Int,
+  target_def : Int32,
   family : DaeWorkFamily,
 ) -> DaeWorkItem {
   let epoch = dae_boundary_candidate_epoch(graph, target_def)
@@ -4479,7 +4611,7 @@ fn dae_boundary_dependency_graph_empty() -> DaeBoundaryDependencyGraph {
 ///|
 fn dae_nonforwarding_work_item_new(
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   family : DaeWorkFamily,
 ) -> DaeWorkItem {
   let epoch = dae_boundary_candidate_epoch(graph, target_def)
@@ -4502,7 +4634,7 @@ fn dae_nonforwarding_work_item_new(
 ///|
 fn dae_body_cleanup_work_item_new(
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
 ) -> DaeWorkItem {
   dae_nonforwarding_work_item_new(graph, target_def, DaeBodyCleanupWork)
 }
@@ -4558,10 +4690,10 @@ fn dae_build_family_rewrite_plan(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   candidate : DaePassResult,
-  effects? : DaeCommitEffects? = None,
-  body_only_transaction? : Bool = false,
+  effects~ : DaeCommitEffects? = None,
+  body_only_transaction~ : Bool = false,
 ) -> DaeFamilyRewritePlan? {
   if target_def < 0 ||
     target_def >= graph.snapshot.defined ||
@@ -4744,9 +4876,11 @@ fn dae_apply_family_result_transaction(
   changed : Bool,
   graph : DaeCurrentBoundaryGraph,
   candidate : DaePassResult,
-  effects? : DaeCommitEffects? = None,
-  allow_signature_restoration? : Bool = false,
-  body_only_transaction? : Bool = false,
+  effects~ : DaeCommitEffects? = None,
+  allow_signature_restoration~ : Bool = false,
+  body_only_transaction~ : Bool = false,
+  checked_candidate~ : (@lib.Module, @lib.Module)? = None,
+  rewrite_validation_counts~ : Array[Int32]? = None,
 ) -> DaeCoreResultApplication {
   let candidate_funcs = match candidate.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -4829,7 +4963,13 @@ fn dae_apply_family_result_transaction(
         original, current, graph, target_def, normalized_candidate, signature_effects,
       ) {
       Some(plan) => {
-        let application = dae_apply_rewrite_plan(current, graph, plan)
+        let application = dae_apply_rewrite_plan(
+          current,
+          graph,
+          plan,
+          checked_candidate~,
+          rewrite_validation_counts~,
+        )
         if application.applied ||
           application.reason != DaeTypeReconstructionUnavailable {
           return {
@@ -5016,7 +5156,7 @@ fn dae_process_precomputed_body_work_item(
 ///|
 fn dae_work_family_for_commit_effects(
   effects : DaeCommitEffects,
-  target_def : Int,
+  target_def : Int32,
 ) -> DaeWorkFamily {
   if target_def >= 0 &&
     target_def < effects.result_removed.length() &&
@@ -5054,7 +5194,9 @@ fn dae_process_precomputed_signature_work_item(
   item : DaeWorkItem,
   candidate : DaePassResult,
   effects : DaeCommitEffects,
-  allow_signature_restoration? : Bool = false,
+  allow_signature_restoration~ : Bool = false,
+  checked_candidate~ : (@lib.Module, @lib.Module)? = None,
+  rewrite_validation_counts~ : Array[Int32]? = None,
 ) -> DaeWorkOutcome {
   if !candidate.changed {
     return DaeWorkNoChange(DaeNoStrictImprovement)
@@ -5074,6 +5216,8 @@ fn dae_process_precomputed_signature_work_item(
     candidate,
     effects=Some(effects),
     allow_signature_restoration~,
+    checked_candidate~,
+    rewrite_validation_counts~,
   )
   if application.applied {
     DaeWorkCommitted(application)
@@ -5304,8 +5448,21 @@ fn dae_work_item_candidate_effects(
   if !dae_should_scan_work_item_candidate_effects(candidate) {
     return effects
   }
-  let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
-  let after_funcs = candidate_graph.snapshot.funcs
+  // Effects need body ownership, signatures and aggregate call facts only.
+  // Keep these inputs local; full graph records and epochs are unused here.
+  let after_funcs = match candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let after_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let after_function_types = dae_snapshot_function_types(
+    candidate.mod_out,
+    after_type_indices,
+  )
+  let after_call_facts = dae_collect_current_call_facts(
+    candidate.mod_out,
+    after_type_indices.length(),
+  )
   let mut any_body_changed = false
   let mut any_locals_changed = false
   let mut def_idx = 0
@@ -5342,8 +5499,8 @@ fn dae_work_item_candidate_effects(
       None
     }
     let after_signature = if target_abs >= 0 &&
-      target_abs < candidate_graph.snapshot.function_types.length() {
-      candidate_graph.snapshot.function_types[target_abs]
+      target_abs < after_function_types.length() {
+      after_function_types[target_abs]
     } else {
       None
     }
@@ -5395,44 +5552,45 @@ fn dae_work_item_candidate_effects(
       effects.body_materialized[target] = true
     }
   }
-  def_idx = 0
-  while def_idx < defined {
-    let body_changed = def_idx < graph.snapshot.funcs.length() &&
-      def_idx < after_funcs.length() &&
-      graph.snapshot.funcs[def_idx] != after_funcs[def_idx]
-    if def_idx != target && body_changed {
-      match item.family {
-        DaeLocalizationRetryWork => {
-          effects.worth_decided[def_idx] = true
-          effects.worth_optimizing[def_idx] = true
-          effects.body_localized[def_idx] = true
+  if item.family == DaeLocalizationRetryWork ||
+    item.family == DaeGcResultRefinementWork ||
+    item.family == DaeDroppedResultWork {
+    def_idx = 0
+    while def_idx < defined {
+      let body_changed = def_idx != target &&
+        def_idx < graph.snapshot.funcs.length() &&
+        def_idx < after_funcs.length() &&
+        graph.snapshot.funcs[def_idx] != after_funcs[def_idx]
+      if def_idx != target && body_changed {
+        match item.family {
+          DaeLocalizationRetryWork => {
+            effects.worth_decided[def_idx] = true
+            effects.worth_optimizing[def_idx] = true
+            effects.body_localized[def_idx] = true
+          }
+          DaeGcResultRefinementWork => {
+            effects.worth_decided[def_idx] = true
+            effects.worth_optimizing[def_idx] = true
+          }
+          DaeDroppedResultWork => {
+            effects.worth_decided[def_idx] = true
+            effects.worth_optimizing[def_idx] = true
+            effects.caller_drop_removed[def_idx] = true
+          }
+          _ => ()
         }
-        DaeGcResultRefinementWork => {
-          effects.worth_decided[def_idx] = true
-          effects.worth_optimizing[def_idx] = true
-        }
-        DaeDroppedResultWork => {
-          effects.worth_decided[def_idx] = true
-          effects.worth_optimizing[def_idx] = true
-          effects.caller_drop_removed[def_idx] = true
-        }
-        _ => ()
       }
+      def_idx += 1
     }
-    def_idx += 1
   }
   let type_section_changed = current.type_sec != candidate.mod_out.type_sec
   let metadata_changed = current.name_sec != candidate.mod_out.name_sec
   let call_facts_changed = graph.snapshot.call_facts.direct_calls !=
-    candidate_graph.snapshot.call_facts.direct_calls ||
-    graph.snapshot.call_facts.tail_calls !=
-    candidate_graph.snapshot.call_facts.tail_calls ||
-    graph.snapshot.call_facts.direct_callers !=
-    candidate_graph.snapshot.call_facts.direct_callers ||
-    graph.snapshot.call_facts.dropped_calls !=
-    candidate_graph.snapshot.call_facts.dropped_calls ||
-    graph.snapshot.call_facts.escaped !=
-    candidate_graph.snapshot.call_facts.escaped
+    after_call_facts.direct_calls ||
+    graph.snapshot.call_facts.tail_calls != after_call_facts.tail_calls ||
+    graph.snapshot.call_facts.direct_callers != after_call_facts.direct_callers ||
+    graph.snapshot.call_facts.dropped_calls != after_call_facts.dropped_calls ||
+    graph.snapshot.call_facts.escaped != after_call_facts.escaped
   let invalidation_domains : Array[DaeInvalidationDomain] = []
   if call_facts_changed {
     invalidation_domains.push(DaeInvalidateCalls)
@@ -5495,7 +5653,7 @@ fn dae_work_item_candidate_effects(
 fn dae_record_work_family_candidate_effects(
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   family : DaeWorkFamily,
   candidate : DaePassResult,
   producer_effects_report : Array[DaeCommitEffects],
@@ -5516,7 +5674,7 @@ fn dae_record_work_family_candidate_effects(
 fn dae_record_dead_suffix_parameter_candidate_effects(
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   candidate : DaePassResult,
   producer_effects_report : Array[DaeCommitEffects],
 ) -> Unit {
@@ -5549,6 +5707,9 @@ fn dae_process_work_item(
   dependencies : DaeBoundaryDependencyGraph,
   item : DaeWorkItem,
   diagnostics : DaeDiagnostics,
+  rewrite_validation_counts~ : Array[Int32]? = None,
+  numeric_result_validation_chain~ : DaeScalarValidationChain? = None,
+  numeric_result_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaeWorkOutcome {
   diagnostics.boundaries_analyzed += 1
   if !dae_work_item_epoch_is_current(graph, item) {
@@ -5641,6 +5802,7 @@ fn dae_process_work_item(
     }
   }
   let producer_effects_report : Array[DaeCommitEffects] = []
+  let mut checked_candidate : (@lib.Module, @lib.Module)? = None
   let produced : (DaePassResult, DaeCommitEffects)? = match item.family {
     DaeUnusedParameterWork
     | DaeLocalizationRetryWork
@@ -5665,15 +5827,20 @@ fn dae_process_work_item(
     }
     DaeUniformActualWork => {
       let candidate = if item.uniform_values.length() > 0 {
-        dae_try_rewrite_uniform_values_def_with_facts_once(
+        let report : Array[(@lib.Module, @lib.Module)] = []
+        let candidate = dae_try_rewrite_uniform_values_def_with_facts_once(
           current,
           original,
           graph,
           item.target_def,
           item.uniform_values,
+          checked_candidate_report=Some(report),
         )
+        checked_candidate = report.get(0)
+        candidate
       } else {
-        dae_try_rewrite_exact_literal_def_with_facts_once(
+        let report : Array[(@lib.Module, @lib.Module)] = []
+        let candidate = dae_try_rewrite_exact_literal_def_with_facts_once(
           current,
           item.target_def,
           graph.snapshot.call_facts,
@@ -5681,7 +5848,11 @@ fn dae_process_work_item(
           allow_immediate_i32_suffix_fallback=item.allow_immediate_i32_suffix_fallback,
           original=Some(original),
           graph=Some(graph),
+          checked_candidate_report=Some(report),
+          rewrite_validation_counts~,
         )
+        checked_candidate = report.get(0)
+        candidate
       }
       Some(
         (
@@ -5779,7 +5950,21 @@ fn dae_process_work_item(
         producer_effects,
       )
       let plan_application = match signature_plan {
-        Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
+        Some(plan) =>
+          dae_apply_rewrite_plan(
+            current,
+            graph,
+            plan,
+            checked_candidate~,
+            rewrite_validation_counts~,
+            numeric_result_validation_chain=if item.family ==
+              DaeDroppedResultWork {
+              numeric_result_validation_chain
+            } else {
+              None
+            },
+            numeric_result_validation_work~,
+          )
         None => {
           if !allows_family_fallback {
             dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
@@ -5842,8 +6027,8 @@ fn dae_process_work_item(
 }
 
 ///|
-fn dae_boundary_worklist_all(defined : Int) -> DaeBoundaryWorklist {
-  let queue : Array[Int] = []
+fn dae_boundary_worklist_all(defined : Int32) -> DaeBoundaryWorklist {
+  let queue : Array[Int32] = []
   let queued = Array::make(defined, false)
   let mut def_idx = 0
   while def_idx < defined {
@@ -5866,7 +6051,7 @@ fn dae_boundary_worklist_families(
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
   families : Array[DaeWorkFamily],
-  seed_defs? : Array[Bool]? = None,
+  seed_defs~ : Array[Bool]? = None,
 ) -> DaeBoundaryWorklist {
   let family_queue : Array[DaeWorkItem] = []
   let family_queued : Array[Array[Bool]] = []
@@ -5909,7 +6094,7 @@ fn dae_boundary_worklist_families(
 }
 
 ///|
-fn dae_boundary_worklist_take(worklist : DaeBoundaryWorklist) -> Int? {
+fn dae_boundary_worklist_take(worklist : DaeBoundaryWorklist) -> Int32? {
   if worklist.cursor >= worklist.queue.length() {
     return None
   }
@@ -5924,8 +6109,8 @@ fn dae_boundary_worklist_take(worklist : DaeBoundaryWorklist) -> Int? {
 ///|
 fn dae_boundary_worklist_requeue(
   worklist : DaeBoundaryWorklist,
-  defs : Array[Int],
-) -> Int {
+  defs : Array[Int32],
+) -> Int32 {
   let mut requeued = 0
   for def_idx in defs {
     if def_idx >= 0 &&
@@ -5959,7 +6144,7 @@ fn dae_boundary_worklist_take_item(
 fn dae_boundary_worklist_requeue_items(
   worklist : DaeBoundaryWorklist,
   items : Array[DaeWorkItem],
-) -> Int {
+) -> Int32 {
   let mut requeued = 0
   for item in items {
     if item.target_def < 0 || item.target_def >= worklist.family_queued.length() {
@@ -5979,7 +6164,7 @@ fn dae_boundary_worklist_requeue_items(
 fn dae_work_items_for_defs(
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
-  defs : Array[Int],
+  defs : Array[Int32],
   family : DaeWorkFamily,
 ) -> Array[DaeWorkItem] {
   let items : Array[DaeWorkItem] = []
@@ -6084,7 +6269,7 @@ fn dae_apply_commit_followups(
 ///|
 fn dae_boundary_facts_for_epoch(
   graph : DaeCurrentBoundaryGraph,
-  expected_call_epoch : Int,
+  expected_call_epoch : Int32,
   facts_override : DaeCallBoundaryFacts?,
 ) -> DaeCallBoundaryFacts {
   if expected_call_epoch >= 0 && expected_call_epoch != graph.call_epoch {
@@ -6099,7 +6284,7 @@ fn dae_boundary_facts_for_epoch(
 ///|
 fn dae_call_boundary_allows_forwarding(
   facts : DaeCallBoundaryFacts,
-  caller_abs : Int,
+  caller_abs : Int32,
 ) -> Bool {
   if caller_abs < 0 {
     return false
@@ -6116,8 +6301,8 @@ fn dae_call_boundary_allows_forwarding(
 ///|
 fn dae_call_boundary_direct_callers(
   facts : DaeCallBoundaryFacts,
-  callee_abs : Int,
-) -> Array[Int] {
+  callee_abs : Int32,
+) -> Array[Int32] {
   if callee_abs >= 0 && callee_abs < facts.direct_callers.length() {
     facts.direct_callers[callee_abs]
   } else {
@@ -6126,7 +6311,10 @@ fn dae_call_boundary_direct_callers(
 }
 
 ///|
-fn dae_call_boundary_count_at(counts : Array[Int], callee_abs : Int) -> Int {
+fn dae_call_boundary_count_at(
+  counts : Array[Int32],
+  callee_abs : Int32,
+) -> Int32 {
   if callee_abs >= 0 && callee_abs < counts.length() {
     counts[callee_abs]
   } else {
@@ -6137,7 +6325,7 @@ fn dae_call_boundary_count_at(counts : Array[Int], callee_abs : Int) -> Int {
 ///|
 fn dae_target_callsite_evidence_is_consistent(
   evidence : DaeTargetCallsiteEvidence,
-  callee_abs : Int,
+  callee_abs : Int32,
   mode : DaeTargetCallsiteMode,
 ) -> Bool {
   evidence.callee_abs == callee_abs &&
@@ -6151,7 +6339,7 @@ fn dae_target_callsite_evidence_is_consistent(
 ///|
 fn dae_target_callsite_evidence(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
   mode : DaeTargetCallsiteMode,
 ) -> DaeTargetCallsiteEvidence? {
   if callee_abs < 0 {
@@ -6176,8 +6364,8 @@ fn dae_target_callsite_evidence(
 
 ///|
 fn dae_call_boundary_direct_callers_contain_def(
-  direct_callers : Array[Int],
-  def_idx : Int,
+  direct_callers : Array[Int32],
+  def_idx : Int32,
 ) -> Bool {
   if def_idx < 0 {
     return false
@@ -6193,8 +6381,8 @@ fn dae_call_boundary_direct_callers_contain_def(
 ///|
 fn dae_forwarded_uniform_caller_is_recursive(
   facts : DaeCallBoundaryFacts,
-  caller_abs : Int,
-  imported : Int,
+  caller_abs : Int32,
+  imported : Int32,
 ) -> Bool {
   if caller_abs < 0 || caller_abs >= facts.direct_callers.length() {
     return false
@@ -6208,8 +6396,8 @@ fn dae_forwarded_uniform_caller_is_recursive(
 ///|
 fn dae_call_boundary_candidate(
   facts : DaeCallBoundaryFacts,
-  callee_abs : Int,
-  def_idx? : Int = -1,
+  callee_abs : Int32,
+  def_idx~ : Int32 = -1,
 ) -> DaeCallBoundaryCandidate? {
   if callee_abs < 0 ||
     callee_abs >= facts.escaped.length() ||
@@ -6252,7 +6440,7 @@ fn dae_call_boundary_candidate(
 ///|
 fn dae_dropped_result_candidate_from_boundary_facts(
   facts : DaeCallBoundaryFacts,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeDroppedResultCandidate? {
   let boundary_candidate = match
     dae_call_boundary_candidate(facts, callee_abs) {
@@ -6278,7 +6466,7 @@ fn dae_dropped_result_candidate_from_boundary_facts(
 ///|
 fn dae_dropped_result_candidate_from_current_call_facts(
   call_facts : DaeCurrentCallFacts,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeDroppedResultCandidate? {
   dae_dropped_result_candidate_from_boundary_facts(
     dae_call_boundary_facts_from_current(call_facts),
@@ -6287,7 +6475,7 @@ fn dae_dropped_result_candidate_from_current_call_facts(
 }
 
 ///|
-fn dae_imported_func_count(mod_ : @lib.Module) -> Int {
+fn dae_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -6303,7 +6491,7 @@ fn dae_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn dae_defined_func_count(mod_ : @lib.Module) -> Int {
+fn dae_defined_func_count(mod_ : @lib.Module) -> Int32 {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
     None => 0
@@ -6311,25 +6499,28 @@ fn dae_defined_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn dae_func_idx_slot(idx : @lib.FuncIdx) -> Int {
+fn dae_func_idx_slot(idx : @lib.FuncIdx) -> Int32 {
   let @lib.FuncIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn dae_global_idx_slot(idx : @lib.GlobalIdx) -> Int {
+fn dae_global_idx_slot(idx : @lib.GlobalIdx) -> Int32 {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn dae_local_idx_slot(idx : @lib.LocalIdx) -> Int {
+fn dae_local_idx_slot(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn dae_rewrite_local_idx(raw : Int, local_map : Array[Int]) -> @lib.LocalIdx {
+fn dae_rewrite_local_idx(
+  raw : Int32,
+  local_map : Array[Int32],
+) -> @lib.LocalIdx {
   @lib.LocalIdx::new(local_map[raw].reinterpret_as_uint())
 }
 
@@ -6354,7 +6545,7 @@ fn dae_collect_func_type_indices(mod_ : @lib.Module) -> Array[@lib.TypeIdx] {
 }
 
 ///|
-fn dae_type_sec_flattened_length(type_sec : @lib.TypeSec) -> Int {
+fn dae_type_sec_flattened_length(type_sec : @lib.TypeSec) -> Int32 {
   let @lib.TypeSec(rec_types) = type_sec
   let mut length = 0
   for rec_type in rec_types {
@@ -6370,7 +6561,7 @@ fn dae_type_sec_flattened_length(type_sec : @lib.TypeSec) -> Int {
 fn dae_type_sec_rec_entry_location(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let target = match type_idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
     @lib.RecIdx(_) => return None
@@ -6406,7 +6597,7 @@ fn dae_type_sec_rec_entry_location(
 fn dae_type_sec_subtype(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
-  type_visits? : Array[Int]? = None,
+  type_visits~ : Array[Int32]? = None,
 ) -> @lib.SubType? {
   let target = match type_idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
@@ -6445,7 +6636,7 @@ fn dae_type_sec_subtype(
 fn dae_type_sec_func_type(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
-  type_visits? : Array[Int]? = None,
+  type_visits~ : Array[Int32]? = None,
 ) -> @lib.FuncType? {
   match dae_type_sec_subtype(type_sec, type_idx, type_visits~) {
     Some(subtype) =>
@@ -6514,8 +6705,8 @@ fn dae_control_block_type_signature_evidence(
 fn dae_control_block_type_stack_shape_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  input_count : Int,
-  output_count : Int,
+  input_count : Int32,
+  output_count : Int32,
 ) -> DaeControlBlockTypeSignatureEvidence? {
   match
     dae_control_block_type_signature_evidence_from_type_sec(
@@ -6531,8 +6722,8 @@ fn dae_control_block_type_stack_shape_evidence(
 fn dae_control_block_type_stack_shape_accepts(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  input_count : Int,
-  output_count : Int,
+  input_count : Int32,
+  output_count : Int32,
 ) -> Bool {
   match
     dae_control_block_type_stack_shape_evidence(
@@ -6605,7 +6796,7 @@ fn dae_control_block_type_zero_input_evidence(
 fn dae_control_block_type_zero_input_output_count_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  output_count : Int,
+  output_count : Int32,
 ) -> DaeControlBlockTypeSignatureEvidence? {
   if output_count < 0 {
     return None
@@ -6629,7 +6820,7 @@ fn dae_val_type_is_non_null_concrete_gc_ref_candidate(
 ///|
 fn dae_control_block_type_non_null_concrete_gc_result_from_signature_evidence(
   signature : DaeControlBlockTypeSignatureEvidence,
-  result_index : Int,
+  result_index : Int32,
 ) -> DaeControlBlockTypeGcResultEvidence? {
   if result_index < 0 || result_index >= signature.output_count {
     return None
@@ -6646,7 +6837,7 @@ fn dae_control_block_type_non_null_concrete_gc_result_from_signature_evidence(
 fn dae_control_block_type_non_null_concrete_gc_result_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  result_index : Int,
+  result_index : Int32,
 ) -> DaeControlBlockTypeGcResultEvidence? {
   match
     dae_control_block_type_signature_evidence_from_type_sec(
@@ -6720,7 +6911,7 @@ fn dae_control_block_type_last_non_null_concrete_gc_result_evidence(
 fn dae_resolve_func_type(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  func_abs : Int,
+  func_abs : Int32,
 ) -> @lib.FuncType? {
   if func_abs < 0 || func_abs >= func_type_indices.length() {
     return None
@@ -6736,7 +6927,7 @@ fn dae_resolve_func_type(
 #warnings("-unused_value")
 fn dae_collect_exported_funcs(
   mod_ : @lib.Module,
-  total_funcs : Int,
+  total_funcs : Int32,
 ) -> Array[Bool] {
   let escaped = Array::make(total_funcs, false)
   match mod_.export_sec {
@@ -6873,7 +7064,7 @@ fn dae_mark_elem_exposure(
   kind : @lib.ElemKind,
   exposure : Array[DaeFunctionExposure],
 ) -> Unit {
-  let mark_slot = fn(slot : Int) {
+  let mark_slot = fn(slot : Int32) {
     if slot < 0 || slot >= exposure.length() {
       return
     }
@@ -6905,7 +7096,7 @@ fn dae_mark_elem_exposure(
 ///|
 fn dae_collect_original_exposure(
   mod_ : @lib.Module,
-  total_funcs : Int,
+  total_funcs : Int32,
   type_indices : Array[@lib.TypeIdx],
 ) -> Array[DaeFunctionExposure] {
   let exposure : Array[DaeFunctionExposure] = []
@@ -6997,7 +7188,7 @@ fn dae_exposure_to_escaped(
 }
 
 ///|
-fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int) -> Array[Bool] {
+fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int32) -> Array[Bool] {
   let type_indices = dae_collect_func_type_indices(mod_)
   dae_exposure_to_escaped(
     dae_collect_original_exposure(mod_, total_funcs, type_indices),
@@ -7005,8 +7196,8 @@ fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int) -> Array[Bool] {
 }
 
 ///|
-fn dae_make_direct_callers(total_funcs : Int) -> Array[Array[Int]] {
-  let direct_callers : Array[Array[Int]] = []
+fn dae_make_direct_callers(total_funcs : Int32) -> Array[Array[Int32]] {
+  let direct_callers : Array[Array[Int32]] = []
   let mut idx = 0
   while idx < total_funcs {
     direct_callers.push([])
@@ -7032,7 +7223,7 @@ fn dae_new_function_info(has_unseen_calls : Bool) -> DaeFunctionInfo {
 
 ///|
 fn dae_make_function_infos(
-  total_funcs : Int,
+  total_funcs : Int32,
   escaped : Array[Bool],
 ) -> Array[DaeFunctionInfo] {
   let infos : Array[DaeFunctionInfo] = []
@@ -7046,10 +7237,10 @@ fn dae_make_function_infos(
 
 ///|
 fn dae_callsite_child_path(
-  path : Array[Int],
-  instr_idx : Int,
-  child_kind : Int,
-) -> Array[Int] {
+  path : Array[Int32],
+  instr_idx : Int32,
+  child_kind : Int32,
+) -> Array[Int32] {
   let child = path.copy()
   child.push(instr_idx)
   child.push(child_kind)
@@ -7057,14 +7248,14 @@ fn dae_callsite_child_path(
 }
 
 ///|
-fn dae_callsite_path(path : Array[Int], instr_idx : Int) -> DaeStablePath {
+fn dae_callsite_path(path : Array[Int32], instr_idx : Int32) -> DaeStablePath {
   dae_stable_path_from_array(path).append(instr_idx)
 }
 
 ///|
 fn dae_function_info_add_tail_callee(
   info : DaeFunctionInfo,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Unit {
   if !info.tail_callees.contains(callee_abs) {
     info.tail_callees.push(callee_abs)
@@ -7084,19 +7275,19 @@ fn dae_function_info_add_loop_type_index(
 ///|
 fn dae_scan_current_call_facts_instrs(
   instrs : Array[@lib.Instruction],
-  caller_def : Int,
-  caller_abs : Int,
-  path : Array[Int],
-  direct_calls : Array[Int],
+  caller_def : Int32,
+  caller_abs : Int32,
+  path : Array[Int32],
+  direct_calls : Array[Int32],
   tail_calls : Array[Bool],
-  direct_callers : Array[Array[Int]],
-  dropped_calls : Array[Int],
+  direct_callers : Array[Array[Int32]],
+  dropped_calls : Array[Int32],
   escaped : Array[Bool],
   function_infos : Array[DaeFunctionInfo],
-  caller_seen_stamps : Array[Int],
+  caller_seen_stamps : Array[Int32],
   active : Bool,
-  topology_out? : DaeCurrentTopologyExtras? = None,
-  stable_path? : DaeStablePath? = None,
+  topology_out~ : DaeCurrentTopologyExtras? = None,
+  stable_path~ : DaeStablePath? = None,
 ) -> Bool {
   let mut idx = 0
   let mut current_active = active
@@ -7535,10 +7726,10 @@ fn dae_call_facts_from_function_infos(
 ///|
 fn dae_collect_current_function_analysis(
   mod_ : @lib.Module,
-  total_funcs : Int,
-  perf? : HotPerfSession? = None,
-  call_fact_rebuilds? : Array[Int]? = None,
-  topology_out? : DaeCurrentTopologyExtras? = None,
+  total_funcs : Int32,
+  perf~ : HotPerfSession? = None,
+  call_fact_rebuilds~ : Array[Int32]? = None,
+  topology_out~ : DaeCurrentTopologyExtras? = None,
 ) -> DaeFunctionAnalysis {
   ignore(call_fact_rebuilds)
   let direct_calls = Array::make(total_funcs, 0)
@@ -7626,8 +7817,8 @@ fn dae_collect_current_function_analysis(
 ///|
 fn dae_collect_current_call_facts(
   mod_ : @lib.Module,
-  total_funcs : Int,
-  function_info_builds? : Array[Int]? = None,
+  total_funcs : Int32,
+  function_info_builds~ : Array[Int32]? = None,
 ) -> DaeCurrentCallFacts {
   // Aggregate guards need counts, caller order and escape flags, not operand
   // paths, loop signatures or mutable per-function analysis records.
@@ -7673,8 +7864,8 @@ fn dae_collect_current_call_facts(
 ///|
 fn dae_adjacent_param_forward_evidence(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  param_count : Int,
+  call_idx : Int32,
+  param_count : Int32,
 ) -> DaeAdjacentParamForwardEvidence? {
   if call_idx < 0 || call_idx > instrs.length() || param_count < 0 {
     return None
@@ -7697,8 +7888,8 @@ fn dae_adjacent_param_forward_evidence(
 ///|
 fn dae_mark_self_forwarded_param_gets(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   ignored : Array[Bool],
 ) -> Unit {
   if param_count == 0 {
@@ -7733,8 +7924,8 @@ fn dae_mark_self_forwarded_param_gets(
 fn dae_scan_local_use_ignoring_instrs(
   instrs : Array[@lib.Instruction],
   local_use : DaeLocalUse,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Unit {
   let ignored = Array::make(instrs.length(), false)
   dae_mark_self_forwarded_param_gets(instrs, callee_abs, param_count, ignored)
@@ -7899,8 +8090,8 @@ fn dae_instr_supports_hot_param_entry_liveness(
 ///|
 fn dae_fast_param_entry_liveness(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Array[Bool]? {
   if callee_abs < 0 || param_count < 0 {
     return None
@@ -7928,8 +8119,8 @@ fn dae_fast_param_entry_liveness(
 ///|
 fn dae_hot_param_entry_liveness(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Array[Bool]? {
   if callee_abs < 0 || param_count < 0 {
     return None
@@ -7983,8 +8174,8 @@ fn dae_hot_param_entry_liveness(
 fn dae_scan_param_entry_liveness_instrs(
   instrs : Array[@lib.Instruction],
   live : Array[Bool],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Unit {
   let ignored = Array::make(instrs.length(), false)
   dae_mark_self_forwarded_param_gets(instrs, callee_abs, param_count, ignored)
@@ -8109,7 +8300,7 @@ fn dae_strip_function_terminal_suffix_instrs(
 ///|
 fn dae_strip_function_terminal_suffix_for_def(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -8131,9 +8322,9 @@ fn dae_strip_function_terminal_suffix_for_def(
 ///|
 fn dae_function_info_refresh_unused_params(
   function_infos : Array[DaeFunctionInfo],
-  callee_abs : Int,
+  callee_abs : Int32,
   local_use : DaeLocalUse,
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[Bool] {
   if callee_abs < 0 || callee_abs >= function_infos.length() {
     let unused = Array::make(param_count, false)
@@ -8161,9 +8352,9 @@ fn dae_function_info_refresh_unused_params(
 ///|
 fn dae_local_use_for_callee(
   func : @lib.Func,
-  total_locals : Int,
-  callee_abs : Int,
-  param_count : Int,
+  total_locals : Int32,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> DaeLocalUse {
   let local_use = {
     gets: Array::make(total_locals, false),
@@ -8175,7 +8366,9 @@ fn dae_local_use_for_callee(
 }
 
 ///|
-fn dae_instr_result_arity_from_block_type(block_type : @lib.BlockType) -> Int? {
+fn dae_instr_result_arity_from_block_type(
+  block_type : @lib.BlockType,
+) -> Int32? {
   match block_type {
     @lib.VoidBlockType => Some(0)
     @lib.ValTypeBlockType(_) => Some(1)
@@ -8187,7 +8380,7 @@ fn dae_instr_result_arity_from_block_type(block_type : @lib.BlockType) -> Int? {
 fn dae_instr_stack_effect_from_block_type(
   block_type : @lib.BlockType,
   mod_ : @lib.Module,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match dae_control_block_type_signature_evidence(block_type, mod_) {
     Some(evidence) => Some((evidence.input_count, evidence.output_count))
     None => None
@@ -8199,7 +8392,7 @@ fn dae_instr_stack_effect(
   instr : @lib.Instruction,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match instr {
     @lib.Unreachable | @lib.Nop => Some((0, 0))
     @lib.I32Const(_)
@@ -8486,7 +8679,7 @@ fn dae_control_entry_stack_evidence(
 fn dae_control_entry_stack_values(
   block_type : @lib.BlockType,
   mod_ : @lib.Module,
-) -> Int? {
+) -> Int32? {
   match dae_control_entry_stack_evidence(block_type, mod_) {
     Some(evidence) => Some(evidence.entry_stack_values)
     None => None
@@ -8826,8 +9019,8 @@ fn dae_operand_removal_plan_drops_without_repair(
 // [O4Z-DAE-TYPES]001 / [O4Z-DAE-RESULTS]001 workstreams.
 fn dae_operand_disposition_from_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> DaeOperandDisposition? {
   if start < 0 || end < start || end > instrs.length() {
     return None
@@ -8908,8 +9101,8 @@ fn dae_append_operand_with_removal_plan(
 ///|
 fn dae_slice_is_trivially_droppable(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   match dae_operand_disposition_from_range(instrs, start, end) {
     Some(disposition) =>
@@ -8930,7 +9123,7 @@ fn dae_slice_is_trivially_droppable(
 ///|
 fn dae_trivially_dropped_prefix_evidence(
   instrs : Array[@lib.Instruction],
-  end : Int,
+  end : Int32,
 ) -> DaeDroppedOperandPairSkipEvidence? {
   let skipped = match dae_dropped_operand_pair_skip_evidence(instrs, 0, end) {
     Some(evidence) => evidence
@@ -8946,12 +9139,12 @@ fn dae_trivially_dropped_prefix_evidence(
 ///|
 fn dae_find_value_slice(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  entry_stack_values : Int,
+  end : Int32,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  allow_stack_carried_void_effects? : Bool = false,
-) -> (DaeCallShape, Int, Int)? {
+  allow_stack_carried_void_effects~ : Bool = false,
+) -> (DaeCallShape, Int32, Int32)? {
   let mut need = 1
   let mut idx = end - 1
   while idx >= 0 {
@@ -9026,8 +9219,8 @@ fn dae_instr_producer_kind(instr : @lib.Instruction) -> DaeValueProducerKind {
 ///|
 fn dae_value_producer_kind_from_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> DaeValueProducerKind {
   if start < 0 || end <= start || end > instrs.length() {
     return DaeProducerUnknown
@@ -9069,8 +9262,8 @@ fn dae_value_producer_kind_from_range(
 ///|
 fn dae_range_observability_facts(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> (Bool, Bool, Bool, Bool) {
   let mut has_observable_effect = false
   let mut may_trap = false
@@ -9139,14 +9332,14 @@ fn dae_value_slice_enrich_from_instrs(
   instrs : Array[@lib.Instruction],
   value_type : @lib.ValType?,
   call_kind : DaeDirectCallKind?,
-  call_idx : Int,
-  caller_def : Int,
-  callee_abs : Int,
-  module_epoch : Int,
-  call_epoch : Int,
-  type_epoch : Int,
-  signature_epoch : Int,
-  body_epoch : Int,
+  call_idx : Int32,
+  caller_def : Int32,
+  callee_abs : Int32,
+  module_epoch : Int32,
+  call_epoch : Int32,
+  type_epoch : Int32,
+  signature_epoch : Int32,
+  body_epoch : Int32,
 ) -> DaeValueSlice {
   let producer_kind = dae_value_producer_kind_from_range(
     instrs,
@@ -9220,8 +9413,8 @@ fn dae_value_slice_from_call_shape(
 ///|
 fn dae_value_slice_from_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> DaeValueSlice {
   let disposition = match
     dae_operand_disposition_from_range(instrs, start, end) {
@@ -9261,7 +9454,7 @@ fn dae_call_shape_from_value_slice(slice : DaeValueSlice) -> DaeCallShape {
 }
 
 ///|
-fn dae_value_slice_single_instruction_index(slice : DaeValueSlice) -> Int? {
+fn dae_value_slice_single_instruction_index(slice : DaeValueSlice) -> Int32? {
   if slice.end == slice.start + 1 {
     Some(slice.start)
   } else {
@@ -9274,9 +9467,9 @@ fn dae_find_select_value_slices(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  select_idx : Int,
-  required_left_start? : Int = -1,
-  require_dropped_prefix? : Bool = false,
+  select_idx : Int32,
+  required_left_start~ : Int32 = -1,
+  require_dropped_prefix~ : Bool = false,
 ) -> DaeSelectValueSlices? {
   if select_idx < 0 || select_idx >= body.length() {
     return None
@@ -9355,7 +9548,7 @@ fn dae_value_slice_disposition_is_consistent(slice : DaeValueSlice) -> Bool {
 ///|
 fn dae_select_value_slices_are_consistent(
   slices : DaeSelectValueSlices,
-  select_idx : Int,
+  select_idx : Int32,
 ) -> Bool {
   slices.select_idx == select_idx &&
   slices.left.start < slices.left.end &&
@@ -9404,9 +9597,9 @@ fn dae_control_result_slice_is_consistent(
 ///|
 fn dae_make_multi_result_control_slice(
   body : Array[@lib.Instruction],
-  start : Int,
-  result_count : Int,
-  carrier_kind : Int,
+  start : Int32,
+  result_count : Int32,
+  carrier_kind : Int32,
   flattened : Bool,
   terminal_return : Bool,
 ) -> DaeControlResultSlice? {
@@ -9517,7 +9710,7 @@ fn dae_terminal_return_body_evidence(
 fn dae_single_block_result_carrier_evidence(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
-  result_count : Int,
+  result_count : Int32,
 ) -> DaeSingleBlockResultCarrierEvidence? {
   if result_count <= 0 {
     return None
@@ -9552,7 +9745,7 @@ fn dae_single_block_result_carrier_evidence(
 fn dae_multi_result_control_carrier_chain_slice(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
-  result_count : Int,
+  result_count : Int32,
   terminal_return~ : Bool,
   match_terminal_return~ : Bool,
   append_terminal_return~ : Bool,
@@ -9611,8 +9804,8 @@ fn dae_multi_result_control_carrier_chain_slice(
 ///|
 fn dae_next_free_local_idx(
   instrs : Array[@lib.Instruction],
-  declared_total : Int,
-) -> Int {
+  declared_total : Int32,
+) -> Int32 {
   let mut next = if declared_total < 0 { 0 } else { declared_total }
   for instr in instrs {
     match instr {
@@ -9663,7 +9856,7 @@ fn dae_next_free_local_idx(
 ///|
 fn dae_local_indices_fit_instrs(
   instrs : Array[@lib.Instruction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Bool {
   total_locals >= 0 && dae_next_free_local_idx(instrs, 0) <= total_locals
 }
@@ -9671,7 +9864,7 @@ fn dae_local_indices_fit_instrs(
 ///|
 fn dae_rewrite_instruction_locals(
   instr : @lib.Instruction,
-  local_map : Array[Int],
+  local_map : Array[Int32],
 ) -> @lib.Instruction {
   match instr {
     @lib.LocalGet(idx) =>
@@ -9737,7 +9930,7 @@ fn dae_rewrite_instruction_locals(
 ///|
 fn dae_rewrite_locals_instrs(
   instrs : Array[@lib.Instruction],
-  local_map : Array[Int],
+  local_map : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -9828,7 +10021,7 @@ fn dae_collect_written_locals_instr(
 ///|
 fn dae_collect_written_locals(
   instrs : Array[@lib.Instruction],
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Array[Bool] {
   let written = Array::make(total_locals, false)
   for instr in instrs {
@@ -9840,7 +10033,7 @@ fn dae_collect_written_locals(
 ///|
 fn dae_default_zero_high_guard_is_false(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   written : Array[Bool],
 ) -> Bool {
   match instrs {
@@ -9855,7 +10048,7 @@ fn dae_default_zero_high_guard_is_false(
 ///|
 fn dae_simplify_default_zero_high_guard_instr(
   instr : @lib.Instruction,
-  param_count : Int,
+  param_count : Int32,
   written : Array[Bool],
 ) -> @lib.Instruction {
   match instr {
@@ -9928,7 +10121,7 @@ fn dae_simplify_default_zero_high_guard_instr(
 ///|
 fn dae_simplify_default_zero_high_guard_instrs(
   instrs : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   written : Array[Bool],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -9944,7 +10137,7 @@ fn dae_simplify_default_zero_high_guard_instrs(
 fn dae_known_i32_const_for_local_before(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int? {
+) -> Int32? {
   let local_slot = dae_local_idx_slot(local_idx)
   let mut idx = instrs.length() - 1
   while idx >= 0 {
@@ -10292,7 +10485,7 @@ fn dae_instr_is_materializable_const_with_immutable_global(
 }
 
 ///|
-fn dae_instruction_node_count(instrs : Array[@lib.Instruction]) -> Int {
+fn dae_instruction_node_count(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = instrs.length()
   for instr in instrs {
     match instr {
@@ -10317,7 +10510,7 @@ fn dae_instruction_node_count(instrs : Array[@lib.Instruction]) -> Int {
 fn dae_collect_immediate_materializable_call_targets_instrs(
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
-  imported : Int,
+  imported : Int32,
   large_defs : Array[Bool],
   selected : Array[Bool],
 ) -> Unit {
@@ -10627,11 +10820,11 @@ fn dae_rewrite_param_const_instrs(
 ///|
 fn dae_build_local_map(
   param_types : Array[@lib.ValType],
-  body_local_count : Int,
+  body_local_count : Int32,
   remove : Array[Bool],
   local_use : DaeLocalUse,
-  preserve_removed_params? : Array[Bool]? = None,
-) -> Array[Int] {
+  preserve_removed_params~ : Array[Bool]? = None,
+) -> Array[Int32] {
   let param_count = param_types.length()
   let local_map = Array::make(param_count + body_local_count, -1)
   let mut next_param = 0
@@ -10678,13 +10871,13 @@ fn dae_build_local_map(
 ///|
 fn dae_collect_callsite_value_slices(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  arg_count : Int,
-  entry_stack_values : Int,
+  call_idx : Int32,
+  arg_count : Int32,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  allow_stack_carried_void_effects? : Bool = false,
-) -> (Array[DaeValueSlice], Int)? {
+  allow_stack_carried_void_effects~ : Bool = false,
+) -> (Array[DaeValueSlice], Int32)? {
   let empty_disposition = {
     start: 0,
     end: 0,
@@ -10727,9 +10920,9 @@ fn dae_collect_callsite_value_slices(
 ///|
 fn dae_callsite_value_slice_evidence_is_consistent(
   evidence : DaeCallsiteValueSliceEvidence,
-  call_idx : Int,
-  arg_count : Int,
-  entry_stack_values : Int,
+  call_idx : Int32,
+  arg_count : Int32,
+  entry_stack_values : Int32,
 ) -> Bool {
   if evidence.call_idx != call_idx ||
     evidence.arg_count != arg_count ||
@@ -10752,12 +10945,12 @@ fn dae_callsite_value_slice_evidence_is_consistent(
 ///|
 fn dae_callsite_value_slice_evidence(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  arg_count : Int,
-  entry_stack_values : Int,
+  call_idx : Int32,
+  arg_count : Int32,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  allow_stack_carried_void_effects? : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeCallsiteValueSliceEvidence? {
   match
     dae_collect_callsite_value_slices(
@@ -10792,8 +10985,8 @@ fn dae_callsite_value_slice_evidence(
 ///|
 fn dae_direct_call_kind_at(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  callee_abs : Int,
+  call_idx : Int32,
+  callee_abs : Int32,
   expected_kind : DaeDirectCallKind,
 ) -> Bool {
   if call_idx < 0 || call_idx >= instrs.length() {
@@ -10813,8 +11006,8 @@ fn dae_direct_call_kind_at(
 /// end before the call, stay in parameter order, and exclude ambient stack.
 fn dae_direct_call_operand_slices_are_ordered(
   slices : Array[DaeValueSlice],
-  call_idx : Int,
-  cursor : Int,
+  call_idx : Int32,
+  cursor : Int32,
 ) -> Bool {
   if call_idx < 0 || cursor < 0 || cursor > call_idx {
     return false
@@ -10850,14 +11043,14 @@ fn dae_direct_call_operand_slices_are_ordered(
 fn dae_direct_call_operand_slices(
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  callee_abs : Int,
+  call_idx : Int32,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
   call_kind : DaeDirectCallKind,
   type_indices : Array[@lib.TypeIdx],
   epoch : DaeCandidateEpoch,
-  entry_stack_values? : Int = 0,
-  allow_stack_carried_void_effects? : Bool = false,
+  entry_stack_values~ : Int32 = 0,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeDirectCallOperandSlices? {
   if !dae_direct_call_kind_at(instrs, call_idx, callee_abs, call_kind) {
     return None
@@ -10935,7 +11128,7 @@ fn dae_direct_call_operand_slices(
 fn dae_direct_call_operand_slices_epoch_is_current(
   graph : DaeCurrentBoundaryGraph,
   slices : DaeDirectCallOperandSlices,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Bool {
   dae_candidate_epoch_is_current(graph, {
     def_idx,
@@ -10966,11 +11159,11 @@ fn dae_parameter_action_removes(action : DaeParameterAction) -> Bool {
 /// workstreams and are not produced here.
 fn dae_classify_parameter_slot(
   facts : DaeBoundaryFacts,
-  def_idx : Int,
-  param_idx : Int,
+  def_idx : Int32,
+  param_idx : Int32,
   incoming_live : Bool,
   callsite_param_slices : Array[DaeValueSlice],
-  traps_never_happen? : Bool = false,
+  traps_never_happen~ : Bool = false,
 ) -> DaeParameterAction {
   let imported = facts.graph.snapshot.imported
   let func_abs = dae_abs_func_idx(imported, def_idx)
@@ -11066,14 +11259,14 @@ fn dae_collect_owned_callsite_param_slices_instrs(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
-  param_idx : Int,
+  param_idx : Int32,
   epoch : DaeCandidateEpoch,
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   out : Array[DaeValueSlice],
-  allow_stack_carried_void_effects? : Bool = false,
-  legacy_tag_entries? : Array[Int]? = None,
+  allow_stack_carried_void_effects~ : Bool = false,
+  legacy_tag_entries~ : Array[Int32]? = None,
 ) -> Bool {
   let tag_entries = match legacy_tag_entries {
     Some(entries) => entries
@@ -11213,11 +11406,11 @@ fn dae_collect_owned_callsite_param_slices_instrs(
 fn dae_collect_owned_callsite_param_slices(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
-  direct_caller_defs : Array[Int],
-  param_idx : Int,
-  allow_stack_carried_void_effects? : Bool = false,
+  direct_caller_defs : Array[Int32],
+  param_idx : Int32,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> Array[DaeValueSlice]? {
   if param_idx < 0 || param_idx >= param_types.length() {
     return None
@@ -11252,13 +11445,13 @@ fn dae_collect_owned_callsite_param_slices(
 fn dae_classify_unused_parameter_actions(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
-  def_idx : Int,
-  callee_abs : Int,
+  def_idx : Int32,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
   entry_live : Array[Bool],
-  direct_caller_defs : Array[Int],
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
+  direct_caller_defs : Array[Int32],
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> Array[DaeParameterAction]? {
   if entry_live.length() != param_types.length() {
     return None
@@ -11298,14 +11491,14 @@ fn dae_classify_unused_parameter_actions(
 fn dae_classify_unused_parameter_actions_from_function_infos(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
-  def_idx : Int,
-  callee_abs : Int,
+  def_idx : Int32,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
   entry_live : Array[Bool],
-  direct_caller_defs : Array[Int],
+  direct_caller_defs : Array[Int32],
   function_infos : Array[DaeFunctionInfo],
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> Array[DaeParameterAction]? {
   if entry_live.length() != param_types.length() ||
     callee_abs < 0 ||
@@ -11316,7 +11509,7 @@ fn dae_classify_unused_parameter_actions_from_function_infos(
   for _ in param_types {
     slices_by_param.push([])
   }
-  let tag_entries : Array[Int] = []
+  let tag_entries : Array[Int32] = []
   let mut matched_calls = 0
   for callsite in function_infos[callee_abs].calls {
     if callsite.callee_abs != callee_abs ||
@@ -11399,7 +11592,7 @@ fn dae_classify_unused_parameter_actions_from_function_infos(
 ///|
 fn dae_callsite_operand_removal_plan(
   evidence : DaeCallsiteValueSliceEvidence,
-  param_idx : Int,
+  param_idx : Int32,
   remove : Bool,
 ) -> DaeOperandRemovalPlan? {
   if param_idx < 0 || param_idx >= evidence.slices.length() {
@@ -11422,7 +11615,7 @@ fn dae_callsite_operand_removal_plan(
 ///|
 fn dae_callsite_single_instruction_actual_is_consistent(
   actual : DaeCallsiteSingleInstructionActualEvidence,
-  param_idx : Int,
+  param_idx : Int32,
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   actual.param_idx == param_idx &&
@@ -11434,7 +11627,7 @@ fn dae_callsite_single_instruction_actual_is_consistent(
 ///|
 fn dae_callsite_single_instruction_actual(
   evidence : DaeCallsiteValueSliceEvidence,
-  param_idx : Int,
+  param_idx : Int32,
   instrs : Array[@lib.Instruction],
 ) -> DaeCallsiteSingleInstructionActualEvidence? {
   if param_idx < 0 || param_idx >= evidence.slices.length() {
@@ -11463,11 +11656,11 @@ fn dae_callsite_single_instruction_actual(
 /// or effect-interleaved operand falls back to full stack slicing.
 fn dae_callsite_contiguous_single_root_actual_start(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  param_count : Int,
+  call_idx : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> Int? {
+) -> Int32? {
   if param_count < 0 || call_idx < param_count || call_idx > instrs.length() {
     return None
   }
@@ -11512,10 +11705,10 @@ fn dae_localization_scratch_type(param_type : @lib.ValType) -> @lib.ValType? {
 
 ///|
 fn dae_localization_scratch_slot(
-  first_scratch_local : Int,
+  first_scratch_local : Int32,
   scratch_local_types : Array[@lib.ValType],
   scratch_type : @lib.ValType,
-) -> Int {
+) -> Int32 {
   if first_scratch_local < 0 || !@lib.has_default(scratch_type) {
     return -1
   }
@@ -11720,7 +11913,7 @@ fn dae_callsite_rewrite_plan(
   callsite : DaeCallsiteValueSliceEvidence,
   remove : Array[Bool],
   localization_param_types : Array[@lib.ValType]?,
-  traps_never_happen? : Bool = false,
+  traps_never_happen~ : Bool = false,
 ) -> DaeCallsiteRewritePlan? {
   if remove.length() != callsite.arg_count {
     return None
@@ -11818,8 +12011,8 @@ fn dae_callsite_rewrite_plan(
 fn dae_apply_callsite_rewrite_plan(
   instrs : Array[@lib.Instruction],
   plan : DaeCallsiteRewritePlan,
-  first_scratch_local : Int,
-  existing_scratch_local_types? : Array[@lib.ValType] = [],
+  first_scratch_local : Int32,
+  existing_scratch_local_types~ : Array[@lib.ValType] = [],
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if first_scratch_local < 0 ||
     !dae_callsite_rewrite_plan_is_consistent(plan) ||
@@ -11909,16 +12102,16 @@ fn dae_apply_callsite_rewrite_plan(
 ///|
 fn dae_rewrite_callsite_with_localization_at(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
+  call_idx : Int32,
   remove : Array[Bool],
   param_types : Array[@lib.ValType],
-  entry_stack_values : Int,
-  first_scratch_local : Int,
+  entry_stack_values : Int32,
+  first_scratch_local : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  existing_scratch_local_types? : Array[@lib.ValType] = [],
-  allow_stack_carried_void_effects? : Bool = false,
-  traps_never_happen? : Bool = false,
+  existing_scratch_local_types~ : Array[@lib.ValType] = [],
+  allow_stack_carried_void_effects~ : Bool = false,
+  traps_never_happen~ : Bool = false,
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if remove.length() != param_types.length() || first_scratch_local < 0 {
     return None
@@ -11957,13 +12150,13 @@ fn dae_rewrite_callsite_with_localization_at(
 ///|
 fn dae_rewrite_callsite_at(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
+  call_idx : Int32,
   remove : Array[Bool],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  traps_never_happen? : Bool = false,
-) -> (Array[@lib.Instruction], Int, Bool) {
+  traps_never_happen~ : Bool = false,
+) -> (Array[@lib.Instruction], Int32, Bool) {
   let evidence = match
     dae_callsite_value_slice_evidence(
       instrs,
@@ -12046,12 +12239,12 @@ fn dae_rewrite_refined_gc_actual_slice(
 ///|
 fn dae_rewrite_refined_gc_actuals_instr(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
   refine_params : Array[Bool],
   next_params : Array[@lib.ValType],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (@lib.Instruction, Int, Bool, Bool) {
+) -> (@lib.Instruction, Int32, Bool, Bool) {
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
     None =>
@@ -12107,13 +12300,13 @@ fn dae_rewrite_refined_gc_actuals_instr(
 ///|
 fn dae_rewrite_refined_gc_actuals_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   refine_params : Array[Bool],
   next_params : Array[@lib.ValType],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Array[@lib.Instruction], Int, Bool, Bool) {
+) -> (Array[@lib.Instruction], Int32, Bool, Bool) {
   let current = instrs.copy()
   let mut idx = 0
   let mut calls = 0
@@ -12191,10 +12384,10 @@ fn dae_rewrite_refined_gc_actuals_instrs(
 fn dae_legacy_tag_payload_count(
   mod_ : @lib.Module,
   tag : @lib.TagIdx,
-  entries : Array[Int],
-) -> Int? {
+  entries : Array[Int32],
+) -> Int32? {
   if entries.is_empty() {
-    let arities : Array[Int] = []
+    let arities : Array[Int32] = []
     match mod_.type_sec {
       Some(@lib.TypeSec(types)) =>
         for rec_type in types {
@@ -12259,8 +12452,8 @@ fn dae_legacy_tag_payload_count(
 fn dae_legacy_catch_entry_stack_values(
   catch_ : @lib.LegacyCatch,
   mod_ : @lib.Module,
-  tag_entries : Array[Int],
-) -> Int? {
+  tag_entries : Array[Int32],
+) -> Int32? {
   match catch_ {
     @lib.LegacyCatch(tag, _) =>
       dae_legacy_tag_payload_count(mod_, tag, tag_entries)
@@ -12271,15 +12464,15 @@ fn dae_legacy_catch_entry_stack_values(
 ///|
 fn dae_rewrite_calls_instr(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  localization? : DaeCallsiteLocalizationContext? = None,
-  allow_stack_carried_void_effects? : Bool = false,
-  traps_never_happen? : Bool = false,
-  legacy_tag_entries? : Array[Int]? = None,
-) -> (@lib.Instruction, Int, Bool) {
+  localization~ : DaeCallsiteLocalizationContext? = None,
+  allow_stack_carried_void_effects~ : Bool = false,
+  traps_never_happen~ : Bool = false,
+  legacy_tag_entries~ : Array[Int32]? = None,
+) -> (@lib.Instruction, Int32, Bool) {
   let tag_entries = match legacy_tag_entries {
     Some(entries) => entries
     None => []
@@ -12420,15 +12613,15 @@ fn dae_rewrite_calls_instr(
 ///|
 fn dae_rewrite_calls_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  localization? : DaeCallsiteLocalizationContext? = None,
-  allow_stack_carried_void_effects? : Bool = false,
-  traps_never_happen? : Bool = false,
-  legacy_tag_entries? : Array[Int]? = None,
+  localization~ : DaeCallsiteLocalizationContext? = None,
+  allow_stack_carried_void_effects~ : Bool = false,
+  traps_never_happen~ : Bool = false,
+  legacy_tag_entries~ : Array[Int32]? = None,
 ) -> DaeRewriteResult {
   let tag_entries = match legacy_tag_entries {
     Some(entries) => entries
@@ -12556,7 +12749,7 @@ fn dae_record_uniform_const_candidate(
   seen : Array[Bool],
   invalid : Array[Bool],
   candidates : Array[@lib.Instruction?],
-  param_idx : Int,
+  param_idx : Int32,
   candidate : @lib.Instruction,
 ) -> Unit {
   if param_idx < 0 ||
@@ -12583,13 +12776,14 @@ fn dae_record_uniform_const_candidate(
 ///|
 fn dae_resolve_forwarded_uniform_const_local_get(
   mod_ : @lib.Module,
-  caller_abs : Int,
-  local_slot : Int,
+  caller_abs : Int32,
+  local_slot : Int32,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
-  allow_immutable_global_get? : Bool = false,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
 ) -> @lib.Instruction? {
   if caller_abs < 0 ||
     caller_abs >= func_type_indices.length() ||
@@ -12700,6 +12894,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
             collect_params=Some(collect_params),
             stable_callsite_resolutions=cache.stable_callsite_resolutions,
             uniform_resolution_cache~,
+            syntax_query~,
           )
         None =>
           dae_collect_uniform_const_actuals_visited(
@@ -12712,6 +12907,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
             allow_immutable_global_get~,
             collect_params=Some(collect_params),
             uniform_resolution_cache~,
+            syntax_query~,
           )
       }
     None =>
@@ -12724,6 +12920,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
         visited,
         allow_immutable_global_get~,
         collect_params=Some(collect_params),
+        syntax_query~,
       )
   }
   let resolved = match resolved_values {
@@ -12746,8 +12943,8 @@ fn dae_resolve_forwarded_uniform_const_local_get(
 ///|
 fn dae_resolve_local_set_const_carrier(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  local_slot : Int,
+  end : Int32,
+  local_slot : Int32,
   mod_ : @lib.Module,
   allow_immutable_global_get : Bool,
 ) -> @lib.Instruction? {
@@ -12810,13 +13007,14 @@ fn dae_resolve_local_set_const_carrier(
 ///|
 fn dae_resolve_uniform_const_candidate(
   mod_ : @lib.Module,
-  caller_abs : Int,
+  caller_abs : Int32,
   candidate : @lib.Instruction,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
-  allow_immutable_global_get? : Bool = false,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
 ) -> @lib.Instruction? {
   match
     dae_materializable_control_const(
@@ -12843,6 +13041,7 @@ fn dae_resolve_uniform_const_candidate(
         visited,
         allow_immutable_global_get~,
         uniform_resolution_cache~,
+        syntax_query~,
       )
     _ => None
   }
@@ -12873,10 +13072,10 @@ fn dae_materializable_uniform_slice_candidate(
 ///|
 fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   param_types : Array[@lib.ValType],
-  entry_stack_values : Int,
-  caller_abs : Int,
+  entry_stack_values : Int32,
+  caller_abs : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
@@ -12884,10 +13083,12 @@ fn dae_collect_uniform_const_actuals_instrs(
   seen : Array[Bool],
   invalid : Array[Bool],
   candidates : Array[@lib.Instruction?],
-  allow_immutable_global_get? : Bool = false,
-  collect_params? : Array[Bool]? = None,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
-  legacy_tag_entries? : Array[Int]? = None,
+  allow_immutable_global_get~ : Bool = false,
+  collect_params~ : Array[Bool]? = None,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
+  legacy_tag_entries~ : Array[Int32]? = None,
+  single_call_idx~ : Int32? = None,
 ) -> Bool {
   let tag_entries = match legacy_tag_entries {
     Some(entries) => entries
@@ -12899,8 +13100,51 @@ fn dae_collect_uniform_const_actuals_instrs(
     Some(_) => return false
     None => Array::make(param_count, true)
   }
-  let mut idx = 0
-  while idx < instrs.length() {
+  if single_call_idx is None && callee_abs >= 0 {
+    match syntax_query {
+      Some(query) if dae_uniform_syntax_query_matches(
+          query, mod_, func_type_indices, boundary_facts,
+        ) &&
+        dae_uniform_syntax_target_admitted(query, callee_abs) =>
+        return dae_collect_uniform_const_actuals_indexed(
+          query, instrs, callee_abs, param_types, entry_stack_values, caller_abs,
+          mod_, func_type_indices, boundary_facts, visited, seen, invalid, candidates,
+          active_params, allow_immutable_global_get, uniform_resolution_cache, tag_entries,
+        )
+      _ => ()
+    }
+  }
+  let mut idx = match single_call_idx {
+    Some(index) => {
+      if index < 0 ||
+        index >= instrs.length() ||
+        dae_target_callsite_evidence(
+          instrs[index],
+          callee_abs,
+          DaeTargetDirectOrReturnCall,
+        )
+        is None {
+        return false
+      }
+      index
+    }
+    None => 0
+  }
+  let end = match single_call_idx {
+    Some(_) => idx + 1
+    None => instrs.length()
+  }
+  while idx < end {
+    if single_call_idx is None {
+      match syntax_query {
+        Some(query) =>
+          match query.syntax_visits {
+            Some(visits) => visits[0] += 1
+            None => ()
+          }
+        None => ()
+      }
+    }
     match
       dae_target_callsite_evidence(
         instrs[idx],
@@ -12946,6 +13190,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                         visited,
                         allow_immutable_global_get~,
                         uniform_resolution_cache~,
+                        syntax_query~,
                       ) {
                       Some(candidate) =>
                         dae_record_uniform_const_candidate(
@@ -13019,6 +13264,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 allow_immutable_global_get~,
                 collect_params=Some(active_params),
                 uniform_resolution_cache~,
+                syntax_query~,
                 legacy_tag_entries=Some(tag_entries),
               ) {
               return false
@@ -13048,6 +13294,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                   allow_immutable_global_get~,
                   collect_params=Some(active_params),
                   uniform_resolution_cache~,
+                  syntax_query~,
                   legacy_tag_entries=Some(tag_entries),
                 ) {
                 return false
@@ -13079,6 +13326,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 allow_immutable_global_get~,
                 collect_params=Some(active_params),
                 uniform_resolution_cache~,
+                syntax_query~,
                 legacy_tag_entries=Some(tag_entries),
               ) {
               return false
@@ -13101,6 +13349,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                     allow_immutable_global_get~,
                     collect_params=Some(active_params),
                     uniform_resolution_cache~,
+                    syntax_query~,
                     legacy_tag_entries=Some(tag_entries),
                   ) {
                   return false
@@ -13119,14 +13368,15 @@ fn dae_collect_uniform_const_actuals_instrs(
 ///|
 fn dae_collect_uniform_const_actuals_visited(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
-  allow_immutable_global_get? : Bool = false,
-  collect_params? : Array[Bool]? = None,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  collect_params~ : Array[Bool]? = None,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
 ) -> Array[@lib.Instruction?]? {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -13163,6 +13413,7 @@ fn dae_collect_uniform_const_actuals_visited(
           allow_immutable_global_get~,
           collect_params~,
           uniform_resolution_cache~,
+          syntax_query~,
         ) {
         return None
       }
@@ -13185,14 +13436,19 @@ fn dae_collect_uniform_const_actuals_visited(
 ///|
 fn dae_collect_uniform_const_actuals_from_boundary_facts(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
-  allow_immutable_global_get? : Bool = false,
-  collect_params? : Array[Bool]? = None,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  collect_params~ : Array[Bool]? = None,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
+  syntax_stats~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction?]? {
+  // Only an explicit fixed-source owner can share a syntax index. A normal
+  // query does not create one before a stable-path or single-query result.
+  let _ = syntax_stats
   let total = func_type_indices.length()
   dae_collect_uniform_const_actuals_visited(
     mod_,
@@ -13204,18 +13460,19 @@ fn dae_collect_uniform_const_actuals_from_boundary_facts(
     allow_immutable_global_get~,
     collect_params~,
     uniform_resolution_cache~,
+    syntax_query~,
   )
 }
 
 ///|
 fn dae_resolve_stable_callsite_scope(
   instrs : Array[@lib.Instruction],
-  path : Array[Int],
-  path_idx : Int,
-  entry_stack_values : Int,
+  path : Array[Int32],
+  path_idx : Int32,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
-  legacy_tag_entries? : Array[Int]? = None,
-) -> (Array[@lib.Instruction], Int, Int)? {
+  legacy_tag_entries~ : Array[Int32]? = None,
+) -> (Array[@lib.Instruction], Int32, Int32)? {
   if path_idx < 0 || path_idx >= path.length() {
     return None
   }
@@ -13299,9 +13556,9 @@ fn dae_resolve_stable_callsite_scope(
 
 ///|
 priv struct DaeUniformCallsiteOperands {
-  param_count : Int
+  param_count : Int32
   scope : Array[@lib.Instruction]
-  direct_actual_start : Int?
+  direct_actual_start : Int32?
   evidence : DaeCallsiteValueSliceEvidence?
 }
 
@@ -13310,13 +13567,13 @@ fn dae_resolve_uniform_callsite_operands(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
   callsite : DaeStableCallsite,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   func_type_indices : Array[@lib.TypeIdx],
-  cache : @hashmap.HashMap[(Int, Int), DaeUniformCallsiteOperands]?,
-  callsite_index : Int,
-  resolutions : Array[Int]?,
-  legacy_tag_entries? : Array[Int]? = None,
+  cache : @hashmap.HashMap[(Int32, Int32), DaeUniformCallsiteOperands]?,
+  callsite_index : Int32,
+  resolutions : Array[Int32]?,
+  legacy_tag_entries~ : Array[Int32]? = None,
 ) -> DaeUniformCallsiteOperands? {
   match cache {
     Some(entries) =>
@@ -13375,16 +13632,21 @@ fn dae_resolve_uniform_callsite_operands(
 ///|
 fn dae_collect_uniform_const_actuals_from_function_infos(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   function_infos : Array[DaeFunctionInfo],
-  allow_immutable_global_get? : Bool = false,
-  collect_params? : Array[Bool]? = None,
-  stable_callsite_resolutions? : Array[Int]? = None,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  collect_params~ : Array[Bool]? = None,
+  stable_callsite_resolutions~ : Array[Int32]? = None,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
+  syntax_query~ : DaeUniformSyntaxQuery? = None,
+  syntax_stats~ : Array[Int32]? = None,
 ) -> Array[@lib.Instruction?]? {
+  // Only an explicit fixed-source owner can share a syntax index. A normal
+  // query does not create one before a stable-path or single-query result.
+  let _ = syntax_stats
   if callee_abs < 0 || callee_abs >= function_infos.length() {
     return None
   }
@@ -13430,7 +13692,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
   }
   // A tail call supplies the same parameter boundary as an ordinary call.
   // Its arguments must join the constant proof, including recursive updates.
-  let tag_entries : Array[Int] = []
+  let tag_entries : Array[Int32] = []
   let callsites = function_infos[callee_abs].calls
   for callsite_index = 0
       callsite_index < callsites.length()
@@ -13498,6 +13760,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
                 visited,
                 allow_immutable_global_get~,
                 uniform_resolution_cache~,
+                syntax_query~,
               ) {
               Some(candidate) =>
                 dae_record_uniform_const_candidate(
@@ -13574,16 +13837,16 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
 ///|
 fn dae_collect_uniform_const_actuals_from_current_call_facts(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   func_type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   function_infos : Array[DaeFunctionInfo],
-  allow_immutable_global_get? : Bool = false,
-  collect_params? : Array[Bool]? = None,
-  prefer_stable_paths? : Bool = true,
-  stable_callsite_resolutions? : Array[Int]? = None,
-  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  allow_immutable_global_get~ : Bool = false,
+  collect_params~ : Array[Bool]? = None,
+  prefer_stable_paths~ : Bool = true,
+  stable_callsite_resolutions~ : Array[Int32]? = None,
+  uniform_resolution_cache~ : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
   if prefer_stable_paths {
     let result = dae_collect_uniform_const_actuals_from_function_infos(
@@ -13645,7 +13908,7 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
 }
 
 ///|
-fn dae_type_idx_slot(idx : @lib.TypeIdx) -> Int? {
+fn dae_type_idx_slot(idx : @lib.TypeIdx) -> Int32? {
   match idx {
     @lib.TypeIdx(raw) => Some(raw.reinterpret_as_int())
     @lib.RecIdx(_) => None
@@ -13838,7 +14101,7 @@ fn dae_collect_used_type_idx_instrs(
 ///|
 fn dae_rewrite_pruned_heap_type(
   ht : @lib.HeapType,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.HeapType {
   match ht {
     @lib.HeapType(type_idx) =>
@@ -13850,7 +14113,7 @@ fn dae_rewrite_pruned_heap_type(
 ///|
 fn dae_rewrite_pruned_ref_type(
   rt : @lib.RefType,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.RefType {
   match rt {
     @lib.HeapTypeRefType(nullable, exact, heap_type) =>
@@ -13866,7 +14129,7 @@ fn dae_rewrite_pruned_ref_type(
 ///|
 fn dae_rewrite_pruned_val_type(
   vt : @lib.ValType,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ValType {
   match vt {
     @lib.RefTypeValType(rt) =>
@@ -13878,7 +14141,7 @@ fn dae_rewrite_pruned_val_type(
 ///|
 fn dae_rewrite_pruned_table_type(
   tt : @lib.TableType,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.TableType {
   let @lib.TableType(rt, limits) = tt
   @lib.TableType::new(dae_rewrite_pruned_ref_type(rt, remap), limits)
@@ -13887,7 +14150,7 @@ fn dae_rewrite_pruned_table_type(
 ///|
 fn dae_rewrite_pruned_global_type(
   gt : @lib.GlobalType,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.GlobalType {
   let @lib.GlobalType(vt, mutable) = gt
   @lib.GlobalType::new(dae_rewrite_pruned_val_type(vt, remap), mutable)
@@ -13896,7 +14159,7 @@ fn dae_rewrite_pruned_global_type(
 ///|
 fn dae_rewrite_pruned_type_idx(
   idx : @lib.TypeIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.TypeIdx {
   match idx {
     @lib.TypeIdx(raw) => {
@@ -13912,9 +14175,71 @@ fn dae_rewrite_pruned_type_idx(
 }
 
 ///|
+fn dae_pruned_type_idx_unchanged(
+  idx : @lib.TypeIdx,
+  remap : Array[Int32],
+) -> Bool {
+  match idx {
+    @lib.TypeIdx(raw) => {
+      let slot = raw.reinterpret_as_int()
+      slot < 0 ||
+      slot >= remap.length() ||
+      remap[slot] < 0 ||
+      remap[slot] == slot
+    }
+    @lib.RecIdx(_) => true
+  }
+}
+
+///|
+fn dae_pruned_heap_type_unchanged(
+  ht : @lib.HeapType,
+  remap : Array[Int32],
+) -> Bool {
+  match ht {
+    @lib.HeapType(idx) => dae_pruned_type_idx_unchanged(idx, remap)
+    _ => true
+  }
+}
+
+///|
+fn dae_pruned_ref_type_unchanged(
+  rt : @lib.RefType,
+  remap : Array[Int32],
+) -> Bool {
+  match rt {
+    @lib.HeapTypeRefType(_, _, ht) => dae_pruned_heap_type_unchanged(ht, remap)
+    _ => true
+  }
+}
+
+///|
+fn dae_pruned_val_type_unchanged(
+  vt : @lib.ValType,
+  remap : Array[Int32],
+) -> Bool {
+  match vt {
+    @lib.RefTypeValType(rt) => dae_pruned_ref_type_unchanged(rt, remap)
+    _ => true
+  }
+}
+
+///|
+fn dae_pruned_block_type_unchanged(
+  bt : @lib.BlockType,
+  remap : Array[Int32],
+) -> Bool {
+  match bt {
+    @lib.TypeIdxBlockType(idx) => dae_pruned_type_idx_unchanged(idx, remap)
+    @lib.ValTypeBlockType(vt) => dae_pruned_val_type_unchanged(vt, remap)
+    _ => true
+  }
+}
+
+///|
 fn dae_rewrite_pruned_type_idx_instr(
   instr : @lib.Instruction,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.Instruction {
   let rewrite_block_type = fn(block_type : @lib.BlockType) -> @lib.BlockType {
     match block_type {
@@ -13926,61 +14251,144 @@ fn dae_rewrite_pruned_type_idx_instr(
     }
   }
   match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      @lib.Instruction::block(
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let next_body = dae_rewrite_pruned_type_idx_instrs(body, remap)
+      if physical_equal(next_body, body) &&
+        dae_pruned_block_type_unchanged(block_type, remap) {
+        return instr
+      }
+      return @lib.Instruction::block(
         rewrite_block_type(block_type),
-        @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+        @lib.Expr::new(next_body),
       )
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      @lib.Instruction::loop_(
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let next_body = dae_rewrite_pruned_type_idx_instrs(body, remap)
+      if physical_equal(next_body, body) &&
+        dae_pruned_block_type_unchanged(block_type, remap) {
+        return instr
+      }
+      return @lib.Instruction::loop_(
         rewrite_block_type(block_type),
-        @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+        @lib.Expr::new(next_body),
       )
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      @lib.Instruction::try_table(
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let next_body = dae_rewrite_pruned_type_idx_instrs(body, remap)
+      if physical_equal(next_body, body) &&
+        dae_pruned_block_type_unchanged(block_type, remap) {
+        return instr
+      }
+      return @lib.Instruction::try_table(
         rewrite_block_type(block_type),
         catches,
-        @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+        @lib.Expr::new(next_body),
       )
+    }
     @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
-      let rewritten_catches : Array[@lib.LegacyCatch] = []
-      for catch_ in catches {
-        match catch_ {
-          @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) =>
-            rewritten_catches.push(
-              @lib.LegacyCatch::tagged(
-                tag_idx,
-                @lib.Expr::new(
-                  dae_rewrite_pruned_type_idx_instrs(catch_body, remap),
-                ),
-              ),
-            )
-          @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
-            rewritten_catches.push(
-              @lib.LegacyCatch::all(
-                @lib.Expr::new(
-                  dae_rewrite_pruned_type_idx_instrs(catch_body, remap),
-                ),
-              ),
-            )
+      let next_body = dae_rewrite_pruned_type_idx_instrs(body, remap)
+      let mut rewritten_catches : Array[@lib.LegacyCatch]? = None
+      for index = 0; index < catches.length(); index = index + 1 {
+        let catch_ = catches[index]
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+        }
+        let next_catch = dae_rewrite_pruned_type_idx_instrs(catch_body, remap)
+        if !physical_equal(next_catch, catch_body) {
+          let rewritten = match catch_ {
+            @lib.LegacyCatch(tag_idx, _) =>
+              @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(next_catch))
+            @lib.LegacyCatchAll(_) =>
+              @lib.LegacyCatch::all(@lib.Expr::new(next_catch))
+          }
+          match rewritten_catches {
+            Some(copy) => copy[index] = rewritten
+            None => {
+              let copy = catches.copy()
+              copy[index] = rewritten
+              rewritten_catches = Some(copy)
+            }
+          }
         }
       }
-      @lib.Instruction::try_(
+      if physical_equal(next_body, body) &&
+        rewritten_catches is None &&
+        dae_pruned_block_type_unchanged(block_type, remap) {
+        return instr
+      }
+      return @lib.Instruction::try_(
         rewrite_block_type(block_type),
-        @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
-        rewritten_catches,
+        @lib.Expr::new(next_body),
+        rewritten_catches.unwrap_or(catches),
         delegate~,
       )
     }
-    @lib.If(block_type, then_body, else_body) =>
-      @lib.Instruction::if_(
+    @lib.If(block_type, then_body, else_body) => {
+      let next_then = dae_rewrite_pruned_type_idx_instrs(then_body, remap)
+      let mut else_changed = false
+      let next_else = match else_body {
+        Some(body) => {
+          let next = dae_rewrite_pruned_type_idx_instrs(body, remap)
+          if physical_equal(next, body) {
+            else_body
+          } else {
+            else_changed = true
+            Some(next)
+          }
+        }
+        None => None
+      }
+      if physical_equal(next_then, then_body) &&
+        !else_changed &&
+        dae_pruned_block_type_unchanged(block_type, remap) {
+        return instr
+      }
+      return @lib.Instruction::if_(
         rewrite_block_type(block_type),
-        dae_rewrite_pruned_type_idx_instrs(then_body, remap),
-        match else_body {
-          Some(body) => Some(dae_rewrite_pruned_type_idx_instrs(body, remap))
-          None => None
-        },
+        next_then,
+        next_else,
       )
+    }
+    _ => ()
+  }
+  // These arms inspect only the fields that this remapper rewrites. Embedded
+  // definitions and every unrelated opcode keep their existing ownership.
+  let unchanged = match instr {
+    @lib.CallIndirect(idx, _)
+    | @lib.ReturnCallIndirect(idx, _)
+    | @lib.CallRef(idx)
+    | @lib.ReturnCallRef(idx)
+    | @lib.ContNew(idx)
+    | @lib.Resume(idx, _)
+    | @lib.ResumeThrow(idx, _, _)
+    | @lib.ResumeThrowRef(idx, _)
+    | @lib.StackSwitch(idx, _)
+    | @lib.RefGetDesc(idx) => dae_pruned_type_idx_unchanged(idx, remap)
+    @lib.ContBind(source_type, target_type) =>
+      dae_pruned_type_idx_unchanged(source_type, remap) &&
+      dae_pruned_type_idx_unchanged(target_type, remap)
+    @lib.Select(Some(types)) =>
+      types.all(fn(vt) { dae_pruned_val_type_unchanged(vt, remap) })
+    @lib.RefNull(rt) => dae_pruned_ref_type_unchanged(rt, remap)
+    @lib.RefTest(_, _, ht)
+    | @lib.RefCast(_, _, ht)
+    | @lib.RefTestDesc(_, ht)
+    | @lib.RefCastDescEq(_, _, ht) => dae_pruned_heap_type_unchanged(ht, remap)
+    @lib.BrOnCast(_, _, source_type, target_type)
+    | @lib.BrOnCastFail(_, _, source_type, target_type) =>
+      dae_pruned_heap_type_unchanged(source_type, remap) &&
+      dae_pruned_heap_type_unchanged(target_type, remap)
+    @lib.BrOnCastDescEq(_, source_type, target_type)
+    | @lib.BrOnCastDescEqFail(_, source_type, target_type) =>
+      dae_pruned_ref_type_unchanged(source_type, remap) &&
+      dae_pruned_ref_type_unchanged(target_type, remap)
+    _ => true
+  }
+  if unchanged {
+    return instr
+  }
+  match instr {
     @lib.CallIndirect(type_idx, table_idx) =>
       @lib.Instruction::call_indirect(
         dae_rewrite_pruned_type_idx(type_idx, remap),
@@ -14113,13 +14521,26 @@ fn dae_rewrite_pruned_type_idx_instr(
 ///|
 fn dae_rewrite_pruned_type_idx_instrs(
   instrs : Array[@lib.Instruction],
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = []
-  for instr in instrs {
-    out.push(dae_rewrite_pruned_type_idx_instr(instr, remap))
+  let mut out : Array[@lib.Instruction]? = None
+  for index = 0; index < instrs.length(); index = index + 1 {
+    let instr = instrs[index]
+    let next = dae_rewrite_pruned_type_idx_instr(instr, remap)
+    match out {
+      Some(copy) => copy.push(next)
+      None =>
+        if !physical_equal(next, instr) {
+          let copy = Array::new(capacity=instrs.length())
+          for prefix = 0; prefix < index; prefix = prefix + 1 {
+            copy.push(instrs[prefix])
+          }
+          copy.push(next)
+          out = Some(copy)
+        }
+    }
   }
-  out
+  out.unwrap_or(instrs)
 }
 
 ///|
@@ -14162,7 +14583,7 @@ fn dae_comp_type_has_indexed_heap_type(comp_type : @lib.CompType) -> Bool {
 ///|
 fn dae_prune_unused_simple_func_types(
   mod_ : @lib.Module,
-  preserve_names? : Bool = false,
+  preserve_names~ : Bool = false,
 ) -> @lib.Module {
   let rec_types = match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => rec_types
@@ -14249,15 +14670,38 @@ fn dae_prune_unused_simple_func_types(
       }
     None => ()
   }
+  // Marks only move false -> true. Advance this witness at most T times
+  // across the invocation, with one false-cell check per max-scanned Func.
+  let mut first_unused = 0
+  while first_unused < used.length() && used[first_unused] {
+    first_unused += 1
+  }
+  let mut body_maxima : Array[Int32]? = None
   match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
+    Some(@lib.CodeSec(funcs)) => {
+      if !funcs.is_empty() && first_unused < used.length() {
+        body_maxima = Some(Array::new(capacity=funcs.length()))
+      }
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(body)) = func
         for local_run in locals.runs() {
           dae_mark_used_val_type(local_run.val_type(), used)
         }
-        dae_collect_used_type_idx_instrs(body, used)
+        match body_maxima {
+          Some(maxima) => {
+            maxima.push(dae_prune_collect_used_type_idx_max(body, used))
+            while first_unused < used.length() && used[first_unused] {
+              first_unused += 1
+            }
+            if first_unused == used.length() {
+              // All types are retained. Keep the old checks and Unit walks.
+              body_maxima = None
+            }
+          }
+          None => dae_collect_used_type_idx_instrs(body, used)
+        }
       }
+    }
     None => ()
   }
   // The current remapper rewrites every module-level reference but does not
@@ -14279,9 +14723,13 @@ fn dae_prune_unused_simple_func_types(
   let remap = Array::make(rec_types.length(), -1)
   let next_types : Array[@lib.RecType] = []
   let mut old_idx = 0
+  let mut first_moved = rec_types.length()
   while old_idx < rec_types.length() {
     if used[old_idx] {
       remap[old_idx] = next_types.length()
+      if first_moved == rec_types.length() && remap[old_idx] != old_idx {
+        first_moved = old_idx
+      }
       next_types.push(rec_types[old_idx])
     }
     old_idx += 1
@@ -14450,7 +14898,15 @@ fn dae_prune_unused_simple_func_types(
         rewritten.push(
           @lib.Table::new(
             dae_rewrite_pruned_table_type(table_type, remap),
-            init,
+            match init {
+              Some(@lib.Expr(body)) =>
+                Some(
+                  @lib.Expr::new(
+                    dae_rewrite_pruned_type_idx_instrs(body, remap),
+                  ),
+                )
+              None => None
+            },
           ),
         )
       }
@@ -14514,8 +14970,10 @@ fn dae_prune_unused_simple_func_types(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let rewritten : Array[@lib.Func] = []
-      for func in funcs {
-        let @lib.Func(locals, @lib.Expr(body)) = func
+      for func_index = 0
+          func_index < funcs.length()
+          func_index = func_index + 1 {
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[func_index]
         let next_runs : Array[@lib.LocalRun] = []
         for run in locals.runs() {
           next_runs.push(
@@ -14528,7 +14986,12 @@ fn dae_prune_unused_simple_func_types(
         rewritten.push(
           @lib.Func::new(
             @lib.Locals::new(next_runs),
-            @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+            @lib.Expr::new(
+              match body_maxima {
+                Some(maxima) if maxima[func_index] < first_moved => body
+                _ => dae_rewrite_pruned_type_idx_instrs(body, remap)
+              },
+            ),
           ),
         )
       }
@@ -14618,7 +15081,7 @@ fn dae_simple_func_type_lookup(
 priv struct DaeTypeUpdateIndex {
   signatures : @hashmap.HashMap[String, @lib.TypeIdx]
   groups : Array[@lib.RecType]
-  mut flat_count : Int
+  mut flat_count : Int32
 }
 
 ///|
@@ -14725,8 +15188,8 @@ fn dae_type_idx_equal(lhs : @lib.TypeIdx, rhs : @lib.TypeIdx) -> Bool {
 ///|
 fn dae_type_idx_references_slot(
   type_idx : @lib.TypeIdx,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match type_idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int() == target_slot
@@ -14739,8 +15202,8 @@ fn dae_type_idx_references_slot(
 ///|
 fn dae_heap_type_references_slot(
   heap_type : @lib.HeapType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match heap_type {
     @lib.HeapType(type_idx) =>
@@ -14753,8 +15216,8 @@ fn dae_heap_type_references_slot(
 ///|
 fn dae_ref_type_references_slot(
   ref_type : @lib.RefType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match ref_type {
     @lib.HeapTypeRefType(_, _, heap_type) =>
@@ -14766,8 +15229,8 @@ fn dae_ref_type_references_slot(
 ///|
 fn dae_val_type_references_slot(
   val_type : @lib.ValType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
@@ -14779,8 +15242,8 @@ fn dae_val_type_references_slot(
 ///|
 fn dae_storage_type_references_slot(
   storage_type : @lib.StorageType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
@@ -14792,8 +15255,8 @@ fn dae_storage_type_references_slot(
 ///|
 fn dae_field_type_references_slot(
   field_type : @lib.FieldType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   let @lib.FieldType(storage_type, _) = field_type
   dae_storage_type_references_slot(storage_type, target_slot, rec_group_base)
@@ -14802,8 +15265,8 @@ fn dae_field_type_references_slot(
 ///|
 fn dae_comp_type_references_slot(
   comp_type : @lib.CompType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   match comp_type {
     @lib.ArrayCompType(field_type) =>
@@ -14827,8 +15290,8 @@ fn dae_comp_type_references_slot(
 ///|
 fn dae_subtype_references_slot(
   subtype : @lib.SubType,
-  target_slot : Int,
-  rec_group_base : Int,
+  target_slot : Int32,
+  rec_group_base : Int32,
 ) -> Bool {
   let (supers, metadata, comp_type) = match subtype {
     @lib.SubType(_, supers, metadata, comp_type) =>
@@ -14861,7 +15324,7 @@ fn dae_subtype_references_slot(
 ///|
 fn dae_type_sec_references_slot(
   type_sec : @lib.TypeSec,
-  target_slot : Int,
+  target_slot : Int32,
 ) -> Bool {
   let @lib.TypeSec(rec_types) = type_sec
   let mut flat_idx = 0
@@ -14889,7 +15352,7 @@ fn dae_type_sec_references_slot(
 ///|
 fn dae_instrs_reference_type_slot(
   instrs : Array[@lib.Instruction],
-  target_slot : Int,
+  target_slot : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -15051,7 +15514,7 @@ fn dae_instrs_reference_type_slot(
 ///|
 fn dae_non_funcsec_references_type_slot(
   mod_ : @lib.Module,
-  target_slot : Int,
+  target_slot : Int32,
 ) -> Bool {
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -15162,7 +15625,7 @@ fn dae_non_funcsec_references_type_slot(
 fn dae_can_replace_unique_defined_func_type(
   mod_ : @lib.Module,
   func_types : Array[@lib.TypeIdx],
-  def_idx : Int,
+  def_idx : Int32,
   old_type_idx : @lib.TypeIdx,
 ) -> Bool {
   let old_slot = match dae_type_idx_slot(old_type_idx) {
@@ -15263,11 +15726,11 @@ fn dae_update_defined_func_type(
   mod_ : @lib.Module,
   type_sec : @lib.TypeSec,
   func_types : Array[@lib.TypeIdx],
-  def_idx : Int,
+  def_idx : Int32,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
-  type_update_index? : DaeTypeUpdateIndex? = None,
-  unique_scan_count? : Array[Int]? = None,
+  type_update_index~ : DaeTypeUpdateIndex? = None,
+  unique_scan_count~ : Array[Int32]? = None,
 ) -> (@lib.TypeSec, @lib.TypeIdx) {
   let old_type_idx = func_types[def_idx]
   let (params, results) = match type_update_index {
@@ -15802,8 +16265,8 @@ fn dae_gc_select_actual_value_slices_evidence(
   body : Array[@lib.Instruction],
   slices : DaeSelectValueSlices,
   old_type : @lib.ValType,
-  require_refined? : Bool = false,
-  rewrite_type? : @lib.ValType? = None,
+  require_refined~ : Bool = false,
+  rewrite_type~ : @lib.ValType? = None,
 ) -> DaeGcSelectValueSlicesEvidence? {
   if !dae_select_value_slices_are_consistent(slices, slices.select_idx) ||
     slices.select_idx >= body.length() ||
@@ -15936,8 +16399,8 @@ fn dae_gc_actual_type_evidence(
   mod_ : @lib.Module,
   old_type : @lib.ValType,
   func_type_indices : Array[@lib.TypeIdx],
-  require_refined? : Bool = false,
-  rewrite_type? : @lib.ValType? = None,
+  require_refined~ : Bool = false,
+  rewrite_type~ : @lib.ValType? = None,
 ) -> DaeGcActualTypeEvidence? {
   if shape.start < 0 || shape.start >= shape.end || shape.end > instrs.length() {
     return None
@@ -16085,7 +16548,7 @@ fn dae_direct_gc_actual_candidate_type_for_value_slice(
 ///|
 fn dae_collect_direct_struct_default_actuals_instr(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
   params : Array[@lib.ValType],
   local_use : DaeLocalUse,
   candidates : Array[@lib.ValType?],
@@ -16093,7 +16556,7 @@ fn dae_collect_direct_struct_default_actuals_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   caller_locals : @lib.FunctionLocals?,
-) -> (Int, Bool) {
+) -> (Int32, Bool) {
   match instr {
     @lib.Block(_, @lib.Expr(_))
     | @lib.Loop(_, @lib.Expr(_))
@@ -16145,16 +16608,16 @@ fn dae_collect_direct_struct_default_actuals_instr(
 ///|
 fn dae_collect_direct_struct_default_actuals_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   params : Array[@lib.ValType],
   local_use : DaeLocalUse,
   candidates : Array[@lib.ValType?],
   rejected : Array[Bool],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   caller_locals : @lib.FunctionLocals?,
-) -> (Int, Bool) {
+) -> (Int32, Bool) {
   let mut calls = 0
   let mut idx = 0
   while idx < instrs.length() {
@@ -16505,7 +16968,7 @@ fn dae_single_result_control_pair_application_is_consistent(
 fn dae_apply_single_result_control_pair_gc_evidence(
   evidence : DaeSingleResultControlPairGcEvidence,
   result_is_void : Bool,
-  annotation_type? : @lib.ValType? = None,
+  annotation_type~ : @lib.ValType? = None,
 ) -> (@lib.Instruction, DaeSingleResultControlPairApplicationEvidence)? {
   let block_type = if result_is_void {
     @lib.BlockType::void_()
@@ -17154,7 +17617,7 @@ fn dae_gc_result_slot_evidence(
   func_locals : @lib.FunctionLocals?,
   instr : @lib.Instruction,
   old_type : @lib.ValType,
-  require_refined? : Bool = false,
+  require_refined~ : Bool = false,
 ) -> DaeGcTypeEvidence? {
   let (candidate, rewrite) = match
     dae_direct_gc_result_candidate_instr(
@@ -17176,7 +17639,7 @@ fn dae_gc_result_slot_evidence(
 fn dae_indexed_instruction_rewrite_application_is_consistent(
   application : DaeIndexedInstructionRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
   rewrites : Array[@lib.Instruction?],
 ) -> Bool {
   if application.target_count != indices.length() ||
@@ -17210,7 +17673,7 @@ fn dae_indexed_instruction_rewrite_application_is_consistent(
 ///|
 fn dae_apply_indexed_instruction_rewrites_to_body(
   body : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
   rewrites : Array[@lib.Instruction?],
 ) -> (Array[@lib.Instruction], DaeIndexedInstructionRewriteApplicationEvidence)? {
   if indices.length() != rewrites.length() {
@@ -17466,7 +17929,7 @@ fn dae_body_rewrite_fixpoint_evidence_is_consistent(
 fn dae_apply_body_rewrite_until_stable(
   body : Array[@lib.Instruction],
   rewrite_once : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
-  max_iters : Int,
+  max_iters : Int32,
 ) -> (Array[@lib.Instruction], DaeBodyRewriteFixpointEvidence)? {
   if max_iters <= 0 {
     return None
@@ -17506,7 +17969,7 @@ fn dae_apply_body_rewrite_until_stable(
 fn dae_apply_body_rewrite_until_stable_or_original(
   body : Array[@lib.Instruction],
   rewrite_once : (Array[@lib.Instruction]) -> Array[@lib.Instruction]?,
-  max_iters : Int,
+  max_iters : Int32,
 ) -> Array[@lib.Instruction] {
   match dae_apply_body_rewrite_until_stable(body, rewrite_once, max_iters) {
     Some((rewritten, _)) => rewritten
@@ -17518,9 +17981,9 @@ fn dae_apply_body_rewrite_until_stable_or_original(
 fn dae_result_rewrite_application_is_consistent(
   application : DaeResultRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   rewrites : Array[@lib.Instruction?],
-  active? : Array[Bool]? = None,
+  active~ : Array[Bool]? = None,
 ) -> Bool {
   if application.start != start ||
     application.result_count != rewrites.length() ||
@@ -17538,9 +18001,9 @@ fn dae_result_rewrite_application_is_consistent(
 ///|
 fn dae_apply_result_rewrites_to_body(
   body : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   rewrites : Array[@lib.Instruction?],
-  active? : Array[Bool]? = None,
+  active~ : Array[Bool]? = None,
 ) -> (Array[@lib.Instruction], DaeResultRewriteApplicationEvidence)? {
   if start < 0 || start + rewrites.length() > body.length() {
     return None
@@ -17597,9 +18060,9 @@ fn dae_apply_result_rewrites_to_body(
 fn dae_select_value_rewrite_application_is_consistent(
   application : DaeSelectValueRewriteApplicationEvidence,
   body : Array[@lib.Instruction],
-  left_idx : Int,
-  right_idx : Int,
-  select_idx : Int,
+  left_idx : Int32,
+  right_idx : Int32,
+  select_idx : Int32,
   left_rewrite : @lib.Instruction?,
   right_rewrite : @lib.Instruction?,
   select_rewrite : @lib.Instruction?,
@@ -17627,9 +18090,9 @@ fn dae_select_value_rewrite_application_is_consistent(
 ///|
 fn dae_apply_select_value_rewrites_to_body(
   body : Array[@lib.Instruction],
-  left_idx : Int,
-  right_idx : Int,
-  select_idx : Int,
+  left_idx : Int32,
+  right_idx : Int32,
+  select_idx : Int32,
   left_rewrite : @lib.Instruction?,
   right_rewrite : @lib.Instruction?,
   select_rewrite : @lib.Instruction?,
@@ -17680,7 +18143,7 @@ fn dae_control_result_slice_gc_evidence(
   func_locals : @lib.FunctionLocals?,
   result_slice : DaeControlResultSlice,
   results : Array[@lib.ValType],
-  require_refined? : Bool = false,
+  require_refined~ : Bool = false,
 ) -> DaeControlResultGcEvidence? {
   if results.length() != result_slice.result_count ||
     !dae_control_result_slice_is_consistent(result_slice) {
@@ -17830,7 +18293,7 @@ fn dae_optional_refined_result_slots_application_is_consistent(
   application : DaeOptionalRefinedResultSlotsApplicationEvidence,
   refined_slots : Array[@lib.ValType?],
   next_results : Array[@lib.ValType],
-  refined_results_length : Int,
+  refined_results_length : Int32,
 ) -> Bool {
   if application.result_count != refined_slots.length() ||
     application.next_results_length != next_results.length() ||
@@ -17853,7 +18316,7 @@ fn dae_optional_refined_result_slots_application_is_consistent(
 fn dae_apply_optional_refined_result_slots(
   refined_slots : Array[@lib.ValType?],
   next_results : Array[@lib.ValType],
-  refined_results? : Array[@lib.ValType]? = None,
+  refined_results~ : Array[@lib.ValType]? = None,
 ) -> DaeOptionalRefinedResultSlotsApplicationEvidence? {
   let result_count = refined_slots.length()
   if result_count == 0 || next_results.length() != result_count {
@@ -17911,7 +18374,7 @@ fn dae_control_result_pair_refinement_application_is_consistent(
   application : DaeControlResultPairRefinementApplicationEvidence,
   pair : DaeControlResultPairGcEvidence,
   next_results : Array[@lib.ValType],
-  refined_results_length : Int,
+  refined_results_length : Int32,
 ) -> Bool {
   application.result_count == pair.refined_results.length() &&
   application.next_results_length == next_results.length() &&
@@ -17923,7 +18386,7 @@ fn dae_control_result_pair_refinement_application_is_consistent(
 fn dae_apply_control_result_pair_refinements(
   pair : DaeControlResultPairGcEvidence,
   next_results : Array[@lib.ValType],
-  refined_results? : Array[@lib.ValType]? = None,
+  refined_results~ : Array[@lib.ValType]? = None,
 ) -> DaeControlResultPairRefinementApplicationEvidence? {
   let result_count = pair.refined_results.length()
   if result_count == 0 || next_results.length() != result_count {
@@ -17971,7 +18434,7 @@ fn dae_control_result_single_refinement_application_is_consistent(
   application : DaeControlResultSingleRefinementApplicationEvidence,
   evidence : DaeControlResultGcEvidence,
   next_results : Array[@lib.ValType],
-  refined_results_length : Int,
+  refined_results_length : Int32,
 ) -> Bool {
   application.result_count == evidence.refined_candidates.length() &&
   application.next_results_length == next_results.length() &&
@@ -17984,7 +18447,7 @@ fn dae_control_result_single_refinement_application_is_consistent(
 fn dae_apply_control_result_single_refinements(
   evidence : DaeControlResultGcEvidence,
   next_results : Array[@lib.ValType],
-  refined_results? : Array[@lib.ValType]? = None,
+  refined_results~ : Array[@lib.ValType]? = None,
 ) -> DaeControlResultSingleRefinementApplicationEvidence? {
   let result_count = evidence.refined_candidates.length()
   if result_count == 0 || next_results.length() != result_count {
@@ -18036,7 +18499,7 @@ fn dae_multi_result_if_pair_gc_refinement_evidence(
   then_body : Array[@lib.Instruction],
   else_body : Array[@lib.Instruction],
   results : Array[@lib.ValType],
-  require_terminal_return? : Bool = false,
+  require_terminal_return~ : Bool = false,
 ) -> DaeMultiResultIfPairGcRefinementEvidence? {
   if results.length() == 0 {
     return None
@@ -18097,7 +18560,7 @@ fn dae_indirect_call_gc_result_candidate_signature(
   mod_ : @lib.Module,
   type_idx : @lib.TypeIdx,
   old_type : @lib.ValType,
-) -> (Int, @lib.ValType)? {
+) -> (Int32, @lib.ValType)? {
   match mod_.type_sec {
     Some(type_sec) =>
       match dae_type_sec_func_type(type_sec, type_idx) {
@@ -18118,9 +18581,9 @@ fn dae_indirect_call_gc_result_slice_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  argument_end : Int,
-  stack_value_end : Int,
+  start : Int32,
+  argument_end : Int32,
+  stack_value_end : Int32,
   type_idx : @lib.TypeIdx,
   old_type : @lib.ValType,
 ) -> DaeIndirectGcResultSliceEvidence? {
@@ -18181,8 +18644,8 @@ fn dae_call_ref_gc_result_candidate_slice(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   if start + 2 > end {
@@ -18231,8 +18694,8 @@ fn dae_call_indirect_gc_result_candidate_slice(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   if start + 2 > end {
@@ -18282,8 +18745,8 @@ fn dae_gc_result_candidate_slice(
   func_type_indices : Array[@lib.TypeIdx],
   func_locals : @lib.FunctionLocals?,
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   if start < 0 || end > body.length() || start >= end {
@@ -18447,7 +18910,7 @@ fn dae_gc_select_value_slices_evidence(
   body : Array[@lib.Instruction],
   slices : DaeSelectValueSlices,
   old_type : @lib.ValType,
-  require_refined? : Bool = false,
+  require_refined~ : Bool = false,
 ) -> DaeGcSelectValueEvidence? {
   if !dae_select_value_slices_are_consistent(slices, slices.select_idx) ||
     slices.select_idx >= body.length() {
@@ -18505,11 +18968,11 @@ fn dae_gc_select_value_slices_candidate_evidence(
   func_type_indices : Array[@lib.TypeIdx],
   func_locals : @lib.FunctionLocals?,
   body : Array[@lib.Instruction],
-  select_idx : Int,
+  select_idx : Int32,
   old_type : @lib.ValType,
-  required_left_start? : Int = -1,
-  require_dropped_prefix? : Bool = false,
-  require_refined? : Bool = false,
+  required_left_start~ : Int32 = -1,
+  require_dropped_prefix~ : Bool = false,
+  require_refined~ : Bool = false,
 ) -> DaeGcSelectValueSlicesEvidence? {
   let slices = match
     dae_find_select_value_slices(
@@ -18582,7 +19045,7 @@ fn dae_instr_has_function_return(instr : @lib.Instruction) -> Bool {
 ///|
 fn dae_body_prefix_has_function_return(
   body : Array[@lib.Instruction],
-  end_exclusive : Int,
+  end_exclusive : Int32,
 ) -> Bool {
   let mut idx = 0
   while idx < end_exclusive && idx < body.length() {
@@ -18894,8 +19357,8 @@ fn dae_select_condition_localization_evidence_is_consistent(
 fn dae_select_condition_localization_evidence(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> DaeSelectConditionLocalizationEvidence? {
   if start < 0 || start >= end || end > body.length() {
@@ -19029,7 +19492,7 @@ fn dae_collect_explicit_gc_result_candidates_instrs(
   old_type : @lib.ValType,
   candidates : Array[@lib.ValType],
   failed : Array[Bool],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   let mut idx = 0
   while idx < body.length() && !failed[0] {
@@ -19352,7 +19815,7 @@ fn dae_direct_gc_result_candidate_body(
 ///|
 fn dae_module_signature_context(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   copy_funcs~ : Bool,
 ) -> DaeModuleSignatureContext? {
   match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
@@ -19383,8 +19846,8 @@ fn dae_apply_module_boundary_finalization(
   context : DaeModuleSignatureContext,
   rewritten_funcs : Array[@lib.Func],
   plan : DaeModuleCodeFinalizationPlan,
-  perf? : HotPerfSession? = None,
-  type_update_timer_name? : String = "",
+  perf~ : HotPerfSession? = None,
+  type_update_timer_name~ : String = "",
 ) -> DaePassResult {
   if rewritten_funcs.length() != context.funcs.length() {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -19435,7 +19898,7 @@ fn dae_apply_module_boundary_finalization(
 ///|
 fn dae_try_update_signature_only(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> DaePassResult {
@@ -19479,7 +19942,7 @@ fn dae_flat_multi_result_suffix_evidence_is_consistent(
 ///|
 fn dae_flat_multi_result_suffix_evidence(
   body : Array[@lib.Instruction],
-  result_count : Int,
+  result_count : Int32,
   match_terminal_return : Bool,
 ) -> DaeFlatMultiResultSuffixEvidence? {
   let terminal_extra = if match_terminal_return { 1 } else { 0 }
@@ -19525,7 +19988,7 @@ fn dae_find_or_append_func_type(
 
 ///|
 fn dae_typeidx_control_rewrite_plan(
-  control_kind : Int,
+  control_kind : Int32,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   body : Array[@lib.Instruction],
@@ -19579,7 +20042,7 @@ fn dae_apply_typeidx_control_rewrite(
 ///|
 fn dae_rebuild_typeidx_control(
   type_sec : @lib.TypeSec,
-  control_kind : Int,
+  control_kind : Int32,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   body : Array[@lib.Instruction],
@@ -19599,8 +20062,8 @@ fn dae_rebuild_typeidx_control(
 fn dae_rebuild_typeidx_control_in_body(
   type_sec : @lib.TypeSec,
   outer_body : Array[@lib.Instruction],
-  control_idx : Int,
-  control_kind : Int,
+  control_idx : Int32,
+  control_kind : Int32,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   control_body : Array[@lib.Instruction],
@@ -19636,8 +20099,8 @@ fn dae_dropped_operand_pair_skip_evidence_is_consistent(
 ///|
 fn dae_dropped_operand_pair_skip_evidence(
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> DaeDroppedOperandPairSkipEvidence? {
   if start < 0 || end < start || end > body.length() {
     return None
@@ -19685,8 +20148,8 @@ fn dae_multi_result_operand_slot_evidence_is_consistent(
 ///|
 fn dae_multi_result_operand_slot_prefix_evidence(
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> DaeMultiResultOperandSlotEvidence? {
   let skipped = match dae_dropped_operand_pair_skip_evidence(body, start, end) {
     Some(evidence) => evidence
@@ -19749,8 +20212,8 @@ fn dae_multi_result_operand_slot_single_producer_evidence(
 ///|
 fn dae_multi_result_suffix_bounds_evidence(
   body : Array[@lib.Instruction],
-  result_count : Int,
-  min_extra_instrs : Int,
+  result_count : Int32,
+  min_extra_instrs : Int32,
 ) -> Array[DaeMultiResultSuffixBoundsEvidence] {
   let out : Array[DaeMultiResultSuffixBoundsEvidence] = []
   if result_count <= 0 || min_extra_instrs < 0 {
@@ -19792,9 +20255,9 @@ fn dae_multi_result_operand_sequence_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  result_count : Int,
-  min_extra_instrs : Int,
-  specialize : (Array[@lib.Instruction], Int, Int, Int) -> (Int, Int)?,
+  result_count : Int32,
+  min_extra_instrs : Int32,
+  specialize : (Array[@lib.Instruction], Int32, Int32, Int32) -> (Int32, Int32)?,
 ) -> DaeMultiResultOperandSequenceEvidence? {
   if result_count <= 0 {
     return None
@@ -19888,10 +20351,10 @@ fn dae_try_refine_multi_result_single_if_operand_body(
   }
   let specialize_if = fn(
     candidate_body : Array[@lib.Instruction],
-    operand_start : Int,
-    operand_end : Int,
-    _ : Int,
-  ) -> (Int, Int)? {
+    operand_start : Int32,
+    operand_end : Int32,
+    _ : Int32,
+  ) -> (Int32, Int32)? {
     if operand_start + 1 >= operand_end {
       return None
     }
@@ -19977,10 +20440,10 @@ fn dae_try_refine_multi_result_select_operand_body(
   }
   let specialize_select = fn(
     candidate_body : Array[@lib.Instruction],
-    operand_start : Int,
-    operand_end : Int,
-    result_idx : Int,
-  ) -> (Int, Int)? {
+    operand_start : Int32,
+    operand_end : Int32,
+    result_idx : Int32,
+  ) -> (Int32, Int32)? {
     let remaining_results = results.length() - result_idx - 1
     let max_select_idx = operand_end - remaining_results - 1
     let mut select_idx = operand_start + 3
@@ -20116,8 +20579,8 @@ fn dae_parametric_typeidx_prefix_consumes_params_stack_safe(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   arm_body : Array[@lib.Instruction],
-  end : Int,
-  param_count : Int,
+  end : Int32,
+  param_count : Int32,
 ) -> Bool {
   dae_stack_slice_localization_policy_accepts(
     mod_,
@@ -20135,7 +20598,7 @@ fn dae_parametric_typeidx_multi_result_arm_gc_evidence(
   func_type_indices : Array[@lib.TypeIdx],
   func_locals : @lib.FunctionLocals?,
   arm_body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   results : Array[@lib.ValType],
 ) -> DaeControlResultGcEvidence? {
   if results.length() == 0 || arm_body.length() < results.length() {
@@ -20293,8 +20756,8 @@ fn dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
 fn dae_find_multi_result_control_slice(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
-  result_count : Int,
-  require_terminal_return? : Bool = false,
+  result_count : Int32,
+  require_terminal_return~ : Bool = false,
 ) -> DaeControlResultSlice? {
   if result_count <= 0 {
     return None
@@ -20364,7 +20827,7 @@ fn dae_find_multi_result_control_slice(
 fn dae_multi_result_if_arm_return_candidate_body(
   mod_ : @lib.Module,
   body : Array[@lib.Instruction],
-  result_count : Int,
+  result_count : Int32,
 ) -> DaeControlResultSlice? {
   dae_find_multi_result_control_slice(
     mod_,
@@ -20657,8 +21120,8 @@ fn dae_try_refine_mixed_multi_result_if_fallthrough_body(
 ///|
 fn dae_apply_direct_caller_scope_rewrite(
   funcs : Array[@lib.Func],
-  direct_caller_defs : Array[Int],
-  rewrite_caller : (@lib.Func, Int) -> DaeDirectCallerRewriteEvidence,
+  direct_caller_defs : Array[Int32],
+  rewrite_caller : (@lib.Func, Int32) -> DaeDirectCallerRewriteEvidence,
 ) -> DaeDirectCallerScopeApplication {
   let rewritten_funcs = funcs.copy()
   let changed_defs = Array::make(funcs.length(), false)
@@ -20711,10 +21174,10 @@ fn dae_signature_has_heap_ref(
 fn dae_collect_gc_parameter_lub_actuals_for_callers(
   mod_ : @lib.Module,
   funcs : Array[@lib.Func],
-  direct_caller_defs : Array[Int],
+  direct_caller_defs : Array[Int32],
   type_indices : Array[@lib.TypeIdx],
-  imported : Int,
-  callee_abs : Int,
+  imported : Int32,
+  callee_abs : Int32,
   params : Array[@lib.ValType],
   local_use : DaeLocalUse,
 ) -> DaeGcParameterLubActualCollection {
@@ -20750,8 +21213,8 @@ fn dae_apply_gc_parameter_lub_evidence(
   params : Array[@lib.ValType],
   candidates : Array[@lib.ValType?],
   rejected : Array[Bool],
-  calls_seen : Int,
-  expected_call_count : Int,
+  calls_seen : Int32,
+  expected_call_count : Int32,
 ) -> DaeGcParameterLubEvidence {
   let next_params = params.copy()
   let refined_params = Array::make(params.length(), false)
@@ -20790,7 +21253,7 @@ fn dae_apply_gc_parameter_lub_evidence(
 ///|
 fn dae_rewrite_nondefaultable_fixup_gets(
   instrs : Array[@lib.Instruction],
-  first_fixup_idx : Int,
+  first_fixup_idx : Int32,
   needs_non_null : Array[Bool],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -20877,7 +21340,7 @@ fn dae_apply_reused_gc_param_fixups(
   }
   let fixup_types : Array[@lib.ValType] = []
   let fixup_needs_non_null : Array[Bool] = []
-  let fixup_params : Array[Int] = []
+  let fixup_params : Array[Int32] = []
   let mut param_idx = 0
   while param_idx < params.length() {
     if param_idx < refined_params.length() &&
@@ -20941,11 +21404,11 @@ fn dae_apply_reused_gc_param_fixups(
 ///|
 fn dae_try_refine_direct_gc_types(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  direct_call_count : Int,
-  direct_caller_defs : Array[Int],
-  refine_params? : Bool = true,
-  refine_results? : Bool = true,
+  callee_abs : Int32,
+  direct_call_count : Int32,
+  direct_caller_defs : Array[Int32],
+  refine_params~ : Bool = true,
+  refine_results~ : Bool = true,
 ) -> DaePassResult {
   if direct_call_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -21462,7 +21925,7 @@ fn dae_try_refine_direct_gc_types(
 ///|
 fn dae_try_refine_direct_gc_types_for_def_with_facts(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   call_facts : DaeCurrentCallFacts,
   refine_params : Bool,
   refine_results : Bool,
@@ -21499,9 +21962,9 @@ fn dae_try_refine_direct_gc_types_for_def_with_facts(
 ///|
 fn dae_rewrite_materialized_const_suffix_calls_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   expected_suffix : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int, Bool) {
+) -> (Array[@lib.Instruction], Int32, Bool) {
   let out : Array[@lib.Instruction] = []
   let mut calls = 0
   let mut ok = true
@@ -21598,12 +22061,12 @@ fn dae_rewrite_materialized_const_suffix_calls_instrs(
 ///|
 fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   params : Array[@lib.ValType],
   expected_suffix : Array[@lib.Instruction],
   local_use : DaeLocalUse,
-  verified_calls : Int,
-  verified_callers : Array[Int],
+  verified_calls : Int32,
+  verified_callers : Array[Int32],
 ) -> DaePassResult {
   if verified_calls <= 0 ||
     expected_suffix.length() <= 0 ||
@@ -21662,8 +22125,8 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
 ///|
 fn dae_direct_caller_cycle_flags(
   facts : DaeCallBoundaryFacts,
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
 ) -> Array[Bool] {
   let callers_by_def = dae_dependency_adjacency_new(defined)
   let mut callee_def = 0
@@ -21698,14 +22161,14 @@ fn dae_direct_caller_cycle_flags(
 ///|
 fn dae_boundary_has_direct_caller_cycle(
   facts : DaeCallBoundaryFacts,
-  imported : Int,
-  callee_abs : Int,
+  imported : Int32,
+  callee_abs : Int32,
 ) -> Bool {
   if callee_abs < 0 || callee_abs >= facts.direct_callers.length() {
     return false
   }
   let seen = Array::make(facts.direct_callers.length(), false)
-  let pending : Array[Int] = []
+  let pending : Array[Int32] = []
   for caller_def in facts.direct_callers[callee_abs] {
     pending.push(imported + caller_def)
   }
@@ -21741,16 +22204,17 @@ fn dae_batchable_uniform_literal(instr : @lib.Instruction) -> Bool {
 ///|
 fn dae_try_apply_unread_param_batch(
   mod_ : @lib.Module,
-  active_defs? : Array[Bool]? = None,
-  require_active_callers? : Bool = false,
-  allow_uniform_params? : Bool = false,
-  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
-  cleanup_targets? : Array[Bool]? = None,
-  perf? : HotPerfSession? = None,
-  stable_callsite_resolutions? : Array[Int]? = None,
-  forwarded_local_use_scans? : Array[Int]? = None,
-  forwarded_uniform_resolutions? : Array[Int]? = None,
-  uniform_visited_allocations? : Array[Int]? = None,
+  active_defs~ : Array[Bool]? = None,
+  require_active_callers~ : Bool = false,
+  allow_uniform_params~ : Bool = false,
+  scalar_callee_cleanup~ : Bool = false,
+  boundary_snapshot~ : DaeModuleBoundarySnapshot? = None,
+  cleanup_targets~ : Array[Bool]? = None,
+  perf~ : HotPerfSession? = None,
+  stable_callsite_resolutions~ : Array[Int32]? = None,
+  forwarded_local_use_scans~ : Array[Int32]? = None,
+  forwarded_uniform_resolutions~ : Array[Int32]? = None,
+  uniform_visited_allocations~ : Array[Int32]? = None,
 ) -> DaePassResult {
   let snapshot_start_us = perf_start_timer_opt(
     perf, "detail:dae:parameter-batch:snapshot",
@@ -21966,7 +22430,7 @@ fn dae_try_apply_unread_param_batch(
       .with_func_sec(@lib.FuncSec::new(type_idxs))
       .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
     let localized_params = Array::make(plan.params.length(), false)
-    let caller_rewrites : Array[(Int, @lib.Func)] = []
+    let caller_rewrites : Array[(Int32, @lib.Func)] = []
     let mut calls_rewritten = 0
     let mut ok = true
     for caller_def in plan.direct_caller_defs {
@@ -22033,6 +22497,22 @@ fn dae_try_apply_unread_param_batch(
       Some(evidence) => evidence
       None => continue
     }
+    // Scalar work can replace a uniquely owned signature in place. Check the
+    // same pre-rewrite module here before publishing any caller/body changes.
+    let scalar_type_update = if scalar_callee_cleanup {
+      Some(
+        dae_update_defined_func_type(
+          current_view,
+          type_sec,
+          type_idxs,
+          plan.def_idx,
+          callee_rewrite.kept_params,
+          plan.results,
+        ),
+      )
+    } else {
+      None
+    }
     for caller_rewrite in caller_rewrites {
       let (caller_def, caller_func) = caller_rewrite
       rewritten_funcs[caller_def] = caller_func
@@ -22040,43 +22520,43 @@ fn dae_try_apply_unread_param_batch(
         touched[caller_def] = true
       }
     }
-    let rewritten_total_locals = callee_rewrite.kept_params.length() +
-      callee_rewrite.locals.length()
-    let written_locals = dae_collect_written_locals(
-      callee_rewrite.body,
-      rewritten_total_locals,
+    rewritten_funcs[plan.def_idx] = dae_finalize_removed_parameter_callee(
+      callee_rewrite, scalar_callee_cleanup,
     )
-    let new_body = dae_simplify_rewritten_add_zero_instrs(
-      dae_simplify_rewritten_control_instrs(
-        dae_simplify_default_zero_high_guard_instrs(
-          callee_rewrite.body,
-          callee_rewrite.kept_params.length(),
-          written_locals,
-        ),
-        false,
-      ),
-    )
-    rewritten_funcs[plan.def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-      @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
-    )
-    let (next_params, next_results) = dae_absolutize_signature(
-      type_sec,
-      type_idxs[plan.def_idx],
-      callee_rewrite.kept_params,
-      plan.results,
-    )
-    let type_key = dae_simple_func_type_key(next_params, next_results)
-    let next_type_idx = match type_lookup.get(type_key) {
-      Some(existing) => existing
-      None => {
-        let (next_type_sec, next_idx) = dae_append_new_func_type(
-          type_sec, next_params, next_results,
+    if scalar_callee_cleanup {
+      rewritten_funcs[plan.def_idx] = dae_trim_parameter_rewrite_func(
+        rewritten_funcs[plan.def_idx],
+      )
+      for caller_rewrite in caller_rewrites {
+        let (caller_def, _) = caller_rewrite
+        rewritten_funcs[caller_def] = dae_trim_parameter_rewrite_func(
+          rewritten_funcs[caller_def],
         )
-        type_sec = next_type_sec
-        type_lookup.set(type_key, next_idx)
-        next_idx
       }
     }
+    let (next_type_sec, next_type_idx) = match scalar_type_update {
+      Some(update) => update
+      None => {
+        let (next_params, next_results) = dae_absolutize_signature(
+          type_sec,
+          type_idxs[plan.def_idx],
+          callee_rewrite.kept_params,
+          plan.results,
+        )
+        let type_key = dae_simple_func_type_key(next_params, next_results)
+        match type_lookup.get(type_key) {
+          Some(existing) => (type_sec, existing)
+          None => {
+            let (next_type_sec, next_idx) = dae_append_new_func_type(
+              type_sec, next_params, next_results,
+            )
+            type_lookup.set(type_key, next_idx)
+            (next_type_sec, next_idx)
+          }
+        }
+      }
+    }
+    type_sec = next_type_sec
     type_idxs[plan.def_idx] = next_type_idx
     current_type_indices[imported + plan.def_idx] = next_type_idx
     touched[plan.def_idx] = true
@@ -22280,8 +22760,8 @@ fn dae_try_apply_dropped_result_batch(
   mod_ : @lib.Module,
   original_exposure : Array[DaeFunctionExposure],
   graph : DaeCurrentBoundaryGraph,
-  active_defs? : Array[Bool]? = None,
-  topology_preserved_report? : Array[Bool] = [],
+  active_defs~ : Array[Bool]? = None,
+  topology_preserved_report~ : Array[Bool] = [],
 ) -> DaePassResult {
   let snapshot = graph.snapshot
   let imported = snapshot.imported
@@ -22532,8 +23012,8 @@ fn dae_refresh_changed_caller_function_infos(
   previous_infos : Array[DaeFunctionInfo],
   previous_escaped : Array[Bool],
   changed_defs : Array[Bool],
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
 ) -> Array[DaeFunctionInfo]? {
   if changed_defs.length() != defined ||
     previous_infos.length() != imported + defined ||
@@ -22816,12 +23296,12 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch(
     return false
   }
   let type_indices = dae_collect_func_type_indices(mod_)
-  let function_types : Array[@lib.FuncType?] = []
-  let mut func_abs = 0
-  while func_abs < graph.snapshot.total {
-    function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
-    func_abs += 1
-  }
+  let function_types = dae_collect_defined_function_types(
+    mod_,
+    0,
+    graph.snapshot.total,
+    type_indices,
+  )
   let function_infos = match
     dae_refresh_changed_caller_function_infos(
       mod_,
@@ -22872,8 +23352,8 @@ fn dae_apply_dropped_result_batch_transaction(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  retain_post_graph? : Bool = false,
-  perf? : HotPerfSession? = None,
+  retain_post_graph~ : Bool = false,
+  perf~ : HotPerfSession? = None,
 ) -> DaeDroppedResultBatchApplication {
   dae_apply_dropped_result_batch_transaction_with_exposure(
     original.exposure,
@@ -22891,8 +23371,8 @@ fn dae_apply_dropped_result_batch_transaction_with_exposure(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  retain_post_graph? : Bool = false,
-  perf? : HotPerfSession? = None,
+  retain_post_graph~ : Bool = false,
+  perf~ : HotPerfSession? = None,
 ) -> DaeDroppedResultBatchApplication {
   let graph_start_us = perf_start_timer_opt(
     perf, "detail:dae:dropped-result-transaction:graph",
@@ -22919,11 +23399,11 @@ fn dae_apply_dropped_result_batch_transaction_on_graph(
   touched : Array[Bool],
   changed : Bool,
   graph : DaeCurrentBoundaryGraph,
-  retain_post_graph? : Bool = false,
-  perf? : HotPerfSession? = None,
-  validate_candidate? : Bool = true,
-  lightweight_post_graph? : Bool = false,
-  active_defs? : Array[Bool]? = None,
+  retain_post_graph~ : Bool = false,
+  perf~ : HotPerfSession? = None,
+  validate_candidate~ : Bool = true,
+  lightweight_post_graph~ : Bool = false,
+  active_defs~ : Array[Bool]? = None,
 ) -> DaeDroppedResultBatchApplication {
   let defined = graph.snapshot.defined
   let topology_preserved_report : Array[Bool] = []
@@ -23134,14 +23614,16 @@ fn dae_apply_direct_gc_batch_transaction(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  active_defs? : Array[Bool]? = None,
+  active_defs~ : Array[Bool]? = None,
+  graph_builds~ : Array[Int32]? = None,
 ) -> DaeCoreResultApplication {
   let mut current_mod = current
   let mut merged_touched = touched
   let mut merged_changed = changed
   let mut merged_effects = dae_commit_effects_empty(
-    dae_current_boundary_graph_new(current).snapshot.defined,
+    dae_defined_func_count(current),
   )
+  let mut cached_graph : DaeCurrentBoundaryGraph? = None
   let mut first_def = -1
   let mut applied = false
   let initial_defined = merged_effects.structurally_touched.length()
@@ -23150,7 +23632,18 @@ fn dae_apply_direct_gc_batch_transaction(
       Some(active) if def_idx >= active.length() || !active[def_idx] => continue
       _ => ()
     }
-    let graph = dae_current_boundary_graph_new(current_mod)
+    let graph = match cached_graph {
+      Some(graph) => graph
+      None => {
+        match graph_builds {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let graph = dae_current_boundary_graph_new(current_mod)
+        cached_graph = Some(graph)
+        graph
+      }
+    }
     if def_idx >= graph.snapshot.defined {
       continue
     }
@@ -23164,6 +23657,9 @@ fn dae_apply_direct_gc_batch_transaction(
     if !candidate.changed {
       continue
     }
+    // Only rejected candidates reuse immutable module facts. Transaction
+    // attempts may update graph epochs/caches even when no commit escapes.
+    cached_graph = None
     let candidate_effects = dae_commit_effects_empty(graph.snapshot.defined)
     let mut touched_def = 0
     while touched_def < candidate.touched.length() &&
@@ -23231,8 +23727,8 @@ fn dae_apply_direct_gc_batch_transaction(
 ///|
 fn dae_count_target_call_kinds_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> (Int, Int) {
+  callee_abs : Int32,
+) -> (Int32, Int32) {
   let mut direct_calls = 0
   let mut return_calls = 0
   for instr in instrs {
@@ -23295,8 +23791,8 @@ fn dae_count_target_call_kinds_instrs(
 ///|
 fn dae_count_active_target_call_kinds_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> (Int, Int) {
+  callee_abs : Int32,
+) -> (Int32, Int32) {
   let mut direct_calls = 0
   let mut return_calls = 0
   for instr in instrs {
@@ -23362,7 +23858,7 @@ fn dae_count_active_target_call_kinds_instrs(
 ///|
 fn dae_collect_target_call_identities(
   snapshot : DaeModuleBoundarySnapshot,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Array[DaeDirectCallIdentity] {
   let identities : Array[DaeDirectCallIdentity] = []
   if callee_abs < 0 || callee_abs >= snapshot.function_infos.length() {
@@ -23388,8 +23884,8 @@ fn dae_collect_target_call_identities(
 ///|
 fn dae_count_call_identities_for_caller(
   identities : Array[DaeDirectCallIdentity],
-  caller_def : Int,
-) -> (Int, Int) {
+  caller_def : Int32,
+) -> (Int32, Int32) {
   let mut direct_calls = 0
   let mut return_calls = 0
   for identity in identities {
@@ -23419,16 +23915,16 @@ fn dae_rewrite_plan_rejection(
 ///|
 fn dae_rewrite_call_at_stable_path(
   instrs : Array[@lib.Instruction],
-  path : Array[Int],
-  path_idx : Int,
-  callee_abs : Int,
+  path : Array[Int32],
+  path_idx : Int32,
+  callee_abs : Int32,
   remove : Array[Bool],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   localization : DaeCallsiteLocalizationContext,
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeRewriteResult {
   if path_idx < 0 || path_idx >= path.length() {
     return { instrs: [], calls_rewritten: 0, ok: false, }
@@ -23541,15 +24037,15 @@ fn dae_rewrite_call_at_stable_path(
 ///|
 priv struct DaeStableRewriteSelection {
   workspace : DaeStablePathWorkspace
-  generation : Int
-  selected_nodes : Int
+  generation : Int32
+  selected_nodes : Int32
 }
 
 ///|
 priv struct DaeStableRewriteStats {
-  mut scopes : Int
-  mut structured_rebuilds : Int
-  mut calls : Int
+  mut scopes : Int32
+  mut structured_rebuilds : Int32
+  mut calls : Int32
 }
 
 ///|
@@ -23602,10 +24098,10 @@ fn dae_stable_rewrite_selection(
 ///|
 fn dae_stable_rewrite_selected_child(
   selection : DaeStableRewriteSelection,
-  parent : Int,
-  value : Int,
-) -> Int? {
-  match selection.workspace.children.get((parent, value)) {
+  parent : Int32,
+  value : Int32,
+) -> Int32? {
+  match dae_stable_path_child(selection.workspace, parent, value) {
     Some(node) if node >= 0 &&
       node < selection.workspace.active_stamps.length() &&
       selection.workspace.active_stamps[node] == selection.generation =>
@@ -23617,17 +24113,17 @@ fn dae_stable_rewrite_selected_child(
 ///|
 fn dae_rewrite_calls_from_stable_selection_scope(
   instrs : Array[@lib.Instruction],
-  scope : Int,
+  scope : Int32,
   selection : DaeStableRewriteSelection,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   localization : DaeCallsiteLocalizationContext,
   traps_never_happen : Bool,
   allow_stack_carried_void_effects : Bool,
-  stats? : DaeStableRewriteStats? = None,
+  stats~ : DaeStableRewriteStats? = None,
 ) -> DaeRewriteResult {
   match stats {
     Some(value) => value.scopes += 1
@@ -23789,16 +24285,16 @@ fn dae_rewrite_calls_from_stable_selection_scope(
 ///|
 fn dae_rewrite_calls_from_stable_callsites(
   body : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   info : DaeFunctionInfo,
-  caller_def : Int,
+  caller_def : Int32,
   localization : DaeCallsiteLocalizationContext,
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
-  rewrite_stats? : DaeStableRewriteStats? = None,
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
+  rewrite_stats~ : DaeStableRewriteStats? = None,
 ) -> DaeRewriteResult {
   let initial_scratch = localization.scratch_local_types.copy()
   let initial_localized = localization.localized_params.copy()
@@ -23884,10 +24380,10 @@ fn dae_scalar_plan_code_snapshot_is_current(
 
 ///|
 fn dae_scalar_rewrite_changed_defs(
-  target_def : Int,
+  target_def : Int32,
   caller_changed_defs : Array[Bool],
-) -> Array[Int] {
-  let changed_defs : Array[Int] = []
+) -> Array[Int32] {
+  let changed_defs : Array[Int32] = []
   if target_def >= 0 && target_def < caller_changed_defs.length() {
     changed_defs.push(target_def)
   }
@@ -23906,17 +24402,17 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
   local_use : DaeLocalUse,
-  direct_call_count : Int,
-  direct_caller_defs : Array[Int],
-  callee_source? : @lib.Func? = None,
-  entry_live? : Array[Bool]? = None,
-  materialized_params? : Array[@lib.Instruction?]? = None,
-  verified_materialized_suffix? : Array[@lib.Instruction]? = None,
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
+  direct_call_count : Int32,
+  direct_caller_defs : Array[Int32],
+  callee_source~ : @lib.Func? = None,
+  entry_live~ : Array[Bool]? = None,
+  materialized_params~ : Array[@lib.Instruction?]? = None,
+  verified_materialized_suffix~ : Array[@lib.Instruction]? = None,
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -24223,26 +24719,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     Some(evidence) => evidence
     None => return None
   }
-  let rewritten_total_locals = callee_evidence.kept_params.length() +
-    callee_evidence.locals.length()
-  let rewritten_written_locals = dae_collect_written_locals(
-    callee_evidence.body,
-    rewritten_total_locals,
-  )
-  let callee_body = dae_fold_const_eq_if_instrs_until_stable(
-    dae_simplify_rewritten_add_zero_instrs(
-      dae_simplify_rewritten_control_instrs(
-        dae_simplify_default_zero_high_guard_instrs(
-          callee_evidence.body,
-          callee_evidence.kept_params.length(),
-          rewritten_written_locals,
-        ),
-        true,
-      ),
-    ),
-  )
-  let mut callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(callee_evidence.locals, @lib.Expr::new(callee_body)),
+  let mut callee_rewrite = dae_finalize_removed_parameter_callee(
+    callee_evidence, true,
   )
   let rewritten_funcs = caller_application.funcs
   rewritten_funcs[def_idx] = callee_rewrite
@@ -24251,11 +24729,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     caller_application.changed_defs,
   )
   for cleanup_idx in structurally_changed_defs {
-    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[cleanup_idx]
-    let (cleaned_body, _) = dae_trim_instrs_after_unreachable_tail(body)
-    rewritten_funcs[cleanup_idx] = @lib.Func::new(
-      locals,
-      @lib.Expr::new(cleaned_body),
+    rewritten_funcs[cleanup_idx] = dae_trim_parameter_rewrite_func(
+      rewritten_funcs[cleanup_idx],
     )
   }
   callee_rewrite = rewritten_funcs[def_idx]
@@ -24328,7 +24803,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     }
   }
   let touched = Array::make(graph.snapshot.defined, false)
-  let invalidated_dependencies : Array[Int] = []
+  let invalidated_dependencies : Array[Int32] = []
   for touched_idx in structurally_changed_defs {
     touched[touched_idx] = true
     invalidated_dependencies.push(touched_idx)
@@ -24339,8 +24814,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
   let candidate = candidate_with_sections.without_name_sec()
-  let structurally_touched_defs : Array[Int] = []
-  let localized_caller_defs : Array[Int] = []
+  let structurally_touched_defs : Array[Int32] = []
+  let localized_caller_defs : Array[Int32] = []
   let mut effect_def = 0
   while effect_def < touched.length() {
     if touched[effect_def] {
@@ -24492,7 +24967,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   candidate : DaePassResult,
   effects : DaeCommitEffects,
 ) -> DaeRewritePlan? {
@@ -24611,7 +25086,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     graph.snapshot,
     target_abs,
   )
-  let caller_defs : Array[Int] = []
+  let caller_defs : Array[Int32] = []
   for identity in expected_call_identities {
     if !caller_defs.contains(identity.caller_def) {
       caller_defs.push(identity.caller_def)
@@ -24651,7 +25126,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     }
   }
   let @lib.Func(old_locals, _) = expected_funcs[target_def]
-  let local_map : Array[Int] = []
+  let local_map : Array[Int32] = []
   let mut local_idx = 0
   while local_idx < old_params.length() + old_locals.length() {
     local_map.push(local_idx)
@@ -24681,16 +25156,16 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     metadata_changed: current.name_sec != candidate.mod_out.name_sec,
     invalidation_domains,
   }
-  let before_dependencies = dae_boundary_dependency_graph_new(graph)
-  let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
-  let after_dependencies = dae_boundary_dependency_graph_new(candidate_graph)
-  let invalidated_dependencies = dae_boundary_dependency_invalidations(
-    before_dependencies,
-    after_dependencies,
-    plan_effects.structurally_touched,
-    target_def,
-    plan_effects,
-  )
+  // The scheduler computes dependency invalidations after the commit. This
+  // private plan row records changed ownership and its required target only.
+  let invalidated_dependencies : Array[Int32] = [target_def]
+  for def_idx = 0; def_idx < graph.snapshot.defined; def_idx = def_idx + 1 {
+    if def_idx != target_def &&
+      def_idx < plan_effects.structurally_touched.length() &&
+      plan_effects.structurally_touched[def_idx] {
+      invalidated_dependencies.push(def_idx)
+    }
+  }
   let target_epochs = graph.function_epochs[target_def]
   Some({
     effects: plan_effects,
@@ -24757,9 +25232,11 @@ fn dae_rewrite_plan_candidate_caller_boundaries_match(
     }
     if candidate_body.length() > 0 &&
       (
-        candidate_body[0] != rewritten_body[0] ||
-        candidate_body[candidate_body.length() - 1] !=
-        rewritten_body[rewritten_body.length() - 1]
+        !dae_snapshot_instr_unchanged(candidate_body[0], rewritten_body[0]) ||
+        !dae_snapshot_instr_unchanged(
+          candidate_body[candidate_body.length() - 1],
+          rewritten_body[rewritten_body.length() - 1],
+        )
       ) {
       return false
     }
@@ -24866,7 +25343,10 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
   for rewrite in plan.caller_rewrites {
     if rewrite.def_idx < 0 ||
       rewrite.def_idx >= plan.rewritten_funcs.length() ||
-      rewrite.func != plan.rewritten_funcs[rewrite.def_idx] ||
+      !dae_snapshot_func_unchanged(
+        rewrite.func,
+        plan.rewritten_funcs[rewrite.def_idx],
+      ) ||
       rewrite.calls_rewritten <= 0 ||
       rewrite.return_calls_rewritten < 0 ||
       rewrite.return_calls_rewritten > rewrite.calls_rewritten {
@@ -24881,6 +25361,12 @@ fn dae_apply_rewrite_plan(
   mod_ : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
   plan : DaeRewritePlan,
+  checked_candidate~ : (@lib.Module, @lib.Module)? = None,
+  rewrite_validation_counts~ : Array[Int32]? = None,
+  scalar_validation_chain~ : DaeScalarValidationChain? = None,
+  scalar_validation_work~ : DaeScalarValidationWork? = None,
+  numeric_result_validation_chain~ : DaeScalarValidationChain? = None,
+  numeric_result_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaeRewritePlanApplication {
   if !dae_rewrite_plan_is_consistent(plan) {
     return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
@@ -24987,7 +25473,55 @@ fn dae_apply_rewrite_plan(
   } else {
     plan.candidate
   }
-  match @validate.validate_module(committed_candidate) {
+  let scalar_validation_chain = match scalar_validation_chain {
+    Some(chain) if dae_scalar_numeric_plan(plan) => Some(chain)
+    Some(chain) => {
+      dae_scalar_validation_barrier(chain)
+      None
+    }
+    None => None
+  }
+  // This report is issued by the successful inner validation gate in the uniform-value
+  // scheduler branch and consumed in that same call. Only IR readers run
+  // between those gates. Never retain the report across a rewrite or callback.
+  let validation = match checked_candidate {
+    Some((source, checked)) if physical_equal(source, mod_) &&
+      physical_equal(checked, committed_candidate) => {
+      match rewrite_validation_counts {
+        Some(counts) => counts[1] += 1
+        None => ()
+      }
+      Ok(())
+    }
+    _ => {
+      match rewrite_validation_counts {
+        Some(counts) => counts[0] += 1
+        None => ()
+      }
+      match numeric_result_validation_chain {
+        Some(chain) =>
+          dae_numeric_result_validation_check_candidate(
+            chain,
+            mod_,
+            committed_candidate,
+            plan,
+            work=numeric_result_validation_work,
+          )
+        None =>
+          match scalar_validation_chain {
+            Some(chain) =>
+              dae_scalar_validation_check_candidate(
+                chain,
+                mod_,
+                committed_candidate,
+                work=scalar_validation_work,
+              )
+            None => @validate.validate_module(committed_candidate)
+          }
+      }
+    }
+  }
+  match validation {
     Ok(_) =>
       {
         result: {
@@ -25057,15 +25591,15 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
   local_use : DaeLocalUse,
-  direct_call_count : Int,
-  direct_caller_defs : Array[Int],
-  callee_source? : @lib.Func? = None,
-  entry_live? : Array[Bool]? = None,
-  traps_never_happen? : Bool = false,
-  allow_stack_carried_void_effects? : Bool = false,
+  direct_call_count : Int32,
+  direct_caller_defs : Array[Int32],
+  callee_source~ : @lib.Func? = None,
+  entry_live~ : Array[Bool]? = None,
+  traps_never_happen~ : Bool = false,
+  allow_stack_carried_void_effects~ : Bool = false,
 ) -> DaeRewritePlanApplication {
   match
     dae_build_scalar_unused_param_rewrite_plan(
@@ -25090,16 +25624,20 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
 ///|
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   remove : Array[Bool],
   const_params : Array[@lib.Instruction?],
   local_use : DaeLocalUse,
-  direct_call_count : Int,
-  direct_caller_defs : Array[Int],
-  allow_stack_carried_void_effects? : Bool = false,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
-  entry_live? : Array[Bool]? = None,
+  direct_call_count : Int32,
+  direct_caller_defs : Array[Int32],
+  allow_stack_carried_void_effects~ : Bool = false,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
+  entry_live~ : Array[Bool]? = None,
+  checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
+  rewrite_validation_counts~ : Array[Int32]? = None,
+  scalar_validation_chain~ : DaeScalarValidationChain? = None,
+  scalar_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaePassResult {
   let active_original = match original {
     Some(original) => original
@@ -25123,7 +25661,23 @@ fn dae_try_rewrite_candidate(
       materialized_params=Some(const_params),
       allow_stack_carried_void_effects~,
     ) {
-    Some(plan) => dae_apply_rewrite_plan(mod_, active_graph, plan).result
+    Some(plan) => {
+      let application = dae_apply_rewrite_plan(
+        mod_,
+        active_graph,
+        plan,
+        rewrite_validation_counts~,
+        scalar_validation_chain~,
+        scalar_validation_work~,
+      )
+      if application.applied {
+        match checked_candidate_report {
+          Some(report) => report.push((mod_, application.result.mod_out))
+          None => ()
+        }
+      }
+      application.result
+    }
     None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
@@ -25132,13 +25686,13 @@ fn dae_try_rewrite_candidate(
 #warnings("-unused_value")
 fn dae_try_rewrite_verified_uniform_const_candidate(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
   params : Array[@lib.ValType],
   remove : Array[Bool],
   expected_const_params : Array[@lib.Instruction?],
   local_use : DaeLocalUse,
-  verified_calls : Int,
-  verified_callers : Array[Int],
+  verified_calls : Int32,
+  verified_callers : Array[Int32],
 ) -> DaePassResult {
   if verified_calls <= 0 ||
     remove.length() != params.length() ||
@@ -25221,14 +25775,14 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
 ///|
 fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
   mod_ : @lib.Module,
-  caller_defs : Array[Int],
-  imported : Int,
-  defined : Int,
-  total : Int,
+  caller_defs : Array[Int32],
+  imported : Int32,
+  defined : Int32,
+  total : Int32,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
   if caller_defs.length() == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -25244,7 +25798,7 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let callees : Array[Int] = []
+    let callees : Array[Int32] = []
     dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
     for callee_def in callees {
       if callee_def >= 0 && callee_def < candidates.length() {
@@ -25525,7 +26079,7 @@ fn dae_instruction_observability_evidence(
 ///|
 fn dae_instruction_is_erasable_before_unreachable_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx < 0 || idx >= instrs.length() {
     return false
@@ -25606,6 +26160,43 @@ fn dae_dead_suffix_evidence(
 }
 
 ///|
+fn dae_original_first_root_index(
+  body : Array[@lib.Instruction],
+  first_roots : Array[Int32]?,
+  def_idx : Int32,
+) -> Int32 {
+  match first_roots {
+    Some(roots) if def_idx >= 0 && def_idx < roots.length() => {
+      let known = roots[def_idx]
+      if known != -2 {
+        return known
+      }
+      let first_root = match dae_dead_suffix_evidence(body) {
+        Some(evidence) => evidence.root_idx
+        None => -1
+      }
+      roots[def_idx] = first_root
+      first_root
+    }
+    _ => -2
+  }
+}
+
+///|
+fn dae_dead_suffix_evidence_from_first_root(
+  body : Array[@lib.Instruction],
+  known_first_root : Int32,
+) -> DaeDeadSuffixEvidence? {
+  if known_first_root == -1 {
+    return None
+  }
+  if known_first_root < 0 || known_first_root >= body.length() {
+    return dae_dead_suffix_evidence(body)
+  }
+  Some({ root_idx: known_first_root, suffix_start: known_first_root + 1, body, })
+}
+
+///|
 fn dae_simplify_to_unreachable_when_prefix_unobservable(
   func : @lib.Func,
 ) -> @lib.Func {
@@ -25633,10 +26224,10 @@ fn dae_simplify_to_unreachable_when_prefix_unobservable(
 ///|
 fn dae_rewrite_dropped_result_calls_with_policy_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   stop_at_unreachable_root : Bool,
-  preserve_uninhabitable_control? : Bool = false,
-) -> (Array[@lib.Instruction], Int) {
+  preserve_uninhabitable_control~ : Bool = false,
+) -> (Array[@lib.Instruction], Int32) {
   let mut out : Array[@lib.Instruction]? = None
   let mut rewrites = 0
   let mut idx = 0
@@ -25774,13 +26365,13 @@ fn dae_rewrite_dropped_result_calls_with_policy_instrs(
 
 ///|
 fn dae_dropped_result_scope_from_optional(
-  func_count : Int,
-  caller_defs : Array[Int]?,
+  func_count : Int32,
+  caller_defs : Array[Int32]?,
 ) -> DaeDroppedResultScope {
   match caller_defs {
     Some(callers) => { caller_defs: callers.copy(), }
     None => {
-      let defs : Array[Int] = []
+      let defs : Array[Int32] = []
       let mut def_idx = 0
       while def_idx < func_count {
         defs.push(def_idx)
@@ -25795,8 +26386,8 @@ fn dae_dropped_result_scope_from_optional(
 fn dae_dropped_result_scope_direct_call_evidence(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
-  skip_def : Int,
+  callee_abs : Int32,
+  skip_def : Int32,
 ) -> DaeDroppedResultScopeDirectCallEvidence {
   let mut direct_call_count = 0
   let mut dropped_direct_call_count = 0
@@ -25828,7 +26419,7 @@ fn dae_dropped_result_scope_direct_call_evidence(
 ///|
 fn dae_instrs_end_in_direct_call(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Bool {
   if instrs.length() == 0 {
     return false
@@ -25842,7 +26433,7 @@ fn dae_instrs_end_in_direct_call(
 ///|
 fn dae_void_caller_dropped_result_evidence_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   type_sec : @lib.TypeSec?,
   caller_void : Bool,
   allow_terminal : Bool,
@@ -25940,7 +26531,7 @@ fn dae_dropped_result_scope_direct_call_evidence_with_void_returns(
   type_sec : @lib.TypeSec?,
   void_callers : Array[Bool],
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeDroppedResultScopeDirectCallEvidence {
   let mut result : DaeDroppedResultScopeDirectCallEvidence = {
     direct_call_count: 0,
@@ -25974,11 +26565,11 @@ fn dae_dropped_result_scope_direct_call_evidence_with_void_returns(
 ///|
 fn dae_rewrite_dropped_result_calls_with_void_returns_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   type_sec : @lib.TypeSec?,
   caller_void : Bool,
   allow_terminal : Bool,
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut rewrites = 0
   let mut idx = 0
@@ -26073,8 +26664,8 @@ fn dae_rewrite_dropped_result_calls_with_void_returns_instrs(
 fn dae_dropped_result_removal_legality_evidence(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
-  skip_def : Int,
+  callee_abs : Int32,
+  skip_def : Int32,
   results : Array[@lib.ValType],
 ) -> DaeDroppedResultRemovalLegalityEvidence {
   let result_count = results.length()
@@ -26130,12 +26721,12 @@ fn dae_dropped_result_removal_legality_blocks(
 ///|
 fn dae_dropped_result_module_context(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  caller_defs? : Array[Int]? = None,
-  perf? : HotPerfSession? = None,
-  timer_prefix? : String = "",
-  boundary_facts? : DaeBoundaryFacts? = None,
-  cached_precheck? : DaeDroppedResultCachedPrecheck? = None,
+  callee_abs : Int32,
+  caller_defs~ : Array[Int32]? = None,
+  perf~ : HotPerfSession? = None,
+  timer_prefix~ : String = "",
+  boundary_facts~ : DaeBoundaryFacts? = None,
+  cached_precheck~ : DaeDroppedResultCachedPrecheck? = None,
 ) -> DaeDroppedResultModuleContext? {
   let imported = match boundary_facts {
     Some(facts) => facts.graph.snapshot.imported
@@ -26239,8 +26830,8 @@ fn dae_dropped_result_module_context(
 fn dae_specialized_result_facts_new(
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
-  callee_abs : Int,
-  caller_defs? : Array[Int]? = None,
+  callee_abs : Int32,
+  caller_defs~ : Array[Int32]? = None,
 ) -> DaeSpecializedResultFacts? {
   let context = match
     dae_dropped_result_module_context(graph.mod_, callee_abs, caller_defs~) {
@@ -26495,10 +27086,10 @@ fn dae_record_producer_effects(
 fn dae_rewrite_dropped_result_calls_in_scope_with_policy(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
+  callee_abs : Int32,
   stop_at_unreachable_root~ : Bool,
-  preserve_uninhabitable_control? : Bool = false,
-) -> Int {
+  preserve_uninhabitable_control~ : Bool = false,
+) -> Int32 {
   let mut rewritten_call_count = 0
   for caller_def in scope.caller_defs {
     if caller_def >= 0 && caller_def < funcs.length() {
@@ -26526,8 +27117,8 @@ fn dae_rewrite_dropped_result_calls_in_scope_with_policy(
 fn dae_rewrite_dropped_result_calls_in_scope(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
-) -> Int {
+  callee_abs : Int32,
+) -> Int32 {
   dae_rewrite_dropped_result_calls_in_scope_with_policy(
     funcs,
     scope,
@@ -26539,7 +27130,7 @@ fn dae_rewrite_dropped_result_calls_in_scope(
 ///|
 fn dae_remove_dropped_result_call_drops_in_scope(
   funcs : Array[@lib.Func],
-  callee_abs : Int,
+  callee_abs : Int32,
   scope : DaeDroppedResultScope,
 ) -> Unit {
   ignore(
@@ -26555,8 +27146,8 @@ fn dae_remove_dropped_result_call_drops_in_scope(
 ///|
 fn dae_dropped_result_repair_plan(
   scope : DaeDroppedResultScope,
-  callee_abs : Int,
-  skip_def : Int,
+  callee_abs : Int32,
+  skip_def : Int32,
   repair_kind : DaeDroppedResultDeadSuffixRepairKind,
   remove_dropped_call_drops~ : Bool,
   remove_dropped_call_drops_before_repair~ : Bool,
@@ -26595,7 +27186,7 @@ fn dae_apply_dropped_result_repair_plan(
   funcs : Array[@lib.Func],
   type_indices : Array[@lib.TypeIdx],
   type_sec : @lib.TypeSec,
-  imported : Int,
+  imported : Int32,
   plan : DaeDroppedResultRepairPlan,
 ) -> Unit {
   if dae_dropped_result_repair_plan_removes_call_drops(plan) &&
@@ -26645,13 +27236,13 @@ fn dae_module_code_finalization_plan(
 ///|
 fn dae_finalize_module_code_rewrite(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   rewritten_funcs : Array[@lib.Func],
   next_params : Array[@lib.ValType],
   next_results : Array[@lib.ValType],
   touched_policy : DaeModuleCodeTouchedPolicy,
-  perf? : HotPerfSession? = None,
-  type_update_timer_name? : String = "",
+  perf~ : HotPerfSession? = None,
+  type_update_timer_name~ : String = "",
 ) -> DaePassResult {
   let context = match
     dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
@@ -26680,14 +27271,14 @@ fn dae_apply_dropped_result_callee_rewrite(
   mod_ : @lib.Module,
   context : DaeModuleSignatureContext,
   type_indices : Array[@lib.TypeIdx],
-  imported : Int,
+  imported : Int32,
   rewritten_funcs : Array[@lib.Func],
   rewritten_callee : @lib.Func,
   repair : DaeDroppedResultRepairPlan,
   finalization : DaeModuleCodeFinalizationPlan,
-  perf? : HotPerfSession? = None,
-  repair_timer_name? : String = "",
-  type_update_timer_name? : String = "",
+  perf~ : HotPerfSession? = None,
+  repair_timer_name~ : String = "",
+  type_update_timer_name~ : String = "",
 ) -> DaePassResult {
   let def_idx = context.def_idx
   if def_idx < 0 || def_idx >= rewritten_funcs.length() {
@@ -26874,13 +27465,13 @@ fn dae_result_type_is_uninhabitable(result : @lib.ValType) -> Bool {
 ///|
 fn dae_try_remove_dropped_results(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  direct_call_count : Int,
-  dropped_call_count : Int,
-  perf? : HotPerfSession? = None,
-  caller_defs? : Array[Int]? = None,
-  boundary_facts? : DaeBoundaryFacts? = None,
-  cached_precheck? : DaeDroppedResultCachedPrecheck? = None,
+  callee_abs : Int32,
+  direct_call_count : Int32,
+  dropped_call_count : Int32,
+  perf~ : HotPerfSession? = None,
+  caller_defs~ : Array[Int32]? = None,
+  boundary_facts~ : DaeBoundaryFacts? = None,
+  cached_precheck~ : DaeDroppedResultCachedPrecheck? = None,
 ) -> DaePassResult {
   if direct_call_count == 0 || dropped_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -27012,10 +27603,10 @@ fn dae_collect_original_large_unreachable_prefixes(
 ///|
 fn dae_should_skip_original_large_result_unreachable_cleanup(
   original_large_unreachable_prefixes : Array[Bool],
-  def_idx : Int,
+  def_idx : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Bool {
   if def_idx < 0 ||
     def_idx >= original_large_unreachable_prefixes.length() ||
@@ -27060,8 +27651,8 @@ fn dae_merge_direct_call_target_evidence(
 ///|
 fn dae_direct_call_target_evidence(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  start_idx? : Int = 0,
+  callee_abs : Int32,
+  start_idx~ : Int32 = 0,
 ) -> DaeDirectCallTargetEvidence {
   let mut evidence = dae_empty_direct_call_target_evidence()
   let mut live_prefix = true
@@ -27119,8 +27710,8 @@ fn dae_direct_call_target_evidence(
 ///|
 fn dae_instrs_contain_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  start_idx? : Int = 0,
+  callee_abs : Int32,
+  start_idx~ : Int32 = 0,
 ) -> Bool {
   dae_direct_call_target_evidence(instrs, callee_abs, start_idx~).has_direct_call
 }
@@ -27128,7 +27719,7 @@ fn dae_instrs_contain_direct_call_to(
 ///|
 fn dae_repair_dead_suffix_calls_instr(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
@@ -27183,7 +27774,7 @@ fn dae_repair_dead_suffix_calls_instr(
 ///|
 fn dae_repair_dead_suffix_calls_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -27217,7 +27808,7 @@ fn dae_repair_dead_suffix_calls_instrs(
 ///|
 fn dae_repair_dead_suffix_calls_func(
   func : @lib.Func,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let (rewritten, changed) = dae_repair_dead_suffix_calls_instrs(
@@ -27229,8 +27820,8 @@ fn dae_repair_dead_suffix_calls_func(
 ///|
 fn dae_repair_dead_suffix_calls_in_scope_except(
   funcs : Array[@lib.Func],
-  callee_abs : Int,
-  skip_def : Int,
+  callee_abs : Int32,
+  skip_def : Int32,
   scope : DaeDroppedResultScope,
 ) -> Unit {
   for func_idx in scope.caller_defs {
@@ -27249,10 +27840,10 @@ fn dae_repair_dead_suffix_calls_in_no_param_func_except(
   funcs : Array[@lib.Func],
   type_indices : Array[@lib.TypeIdx],
   type_sec : @lib.TypeSec,
-  imported : Int,
-  callee_abs : Int,
-  skip_def : Int,
-  func_idx : Int,
+  imported : Int32,
+  callee_abs : Int32,
+  skip_def : Int32,
+  func_idx : Int32,
 ) -> Bool {
   if func_idx == skip_def || func_idx < 0 || func_idx >= funcs.length() {
     return false
@@ -27282,9 +27873,9 @@ fn dae_repair_dead_suffix_calls_in_no_param_scope_except(
   funcs : Array[@lib.Func],
   type_indices : Array[@lib.TypeIdx],
   type_sec : @lib.TypeSec,
-  imported : Int,
-  callee_abs : Int,
-  skip_def : Int,
+  imported : Int32,
+  callee_abs : Int32,
+  skip_def : Int32,
   scope : DaeDroppedResultScope,
 ) -> Bool {
   let mut changed = false
@@ -27300,8 +27891,8 @@ fn dae_repair_dead_suffix_calls_in_no_param_scope_except(
 ///|
 fn dae_count_active_direct_calls_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> Int {
+  callee_abs : Int32,
+) -> Int32 {
   let mut count = 0
   let mut idx = 0
   while idx < instrs.length() {
@@ -27333,8 +27924,8 @@ fn dae_count_active_direct_calls_to(
 ///|
 fn dae_self_call_counts_from_function_info(
   info : DaeFunctionInfo,
-  caller_def : Int,
-) -> (Int, Int) {
+  caller_def : Int32,
+) -> (Int32, Int32) {
   let mut active = 0
   let mut anywhere = 0
   for callsite in info.calls {
@@ -27349,7 +27940,7 @@ fn dae_self_call_counts_from_function_info(
 }
 
 ///|
-fn dae_count_self_calls(func : @lib.Func, callee_abs : Int) -> Int {
+fn dae_count_self_calls(func : @lib.Func, callee_abs : Int32) -> Int32 {
   let @lib.Func(_, @lib.Expr(body)) = func
   dae_count_active_direct_calls_to(body, callee_abs)
 }
@@ -27357,14 +27948,14 @@ fn dae_count_self_calls(func : @lib.Func, callee_abs : Int) -> Int {
 ///|
 fn dae_count_direct_call_anywhere_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  start_idx? : Int = 0,
-) -> Int {
+  callee_abs : Int32,
+  start_idx~ : Int32 = 0,
+) -> Int32 {
   dae_direct_call_target_evidence(instrs, callee_abs, start_idx~).direct_call_count
 }
 
 ///|
-fn dae_count_self_calls_anywhere(func : @lib.Func, callee_abs : Int) -> Int {
+fn dae_count_self_calls_anywhere(func : @lib.Func, callee_abs : Int32) -> Int32 {
   let @lib.Func(_, @lib.Expr(body)) = func
   dae_count_direct_call_anywhere_to(body, callee_abs)
 }
@@ -27372,8 +27963,8 @@ fn dae_count_self_calls_anywhere(func : @lib.Func, callee_abs : Int) -> Int {
 ///|
 fn dae_count_module_calls_anywhere_to(
   funcs : Array[@lib.Func],
-  callee_abs : Int,
-) -> Int {
+  callee_abs : Int32,
+) -> Int32 {
   let mut count = 0
   for func in funcs {
     let @lib.Func(_, @lib.Expr(body)) = func
@@ -27385,7 +27976,7 @@ fn dae_count_module_calls_anywhere_to(
 ///|
 fn dae_has_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Bool {
   dae_direct_call_target_evidence(instrs, callee_abs).has_undropped_direct_call
 }
@@ -27395,7 +27986,7 @@ fn dae_control_result_undropped_direct_call_evidence_from_parts(
   block_type : @lib.BlockType,
   primary_body : Array[@lib.Instruction],
   secondary_body : Array[@lib.Instruction]?,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeControlResultUndroppedDirectCallEvidence {
   let arity = dae_instr_result_arity_from_block_type(block_type)
   let result_arity_known = arity is Some(_)
@@ -27430,7 +28021,7 @@ fn dae_control_result_undropped_direct_call_evidence_from_parts(
 ///|
 fn dae_control_result_undropped_direct_call_evidence(
   instr : @lib.Instruction,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeControlResultUndroppedDirectCallEvidence? {
   match instr {
     @lib.Block(block_type, @lib.Expr(body))
@@ -27473,8 +28064,8 @@ fn dae_control_result_undropped_direct_call_evidence_is_consistent(
 ///|
 fn dae_suffix_has_top_level_dropped_direct_call_to(
   suffix : Array[@lib.Instruction],
-  callee_abs : Int,
-  start_idx? : Int = 0,
+  callee_abs : Int32,
+  start_idx~ : Int32 = 0,
 ) -> Bool {
   let mut suffix_idx = start_idx
   while suffix_idx + 1 < suffix.length() {
@@ -27491,9 +28082,10 @@ fn dae_suffix_has_top_level_dropped_direct_call_to(
 ///|
 fn dae_dead_suffix_direct_call_evidence(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> DaeDeadSuffixDirectCallEvidence? {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(dead_suffix) => {
       let target = dae_direct_call_target_evidence(
         dead_suffix.body,
@@ -27519,7 +28111,7 @@ fn dae_dropped_result_callee_rewrite_evidence(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   legality : DaeDroppedResultRemovalLegalityEvidence,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaeDroppedResultCalleeRewriteEvidence {
   let @lib.Func(_, @lib.Expr(body)) = func
   let suffix = dae_dead_suffix_direct_call_evidence(body, callee_abs)
@@ -27565,9 +28157,10 @@ fn dae_dropped_result_callee_rewrite_missing_undropped_suffix(
 ///|
 fn dae_dead_suffix_has_other_call(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) => {
       let mut suffix_idx = evidence.suffix_start
       while suffix_idx < evidence.body.length() {
@@ -27587,9 +28180,11 @@ fn dae_dead_suffix_has_other_call(
 ///|
 fn dae_dead_suffix_has_dropped_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  match dae_dead_suffix_direct_call_evidence(instrs, callee_abs) {
+  match
+    dae_dead_suffix_direct_call_evidence(instrs, callee_abs, known_first_root~) {
     Some(evidence) => evidence.has_dropped_direct_call
     None => false
   }
@@ -27598,16 +28193,18 @@ fn dae_dead_suffix_has_dropped_direct_call_to(
 ///|
 fn dae_dead_suffix_has_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  match dae_dead_suffix_direct_call_evidence(instrs, callee_abs) {
+  match
+    dae_dead_suffix_direct_call_evidence(instrs, callee_abs, known_first_root~) {
     Some(evidence) => evidence.has_undropped_direct_call
     None => false
   }
 }
 
 ///|
-fn dae_append_targets(dst : Array[Int], src : Array[Int]) -> Unit {
+fn dae_append_targets(dst : Array[Int32], src : Array[Int32]) -> Unit {
   for target in src {
     dst.push(target)
   }
@@ -27616,9 +28213,9 @@ fn dae_append_targets(dst : Array[Int], src : Array[Int]) -> Unit {
 ///|
 fn dae_defined_direct_target(
   func_idx : @lib.FuncIdx,
-  imported : Int,
-  defined : Int,
-) -> Int? {
+  imported : Int32,
+  defined : Int32,
+) -> Int32? {
   let slot = dae_func_idx_slot(func_idx)
   let def_idx = slot - imported
   if slot >= imported && def_idx >= 0 && def_idx < defined {
@@ -27631,13 +28228,13 @@ fn dae_defined_direct_target(
 ///|
 fn dae_collect_dead_suffix_direct_target_lists(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   collect_top_level_dropped : Bool,
-  direct_targets : Array[Int],
-  dropped_direct_targets : Array[Int],
-  undropped_direct_targets : Array[Int],
-  start_idx? : Int = 0,
+  direct_targets : Array[Int32],
+  dropped_direct_targets : Array[Int32],
+  undropped_direct_targets : Array[Int32],
+  start_idx~ : Int32 = 0,
 ) -> Unit {
   let mut idx = start_idx
   while idx < instrs.length() {
@@ -27694,14 +28291,15 @@ fn dae_collect_dead_suffix_direct_target_lists(
 ///|
 fn dae_dead_suffix_direct_target_evidence(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> DaeDeadSuffixDirectTargetEvidence? {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) => {
-      let direct_targets : Array[Int] = []
-      let dropped_direct_targets : Array[Int] = []
-      let undropped_direct_targets : Array[Int] = []
+      let direct_targets : Array[Int32] = []
+      let dropped_direct_targets : Array[Int32] = []
+      let undropped_direct_targets : Array[Int32] = []
       dae_collect_dead_suffix_direct_target_lists(
         evidence.body,
         imported,
@@ -27721,11 +28319,18 @@ fn dae_dead_suffix_direct_target_evidence(
 ///|
 fn dae_collect_dead_suffix_undropped_direct_targets(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
+  known_first_root~ : Int32 = -2,
 ) -> Unit {
-  match dae_dead_suffix_direct_target_evidence(instrs, imported, defined) {
+  match
+    dae_dead_suffix_direct_target_evidence(
+      instrs,
+      imported,
+      defined,
+      known_first_root~,
+    ) {
     Some(evidence) =>
       dae_append_targets(targets, evidence.undropped_direct_targets)
     None => ()
@@ -27735,11 +28340,18 @@ fn dae_collect_dead_suffix_undropped_direct_targets(
 ///|
 fn dae_collect_dead_suffix_dropped_direct_targets(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
+  known_first_root~ : Int32 = -2,
 ) -> Unit {
-  match dae_dead_suffix_direct_target_evidence(instrs, imported, defined) {
+  match
+    dae_dead_suffix_direct_target_evidence(
+      instrs,
+      imported,
+      defined,
+      known_first_root~,
+    ) {
     Some(evidence) =>
       dae_append_targets(targets, evidence.dropped_direct_targets)
     None => ()
@@ -27749,19 +28361,19 @@ fn dae_collect_dead_suffix_dropped_direct_targets(
 ///|
 fn dae_self_call_has_adjacent_param_forward(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  param_count : Int,
+  call_idx : Int32,
+  param_count : Int32,
 ) -> Bool {
   dae_adjacent_param_forward_evidence(instrs, call_idx, param_count) is Some(_)
 }
 
 ///|
-fn dae_empty_param_origins(param_count : Int) -> Array[Bool] {
+fn dae_empty_param_origins(param_count : Int32) -> Array[Bool] {
   Array::make(param_count, false)
 }
 
 ///|
-fn dae_single_param_origin(param_count : Int, slot : Int) -> Array[Bool] {
+fn dae_single_param_origin(param_count : Int32, slot : Int32) -> Array[Bool] {
   let origins = dae_empty_param_origins(param_count)
   if slot >= 0 && slot < origins.length() {
     origins[slot] = true
@@ -27791,7 +28403,7 @@ fn dae_param_origins_any(origins : Array[Bool]) -> Bool {
 ///|
 fn dae_stack_operand_window_evidence_is_consistent(
   evidence : DaeStackOperandWindowEvidence,
-  stack_length : Int,
+  stack_length : Int32,
 ) -> Bool {
   evidence.start >= 0 &&
   evidence.end == stack_length &&
@@ -27806,8 +28418,8 @@ fn dae_stack_operand_window_evidence_is_consistent(
 
 ///|
 fn dae_stack_operand_window_evidence(
-  stack_length : Int,
-  arg_count : Int,
+  stack_length : Int32,
+  arg_count : Int32,
 ) -> DaeStackOperandWindowEvidence? {
   if stack_length < 0 {
     return None
@@ -27834,7 +28446,7 @@ fn dae_stack_operand_window_evidence(
 ///|
 fn dae_stack_bool_has_true_operand(
   stack : Array[Bool],
-  arg_count : Int,
+  arg_count : Int32,
 ) -> Bool {
   let window = match
     dae_stack_operand_window_evidence(stack.length(), arg_count) {
@@ -27854,8 +28466,8 @@ fn dae_stack_bool_has_true_operand(
 ///|
 fn dae_stack_bool_apply_effect(
   stack : Array[Bool],
-  inputs : Int,
-  outputs : Int,
+  inputs : Int32,
+  outputs : Int32,
   pushed_value : Bool,
 ) -> Unit {
   let mut pop = 0
@@ -27927,9 +28539,9 @@ fn dae_stack_slice_simulation_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  initial_stack_values : Int,
+  start : Int32,
+  end : Int32,
+  initial_stack_values : Int32,
   instr_allowed : (@lib.Instruction) -> Bool,
 ) -> DaeStackSliceSimulationEvidence? {
   if start < 0 || end < start || end > body.length() || initial_stack_values < 0 {
@@ -27990,10 +28602,10 @@ fn dae_stack_slice_transition_evidence(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  initial_stack_values : Int,
-  expected_final_stack_values : Int,
+  start : Int32,
+  end : Int32,
+  initial_stack_values : Int32,
+  expected_final_stack_values : Int32,
   instr_allowed : (@lib.Instruction) -> Bool,
 ) -> DaeStackSliceTransitionEvidence? {
   if expected_final_stack_values < 0 {
@@ -28039,9 +28651,9 @@ fn dae_stack_bool_apply_instr_effect(
 
 ///|
 fn dae_stack_int_has_operand_value(
-  stack : Array[Int],
-  arg_count : Int,
-  value : Int,
+  stack : Array[Int32],
+  arg_count : Int32,
+  value : Int32,
 ) -> Bool {
   let window = match
     dae_stack_operand_window_evidence(stack.length(), arg_count) {
@@ -28059,7 +28671,10 @@ fn dae_stack_int_has_operand_value(
 }
 
 ///|
-fn dae_stack_int_has_known_operand(stack : Array[Int], arg_count : Int) -> Bool {
+fn dae_stack_int_has_known_operand(
+  stack : Array[Int32],
+  arg_count : Int32,
+) -> Bool {
   let window = match
     dae_stack_operand_window_evidence(stack.length(), arg_count) {
     Some(window) => window
@@ -28077,10 +28692,10 @@ fn dae_stack_int_has_known_operand(stack : Array[Int], arg_count : Int) -> Bool 
 
 ///|
 fn dae_stack_int_apply_effect(
-  stack : Array[Int],
-  inputs : Int,
-  outputs : Int,
-  pushed_value : Int,
+  stack : Array[Int32],
+  inputs : Int32,
+  outputs : Int32,
+  pushed_value : Int32,
 ) -> Unit {
   let mut pop = 0
   while pop < inputs && stack.length() > 0 {
@@ -28096,11 +28711,11 @@ fn dae_stack_int_apply_effect(
 
 ///|
 fn dae_stack_int_apply_instr_effect(
-  stack : Array[Int],
+  stack : Array[Int32],
   instr : @lib.Instruction,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  pushed_value : Int,
+  pushed_value : Int32,
 ) -> Bool {
   match dae_stack_effect_evidence(instr, mod_, func_type_indices) {
     Some(evidence) => {
@@ -28119,16 +28734,16 @@ fn dae_stack_int_apply_instr_effect(
 ///|
 fn dae_collect_self_call_operand_param_gets(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
   preserve : Array[Bool],
   preserve_direct_fallback : Bool,
-  start_idx? : Int = 0,
+  start_idx~ : Int32 = 0,
 ) -> Unit {
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let stack_from_call : Array[Bool] = []
   let stack_origins : Array[Array[Bool]] = []
   let mut idx = start_idx
@@ -28275,8 +28890,8 @@ fn dae_collect_self_call_operand_param_gets(
 ///|
 fn dae_collect_dead_suffix_self_operand_params(
   func : @lib.Func,
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
@@ -28321,10 +28936,10 @@ fn dae_filter_params(
 ///|
 fn dae_try_remove_dead_suffix_only_unreachable_params(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  original_call_count : Int,
+  callee_abs : Int32,
+  original_call_count : Int32,
   allow_unreachable_only_cleanup : Bool,
-  current_calls_anywhere? : Int = -1,
+  current_calls_anywhere~ : Int32 = -1,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -28460,7 +29075,7 @@ fn dae_try_remove_unobserved_unreachable_function_with_facts(
 #warnings("-unused_value")
 fn dae_try_remove_unobserved_unreachable_function(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaePassResult {
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
@@ -28511,7 +29126,7 @@ fn dae_try_remove_dead_self_suffix_result_with_facts(
 #warnings("-unused_value")
 fn dae_try_remove_dead_self_suffix_result(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaePassResult {
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
@@ -28561,7 +29176,7 @@ fn dae_try_remove_uncalled_results_with_facts(
 #warnings("-unused_value")
 fn dae_try_remove_uncalled_results(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> DaePassResult {
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
@@ -28574,10 +29189,10 @@ fn dae_try_remove_uncalled_results(
 ///|
 fn dae_scan_original_call_summary_instrs(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
-  undropped_targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
+  undropped_targets : Array[Int32],
 ) -> Unit {
   let mut idx = 0
   while idx < instrs.length() {
@@ -28620,13 +29235,13 @@ fn dae_scan_original_call_summary_instrs(
 ///|
 fn dae_collect_module_call_counts_anywhere(
   funcs : Array[@lib.Func],
-  imported : Int,
-  defined : Int,
-) -> Array[Int] {
+  imported : Int32,
+  defined : Int32,
+) -> Array[Int32] {
   let counts = Array::make(defined, 0)
   for func in funcs {
-    let targets : Array[Int] = []
-    let undropped_targets : Array[Int] = []
+    let targets : Array[Int32] = []
+    let undropped_targets : Array[Int32] = []
     let @lib.Func(_, @lib.Expr(body)) = func
     dae_scan_original_call_summary_instrs(
       body, imported, defined, targets, undropped_targets,
@@ -28643,8 +29258,8 @@ fn dae_collect_module_call_counts_anywhere(
 ///|
 fn dae_collect_original_call_summary_with_context(
   mod_ : @lib.Module,
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
 ) -> DaeOriginalCallSummary {
@@ -28664,7 +29279,7 @@ fn dae_collect_original_call_summary_with_context(
       }
     }
   }
-  let call_targets_by_caller : Array[Array[Int]] = []
+  let call_targets_by_caller : Array[Array[Int32]] = []
   let call_counts = Array::make(defined, 0)
   let prior_call_counts = Array::make(defined, 0)
   let nonself_undropped_call_counts = Array::make(defined, 0)
@@ -28673,8 +29288,8 @@ fn dae_collect_original_call_summary_with_context(
   let seen_undropped_stamp = Array::make(defined, -1)
   let mut caller_def = 0
   while caller_def < funcs.length() && caller_def < defined {
-    let targets : Array[Int] = []
-    let undropped_targets : Array[Int] = []
+    let targets : Array[Int32] = []
+    let undropped_targets : Array[Int32] = []
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     dae_scan_original_call_summary_instrs(
       body, imported, defined, targets, undropped_targets,
@@ -28757,10 +29372,10 @@ fn dae_collect_original_call_summary_with_context(
 fn dae_collect_original_param_counts_with_type_indices(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-) -> Array[Int] {
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   let mut def_idx = 0
   while def_idx < defined {
     match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
@@ -28788,16 +29403,26 @@ fn dae_collect_original_boundary_snapshot(
   let call_summary = dae_collect_original_call_summary_with_context(
     mod_, imported, defined, type_indices, escaped,
   )
+  // This temporary belongs only to the borrowed bodies of this invocation.
+  // Discover roots lazily so the existing predicate and failure order stays.
+  let first_roots : Array[Int32]? = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == defined =>
+      Some(Array::make(defined, -2))
+    _ => None
+  }
   let private_result_dead_suffix_call_counts = dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
     mod_,
     call_summary.call_counts,
     escaped,
+    first_roots~,
   )
   let private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts_with_escaped(
     mod_, escaped,
   )
   let dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    first_roots~,
   )
   let escaped_result_operand_call_facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
     mod_, escaped, dead_suffix_escaped_result_call_facts,
@@ -28805,21 +29430,29 @@ fn dae_collect_original_boundary_snapshot(
   let private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_,
     escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts,
+    first_roots~,
   )
   let escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    first_roots~,
   )
   let escaped_undropped_dead_suffix_call_counts = dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    first_roots~,
   )
   let dead_suffix_other_calls = dae_collect_original_dead_suffix_other_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_undropped_self_calls = dae_collect_original_dead_suffix_undropped_self_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_dropped_self_calls = dae_collect_original_dead_suffix_dropped_self_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_block_undropped_self_calls = dae_collect_original_dead_suffix_block_undropped_self_calls(
     mod_,
@@ -28831,45 +29464,61 @@ fn dae_collect_original_boundary_snapshot(
     mod_,
     call_summary.nonself_undropped_call_counts,
     escaped,
+    first_roots~,
   )
   let dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
     mod_,
+    first_roots~,
   )
   let dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
     mod_,
+    first_roots~,
   )
   let dead_suffix_dropped_calls_from_parameterized_self_callers = dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
     mod_,
+    first_roots~,
   )
   let dead_suffix_dropped_calls_from_no_param_result_callers = dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     mod_,
+    first_roots~,
   )
   let dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    first_roots~,
   )
   let dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
     mod_,
+    first_roots~,
   )
   let later_dead_suffix_dropped_call_counts = dae_collect_original_later_dead_suffix_dropped_call_counts(
     mod_,
+    first_roots~,
   )
   let dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
     mod_,
   )
   let dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
     mod_,
+    first_roots~,
   )
   let dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    first_roots~,
   )
   let dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
     mod_,
+    first_roots~,
+    original_self_call_counts=Some(call_summary.self_call_counts),
   )
   let dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_calls_from_param_operand_self_result_callers = dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers(
     mod_,
@@ -28884,6 +29533,7 @@ fn dae_collect_original_boundary_snapshot(
     dead_suffix_undropped_self_call_param_operands,
     dead_suffix_result_other_calls,
     dead_suffix_mutual_calls,
+    first_roots~,
   )
   {
     imported,
@@ -28928,13 +29578,13 @@ fn dae_collect_original_boundary_snapshot(
 }
 
 ///|
-fn dae_collect_original_self_call_counts(mod_ : @lib.Module) -> Array[Int] {
+fn dae_collect_original_self_call_counts(mod_ : @lib.Module) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   let mut def_idx = 0
   while def_idx < funcs.length() {
     counts.push(
@@ -28948,9 +29598,9 @@ fn dae_collect_original_self_call_counts(mod_ : @lib.Module) -> Array[Int] {
 ///|
 fn dae_collect_direct_call_target_anywhere_instr(
   instr : @lib.Instruction,
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
 ) -> Unit {
   match instr {
     @lib.Call(func_idx) => {
@@ -28983,9 +29633,9 @@ fn dae_collect_direct_call_target_anywhere_instr(
 ///|
 fn dae_collect_direct_call_targets_anywhere(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     dae_collect_direct_call_target_anywhere_instr(
@@ -28997,11 +29647,18 @@ fn dae_collect_direct_call_targets_anywhere(
 ///|
 fn dae_collect_dead_suffix_direct_targets(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
-  targets : Array[Int],
+  imported : Int32,
+  defined : Int32,
+  targets : Array[Int32],
+  known_first_root~ : Int32 = -2,
 ) -> Unit {
-  match dae_dead_suffix_direct_target_evidence(instrs, imported, defined) {
+  match
+    dae_dead_suffix_direct_target_evidence(
+      instrs,
+      imported,
+      defined,
+      known_first_root~,
+    ) {
     Some(evidence) => dae_append_targets(targets, evidence.direct_targets)
     None => ()
   }
@@ -29010,9 +29667,10 @@ fn dae_collect_dead_suffix_direct_targets(
 ///|
 fn dae_count_dead_suffix_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-) -> Int {
-  match dae_dead_suffix_evidence(instrs) {
+  callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
+) -> Int32 {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) =>
       dae_count_direct_call_anywhere_to(
         evidence.body,
@@ -29072,7 +29730,7 @@ fn dae_escaped_result_direct_call_evidence(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
-  start_idx? : Int = 0,
+  start_idx~ : Int32 = 0,
 ) -> DaeEscapedResultDirectCallEvidence {
   let mut evidence = dae_empty_escaped_result_direct_call_evidence()
   let mut idx = start_idx
@@ -29122,8 +29780,9 @@ fn dae_dead_suffix_escaped_result_direct_call_evidence(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
+  known_first_root~ : Int32 = -2,
 ) -> DaeEscapedResultDirectCallEvidence? {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) =>
       Some(
         dae_escaped_result_direct_call_evidence(
@@ -29144,10 +29803,15 @@ fn dae_dead_suffix_has_dropped_escaped_result_call(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
   match
     dae_dead_suffix_escaped_result_direct_call_evidence(
-      instrs, mod_, type_indices, escaped,
+      instrs,
+      mod_,
+      type_indices,
+      escaped,
+      known_first_root~,
     ) {
     Some(evidence) => evidence.has_dropped_escaped_result_call
     None => false
@@ -29158,6 +29822,7 @@ fn dae_dead_suffix_has_dropped_escaped_result_call(
 fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
+  first_roots~ : Array[Int32]? = None,
 ) -> DaeOriginalDeadSuffixEscapedResultCallFacts {
   let defined = dae_defined_func_count(mod_)
   let dropped_calls = Array::make(defined, false)
@@ -29172,7 +29837,13 @@ fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     match
       dae_dead_suffix_escaped_result_direct_call_evidence(
-        body, mod_, type_indices, escaped,
+        body,
+        mod_,
+        type_indices,
+        escaped,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
       ) {
       Some(evidence) => {
         dropped_calls[def_idx] = evidence.has_dropped_escaped_result_call
@@ -29191,9 +29862,13 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
-  imported : Int,
-  defined : Int,
-  flags : Array[Bool],
+  imported : Int32,
+  defined : Int32,
+  caller_stamps : Array[Int32],
+  caller_def : Int32,
+  counts : Array[Int32],
+  dropped_calls : Array[Bool],
+  require_dropped : Bool,
 ) -> Unit {
   let stack_from_escaped_call : Array[Bool] = []
   let mut in_suffix = false
@@ -29211,14 +29886,26 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
       @lib.Call(func_idx) => {
         let slot = dae_func_idx_slot(func_idx)
         let def_idx = slot - imported
-        if def_idx >= 0 && def_idx < defined && def_idx < flags.length() {
+        if def_idx >= 0 && def_idx < defined && def_idx < caller_stamps.length() {
           match dae_resolve_func_type(mod_, type_indices, slot) {
             Some(@lib.FuncType(params, _)) =>
               if dae_stack_bool_has_true_operand(
                   stack_from_escaped_call,
                   params.length(),
                 ) {
-                flags[def_idx] = true
+                if caller_stamps[def_idx] != caller_def {
+                  caller_stamps[def_idx] = caller_def
+                  if def_idx != caller_def &&
+                    (
+                      !require_dropped ||
+                      (
+                        def_idx < dropped_calls.length() &&
+                        dropped_calls[def_idx]
+                      )
+                    ) {
+                    counts[def_idx] = counts[def_idx] + 1
+                  }
+                }
               }
             None => ()
           }
@@ -29234,7 +29921,8 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) => {
         dae_mark_dead_suffix_escaped_result_operand_targets(
-          body, mod_, type_indices, escaped, imported, defined, flags,
+          body, mod_, type_indices, escaped, imported, defined, caller_stamps, caller_def,
+          counts, dropped_calls, require_dropped,
         )
         ignore(
           dae_stack_bool_apply_instr_effect(
@@ -29244,10 +29932,12 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
       }
       @lib.If(_, then_body, Some(else_body)) => {
         dae_mark_dead_suffix_escaped_result_operand_targets(
-          then_body, mod_, type_indices, escaped, imported, defined, flags,
+          then_body, mod_, type_indices, escaped, imported, defined, caller_stamps,
+          caller_def, counts, dropped_calls, require_dropped,
         )
         dae_mark_dead_suffix_escaped_result_operand_targets(
-          else_body, mod_, type_indices, escaped, imported, defined, flags,
+          else_body, mod_, type_indices, escaped, imported, defined, caller_stamps,
+          caller_def, counts, dropped_calls, require_dropped,
         )
         ignore(
           dae_stack_bool_apply_instr_effect(
@@ -29257,7 +29947,8 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
       }
       @lib.If(_, then_body, None) => {
         dae_mark_dead_suffix_escaped_result_operand_targets(
-          then_body, mod_, type_indices, escaped, imported, defined, flags,
+          then_body, mod_, type_indices, escaped, imported, defined, caller_stamps,
+          caller_def, counts, dropped_calls, require_dropped,
         )
         ignore(
           dae_stack_bool_apply_instr_effect(
@@ -29281,11 +29972,13 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-  imported : Int,
-  defined : Int,
-  flags : Array[Bool],
+  imported : Int32,
+  defined : Int32,
+  caller_stamps : Array[Int32],
+  caller_def : Int32,
+  counts : Array[Int32],
 ) -> Unit {
-  let stack_sources : Array[Int] = []
+  let stack_sources : Array[Int32] = []
   let mut in_suffix = false
   let mut idx = 0
   while idx < instrs.length() {
@@ -29306,7 +29999,7 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
         } else {
           -1
         }
-        if source >= 0 && source < flags.length() {
+        if source >= 0 && source < caller_stamps.length() {
           match dae_resolve_func_type(mod_, type_indices, slot) {
             Some(@lib.FuncType(params, _)) =>
               if dae_stack_int_has_operand_value(
@@ -29314,7 +30007,12 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
                   params.length(),
                   source,
                 ) {
-                flags[source] = true
+                if caller_stamps[source] != caller_def {
+                  caller_stamps[source] = caller_def
+                  if source != caller_def {
+                    counts[source] = counts[source] + 1
+                  }
+                }
               }
             None => ()
           }
@@ -29329,7 +30027,8 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) => {
         dae_mark_dead_suffix_same_result_operand_targets(
-          body, mod_, type_indices, imported, defined, flags,
+          body, mod_, type_indices, imported, defined, caller_stamps, caller_def,
+          counts,
         )
         ignore(
           dae_stack_int_apply_instr_effect(
@@ -29339,10 +30038,12 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
       }
       @lib.If(_, then_body, Some(else_body)) => {
         dae_mark_dead_suffix_same_result_operand_targets(
-          then_body, mod_, type_indices, imported, defined, flags,
+          then_body, mod_, type_indices, imported, defined, caller_stamps, caller_def,
+          counts,
         )
         dae_mark_dead_suffix_same_result_operand_targets(
-          else_body, mod_, type_indices, imported, defined, flags,
+          else_body, mod_, type_indices, imported, defined, caller_stamps, caller_def,
+          counts,
         )
         ignore(
           dae_stack_int_apply_instr_effect(
@@ -29352,7 +30053,8 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
       }
       @lib.If(_, then_body, None) => {
         dae_mark_dead_suffix_same_result_operand_targets(
-          then_body, mod_, type_indices, imported, defined, flags,
+          then_body, mod_, type_indices, imported, defined, caller_stamps, caller_def,
+          counts,
         )
         ignore(
           dae_stack_int_apply_instr_effect(
@@ -29374,7 +30076,7 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
 ///|
 fn dae_dead_suffix_call_to_has_same_result_operand(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
 ) -> Bool {
@@ -29467,7 +30169,7 @@ fn dae_dead_suffix_call_to_has_same_result_operand(
 fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
-) -> Array[Int] {
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29476,6 +30178,9 @@ fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
   }
   let type_indices = dae_collect_func_type_indices(mod_)
   let counts = Array::make(defined, 0)
+  // A defined caller index is a unique nonnegative stamp in this invocation.
+  // Allocate only at the first eligible caller; no row clear is needed later.
+  let mut caller_stamps : Array[Int32]? = None
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -29486,17 +30191,17 @@ fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
     }
     if caller_is_private_result && !escaped[caller_abs] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let flags = Array::make(defined, false)
-      dae_mark_dead_suffix_same_result_operand_targets(
-        body, mod_, type_indices, imported, defined, flags,
-      )
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def && flags[callee_def] {
-          counts[callee_def] = counts[callee_def] + 1
+      let stamps = match caller_stamps {
+        Some(row) => row
+        None => {
+          let row = Array::make(defined, -1)
+          caller_stamps = Some(row)
+          row
         }
-        callee_def += 1
       }
+      dae_mark_dead_suffix_same_result_operand_targets(
+        body, mod_, type_indices, imported, defined, stamps, caller_def, counts,
+      )
     }
     caller_def += 1
   }
@@ -29506,9 +30211,10 @@ fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
 ///|
 fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_with_escaped(
   mod_ : @lib.Module,
-  original_nonself_undropped_call_counts : Array[Int],
+  original_nonself_undropped_call_counts : Array[Int32],
   escaped : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29528,10 +30234,20 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     let caller_has_undropped_self_suffix = dae_dead_suffix_has_undropped_direct_call_to(
-      body, caller_abs,
+      body,
+      caller_abs,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     let caller_has_dropped_escaped_result_suffix = dae_dead_suffix_has_dropped_escaped_result_call(
-      body, mod_, type_indices, escaped,
+      body,
+      mod_,
+      type_indices,
+      escaped,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     let caller_has_undropped_nonself_caller = caller_def <
       original_nonself_undropped_call_counts.length() &&
@@ -29541,8 +30257,16 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
       caller_has_undropped_nonself_caller &&
       !caller_has_dropped_escaped_result_suffix &&
       !escaped[caller_abs] {
-      let targets : Array[Int] = []
-      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
       for target in targets {
         if target != caller_def {
           counts[target] = counts[target] + 1
@@ -29557,7 +30281,8 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
 ///|
 fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
   mod_ : @lib.Module,
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29577,9 +30302,23 @@ fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_ca
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_is_no_param_result &&
-      dae_dead_suffix_has_undropped_direct_call_to(body, caller_abs) {
-      let targets : Array[Int] = []
-      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      dae_dead_suffix_has_undropped_direct_call_to(
+        body,
+        caller_abs,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      ) {
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
       for target in targets {
         if target != caller_def {
           counts[target] = counts[target] + 1
@@ -29594,7 +30333,8 @@ fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_ca
 ///|
 fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
   mod_ : @lib.Module,
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29615,10 +30355,22 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
-      dae_dead_suffix_has_dropped_direct_call_to(body, caller_abs) {
-      let targets : Array[Int] = []
+      dae_dead_suffix_has_dropped_direct_call_to(
+        body,
+        caller_abs,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      ) {
+      let targets : Array[Int32] = []
       dae_collect_dead_suffix_undropped_direct_targets(
-        body, imported, defined, targets,
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
       for target in targets {
         if target != caller_def && counted_stamp[target] != caller_def {
@@ -29636,7 +30388,8 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
 fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29654,16 +30407,28 @@ fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_esc
       continue
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let dropped_targets : Array[Int] = []
+    let dropped_targets : Array[Int32] = []
     dae_collect_dead_suffix_dropped_direct_targets(
-      body, imported, defined, dropped_targets,
+      body,
+      imported,
+      defined,
+      dropped_targets,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     for target in dropped_targets {
       dropped_stamp[target] = caller_def
     }
-    let undropped_targets : Array[Int] = []
+    let undropped_targets : Array[Int32] = []
     dae_collect_dead_suffix_undropped_direct_targets(
-      body, imported, defined, undropped_targets,
+      body,
+      imported,
+      defined,
+      undropped_targets,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     for target in undropped_targets {
       if target != caller_def &&
@@ -29681,6 +30446,7 @@ fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_esc
 ///|
 fn dae_collect_original_dead_suffix_dropped_earlier_result_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -29704,9 +30470,15 @@ fn dae_collect_original_dead_suffix_dropped_earlier_result_calls(
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let dropped_targets : Array[Int] = []
+    let dropped_targets : Array[Int32] = []
     dae_collect_dead_suffix_dropped_direct_targets(
-      body, imported, defined, dropped_targets,
+      body,
+      imported,
+      defined,
+      dropped_targets,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     for target in dropped_targets {
       if target < caller_def && result_flags[target] {
@@ -29721,7 +30493,8 @@ fn dae_collect_original_dead_suffix_dropped_earlier_result_calls(
 ///|
 fn dae_collect_original_later_dead_suffix_dropped_call_counts(
   mod_ : @lib.Module,
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29733,9 +30506,15 @@ fn dae_collect_original_later_dead_suffix_dropped_call_counts(
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let dropped_targets : Array[Int] = []
+    let dropped_targets : Array[Int32] = []
     dae_collect_dead_suffix_dropped_direct_targets(
-      body, imported, defined, dropped_targets,
+      body,
+      imported,
+      defined,
+      dropped_targets,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     for target in dropped_targets {
       if target < caller_def && counted_stamp[target] != caller_def {
@@ -29751,7 +30530,8 @@ fn dae_collect_original_later_dead_suffix_dropped_call_counts(
 ///|
 fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
   mod_ : @lib.Module,
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29772,10 +30552,22 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_params_and_result &&
-      dae_dead_suffix_has_undropped_direct_call_to(body, caller_abs) {
-      let targets : Array[Int] = []
+      dae_dead_suffix_has_undropped_direct_call_to(
+        body,
+        caller_abs,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      ) {
+      let targets : Array[Int32] = []
       dae_collect_dead_suffix_dropped_direct_targets(
-        body, imported, defined, targets,
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
       for target in targets {
         if target != caller_def && counted_stamp[target] != caller_def {
@@ -29792,7 +30584,8 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
 ///|
 fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
   mod_ : @lib.Module,
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29813,9 +30606,15 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     if caller_has_no_params_and_result {
-      let targets : Array[Int] = []
+      let targets : Array[Int32] = []
       dae_collect_dead_suffix_dropped_direct_targets(
-        body, imported, defined, targets,
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
       for target in targets {
         if target != caller_def && counted_stamp[target] != caller_def {
@@ -29848,6 +30647,9 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
       }
   }
   let type_indices = dae_collect_func_type_indices(mod_)
+  // A defined caller index is a unique nonnegative stamp in this invocation.
+  // Allocate only at the first eligible caller; no row clear is needed later.
+  let mut caller_stamps : Array[Int32]? = None
   let mut caller_def = 0
   while caller_def < funcs.length() {
     let caller_abs = imported + caller_def
@@ -29860,26 +30662,33 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
     let caller_is_private_result = !caller_is_escaped && caller_has_result
     if caller_is_escaped || caller_is_private_result {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let flags = Array::make(defined, false)
-      dae_mark_dead_suffix_escaped_result_operand_targets(
-        body, mod_, type_indices, escaped, imported, defined, flags,
-      )
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def && flags[callee_def] {
-          if caller_is_escaped {
-            dead_suffix_escaped_result_operand_call_counts[callee_def] = dead_suffix_escaped_result_operand_call_counts[callee_def] +
-              1
-          }
-          if caller_is_private_result &&
-            callee_def < dead_suffix_escaped_result_calls.dropped_calls.length() &&
-            dead_suffix_escaped_result_calls.dropped_calls[callee_def] {
-            private_result_escaped_operand_call_counts[callee_def] = private_result_escaped_operand_call_counts[callee_def] +
-              1
-          }
+      let stamps = match caller_stamps {
+        Some(row) => row
+        None => {
+          let row = Array::make(defined, -1)
+          caller_stamps = Some(row)
+          row
         }
-        callee_def += 1
       }
+      // These caller roles are exclusive, so only one output row is selected.
+      let counts = if caller_is_escaped {
+        dead_suffix_escaped_result_operand_call_counts
+      } else {
+        private_result_escaped_operand_call_counts
+      }
+      dae_mark_dead_suffix_escaped_result_operand_targets(
+        body,
+        mod_,
+        type_indices,
+        escaped,
+        imported,
+        defined,
+        stamps,
+        caller_def,
+        counts,
+        dead_suffix_escaped_result_calls.dropped_calls,
+        caller_is_private_result,
+      )
     }
     caller_def += 1
   }
@@ -29892,8 +30701,9 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
 ///|
 fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
   mod_ : @lib.Module,
-  escaped_operand_counts : Array[Int],
-) -> Array[Int] {
+  escaped_operand_counts : Array[Int32],
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29915,8 +30725,16 @@ fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_ca
       caller_def < escaped_operand_counts.length() &&
       escaped_operand_counts[caller_def] > 0 {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let targets : Array[Int] = []
-      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
       for target in targets {
         if target != caller_def {
           counts[target] = counts[target] + 1
@@ -29955,9 +30773,10 @@ fn dae_collect_original_dead_suffix_same_self_result_operand_calls(
 ///|
 fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
-  original_call_counts : Array[Int],
+  original_call_counts : Array[Int32],
   escaped : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -29977,10 +30796,20 @@ fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     let caller_has_undropped_self_suffix = dae_dead_suffix_has_undropped_direct_call_to(
-      body, caller_abs,
+      body,
+      caller_abs,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     let caller_has_dropped_escaped_result_suffix = dae_dead_suffix_has_dropped_escaped_result_call(
-      body, mod_, type_indices, escaped,
+      body,
+      mod_,
+      type_indices,
+      escaped,
+      known_first_root=dae_original_first_root_index(
+        body, first_roots, caller_def,
+      ),
     )
     if caller_has_params_and_result &&
       !caller_has_undropped_self_suffix &&
@@ -29988,8 +30817,16 @@ fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
       !escaped[caller_abs] &&
       caller_def < original_call_counts.length() &&
       original_call_counts[caller_def] > 0 {
-      let targets : Array[Int] = []
-      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
       for target in targets {
         counts[target] = counts[target] + 1
       }
@@ -30003,7 +30840,8 @@ fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
 fn dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -30016,8 +30854,16 @@ fn dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
     let caller_abs = imported + caller_def
     if escaped[caller_abs] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let targets : Array[Int] = []
-      dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
       for target in targets {
         counts[target] = counts[target] + 1
       }
@@ -30031,7 +30877,8 @@ fn dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
 fn dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -30045,9 +30892,15 @@ fn dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
     let caller_abs = imported + caller_def
     if escaped[caller_abs] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let targets : Array[Int] = []
+      let targets : Array[Int32] = []
       dae_collect_dead_suffix_undropped_direct_targets(
-        body, imported, defined, targets,
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
       for target in targets {
         if counted_stamp[target] != caller_def {
@@ -30064,25 +30917,7 @@ fn dae_collect_original_escaped_undropped_dead_suffix_call_counts_with_escaped(
 ///|
 fn dae_collect_original_dead_suffix_other_calls(
   mod_ : @lib.Module,
-) -> Array[Bool] {
-  let imported = dae_imported_func_count(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return []
-  }
-  let flags : Array[Bool] = []
-  let mut def_idx = 0
-  while def_idx < funcs.length() {
-    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    flags.push(dae_dead_suffix_has_other_call(body, imported + def_idx))
-    def_idx += 1
-  }
-  flags
-}
-
-///|
-fn dae_collect_original_dead_suffix_undropped_self_calls(
-  mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -30094,7 +30929,41 @@ fn dae_collect_original_dead_suffix_undropped_self_calls(
   while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     flags.push(
-      dae_dead_suffix_has_undropped_direct_call_to(body, imported + def_idx),
+      dae_dead_suffix_has_other_call(
+        body,
+        imported + def_idx,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
+      ),
+    )
+    def_idx += 1
+  }
+  flags
+}
+
+///|
+fn dae_collect_original_dead_suffix_undropped_self_calls(
+  mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let flags : Array[Bool] = []
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    flags.push(
+      dae_dead_suffix_has_undropped_direct_call_to(
+        body,
+        imported + def_idx,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
+      ),
     )
     def_idx += 1
   }
@@ -30104,13 +30973,13 @@ fn dae_collect_original_dead_suffix_undropped_self_calls(
 ///|
 fn dae_instrs_have_undropped_call_to_with_param_operand(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-  start_idx? : Int = 0,
+  start_idx~ : Int32 = 0,
 ) -> Bool {
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut idx = start_idx
   while idx < instrs.length() {
     match instrs[idx] {
@@ -30207,12 +31076,13 @@ fn dae_instrs_have_undropped_call_to_with_param_operand(
 ///|
 fn dae_dead_suffix_has_undropped_self_call_param_operand(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) =>
       dae_instrs_have_undropped_call_to_with_param_operand(
         evidence.body,
@@ -30229,6 +31099,7 @@ fn dae_dead_suffix_has_undropped_self_call_param_operand(
 ///|
 fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -30249,7 +31120,14 @@ fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
     flags.push(
       param_count > 0 &&
       dae_dead_suffix_has_undropped_self_call_param_operand(
-        body, callee_abs, param_count, mod_, type_indices,
+        body,
+        callee_abs,
+        param_count,
+        mod_,
+        type_indices,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
       ),
     )
     def_idx += 1
@@ -30260,7 +31138,7 @@ fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
 ///|
 fn dae_dead_suffix_has_block_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -30314,6 +31192,7 @@ fn dae_collect_original_dead_suffix_block_undropped_self_calls(
 ///|
 fn dae_collect_original_dead_suffix_dropped_self_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -30325,7 +31204,13 @@ fn dae_collect_original_dead_suffix_dropped_self_calls(
   while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     flags.push(
-      dae_dead_suffix_has_dropped_direct_call_to(body, imported + def_idx),
+      dae_dead_suffix_has_dropped_direct_call_to(
+        body,
+        imported + def_idx,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
+      ),
     )
     def_idx += 1
   }
@@ -30335,8 +31220,8 @@ fn dae_collect_original_dead_suffix_dropped_self_calls(
 ///|
 fn dae_dead_suffix_has_dropped_self_call_full_param_forward(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
 ) -> Bool {
   if param_count == 0 {
     return false
@@ -30401,11 +31286,11 @@ fn dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
 ///|
 fn dae_instrs_have_private_result_direct_call_other_than(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
-  start_idx? : Int = 0,
+  start_idx~ : Int32 = 0,
 ) -> Bool {
   for index = start_idx; index < instrs.length(); index = index + 1 {
     let instr = instrs[index]
@@ -30455,12 +31340,13 @@ fn dae_instrs_have_private_result_direct_call_other_than(
 ///|
 fn dae_dead_suffix_has_private_result_call_other_than(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   escaped : Array[Bool],
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  match dae_dead_suffix_evidence(instrs) {
+  match dae_dead_suffix_evidence_from_first_root(instrs, known_first_root) {
     Some(evidence) =>
       dae_instrs_have_private_result_direct_call_other_than(
         evidence.body,
@@ -30477,6 +31363,7 @@ fn dae_dead_suffix_has_private_result_call_other_than(
 ///|
 fn dae_collect_original_dead_suffix_self_recursive_result_side_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30496,15 +31383,27 @@ fn dae_collect_original_dead_suffix_self_recursive_result_side_calls(
       None => false
     }
     undropped_result_self_suffix[def_idx] = has_result &&
-      dae_dead_suffix_has_undropped_direct_call_to(body, callee_abs)
+      dae_dead_suffix_has_undropped_direct_call_to(
+        body,
+        callee_abs,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
+      )
     def_idx += 1
   }
   let flags = Array::make(defined, false)
   def_idx = 0
   while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    let targets : Array[Int] = []
-    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    let targets : Array[Int32] = []
+    dae_collect_dead_suffix_direct_targets(
+      body,
+      imported,
+      defined,
+      targets,
+      known_first_root=dae_original_first_root_index(body, first_roots, def_idx),
+    )
     for target in targets {
       if target != def_idx &&
         target < def_idx &&
@@ -30520,6 +31419,8 @@ fn dae_collect_original_dead_suffix_self_recursive_result_side_calls(
 ///|
 fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
+  original_self_call_counts~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30528,7 +31429,11 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
   }
-  let original_self_calls = dae_collect_original_self_call_counts(mod_)
+  let original_self_calls = match original_self_call_counts {
+    Some(counts) if counts.length() == funcs.length() &&
+      funcs.length() == defined => counts
+    _ => dae_collect_original_self_call_counts(mod_)
+  }
   let self_recursive_void = Array::make(defined, false)
   let mut def_idx = 0
   while def_idx < funcs.length() {
@@ -30546,8 +31451,14 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
   def_idx = 0
   while def_idx < funcs.length() {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    let targets : Array[Int] = []
-    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    let targets : Array[Int32] = []
+    dae_collect_dead_suffix_direct_targets(
+      body,
+      imported,
+      defined,
+      targets,
+      known_first_root=dae_original_first_root_index(body, first_roots, def_idx),
+    )
     for target in targets {
       if target != def_idx && self_recursive_void[target] {
         flags[def_idx] = true
@@ -30562,6 +31473,7 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
 fn dae_collect_original_dead_suffix_result_other_calls_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -30580,6 +31492,9 @@ fn dae_collect_original_dead_suffix_result_other_calls_with_escaped(
         mod_,
         type_indices,
         escaped,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
       ),
     )
     def_idx += 1
@@ -30590,6 +31505,7 @@ fn dae_collect_original_dead_suffix_result_other_calls_with_escaped(
 ///|
 fn dae_collect_original_dead_suffix_mutual_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30603,8 +31519,14 @@ fn dae_collect_original_dead_suffix_mutual_calls(
   while def_idx < funcs.length() {
     let callee_abs = imported + def_idx
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-    let targets : Array[Int] = []
-    dae_collect_dead_suffix_direct_targets(body, imported, defined, targets)
+    let targets : Array[Int32] = []
+    dae_collect_dead_suffix_direct_targets(
+      body,
+      imported,
+      defined,
+      targets,
+      known_first_root=dae_original_first_root_index(body, first_roots, def_idx),
+    )
     for target in targets {
       if target != def_idx && counted_stamp[target] != def_idx {
         counted_stamp[target] = def_idx
@@ -30624,13 +31546,13 @@ fn dae_collect_original_dead_suffix_mutual_calls(
 ///|
 fn dae_original_result_removal_prune_row_from_preservation_row(
   preservation : DaeOriginalResultPreservationRow,
-  active_parameterized_result_nonself_call_count : Int,
+  active_parameterized_result_nonself_call_count : Int32,
   dead_suffix_dropped_self_call_full_param_forward : Bool,
   dead_suffix_dropped_earlier_result_call : Bool,
-  later_dead_suffix_dropped_call_count : Int,
-  private_result_dead_suffix_call_count : Int,
-  dead_suffix_dropped_calls_from_no_param_result_caller : Int,
-  dead_suffix_mixed_dropped_undropped_call_count : Int,
+  later_dead_suffix_dropped_call_count : Int32,
+  private_result_dead_suffix_call_count : Int32,
+  dead_suffix_dropped_calls_from_no_param_result_caller : Int32,
+  dead_suffix_mixed_dropped_undropped_call_count : Int32,
 ) -> DaeOriginalResultRemovalPruneRow {
   {
     param_count: preservation.param_count,
@@ -30858,7 +31780,7 @@ fn dae_should_block_uncalled_after_param_cleanup_from_prune_evidence(
 }
 
 ///|
-fn dae_original_int_fact_at(values : Array[Int], idx : Int) -> Int {
+fn dae_original_int_fact_at(values : Array[Int32], idx : Int32) -> Int32 {
   if idx >= 0 && idx < values.length() {
     values[idx]
   } else {
@@ -30867,7 +31789,7 @@ fn dae_original_int_fact_at(values : Array[Int], idx : Int) -> Int {
 }
 
 ///|
-fn dae_original_bool_fact_at(values : Array[Bool], idx : Int) -> Bool {
+fn dae_original_bool_fact_at(values : Array[Bool], idx : Int32) -> Bool {
   if idx >= 0 && idx < values.length() {
     values[idx]
   } else {
@@ -30890,14 +31812,14 @@ fn dae_should_preserve_parameterized_undropped_self_side_chain_evidence(
 
 ///|
 fn dae_original_no_param_dropped_caller_guard_evidence(
-  def_idx : Int,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  def_idx : Int32,
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
@@ -30955,14 +31877,14 @@ fn dae_should_preserve_undropped_self_result_from_no_param_dropped_caller_eviden
 
 ///|
 fn dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
-  def_idx : Int,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  def_idx : Int32,
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
@@ -30981,32 +31903,34 @@ fn dae_should_preserve_undropped_self_result_from_no_param_dropped_caller(
 
 ///|
 fn dae_original_result_preservation_context(
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
   original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
-    Int,
+    Int32,
   ],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_block_undropped_self_calls : Array[Bool],
-  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int],
+  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int32],
   original_dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[
-    Int,
+    Int32,
   ],
   original_dead_suffix_same_self_result_operand_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_dropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
-  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int],
-  original_dead_suffix_escaped_result_operand_call_counts : Array[Int],
+  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[
+    Int32,
+  ],
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int32],
   original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
-    Int,
+    Int32,
   ],
 ) -> DaeOriginalResultPreservationContext {
   {
@@ -31037,18 +31961,18 @@ fn dae_original_result_preservation_context(
 ///|
 fn dae_original_result_boundary_context(
   preservation : DaeOriginalResultPreservationContext,
-  original_private_result_escaped_operand_call_counts : Array[Int],
+  original_private_result_escaped_operand_call_counts : Array[Int32],
   original_dead_suffix_undropped_escaped_result_calls : Array[Bool],
   original_dead_suffix_other_calls : Array[Bool],
   original_dead_suffix_self_recursive_void_side_calls : Array[Bool],
   original_dead_suffix_self_recursive_result_side_calls : Array[Bool],
-  original_active_parameterized_result_nonself_call_counts : Array[Int],
+  original_active_parameterized_result_nonself_call_counts : Array[Int32],
   original_dead_suffix_dropped_self_call_full_param_forwards : Array[Bool],
   original_dead_suffix_dropped_earlier_result_calls : Array[Bool],
-  original_later_dead_suffix_dropped_call_counts : Array[Int],
-  original_private_result_dead_suffix_call_counts : Array[Int],
-  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int],
-  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int],
+  original_later_dead_suffix_dropped_call_counts : Array[Int32],
+  original_private_result_dead_suffix_call_counts : Array[Int32],
+  original_dead_suffix_dropped_calls_from_no_param_result_callers : Array[Int32],
+  original_dead_suffix_mixed_dropped_undropped_call_counts : Array[Int32],
 ) -> DaeOriginalResultBoundaryContext {
   {
     preservation,
@@ -31069,7 +31993,7 @@ fn dae_original_result_boundary_context(
 
 ///|
 fn dae_original_result_preservation_row_from_context(
-  def_idx : Int,
+  def_idx : Int32,
   context : DaeOriginalResultPreservationContext,
 ) -> DaeOriginalResultPreservationRow {
   {
@@ -31159,7 +32083,7 @@ fn dae_original_result_preservation_row_from_context(
 
 ///|
 fn dae_original_result_boundary_row_from_context(
-  def_idx : Int,
+  def_idx : Int32,
   context : DaeOriginalResultBoundaryContext,
 ) -> DaeOriginalResultBoundaryRow {
   let preservation = dae_original_result_preservation_row_from_context(
@@ -31367,7 +32291,7 @@ fn dae_original_result_boundary_evidence_from_row(
 
 ///|
 fn dae_original_result_preservation_evidence_from_context(
-  def_idx : Int,
+  def_idx : Int32,
   context : DaeOriginalResultPreservationContext,
 ) -> DaeOriginalResultPreservationEvidence {
   dae_original_result_preservation_evidence_from_row(
@@ -31411,18 +32335,19 @@ fn dae_original_result_preservation_blocks_argument_side_result_repair(
 ///|
 fn dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers(
   mod_ : @lib.Module,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_mutual_calls : Array[Bool],
-) -> Array[Int] {
+  first_roots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -31444,7 +32369,13 @@ fn dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers
       while callee_def < defined {
         if callee_def != caller_def {
           counts[callee_def] = counts[callee_def] +
-            dae_count_dead_suffix_direct_call_to(body, imported + callee_def)
+            dae_count_dead_suffix_direct_call_to(
+              body,
+              imported + callee_def,
+              known_first_root=dae_original_first_root_index(
+                body, first_roots, caller_def,
+              ),
+            )
         }
         callee_def += 1
       }
@@ -31459,10 +32390,12 @@ fn dae_try_process_core_work_item(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
-  target_def : Int,
+  target_def : Int32,
   family : DaeWorkFamily,
-  dependencies? : DaeBoundaryDependencyGraph? = None,
-  apply_followups? : Bool = true,
+  dependencies~ : DaeBoundaryDependencyGraph? = None,
+  apply_followups~ : Bool = true,
+  numeric_result_validation_chain~ : DaeScalarValidationChain? = None,
+  numeric_result_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaeCoreResultApplication? {
   let active_dependencies = if family == DaeForwardingWork {
     match dependencies {
@@ -31488,6 +32421,8 @@ fn dae_try_process_core_work_item(
       active_dependencies,
       item,
       diagnostics,
+      numeric_result_validation_chain~,
+      numeric_result_validation_work~,
     ) {
     DaeWorkCommitted(application) =>
       Some(
@@ -31505,7 +32440,7 @@ fn dae_try_process_core_work_item(
 fn dae_core_pass_result_from_work_application(
   application : DaeCoreResultApplication,
   producer_effects_report : Array[DaeCommitEffects],
-  committed_application_report? : Array[DaeCoreResultApplication] = [],
+  committed_application_report~ : Array[DaeCoreResultApplication] = [],
 ) -> DaePassResult {
   if committed_application_report.length() == 0 {
     committed_application_report.push(application)
@@ -31527,7 +32462,7 @@ fn dae_core_pass_result_from_work_application(
 
 ///|
 fn dae_should_run_scalar_parameter_candidate(
-  _defined : Int,
+  _defined : Int32,
   has_direct_caller_cycle~ : Bool,
 ) -> Bool {
   let _ = has_direct_caller_cycle
@@ -31536,7 +32471,7 @@ fn dae_should_run_scalar_parameter_candidate(
 
 ///|
 fn dae_should_run_broad_uniform_parameter_flow(
-  _defined : Int,
+  _defined : Int32,
   optimize~ : Bool,
 ) -> Bool {
   let _ = optimize
@@ -31545,7 +32480,7 @@ fn dae_should_run_broad_uniform_parameter_flow(
 
 ///|
 fn dae_should_run_reverse_exact_literal_phase(
-  _defined : Int,
+  _defined : Int32,
   optimize~ : Bool,
 ) -> Bool {
   optimize
@@ -31553,7 +32488,7 @@ fn dae_should_run_reverse_exact_literal_phase(
 
 ///|
 fn dae_should_run_computed_unread_dependency_worklist(
-  _defined : Int,
+  _defined : Int32,
   optimize~ : Bool,
 ) -> Bool {
   optimize
@@ -31561,7 +32496,7 @@ fn dae_should_run_computed_unread_dependency_worklist(
 
 ///|
 fn dae_should_run_forwarded_constant_revisit(
-  _defined : Int,
+  _defined : Int32,
   optimize~ : Bool,
 ) -> Bool {
   optimize
@@ -31578,16 +32513,16 @@ fn dae_should_run_fact_dropped_result_revisit(optimize~ : Bool) -> Bool {
 }
 
 ///|
-fn dae_candidate_worklist_requires_facts(candidate_defs : Array[Int]) -> Bool {
+fn dae_candidate_worklist_requires_facts(candidate_defs : Array[Int32]) -> Bool {
   candidate_defs.length() > 0
 }
 
 ///|
 fn dae_should_collect_phase_local_uniform_constants(
-  _defined : Int,
+  _defined : Int32,
   optimize~ : Bool,
   allow_written_uniform_const~ : Bool,
-  self_calls_anywhere~ : Int,
+  self_calls_anywhere~ : Int32,
   has_collect_const_param~ : Bool,
   has_direct_caller_cycle~ : Bool,
 ) -> Bool {
@@ -31599,9 +32534,9 @@ fn dae_should_collect_phase_local_uniform_constants(
 
 ///|
 fn dae_should_scan_unobserved_shape(
-  current_param_count : Int,
-  current_result_count : Int,
-  current_calls_anywhere : Int,
+  current_param_count : Int32,
+  current_result_count : Int32,
+  current_calls_anywhere : Int32,
 ) -> Bool {
   (current_param_count > 0 || current_result_count > 0) &&
   current_calls_anywhere > 0
@@ -31611,21 +32546,25 @@ fn dae_should_scan_unobserved_shape(
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
-  current_call_counts_anywhere : Array[Int],
+  current_call_counts_anywhere : Array[Int32],
   optimize : Bool,
   skip_param_removal : Bool,
   original : DaeOriginalBoundarySnapshot,
   current_graph : DaeCurrentBoundaryGraph,
-  expected_call_epoch? : Int = -1,
-  max_def_exclusive? : Int = -1,
-  start_def_inclusive? : Int = 0,
-  boundary_facts_override? : DaeCallBoundaryFacts? = None,
-  dependencies? : DaeBoundaryDependencyGraph? = None,
-  producer_effects_report? : Array[DaeCommitEffects] = [],
-  committed_application_report? : Array[DaeCoreResultApplication] = [],
-  scalar_plan_code_snapshot_current? : Bool = true,
-  has_current_dropped_result_candidate? : Bool = true,
-  traps_never_happen? : Bool = false,
+  expected_call_epoch~ : Int32 = -1,
+  max_def_exclusive~ : Int32 = -1,
+  start_def_inclusive~ : Int32 = 0,
+  boundary_facts_override~ : DaeCallBoundaryFacts? = None,
+  dependencies~ : DaeBoundaryDependencyGraph? = None,
+  producer_effects_report~ : Array[DaeCommitEffects] = [],
+  committed_application_report~ : Array[DaeCoreResultApplication] = [],
+  checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
+  scalar_validation_chain~ : DaeScalarValidationChain? = None,
+  scalar_validation_work~ : DaeScalarValidationWork? = None,
+  numeric_result_validation_work~ : DaeScalarValidationWork? = None,
+  scalar_plan_code_snapshot_current~ : Bool = true,
+  has_current_dropped_result_candidate~ : Bool = true,
+  traps_never_happen~ : Bool = false,
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
   let original_large_unreachable_prefixes = original.large_unreachable_prefixes
@@ -31829,6 +32768,7 @@ fn dae_run_core_once(
       match
         dae_specialized_result_facts_new(original, current_graph, callee_abs) {
         Some(specialized_facts) => {
+          dae_scalar_validation_barrier_opt(scalar_validation_chain)
           let unobserved = dae_try_remove_unobserved_unreachable_function_with_facts(
             mod_, specialized_facts,
           )
@@ -31912,6 +32852,7 @@ fn dae_run_core_once(
         original_result_cleanup_preservation_for_def.result_side_chain_cleanup_preservation ||
         original_escaped_block_self_result ||
         original_dropped_only_result_side_caller_prune
+      dae_scalar_validation_barrier_opt(scalar_validation_chain)
       let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
         mod_,
         callee_abs,
@@ -32076,6 +33017,7 @@ fn dae_run_core_once(
         match
           dae_specialized_result_facts_new(original, current_graph, callee_abs) {
           Some(specialized_facts) => {
+            dae_scalar_validation_barrier_opt(scalar_validation_chain)
             let self_suffix = dae_try_remove_dead_self_suffix_result_with_facts(
               mod_, specialized_facts,
             )
@@ -32114,6 +33056,7 @@ fn dae_run_core_once(
         match
           dae_specialized_result_facts_new(original, current_graph, callee_abs) {
           Some(specialized_facts) => {
+            dae_scalar_validation_barrier_opt(scalar_validation_chain)
             let result = dae_try_remove_uncalled_results_with_facts(
               mod_, specialized_facts,
             )
@@ -32209,6 +33152,7 @@ fn dae_run_core_once(
             p += 1
           }
           if any && !skip_param_removal {
+            dae_scalar_validation_barrier_opt(scalar_validation_chain)
             let result = dae_try_rewrite_candidate(
               mod_,
               callee_abs,
@@ -32259,6 +33203,7 @@ fn dae_run_core_once(
     if self_calls_anywhere == 0 &&
       boundary_candidate.direct_call_count > 0 &&
       dae_signature_has_heap_ref(params, results) {
+      dae_scalar_validation_barrier_opt(scalar_validation_chain)
       match
         dae_try_process_core_work_item(
           original,
@@ -32281,6 +33226,7 @@ fn dae_run_core_once(
     if self_calls_anywhere > 0 &&
       boundary_candidate.direct_call_count > 0 &&
       dae_signature_has_heap_ref([], results) {
+      dae_scalar_validation_barrier_opt(scalar_validation_chain)
       match
         dae_try_process_core_work_item(
           original,
@@ -32308,9 +33254,18 @@ fn dae_run_core_once(
       continue
     }
     if params.length() == 0 {
+      // The dropped-result producer rejects a zero-result signature before
+      // any IR write. Keep the checked source across this empty boundary.
+      if results.is_empty() {
+        def_idx += 1
+        continue
+      }
       let preserve_original_result = original_result_preservation_for_def
       if original_result_removal_prune_for_def.dropped_self_result_with_void_side_callers &&
         !skip_original_large_result_cleanup {
+        dae_numeric_result_validation_before_producer(
+          scalar_validation_chain, current_graph, def_idx,
+        )
         match
           dae_try_process_core_work_item(
             original,
@@ -32320,6 +33275,8 @@ fn dae_run_core_once(
             DaeDroppedResultWork,
             dependencies=Some(active_dependencies),
             apply_followups=false,
+            numeric_result_validation_chain=scalar_validation_chain,
+            numeric_result_validation_work~,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
@@ -32334,6 +33291,9 @@ fn dae_run_core_once(
         dae_should_prune_params_absent_result_cleanup(
           original_result_removal_prune_for_def,
         ) {
+        dae_numeric_result_validation_before_producer(
+          scalar_validation_chain, current_graph, def_idx,
+        )
         match
           dae_try_process_core_work_item(
             original,
@@ -32343,6 +33303,8 @@ fn dae_run_core_once(
             DaeDroppedResultWork,
             dependencies=Some(active_dependencies),
             apply_followups=false,
+            numeric_result_validation_chain=scalar_validation_chain,
+            numeric_result_validation_work~,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
@@ -32355,6 +33317,9 @@ fn dae_run_core_once(
       }
       if !skip_original_large_result_cleanup &&
         !dae_original_result_preservation_any(preserve_original_result) {
+        dae_numeric_result_validation_before_producer(
+          scalar_validation_chain, current_graph, def_idx,
+        )
         match
           dae_try_process_core_work_item(
             original,
@@ -32364,6 +33329,8 @@ fn dae_run_core_once(
             DaeDroppedResultWork,
             dependencies=Some(active_dependencies),
             apply_followups=false,
+            numeric_result_validation_chain=scalar_validation_chain,
+            numeric_result_validation_work~,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
@@ -32408,6 +33375,7 @@ fn dae_run_core_once(
         param_idx += 1
       }
       if found_entry_dead_param {
+        dae_scalar_validation_barrier_opt(scalar_validation_chain)
         rewrite_mod = dae_strip_function_terminal_suffix_for_def(mod_, def_idx)
         has_rewrite_mod = true
       }
@@ -32513,6 +33481,7 @@ fn dae_run_core_once(
             _ => None
           }
         }
+        dae_scalar_validation_barrier_opt(scalar_validation_chain)
         let planned = dae_try_rewrite_scalar_unused_param_candidate(
           mod_,
           original,
@@ -32535,6 +33504,9 @@ fn dae_run_core_once(
           continue
         }
       }
+      if !dae_scalar_numeric_materialization(const_params) {
+        dae_scalar_validation_barrier_opt(scalar_validation_chain)
+      }
       let result = dae_try_rewrite_candidate(
         rewrite_mod,
         callee_abs,
@@ -32546,6 +33518,9 @@ fn dae_run_core_once(
         original=Some(original),
         graph=Some(current_graph),
         entry_live=Some(entry_live),
+        checked_candidate_report~,
+        scalar_validation_chain~,
+        scalar_validation_work~,
       )
       if result.changed {
         dae_record_work_family_candidate_effects(
@@ -32566,6 +33541,26 @@ fn dae_run_core_once(
       !dae_original_result_preservation_blocks_argument_side_result_repair(
         preserve_current_result, true,
       ) {
+      // Use the exact graph facts passed to the dropped-result producer, not
+      // the optional boundary-facts override. Its first gate rejects zero
+      // direct calls and any undropped call before a candidate can be written.
+      let producer_call_facts = current_graph.snapshot.call_facts
+      let producer_direct_calls = dae_call_boundary_count_at(
+        producer_call_facts.direct_calls,
+        callee_abs,
+      )
+      if producer_direct_calls == 0 ||
+        dae_call_boundary_count_at(
+          producer_call_facts.dropped_calls,
+          callee_abs,
+        ) !=
+        producer_direct_calls {
+        def_idx += 1
+        continue
+      }
+      dae_numeric_result_validation_before_producer(
+        scalar_validation_chain, current_graph, def_idx,
+      )
       match
         dae_try_process_core_work_item(
           original,
@@ -32575,6 +33570,8 @@ fn dae_run_core_once(
           DaeDroppedResultWork,
           dependencies=Some(active_dependencies),
           apply_followups=false,
+          numeric_result_validation_chain=scalar_validation_chain,
+          numeric_result_validation_work~,
         ) {
         Some(application) =>
           return dae_core_pass_result_from_work_application(
@@ -32593,40 +33590,42 @@ fn dae_run_core_once(
 ///|
 fn dae_try_rewrite_reverse_exact_literal_once(
   mod_ : @lib.Module,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
   original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
-    Int,
+    Int32,
   ],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_block_undropped_self_calls : Array[Bool],
-  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int],
+  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int32],
   original_dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[
-    Int,
+    Int32,
   ],
   original_dead_suffix_same_self_result_operand_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_escaped_result_call_facts : DaeOriginalDeadSuffixEscapedResultCallFacts,
   original_dead_suffix_mutual_calls : Array[Bool],
-  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int],
-  original_dead_suffix_escaped_result_operand_call_counts : Array[Int],
-  original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
-    Int,
+  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[
+    Int32,
   ],
-  supplied_graph? : DaeCurrentBoundaryGraph? = None,
-  graph_builds? : Array[Int]? = None,
-  original_snapshot_builds? : Array[Int]? = None,
-  type_resolutions? : Array[Int]? = None,
-  reuse_function_types? : Bool = true,
-  reverse? : Bool = true,
-  max_def_exclusive? : Int = -1,
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int32],
+  original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
+    Int32,
+  ],
+  supplied_graph~ : DaeCurrentBoundaryGraph? = None,
+  graph_builds~ : Array[Int32]? = None,
+  original_snapshot_builds~ : Array[Int32]? = None,
+  type_resolutions~ : Array[Int32]? = None,
+  reuse_function_types~ : Bool = true,
+  reverse~ : Bool = true,
+  max_def_exclusive~ : Int32 = -1,
 ) -> DaePassResult {
   let original_dead_suffix_undropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.undropped_calls
   let original_dead_suffix_dropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.dropped_calls
@@ -32899,7 +33898,7 @@ fn dae_apply_selected_core_result(
   touched : Array[Bool],
   changed : Bool,
   selected_defs : Array[Bool],
-  selected_def : Int,
+  selected_def : Int32,
   result : DaePassResult,
 ) -> DaeCoreResultApplication {
   if selected_def >= 0 && selected_def < selected_defs.length() {
@@ -32914,7 +33913,7 @@ fn dae_run_singleton_selected_core_rewrite(
   touched : Array[Bool],
   changed : Bool,
   selected_defs : Array[Bool],
-  selected_def : Int,
+  selected_def : Int32,
   rewrite_func : (@lib.Module, Array[Bool]) -> DaePassResult,
 ) -> DaeCoreResultApplication {
   if selected_def >= 0 && selected_def < selected_defs.length() {
@@ -32933,10 +33932,10 @@ fn dae_run_bounded_singleton_selected_core_rewrite(
   touched : Array[Bool],
   changed : Bool,
   selected_defs : Array[Bool],
-  selected_def : Int,
-  max_iterations : Int,
+  selected_def : Int32,
+  max_iterations : Int32,
   rewrite_func : (@lib.Module, Array[Bool]) -> DaePassResult,
-  on_applied : (Int, DaeCoreResultApplication) -> Unit,
+  on_applied : (Int32, DaeCoreResultApplication) -> Unit,
 ) -> DaeCoreResultApplication {
   let mut application : DaeCoreResultApplication = {
     mod_out: current,
@@ -32987,7 +33986,7 @@ fn dae_apply_primary_selected_core_result(
 fn dae_try_apply_selected_def_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  def_idx : Int,
+  def_idx : Int32,
   rewrite_func : (@lib.Func, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
@@ -33029,7 +34028,7 @@ fn dae_try_apply_selected_def_func_rewrite_once(
 fn dae_try_apply_selected_def_typed_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  def_idx : Int,
+  def_idx : Int32,
   rewrite_func : (@lib.Func, @lib.FuncType, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   let rewrite_selected = fn(
@@ -33057,13 +34056,13 @@ fn dae_try_apply_selected_def_typed_func_rewrite_once(
 fn dae_try_apply_first_selected_typed_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  rewrite_func : (@lib.Func, Int, @lib.FuncType, @lib.TypeSec?) -> @lib.Func?,
+  rewrite_func : (@lib.Func, Int32, @lib.FuncType, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
   let rewrite_selected = fn(
     func : @lib.Func,
-    def_idx : Int,
+    def_idx : Int32,
     type_sec : @lib.TypeSec?,
   ) -> @lib.Func? {
     let func_type = match
@@ -33082,7 +34081,7 @@ fn dae_try_apply_first_selected_typed_func_rewrite_once(
 fn dae_apply_selected_typed_func_rewrites_to_fixpoint(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  rewrite_func : (@lib.Func, Int, @lib.FuncType, @lib.TypeSec?) -> @lib.Func?,
+  rewrite_func : (@lib.Func, Int32, @lib.FuncType, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -33143,7 +34142,7 @@ fn dae_apply_selected_typed_func_rewrites_to_fixpoint(
 fn dae_try_apply_selected_def_funcsec_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  def_idx : Int,
+  def_idx : Int32,
   rewrite_func : (@lib.Func, @lib.FuncType, @lib.TypeSec) -> @lib.Func?,
 ) -> DaePassResult {
   if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
@@ -33199,7 +34198,7 @@ fn dae_try_apply_selected_def_funcsec_func_rewrite_once(
 fn dae_try_apply_first_selected_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  rewrite_func : (@lib.Func, Int, @lib.TypeSec?) -> @lib.Func?,
+  rewrite_func : (@lib.Func, Int32, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   let defined = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.length()
@@ -33232,7 +34231,7 @@ fn dae_try_apply_first_selected_func_rewrite_once(
 fn dae_try_apply_selected_def_body_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
-  def_idx : Int,
+  def_idx : Int32,
   rewrite_body : (Array[@lib.Instruction], @lib.TypeSec?) -> Array[
     @lib.Instruction,
   ]?,
@@ -33256,7 +34255,7 @@ fn dae_try_apply_selected_def_body_rewrite_once(
 #warnings("-unused_value")
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
-  max_caller_def_exclusive : Int,
+  max_caller_def_exclusive : Int32,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -33274,7 +34273,7 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
   let mut caller_def = 0
   while caller_def < caller_limit {
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let callees : Array[Int] = []
+    let callees : Array[Int32] = []
     dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
     for callee_def in callees {
       if callee_def >= caller_limit && callee_def < defined {
@@ -33289,8 +34288,8 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 ///|
 fn dae_mark_direct_callee_defs_anywhere_instr(
   instr : @lib.Instruction,
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   selected_callees : Array[Bool],
 ) -> Unit {
   match instr {
@@ -33344,8 +34343,8 @@ fn dae_mark_direct_callee_defs_anywhere_instr(
 ///|
 fn dae_mark_direct_callee_defs_anywhere(
   instrs : Array[@lib.Instruction],
-  imported : Int,
-  defined : Int,
+  imported : Int32,
+  defined : Int32,
   selected_callees : Array[Bool],
 ) -> Unit {
   for instr in instrs {
@@ -33382,7 +34381,7 @@ fn dae_collect_direct_callee_defs_from_selected_callers(
 fn dae_collect_changed_direct_callee_defs(
   before : @lib.Module,
   current : @lib.Module,
-) -> Array[Int] {
+) -> Array[Int32] {
   let before_funcs = match before.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -33396,12 +34395,12 @@ fn dae_collect_changed_direct_callee_defs(
   }
   let imported = dae_imported_func_count(current)
   let defined = current_funcs.length()
-  let seeds : Array[Int] = []
+  let seeds : Array[Int32] = []
   let mut def_idx = 0
   while def_idx < defined {
     if before_funcs[def_idx] != current_funcs[def_idx] {
       let @lib.Func(_, @lib.Expr(body)) = current_funcs[def_idx]
-      let callees : Array[Int] = []
+      let callees : Array[Int32] = []
       dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
       for callee_def in callees {
         if callee_def >= 0 &&
@@ -33448,7 +34447,7 @@ fn dae_run_changed_direct_callee_uniform_frontier(
     -1,
     allow_immutable_global_get=true,
   )
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   for candidate_def in all_candidates {
     if seed_defs.contains(candidate_def) {
       candidates.push(candidate_def)
@@ -33466,9 +34465,9 @@ fn dae_run_changed_direct_callee_uniform_frontier(
 ///|
 fn dae_collect_shifted_forward_wrapper_callee_order(
   mod_ : @lib.Module,
-  min_caller_def_inclusive : Int,
-  max_caller_def_exclusive : Int,
-) -> Array[Int] {
+  min_caller_def_inclusive : Int32,
+  max_caller_def_exclusive : Int32,
+) -> Array[Int32] {
   let defined = dae_defined_func_count(mod_)
   let caller_start = if min_caller_def_inclusive > 0 &&
     min_caller_def_inclusive < defined {
@@ -33485,7 +34484,7 @@ fn dae_collect_shifted_forward_wrapper_callee_order(
     defined
   }
   let type_indices = dae_collect_func_type_indices(mod_)
-  let ordered : Array[Int] = []
+  let ordered : Array[Int32] = []
   let mut caller_def = caller_start
   while caller_def < caller_limit {
     let callee_def = dae_find_shifted_forward_wrapper_callee_def(
@@ -33503,8 +34502,8 @@ fn dae_collect_shifted_forward_wrapper_callee_order(
 #warnings("-unused_value")
 fn dae_collect_shifted_forward_wrapper_callee_defs(
   mod_ : @lib.Module,
-  min_caller_def_inclusive : Int,
-  max_caller_def_exclusive : Int,
+  min_caller_def_inclusive : Int32,
+  max_caller_def_exclusive : Int32,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -33589,8 +34588,8 @@ fn dae_collect_shifted_forward_wrapper_callee_defs(
 fn dae_find_shifted_forward_wrapper_callee_def(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-  wrapper_def : Int,
-) -> Int {
+  wrapper_def : Int32,
+) -> Int32 {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -33652,13 +34651,13 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
   call_facts : DaeCurrentCallFacts,
-  allow_stack_carried_void_effects? : Bool = false,
-  require_localization_retry? : Bool = false,
-  only_def? : Int = -1,
-  type_indices_override? : Array[@lib.TypeIdx]? = None,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
-  producer_effects_report? : Array[DaeCommitEffects] = [],
+  allow_stack_carried_void_effects~ : Bool = false,
+  require_localization_retry~ : Bool = false,
+  only_def~ : Int32 = -1,
+  type_indices_override~ : Array[@lib.TypeIdx]? = None,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
+  producer_effects_report~ : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -33838,14 +34837,14 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
 ///|
 fn dae_try_rewrite_unread_params_for_def_with_facts(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   call_facts : DaeCurrentCallFacts,
-  allow_stack_carried_void_effects? : Bool = false,
-  require_localization_retry? : Bool = false,
-  type_indices_override? : Array[@lib.TypeIdx]? = None,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
-  producer_effects_report? : Array[DaeCommitEffects] = [],
+  allow_stack_carried_void_effects~ : Bool = false,
+  require_localization_retry~ : Bool = false,
+  type_indices_override~ : Array[@lib.TypeIdx]? = None,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
+  producer_effects_report~ : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     mod_,
@@ -34590,7 +35589,7 @@ fn dae_instr_is_nontrapping_pure_tee_suffix_binary(
 fn dae_block_type_zero_param_result_count(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-) -> Int? {
+) -> Int32? {
   match block_type {
     @lib.VoidBlockType => Some(0)
     @lib.ValTypeBlockType(_) => Some(1)
@@ -34753,7 +35752,7 @@ fn dae_instr_droppable_pure_if_value(
 fn dae_instr_dropped_pure_value_arity(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
-) -> Int? {
+) -> Int32? {
   if dae_instr_is_droppable_pure_leaf(instr) {
     return Some(0)
   }
@@ -34778,7 +35777,7 @@ fn dae_instr_dropped_pure_value_arity(
 fn dae_find_droppable_pure_stack_expr_start(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-) -> Int? {
+) -> Int32? {
   dae_find_droppable_pure_stack_expr_start_with_scalar_needs(out, type_sec)
 }
 
@@ -34786,8 +35785,8 @@ fn dae_find_droppable_pure_stack_expr_start(
 fn dae_find_droppable_pure_stack_expr_start_with_scalar_needs(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  need_stacks? : Array[Int]? = None,
-) -> Int? {
+  need_stacks~ : Array[Int32]? = None,
+) -> Int32? {
   dae_find_droppable_pure_stack_expr_start_from_end(
     out,
     type_sec,
@@ -34803,9 +35802,9 @@ fn dae_find_droppable_pure_stack_expr_start_with_scalar_needs(
 fn dae_find_droppable_pure_stack_expr_start_from_end(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  end : Int,
-  need_stacks : Array[Int]?,
-) -> Int? {
+  end : Int32,
+  need_stacks : Array[Int32]?,
+) -> Int32? {
   dae_find_droppable_pure_stack_expr_start_in_range(
     out, type_sec, 0, end, need_stacks,
   )
@@ -34815,10 +35814,10 @@ fn dae_find_droppable_pure_stack_expr_start_from_end(
 fn dae_find_droppable_pure_stack_expr_start_in_range(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  minimum_start : Int,
-  end : Int,
-  need_stacks : Array[Int]?,
-) -> Int? {
+  minimum_start : Int32,
+  end : Int32,
+  need_stacks : Array[Int32]?,
+) -> Int32? {
   if minimum_start < 0 || minimum_start >= end || end > out.length() {
     return None
   }
@@ -34887,10 +35886,10 @@ fn dae_find_droppable_pure_stack_expr_start_in_range(
 fn dae_find_droppable_marked_stack_expr_start(
   out : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  first : Int,
-  needs : Array[Int],
-  minimum_start? : Int = 0,
-) -> Int? {
+  first : Int32,
+  needs : Array[Int32],
+  minimum_start~ : Int32 = 0,
+) -> Int32? {
   if minimum_start < 0 || first >= out.length() {
     return None
   }
@@ -34980,7 +35979,7 @@ fn dae_local_get_range_evidence_is_consistent(
 fn dae_instr_dropped_pure_multivalue_block_prefix(
   instr : @lib.Instruction,
   type_sec : @lib.TypeSec?,
-) -> (Int, Array[@lib.Instruction])? {
+) -> (Int32, Array[@lib.Instruction])? {
   let (block_type, body) = match instr {
     @lib.Block(block_type, @lib.Expr(body)) => (block_type, body)
     _ => return None
@@ -35153,7 +36152,7 @@ fn dae_cleanup_touched_dropped_pure_multivalue_blocks(
 ///|
 fn dae_local_get_range_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> DaeLocalGetRangeEvidence? {
   if start < 0 || start > instrs.length() {
     return None
@@ -35263,7 +36262,7 @@ fn dae_dropped_local_tee_suffix_cleanup_evidence_is_consistent(
 ///|
 fn dae_dropped_local_tee_suffix_cleanup_evidence(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> DaeDroppedLocalTeeSuffixCleanupEvidence? {
   if idx < 0 || idx >= instrs.length() {
     return None
@@ -35333,7 +36332,10 @@ fn dae_dropped_local_tee_suffix_cleanup_evidence(
 }
 
 ///|
-fn dae_truncate_instrs(out : Array[@lib.Instruction], new_length : Int) -> Unit {
+fn dae_truncate_instrs(
+  out : Array[@lib.Instruction],
+  new_length : Int32,
+) -> Unit {
   while out.length() > new_length {
     ignore(out.pop())
   }
@@ -35402,7 +36404,7 @@ fn dae_live_local_copy_cleanup_evidence_is_consistent(
 ///|
 fn dae_live_local_copy_cleanup_evidence(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   stack_evidence : DaeDroppablePureStackEvidence?,
 ) -> DaeLiveLocalCopyCleanupEvidence? {
   if idx < 0 {
@@ -35518,7 +36520,7 @@ fn dae_instr_is_integer_const_leaf(instr : @lib.Instruction) -> Bool {
 ///|
 fn dae_instr_prefix_has_observable_effect(
   instrs : Array[@lib.Instruction],
-  end : Int,
+  end : Int32,
 ) -> Bool {
   let mut idx = 0
   while idx < end {
@@ -35533,7 +36535,7 @@ fn dae_instr_prefix_has_observable_effect(
 ///|
 fn dae_dropped_pure_leaf_subject_evidence_from_stack(
   out : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> DaeDroppedPureLeafSubjectEvidence? {
   if start < 0 || start >= out.length() {
     return None
@@ -35635,7 +36637,7 @@ fn dae_dropped_pure_leaf_subject_preserves_local_get_after_effect(
 ///|
 fn dae_dropped_pure_leaf_cleanup_evidence_from_stack(
   out : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   preserve_dropped_integer_const_debris : Bool,
   preserve_effect_dropped_integer_const_debris : Bool,
 ) -> DaeDroppedPureLeafCleanupEvidence {
@@ -35732,7 +36734,7 @@ fn dae_dropped_pure_expression_cleanup_evidence_is_consistent(
 fn dae_dropped_pure_expression_cleanup_evidence(
   out : Array[@lib.Instruction],
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   preserve_dropped_integer_const_debris : Bool,
   preserve_effect_dropped_integer_const_debris : Bool,
 ) -> DaeDroppedPureExpressionCleanupEvidence? {
@@ -35816,8 +36818,8 @@ fn dae_dropped_pure_expression_cleanup_evidence(
 fn dae_empty_zero_result_control_cleanup_evidence_from_lengths(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  primary_body_length : Int,
-  secondary_body_length : Int,
+  primary_body_length : Int32,
+  secondary_body_length : Int32,
 ) -> DaeEmptyZeroResultControlCleanupEvidence? {
   if primary_body_length < 0 || secondary_body_length < -1 {
     return None
@@ -35850,7 +36852,7 @@ fn dae_empty_zero_result_control_cleanup_evidence_from_lengths(
 fn dae_empty_zero_result_control_cleanup_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  rewritten_body_length : Int,
+  rewritten_body_length : Int32,
 ) -> DaeEmptyZeroResultControlCleanupEvidence? {
   dae_empty_zero_result_control_cleanup_evidence_from_lengths(
     block_type, type_sec, rewritten_body_length, -1,
@@ -35861,8 +36863,8 @@ fn dae_empty_zero_result_control_cleanup_evidence(
 fn dae_empty_zero_result_if_cleanup_evidence(
   block_type : @lib.BlockType,
   type_sec : @lib.TypeSec?,
-  rewritten_then_length : Int,
-  rewritten_else_length : Int,
+  rewritten_then_length : Int32,
+  rewritten_else_length : Int32,
 ) -> DaeEmptyZeroResultControlCleanupEvidence? {
   dae_empty_zero_result_control_cleanup_evidence_from_lengths(
     block_type, type_sec, rewritten_then_length, rewritten_else_length,
@@ -36176,10 +37178,10 @@ fn dae_instrs_may_have_raw_cleanup_candidate(
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  allow_live_local_copy_cleanup? : Bool = true,
-  preserve_dropped_integer_const_debris? : Bool = false,
-  preserve_effect_dropped_integer_const_debris? : Bool = true,
-  preserve_nop_debris? : Bool = true,
+  allow_live_local_copy_cleanup~ : Bool = true,
+  preserve_dropped_integer_const_debris~ : Bool = false,
+  preserve_effect_dropped_integer_const_debris~ : Bool = true,
+  preserve_nop_debris~ : Bool = true,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -36458,7 +37460,7 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
 ///|
 fn dae_strip_dropped_i32_const_pairs_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction]?, Int, Int) {
+) -> (Array[@lib.Instruction]?, Int32, Int32) {
   let mut out : Array[@lib.Instruction]? = None
   let mut removed = 0
   let mut stackified = 0
@@ -36584,7 +37586,7 @@ fn dae_strip_dropped_i32_const_pairs_instrs(
 fn dae_cleanup_touched_dropped_i32_const_pairs(
   mod_ : @lib.Module,
   touched : Array[Bool],
-) -> (@lib.Module, Int, Int) {
+) -> (@lib.Module, Int32, Int32) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, 0, 0)
@@ -36639,7 +37641,7 @@ fn dae_cleanup_touched_dropped_i32_const_pairs(
 fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   mod_ : @lib.Module,
   touched_defs : Array[Bool],
-  return_touched? : Bool = true,
+  return_touched~ : Bool = true,
 ) -> DaePassResult {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -36711,7 +37713,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
 ///|
 fn dae_try_strip_terminal_dead_wrapper_suffix_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if idx < 3 || idx + 8 != instrs.length() - 1 {
     return None
@@ -36760,7 +37762,7 @@ fn dae_try_strip_terminal_dead_wrapper_suffix_at(
 ///|
 fn dae_try_strip_terminal_lowered_return_wrapper_suffix_at(
   instrs : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Array[@lib.Instruction]? {
   if idx < 1 || idx + 11 != instrs.length() {
     return None
@@ -37010,7 +38012,7 @@ fn dae_strip_module_root_return_suffix_once(
 ///|
 fn dae_local_reference_extent_note_slot(
   evidence : DaeLocalReferenceExtentEvidence,
-  slot : Int,
+  slot : Int32,
 ) -> DaeLocalReferenceExtentEvidence {
   {
     limit: evidence.limit,
@@ -37062,8 +38064,8 @@ fn dae_local_reference_extent_evidence_from_seed(
 ///|
 fn dae_local_reference_extent_evidence(
   instrs : Array[@lib.Instruction],
-  initial_max : Int,
-  limit : Int,
+  initial_max : Int32,
+  limit : Int32,
 ) -> DaeLocalReferenceExtentEvidence {
   dae_local_reference_extent_evidence_from_seed(instrs, {
     limit,
@@ -37075,7 +38077,7 @@ fn dae_local_reference_extent_evidence(
 ///|
 fn dae_instrs_reference_local_at_or_above(
   instrs : Array[@lib.Instruction],
-  limit : Int,
+  limit : Int32,
 ) -> Bool {
   dae_local_reference_extent_evidence(instrs, -1, limit).references_at_or_above_limit
 }
@@ -37083,7 +38085,7 @@ fn dae_instrs_reference_local_at_or_above(
 ///|
 fn dae_copy_instr_prefix(
   instrs : Array[@lib.Instruction],
-  end_exclusive : Int,
+  end_exclusive : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -37097,7 +38099,7 @@ fn dae_copy_instr_prefix(
 ///|
 fn dae_copy_instr_suffix(
   instrs : Array[@lib.Instruction],
-  start_inclusive : Int,
+  start_inclusive : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = start_inclusive
@@ -37112,7 +38114,7 @@ fn dae_copy_instr_suffix(
 fn dae_strip_trailing_local_copy_to_br(
   instrs : Array[@lib.Instruction],
   required_written_local : @lib.LocalIdx?,
-  required_label : Int,
+  required_label : Int32,
 ) -> Array[@lib.Instruction]? {
   if instrs.length() < 3 {
     return None
@@ -37184,7 +38186,7 @@ fn dae_instrs_write_local(
 fn dae_instrs_write_local_from(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-  start : Int,
+  start : Int32,
 ) -> Bool {
   let mut idx = start
   while idx < instrs.length() {
@@ -37288,7 +38290,7 @@ fn dae_rewrite_single_local_instrs(
 ///|
 fn dae_try_fold_func237_default_carrier_to_local_body(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   type_sec : @lib.TypeSec?,
   target_local : @lib.LocalIdx,
 ) -> Array[@lib.Instruction]? {
@@ -37455,7 +38457,7 @@ fn dae_try_fold_selected_func237_default_carrier_to_local0_once(
 }
 
 ///|
-fn dae_label_idx_as_int(label_idx : @lib.LabelIdx) -> Int {
+fn dae_label_idx_as_int(label_idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = label_idx
   raw.reinterpret_as_int()
 }
@@ -37463,13 +38465,16 @@ fn dae_label_idx_as_int(label_idx : @lib.LabelIdx) -> Int {
 ///|
 fn dae_branch_targets_outside_depth(
   label_idx : @lib.LabelIdx,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   dae_label_idx_as_int(label_idx) >= depth
 }
 
 ///|
-fn dae_instr_has_escaping_branch(instr : @lib.Instruction, depth : Int) -> Bool {
+fn dae_instr_has_escaping_branch(
+  instr : @lib.Instruction,
+  depth : Int32,
+) -> Bool {
   match instr {
     @lib.Br(label_idx) | @lib.BrIf(label_idx) =>
       dae_branch_targets_outside_depth(label_idx, depth)
@@ -37507,9 +38512,9 @@ fn dae_escaping_branch_evidence_is_consistent(
 ///|
 fn dae_escaping_branch_range_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  depth : Int,
+  start : Int32,
+  end : Int32,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   if start < 0 || end < start || end > instrs.length() || depth < 0 {
     return None
@@ -37540,7 +38545,7 @@ fn dae_escaping_branch_range_evidence(
 ///|
 fn dae_escaping_branch_evidence(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   dae_escaping_branch_range_evidence(instrs, 0, instrs.length(), depth)
 }
@@ -37548,9 +38553,9 @@ fn dae_escaping_branch_evidence(
 ///|
 fn dae_no_escaping_branch_range_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  depth : Int,
+  start : Int32,
+  end : Int32,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   match dae_escaping_branch_range_evidence(instrs, start, end, depth) {
     Some(evidence) if !evidence.has_escaping_branch => Some(evidence)
@@ -37561,8 +38566,8 @@ fn dae_no_escaping_branch_range_evidence(
 ///|
 fn dae_no_escaping_branch_prefix_evidence(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  depth : Int,
+  end : Int32,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   dae_no_escaping_branch_range_evidence(instrs, 0, end, depth)
 }
@@ -37570,8 +38575,8 @@ fn dae_no_escaping_branch_prefix_evidence(
 ///|
 fn dae_no_escaping_branch_suffix_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  depth : Int,
+  start : Int32,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   dae_no_escaping_branch_range_evidence(instrs, start, instrs.length(), depth)
 }
@@ -37579,7 +38584,7 @@ fn dae_no_escaping_branch_suffix_evidence(
 ///|
 fn dae_no_escaping_branch_evidence(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> DaeEscapingBranchEvidence? {
   match dae_escaping_branch_evidence(instrs, depth) {
     Some(evidence) if !evidence.has_escaping_branch => Some(evidence)
@@ -37614,9 +38619,9 @@ fn dae_stack_slice_localization_evidence_is_consistent(
 
 ///|
 fn dae_stack_slice_localization_policy(
-  initial_stack_values : Int,
-  expected_final_stack_values : Int,
-  depth : Int,
+  initial_stack_values : Int32,
+  expected_final_stack_values : Int32,
+  depth : Int32,
   instr_allowed : (@lib.Instruction) -> Bool,
 ) -> DaeStackSliceLocalizationPolicy {
   { initial_stack_values, expected_final_stack_values, depth, instr_allowed, }
@@ -37631,7 +38636,7 @@ fn dae_select_condition_localization_policy() -> DaeStackSliceLocalizationPolicy
 
 ///|
 fn dae_parametric_typeidx_prefix_localization_policy(
-  param_count : Int,
+  param_count : Int32,
 ) -> DaeStackSliceLocalizationPolicy {
   dae_stack_slice_localization_policy(
     param_count, 0, 0, dae_parametric_typeidx_stack_slice_instr_allowed,
@@ -37641,11 +38646,11 @@ fn dae_parametric_typeidx_prefix_localization_policy(
 ///|
 fn dae_stack_slice_localization_request(
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  initial_stack_values : Int,
-  expected_final_stack_values : Int,
-  depth : Int,
+  start : Int32,
+  end : Int32,
+  initial_stack_values : Int32,
+  expected_final_stack_values : Int32,
+  depth : Int32,
   instr_allowed : (@lib.Instruction) -> Bool,
 ) -> DaeStackSliceLocalizationRequest {
   {
@@ -37662,8 +38667,8 @@ fn dae_stack_slice_localization_request(
 ///|
 fn dae_stack_slice_localization_request_from_policy(
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   policy : DaeStackSliceLocalizationPolicy,
 ) -> DaeStackSliceLocalizationRequest {
   dae_stack_slice_localization_request(
@@ -37682,8 +38687,8 @@ fn dae_stack_slice_localization_evidence_from_policy(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   policy : DaeStackSliceLocalizationPolicy,
 ) -> DaeStackSliceLocalizationEvidence? {
   dae_stack_slice_localization_evidence_from_request(
@@ -37698,8 +38703,8 @@ fn dae_stack_slice_localization_policy_accepts(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   body : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   policy : DaeStackSliceLocalizationPolicy,
 ) -> Bool {
   match
@@ -37806,9 +38811,9 @@ fn dae_no_escape_slice_evidence_from_branch(
 ///|
 fn dae_no_escaping_branch_copied_slice_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  depth : Int,
+  start : Int32,
+  end : Int32,
+  depth : Int32,
 ) -> DaeNoEscapeSliceEvidence? {
   let branch = match
     dae_no_escaping_branch_range_evidence(instrs, start, end, depth) {
@@ -37821,9 +38826,9 @@ fn dae_no_escaping_branch_copied_slice_evidence(
 ///|
 fn dae_no_escaping_branch_copied_range_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
-  depth : Int,
+  start : Int32,
+  end : Int32,
+  depth : Int32,
 ) -> DaeNoEscapeSliceEvidence? {
   dae_no_escaping_branch_copied_slice_evidence(instrs, start, end, depth)
 }
@@ -37831,8 +38836,8 @@ fn dae_no_escaping_branch_copied_range_evidence(
 ///|
 fn dae_no_escaping_branch_copied_prefix_evidence(
   instrs : Array[@lib.Instruction],
-  end : Int,
-  depth : Int,
+  end : Int32,
+  depth : Int32,
 ) -> DaeNoEscapeSliceEvidence? {
   dae_no_escaping_branch_copied_slice_evidence(instrs, 0, end, depth)
 }
@@ -37840,8 +38845,8 @@ fn dae_no_escaping_branch_copied_prefix_evidence(
 ///|
 fn dae_no_escaping_branch_copied_suffix_evidence(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  depth : Int,
+  start : Int32,
+  depth : Int32,
 ) -> DaeNoEscapeSliceEvidence? {
   let branch = match
     dae_no_escaping_branch_suffix_evidence(instrs, start, depth) {
@@ -37854,7 +38859,7 @@ fn dae_no_escaping_branch_copied_suffix_evidence(
 ///|
 fn dae_no_escaping_branch_copied_evidence(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> DaeNoEscapeSliceEvidence? {
   dae_no_escaping_branch_copied_slice_evidence(
     instrs,
@@ -37876,7 +38881,7 @@ fn dae_terminal_no_escape_prefix_evidence_is_consistent(
 ///|
 fn dae_terminal_no_escape_prefix_evidence(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> DaeTerminalNoEscapePrefixEvidence? {
   if instrs.length() == 0 {
     return None
@@ -37898,7 +38903,7 @@ fn dae_terminal_no_escape_prefix_evidence(
 ///|
 fn dae_terminal_if_no_escape_carrier_evidence(
   instrs : Array[@lib.Instruction],
-  if_idx : Int,
+  if_idx : Int32,
   type_sec : @lib.TypeSec?,
 ) -> DaeTerminalIfNoEscapeCarrierEvidence? {
   if if_idx < 0 || if_idx >= instrs.length() {
@@ -37929,7 +38934,7 @@ fn dae_terminal_if_no_escape_carrier_evidence(
 ///|
 fn dae_instrs_have_escaping_branch(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match dae_escaping_branch_range_evidence(instrs, 0, instrs.length(), depth) {
     Some(evidence) => evidence.has_escaping_branch
@@ -38145,7 +39150,7 @@ fn dae_try_wrap_selected_func237_outer_loop_carrier_once(
 ///|
 fn dae_shift_label_after_removed_result_wrapper(
   label_idx : @lib.LabelIdx,
-  cutoff : Int,
+  cutoff : Int32,
 ) -> @lib.LabelIdx? {
   let depth = dae_label_idx_as_int(label_idx)
   if depth == cutoff {
@@ -38160,7 +39165,7 @@ fn dae_shift_label_after_removed_result_wrapper(
 ///|
 fn dae_shift_instr_after_removed_result_wrapper(
   instr : @lib.Instruction,
-  cutoff : Int,
+  cutoff : Int32,
 ) -> @lib.Instruction? {
   match instr {
     @lib.Br(label_idx) =>
@@ -38247,7 +39252,7 @@ fn dae_shift_instr_after_removed_result_wrapper(
 ///|
 fn dae_shift_instrs_after_removed_result_wrapper(
   instrs : Array[@lib.Instruction],
-  cutoff : Int,
+  cutoff : Int32,
 ) -> Array[@lib.Instruction]? {
   let shifted : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -38420,7 +39425,7 @@ fn dae_try_flatten_selected_func237_nested_branch_result_once(
 ///|
 fn dae_try_fold_func237_dropped_result_branch_carrier_at(
   body : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
   if idx + 1 >= body.length() || body[idx + 1] != @lib.Instruction::drop() {
@@ -38570,7 +39575,7 @@ fn dae_func237_body_ends_without_fallthrough(
 ///|
 fn dae_try_fold_func237_unreachable_after_if_else_branch_at(
   body : Array[@lib.Instruction],
-  idx : Int,
+  idx : Int32,
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
   let has_trailing_unreachable = idx + 1 < body.length() &&
@@ -38688,7 +39693,7 @@ fn dae_try_fold_selected_func237_unreachable_after_if_else_branch_once(
 ///|
 fn dae_shift_label_after_removed_block(
   label_idx : @lib.LabelIdx,
-  removed_depth : Int,
+  removed_depth : Int32,
 ) -> @lib.LabelIdx? {
   let depth = dae_label_idx_as_int(label_idx)
   if depth == removed_depth {
@@ -38703,7 +39708,7 @@ fn dae_shift_label_after_removed_block(
 ///|
 fn dae_shift_instr_after_removed_block(
   instr : @lib.Instruction,
-  removed_depth : Int,
+  removed_depth : Int32,
 ) -> @lib.Instruction? {
   match instr {
     @lib.Br(label_idx) =>
@@ -38788,7 +39793,7 @@ fn dae_shift_instr_after_removed_block(
 ///|
 fn dae_shift_instrs_after_removed_block(
   instrs : Array[@lib.Instruction],
-  removed_depth : Int,
+  removed_depth : Int32,
 ) -> Array[@lib.Instruction]? {
   let shifted : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -38803,7 +39808,7 @@ fn dae_shift_instrs_after_removed_block(
 ///|
 fn dae_strip_terminal_branch_to_removed_block(
   instrs : Array[@lib.Instruction],
-  removed_depth : Int,
+  removed_depth : Int32,
 ) -> Array[@lib.Instruction]? {
   if instrs.length() == 0 {
     return None
@@ -39250,7 +40255,7 @@ fn dae_try_wrap_func237_inner_iteration_loop_body_recursive_once(
 fn dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
   body : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
-  max_iters : Int,
+  max_iters : Int32,
 ) -> Array[@lib.Instruction]? {
   let rewrite_once = fn(
     current : Array[@lib.Instruction],
@@ -39738,7 +40743,7 @@ fn dae_instrs_reference_local(
 fn dae_instrs_reference_local_from(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-  start : Int,
+  start : Int32,
 ) -> Bool {
   let mut idx = start
   while idx < instrs.length() {
@@ -39805,7 +40810,7 @@ fn dae_try_spill_i32_param_loop_if(
 ///|
 fn dae_try_spill_i32_param_loop_at(
   body : Array[@lib.Instruction],
-  loop_idx : Int,
+  loop_idx : Int32,
   carrier_local : @lib.LocalIdx,
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
@@ -39896,7 +40901,7 @@ fn dae_try_spill_i32_param_loop_body_once(
 ///|
 fn dae_try_spill_i32_param_loop_at_with_iteration_carrier(
   body : Array[@lib.Instruction],
-  loop_idx : Int,
+  loop_idx : Int32,
   type_sec : @lib.TypeSec?,
 ) -> Array[@lib.Instruction]? {
   if loop_idx <= 0 || loop_idx >= body.length() {
@@ -40030,8 +41035,8 @@ fn dae_local_usage_evidence_instr(
 fn dae_local_usage_evidence_range(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
 ) -> DaeLocalUsageEvidence {
   let mut evidence = dae_empty_local_usage_evidence(target_local)
   let bounded_start = if start_idx < 0 { 0 } else { start_idx }
@@ -40092,8 +41097,8 @@ priv struct DaeFunc237LocalCopyCandidateEvidence {
 ///|
 priv struct DaeFunc237LocalCopyGapEvidence {
   mode : DaeFunc237LocalCopyGapMode
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   temp_local : @lib.LocalIdx
   target_local : @lib.LocalIdx
   root_has_try_table : Bool
@@ -40104,7 +41109,7 @@ fn dae_local_copy_target_evidence_is_consistent(
   evidence : DaeLocalCopyTargetEvidence,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
-  protected_local_slots : Int,
+  protected_local_slots : Int32,
 ) -> Bool {
   evidence.protected_local_slots == protected_local_slots &&
   dae_local_idx_equal(evidence.temp_local, temp_local) &&
@@ -40118,7 +41123,7 @@ fn dae_local_copy_target_evidence_is_consistent(
 fn dae_local_copy_target_evidence(
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
-  protected_local_slots : Int,
+  protected_local_slots : Int32,
 ) -> DaeLocalCopyTargetEvidence? {
   let evidence = { temp_local, target_local, protected_local_slots, }
   if dae_local_copy_target_evidence_is_consistent(
@@ -40157,7 +41162,7 @@ fn dae_func237_local_copy_candidate_evidence_is_consistent(
 fn dae_func237_local_copy_candidate_evidence(
   root_body : Array[@lib.Instruction],
   temp_local : @lib.LocalIdx,
-  param_count : Int,
+  param_count : Int32,
   mode : DaeFunc237LocalCopyGapMode,
 ) -> DaeFunc237LocalCopyCandidateEvidence? {
   if dae_local_idx_slot(temp_local) < param_count {
@@ -40295,7 +41300,7 @@ fn dae_func237_local_copy_gap_instr_safe(
 ///|
 fn dae_func237_local_copy_gap_evidence_is_consistent(
   evidence : DaeFunc237LocalCopyGapEvidence,
-  body_length : Int,
+  body_length : Int32,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
   root_has_try_table : Bool,
@@ -40318,8 +41323,8 @@ fn dae_func237_local_copy_gap_evidence_is_consistent(
 ///|
 fn dae_func237_local_copy_gap_evidence(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
   root_has_try_table : Bool,
@@ -40366,8 +41371,8 @@ fn dae_func237_local_copy_gap_evidence(
 ///|
 fn dae_func237_local_copy_gap_safe(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
   root_has_try_table : Bool,
@@ -40401,8 +41406,8 @@ fn dae_func237_copy_gap_instr_safe(
 ///|
 fn dae_func237_copy_gap_safe(
   body : Array[@lib.Instruction],
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
   root_has_try_table : Bool,
@@ -40421,7 +41426,7 @@ fn dae_func237_copy_gap_safe(
 ///|
 fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   root_body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   let mut set_idx = 0
@@ -40499,7 +41504,7 @@ fn dae_try_fold_func237_immediate_local_copy_flat_body_once(
 ///|
 fn dae_try_fold_func237_immediate_local_copy_body_once_with_root(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   root_body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   let rewrite_current_body = fn(
@@ -40524,7 +41529,7 @@ fn dae_try_fold_func237_immediate_local_copy_body_once_with_root(
 ///|
 fn dae_try_fold_func237_immediate_local_copy_body_once(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction]? {
   dae_try_fold_func237_immediate_local_copy_body_once_with_root(
     body, param_count, body,
@@ -40534,7 +41539,7 @@ fn dae_try_fold_func237_immediate_local_copy_body_once(
 ///|
 fn dae_fold_func237_immediate_local_copies(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction] {
   let rewrite_once = fn(
     current : Array[@lib.Instruction],
@@ -40548,17 +41553,17 @@ fn dae_fold_func237_immediate_local_copies(
 fn dae_count_local_gets_instrs_range(
   instrs : Array[@lib.Instruction],
   target_local : @lib.LocalIdx,
-  start_idx : Int,
-  end_idx : Int,
-) -> Int {
+  start_idx : Int32,
+  end_idx : Int32,
+) -> Int32 {
   dae_local_usage_evidence_range(instrs, target_local, start_idx, end_idx).get_count
 }
 
 ///|
 fn dae_func237_used_temp_gap_safe(
   instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
   temp_local : @lib.LocalIdx,
   target_local : @lib.LocalIdx,
   root_has_try_table : Bool,
@@ -40577,7 +41582,7 @@ fn dae_func237_used_temp_gap_safe(
 ///|
 fn dae_try_fold_func237_used_temp_copy_flat_body_once(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   root_body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   let mut set_idx = 0
@@ -40665,7 +41670,7 @@ fn dae_try_fold_func237_used_temp_copy_flat_body_once(
 ///|
 fn dae_try_fold_func237_used_temp_copy_body_once_with_root(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
   root_body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
   let rewrite_current_body = fn(
@@ -40690,7 +41695,7 @@ fn dae_try_fold_func237_used_temp_copy_body_once_with_root(
 ///|
 fn dae_try_fold_func237_used_temp_copy_body_once(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction]? {
   dae_try_fold_func237_used_temp_copy_body_once_with_root(
     body, param_count, body,
@@ -40700,7 +41705,7 @@ fn dae_try_fold_func237_used_temp_copy_body_once(
 ///|
 fn dae_fold_func237_used_temp_copies(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction] {
   let rewrite_once = fn(
     current : Array[@lib.Instruction],
@@ -40713,8 +41718,8 @@ fn dae_fold_func237_used_temp_copies(
 ///|
 fn dae_max_referenced_local_slot_instrs(
   instrs : Array[@lib.Instruction],
-  initial_max : Int,
-) -> Int {
+  initial_max : Int32,
+) -> Int32 {
   dae_local_reference_extent_evidence(instrs, initial_max, initial_max + 1).max_referenced_local_slot
 }
 
@@ -40722,7 +41727,7 @@ fn dae_max_referenced_local_slot_instrs(
 fn dae_trim_trailing_unused_func237_locals(
   locals : @lib.Locals,
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> @lib.Locals {
   let max_slot = dae_max_referenced_local_slot_instrs(body, param_count - 1)
   let needed_count = max_slot + 1 - param_count
@@ -40743,9 +41748,9 @@ fn dae_trim_trailing_unused_func237_locals(
 
 ///|
 fn dae_func237_low_local_map(
-  param_count : Int,
-  local_count : Int,
-) -> Array[Int] {
+  param_count : Int32,
+  local_count : Int32,
+) -> Array[Int32] {
   let local_map = Array::make(param_count + local_count, 0)
   let mut idx = 0
   while idx < local_map.length() {
@@ -40835,7 +41840,7 @@ fn dae_func237_low_local_map(
 fn dae_rewrite_func237_frontier_low_locals(
   body : Array[@lib.Instruction],
   locals : @lib.Locals,
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction] {
   dae_rewrite_locals_instrs(
     body,
@@ -40846,7 +41851,7 @@ fn dae_rewrite_func237_frontier_low_locals(
 ///|
 fn dae_try_fold_func237_store_carrier_copy_body_once(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() < 10 {
     return None
@@ -40923,7 +41928,7 @@ fn dae_try_fold_func237_store_carrier_copy_body_once(
 ///|
 fn dae_fold_func237_store_carrier_copies(
   body : Array[@lib.Instruction],
-  param_count : Int,
+  param_count : Int32,
 ) -> Array[@lib.Instruction] {
   let rewrite_once = fn(
     current : Array[@lib.Instruction],
@@ -41105,7 +42110,7 @@ fn dae_try_compact_selected_func287_setup_locals_once(
 }
 
 ///|
-fn dae_func288_zero_address_local_slot(slot : Int) -> Bool {
+fn dae_func288_zero_address_local_slot(slot : Int32) -> Bool {
   slot == 15 ||
   slot == 17 ||
   slot == 19 ||
@@ -41216,7 +42221,7 @@ fn dae_prepare_func288_zero_address_instrs(
 ///|
 fn dae_func288_instrs_reference_unmapped_local(
   instrs : Array[@lib.Instruction],
-  local_map : Array[Int],
+  local_map : Array[Int32],
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -41248,7 +42253,7 @@ fn dae_func288_instrs_reference_unmapped_local(
 }
 
 ///|
-fn dae_func288_local_map() -> Array[Int] {
+fn dae_func288_local_map() -> Array[Int32] {
   let local_map = Array::make(118, -1)
   for slot in [0, 1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14] {
     local_map[slot] = 0
@@ -41324,7 +42329,7 @@ fn dae_try_compact_selected_func288_switch_carriers_once(
 ///|
 fn dae_try_shift_func288_label_after_return_wrapper(
   label_idx : @lib.LabelIdx,
-  wrapper_depth : Int,
+  wrapper_depth : Int32,
 ) -> @lib.LabelIdx? {
   let depth = dae_label_idx_as_int(label_idx)
   if depth == wrapper_depth {
@@ -41339,7 +42344,7 @@ fn dae_try_shift_func288_label_after_return_wrapper(
 ///|
 fn dae_try_rewrite_func288_return_wrapper_instr(
   instr : @lib.Instruction,
-  wrapper_depth : Int,
+  wrapper_depth : Int32,
 ) -> @lib.Instruction? {
   match instr {
     @lib.Br(label_idx) => {
@@ -41452,7 +42457,7 @@ fn dae_try_rewrite_func288_return_wrapper_instr(
 ///|
 fn dae_try_rewrite_func288_return_wrapper_instrs(
   instrs : Array[@lib.Instruction],
-  wrapper_depth : Int,
+  wrapper_depth : Int32,
 ) -> Array[@lib.Instruction]? {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -42563,8 +43568,8 @@ fn dae_replace_local_get_with_i32_const_instrs(
 ///|
 fn dae_try_inline_i32_const_local_set_flat_once(
   body : Array[@lib.Instruction],
-  protected_local_slots : Int,
-  whole_body? : Array[@lib.Instruction]? = None,
+  protected_local_slots : Int32,
+  whole_body~ : Array[@lib.Instruction]? = None,
 ) -> Array[@lib.Instruction]? {
   let mut idx = 0
   while idx + 1 < body.length() {
@@ -42605,8 +43610,8 @@ fn dae_try_inline_i32_const_local_set_flat_once(
 ///|
 fn dae_try_inline_i32_const_local_set_instrs_once(
   body : Array[@lib.Instruction],
-  protected_local_slots : Int,
-  whole_body? : Array[@lib.Instruction]? = None,
+  protected_local_slots : Int32,
+  whole_body~ : Array[@lib.Instruction]? = None,
 ) -> Array[@lib.Instruction]? {
   let whole_body = Some(whole_body.unwrap_or(body))
   match
@@ -42811,8 +43816,8 @@ fn dae_rewrite_func311_i64_if_temp_instrs(
 fn dae_collect_terminal_call_arg_cleanup_candidates(
   original : @lib.Module,
   current : @lib.Module,
-  expected_param_count : Int,
-  minimum_local_count : Int,
+  expected_param_count : Int32,
+  minimum_local_count : Int32,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(original)
   let funcs = match original.code_sec {
@@ -42865,7 +43870,7 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _def_idx : Int,
+    _def_idx : Int32,
     func_type : @lib.FuncType,
     _type_sec : @lib.TypeSec?,
   ) -> @lib.Func? {
@@ -43115,7 +44120,7 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _def_idx : Int,
+    _def_idx : Int32,
     func_type : @lib.FuncType,
     _type_sec : @lib.TypeSec?,
   ) -> @lib.Func? {
@@ -43206,7 +44211,7 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
 fn dae_defined_i32_global_const_equals(
   mod_ : @lib.Module,
   global_idx : @lib.GlobalIdx,
-  expected : Int,
+  expected : Int32,
 ) -> Bool {
   let slot = dae_global_idx_slot(global_idx)
   let mut imported_globals = 0
@@ -43291,8 +44296,8 @@ fn dae_instr_matches_func313_global_suffix_block(
 fn dae_try_strip_func313_dropped_call323_global_suffix(
   mod_ : @lib.Module,
   funcs : Array[@lib.Func],
-  caller_def : Int,
-  callee_abs : Int,
+  caller_def : Int32,
+  callee_abs : Int32,
 ) -> @lib.Func? {
   if caller_def < 0 || caller_def >= funcs.length() {
     return None
@@ -43327,8 +44332,8 @@ fn dae_try_rewrite_func313_call323_global_suffix(
   mod_ : @lib.Module,
   funcs : Array[@lib.Func],
   type_indices : Array[@lib.TypeIdx],
-  caller_def : Int,
-  callee_abs : Int,
+  caller_def : Int32,
+  callee_abs : Int32,
 ) -> @lib.Func? {
   if caller_def < 0 || caller_def >= funcs.length() {
     return None
@@ -43442,7 +44447,7 @@ fn dae_try_rewrite_func313_call323_global_suffix(
 ///|
 fn dae_try_rewrite_global_suffix_candidate_once(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   boundary_snapshot : DaeModuleBoundarySnapshot,
   trace : (String) -> Unit,
 ) -> DaePassResult {
@@ -43666,9 +44671,9 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   current : @lib.Module,
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
-  original_snapshot? : DaeOriginalBoundarySnapshot? = None,
-  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
-  producer_effects_report? : Array[DaeCommitEffects] = [],
+  original_snapshot~ : DaeOriginalBoundarySnapshot? = None,
+  boundary_snapshot~ : DaeModuleBoundarySnapshot? = None,
+  producer_effects_report~ : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let defined = dae_defined_func_count(current)
   let owned_original_snapshot = match original_snapshot {
@@ -43740,8 +44745,8 @@ fn dae_apply_selected_func323_global_suffix_transaction(
   changed : Bool,
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
-  original_snapshot? : DaeOriginalBoundarySnapshot? = None,
-  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
+  original_snapshot~ : DaeOriginalBoundarySnapshot? = None,
+  boundary_snapshot~ : DaeModuleBoundarySnapshot? = None,
 ) -> DaeCoreResultApplication {
   let effects_report : Array[DaeCommitEffects] = []
   let result = dae_try_rewrite_selected_func323_global_suffix_once(
@@ -43959,9 +44964,9 @@ fn dae_collect_fact_dropped_result_candidate_defs(
 fn dae_order_selected_candidates_caller_first(
   mod_ : @lib.Module,
   selected : Array[Bool],
-) -> Array[Int] {
+) -> Array[Int32] {
   let pending = selected.copy()
-  let ordered : Array[Int] = []
+  let ordered : Array[Int32] = []
   let mut remaining = 0
   for is_selected in pending {
     if is_selected {
@@ -44082,10 +45087,10 @@ fn dae_dropped_result_candidate_passes_cached_precheck(
 ///|
 fn dae_try_remove_dropped_result_def_with_facts(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   call_facts : DaeCurrentCallFacts,
-  perf? : HotPerfSession? = None,
-  boundary_facts? : DaeBoundaryFacts? = None,
+  perf~ : HotPerfSession? = None,
+  boundary_facts~ : DaeBoundaryFacts? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -44150,13 +45155,22 @@ fn dae_run_dropped_result_candidate_worklist_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  candidate_defs : Array[Int],
+  candidate_defs : Array[Int32],
 ) -> DaeExactLiteralWorklistApplication {
+  if candidate_defs.is_empty() {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      productive_defs: [],
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+    }
+  }
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
   let diagnostics = dae_diagnostics_new()
-  let productive_defs : Array[Int] = []
+  let productive_defs : Array[Int32] = []
   let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   let mut mod_out = current
   let mut touched_out = touched
@@ -44246,7 +45260,7 @@ fn dae_run_post_cleanup_boundary_revisit_worklist(
 }
 
 ///|
-fn dae_dropped_result_payoff_instrs(instrs : Array[@lib.Instruction]) -> Int {
+fn dae_dropped_result_payoff_instrs(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut payoff = 0
   for instr in instrs {
     match instr {
@@ -44272,9 +45286,9 @@ fn dae_dropped_result_payoff_instrs(instrs : Array[@lib.Instruction]) -> Int {
 ///|
 fn dae_terminal_direct_callee_def(
   func : @lib.Func,
-  imported : Int,
-  defined : Int,
-) -> Int? {
+  imported : Int32,
+  defined : Int32,
+) -> Int32? {
   let @lib.Func(_, @lib.Expr(body)) = func
   if body.length() == 0 {
     return None
@@ -44296,8 +45310,8 @@ fn dae_terminal_direct_callee_def(
 fn dae_func_result_count(
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
-  func_abs : Int,
-) -> Int {
+  func_abs : Int32,
+) -> Int32 {
   match dae_resolve_func_type(mod_, type_indices, func_abs) {
     Some(@lib.FuncType(_, results)) => results.length()
     None => 0
@@ -44356,14 +45370,14 @@ fn dae_run_broad_dropped_result_payoff_chain(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  perf? : HotPerfSession? = None,
+  perf~ : HotPerfSession? = None,
 ) -> DaeExactLiteralWorklistApplication {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
   let total = imported + defined
   let mut current_mod = current
   let mut current_touched = touched
-  let productive_defs : Array[Int] = []
+  let productive_defs : Array[Int32] = []
   let effects = dae_commit_effects_empty(defined)
   while true {
     let call_facts = dae_collect_current_call_facts(current_mod, total)
@@ -44503,9 +45517,9 @@ fn dae_collect_dropped_result_payoff_cleanup_candidates(
 ///|
 fn dae_collect_uniform_immediate_i32_suffix_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   expected : Array[@lib.I32?],
-  call_count : Array[Int],
+  call_count : Array[Int32],
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -44579,9 +45593,9 @@ fn dae_collect_uniform_immediate_i32_suffix_instrs(
 ///|
 fn dae_collect_uniform_immediate_i32_suffix_from_callers(
   funcs : Array[@lib.Func],
-  caller_defs : Array[Int],
-  callee_abs : Int,
-  expected_call_count : Int,
+  caller_defs : Array[Int32],
+  callee_abs : Int32,
+  expected_call_count : Int32,
 ) -> @lib.Instruction? {
   let expected : Array[@lib.I32?] = [None]
   let call_count = [0]
@@ -44608,9 +45622,9 @@ fn dae_collect_uniform_immediate_i32_suffix_from_callers(
 ///|
 fn dae_direct_calls_need_stack_carried_void_effects_instrs(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
-  param_count : Int,
-  entry_stack_values : Int,
+  callee_abs : Int32,
+  param_count : Int32,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
   failed : Array[Bool],
@@ -44679,9 +45693,9 @@ fn dae_direct_calls_need_stack_carried_void_effects_instrs(
 ///|
 fn dae_direct_calls_need_stack_carried_void_effects(
   funcs : Array[@lib.Func],
-  caller_defs : Array[Int],
-  callee_abs : Int,
-  param_count : Int,
+  caller_defs : Array[Int32],
+  callee_abs : Int32,
+  param_count : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
 ) -> Bool {
@@ -44704,7 +45718,7 @@ fn dae_direct_calls_need_stack_carried_void_effects(
 #warnings("-unused_value")
 fn dae_exact_literal_def_has_immediate_i32_suffix_priority(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   call_facts : DaeCurrentCallFacts,
 ) -> Bool {
   let imported = dae_imported_func_count(mod_)
@@ -44776,12 +45790,14 @@ fn dae_exact_literal_def_has_immediate_i32_suffix_priority(
 ///|
 fn dae_try_rewrite_exact_literal_def_with_facts_once(
   mod_ : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   call_facts : DaeCurrentCallFacts,
-  allow_immutable_global_get? : Bool = false,
-  allow_immediate_i32_suffix_fallback? : Bool = false,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
+  allow_immutable_global_get~ : Bool = false,
+  allow_immediate_i32_suffix_fallback~ : Bool = false,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
+  checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
+  rewrite_validation_counts~ : Array[Int32]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -44876,8 +45892,19 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
             materialized_params=Some(const_params),
           ) {
           Some(plan) => {
-            let application = dae_apply_rewrite_plan(mod_, graph, plan)
+            let application = dae_apply_rewrite_plan(
+              mod_,
+              graph,
+              plan,
+              rewrite_validation_counts~,
+            )
             if application.applied {
+              // The scheduler consumes this exact source/candidate pair before
+              // any further IR write or callback, as in the flow-values branch.
+              match checked_candidate_report {
+                Some(report) => report.push((mod_, application.result.mod_out))
+                None => ()
+              }
               return application.result
             }
           }
@@ -44945,8 +45972,17 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
           verified_materialized_suffix=Some([expected]),
         ) {
         Some(plan) => {
-          let application = dae_apply_rewrite_plan(mod_, graph, plan)
+          let application = dae_apply_rewrite_plan(
+            mod_,
+            graph,
+            plan,
+            rewrite_validation_counts~,
+          )
           if application.applied {
+            match checked_candidate_report {
+              Some(report) => report.push((mod_, application.result.mod_out))
+              None => ()
+            }
             application.result
           } else {
             { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -44973,8 +46009,9 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
-  def_idx : Int,
+  def_idx : Int32,
   uniform_values : Array[@lib.Instruction?],
+  checked_candidate_report~ : Array[(@lib.Module, @lib.Module)]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -45055,6 +46092,12 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
     Some(plan) => {
       let application = dae_apply_rewrite_plan(mod_, graph, plan)
       if application.applied {
+        // Issue only after the complete module gate succeeds. The scheduler
+        // consumes this report before any further IR write or callback.
+        match checked_candidate_report {
+          Some(report) => report.push((mod_, application.result.mod_out))
+          None => ()
+        }
         application.result
       } else {
         { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
@@ -45068,10 +46111,13 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
 fn dae_collect_exact_literal_candidate_defs_with_facts(
   mod_ : @lib.Module,
   call_facts : DaeCurrentCallFacts,
-  max_def_exclusive : Int,
-  allow_immutable_global_get? : Bool = false,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
+  max_def_exclusive : Int32,
+  allow_immutable_global_get~ : Bool = false,
+  indexed_syntax~ : Bool = true,
+  syntax_visits~ : Array[Int32]? = None,
+  syntax_stats~ : Array[Int32]? = None,
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -45084,32 +46130,28 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
   } else {
     funcs.length()
   }
-  let mut def_idx = 0
-  while def_idx < limit {
+  let targets : Array[DaeUniformSyntaxDiscoveryTarget] = []
+  for def_idx in 0..<limit {
     let callee_abs = imported + def_idx
     let boundary_candidate = match
       dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
       Some(candidate) => candidate
-      None => {
-        def_idx += 1
-        continue
-      }
+      None => continue
     }
     if !boundary_candidate.owned ||
       boundary_candidate.has_self_direct_caller ||
       !boundary_candidate.allows_nonself_direct_rewrite {
-      def_idx += 1
       continue
     }
     let func_type = match
       dae_resolve_func_type(mod_, type_indices, callee_abs) {
       Some(ft) => ft
-      None => {
-        def_idx += 1
-        continue
-      }
+      None => continue
     }
     let @lib.FuncType(params, _) = func_type
+    if params.is_empty() {
+      continue
+    }
     let @lib.Func(locals, _) = funcs[def_idx]
     let local_use = dae_local_use_for_callee(
       funcs[def_idx],
@@ -45117,21 +46159,75 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
       callee_abs,
       params.length(),
     )
-    let uniform_const_params = dae_collect_uniform_const_actuals_from_boundary_facts(
-      mod_,
-      callee_abs,
-      params.length(),
-      type_indices,
-      boundary_facts,
-      allow_immutable_global_get~,
-    )
-    let mut any_const = false
     let mut has_dead_param = false
-    let mut p = 0
-    while p < params.length() {
+    let mut has_read_only_param = false
+    for p in 0..<params.length() {
       if !local_use.gets[p] {
         has_dead_param = true
       } else if !local_use.writes[p] {
+        has_read_only_param = true
+      }
+    }
+    if !has_dead_param && has_read_only_param {
+      targets.push({
+        def_idx,
+        callee_abs,
+        param_count: params.length(),
+        local_use,
+      })
+    }
+  }
+  // A single candidate does not justify a multi-target syntax index. Keep a
+  // reference owner only when an untimed syntax-visit probe needs it.
+  let syntax_query = if indexed_syntax &&
+    dae_uniform_syntax_shared_work_admitted(
+      targets, funcs, boundary_facts, imported,
+    ) {
+    Some(
+      DaeUniformSyntaxQuery::new(
+        mod_,
+        type_indices,
+        boundary_facts,
+        true,
+        syntax_visits~,
+        syntax_stats~,
+        targets=Some(
+          dae_uniform_syntax_discovery_target_closure(
+            targets,
+            boundary_facts,
+            imported,
+            funcs.length(),
+          ),
+        ),
+      ),
+    )
+  } else if syntax_visits is Some(_) {
+    Some(
+      DaeUniformSyntaxQuery::new(
+        mod_,
+        type_indices,
+        boundary_facts,
+        false,
+        syntax_visits~,
+        syntax_stats~,
+      ),
+    )
+  } else {
+    None
+  }
+  for target in targets {
+    let uniform_const_params = dae_collect_uniform_const_actuals_from_boundary_facts(
+      mod_,
+      target.callee_abs,
+      target.param_count,
+      type_indices,
+      boundary_facts,
+      allow_immutable_global_get~,
+      syntax_query~,
+    )
+    let mut any_const = false
+    for p in 0..<target.param_count {
+      if !target.local_use.writes[p] {
         match uniform_const_params {
           Some(values) =>
             match values[p] {
@@ -45141,12 +46237,10 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
           None => ()
         }
       }
-      p += 1
     }
-    if any_const && !has_dead_param {
-      candidates.push(def_idx)
+    if any_const {
+      candidates.push(target.def_idx)
     }
-    def_idx += 1
   }
   candidates
 }
@@ -45155,8 +46249,8 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
 fn dae_collect_post_revisit_exact_literal_candidates(
   mod_ : @lib.Module,
   call_facts : DaeCurrentCallFacts,
-  max_def_exclusive : Int,
-) -> Array[Int] {
+  max_def_exclusive : Int32,
+) -> Array[Int32] {
   dae_collect_exact_literal_candidate_defs_with_facts(
     mod_, call_facts, max_def_exclusive,
   )
@@ -45166,7 +46260,7 @@ fn dae_collect_post_revisit_exact_literal_candidates(
 #warnings("-unused_field")
 priv struct DaeExactLiteralCandidateContext {
   mod_ : @lib.Module
-  imported : Int
+  imported : Int32
   type_indices : Array[@lib.TypeIdx]
   funcs : Array[@lib.Func]
 }
@@ -45190,8 +46284,8 @@ fn dae_exact_literal_candidate_context_new(
 ///|
 fn dae_exact_literal_candidate_is_single_param_identity(
   mod_ : @lib.Module,
-  def_idx : Int,
-  context? : DaeExactLiteralCandidateContext? = None,
+  def_idx : Int32,
+  context~ : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
   let context = match context {
     Some(context) => context
@@ -45220,8 +46314,8 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 ///|
 fn dae_exact_literal_candidate_is_single_param_call_sink(
   mod_ : @lib.Module,
-  def_idx : Int,
-  context? : DaeExactLiteralCandidateContext? = None,
+  def_idx : Int32,
+  context~ : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
   let context = match context {
     Some(context) => context
@@ -45262,8 +46356,8 @@ fn dae_exact_literal_candidate_is_single_param_call_sink(
 ///|
 fn dae_exact_literal_candidate_is_single_param_pure_expression(
   mod_ : @lib.Module,
-  def_idx : Int,
-  context? : DaeExactLiteralCandidateContext? = None,
+  def_idx : Int32,
+  context~ : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
   let context = match context {
     Some(context) => context
@@ -45295,8 +46389,8 @@ fn dae_exact_literal_candidate_is_single_param_pure_expression(
 ///|
 fn dae_exact_literal_candidate_has_scalar_constructor_shape(
   mod_ : @lib.Module,
-  def_idx : Int,
-  context? : DaeExactLiteralCandidateContext? = None,
+  def_idx : Int32,
+  context~ : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
   let context = match context {
     Some(context) => context
@@ -45390,17 +46484,18 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  candidate_defs : Array[Int],
-  allow_immutable_global_get? : Bool = false,
-  allow_immediate_i32_suffix_fallback? : Bool = false,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
-  dependencies? : DaeBoundaryDependencyGraph? = None,
+  candidate_defs : Array[Int32],
+  allow_immutable_global_get~ : Bool = false,
+  allow_immediate_i32_suffix_fallback~ : Bool = false,
+  original~ : DaeOriginalBoundarySnapshot? = None,
+  graph~ : DaeCurrentBoundaryGraph? = None,
+  dependencies~ : DaeBoundaryDependencyGraph? = None,
+  allow_composite_batch~ : Bool = true,
 ) -> DaeExactLiteralWorklistApplication {
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
-  let productive_defs : Array[Int] = []
+  let productive_defs : Array[Int32] = []
   let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   if !dae_candidate_worklist_requires_facts(candidate_defs) {
     return { mod_out: current, touched, changed, productive_defs, effects, }
@@ -45413,21 +46508,74 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
     Some(graph) => graph
     None => dae_current_boundary_graph_new(current)
   }
-  let mut active_dependencies = match dependencies {
-    Some(dependencies) => dependencies
-    None => dae_boundary_dependency_graph_new(active_graph)
+  // Keep composite work in this exact-literal phase. Definitions that require
+  // other operand proofs retain the scalar path below and its options.
+  let composite = if allow_composite_batch && candidate_defs.length() > 1 {
+    dae_apply_composite_exact_literal_batch(
+      original, mod_out, touched_out, changed_out, active_graph, candidate_defs,
+    )
+  } else {
+    {
+      mod_out,
+      touched: touched_out,
+      changed: changed_out,
+      productive_defs: [],
+      effects: dae_commit_effects_empty(active_graph.snapshot.defined),
+    }
   }
-  let mut flow = if allow_immutable_global_get {
+  if !composite.productive_defs.is_empty() {
+    mod_out = composite.mod_out
+    touched_out = composite.touched
+    changed_out = composite.changed
+    effects = dae_commit_effects_merge(effects, composite.effects)
+    // Keep exact current call paths and rescan every committed structural touch.
+    dae_current_boundary_graph_refresh(
+      active_graph,
+      mod_out,
+      forced_changed_defs=Some(composite.effects.structurally_touched),
+    )
+  }
+  let composite_defs = Array::make(active_graph.snapshot.defined, false)
+  for def_idx in composite.productive_defs {
+    composite_defs[def_idx] = true
+  }
+  let was_composite = fn(def_idx) {
+    def_idx >= 0 && def_idx < composite_defs.length() && composite_defs[def_idx]
+  }
+  // Bound admission to the initial attempt and one retry. An unsupported first
+  // member must keep its scalar position before later literal work can batch.
+  let mut suffix_retry_available = allow_composite_batch &&
+    candidate_defs.length() > 2 &&
+    composite.productive_defs.is_empty()
+  let residual_defs = candidate_defs.filter(fn(def_idx) {
+    !was_composite(def_idx)
+  })
+  let mut active_dependencies = if residual_defs.is_empty() {
+    dae_boundary_dependency_graph_empty()
+  } else if !composite.productive_defs.is_empty() {
+    dae_boundary_dependency_graph_new(active_graph)
+  } else {
+    match dependencies {
+      Some(dependencies) => dependencies
+      None => dae_boundary_dependency_graph_new(active_graph)
+    }
+  }
+  let mut flow = if allow_immutable_global_get || residual_defs.is_empty() {
     { facts: [], }
   } else {
     dae_solve_parameter_flow(
       active_graph,
       active_dependencies,
-      seed_defs=candidate_defs,
+      seed_defs=residual_defs,
     )
   }
   let diagnostics = dae_diagnostics_new()
-  for candidate_def in candidate_defs {
+  for candidate_index in 0..<candidate_defs.length() {
+    let candidate_def = candidate_defs[candidate_index]
+    if was_composite(candidate_def) {
+      productive_defs.push(candidate_def)
+      continue
+    }
     let item = {
       ..dae_work_item_new(
         active_graph,
@@ -45452,13 +46600,49 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
         changed_out = application.changed
         productive_defs.push(application.primary_def)
         effects = dae_commit_effects_merge(effects, application.effects)
-        dae_current_boundary_graph_refresh(active_graph, mod_out)
+        dae_current_boundary_graph_refresh(
+          active_graph,
+          mod_out,
+          forced_changed_defs=Some(application.effects.structurally_touched),
+        )
+        if suffix_retry_available &&
+          candidate_index < candidate_defs.length() - 2 {
+          suffix_retry_available = false
+          let suffix = dae_apply_composite_literal_suffix_after_scalar(
+            original, mod_out, touched_out, changed_out, active_graph, candidate_defs,
+            candidate_index,
+          )
+          if !suffix.productive_defs.is_empty() {
+            mod_out = suffix.mod_out
+            touched_out = suffix.touched
+            changed_out = suffix.changed
+            effects = dae_commit_effects_merge(effects, suffix.effects)
+            for def_idx in suffix.productive_defs {
+              composite_defs[def_idx] = true
+            }
+            dae_current_boundary_graph_refresh(
+              active_graph,
+              mod_out,
+              forced_changed_defs=Some(suffix.effects.structurally_touched),
+            )
+          }
+        }
+        let mut has_scalar_remainder = false
+        for later_index in (candidate_index + 1)..<candidate_defs.length() {
+          if !was_composite(candidate_defs[later_index]) {
+            has_scalar_remainder = true
+            break
+          }
+        }
+        if !has_scalar_remainder {
+          continue
+        }
         active_dependencies = dae_boundary_dependency_graph_new(active_graph)
         if !allow_immutable_global_get {
           flow = dae_solve_parameter_flow(
             active_graph,
             active_dependencies,
-            seed_defs=candidate_defs,
+            seed_defs=residual_defs,
           )
         }
       }
@@ -45477,7 +46661,7 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
 ///|
 fn dae_exact_param_aggregate_constructor_count_instrs(
   instrs : Array[@lib.Instruction],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -45509,8 +46693,8 @@ fn dae_exact_param_aggregate_constructor_count_instrs(
 ///|
 fn dae_exact_param_aggregate_constructor_count(
   mod_ : @lib.Module,
-  def_idx : Int,
-) -> Int {
+  def_idx : Int32,
+) -> Int32 {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) if def_idx >= 0 && def_idx < funcs.length() => {
       let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
@@ -45523,12 +46707,12 @@ fn dae_exact_param_aggregate_constructor_count(
 ///|
 fn dae_func_directly_calls_def(
   func : @lib.Func,
-  callee_def : Int,
-  imported : Int,
-  defined : Int,
+  callee_def : Int32,
+  imported : Int32,
+  defined : Int32,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(body)) = func
-  let callees : Array[Int] = []
+  let callees : Array[Int32] = []
   dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
   callees.contains(callee_def)
 }
@@ -45536,7 +46720,7 @@ fn dae_func_directly_calls_def(
 ///|
 fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
   mod_ : @lib.Module,
-  root_defs : Array[Int],
+  root_defs : Array[Int32],
 ) -> Array[DaeBroadExactParamAdjacentCleanupCandidate] {
   let candidates : Array[DaeBroadExactParamAdjacentCleanupCandidate] = []
   let imported = dae_imported_func_count(mod_)
@@ -45586,9 +46770,9 @@ fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
 ///|
 fn dae_forwarded_param_node_index(
   nodes : Array[DaeForwardedParamNode],
-  callee_abs : Int,
-  param_idx : Int,
-) -> Int {
+  callee_abs : Int32,
+  param_idx : Int32,
+) -> Int32 {
   let mut idx = 0
   while idx < nodes.length() {
     if nodes[idx].callee_abs == callee_abs && nodes[idx].param_idx == param_idx {
@@ -45621,9 +46805,9 @@ fn dae_record_forwarded_param_scc_const(
 ///|
 fn dae_forwarded_param_suffix_single_instruction_actual(
   instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  param_count : Int,
-  param_idx : Int,
+  call_idx : Int32,
+  param_count : Int32,
+  param_idx : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
 ) -> @lib.Instruction? {
@@ -45646,21 +46830,21 @@ fn dae_forwarded_param_suffix_single_instruction_actual(
 ///|
 fn dae_collect_forwarded_param_scc_actuals_instrs(
   instrs : Array[@lib.Instruction],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
-  param_idx : Int,
-  caller_abs : Int,
-  caller_param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
+  param_idx : Int32,
+  caller_abs : Int32,
+  caller_param_count : Int32,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   nodes : Array[DaeForwardedParamNode],
-  states : Array[Int],
+  states : Array[Int32],
   cycle_nodes : Array[DaeForwardedParamNode],
   constant : Array[@lib.Instruction?],
   flags : Array[Bool],
-  seen_calls : Array[Int],
+  seen_calls : Array[Int32],
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -45785,12 +46969,12 @@ fn dae_collect_forwarded_param_scc_actuals_instrs(
 ///|
 fn dae_collect_forwarded_param_scc_node(
   mod_ : @lib.Module,
-  callee_abs : Int,
-  param_idx : Int,
+  callee_abs : Int32,
+  param_idx : Int32,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   nodes : Array[DaeForwardedParamNode],
-  states : Array[Int],
+  states : Array[Int32],
   cycle_nodes : Array[DaeForwardedParamNode],
   constant : Array[@lib.Instruction?],
   flags : Array[Bool],
@@ -45907,9 +47091,9 @@ fn dae_parameter_flow_edge_epochs_are_current(
 ///|
 fn dae_parameter_flow_fact_index(
   facts : Array[DaeParameterFlowFact],
-  def_idx : Int,
-  param_idx : Int,
-) -> Int {
+  def_idx : Int32,
+  param_idx : Int32,
+) -> Int32 {
   let mut fact_idx = 0
   while fact_idx < facts.length() {
     if facts[fact_idx].def_idx == def_idx &&
@@ -45924,8 +47108,8 @@ fn dae_parameter_flow_fact_index(
 ///|
 fn dae_parameter_flow_record(
   facts : Array[DaeParameterFlowFact],
-  def_idx : Int,
-  param_idx : Int,
+  def_idx : Int32,
+  param_idx : Int32,
   state : DaeParameterFlowState,
 ) -> Unit {
   let fact_idx = dae_parameter_flow_fact_index(facts, def_idx, param_idx)
@@ -45958,7 +47142,7 @@ fn dae_parameter_flow_record(
 fn dae_solve_parameter_flow(
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
-  seed_defs? : Array[Int] = [],
+  seed_defs~ : Array[Int32] = [],
 ) -> DaeParameterFlowSolution {
   for edge in dependencies.parameter_forwarding_edges {
     if !dae_parameter_flow_edge_epochs_are_current(graph, edge) {
@@ -45968,7 +47152,7 @@ fn dae_solve_parameter_flow(
   let facts : Array[DaeParameterFlowFact] = []
   let boundary_facts = graph.snapshot.boundary_facts
   let imported = graph.snapshot.imported
-  let defs : Array[Int] = []
+  let defs : Array[Int32] = []
   if seed_defs.length() == 0 {
     let mut def_idx = 0
     while def_idx < graph.snapshot.defined {
@@ -45994,7 +47178,7 @@ fn dae_solve_parameter_flow(
     let mut param_idx = 0
     while param_idx < params.length() {
       let nodes : Array[DaeForwardedParamNode] = []
-      let states : Array[Int] = []
+      let states : Array[Int32] = []
       let cycle_nodes : Array[DaeForwardedParamNode] = []
       let constant : Array[@lib.Instruction?] = [None]
       let flags = [true, false, false]
@@ -46039,8 +47223,8 @@ fn dae_solve_parameter_flow(
 ///|
 fn dae_parameter_flow_state_at(
   solution : DaeParameterFlowSolution,
-  def_idx : Int,
-  param_idx : Int,
+  def_idx : Int32,
+  param_idx : Int32,
 ) -> DaeParameterFlowState {
   let fact_idx = dae_parameter_flow_fact_index(
     solution.facts,
@@ -46058,7 +47242,7 @@ fn dae_parameter_flow_state_at(
 fn dae_parameter_flow_uniform_values_for_def(
   graph : DaeCurrentBoundaryGraph,
   solution : DaeParameterFlowSolution,
-  def_idx : Int,
+  def_idx : Int32,
 ) -> Array[@lib.Instruction?] {
   if def_idx < 0 || def_idx >= graph.snapshot.defined {
     return []
@@ -46105,7 +47289,7 @@ fn dae_apply_forwarded_param_scc_transaction(
     _ => return None
   }
   let type_indices = dae_collect_func_type_indices(mod_)
-  let defs : Array[Int] = []
+  let defs : Array[Int32] = []
   let removes : Array[Array[Bool]] = []
   let const_params_by_def : Array[Array[@lib.Instruction?]] = []
   let localized_by_def : Array[Array[Bool]] = []
@@ -46270,14 +47454,14 @@ fn dae_apply_forwarded_param_scc_transaction(
 fn dae_collect_forwarded_param_cycle_defs_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
-  preferred_defs : Array[Int],
-  excluded_defs : Array[Int],
-  imported : Int,
-  defined : Int,
+  preferred_defs : Array[Int32],
+  excluded_defs : Array[Int32],
+  imported : Int32,
+  defined : Int32,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
-) -> Array[Int] {
-  let seed_defs : Array[Int] = []
+) -> Array[Int32] {
+  let seed_defs : Array[Int32] = []
   for preferred_def in preferred_defs {
     if preferred_def >= 0 &&
       preferred_def < defined &&
@@ -46304,7 +47488,7 @@ fn dae_collect_forwarded_param_cycle_defs_with_facts(
     let mut seed_param = 0
     while seed_param < params.length() {
       let nodes : Array[DaeForwardedParamNode] = []
-      let states : Array[Int] = []
+      let states : Array[Int32] = []
       let cycle_nodes : Array[DaeForwardedParamNode] = []
       let constant : Array[@lib.Instruction?] = [None]
       let flags = [true, false, false]
@@ -46315,7 +47499,7 @@ fn dae_collect_forwarded_param_cycle_defs_with_facts(
         ),
       )
       if flags[1] && cycle_nodes.length() > 1 {
-        let defs : Array[Int] = []
+        let defs : Array[Int32] = []
         for node in cycle_nodes {
           let def_idx = node.callee_abs - imported
           if def_idx >= 0 && def_idx < defined && !defs.contains(def_idx) {
@@ -46338,10 +47522,10 @@ fn dae_collect_forwarded_param_cycle_defs_with_facts(
 fn dae_collect_forwarded_param_cycle_batches(
   current : @lib.Module,
   touched : Array[Bool],
-  preferred_defs? : Array[Int] = [],
-  excluded_defs? : Array[Int] = [],
-  limit? : Int = -1,
-) -> Array[Array[Int]] {
+  preferred_defs~ : Array[Int32] = [],
+  excluded_defs~ : Array[Int32] = [],
+  limit~ : Int32 = -1,
+) -> Array[Array[Int32]] {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
   if defined == 0 || touched.length() != defined || limit == 0 {
@@ -46351,7 +47535,7 @@ fn dae_collect_forwarded_param_cycle_batches(
   let call_facts = dae_collect_current_call_facts(current, total)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
   let type_indices = dae_collect_func_type_indices(current)
-  let batches : Array[Array[Int]] = []
+  let batches : Array[Array[Int32]] = []
   let processed_defs = excluded_defs.copy()
   let ordered_preferred_defs = preferred_defs.copy()
   while limit < 0 || batches.length() < limit {
@@ -46376,7 +47560,7 @@ fn dae_collect_forwarded_param_cycle_batches(
 ///|
 fn dae_forwarded_param_direct_call_target_after_get(
   instrs : Array[@lib.Instruction],
-  get_idx : Int,
+  get_idx : Int32,
   current : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
 ) -> DaeForwardedParamNode? {
@@ -46421,13 +47605,13 @@ fn dae_forwarded_param_direct_call_target_after_get(
 ///|
 fn dae_collect_forwarded_param_component_uses_instrs(
   instrs : Array[@lib.Instruction],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   current : @lib.Module,
-  caller_param_count : Int,
-  source_param_idx : Int,
+  caller_param_count : Int32,
+  source_param_idx : Int32,
   type_indices : Array[@lib.TypeIdx],
   targets : Array[DaeForwardedParamNode],
-  covered_gets : Array[Int],
+  covered_gets : Array[Int32],
 ) -> Bool {
   let source_local = @lib.LocalIdx::new(source_param_idx.reinterpret_as_uint())
   let mut idx = 0
@@ -46492,12 +47676,12 @@ fn dae_collect_forwarded_param_component_uses_instrs(
 ///|
 fn dae_collect_forwarded_param_component_node(
   current : @lib.Module,
-  callee_abs : Int,
-  param_idx : Int,
+  callee_abs : Int32,
+  param_idx : Int32,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
   nodes : Array[DaeForwardedParamNode],
-  states : Array[Int],
+  states : Array[Int32],
   flags : Array[Bool],
 ) -> Bool {
   let existing_idx = dae_forwarded_param_node_index(
@@ -46586,16 +47770,16 @@ fn dae_collect_forwarded_param_component_node(
 ///|
 fn dae_collect_forwarded_param_component_sources_instrs(
   instrs : Array[@lib.Instruction],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   current : @lib.Module,
-  callee_abs : Int,
-  param_count : Int,
-  param_idx : Int,
-  caller_abs : Int,
-  caller_param_count : Int,
+  callee_abs : Int32,
+  param_count : Int32,
+  param_idx : Int32,
+  caller_abs : Int32,
+  caller_param_count : Int32,
   type_indices : Array[@lib.TypeIdx],
   sources : Array[DaeForwardedParamNode],
-  seen_calls : Array[Int],
+  seen_calls : Array[Int32],
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -46826,7 +48010,7 @@ fn dae_forwarded_param_node_calls_rewritable(
 ///|
 fn dae_collect_forwarded_param_component(
   current : @lib.Module,
-  cycle_defs : Array[Int],
+  cycle_defs : Array[Int32],
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
 ) -> Array[DaeForwardedParamNode] {
@@ -46850,13 +48034,13 @@ fn dae_collect_forwarded_param_component(
     let mut seed_param = 0
     while seed_param < params.length() {
       let nodes : Array[DaeForwardedParamNode] = []
-      let states : Array[Int] = []
+      let states : Array[Int32] = []
       let flags = [false, false]
       let collected = dae_collect_forwarded_param_component_node(
         current, seed_abs, seed_param, type_indices, boundary_facts, nodes, states,
         flags,
       )
-      let component_defs : Array[Int] = []
+      let component_defs : Array[Int32] = []
       if collected && (flags[0] || flags[1]) {
         for node in nodes {
           let def_idx = node.callee_abs - imported
@@ -46943,7 +48127,7 @@ fn dae_build_forwarded_param_component_candidate(
     _ => return None
   }
   let type_indices = dae_collect_func_type_indices(current)
-  let defs : Array[Int] = []
+  let defs : Array[Int32] = []
   let removes : Array[Array[Bool]] = []
   let localized_by_def : Array[Array[Bool]] = []
   for node in nodes {
@@ -47121,8 +48305,8 @@ fn dae_build_forwarded_param_component_candidate(
 ///|
 fn dae_count_component_target_call_kinds(
   funcs : Array[@lib.Func],
-  target_abs : Int,
-) -> (Int, Int) {
+  target_abs : Int32,
+) -> (Int32, Int32) {
   let mut direct_calls = 0
   let mut return_calls = 0
   for func in funcs {
@@ -47144,7 +48328,7 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   touched : Array[Bool],
   nodes : Array[DaeForwardedParamNode],
   boundary_facts : DaeCallBoundaryFacts,
-  original? : DaeOriginalBoundarySnapshot? = None,
+  original~ : DaeOriginalBoundarySnapshot? = None,
 ) -> DaeComponentRewritePlan? {
   let base_candidate = match
     dae_build_forwarded_param_component_candidate(
@@ -47415,9 +48599,10 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
-  cycle_defs : Array[Int],
+  cycle_defs : Array[Int32],
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
+  flow_solves~ : Array[Int32]? = None,
 ) -> DaeComponentRewritePlanCommit? {
   if cycle_defs.length() < 2 {
     return None
@@ -47429,6 +48614,14 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
     graph.snapshot.type_indices,
     boundary_facts,
   )
+  // The candidate builder rejects this shape independently of flow facts.
+  if nodes.length() < 2 {
+    return None
+  }
+  match flow_solves {
+    Some(count) if !count.is_empty() => count[0] += 1
+    _ => ()
+  }
   let flow = dae_solve_parameter_flow(graph, dependencies, seed_defs=cycle_defs)
   for node in nodes {
     let node_def = node.callee_abs - graph.snapshot.imported
@@ -47464,9 +48657,9 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
 ///|
 fn dae_collect_forwarded_param_dead_callee_candidates_instrs(
   instrs : Array[@lib.Instruction],
-  entry_stack_values : Int,
+  entry_stack_values : Int32,
   current : @lib.Module,
-  caller_param_count : Int,
+  caller_param_count : Int32,
   cycle_selected : Array[Bool],
   type_indices : Array[@lib.TypeIdx],
   candidates : Array[Array[Bool]?],
@@ -47572,8 +48765,8 @@ fn dae_collect_forwarded_param_dead_callee_candidates_instrs(
 ///|
 fn dae_collect_forwarded_param_dead_callee_defs(
   current : @lib.Module,
-  cycle_defs : Array[Int],
-) -> Array[Int] {
+  cycle_defs : Array[Int32],
+) -> Array[Int32] {
   let defined = dae_defined_func_count(current)
   if defined == 0 || cycle_defs.length() == 0 {
     return []
@@ -47612,7 +48805,7 @@ fn dae_collect_forwarded_param_dead_callee_defs(
       candidates,
     )
   }
-  let sink_defs : Array[Int] = []
+  let sink_defs : Array[Int32] = []
   let mut def_idx = 0
   while def_idx < defined {
     match candidates[def_idx] {
@@ -47654,7 +48847,7 @@ fn dae_collect_forwarded_param_dead_callee_defs(
 fn dae_run_forwarded_param_dead_callee_convergence(
   current : @lib.Module,
   touched : Array[Bool],
-  cycle_defs : Array[Int],
+  cycle_defs : Array[Int32],
 ) -> DaeForwardedParamDeadCalleeApplication? {
   let defined = dae_defined_func_count(current)
   if defined == 0 || cycle_defs.length() < 2 {
@@ -47667,7 +48860,7 @@ fn dae_run_forwarded_param_dead_callee_convergence(
   } else {
     Array::make(defined, false)
   }
-  let sink_defs : Array[Int] = []
+  let sink_defs : Array[Int32] = []
   while true {
     let sink_candidates = dae_collect_forwarded_param_dead_callee_defs(
       mod_out, cycle_defs,
@@ -47710,7 +48903,7 @@ fn dae_run_forwarded_param_dead_callee_convergence(
       cycle_selected[def_idx] = true
     }
   }
-  let productive_cycle_defs : Array[Int] = []
+  let productive_cycle_defs : Array[Int32] = []
   while true {
     let call_facts = dae_collect_current_call_facts(mod_out, total)
     let result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
@@ -47766,7 +48959,7 @@ fn dae_run_forwarded_param_scc_transaction(
     let mut seed_param = 0
     while seed_param < params.length() {
       let nodes : Array[DaeForwardedParamNode] = []
-      let states : Array[Int] = []
+      let states : Array[Int32] = []
       let cycle_nodes : Array[DaeForwardedParamNode] = []
       let constant : Array[@lib.Instruction?] = [None]
       let flags = [true, false, false]
@@ -47797,8 +48990,8 @@ fn dae_run_forwarded_param_scc_transaction(
 ///|
 fn dae_collect_broad_uniform_candidate_defs(
   candidate_source : @lib.Module,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   let context = match
     dae_exact_literal_candidate_context_new(candidate_source) {
     Some(context) => context
@@ -47850,18 +49043,29 @@ fn dae_run_broad_uniform_parameter_flow(
 fn dae_collect_applied_call_sink_uniform_defs(
   candidate_source : @lib.Module,
   current : @lib.Module,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
-  let source_imported = dae_imported_func_count(candidate_source)
-  let current_imported = dae_imported_func_count(current)
-  let source_types = dae_collect_func_type_indices(candidate_source)
-  let current_types = dae_collect_func_type_indices(current)
+) -> Array[Int32] {
+  let candidates : Array[Int32] = []
   let defined = dae_defined_func_count(current)
-  let source_defined = dae_defined_func_count(candidate_source)
+  if defined == 0 || dae_defined_func_count(candidate_source) == 0 {
+    return candidates
+  }
+  // Discovery borrows one immutable source snapshot; no rewrite runs here.
+  let context = match
+    dae_exact_literal_candidate_context_new(candidate_source) {
+    Some(context) => context
+    None => return candidates
+  }
+  let source_imported = context.imported
+  let current_imported = dae_imported_func_count(current)
+  let source_types = context.type_indices
+  let current_types = dae_collect_func_type_indices(current)
+  let source_defined = context.funcs.length()
   let mut def_idx = 0
   while def_idx < defined && def_idx < source_defined {
     if dae_exact_literal_candidate_is_single_param_call_sink(
-        candidate_source, def_idx,
+        candidate_source,
+        def_idx,
+        context=Some(context),
       ) {
       match
         (
@@ -47897,12 +49101,20 @@ fn dae_run_call_sink_uniform_parameter_flow(
   changed : Bool,
 ) -> DaeExactLiteralWorklistApplication {
   let defined = dae_defined_func_count(current)
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   let source_defined = dae_defined_func_count(candidate_source)
+  // The worklist mutates current only after this discovery loop is complete.
+  let context = if defined > 0 && source_defined > 0 {
+    dae_exact_literal_candidate_context_new(candidate_source)
+  } else {
+    None
+  }
   let mut candidate_def = 0
   while candidate_def < defined && candidate_def < source_defined {
     if dae_exact_literal_candidate_is_single_param_call_sink(
-        candidate_source, candidate_def,
+        candidate_source,
+        candidate_def,
+        context~,
       ) {
       candidates.push(candidate_def)
     }
@@ -47917,11 +49129,11 @@ fn dae_run_call_sink_uniform_parameter_flow(
 fn dae_apply_exact_literal_family_once(
   original_source : @lib.Module,
   current : @lib.Module,
-  def_idx : Int,
+  def_idx : Int32,
   touched : Array[Bool],
   changed : Bool,
-  allow_immutable_global_get? : Bool = false,
-  allow_immediate_i32_suffix_fallback? : Bool = false,
+  allow_immutable_global_get~ : Bool = false,
+  allow_immediate_i32_suffix_fallback~ : Bool = false,
 ) -> DaeCoreResultApplication {
   let original = dae_collect_original_boundary_snapshot(original_source)
   let graph = dae_current_boundary_graph_new(current)
@@ -47953,13 +49165,24 @@ fn dae_apply_exact_literal_family_once(
 fn dae_run_broad_exact_param_adjacent_cleanup_root(
   candidate_source : @lib.Module,
   current : @lib.Module,
-  root_defs : Array[Int],
+  root_defs : Array[Int32],
   touched : Array[Bool],
   changed : Bool,
   trace : (String) -> Unit,
 ) -> DaeBroadExactParamAdjacentCleanupApplication {
-  let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
+  if root_defs.is_empty() {
+    trace(
+      "pass[dae-optimizing]:broad-exact-param-adjacent-candidates roots=0 pairs=0",
+    )
+    return {
+      mod_out: current,
+      touched,
+      candidate: None,
+      effects: dae_commit_effects_empty(defined),
+    }
+  }
+  let imported = dae_imported_func_count(current)
   let total = imported + defined
   let call_facts = dae_collect_current_call_facts(current, total)
   let source_imported = dae_imported_func_count(candidate_source)
@@ -48102,9 +49325,9 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
 ///|
 fn dae_append_result_dependency_postorder(
   dependencies : DaeBoundaryDependencyGraph,
-  def_idx : Int,
+  def_idx : Int32,
   queued : Array[Bool],
-  queue : Array[Int],
+  queue : Array[Int32],
 ) -> Unit {
   if def_idx < 0 ||
     def_idx >= dependencies.result_dependencies_by_def.length() ||
@@ -48127,10 +49350,10 @@ fn dae_run_direct_gc_result_refinement_dependency_closure(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  seed_defs : Array[Int],
+  seed_defs : Array[Int32],
 ) -> DaeExactLiteralWorklistApplication {
   let defined = dae_defined_func_count(current)
-  let productive_defs : Array[Int] = []
+  let productive_defs : Array[Int32] = []
   let mut effects = dae_commit_effects_empty(defined)
   let mut mod_out = current
   let mut touched_out = touched
@@ -48141,7 +49364,7 @@ fn dae_run_direct_gc_result_refinement_dependency_closure(
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   let queued = Array::make(defined, false)
   for seed_def in seed_defs {
     dae_append_result_dependency_postorder(
@@ -48229,8 +49452,8 @@ fn dae_instr_references_any_local(
 ///|
 fn dae_instrs_reference_any_local_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   locals : Array[@lib.LocalIdx],
 ) -> Bool {
   let mut idx = start
@@ -48259,8 +49482,8 @@ fn dae_local_idx_array_contains(
 ///|
 fn dae_copy_instr_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = start
@@ -48299,9 +49522,9 @@ fn dae_fold_ref_null_is_null_if_instrs(
 ///|
 fn dae_fold_i64_sentinel_wrap_if_instrs(
   body : Array[@lib.Instruction],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
+  local_gets : Array[Int32],
+  local_sets : Array[Int32],
+  local_tees : Array[Int32],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -48399,9 +49622,9 @@ fn dae_try_sink_terminal_default_aggregate_local_body_once(
     _ => return None
   }
   let local_count = dae_next_free_local_idx(body, 0)
-  let local_gets : Array[Int] = Array::make(local_count, 0)
-  let local_sets : Array[Int] = Array::make(local_count, 0)
-  let local_tees : Array[Int] = Array::make(local_count, 0)
+  let local_gets : Array[Int32] = Array::make(local_count, 0)
+  let local_sets : Array[Int32] = Array::make(local_count, 0)
+  let local_tees : Array[Int32] = Array::make(local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     body, local_gets, local_sets, local_tees,
   )
@@ -48423,7 +49646,7 @@ fn dae_try_sink_terminal_default_aggregate_local_body_once(
 ///|
 fn dae_terminal_sentinel_select_producer_source(
   body : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
 ) -> @lib.LocalIdx? {
   if start < 0 || start + 6 >= body.length() {
     return None
@@ -48501,9 +49724,9 @@ fn dae_try_sink_terminal_first_sentinel_local_body_once(
     _ => return None
   }
   let local_count = dae_next_free_local_idx(body, 0)
-  let local_gets : Array[Int] = Array::make(local_count, 0)
-  let local_sets : Array[Int] = Array::make(local_count, 0)
-  let local_tees : Array[Int] = Array::make(local_count, 0)
+  let local_gets : Array[Int32] = Array::make(local_count, 0)
+  let local_sets : Array[Int32] = Array::make(local_count, 0)
+  let local_tees : Array[Int32] = Array::make(local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     body, local_gets, local_sets, local_tees,
   )
@@ -48561,9 +49784,9 @@ fn dae_try_sink_terminal_second_sentinel_local_body_once(
     _ => return None
   }
   let local_count = dae_next_free_local_idx(body, 0)
-  let local_gets : Array[Int] = Array::make(local_count, 0)
-  let local_sets : Array[Int] = Array::make(local_count, 0)
-  let local_tees : Array[Int] = Array::make(local_count, 0)
+  let local_gets : Array[Int32] = Array::make(local_count, 0)
+  let local_sets : Array[Int32] = Array::make(local_count, 0)
+  let local_tees : Array[Int32] = Array::make(local_count, 0)
   run_hot_pipeline_raw_collect_local_ref_counts(
     body, local_gets, local_sets, local_tees,
   )
@@ -48584,8 +49807,8 @@ fn dae_try_sink_terminal_second_sentinel_local_body_once(
 ///|
 fn dae_try_inline_terminal_call_local_sets_body_once(
   body : Array[@lib.Instruction],
-  arg_count : Int,
-  protected_local_slots : Int,
+  arg_count : Int32,
+  protected_local_slots : Int32,
 ) -> Array[@lib.Instruction]? {
   if arg_count <= 0 || body.length() <= arg_count {
     return None
@@ -48710,7 +49933,7 @@ fn dae_try_remove_selected_nops_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _ : Int,
+    _ : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let @lib.Func(locals, @lib.Expr(body)) = func
@@ -48858,7 +50081,7 @@ fn dae_try_rewrite_selected_func408_pair_if_carrier_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _ : Int,
+    _ : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let @lib.Func(locals, @lib.Expr(body)) = func
@@ -48930,7 +50153,7 @@ fn dae_try_inline_selected_i32_const_local_sets_once(
   let type_indices = dae_collect_func_type_indices(mod_)
   let rewrite_func = fn(
     func : @lib.Func,
-    def_idx : Int,
+    def_idx : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let callee_abs = imported + def_idx
@@ -48965,7 +50188,7 @@ fn dae_try_fold_selected_ref_null_is_null_ifs_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _ : Int,
+    _ : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let @lib.Func(locals, @lib.Expr(body)) = func
@@ -48990,7 +50213,7 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
   let type_indices = dae_collect_func_type_indices(mod_)
   let rewrite_func = fn(
     func : @lib.Func,
-    def_idx : Int,
+    def_idx : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let param_count = match
@@ -49000,9 +50223,9 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
     }
     let @lib.Func(locals, @lib.Expr(body)) = func
     let local_count = dae_next_free_local_idx(body, 0)
-    let local_gets : Array[Int] = Array::make(local_count, 0)
-    let local_sets : Array[Int] = Array::make(local_count, 0)
-    let local_tees : Array[Int] = Array::make(local_count, 0)
+    let local_gets : Array[Int32] = Array::make(local_count, 0)
+    let local_sets : Array[Int32] = Array::make(local_count, 0)
+    let local_tees : Array[Int32] = Array::make(local_count, 0)
     run_hot_pipeline_raw_collect_local_ref_counts(
       body, local_gets, local_sets, local_tees,
     )
@@ -49093,7 +50316,7 @@ fn dae_try_inline_selected_terminal_call_local_sets_once(
   let type_indices = dae_collect_func_type_indices(mod_)
   let rewrite_func = fn(
     func : @lib.Func,
-    def_idx : Int,
+    def_idx : Int32,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
     let callee_abs = imported + def_idx
@@ -49338,7 +50561,7 @@ fn dae_try_cleanup_selected_func327_default_wrappers_once(
 ) -> DaePassResult {
   let rewrite_func = fn(
     func : @lib.Func,
-    _def_idx : Int,
+    _def_idx : Int32,
     func_type : @lib.FuncType,
     _type_sec : @lib.TypeSec?,
   ) -> @lib.Func? {
@@ -49421,8 +50644,8 @@ fn dae_try_cleanup_selected_func327_default_wrappers_once(
 ///|
 fn dae_try_fold_func246_builder_body_once(
   body : Array[@lib.Instruction],
-  retain_slot : Int,
-  alloc_slot : Int,
+  retain_slot : Int32,
+  alloc_slot : Int32,
 ) -> Array[@lib.Instruction]? {
   if body.length() != 18 {
     return None
@@ -49531,8 +50754,8 @@ fn dae_try_fold_selected_func246_builder_once(
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
-  candidate_defs? : Array[Bool]? = None,
-  suffix_scans? : Array[Int]? = None,
+  candidate_defs~ : Array[Bool]? = None,
+  suffix_scans~ : Array[Int32]? = None,
 ) -> DaePassResult {
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -49548,7 +50771,7 @@ fn dae_restore_dead_suffix_self_operand_params(
   }
   // Restoration only changes a zero-parameter unreachable body. Reject other
   // bodies before scanning escapes or the original dead operand suffixes.
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   let count = if current_funcs.length() < original_funcs.length() {
     current_funcs.length()
   } else {
@@ -49650,7 +50873,7 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  candidate_defs? : Array[Bool]? = None,
+  candidate_defs~ : Array[Bool]? = None,
 ) -> DaeCoreResultApplication {
   let candidate = dae_restore_dead_suffix_self_operand_params(
     original_source,
@@ -49803,6 +51026,7 @@ fn dae_run_effect_frontier_worklist(
   seed_defs : Array[Bool],
   allow_parameter_families : Bool,
   trace : (String) -> Unit,
+  allow_forwarding_memo~ : Bool = true,
 ) -> DaeEffectFrontierRunResult {
   let defined = dae_defined_func_count(current_in)
   let diagnostics = dae_diagnostics_new()
@@ -49848,6 +51072,7 @@ fn dae_run_effect_frontier_worklist(
   let mut touched : Array[Bool] = []
   let mut changed = false
   let mut effects = dae_commit_effects_empty(defined)
+  let forwarding_memo = DaeForwardingNoChangeMemo::new()
   let mut iteration = 0
   while true {
     let item = match dae_boundary_worklist_take_item(worklist) {
@@ -49855,15 +51080,25 @@ fn dae_run_effect_frontier_worklist(
       None => break
     }
     let before_dependencies = dependencies
-    match
+    let outcome = if allow_forwarding_memo && item.family == DaeForwardingWork {
+      dae_process_forwarding_work_item_with_memo(
+        original, current, touched, changed, graph, dependencies, item, diagnostics,
+        forwarding_memo,
+      )
+    } else {
       dae_process_work_item(
         original, current, touched, changed, graph, dependencies, item, diagnostics,
-      ) {
+      )
+    }
+    match outcome {
       DaeWorkRequeue(items) =>
         diagnostics.candidate_requeues += dae_boundary_worklist_requeue_items(
           worklist, items,
         )
       DaeWorkCommitted(initial_application) => {
+        // Any family can expose forwarding work. Invalidate even if shared
+        // producer storage kept the module identity or graph epochs unchanged.
+        forwarding_memo.invalidate()
         let application = dae_apply_commit_followups(
           original, initial_application, item, diagnostics,
         )
@@ -49912,12 +51147,20 @@ fn dae_run_effect_frontier_worklist(
 fn dae_run_core(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  optimize? : Bool = false,
-  perf? : HotPerfSession? = None,
-  single_caller_throttle_consumed? : Bool = false,
-  traps_never_happen? : Bool = false,
-  results_only? : Bool = false,
+  optimize~ : Bool = false,
+  perf~ : HotPerfSession? = None,
+  single_caller_throttle_consumed~ : Bool = false,
+  traps_never_happen~ : Bool = false,
+  results_only~ : Bool = false,
+  no_callback_trace~ : DaeNoCallbackTrace? = None,
+  scalar_validation_work~ : DaeScalarValidationWork? = None,
+  numeric_result_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaeCoreRunResult {
+  let no_callback_trace = match no_callback_trace {
+    Some(proof) if perf is None && physical_equal(trace, proof.callback) =>
+      Some(proof)
+    _ => None
+  }
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
@@ -50093,7 +51336,7 @@ fn dae_run_core(
                 }
               }
               let @lib.Func(_, @lib.Expr(body)) = funcs[changed_def]
-              let outgoing : Array[Int] = []
+              let outgoing : Array[Int32] = []
               dae_collect_direct_call_targets_anywhere(
                 body, original_imported, original_defined, outgoing,
               )
@@ -50122,6 +51365,11 @@ fn dae_run_core(
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )
+  let scalar_validation_chain = match
+    (no_callback_trace, scalar_validation_work, numeric_result_validation_work) {
+    (None, None, None) => None
+    _ => Some(dae_scalar_validation_chain_new(trace, perf, no_callback_trace))
+  }
   let mut iter = 0
   // Boundary availability is monotonic under the core's signature/result
   // reductions, but it is not definition-order local: rewriting one boundary
@@ -50180,6 +51428,11 @@ fn dae_run_core(
       let boundary_facts = current_boundary_graph.snapshot.boundary_facts
       let producer_effects_report : Array[DaeCommitEffects] = []
       let committed_application_report : Array[DaeCoreResultApplication] = []
+      let checked_candidate_report : Array[(@lib.Module, @lib.Module)]? = match
+        no_callback_trace {
+        Some(_) => Some([])
+        None => None
+      }
       let result = dae_run_core_once(
         current,
         no_already_rewritten_defs,
@@ -50195,10 +51448,25 @@ fn dae_run_core(
         dependencies=Some(current_dependencies),
         producer_effects_report~,
         committed_application_report~,
+        checked_candidate_report~,
+        scalar_validation_chain~,
+        scalar_validation_work~,
+        numeric_result_validation_work~,
         scalar_plan_code_snapshot_current~,
         has_current_dropped_result_candidate~,
         traps_never_happen~,
       )
+      dae_scalar_validation_retain_exact(
+        scalar_validation_chain,
+        result.mod_out,
+      )
+      if !committed_application_report.is_empty() {
+        dae_numeric_result_validation_retain_report(
+          scalar_validation_chain,
+          result,
+          committed_application_report[0],
+        )
+      }
       let consumed_end_exclusive = if result.changed &&
         result.primary_def >= def_idx &&
         result.primary_def < batch_end_exclusive {
@@ -50257,19 +51525,33 @@ fn dae_run_core(
       )
       let application = match committed_application_report.get(0) {
         Some(application) => application
-        None =>
-          match
-            dae_process_precomputed_signature_work_item(
-              original_boundary_snapshot, current, touched, changed, current_boundary_graph,
-              item, result, producer_effects,
-            ) {
+        None => {
+          let outcome = match checked_candidate_report {
+            Some(report) =>
+              dae_process_core_precomputed_signature_with_report(
+                original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+                item, result, producer_effects, trace, no_callback_trace, report,
+              )
+            None =>
+              dae_process_precomputed_signature_work_item(
+                original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+                item, result, producer_effects,
+              )
+          }
+          match outcome {
             DaeWorkCommitted(value) => value
             DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => {
+              dae_scalar_validation_barrier_opt(scalar_validation_chain)
               dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
               continue
             }
           }
+        }
       }
+      dae_scalar_validation_retain_exact(
+        scalar_validation_chain,
+        application.mod_out,
+      )
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
       if application.primary_def >= 0 && before_primary_param_count >= 0 {
@@ -50301,6 +51583,7 @@ fn dae_run_core(
       dae_current_boundary_graph_refresh(
         current_boundary_graph,
         application.mod_out,
+        forced_changed_defs=Some(application.effects.structurally_touched),
       )
       scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
         application.mod_out,
@@ -50348,6 +51631,7 @@ fn dae_run_core(
       )
     }
   }
+  dae_scalar_validation_barrier_opt(scalar_validation_chain)
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
   if results_only {
     trace("pass[dae]:results-only-fallback stop=after-core-worklist")
@@ -51333,7 +52617,7 @@ fn dae_modules_form_single_caller_param_wave(
 }
 
 ///|
-fn dae_count_touched(touched : Array[Bool]) -> Int {
+fn dae_count_touched(touched : Array[Bool]) -> Int32 {
   let mut count = 0
   for item in touched {
     if item {
@@ -51612,7 +52896,7 @@ fn dae_cleanup_dropped_unreachable_debris(
 ///|
 fn dae_cleanup_unread_local_body(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
+  reads : Array[Int32],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -51663,8 +52947,8 @@ fn dae_cleanup_unread_local_body(
 ///|
 fn dae_collect_unread_simple_copy_pairs(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
-  pairs : Array[(Int, Int)],
+  reads : Array[Int32],
+  pairs : Array[(Int32, Int32)],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     if idx > 0 {
@@ -51715,19 +52999,19 @@ fn dae_collect_unread_simple_copy_pairs(
 ///|
 fn dae_propagate_unread_simple_copies(
   body : Array[@lib.Instruction],
-  reads : Array[Int],
+  reads : Array[Int32],
 ) -> Unit {
-  let pairs : Array[(Int, Int)] = []
+  let pairs : Array[(Int32, Int32)] = []
   dae_collect_unread_simple_copy_pairs(body, reads, pairs)
   if pairs.is_empty() {
     return
   }
-  let incoming : Array[Array[Int]] = Array::makei(reads.length(), fn(_) { [] })
+  let incoming : Array[Array[Int32]] = Array::makei(reads.length(), fn(_) { [] })
   for (source, target) in pairs {
     incoming[target].push(source)
   }
   let queued = Array::make(reads.length(), false)
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   for local_idx = 0; local_idx < reads.length(); local_idx = local_idx + 1 {
     if reads[local_idx] == 0 {
       queued[local_idx] = true
@@ -51803,30 +53087,46 @@ fn dae_cleanup_touched_unread_locals(
   touched : Array[Bool],
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
   }
   let imported = dae_imported_func_count(mod_)
-  let mut changed = false
+  let mut flattened_subtypes : Array[@lib.SubType]? = None
+  let mut next_funcs : Array[@lib.Func]? = None
   for i = 0; i < funcs.length(); i = i + 1 {
     if i < touched.length() && touched[i] {
-      let params = run_hot_pipeline_defined_func_params_from_sections(
+      let subtypes = match flattened_subtypes {
+        Some(subtypes) => subtypes
+        None => {
+          let subtypes = run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec)
+          flattened_subtypes = Some(subtypes)
+          subtypes
+        }
+      }
+      let params = run_hot_pipeline_defined_func_params_indexed(
         mod_,
         @lib.FuncIdx::new((imported + i).reinterpret_as_uint()),
+        Some(subtypes),
       )
       if params is Some(params) {
         let (next, func_changed) = dae_cleanup_unread_locals(funcs[i], params)
         if func_changed {
-          funcs[i] = next
-          changed = true
+          match next_funcs {
+            Some(copy) => copy[i] = next
+            None => {
+              let copy = funcs.copy()
+              copy[i] = next
+              next_funcs = Some(copy)
+            }
+          }
         }
       }
     }
   }
-  if changed {
-    mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec()
-  } else {
-    mod_
+  match next_funcs {
+    Some(funcs) =>
+      mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec()
+    None => mod_
   }
 }
 
@@ -51851,7 +53151,7 @@ fn dae_legacy_flat_scope_can_inline(body : Array[@lib.Instruction]) -> Bool {
 fn dae_legacy_cleanup_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
-  tag_entries : Array[Int],
+  tag_entries : Array[Int32],
 ) -> @lib.Expr {
   let @lib.Expr(body) = expr
   let (next, changed) = dae_flatten_proved_legacy_control(
@@ -51869,7 +53169,7 @@ fn dae_legacy_cleanup_expr(
 fn dae_legacy_cleanup_children(
   instr : @lib.Instruction,
   mod_ : @lib.Module,
-  tag_entries : Array[Int],
+  tag_entries : Array[Int32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, expr) => {
@@ -51964,7 +53264,7 @@ fn dae_legacy_cleanup_children(
 fn dae_flatten_proved_legacy_control(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
-  tag_entries : Array[Int],
+  tag_entries : Array[Int32],
 ) -> (Array[@lib.Instruction], Bool) {
   let mut out : Array[@lib.Instruction]? = None
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -52046,7 +53346,7 @@ fn dae_flatten_proved_legacy_control(
 fn dae_cleanup_touched_legacy_constants(
   mod_ : @lib.Module,
   touched : Array[Bool],
-  fold_constants? : Bool = true,
+  fold_constants~ : Bool = true,
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -52158,14 +53458,24 @@ fn dae_validate_typed_batch_candidate(
   let imported = dae_imported_func_count(candidate)
   let original_type_indices = dae_collect_func_type_indices(original)
   let candidate_type_indices = dae_collect_func_type_indices(candidate)
+  let original_function_types = dae_collect_defined_function_types(
+    original,
+    imported,
+    original_funcs.length(),
+    original_type_indices,
+  )
+  let candidate_function_types = dae_collect_defined_function_types(
+    candidate,
+    imported,
+    candidate_funcs.length(),
+    candidate_type_indices,
+  )
   let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
   let mut def_idx = 0
   while def_idx < candidate_funcs.length() {
     let func_abs = imported + def_idx
-    let signature_changed = dae_resolve_func_type(
-        original, original_type_indices, func_abs,
-      ) !=
-      dae_resolve_func_type(candidate, candidate_type_indices, func_abs)
+    let signature_changed = original_function_types[def_idx] !=
+      candidate_function_types[def_idx]
     if touched[def_idx] ||
       original_funcs[def_idx] != candidate_funcs[def_idx] ||
       signature_changed {
@@ -52189,9 +53499,9 @@ fn dae_validate_typed_batch_candidate(
 fn dae_run_dropped_result_batch_only_result(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  perf? : HotPerfSession? = None,
-  safe_parameter_batch? : Bool = false,
-  cleanup_dropped_pure_leaves? : Bool = false,
+  perf~ : HotPerfSession? = None,
+  safe_parameter_batch~ : Bool = false,
+  cleanup_dropped_pure_leaves~ : Bool = false,
 ) -> (@lib.Module, Array[Bool], Bool, Array[Bool]) {
   let total_start_us = perf_start_timer_opt(
     perf, "detail:dae:dropped-result-batch-only:total",
@@ -52381,8 +53691,8 @@ fn dae_run_dropped_result_batch_only_result(
 fn dae_run_dropped_result_batch_only(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  perf? : HotPerfSession? = None,
-  safe_parameter_batch? : Bool = false,
+  perf~ : HotPerfSession? = None,
+  safe_parameter_batch~ : Bool = false,
 ) -> @lib.Module {
   let (mod_out, _, _, _) = dae_run_dropped_result_batch_only_result(
     mod_,
@@ -52397,8 +53707,8 @@ fn dae_run_dropped_result_batch_only(
 fn dae_run_typed_loop_safe_batch_result(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  perf? : HotPerfSession? = None,
-  cleanup_dropped_pure_leaves? : Bool = false,
+  perf~ : HotPerfSession? = None,
+  cleanup_dropped_pure_leaves~ : Bool = false,
 ) -> (@lib.Module, Array[Bool], Bool, Array[Bool]) {
   dae_run_dropped_result_batch_only_result(
     mod_,
@@ -52413,7 +53723,7 @@ fn dae_run_typed_loop_safe_batch_result(
 fn dae_run_typed_loop_safe_batch(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  perf? : HotPerfSession? = None,
+  perf~ : HotPerfSession? = None,
 ) -> @lib.Module {
   let (mod_out, _, _, _) = dae_run_typed_loop_safe_batch_result(
     mod_,
@@ -52426,11 +53736,12 @@ fn dae_run_typed_loop_safe_batch(
 ///|
 fn dae_run_module_pass_with_trap_policy(
   mod_ : @lib.Module,
-  optimize? : Bool = false,
-  trace? : ((String) -> Unit)? = None,
-  traps_never_happen? : Bool = false,
-  perf? : HotPerfSession? = None,
-  skip_param_removal? : Bool = false,
+  optimize~ : Bool = false,
+  trace~ : ((String) -> Unit)? = None,
+  traps_never_happen~ : Bool = false,
+  perf~ : HotPerfSession? = None,
+  skip_param_removal~ : Bool = false,
+  no_callback_trace~ : DaeNoCallbackTrace? = None,
 ) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -52438,6 +53749,11 @@ fn dae_run_module_pass_with_trap_policy(
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
+  }
+  let no_callback_trace = if trace is None && perf is None {
+    Some({ callback: trace_fn, })
+  } else {
+    no_callback_trace
   }
   let result = dae_run_core(
     mod_,
@@ -52447,6 +53763,7 @@ fn dae_run_module_pass_with_trap_policy(
     single_caller_throttle_consumed=skip_param_removal,
     traps_never_happen~,
     results_only=skip_param_removal,
+    no_callback_trace~,
   )
   dae_trace_diagnostics(
     trace_fn,
@@ -52476,8 +53793,8 @@ fn dae_run_module_pass_with_trap_policy(
 ///|
 pub fn dae_run_module_pass(
   mod_ : @lib.Module,
-  optimize? : Bool = false,
-  trace? : ((String) -> Unit)? = None,
+  optimize~ : Bool = false,
+  trace~ : ((String) -> Unit)? = None,
 ) -> @lib.Module {
   dae_run_module_pass_with_trap_policy(mod_, optimize~, trace~)
 }
@@ -52498,11 +53815,11 @@ fn dae_append_selected_if_body(
 
 ///|
 fn dae_callsite_child_path_if_needed(
-  path : Array[Int],
-  index : Int,
-  arm : Int,
+  path : Array[Int32],
+  index : Int32,
+  arm : Int32,
   needed : Bool,
-) -> Array[Int] {
+) -> Array[Int32] {
   if needed {
     dae_callsite_child_path(path, index, arm)
   } else {
@@ -52514,21 +53831,21 @@ fn dae_callsite_child_path_if_needed(
 #inline
 fn dae_scan_current_call_facts_child(
   instrs : Array[@lib.Instruction],
-  caller_def : Int,
-  caller_abs : Int,
-  path : Array[Int],
-  instr_idx : Int,
-  child_kind : Int,
-  direct_calls : Array[Int],
+  caller_def : Int32,
+  caller_abs : Int32,
+  path : Array[Int32],
+  instr_idx : Int32,
+  child_kind : Int32,
+  direct_calls : Array[Int32],
   tail_calls : Array[Bool],
-  direct_callers : Array[Array[Int]],
-  dropped_calls : Array[Int],
+  direct_callers : Array[Array[Int32]],
+  dropped_calls : Array[Int32],
   escaped : Array[Bool],
   function_infos : Array[DaeFunctionInfo],
-  caller_seen_stamps : Array[Int],
+  caller_seen_stamps : Array[Int32],
   active : Bool,
-  topology_out? : DaeCurrentTopologyExtras? = None,
-  stable_path? : DaeStablePath? = None,
+  topology_out~ : DaeCurrentTopologyExtras? = None,
+  stable_path~ : DaeStablePath? = None,
 ) -> Bool {
   let parent_length = path.length()
   let collect_paths = !function_infos.is_empty()

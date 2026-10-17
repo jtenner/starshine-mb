@@ -1,5 +1,5 @@
 ///|
-fn sl_value_suffix_fixture(width : Int) -> Array[@lib.Instruction] {
+fn sl_value_suffix_fixture(width : Int32) -> Array[@lib.Instruction] {
   let body = Array::make(width, @lib.Instruction::i32_const(@lib.I32(1)))
   for _ in 0..<(width - 1) {
     body.push(@lib.Instruction::i32_add())

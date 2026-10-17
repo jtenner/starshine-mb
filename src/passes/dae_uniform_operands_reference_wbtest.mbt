@@ -4,9 +4,9 @@
 fn dae_uniform_operands_sliced_reference_at(
   mod_ : @lib.Module,
   scope : Array[@lib.Instruction],
-  call_idx : Int,
-  param_count : Int,
-  entry_stack_values : Int,
+  call_idx : Int32,
+  param_count : Int32,
+  entry_stack_values : Int32,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> DaeUniformCallsiteOperands? {
   let evidence = match

@@ -51,7 +51,7 @@ fn dae2_balanced_capture_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
-  let remaps : Array[Array[Int]?] = []
+  let remaps : Array[Array[Int32]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
   for index = 0; index < funcs.length(); index = index + 1 {

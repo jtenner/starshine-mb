@@ -1,5 +1,5 @@
 ///|
-fn or_throw_chain_fixture(count : Int) -> Array[@lib.Func] {
+fn or_throw_chain_fixture(count : Int32) -> Array[@lib.Func] {
   let funcs : Array[@lib.Func] = []
   for idx in 0..<count {
     let callee = if idx == count - 1 { 0 } else { idx + 2 }
@@ -16,7 +16,7 @@ fn or_throw_chain_fixture(count : Int) -> Array[@lib.Func] {
 }
 
 ///|
-fn or_throw_chain_bench(it : @bench.T, count : Int) -> Unit {
+fn or_throw_chain_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = or_throw_chain_fixture(count)
   let result = or_collect_throwing_funcs(fixture, 1, count + 1)
   for throws in result {
@@ -28,7 +28,7 @@ fn or_throw_chain_bench(it : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn or_no_throw_bench(it : @bench.T, count : Int) -> Unit {
+fn or_no_throw_bench(it : @bench.T, count : Int32) -> Unit {
   let funcs : Array[@lib.Func] = []
   for _ in 0..<count {
     funcs.push(

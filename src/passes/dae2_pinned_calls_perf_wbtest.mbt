@@ -1,5 +1,5 @@
 ///|
-fn dae2_pinned_calls_fixture(siblings : Int, calls : Int) -> @lib.Module {
+fn dae2_pinned_calls_fixture(siblings : Int32, calls : Int32) -> @lib.Module {
   let wat = [
     "(module (type $sig (func (param i32) (result i32))) (import \"host\" \"echo\" (func $echo (type $sig))) (func $h (param i32) (result i32) i32.const 7) (func (export \"run\") (result i32) i32.const 9 call $h)",
   ]
@@ -17,8 +17,8 @@ fn dae2_pinned_calls_fixture(siblings : Int, calls : Int) -> @lib.Module {
 ///|
 fn dae2_pinned_calls_bench(
   it : @bench.T,
-  siblings : Int,
-  calls : Int,
+  siblings : Int32,
+  calls : Int32,
   optimizing : Bool,
 ) -> Unit {
   let input = dae2_pinned_calls_fixture(siblings, calls)

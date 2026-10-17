@@ -1,10 +1,10 @@
 ///|
 fn compaction_admission_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
   alias : Bool,
-  active? : Int = 0,
+  active~ : Int32 = 0,
 ) -> Unit raise {
   let body = Array::makei(width, fn(i) {
     match active {

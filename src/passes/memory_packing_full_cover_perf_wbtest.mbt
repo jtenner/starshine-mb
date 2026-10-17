@@ -1,5 +1,5 @@
 ///|
-fn mp_full_cover_perf_datas(count : Int) -> Array[@lib.Data] {
+fn mp_full_cover_perf_datas(count : Int32) -> Array[@lib.Data] {
   let payload = Bytes::from_array(Array::make(64, (65).to_byte()))
   let datas : Array[@lib.Data] = []
   for _ in 0..<count {
@@ -17,7 +17,7 @@ fn mp_full_cover_perf_datas(count : Int) -> Array[@lib.Data] {
 }
 
 ///|
-fn mp_full_cover_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn mp_full_cover_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let preflight = mp_full_cover_perf_datas(count)
   mp_zero_out_trampled_data(preflight)
   let @lib.Data(_, first) = preflight[0]

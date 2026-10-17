@@ -1,7 +1,7 @@
 ///|
 fn h2l_dominance_perf_fixture(
-  prefix_count : Int,
-  read_count : Int,
+  prefix_count : Int32,
+  read_count : Int32,
 ) -> @lib.Module {
   let source = StringBuilder::new()
   source.write_string("(module (func (local i32)")
@@ -19,15 +19,15 @@ fn h2l_dominance_perf_fixture(
 ///|
 fn h2l_dominance_perf_bench(
   it : @bench.T,
-  prefix_count : Int,
-  read_count : Int,
+  prefix_count : Int32,
+  read_count : Int32,
 ) -> Unit {
   let fixture = h2l_dominance_perf_fixture(prefix_count, read_count)
   let hot = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
   let cfg = @ir.cfg_build(hot, expand_operand_control=true)
   let dom = @ir.dom_build(cfg)
   let mut write = -1
-  let reads : Array[Int] = []
+  let reads : Array[Int32] = []
   for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
     match @ir.hot_node_get(hot, node).op {
       @ir.HotOp::LocalSet => write = node
@@ -62,7 +62,7 @@ test "Heap2Local same-block dominance keeps read-before-write false" {
   let dom = @ir.dom_build(cfg)
   let order = H2LDominanceOrder::new(@ir.hot_node_count(hot))
   let mut write = -1
-  let reads : Array[Int] = []
+  let reads : Array[Int32] = []
   for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
     match @ir.hot_node_get(hot, node).op {
       @ir.HotOp::LocalSet => write = node

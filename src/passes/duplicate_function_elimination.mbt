@@ -4,7 +4,7 @@ pub fn dfe_summary() -> String {
 }
 
 ///|
-fn dfe_imported_func_count(mod_ : @lib.Module) -> Int {
+fn dfe_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -22,8 +22,8 @@ fn dfe_imported_func_count(mod_ : @lib.Module) -> Int {
 ///|
 fn dfe_func_annotation_map(
   mod_ : @lib.Module,
-) -> Map[UInt, Array[@lib.FuncAnnotation]] {
-  let by_idx : Map[UInt, Array[@lib.FuncAnnotation]] = Map([])
+) -> Map[UInt32, Array[@lib.FuncAnnotation]] {
+  let by_idx : Map[UInt32, Array[@lib.FuncAnnotation]] = Map([])
   match mod_.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
       for entry in entries {
@@ -43,8 +43,8 @@ fn dfe_func_annotation_map(
 
 ///|
 fn dfe_func_annotations(
-  by_idx : Map[UInt, Array[@lib.FuncAnnotation]],
-  abs_idx : UInt,
+  by_idx : Map[UInt32, Array[@lib.FuncAnnotation]],
+  abs_idx : UInt32,
 ) -> Array[@lib.FuncAnnotation] {
   by_idx.get(abs_idx).unwrap_or([])
 }
@@ -147,18 +147,18 @@ fn dfe_supports_simple_type_dedup(rec_types : Array[@lib.RecType]) -> Bool {
 ///|
 fn dfe_duplicate_simple_type_canonical_map(
   rec_types : Array[@lib.RecType],
-) -> Map[UInt, UInt] {
-  let canonical_map : Map[UInt, UInt] = Map([])
+) -> Map[UInt32, UInt32] {
+  let canonical_map : Map[UInt32, UInt32] = Map([])
   if !dfe_supports_simple_type_dedup(rec_types) {
     return canonical_map
   }
-  let buckets : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
+  let buckets : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new(
     capacity=rec_types.length(),
   )
   let mut old_idx = 0
   while old_idx < rec_types.length() {
     let rec_type = rec_types[old_idx]
-    let mut canonical_old_idx : UInt? = None
+    let mut canonical_old_idx : UInt32? = None
     let hash_key = rec_type.hash()
     match buckets.get(hash_key) {
       Some(bucket) => {
@@ -190,7 +190,7 @@ fn dfe_duplicate_simple_type_canonical_map(
 ///|
 fn dfe_rewrite_type_idx(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeIdx {
   match idx {
     @lib.TypeIdx(raw) => @lib.TypeIdx::new(remap.get(raw).unwrap_or(raw))
@@ -201,7 +201,7 @@ fn dfe_rewrite_type_idx(
 ///|
 fn dfe_try_rewrite_type_idx(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeIdx? {
   match idx {
     @lib.TypeIdx(raw) =>
@@ -221,7 +221,7 @@ fn dfe_try_rewrite_type_idx(
 ///|
 fn dfe_type_idx_is_remapped(
   idx : @lib.TypeIdx,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match idx {
     @lib.TypeIdx(raw) => remap.get(raw) != None
@@ -232,7 +232,7 @@ fn dfe_type_idx_is_remapped(
 ///|
 fn dfe_type_metadata_uses_remap(
   metadata : @lib.TypeMetadata,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let { describes, descriptor, .. } = metadata
   match describes {
@@ -248,7 +248,7 @@ fn dfe_type_metadata_uses_remap(
 ///|
 fn dfe_heap_type_uses_remap(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
@@ -261,7 +261,7 @@ fn dfe_heap_type_uses_remap(
 ///|
 fn dfe_ref_type_uses_remap(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match ref_type {
     @lib.HeapTypeRefType(_, _, heap_type) =>
@@ -273,7 +273,7 @@ fn dfe_ref_type_uses_remap(
 ///|
 fn dfe_val_type_uses_remap(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match val_type {
     @lib.RefTypeValType(ref_type) => dfe_ref_type_uses_remap(ref_type, remap)
@@ -284,7 +284,7 @@ fn dfe_val_type_uses_remap(
 ///|
 fn dfe_storage_type_uses_remap(
   storage_type : @lib.StorageType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
@@ -296,7 +296,7 @@ fn dfe_storage_type_uses_remap(
 ///|
 fn dfe_field_type_uses_remap(
   field_type : @lib.FieldType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let @lib.FieldType(storage_type, _) = field_type
   dfe_storage_type_uses_remap(storage_type, remap)
@@ -305,7 +305,7 @@ fn dfe_field_type_uses_remap(
 ///|
 fn dfe_field_types_use_remap(
   field_types : Array[@lib.FieldType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < field_types.length() {
@@ -320,7 +320,7 @@ fn dfe_field_types_use_remap(
 ///|
 fn dfe_val_types_use_remap(
   val_types : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < val_types.length() {
@@ -335,7 +335,7 @@ fn dfe_val_types_use_remap(
 ///|
 fn dfe_comp_type_uses_remap(
   comp_type : @lib.CompType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match comp_type {
     @lib.ArrayCompType(field_type) =>
@@ -352,7 +352,7 @@ fn dfe_comp_type_uses_remap(
 ///|
 fn dfe_type_idxs_use_remap(
   type_idxs : Array[@lib.TypeIdx],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < type_idxs.length() {
@@ -367,7 +367,7 @@ fn dfe_type_idxs_use_remap(
 ///|
 fn dfe_sub_type_uses_remap(
   subtype : @lib.SubType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match subtype {
     @lib.SubType(_, supers, metadata, comp_type) =>
@@ -383,7 +383,7 @@ fn dfe_sub_type_uses_remap(
 ///|
 fn dfe_sub_types_use_remap(
   subtypes : Array[@lib.SubType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   let mut idx = 0
   while idx < subtypes.length() {
@@ -398,7 +398,7 @@ fn dfe_sub_types_use_remap(
 ///|
 fn dfe_rec_type_uses_remap(
   rec_type : @lib.RecType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match rec_type {
     @lib.SingleRecType(subtype) => dfe_sub_type_uses_remap(subtype, remap)
@@ -660,7 +660,7 @@ fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
 ///|
 fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.TypeMetadata {
   let { describes, descriptor, shared, } = metadata
   @lib.TypeMetadata::new(
@@ -679,7 +679,7 @@ fn dfe_rewrite_type_metadata(
 ///|
 fn dfe_rewrite_heap_type(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.HeapType {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => heap_type
@@ -695,7 +695,7 @@ fn dfe_rewrite_heap_type(
 ///|
 fn dfe_rewrite_ref_type(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RefType {
   match ref_type {
     @lib.HeapTypeRefType(nullable, exact, heap_type) =>
@@ -711,7 +711,7 @@ fn dfe_rewrite_ref_type(
 ///|
 fn dfe_try_rewrite_heap_type(
   heap_type : @lib.HeapType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.HeapType? {
   if dfe_heap_type_uses_remap(heap_type, remap) {
     Some(dfe_rewrite_heap_type(heap_type, remap))
@@ -723,7 +723,7 @@ fn dfe_try_rewrite_heap_type(
 ///|
 fn dfe_try_rewrite_ref_type(
   ref_type : @lib.RefType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RefType? {
   if dfe_ref_type_uses_remap(ref_type, remap) {
     Some(dfe_rewrite_ref_type(ref_type, remap))
@@ -735,7 +735,7 @@ fn dfe_try_rewrite_ref_type(
 ///|
 fn dfe_rewrite_val_type(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ValType {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
@@ -747,7 +747,7 @@ fn dfe_rewrite_val_type(
 ///|
 fn dfe_try_rewrite_val_type(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ValType? {
   if dfe_val_type_uses_remap(val_type, remap) {
     Some(dfe_rewrite_val_type(val_type, remap))
@@ -759,7 +759,7 @@ fn dfe_try_rewrite_val_type(
 ///|
 fn dfe_try_rewrite_val_types(
   val_types : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.ValType]? {
   let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
   let mut changed = false
@@ -792,7 +792,7 @@ fn dfe_try_rewrite_val_types(
 ///|
 fn dfe_rewrite_storage_type(
   storage_type : @lib.StorageType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.StorageType {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
@@ -804,7 +804,7 @@ fn dfe_rewrite_storage_type(
 ///|
 fn dfe_rewrite_field_type(
   field_type : @lib.FieldType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.FieldType {
   let @lib.FieldType(storage_type, mutability) = field_type
   @lib.FieldType::new(dfe_rewrite_storage_type(storage_type, remap), mutability)
@@ -813,7 +813,7 @@ fn dfe_rewrite_field_type(
 ///|
 fn dfe_rewrite_result_type(
   values : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.ValType] {
   let rewritten : Array[@lib.ValType] = []
   for value in values {
@@ -825,7 +825,7 @@ fn dfe_rewrite_result_type(
 ///|
 fn dfe_rewrite_comp_type(
   comp_type : @lib.CompType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.CompType {
   match comp_type {
     @lib.ArrayCompType(field_type) =>
@@ -850,7 +850,7 @@ fn dfe_rewrite_comp_type(
 ///|
 fn dfe_rewrite_sub_type(
   subtype : @lib.SubType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.SubType {
   match subtype {
     @lib.SubType(is_final, supers, metadata, comp_type) => {
@@ -876,7 +876,7 @@ fn dfe_rewrite_sub_type(
 ///|
 fn dfe_rewrite_rec_type(
   rec_type : @lib.RecType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.RecType {
   match rec_type {
     @lib.SingleRecType(subtype) =>
@@ -894,7 +894,7 @@ fn dfe_rewrite_rec_type(
 ///|
 fn dfe_rewrite_block_type(
   block_type : @lib.BlockType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.BlockType {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
@@ -908,7 +908,7 @@ fn dfe_rewrite_block_type(
 ///|
 fn dfe_try_rewrite_block_type(
   block_type : @lib.BlockType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.BlockType? {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
@@ -934,7 +934,7 @@ priv struct DfeTypeRewriteScan[T] {
 ///|
 fn dfe_scan_rewrite_val_type(
   val_type : @lib.ValType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.ValType] {
   {
     rewritten: dfe_try_rewrite_val_type(val_type, remap),
@@ -945,7 +945,7 @@ fn dfe_scan_rewrite_val_type(
 ///|
 fn dfe_scan_rewrite_val_types(
   val_types : Array[@lib.ValType],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[Array[@lib.ValType]] {
   let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
   let mut changed = false
@@ -984,7 +984,7 @@ fn dfe_scan_rewrite_val_types(
 ///|
 fn dfe_scan_rewrite_block_type(
   block_type : @lib.BlockType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.BlockType] {
   match block_type {
     @lib.VoidBlockType => { rewritten: None, mentions_type_idxs: false, }
@@ -1012,7 +1012,7 @@ fn dfe_scan_rewrite_block_type(
 ///|
 fn dfe_scan_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[Array[@lib.Instruction]] {
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
   let mut changed = false
@@ -1051,7 +1051,7 @@ fn dfe_scan_rewrite_instruction_array_type_idxs(
 ///|
 fn dfe_scan_rewrite_expr_type_idxs(
   expr : @lib.Expr,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Expr] {
   let @lib.Expr(instrs) = expr
   let scan = dfe_scan_rewrite_instruction_array_type_idxs(instrs, remap)
@@ -1067,7 +1067,7 @@ fn dfe_scan_rewrite_expr_type_idxs(
 ///|
 fn dfe_scan_rewrite_locals_type_idxs(
   locals : @lib.Locals,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Locals] {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -1107,7 +1107,7 @@ fn dfe_scan_rewrite_locals_type_idxs(
 ///|
 fn dfe_scan_rewrite_func_type_idxs(
   func : @lib.Func,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Func] {
   let @lib.Func(locals, body) = func
   let locals_scan = dfe_scan_rewrite_locals_type_idxs(locals, remap)
@@ -1137,7 +1137,7 @@ fn dfe_scan_rewrite_func_type_idxs(
 ///|
 fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Array[@lib.Instruction]? {
   // Most regions mention no remapped type. Allocate output capacity only at
   // the first actual rewrite, preserving the original prefix and input storage.
@@ -1178,7 +1178,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
 ///|
 fn dfe_try_rewrite_expr_type_idxs(
   expr : @lib.Expr,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Expr? {
   let @lib.Expr(instrs) = expr
   match dfe_try_rewrite_instruction_array_type_idxs(instrs, remap) {
@@ -1190,7 +1190,7 @@ fn dfe_try_rewrite_expr_type_idxs(
 ///|
 fn dfe_try_rewrite_locals_type_idxs(
   locals : @lib.Locals,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Locals? {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -1224,7 +1224,7 @@ fn dfe_try_rewrite_locals_type_idxs(
 ///|
 fn dfe_try_rewrite_func_type_idxs(
   func : @lib.Func,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Func? {
   let @lib.Func(locals, body) = func
   let rewritten_locals = dfe_try_rewrite_locals_type_idxs(locals, remap)
@@ -1247,7 +1247,7 @@ fn dfe_try_rewrite_func_type_idxs(
 ///|
 fn dfe_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Try(_, _, _, _) =>
@@ -1511,7 +1511,7 @@ fn dfe_rewrite_instruction_type_idxs(
 ///|
 fn dfe_scan_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Instruction] {
   match instr {
     @lib.Try(block_type, body, catches, delegate) => {
@@ -2156,7 +2156,7 @@ fn dfe_scan_rewrite_instruction_type_idxs(
 ///|
 fn dfe_try_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Instruction? {
   match instr {
     @lib.Try(_, _, _, _) =>
@@ -2579,7 +2579,7 @@ fn dfe_try_rewrite_instruction_type_idxs(
 ///|
 fn dfe_rewrite_expr_type_idxs(
   expr : @lib.Expr,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
@@ -2592,7 +2592,7 @@ fn dfe_rewrite_expr_type_idxs(
 ///|
 fn _dfe_rewrite_locals_type_idxs(
   locals : @lib.Locals,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Locals {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -2610,7 +2610,7 @@ fn _dfe_rewrite_locals_type_idxs(
 ///|
 fn dfe_rewrite_extern_type(
   extern_type : @lib.ExternType,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ExternType {
   match extern_type {
     @lib.FuncExternType(type_idx) =>
@@ -2636,7 +2636,7 @@ fn dfe_rewrite_extern_type(
 ///|
 fn dfe_rewrite_import_type_idxs(
   import_ : @lib.Import,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Import {
   let @lib.Import(module_name, field_name, extern_type) = import_
   @lib.Import::new(
@@ -2649,7 +2649,7 @@ fn dfe_rewrite_import_type_idxs(
 ///|
 fn dfe_rewrite_table_type_idxs(
   table : @lib.Table,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Table {
   let @lib.Table(@lib.TableType(ref_type, limits), init) = table
   @lib.Table::new(
@@ -2664,7 +2664,7 @@ fn dfe_rewrite_table_type_idxs(
 ///|
 fn dfe_rewrite_global_type_idxs(
   global : @lib.Global,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Global {
   let @lib.Global(@lib.GlobalType(val_type, mutable_), expr) = global
   @lib.Global::new(
@@ -2676,7 +2676,7 @@ fn dfe_rewrite_global_type_idxs(
 ///|
 fn dfe_rewrite_elem_mode_type_idxs(
   mode : @lib.ElemMode,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ElemMode {
   match mode {
     @lib.Active(table_idx, expr) =>
@@ -2688,7 +2688,7 @@ fn dfe_rewrite_elem_mode_type_idxs(
 ///|
 fn dfe_rewrite_elem_kind_type_idxs(
   kind : @lib.ElemKind,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(_) => kind
@@ -2715,7 +2715,7 @@ fn dfe_rewrite_elem_kind_type_idxs(
 ///|
 fn dfe_rewrite_elem_type_idxs(
   elem : @lib.Elem,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Elem {
   let @lib.Elem(mode, kind) = elem
   @lib.Elem::new(
@@ -2727,7 +2727,7 @@ fn dfe_rewrite_elem_type_idxs(
 ///|
 fn dfe_rewrite_data_mode_type_idxs(
   mode : @lib.DataMode,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.DataMode {
   match mode {
     @lib.Active(mem_idx, expr) =>
@@ -2739,7 +2739,7 @@ fn dfe_rewrite_data_mode_type_idxs(
 ///|
 fn dfe_rewrite_data_type_idxs(
   data : @lib.Data,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Data {
   let @lib.Data(mode, bytes) = data
   @lib.Data::new(dfe_rewrite_data_mode_type_idxs(mode, remap), bytes)
@@ -2748,9 +2748,9 @@ fn dfe_rewrite_data_type_idxs(
 ///|
 fn dfe_rewrite_module_type_idxs(
   mod_ : @lib.Module,
-  remap : Map[UInt, UInt],
-  perf? : HotPerfSession? = None,
-  code_rewrite_flags? : @bitset.BitSet? = None,
+  remap : Map[UInt32, UInt32],
+  perf~ : HotPerfSession? = None,
+  code_rewrite_flags~ : @bitset.BitSet? = None,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.type_sec {
@@ -2877,7 +2877,7 @@ fn dfe_rewrite_module_type_idxs(
 ///|
 fn dfe_rewrite_func_idx(
   idx : @lib.FuncIdx,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.FuncIdx {
   let @lib.FuncIdx(raw) = idx
   let next = remap[raw.reinterpret_as_int()]
@@ -2891,7 +2891,7 @@ fn dfe_rewrite_func_idx(
 ///|
 fn dfe_mark_identity_visible_func(
   func_idx : @lib.FuncIdx,
-  imported_count : Int,
+  imported_count : Int32,
   identity_visible : Array[Bool],
 ) -> Unit {
   let @lib.FuncIdx(raw) = func_idx
@@ -2904,7 +2904,7 @@ fn dfe_mark_identity_visible_func(
 ///|
 fn dfe_mark_ref_func_identities_in_instruction(
   instr : @lib.Instruction,
-  imported_count : Int,
+  imported_count : Int32,
   identity_visible : Array[Bool],
 ) -> Unit {
   match instr {
@@ -2946,7 +2946,7 @@ fn dfe_mark_ref_func_identities_in_instruction(
 ///|
 fn dfe_mark_ref_func_identities_in_instructions(
   instrs : Array[@lib.Instruction],
-  imported_count : Int,
+  imported_count : Int32,
   identity_visible : Array[Bool],
 ) -> Unit {
   for instr in instrs {
@@ -2959,7 +2959,7 @@ fn dfe_mark_ref_func_identities_in_instructions(
 ///|
 fn dfe_mark_ref_func_identities_in_expr(
   expr : @lib.Expr,
-  imported_count : Int,
+  imported_count : Int32,
   identity_visible : Array[Bool],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
@@ -2971,7 +2971,7 @@ fn dfe_mark_ref_func_identities_in_expr(
 ///|
 fn dfe_mark_elem_kind_identities(
   kind : @lib.ElemKind,
-  imported_count : Int,
+  imported_count : Int32,
   identity_visible : Array[Bool],
 ) -> Unit {
   match kind {
@@ -2993,8 +2993,8 @@ fn dfe_mark_elem_kind_identities(
 ///|
 fn dfe_identity_visible_defined_funcs(
   mod_ : @lib.Module,
-  imported_count : Int,
-  defined_count : Int,
+  imported_count : Int32,
+  defined_count : Int32,
 ) -> Array[Bool] {
   let identity_visible = Array::make(defined_count, false)
   match mod_.export_sec {
@@ -3062,7 +3062,7 @@ fn dfe_identity_visible_defined_funcs(
 ///|
 fn dfe_rewrite_instruction_func_idxs(
   instr : @lib.Instruction,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, expr) => {
@@ -3173,7 +3173,7 @@ fn dfe_rewrite_instruction_func_idxs(
 ///|
 fn dfe_rewrite_instrs_func_idxs(
   instrs : Array[@lib.Instruction],
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> Array[@lib.Instruction] {
   let mut out : Array[@lib.Instruction]? = None
   for index, instr in instrs {
@@ -3197,7 +3197,7 @@ fn dfe_rewrite_instrs_func_idxs(
 ///|
 fn dfe_rewrite_expr_func_idxs(
   expr : @lib.Expr,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten = dfe_rewrite_instrs_func_idxs(instrs, remap)
@@ -3211,7 +3211,7 @@ fn dfe_rewrite_expr_func_idxs(
 ///|
 fn dfe_rewrite_func_func_idxs(
   func : @lib.Func,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Func {
   let @lib.Func(locals, body) = func
   let rewritten = dfe_rewrite_expr_func_idxs(body, remap)
@@ -3225,7 +3225,7 @@ fn dfe_rewrite_func_func_idxs(
 ///|
 fn dfe_rewrite_extern_idx_func_idxs(
   idx : @lib.ExternIdx,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.ExternIdx {
   match idx {
     @lib.FuncExternIdx(func_idx) =>
@@ -3237,7 +3237,7 @@ fn dfe_rewrite_extern_idx_func_idxs(
 ///|
 fn dfe_rewrite_export_func_idxs(
   export_ : @lib.Export,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.Export {
   let @lib.Export(name, idx) = export_
   @lib.Export::new(name, dfe_rewrite_extern_idx_func_idxs(idx, remap))
@@ -3246,7 +3246,7 @@ fn dfe_rewrite_export_func_idxs(
 ///|
 fn dfe_rewrite_elem_kind_func_idxs(
   kind : @lib.ElemKind,
-  remap : Array[UInt],
+  remap : Array[UInt32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(funcs) => {
@@ -3276,11 +3276,11 @@ fn dfe_rewrite_elem_kind_func_idxs(
 ///|
 fn dfe_rewrite_func_annotation_sec(
   sec : @lib.FuncAnnotationSec,
-  remap : Array[UInt],
+  remap : Array[UInt32],
   drop_unmapped : Bool,
 ) -> @lib.FuncAnnotationSec {
   let @lib.FuncAnnotationSec(entries) = sec
-  let rewritten_indices : Array[UInt] = []
+  let rewritten_indices : Array[UInt32] = []
   let rewritten_annotations : Array[Array[@lib.FuncAnnotation]] = []
   for entry in entries {
     let @lib.FuncAnnotationAssoc(idx, annotations) = entry
@@ -3323,7 +3323,7 @@ fn dfe_rewrite_func_annotation_sec(
 ///|
 fn dfe_rewrite_func_annotation_sec_in_module(
   mod_ : @lib.Module,
-  remap : Array[UInt],
+  remap : Array[UInt32],
   drop_unmapped : Bool,
 ) -> @lib.Module {
   match mod_.func_annotation_sec {
@@ -3338,9 +3338,9 @@ fn dfe_rewrite_func_annotation_sec_in_module(
 ///|
 fn dfe_rewrite_module_func_idxs(
   mod_ : @lib.Module,
-  remap : Array[UInt],
-  perf? : HotPerfSession? = None,
-  code_rewrite_flags? : @bitset.BitSet? = None,
+  remap : Array[UInt32],
+  perf~ : HotPerfSession? = None,
+  code_rewrite_flags~ : @bitset.BitSet? = None,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.export_sec {
@@ -3465,8 +3465,10 @@ fn dfe_rewrite_module_func_idxs(
 }
 
 ///|
-fn dfe_canonical_remap_sources(remap : Map[UInt, UInt]) -> Map[UInt, UInt] {
-  let canonical : Map[UInt, UInt] = Map([])
+fn dfe_canonical_remap_sources(
+  remap : Map[UInt32, UInt32],
+) -> Map[UInt32, UInt32] {
+  let canonical : Map[UInt32, UInt32] = Map([])
   for source_idx in remap.keys() {
     let target_idx = remap[source_idx]
     match canonical.get(target_idx) {
@@ -3483,13 +3485,13 @@ fn dfe_canonical_remap_sources(remap : Map[UInt, UInt]) -> Map[UInt, UInt] {
 ///|
 fn dfe_rewrite_name_map_filtered(
   names : @lib.NameMap,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
   drop_unmapped : Bool,
 ) -> @lib.NameMap {
   let @lib.NameMap(entries) = names
   let canonical_sources = dfe_canonical_remap_sources(remap)
   let rewritten : Array[@lib.NameAssoc] = []
-  let mut last_idx : UInt? = None
+  let mut last_idx : UInt32? = None
   for entry in entries {
     let @lib.NameAssoc(idx, name) = entry
     match remap.get(idx) {
@@ -3512,13 +3514,13 @@ fn dfe_rewrite_name_map_filtered(
 ///|
 fn _dfe_rewrite_local_name_map_filtered(
   names : @lib.IndirectNameMap,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
   drop_unmapped : Bool,
 ) -> @lib.IndirectNameMap {
   let @lib.IndirectNameMap(entries) = names
   let canonical_sources = dfe_canonical_remap_sources(remap)
   let rewritten : Array[@lib.IndirectNameAssoc] = []
-  let mut last_idx : UInt? = None
+  let mut last_idx : UInt32? = None
   for entry in entries {
     let @lib.IndirectNameAssoc(idx, local_names) = entry
     match remap.get(idx) {
@@ -3541,7 +3543,7 @@ fn _dfe_rewrite_local_name_map_filtered(
 ///|
 fn dfe_rewrite_type_name_sec(
   name_sec : @lib.NameSec,
-  type_remap : Map[UInt, UInt],
+  type_remap : Map[UInt32, UInt32],
 ) -> @lib.NameSec {
   let {
     module_name,
@@ -3621,10 +3623,10 @@ fn dfe_trace_opt(perf : HotPerfSession?, msg : String) -> Unit {
 
 ///|
 fn dfe_functions_equivalent(
-  left_canon_type : UInt,
+  left_canon_type : UInt32,
   left_func : @lib.Func,
   left_annotations : Array[@lib.FuncAnnotation],
-  right_canon_type : UInt,
+  right_canon_type : UInt32,
   right_func : @lib.Func,
   right_annotations : Array[@lib.FuncAnnotation],
 ) -> Bool {
@@ -3637,9 +3639,9 @@ fn dfe_functions_equivalent(
 
 ///|
 fn dfe_functions_equivalent_no_annotations(
-  left_canon_type : UInt,
+  left_canon_type : UInt32,
   left_func : @lib.Func,
-  right_canon_type : UInt,
+  right_canon_type : UInt32,
   right_func : @lib.Func,
 ) -> Bool {
   if !dfe_funcs_semantically_equal(left_func, right_func) {
@@ -3651,10 +3653,10 @@ fn dfe_functions_equivalent_no_annotations(
 ///|
 fn dfe_shape_instruction_array_hash(
   instrs : Array[@lib.Instruction],
-  mentions_type_idxs? : Array[Bool]? = None,
-  needs_debris_cleanup? : Array[Bool]? = None,
-  max_func_target? : Array[Int]? = None,
-) -> Int {
+  mentions_type_idxs~ : Array[Bool]? = None,
+  needs_debris_cleanup~ : Array[Bool]? = None,
+  max_func_target~ : Array[Int32]? = None,
+) -> Int32 {
   let mut key = instrs.length().hash()
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match needs_debris_cleanup {
@@ -3702,10 +3704,10 @@ fn dfe_shape_instruction_array_hash(
 ///|
 fn dfe_shape_instruction_hash(
   instr : @lib.Instruction,
-  mentions_type_idxs? : Array[Bool]? = None,
-  needs_debris_cleanup? : Array[Bool]? = None,
-  max_func_target? : Array[Int]? = None,
-) -> Int {
+  mentions_type_idxs~ : Array[Bool]? = None,
+  needs_debris_cleanup~ : Array[Bool]? = None,
+  max_func_target~ : Array[Int32]? = None,
+) -> Int32 {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
       if dfe_block_type_mentions_type_idxs(block_type) {
@@ -3868,7 +3870,7 @@ fn dfe_shape_instruction_hash(
 }
 
 ///|
-fn dfe_shape_locals_hash(locals : @lib.Locals) -> Int {
+fn dfe_shape_locals_hash(locals : @lib.Locals) -> Int32 {
   let mut key = 17
   for run in locals.runs() {
     key = key * 31 + run.count().hash()
@@ -3884,12 +3886,12 @@ fn dfe_shape_locals_hash(locals : @lib.Locals) -> Int {
 
 ///|
 fn dfe_function_shape_hash_no_annotations(
-  type_hash : Int,
+  type_hash : Int32,
   func : @lib.Func,
-  mentions_type_idxs? : Array[Bool]? = None,
-  needs_debris_cleanup? : Array[Bool]? = None,
-  max_func_target? : Array[Int]? = None,
-) -> Int {
+  mentions_type_idxs~ : Array[Bool]? = None,
+  needs_debris_cleanup~ : Array[Bool]? = None,
+  max_func_target~ : Array[Int32]? = None,
+) -> Int32 {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   for run in locals.runs() {
     if dfe_val_type_mentions_type_idxs(run.val_type()) {
@@ -3914,13 +3916,13 @@ fn dfe_function_shape_hash_no_annotations(
 
 ///|
 fn dfe_function_shape_hash(
-  type_hash : Int,
+  type_hash : Int32,
   func : @lib.Func,
   annotations : Array[@lib.FuncAnnotation],
-  mentions_type_idxs? : Array[Bool]? = None,
-  needs_debris_cleanup? : Array[Bool]? = None,
-  max_func_target? : Array[Int]? = None,
-) -> Int {
+  mentions_type_idxs~ : Array[Bool]? = None,
+  needs_debris_cleanup~ : Array[Bool]? = None,
+  max_func_target~ : Array[Int32]? = None,
+) -> Int32 {
   dfe_function_shape_hash_no_annotations(
     type_hash,
     func,
@@ -3933,7 +3935,10 @@ fn dfe_function_shape_hash(
 }
 
 ///|
-fn dfe_canonical_local_idx(replacements : Array[Int], local_idx : Int) -> Int {
+fn dfe_canonical_local_idx(
+  replacements : Array[Int32],
+  local_idx : Int32,
+) -> Int32 {
   let mut current = local_idx
   while true {
     let next = replacements[current]
@@ -3949,7 +3954,7 @@ fn dfe_canonical_local_idx(replacements : Array[Int], local_idx : Int) -> Int {
 ///|
 fn dfe_type_idx_array_uses_remap(
   type_idxs : Array[@lib.TypeIdx],
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   for type_idx in type_idxs {
     if dfe_type_idx_is_remapped(type_idx, remap) {
@@ -3962,7 +3967,7 @@ fn dfe_type_idx_array_uses_remap(
 ///|
 fn dfe_module_type_refs_use_remap(
   mod_ : @lib.Module,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> Bool {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -4072,7 +4077,7 @@ fn dfe_rec_type_is_unused_suffix_prune_candidate(
 ///|
 fn dfe_prune_unused_simple_types(
   mod_ : @lib.Module,
-  root_scans? : Array[Int]? = None,
+  root_scans~ : Array[Int32]? = None,
 ) -> @lib.Module {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
@@ -4164,7 +4169,7 @@ fn dfe_prune_unused_simple_types(
       }
       let mut idx = 0
       let kept : Array[@lib.RecType] = []
-      let remap : Map[UInt, UInt] = Map([])
+      let remap : Map[UInt32, UInt32] = Map([])
       idx = 0
       while idx < rec_types.length() {
         if live[idx] {
@@ -4202,7 +4207,7 @@ fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
           ) {
           break
         }
-        let remap : Map[UInt, UInt] = Map([])
+        let remap : Map[UInt32, UInt32] = Map([])
         remap[candidate_idx.reinterpret_as_uint()] = 0U
         if dfe_module_type_refs_use_remap(mod_, remap) {
           break
@@ -4213,7 +4218,7 @@ fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
         return mod_
       }
       let kept : Array[@lib.RecType] = []
-      let keep_remap : Map[UInt, UInt] = Map([])
+      let keep_remap : Map[UInt32, UInt32] = Map([])
       for idx = 0; idx < keep_count; idx = idx + 1 {
         kept.push(rec_types[idx])
         keep_remap[idx.reinterpret_as_uint()] = idx.reinterpret_as_uint()
@@ -4234,8 +4239,8 @@ fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn dfe_canonicalize_duplicate_simple_type_indices(
   mod_ : @lib.Module,
-  perf? : HotPerfSession? = None,
-  code_rewrite_flags? : @bitset.BitSet? = None,
+  perf~ : HotPerfSession? = None,
+  code_rewrite_flags~ : @bitset.BitSet? = None,
 ) -> @lib.Module {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
@@ -4249,7 +4254,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       }
       let keep_timer = dfe_perf_start_timer_opt(perf, "type-canon:kept-types")
       let kept_types : Array[@lib.RecType] = []
-      let old_to_new : Map[UInt, UInt] = Map([])
+      let old_to_new : Map[UInt32, UInt32] = Map([])
       let mut old_idx = 0
       while old_idx < rec_types.length() {
         let raw_old_idx = old_idx.reinterpret_as_uint()
@@ -4269,7 +4274,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         return mod_
       }
       let remap_timer = dfe_perf_start_timer_opt(perf, "type-canon:remap")
-      let type_remap : Map[UInt, UInt] = Map([])
+      let type_remap : Map[UInt32, UInt32] = Map([])
       old_idx = 0
       while old_idx < rec_types.length() {
         let raw_old_idx = old_idx.reinterpret_as_uint()
@@ -4318,17 +4323,17 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
 priv struct DfeEliminationResult {
   mod_ : @lib.Module
   changed : Bool
-  iteration_count : Int
+  iteration_count : Int32
   type_rewrite_flags : @bitset.BitSet?
   cleanup_flags : @bitset.BitSet?
 }
 
 ///|
 fn dfe_canonical_abs_remap(
-  replacements : Array[Int],
-  imported_count : Int,
-) -> Array[UInt] {
-  let remap : Array[UInt] = Array::new(
+  replacements : Array[Int32],
+  imported_count : Int32,
+) -> Array[UInt32] {
+  let remap : Array[UInt32] = Array::new(
     capacity=imported_count + replacements.length(),
   )
   for idx = 0; idx < imported_count; idx = idx + 1 {
@@ -4347,12 +4352,12 @@ fn dfe_canonical_abs_remap(
 ///|
 fn dfe_type_normalized_candidate(
   funcs : Array[@lib.Func],
-  local_idx : Int,
-  type_canon : Map[UInt, UInt],
+  local_idx : Int32,
+  type_canon : Map[UInt32, UInt32],
   cache : Array[@lib.Func?],
   ready : Array[Bool],
-  normalization_visits : Array[Int]?,
-  normalized_rewrite_count : Array[Int],
+  normalization_visits : Array[Int32]?,
+  normalized_rewrite_count : Array[Int32],
 ) -> @lib.Func {
   if !ready[local_idx] {
     match normalization_visits {
@@ -4381,9 +4386,9 @@ fn dfe_type_normalized_candidate(
 ///|
 fn dfe_eliminate_duplicate_functions(
   mod_ : @lib.Module,
-  perf? : HotPerfSession? = None,
-  hash_visits? : Array[Int]? = None,
-  normalization_visits? : Array[Int]? = None,
+  perf~ : HotPerfSession? = None,
+  hash_visits~ : Array[Int32]? = None,
+  normalization_visits~ : Array[Int32]? = None,
 ) -> DfeEliminationResult {
   match (mod_.func_sec, mod_.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
@@ -4418,10 +4423,10 @@ fn dfe_eliminate_duplicate_functions(
       let normalized_ready = Array::make(funcs.length(), false)
       let normalized_rewrite_count = [0]
 
-      let canonical_type_raws : Array[UInt] = Array::new(
+      let canonical_type_raws : Array[UInt32] = Array::new(
         capacity=type_idxs.length(),
       )
-      let canonical_type_hashes : Array[Int] = Array::new(
+      let canonical_type_hashes : Array[Int32] = Array::new(
         capacity=type_idxs.length(),
       )
       for type_idx in type_idxs {
@@ -4447,16 +4452,16 @@ fn dfe_eliminate_duplicate_functions(
       }
 
       let hash_group_timer = dfe_perf_start_timer_opt(perf, "hash-groups")
-      let first_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+      let first_by_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
         capacity=funcs.length(),
       )
-      let collision_group_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+      let collision_group_by_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
         capacity=funcs.length() / 8 + 1,
       )
-      let hash_groups : Array[Array[Int]] = []
+      let hash_groups : Array[Array[Int32]] = []
       let original_type_rewrite_flags = @bitset.BitSet::new(funcs.length())
       let original_cleanup_flags = @bitset.BitSet::new(funcs.length())
-      let max_func_target_by_local : Array[Int] = []
+      let max_func_target_by_local : Array[Int32] = []
       for local_idx = 0; local_idx < funcs.length(); local_idx = local_idx + 1 {
         match hash_visits {
           Some(visits) => visits[0] += 1
@@ -4508,7 +4513,7 @@ fn dfe_eliminate_duplicate_functions(
         "hash groups=\{hash_groups.length()} singleton_hashes=\{first_by_hash.length()}",
       )
 
-      let replacements : Array[Int] = Array::make(funcs.length(), -1)
+      let replacements : Array[Int32] = Array::make(funcs.length(), -1)
       let collision_timer = dfe_perf_start_timer_opt(perf, "collision-check")
       let mut changed = false
       let mut iteration_count = 0
@@ -4544,7 +4549,7 @@ fn dfe_eliminate_duplicate_functions(
               continue
             }
           }
-          let live_indices : Array[Int] = []
+          let live_indices : Array[Int32] = []
           let live_funcs : Array[@lib.Func] = []
           for local_idx in group {
             if replacements[local_idx] < 0 {
@@ -4565,7 +4570,7 @@ fn dfe_eliminate_duplicate_functions(
               )
             }
           }
-          let comparison_groups : Array[Array[Int]] = []
+          let comparison_groups : Array[Array[Int32]] = []
           // A run of equal, mergeable members is cheaper to compare directly.
           // The exact buckets help when one shape contains many distinct bodies.
           let mut likely_duplicate_group = live_indices.length() >= 8
@@ -4593,7 +4598,7 @@ fn dfe_eliminate_duplicate_functions(
             }
           }
           if likely_duplicate_group {
-            let all_live : Array[Int] = []
+            let all_live : Array[Int32] = []
             for live_idx = 0
                 live_idx < live_indices.length()
                 live_idx = live_idx + 1 {
@@ -4601,10 +4606,10 @@ fn dfe_eliminate_duplicate_functions(
             }
             comparison_groups.push(all_live)
           } else {
-            let first_by_exact_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+            let first_by_exact_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
               capacity=live_indices.length(),
             )
-            let collision_group_by_exact_hash : @hashmap.HashMap[Int, Int] = @hashmap.new()
+            let collision_group_by_exact_hash : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
             for live_idx = 0
                 live_idx < live_indices.length()
                 live_idx = live_idx + 1 {
@@ -4711,8 +4716,8 @@ fn dfe_eliminate_duplicate_functions(
       let rebuild_timer = dfe_perf_start_timer_opt(perf, "rebuild")
       let kept_types : Array[@lib.TypeIdx] = Array::new(capacity=funcs.length())
       let kept_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let kept_abs : Array[Int] = Array::make(funcs.length(), -1)
-      let kept_original_indices : Array[Int] = []
+      let kept_abs : Array[Int32] = Array::make(funcs.length(), -1)
+      let kept_original_indices : Array[Int32] = []
       let kept_type_rewrite_flags = @bitset.BitSet::new(
         funcs.length() - replacement_count,
       )
@@ -4742,7 +4747,7 @@ fn dfe_eliminate_duplicate_functions(
         "rebuild kept_funcs=\{kept_funcs.length()} removed_funcs=\{funcs.length() - kept_funcs.length()}",
       )
       let remap_timer = dfe_perf_start_timer_opt(perf, "rebuild:remap")
-      let abs_remap : Array[UInt] = Array::new(
+      let abs_remap : Array[UInt32] = Array::new(
         capacity=imported_count + funcs.length(),
       )
       for idx = 0; idx < imported_count; idx = idx + 1 {
@@ -4865,8 +4870,8 @@ fn dfe_instrs_need_unreachable_debris_cleanup(
 ///|
 fn dfe_cleanup_unreachable_debris(
   mod_ : @lib.Module,
-  perf? : HotPerfSession? = None,
-  cleanup_flags? : @bitset.BitSet? = None,
+  perf~ : HotPerfSession? = None,
+  cleanup_flags~ : @bitset.BitSet? = None,
 ) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -4962,7 +4967,7 @@ pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 // fewer declaration runs can otherwise lose to wider local-index encodings.
 fn dfe_group_numeric_locals_if_smaller(
   mod_ : @lib.Module,
-  function_comparisons? : Array[Int]? = None,
+  function_comparisons~ : Array[Int32]? = None,
 ) -> @lib.Module {
   if mod_.code_sec is None || pass_module_has_legacy_try(mod_) {
     return mod_
@@ -4994,13 +4999,31 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
+  match dfe_cleanup_simple_type_encoding_candidate(mod_) {
+    Some(candidate) =>
+      if @validate.validate_module(candidate) is Ok(_) {
+        candidate
+      } else {
+        mod_
+      }
+    None => mod_
+  }
+}
+
+///|
+// Build only the guarded, strictly smaller candidate. Validation belongs to
+// its caller so a transaction can validate its exact final module once.
+fn dfe_cleanup_simple_type_encoding_candidate(
+  mod_ : @lib.Module,
+  full_size_comparisons~ : Array[Int32]? = None,
+) -> @lib.Module? {
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
-    return mod_
+    return None
   }
   let grouped = mod_
   let types = match grouped.type_sec {
     Some(@lib.TypeSec(types)) => types
-    None => return grouped
+    None => return None
   }
   // The type walker includes legacy bodies and catches. Restrict this remapper
   // to independent unshared function signatures; GC/proposal type graphs keep
@@ -5010,9 +5033,9 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
       @lib.SingleRecType(subtype) =>
         if subtype.metadata().is_shared() ||
           !dfe_rec_type_is_unused_suffix_prune_candidate(rec_type) {
-          return grouped
+          return None
         }
-      @lib.GroupRecType(_) => return grouped
+      @lib.GroupRecType(_) => return None
     }
   }
   // Distinct functions can still use equivalent signatures. The elimination
@@ -5021,14 +5044,19 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
   let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped)
   let pruned = dfe_prune_unused_simple_types(interned)
   if pruned.type_sec.unwrap().0.length() == types.length() {
-    return grouped
+    return None
+  }
+  // This guarded producer only compacts existing type references. The binary
+  // proof retains exact encoding errors and bounds; false is inconclusive.
+  if @binary.encoded_type_compaction_is_strictly_smaller(grouped, pruned) {
+    return Some(pruned)
+  }
+  if full_size_comparisons is Some(count) {
+    count[0] += 1
   }
   match @binary.encoded_module_sizes(grouped, pruned) {
-    Ok((before, after)) if after < before =>
-      if @validate.validate_module(pruned) is Ok(_) {
-        return pruned
-      }
+    Ok((before, after)) if after < before => return Some(pruned)
     _ => ()
   }
-  grouped
+  None
 }

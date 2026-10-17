@@ -1,6 +1,6 @@
 ///|
 // The parent runs these tests after all eight audit agents finish.
-fn mass_audit_module_dae_legacy_fixture(mode : Int) -> @lib.Module {
+fn mass_audit_module_dae_legacy_fixture(mode : Int32) -> @lib.Module {
   let input = pass_test_module_from_wat(
     "(module (tag) (func $f (param i32) (result i32) (local i32) i32.const 0) (func (export \"run\") (result i32) i32.const 5 call $f))",
   )

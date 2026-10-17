@@ -1,5 +1,5 @@
 ///|
-fn rg_name_sort_fixture(half : Int) -> @lib.Module {
+fn rg_name_sort_fixture(half : Int32) -> @lib.Module {
   let globals : Array[@lib.Global] = []
   let names : Array[@lib.NameAssoc] = []
   let body : Array[@lib.Instruction] = []
@@ -38,7 +38,7 @@ fn rg_name_sort_fixture(half : Int) -> @lib.Module {
 }
 
 ///|
-fn rg_name_sort_bench(it : @bench.T, half : Int) -> Unit {
+fn rg_name_sort_bench(it : @bench.T, half : Int32) -> Unit {
   let fixture = rg_name_sort_fixture(half)
   ignore(opportunity_run(fixture, "reorder-globals", true))
   let optimized = @passes.reorder_globals_run_module_pass(fixture)

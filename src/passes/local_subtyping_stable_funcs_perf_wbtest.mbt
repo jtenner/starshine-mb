@@ -1,7 +1,7 @@
 ///|
 fn ls_stable_funcs_perf_fixture(
-  chain_count : Int,
-  stable_count : Int,
+  chain_count : Int32,
+  stable_count : Int32,
 ) -> @lib.Module {
   let wat = StringBuilder::new()
   wat.write_string("(module\n")
@@ -28,7 +28,7 @@ fn ls_stable_funcs_perf_fixture(
 }
 
 ///|
-fn ls_stable_funcs_perf_bench(it : @bench.T, stable_count : Int) -> Unit {
+fn ls_stable_funcs_perf_bench(it : @bench.T, stable_count : Int32) -> Unit {
   let fixture = ls_stable_funcs_perf_fixture(16, stable_count)
   let output = local_subtyping_run_module_pass(fixture)
   if output == fixture || @validate.validate_module(output).is_err() {

@@ -1,8 +1,8 @@
 ///|
 fn dae2_priority_graph_bench(
   it : @bench.T,
-  bodies : Int,
-  nodes : Int,
+  bodies : Int32,
+  nodes : Int32,
   bulk : Bool,
 ) -> Unit {
   it.bench(fn() {
@@ -24,7 +24,11 @@ fn dae2_priority_graph_bench(
 }
 
 ///|
-fn dae2_priority_fixture(pairs : Int, reads : Int, pinned : Int) -> @lib.Module {
+fn dae2_priority_fixture(
+  pairs : Int32,
+  reads : Int32,
+  pinned : Int32,
+) -> @lib.Module {
   let wat = ["(module (global $g (mut i32) (i32.const 0))"]
   for index in 0..<pairs {
     wat.push(
@@ -54,9 +58,9 @@ fn dae2_priority_fixture(pairs : Int, reads : Int, pinned : Int) -> @lib.Module 
 ///|
 fn dae2_priority_pipeline_bench(
   it : @bench.T,
-  pairs : Int,
-  reads : Int,
-  pinned : Int,
+  pairs : Int32,
+  reads : Int32,
+  pinned : Int32,
   optimizing : Bool,
 ) -> Unit {
   let input = dae2_priority_fixture(pairs, reads, pinned)

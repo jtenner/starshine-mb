@@ -14,10 +14,10 @@ fn mass_audit_locals_context(
 ///|
 fn mass_audit_locals_typed_block(
   func : @ir.HotFunc,
-  effect : Int,
-  value : Int,
-  body : Int,
-) -> Int {
+  effect : Int32,
+  value : Int32,
+  body : Int32,
+) -> Int32 {
   let block = @ir.hot_build_resolved_block(
     func,
     @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
@@ -36,7 +36,7 @@ fn mass_audit_locals_typed_block(
 }
 
 ///|
-fn mass_audit_locals_add(func : @ir.HotFunc, lhs : Int, rhs : Int) -> Int {
+fn mass_audit_locals_add(func : @ir.HotFunc, lhs : Int32, rhs : Int32) -> Int32 {
   let node = @ir.hot_build_binary(func, @lib.ValType::i32(), lhs, rhs)
   @ir.hot_node_exact_instr_set(func, node, @lib.Instruction::i32_add())
   node
@@ -264,7 +264,7 @@ test "mass audit SimplifyLocals main cycle keeps the value written by a typed pr
   @validate.validate_module(
     module_.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)])),
   ).unwrap()
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   ignore(
     simplify_locals_run_main_cycle(
       mass_audit_locals_context(simplify_locals_descriptor()),

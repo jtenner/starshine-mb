@@ -1,5 +1,5 @@
 ///|
-fn inlining_body_facts_bench(it : @bench.T, count : Int) -> Unit {
+fn inlining_body_facts_bench(it : @bench.T, count : Int32) -> Unit {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<count {
     body.push(

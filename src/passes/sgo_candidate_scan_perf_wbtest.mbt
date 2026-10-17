@@ -1,10 +1,10 @@
 ///|
 fn sgo_candidate_scan_reference(
   instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   let max_condition_length = 16
-  let condition_limit = Int::min(
+  let condition_limit = Int32::min(
     instrs.length() - 2,
     start + max_condition_length,
   )
@@ -30,7 +30,7 @@ fn sgo_candidate_scan_reference(
 ///|
 fn sgo_candidate_scan_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit {

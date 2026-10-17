@@ -1,7 +1,7 @@
 ///|
 fn dae_loop_signature_reference(
   mod_ : @lib.Module,
-  count : Int,
+  count : Int32,
   infos : Array[DaeFunctionInfo],
 ) -> Array[Bool] {
   let admitted = Array::make(count, true)
@@ -22,7 +22,7 @@ fn dae_loop_signature_reference(
 ///|
 fn dae_loop_signature_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let mod_ = dae_loop_signature_fixture(count, true)

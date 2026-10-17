@@ -1,5 +1,5 @@
 ///|
-fn il_no_target_perf_module(function_count : Int) -> @lib.Module {
+fn il_no_target_perf_module(function_count : Int32) -> @lib.Module {
   let type_indices : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
   let body : Array[@lib.Instruction] = []
@@ -25,7 +25,7 @@ fn il_no_target_perf_module(function_count : Int) -> @lib.Module {
 }
 
 ///|
-fn il_no_target_perf_bench(it : @bench.T, function_count : Int) -> Unit {
+fn il_no_target_perf_bench(it : @bench.T, function_count : Int32) -> Unit {
   let fixture = il_no_target_perf_module(function_count)
   if intrinsic_lowering_run_module_pass(fixture) != fixture {
     abort("IntrinsicLowering no-target fixture unexpectedly changed")

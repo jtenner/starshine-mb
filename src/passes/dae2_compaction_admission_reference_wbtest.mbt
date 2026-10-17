@@ -4,9 +4,9 @@ fn compaction_admission_reference_compact(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
-  propagate_parameter_aliases? : Bool = false,
-) -> (@lib.Func, Array[Int]) {
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
+  propagate_parameter_aliases~ : Bool = false,
+) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
   if locals.length() <= original_locals.length() {

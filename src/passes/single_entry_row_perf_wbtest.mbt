@@ -1,7 +1,7 @@
 ///|
 fn dae2_single_row_bench(
   it : @bench.T,
-  locals : Int,
+  locals : Int32,
   reference : Bool,
 ) -> Unit raise {
   let decls = Array::make(locals, "i32").join(" ")

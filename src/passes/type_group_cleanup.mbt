@@ -9,8 +9,8 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
     Some(@lib.TypeSec(groups)) => groups
     None => return mod_
   }
-  let starts : Array[Int] = []
-  let counts : Array[Int] = []
+  let starts : Array[Int32] = []
+  let counts : Array[Int32] = []
   let mut total = 0
   for group in groups {
     let members = match group {
@@ -53,18 +53,18 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
       }
     None => ()
   }
-  let probes : Array[Map[UInt, UInt]] = []
+  let probes : Array[Map[UInt32, UInt32]] = []
   let live : Array[Bool] = Array::make(groups.length(), false)
   let roots = mod_.with_type_sec(@lib.TypeSec::new([]))
   for group_idx = 0; group_idx < groups.length(); group_idx = group_idx + 1 {
-    let probe : Map[UInt, UInt] = Map([])
+    let probe : Map[UInt32, UInt32] = Map([])
     for offset = 0; offset < counts[group_idx]; offset = offset + 1 {
       probe[(starts[group_idx] + offset).to_uint()] = total.to_uint()
     }
     probes.push(probe)
     live[group_idx] = dfe_module_type_refs_use_remap(roots, probe)
   }
-  let pending : Array[Int] = []
+  let pending : Array[Int32] = []
   for idx = 0; idx < groups.length(); idx = idx + 1 {
     if live[idx] {
       pending.push(idx)
@@ -82,7 +82,7 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   let kept : Array[@lib.RecType] = []
-  let remap : Map[UInt, UInt] = Map([])
+  let remap : Map[UInt32, UInt32] = Map([])
   let mut next = 0
   for group_idx = 0; group_idx < groups.length(); group_idx = group_idx + 1 {
     if live[group_idx] {
@@ -148,7 +148,7 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn pass_type_cleanup_instruction_count(body : Array[@lib.Instruction]) -> Int {
+fn pass_type_cleanup_instruction_count(body : Array[@lib.Instruction]) -> Int32 {
   let mut count = body.length()
   for instr in body {
     ignore(

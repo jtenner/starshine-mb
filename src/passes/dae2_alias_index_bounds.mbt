@@ -1,5 +1,5 @@
 ///|
-fn dae2_local_index_width(index : Int) -> Int {
+fn dae2_local_index_width(index : Int32) -> Int32 {
   if index < 128 {
     1
   } else if index < 16384 {
@@ -14,20 +14,40 @@ fn dae2_local_index_width(index : Int) -> Int {
 }
 
 ///|
-// Mark every syntactic copy, including ones that dominance or source-write
-// checks will reject. Such a writer is not guaranteed to retain its declaration.
+// Mark possible copy writers and the Get sources of removable Set packets.
+// A held tee needs another tee within the same array's preceding 64 slots.
+// Set retirement can also remove a root's last reads through unused copies.
 fn dae2_mark_possible_alias_writers(
   instrs : Array[@lib.Instruction],
   possible : Array[Bool],
 ) -> Unit {
   let mut previous_get = false
-  for instr in instrs {
+  let mut previous_tee = -65
+  for position in 0..<instrs.length() {
+    let instr = instrs[position]
     match instr {
-      @lib.LocalSet(@lib.LocalIdx(target))
-      | @lib.LocalTee(@lib.LocalIdx(target)) =>
-        if previous_get {
+      @lib.LocalSet(@lib.LocalIdx(target)) => {
+        let producer = if previous_get {
+          position - 1
+        } else {
+          dae2_alias_packet_get_position(instrs, position)
+        }
+        if producer >= 0 {
+          match instrs[producer] {
+            @lib.LocalGet(@lib.LocalIdx(source)) => {
+              possible[target.to_int()] = true
+              possible[source.to_int()] = true
+            }
+            _ => ()
+          }
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(target)) => {
+        if previous_get || previous_tee >= position - 64 {
           possible[target.to_int()] = true
         }
+        previous_tee = position
+      }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -58,8 +78,8 @@ fn dae2_mark_possible_alias_writers(
 ///|
 fn Dae2ParameterAliases::source_is_nonwidening(
   self : Dae2ParameterAliases,
-  source : Int,
-  target : Int,
+  source : Int32,
+  target : Int32,
 ) -> Bool {
   if dae2_alias_source_is_nonwidening(source, target) {
     return true
@@ -88,11 +108,14 @@ fn Dae2ParameterAliases::source_is_nonwidening(
         if i < self.start || self.reads[i] > 0 || self.writes[i] > 0 {
           upper += 1
         }
-        // Protected slots and noncopy writers survive alias retirement. Copy
-        // candidates are excluded regardless of whether they will be admitted.
+        // Unread writes can retire. A possible Set feeder can also lose its
+        // last reads after unused copy retirement. Multiwriters with reads
+        // cannot be alias sources or targets and retain those reads.
         if i < self.start ||
-          self.writes[i] > 1 ||
-          (self.writes[i] == 1 && !possible[i]) {
+          (
+            self.reads[i] > 0 &&
+            (self.writes[i] > 1 || (self.writes[i] == 1 && !possible[i]))
+          ) {
           lower += 1
         }
         packed
@@ -109,9 +132,9 @@ fn Dae2ParameterAliases::source_is_nonwidening(
 
 ///|
 fn dae2_alias_copy_pays_for_widening(
-  source_upper : Int,
-  target_lower : Int,
-  reads : Int,
+  source_upper : Int32,
+  target_lower : Int32,
+  reads : Int32,
   tee : Bool,
 ) -> Bool {
   // One syntactic read can be forwarded or remain before/outside the alias.
@@ -131,8 +154,8 @@ fn dae2_alias_copy_pays_for_widening(
 ///|
 fn Dae2ParameterAliases::source_is_profitable(
   self : Dae2ParameterAliases,
-  source : Int,
-  target : Int,
+  source : Int32,
+  target : Int32,
   tee : Bool,
 ) -> Bool {
   if self.source_is_nonwidening(source, target) {

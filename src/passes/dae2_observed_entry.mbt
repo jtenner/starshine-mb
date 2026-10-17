@@ -6,9 +6,9 @@ fn dae2_flat_observed_arity(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
   indices : Array[@lib.TypeIdx],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   exposure : Array[DaeFunctionExposure],
-) -> Int {
+) -> Int32 {
   if dae_instr_is_droppable_pure_leaf(instruction) ||
     dae_instr_is_nontrapping_pure_unary(instruction) ||
     dae_instr_is_nontrapping_pure_binary(instruction) {
@@ -75,10 +75,10 @@ fn dae2_flat_observed_arity(
 fn dae2_pin_flat_observable_params(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
+  index : Int32,
   body : Array[@lib.Instruction],
   indices : Array[@lib.TypeIdx],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   exposure : Array[DaeFunctionExposure],
 ) -> Unit {
   let info = infos[index]
@@ -87,7 +87,7 @@ fn dae2_pin_flat_observable_params(
     dae2_boundary_is_pinned(graph, infos, index, indices, type_infos, exposure) {
     return
   }
-  let observations : Array[Int] = []
+  let observations : Array[Int32] = []
   let mut written : Array[Bool]? = None
   for position = 0; position < body.length(); position = position + 1 {
     let instruction = body[position]

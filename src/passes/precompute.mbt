@@ -53,39 +53,39 @@ fn precompute_replace_node_rehoming_control_label(
 
 ///|
 priv struct PrecomputePropagatePrefixReplacement {
-  node_id : Int
+  node_id : Int32
   payload : @ir.HotConstPayload
 }
 
 ///|
 priv struct PrecomputePropagateAllocationFold {
-  node_id : Int
-  allocation_id : Int
+  node_id : Int32
+  allocation_id : Int32
 }
 
 ///|
 priv struct PrecomputePropagateIdentityFold {
-  node_id : Int
+  node_id : Int32
   value : @lib.I32
 }
 
 ///|
 priv struct PrecomputePartialI32Select {
-  condition_id : Int
-  true_value : Int
-  false_value : Int
+  condition_id : Int32
+  true_value : Int32
+  false_value : Int32
 }
 
 ///|
 priv struct PrecomputePartialKnownHeapSelect {
-  condition_id : Int
+  condition_id : Int32
   true_value : PrecomputeKnownHeapValue
   false_value : PrecomputeKnownHeapValue
 }
 
 ///|
 priv enum PrecomputeHeapIdentity {
-  HeapNode(Int)
+  HeapNode(Int32)
   HeapGlobal(@lib.GlobalIdx)
 } derive(Eq)
 
@@ -95,15 +95,15 @@ priv enum PrecomputeKnownHeapValue {
   KnownStructFields(@lib.TypeIdx, Array[PrecomputeKnownHeapValue])
   KnownStructDefault(@lib.TypeIdx)
   KnownArrayFixed(@lib.TypeIdx, Array[PrecomputeKnownHeapValue])
-  KnownArrayFill(@lib.TypeIdx, Array[PrecomputeKnownHeapValue], UInt)
-  KnownArrayDefault(@lib.TypeIdx, UInt)
+  KnownArrayFill(@lib.TypeIdx, Array[PrecomputeKnownHeapValue], UInt32)
+  KnownArrayDefault(@lib.TypeIdx, UInt32)
 }
 
 ///|
 fn precompute_global_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @ir.HotConstPayload? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -124,7 +124,7 @@ fn precompute_global_const(
 }
 
 ///|
-fn precompute_i32_const(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
+fn precompute_i32_const(func : @ir.HotFunc, node_id : Int32) -> @lib.I32? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -144,7 +144,7 @@ fn precompute_i32_const(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
 fn precompute_i32_exact_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I32? {
   match precompute_i32_const(func, node_id) {
     Some(value) => Some(value)
@@ -157,7 +157,7 @@ fn precompute_i32_exact_const(
 }
 
 ///|
-fn precompute_i64_const(func : @ir.HotFunc, node_id : Int) -> @lib.I64? {
+fn precompute_i64_const(func : @ir.HotFunc, node_id : Int32) -> @lib.I64? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -177,7 +177,7 @@ fn precompute_i64_const(func : @ir.HotFunc, node_id : Int) -> @lib.I64? {
 fn precompute_i64_exact_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I64? {
   match precompute_i64_const(func, node_id) {
     Some(value) => Some(value)
@@ -193,7 +193,7 @@ fn precompute_i64_exact_const(
 fn precompute_exact_const_instr(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.Instruction? {
   if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
     match @ir.hot_node_exact_instr(func, node_id) {
@@ -234,7 +234,7 @@ fn precompute_exact_const_instr(
 fn precompute_build_const_instr(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.I32Const(value) => Some(@ir.hot_build_const_i32(func, value))
     @lib.I64Const(value) => Some(@ir.hot_build_const_i64(func, value))
@@ -252,7 +252,7 @@ fn precompute_build_const_instr(
 fn precompute_replace_with_const_instr(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   let temp = match precompute_build_const_instr(func, instr) {
@@ -270,7 +270,7 @@ fn precompute_replace_with_const_instr(
 fn precompute_replace_with_const_instr_preserving_first_local_tee(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) == 0 {
@@ -296,7 +296,7 @@ fn precompute_replace_with_const_instr_preserving_first_local_tee(
       Some(constant) => constant
       None => return false
     }
-    let body : Array[Int] = []
+    let body : Array[Int32] = []
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
       let operand = @ir.hot_child_get(func, node_id, slot)
       if !precompute_is_discardable_value(func, operand) {
@@ -350,7 +350,7 @@ fn precompute_replace_with_const_instr_preserving_first_local_tee(
 fn precompute_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I32,
 ) -> Unit {
   let temp = @ir.hot_build_const_i32(func, value)
@@ -364,7 +364,7 @@ fn precompute_replace_with_const_i32(
 fn precompute_replace_with_const_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I64,
 ) -> Unit {
   let temp = @ir.hot_build_const_i64(func, value)
@@ -378,7 +378,7 @@ fn precompute_replace_with_const_i64(
 fn precompute_try_fold_global_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match precompute_global_const(ctx, func, node_id) {
     Some(payload) => {
@@ -409,9 +409,9 @@ fn precompute_try_fold_global_get(
 fn precompute_try_fold_unary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  operand_id : Int,
+  operand_id : Int32,
 ) -> Bool {
   match precompute_exact_const_instr(ctx, func, operand_id) {
     Some(operand) =>
@@ -462,10 +462,10 @@ fn precompute_try_fold_unary(
 fn precompute_try_fold_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
-  lhs_id : Int,
-  rhs_id : Int,
+  lhs_id : Int32,
+  rhs_id : Int32,
 ) -> Bool {
   match
     (
@@ -922,7 +922,7 @@ fn precompute_try_fold_binary(
 fn precompute_try_partial_select_unary_parent(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 1 ||
@@ -995,8 +995,8 @@ fn precompute_try_partial_select_unary_parent(
 fn precompute_partial_i32_select_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> PrecomputePartialI32Select? {
   if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -1048,7 +1048,7 @@ fn precompute_partial_i32_select_for_node(
     Some(value) => value
     None => return None
   }
-  let fold = fn(value : Int) -> Int? {
+  let fold = fn(value : Int32) -> Int32? {
     match
       precompute_raw_try_fold_unary(
         @lib.Instruction::i32_const(@lib.I32(value)),
@@ -1073,7 +1073,7 @@ fn precompute_partial_i32_select_for_node(
 fn precompute_try_partial_select_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -1151,7 +1151,7 @@ fn precompute_try_partial_select_condition(
 fn precompute_try_fold_constant_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1199,7 +1199,7 @@ fn precompute_try_fold_constant_select(
 fn precompute_try_partial_select_parent(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) == 1 {
@@ -1299,15 +1299,15 @@ fn precompute_try_partial_select_parent(
 ///|
 priv enum PrecomputeEffectfulChildKeep {
   PrecomputeNoEffectKeep
-  PrecomputeKeepLocalSet(Int, Int)
-  PrecomputeKeepDrop(Int)
+  PrecomputeKeepLocalSet(Int32, Int32)
+  PrecomputeKeepDrop(Int32)
 }
 
 ///|
 fn precompute_effectful_child_plan(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  child_id : Int,
+  child_id : Int32,
 ) -> (@lib.Instruction, PrecomputeEffectfulChildKeep)? {
   match precompute_exact_const_instr(ctx, func, child_id) {
     Some(value) => return Some((value, PrecomputeNoEffectKeep))
@@ -1373,7 +1373,7 @@ fn precompute_effectful_child_plan(
 fn precompute_try_fold_effectful_parent(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   let child_count = @ir.hot_child_count(func, node_id)
@@ -1448,7 +1448,7 @@ fn precompute_try_fold_effectful_parent(
     Some(value) => value
     None => return false
   }
-  let kept : Array[Int] = []
+  let kept : Array[Int32] = []
   for plan in plans {
     match plan.1 {
       PrecomputeNoEffectKeep => ()
@@ -1478,7 +1478,7 @@ fn precompute_try_fold_effectful_parent(
 ///|
 fn precompute_fresh_struct_allocation_is_discardable(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1524,7 +1524,7 @@ fn precompute_global_is_immutable(
 fn precompute_global_heap_identity(
   module_ctx : @ir.HotModuleContext,
   global_idx : @lib.GlobalIdx,
-  depth : Int,
+  depth : Int32,
 ) -> PrecomputeHeapIdentity? {
   if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
     return None
@@ -1550,7 +1550,7 @@ fn precompute_global_heap_identity(
 ///|
 fn precompute_known_heap_pop_values(
   stack : Array[PrecomputeKnownHeapValue],
-  count : Int,
+  count : Int32,
 ) -> Array[PrecomputeKnownHeapValue]? {
   if count < 0 || stack.length() < count {
     return None
@@ -1570,7 +1570,7 @@ fn precompute_known_heap_pop_values(
 fn precompute_known_heap_value_from_global(
   module_ctx : @ir.HotModuleContext,
   global_idx : @lib.GlobalIdx,
-  depth : Int,
+  depth : Int32,
 ) -> PrecomputeKnownHeapValue? {
   if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
     return None
@@ -1668,7 +1668,7 @@ fn precompute_known_heap_value_from_global(
 fn precompute_global_descriptor_identity(
   module_ctx : @ir.HotModuleContext,
   global_idx : @lib.GlobalIdx,
-  depth : Int,
+  depth : Int32,
 ) -> PrecomputeHeapIdentity? {
   if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
     return None
@@ -1694,8 +1694,8 @@ fn precompute_global_descriptor_identity(
 fn precompute_heap_identity_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> PrecomputeHeapIdentity? {
   if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -1805,8 +1805,8 @@ fn precompute_heap_identity_for_node(
 fn precompute_descriptor_identity_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> PrecomputeHeapIdentity? {
   if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -1850,8 +1850,8 @@ fn precompute_descriptor_identity_for_node(
 fn precompute_known_heap_value_for_plain_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> PrecomputeKnownHeapValue? {
   if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -1963,8 +1963,8 @@ fn precompute_known_heap_value_for_plain_node(
 fn precompute_partial_known_heap_select_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> PrecomputePartialKnownHeapSelect? {
   if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -2053,7 +2053,9 @@ fn precompute_partial_known_heap_select_for_node(
 }
 
 ///|
-fn precompute_known_heap_ref_is_null(value : PrecomputeKnownHeapValue) -> Int? {
+fn precompute_known_heap_ref_is_null(
+  value : PrecomputeKnownHeapValue,
+) -> Int32? {
   match value {
     KnownEmit(@lib.RefNull(_)) => Some(1)
     KnownEmit(@lib.RefFunc(_))
@@ -2072,7 +2074,7 @@ fn precompute_build_known_emit(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.RefFunc(func_idx) => {
       let type_idx = match ctx.module_ctx {
@@ -2103,7 +2105,7 @@ fn precompute_build_known_emit(
 fn precompute_try_partial_heap_select_parent(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let partial : PrecomputePartialKnownHeapSelect = match
     @ir.hot_node_get(func, node_id).op {
@@ -2185,7 +2187,7 @@ fn precompute_try_partial_heap_select_parent(
 fn precompute_try_fold_descriptor_branch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let (target, branch_on_equal) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -2249,10 +2251,10 @@ fn precompute_try_fold_descriptor_branch(
 fn precompute_replace_gc_identity_with_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   value : @lib.I32,
 ) -> Bool {
-  let kept : Array[Int] = []
+  let kept : Array[Int32] = []
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
@@ -2289,7 +2291,7 @@ fn precompute_replace_gc_identity_with_const(
 fn precompute_try_fold_null_ref_cast(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let (nullable, exact, heap_type) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -2321,7 +2323,7 @@ fn precompute_try_fold_null_ref_cast(
 fn precompute_try_fold_null_aggregate_trap(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.StructGet(_, _))
@@ -2365,7 +2367,7 @@ fn precompute_try_fold_null_aggregate_trap(
 fn precompute_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::RefIsNull => ()
@@ -2403,7 +2405,7 @@ fn precompute_try_fold_ref_is_null(
 fn precompute_try_partial_ref_eq_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.RefEq) => ()
@@ -2440,7 +2442,7 @@ fn precompute_try_partial_ref_eq_select(
     Some(value) => value
     None => return false
   }
-  let arm_value = fn(slot : Int) -> Int? {
+  let arm_value = fn(slot : Int32) -> Int32? {
     match
       precompute_heap_identity_for_node(
         ctx,
@@ -2478,7 +2480,7 @@ fn precompute_try_partial_ref_eq_select(
 fn precompute_try_fold_gc_identity(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.RefEq) => ()
@@ -2554,7 +2556,7 @@ fn precompute_try_fold_gc_identity(
 fn precompute_try_fold_fresh_ref_test(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let target = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.RefTest(_, _, target)) => target
@@ -2604,8 +2606,8 @@ fn precompute_atomic_aggregate_read_can_fold(
 fn precompute_try_fold_fresh_struct_get_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  allocation_id : Int,
+  node_id : Int32,
+  allocation_id : Int32,
 ) -> Bool {
   let (type_idx, raw_field, signed, unsigned, atomic_order) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -2700,7 +2702,7 @@ fn precompute_try_fold_fresh_struct_get_from_allocation(
 fn precompute_try_fold_fresh_struct_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
@@ -2716,7 +2718,7 @@ fn precompute_try_fold_fresh_struct_get(
 ///|
 fn precompute_fresh_array_allocation_is_discardable(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2756,7 +2758,7 @@ fn precompute_fresh_array_allocation_is_discardable(
 
 ///|
 /// 44,739,242 is the first rejected length.
-fn precompute_fresh_array_length_is_interpretable(length : UInt) -> Bool {
+fn precompute_fresh_array_length_is_interpretable(length : UInt32) -> Bool {
   length < 44739242U
 }
 
@@ -2764,7 +2766,7 @@ fn precompute_fresh_array_length_is_interpretable(length : UInt) -> Bool {
 fn precompute_fresh_array_length(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @lib.I32? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.ArrayNewFixed(_, @lib.U32(length))) if precompute_fresh_array_length_is_interpretable(
@@ -2826,9 +2828,9 @@ fn precompute_default_const_for_storage(
 fn precompute_fresh_array_get_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  allocation_id : Int,
+  allocation_id : Int32,
   type_idx : @lib.TypeIdx,
-  index : UInt,
+  index : UInt32,
   storage : @lib.StorageType,
 ) -> @lib.Instruction? {
   match @ir.hot_node_exact_instr(func, allocation_id) {
@@ -2925,8 +2927,8 @@ fn precompute_unpack_array_value(
 fn precompute_try_fold_fresh_array_len_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  allocation_id : Int,
+  node_id : Int32,
+  allocation_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.ArrayLen) => ()
@@ -2954,7 +2956,7 @@ fn precompute_try_fold_fresh_array_len_from_allocation(
 fn precompute_try_fold_fresh_array_len(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
@@ -2971,8 +2973,8 @@ fn precompute_try_fold_fresh_array_len(
 fn precompute_try_fold_fresh_array_get_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  allocation_id : Int,
+  node_id : Int32,
+  allocation_id : Int32,
 ) -> Bool {
   let (type_idx, signed, unsigned, atomic_order) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -3038,7 +3040,7 @@ fn precompute_try_fold_fresh_array_get_from_allocation(
 fn precompute_try_fold_fresh_array_get(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
@@ -3055,7 +3057,7 @@ fn precompute_try_fold_fresh_array_get(
 fn precompute_try_fold_string_slice(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.StringViewWtf16Slice) => ()
@@ -3103,7 +3105,7 @@ fn precompute_try_fold_string_slice(
 fn precompute_try_fold_fresh_string_new_wtf16(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.StringNewWtf16Array) => ()
@@ -3133,7 +3135,7 @@ fn precompute_try_fold_fresh_string_new_wtf16(
   if start < 0 || end < start || end > count {
     return false
   }
-  let units : Array[Int] = []
+  let units : Array[Int32] = []
   for slot = 0; slot < count; slot = slot + 1 {
     match
       precompute_i32_exact_const(
@@ -3185,7 +3187,7 @@ fn precompute_constant_if_chosen_region_can_inline(
 }
 
 ///|
-fn precompute_node_is_integer_zero(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn precompute_node_is_integer_zero(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -3204,7 +3206,7 @@ fn precompute_node_is_integer_zero(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn precompute_try_remove_exact_zero_memory_init(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) ||
     @ir.hot_child_count(func, node_id) != 3 {
@@ -3234,7 +3236,7 @@ fn precompute_try_remove_exact_zero_memory_init(
 fn precompute_try_fold_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3263,7 +3265,7 @@ fn precompute_try_fold_constant_if(
   if !precompute_constant_if_chosen_region_can_inline(func, chosen_region) {
     return false
   }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int32] = []
   for i = 0; i < root_count; i = i + 1 {
     replacement.push(@ir.hot_region_get(func, chosen_region, i))
   }
@@ -3279,7 +3281,7 @@ fn precompute_try_fold_constant_if(
 fn precompute_try_collapse_first_unreachable_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -3304,7 +3306,7 @@ fn precompute_try_collapse_first_unreachable_child(
 }
 
 ///|
-fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -3416,7 +3418,7 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn precompute_try_refinalize_exact_cast_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3503,7 +3505,7 @@ fn precompute_try_refinalize_exact_cast_block(
 fn precompute_try_simplify_self_branch_value_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3563,8 +3565,8 @@ fn precompute_try_simplify_self_branch_value_block(
 
 ///|
 priv struct PrecomputeTransparentBlockCleanup {
-  holders : Array[Int]
-  copied_values : Array[Int]
+  holders : Array[Int32]
+  copied_values : Array[Int32]
 }
 
 ///|
@@ -3592,10 +3594,10 @@ fn precompute_finish_transparent_block_cleanup(
 fn precompute_try_inline_transparent_value_block_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   label_used : @bitset.BitSet,
   use_counts : @ir.HotNodeUseCounts,
-  cleanup? : PrecomputeTransparentBlockCleanup? = None,
+  cleanup~ : PrecomputeTransparentBlockCleanup? = None,
 ) -> Bool {
   if @ir.hot_is_control_node(func, node_id) {
     return false
@@ -3700,7 +3702,7 @@ fn precompute_try_inline_transparent_value_block_child(
 fn precompute_try_fold_void_br_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3737,7 +3739,7 @@ fn precompute_try_fold_void_br_if(
 fn precompute_try_eliminate_dead_drop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3765,7 +3767,7 @@ fn precompute_try_eliminate_dead_drop(
 fn precompute_delete_removed_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  removed : Array[Int],
+  removed : Array[Int32],
 ) -> Unit {
   if removed.is_empty() {
     return
@@ -3797,7 +3799,7 @@ fn precompute_delete_removed_roots(
       }
     }
   }
-  let deletable : Array[Int] = []
+  let deletable : Array[Int32] = []
   for node in removed {
     if node >= 0 && node < pending.length() && pending[node] {
       pending[node] = false
@@ -4011,7 +4013,7 @@ fn precompute_simplify_region_roots(
             }
             match take_then {
               Some(use_then) => {
-                let replacement : Array[Int] = []
+                let replacement : Array[Int32] = []
                 let chosen_region : @ir.HotRegionRef? = if use_then {
                   Some(@ir.hot_region_then_ref(func, node_id))
                 } else {
@@ -4074,7 +4076,7 @@ fn precompute_simplify_region_roots(
 fn precompute_control_is_const_self_br_if_noop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  control_id : Int,
+  control_id : Int32,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, control_id) != 0 {
     return false
@@ -4116,7 +4118,7 @@ fn precompute_control_is_const_self_br_if_noop(
 ///|
 fn precompute_root_suffix_has_result(
   func : @ir.HotFunc,
-  start_idx : Int,
+  start_idx : Int32,
 ) -> Bool {
   let region_ref = @ir.HotRegionRef::root()
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -4135,8 +4137,8 @@ fn precompute_root_suffix_has_result(
 ///|
 fn precompute_loop_is_terminal_self_branch_with_result_tail(
   func : @ir.HotFunc,
-  loop_id : Int,
-  root_idx : Int,
+  loop_id : Int32,
+  root_idx : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, loop_id).op {
     @ir.HotOp::Loop => ()
@@ -4167,8 +4169,8 @@ fn precompute_loop_is_terminal_self_branch_with_result_tail(
 fn precompute_loop_is_const_true_self_br_if_with_result_tail(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  loop_id : Int,
-  root_idx : Int,
+  loop_id : Int32,
+  root_idx : Int32,
 ) -> Bool {
   match @ir.hot_node_get(func, loop_id).op {
     @ir.HotOp::Loop => ()
@@ -4207,7 +4209,7 @@ fn precompute_loop_is_const_true_self_br_if_with_result_tail(
 ///|
 fn precompute_block_is_selector_only_self_targeting_br_table(
   func : @ir.HotFunc,
-  block_id : Int,
+  block_id : Int32,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, block_id) != 0 {
     return false
@@ -4354,7 +4356,7 @@ fn precompute_trim_region_nops(
 }
 
 ///|
-fn precompute_node_is_nop_tree(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn precompute_node_is_nop_tree(func : @ir.HotFunc, node_id : Int32) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
@@ -4671,7 +4673,7 @@ fn precompute_v128_const_bytes(instr : @lib.Instruction) -> Array[Byte]? {
 }
 
 ///|
-fn precompute_v128_read_u32(bytes : Array[Byte], offset : Int) -> UInt {
+fn precompute_v128_read_u32(bytes : Array[Byte], offset : Int32) -> UInt32 {
   bytes[offset].to_uint() |
   (bytes[offset + 1].to_uint() << 8) |
   (bytes[offset + 2].to_uint() << 16) |
@@ -4679,7 +4681,7 @@ fn precompute_v128_read_u32(bytes : Array[Byte], offset : Int) -> UInt {
 }
 
 ///|
-fn precompute_v128_read_u64(bytes : Array[Byte], offset : Int) -> UInt64 {
+fn precompute_v128_read_u64(bytes : Array[Byte], offset : Int32) -> UInt64 {
   precompute_v128_read_u32(bytes, offset).to_uint64() |
   (precompute_v128_read_u32(bytes, offset + 4).to_uint64() << 32)
 }
@@ -4687,8 +4689,8 @@ fn precompute_v128_read_u64(bytes : Array[Byte], offset : Int) -> UInt64 {
 ///|
 fn precompute_v128_write_u32(
   bytes : Array[Byte],
-  offset : Int,
-  value : UInt,
+  offset : Int32,
+  value : UInt32,
 ) -> Unit {
   bytes[offset] = value.to_byte()
   bytes[offset + 1] = (value >> 8).to_byte()
@@ -4954,7 +4956,7 @@ fn precompute_v128_const_from_bytes(bytes : Array[Byte]) -> @lib.Instruction? {
 ///|
 fn precompute_v128_write_u64(
   bytes : Array[Byte],
-  offset : Int,
+  offset : Int32,
   value : UInt64,
 ) -> Unit {
   for byte_idx = 0; byte_idx < 8; byte_idx = byte_idx + 1 {
@@ -5756,6 +5758,34 @@ fn precompute_raw_try_fold_unary(
   match (instr, operand) {
     (@lib.I8x16Splat, @lib.I32Const(@lib.I32(value))) => {
       let bytes = Array::make(16, value.to_byte())
+      return precompute_v128_const_from_bytes(bytes)
+    }
+    (@lib.I16x8Splat, @lib.I32Const(@lib.I32(value))) => {
+      let bits = value.reinterpret_as_uint()
+      let bytes = Array::makei(16, fn(index) {
+        (bits >> (index % 2 * 8)).to_byte()
+      })
+      return precompute_v128_const_from_bytes(bytes)
+    }
+    (@lib.I64x2Splat, @lib.I64Const(@lib.I64(value))) => {
+      let bytes = Array::make(16, b'\x00')
+      for offset in [0, 8] {
+        precompute_v128_write_u64(bytes, offset, value.reinterpret_as_uint64())
+      }
+      return precompute_v128_const_from_bytes(bytes)
+    }
+    (@lib.F32x4Splat, @lib.F32Const(@lib.F32(value))) => {
+      let bytes = Array::make(16, b'\x00')
+      for offset in [0, 4, 8, 12] {
+        precompute_v128_write_u32(bytes, offset, value.reinterpret_as_uint())
+      }
+      return precompute_v128_const_from_bytes(bytes)
+    }
+    (@lib.F64x2Splat, @lib.F64Const(@lib.F64(value))) => {
+      let bytes = Array::make(16, b'\x00')
+      for offset in [0, 8] {
+        precompute_v128_write_u64(bytes, offset, value.reinterpret_as_uint64())
+      }
       return precompute_v128_const_from_bytes(bytes)
     }
     (@lib.I32x4Splat, @lib.I32Const(@lib.I32(value))) => {
@@ -7050,7 +7080,7 @@ fn precompute_raw_instrs_have_label_relative_branch(
 ///|
 fn precompute_raw_label_matches_depth(
   label_idx : @lib.LabelIdx,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   let @lib.LabelIdx(raw) = label_idx
   raw.reinterpret_as_int() == depth
@@ -7059,7 +7089,7 @@ fn precompute_raw_label_matches_depth(
 ///|
 fn precompute_raw_instr_has_branch_to_depth(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label_idx)
@@ -7099,7 +7129,7 @@ fn precompute_raw_instr_has_branch_to_depth(
 ///|
 fn precompute_raw_instrs_have_branch_to_depth(
   instrs : Array[@lib.Instruction],
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   for instr in instrs {
     if precompute_raw_instr_has_branch_to_depth(instr, depth) {
@@ -7120,7 +7150,7 @@ fn precompute_raw_instrs_have_branch_to_current_label(
 fn precompute_raw_try_fold_const_if_tail(
   out : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
-  label_arities : Array[Int?],
+  label_arities : Array[Int32?],
 ) -> Bool {
   if out.length() < 2 {
     return false
@@ -7244,7 +7274,7 @@ fn precompute_raw_loop_is_unconditional_self_branch(
 ///|
 fn precompute_raw_try_mark_value_tail_after_infinite_loop(
   out : Array[@lib.Instruction],
-  visits? : Array[Int]? = None,
+  visits~ : Array[Int32]? = None,
 ) -> Bool {
   if out.length() < 2 {
     return false
@@ -7482,7 +7512,7 @@ fn precompute_raw_is_single_result_branch_literal(
 ///|
 fn precompute_raw_fold_same_target_br_table_tail(
   out : Array[@lib.Instruction],
-  label_arities : Array[Int?],
+  label_arities : Array[Int32?],
 ) -> Bool {
   // Keep the payload in place and erase only an effect-free, nontrapping
   // literal selector. Requiring a one-result target excludes type-indexed
@@ -7547,8 +7577,8 @@ fn precompute_raw_effectful_block_const(
 }
 
 ///|
-fn precompute_string_bytes_to_utf16(bytes : Bytes) -> Array[Int]? {
-  let units : Array[Int] = []
+fn precompute_string_bytes_to_utf16(bytes : Bytes) -> Array[Int32]? {
+  let units : Array[Int32] = []
   let mut i = 0
   while i < bytes.length() {
     let first = bytes[i].to_int()
@@ -7622,9 +7652,9 @@ fn precompute_string_bytes_to_utf16(bytes : Bytes) -> Array[Int]? {
 
 ///|
 fn precompute_utf16_units_to_valid_utf8(
-  units : Array[Int],
-  start : Int,
-  length : Int,
+  units : Array[Int32],
+  start : Int32,
+  length : Int32,
 ) -> Bytes? {
   if start < 0 ||
     length < 0 ||
@@ -7659,7 +7689,7 @@ fn precompute_utf16_units_to_valid_utf8(
 }
 
 ///|
-fn precompute_write_utf8_scalar(buf : @buffer.Buffer, scalar : Int) -> Unit {
+fn precompute_write_utf8_scalar(buf : @buffer.Buffer, scalar : Int32) -> Unit {
   if scalar <= 0x7f {
     buf.write_byte(scalar.to_byte())
   } else if scalar <= 0x7ff {
@@ -7701,7 +7731,7 @@ fn precompute_raw_try_fold_string_new_wtf16_tail(
   if value_start < 0 || start > count || end > count {
     return false
   }
-  let units : Array[Int] = []
+  let units : Array[Int32] = []
   for slot = 0; slot < count; slot = slot + 1 {
     match out[value_start + slot] {
       @lib.I32Const(@lib.I32(value)) => units.push(value & 0xffff)
@@ -7779,10 +7809,10 @@ fn precompute_raw_try_fold_string_slice_tail(
 ///|
 fn precompute_raw_fold_output_tail(
   out : Array[@lib.Instruction],
-  module_ctx? : @ir.HotModuleContext? = None,
-  label_arities? : Array[Int?] = [],
-  full_tail_checks? : Array[Int]? = None,
-  loop_tail_visits? : Array[Int]? = None,
+  module_ctx~ : @ir.HotModuleContext? = None,
+  label_arities~ : Array[Int32?] = [],
+  full_tail_checks~ : Array[Int32]? = None,
+  loop_tail_visits~ : Array[Int32]? = None,
 ) -> Bool {
   // The other tail folds end in an operator, control, or write. Ordinary
   // reads and scalar literals can only trigger infinite-loop tail cleanup.
@@ -8411,7 +8441,7 @@ fn precompute_raw_fold_output_tail(
 fn precompute_raw_fold_block_local_constants(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let fact_locals : Array[Int] = []
+  let fact_locals : Array[Int32] = []
   let fact_values : Array[@lib.Instruction?] = []
   let mut changed = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -8537,7 +8567,7 @@ fn precompute_raw_void_block_is_selector_only_self_br_table(
 fn precompute_raw_block_type_arities(
   block_type : @lib.BlockType,
   module_ctx : @ir.HotModuleContext?,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match block_type {
     @lib.VoidBlockType => Some((0, 0))
     @lib.ValTypeBlockType(_) => Some((0, 1))
@@ -8558,7 +8588,7 @@ fn precompute_raw_block_type_arities(
 fn precompute_raw_block_label_arity(
   block_type : @lib.BlockType,
   module_ctx : @ir.HotModuleContext?,
-) -> Int? {
+) -> Int32? {
   match precompute_raw_block_type_arities(block_type, module_ctx) {
     Some((_, results)) => Some(results)
     None => None
@@ -8569,7 +8599,7 @@ fn precompute_raw_block_label_arity(
 fn precompute_raw_loop_label_arity(
   block_type : @lib.BlockType,
   module_ctx : @ir.HotModuleContext?,
-) -> Int? {
+) -> Int32? {
   match precompute_raw_block_type_arities(block_type, module_ctx) {
     Some((params, _)) => Some(params)
     None => None
@@ -8589,9 +8619,9 @@ fn precompute_raw_block_can_flatten_terminal(
 
 ///|
 fn precompute_raw_append_label_arity(
-  label_arities : Array[Int?],
-  arity : Int?,
-) -> Array[Int?] {
+  label_arities : Array[Int32?],
+  arity : Int32?,
+) -> Array[Int32?] {
   let nested = label_arities.copy()
   nested.push(arity)
   nested
@@ -8599,9 +8629,9 @@ fn precompute_raw_append_label_arity(
 
 ///|
 fn precompute_raw_branch_target_arity(
-  label_arities : Array[Int?],
-  depth : UInt,
-) -> Int? {
+  label_arities : Array[Int32?],
+  depth : UInt32,
+) -> Int32? {
   let slot = label_arities.length() - 1 - depth.reinterpret_as_int()
   if slot < 0 || slot >= label_arities.length() {
     return None
@@ -8613,7 +8643,7 @@ fn precompute_raw_branch_target_arity(
 fn precompute_raw_rewrite_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext?,
-  label_arities : Array[Int?],
+  label_arities : Array[Int32?],
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.GlobalGet(global_idx) =>
@@ -8881,7 +8911,7 @@ fn precompute_raw_instrs_are_nops_then_unreachable(
 ///|
 fn precompute_raw_terminal_prefix_stack_effect(
   instr : @lib.Instruction,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   if precompute_raw_instr_is_flat_discardable_value(instr) {
     return Some((0, 1))
   }
@@ -8926,14 +8956,14 @@ fn precompute_raw_terminal_prefix_stack_effect(
 ///|
 fn precompute_raw_terminal_branch_prefix(
   instrs : Array[@lib.Instruction],
-  payload_arity : Int,
+  payload_arity : Int32,
 ) -> Array[@lib.Instruction]? {
   if instrs.length() == 0 {
     return None
   }
   let branch_idx = instrs.length() - 1
-  let starts : Array[Int] = []
-  let ends : Array[Int] = []
+  let starts : Array[Int32] = []
+  let ends : Array[Int32] = []
   for i in 0..<branch_idx {
     let instr = instrs[i]
     let (pops, pushes) = match
@@ -8981,7 +9011,7 @@ fn precompute_raw_terminal_branch_prefix(
 ///|
 fn precompute_raw_block_terminal_branch_depth(
   instrs : Array[@lib.Instruction],
-) -> UInt? {
+) -> UInt32? {
   if instrs.length() == 0 {
     return None
   }
@@ -9052,8 +9082,8 @@ fn precompute_raw_block_has_flat_return_flow(
 fn precompute_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
-  label_arities? : Array[Int?] = [],
-  tail_scan_visits? : Array[Int]? = None,
+  label_arities~ : Array[Int32?] = [],
+  tail_scan_visits~ : Array[Int32]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -9474,7 +9504,7 @@ fn precompute_raw_instrs_have_drop_needing_hot(
 }
 
 ///|
-fn precompute_raw_instrs_have_const_if_candidate(
+fn precompute_raw_instrs_have_const_control_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -9487,23 +9517,30 @@ fn precompute_raw_instrs_have_const_if_candidate(
             None => ()
           }
         }
-        if precompute_raw_instrs_have_const_if_candidate(then_body) {
+        if precompute_raw_instrs_have_const_control_candidate(then_body) {
           return true
         }
         match else_body {
           Some(body) =>
-            if precompute_raw_instrs_have_const_if_candidate(body) {
+            if precompute_raw_instrs_have_const_control_candidate(body) {
               return true
             }
           None => ()
         }
       }
+      @lib.Select(_) =>
+        if idx > 0 {
+          match precompute_raw_i32_const(instrs[idx - 1]) {
+            Some(_) => return true
+            None => ()
+          }
+        }
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if precompute_raw_instrs_have_const_if_candidate(body) {
+        if precompute_raw_instrs_have_const_control_candidate(body) {
           return true
         }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if precompute_raw_instrs_have_const_if_candidate(body) {
+        if precompute_raw_instrs_have_const_control_candidate(body) {
           return true
         }
       _ => ()
@@ -9641,7 +9678,7 @@ fn precompute_run_raw_func(
   }
   if (
       precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
-      precompute_raw_instrs_have_const_if_candidate(rewritten)
+      precompute_raw_instrs_have_const_control_candidate(rewritten)
     ) &&
     !retains_raw_control_flow {
     return None
@@ -10286,7 +10323,7 @@ fn precompute_propagate_run_raw_straight_line_func(
 ///|
 fn precompute_has_transparent_value_block_child(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   label_used : @bitset.BitSet,
 ) -> Bool {
   if @ir.hot_is_control_node(func, node_id) {
@@ -10317,7 +10354,7 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       changed_any = true
     }
     let label_used = pass_compute_label_used(func)
-    let mut inline_candidates : Array[Int]? = None
+    let mut inline_candidates : Array[Int32]? = None
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {
         continue
@@ -10487,7 +10524,7 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
 fn precompute_propagate_prefix_const_payload_from_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> @ir.HotConstPayload? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -10566,7 +10603,7 @@ fn precompute_propagate_prefix_const_payload_from_instr(
 ///|
 fn precompute_propagate_prefix_default_local_const(
   func : @ir.HotFunc,
-  local_id : Int,
+  local_id : Int32,
 ) -> @ir.HotConstPayload? {
   match @ir.hot_local_type(func, local_id) {
     Some(@lib.NumTypeValType(@lib.I32NumType)) =>
@@ -10592,8 +10629,8 @@ fn precompute_propagate_prefix_const_for_node(
   func : @ir.HotFunc,
   graph : @ir.HotLocalGraph,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
+  node_id : Int32,
+  states : Array[Int32],
   value_consts : Array[@ir.HotConstPayload?],
 ) -> @ir.HotConstPayload? {
   // Earlier allocation/identity folds can append constant nodes after the
@@ -10626,8 +10663,8 @@ fn precompute_propagate_prefix_const_for_node_impl(
   func : @ir.HotFunc,
   graph : @ir.HotLocalGraph,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
+  node_id : Int32,
+  states : Array[Int32],
   value_consts : Array[@ir.HotConstPayload?],
 ) -> @ir.HotConstPayload? {
   match
@@ -10830,7 +10867,7 @@ fn precompute_propagate_prefix_const_for_node_impl(
 ///|
 fn precompute_propagate_mark_result_if_arm_writes(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   inside_result_if_arm : Bool,
   unsafe_locals : Array[Bool],
 ) -> Unit {
@@ -10912,7 +10949,7 @@ fn precompute_propagate_mark_result_if_arm_writes(
 fn precompute_propagate_collect_condition_const_writes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   local_consts : Array[@ir.HotConstPayload?],
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -10947,7 +10984,7 @@ fn precompute_propagate_collect_condition_const_writes(
 ///|
 fn precompute_propagate_mark_arm_direct_const_gets(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   condition_consts : Array[@ir.HotConstPayload?],
   arm_written : Array[Bool],
   get_consts : Array[@ir.HotConstPayload?],
@@ -11009,7 +11046,7 @@ fn precompute_propagate_mark_arm_direct_const_gets(
 fn precompute_propagate_mark_result_if_direct_const_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   get_consts : Array[@ir.HotConstPayload?],
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -11115,7 +11152,7 @@ fn precompute_known_heap_struct_get(
   ctx : HotPassContext,
   value : PrecomputeKnownHeapValue,
   type_idx : @lib.TypeIdx,
-  raw_field : UInt,
+  raw_field : UInt32,
   signed : Bool,
   unsigned : Bool,
 ) -> PrecomputeKnownHeapValue? {
@@ -11172,7 +11209,7 @@ fn precompute_known_heap_array_get(
   ctx : HotPassContext,
   value : PrecomputeKnownHeapValue,
   type_idx : @lib.TypeIdx,
-  index : UInt,
+  index : UInt32,
   signed : Bool,
   unsigned : Bool,
 ) -> PrecomputeKnownHeapValue? {
@@ -11261,10 +11298,10 @@ fn precompute_propagate_known_heap_value_for_node(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
-  allocations : Array[Int],
-  depth : Int,
+  node_id : Int32,
+  states : Array[Int32],
+  allocations : Array[Int32],
+  depth : Int32,
 ) -> PrecomputeKnownHeapValue? {
   if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
@@ -11546,7 +11583,7 @@ fn precompute_propagate_known_heap_value_for_node(
 fn precompute_replace_with_known_emit(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
@@ -11581,9 +11618,9 @@ fn precompute_propagate_try_fold_known_heap_read(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
-  allocations : Array[Int],
+  node_id : Int32,
+  states : Array[Int32],
+  allocations : Array[Int32],
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.StructGet(_, _))
@@ -11604,7 +11641,7 @@ fn precompute_propagate_try_fold_known_heap_read(
         Some(value) => value
         None => return false
       }
-      let body : Array[Int] = []
+      let body : Array[Int32] = []
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child = @ir.hot_child_get(func, node_id, slot)
         precompute_propagate_append_heap_operand_effects(
@@ -11636,10 +11673,10 @@ fn precompute_propagate_allocation_for_node(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
-  allocations : Array[Int],
-) -> Int {
+  node_id : Int32,
+  states : Array[Int32],
+  allocations : Array[Int32],
+) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return -1
   }
@@ -11698,10 +11735,10 @@ fn precompute_propagate_allocation_for_value(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
   label_used : @bitset.BitSet,
-  value_id : Int,
-  states : Array[Int],
-  allocations : Array[Int],
-) -> Int {
+  value_id : Int32,
+  states : Array[Int32],
+  allocations : Array[Int32],
+) -> Int32 {
   if value_id < 0 || value_id >= states.length() {
     return -1
   }
@@ -11767,7 +11804,7 @@ fn precompute_propagate_allocation_for_value(
 ///|
 fn precompute_propagate_mark_loop_carried_default_relations(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   inside_loop : Bool,
   loop_written : Array[Bool],
   get_inside_loop : Array[Bool],
@@ -11870,7 +11907,7 @@ fn precompute_propagate_prefix_fold_local_gets(
   let allocation_states = Array::make(ssa.value_types.length(), 0)
   let allocation_values = Array::make(ssa.value_types.length(), -1)
   let allocation_folds : Array[PrecomputePropagateAllocationFold] = []
-  let known_heap_read_folds : Array[Int] = []
+  let known_heap_read_folds : Array[Int32] = []
   let identity_folds : Array[PrecomputePropagateIdentityFold] = []
   let result_if_arm_written = Array::make(@ir.hot_local_count(func), false)
   let result_if_direct_get_consts : Array[@ir.HotConstPayload?] = Array::make(
@@ -12135,11 +12172,11 @@ fn precompute_propagate_append_heap_operand_effects(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
   label_used : @bitset.BitSet,
-  node_id : Int,
-  states : Array[Int],
-  allocations : Array[Int],
-  out : Array[Int],
-  depth : Int,
+  node_id : Int32,
+  states : Array[Int32],
+  allocations : Array[Int32],
+  out : Array[Int32],
+  depth : Int32,
 ) -> Unit {
   if precompute_is_discardable_value(func, node_id) {
     return
@@ -12184,7 +12221,7 @@ fn precompute_propagate_append_heap_operand_effects(
 ///|
 // Integer arithmetic retains the sticky low bits that an intermediate f64
 // would lose at an f32 halfway boundary. Round once, ties to even.
-fn precompute_u64_to_f32(value : UInt64, negative? : Bool = false) -> Float {
+fn precompute_u64_to_f32(value : UInt64, negative~ : Bool = false) -> Float {
   if value == 0UL {
     return 0.0F
   }
@@ -12216,8 +12253,8 @@ fn precompute_u64_to_f32(value : UInt64, negative? : Bool = false) -> Float {
 ///|
 fn precompute_heap_identity_has_alternative_exit(
   func : @ir.HotFunc,
-  node_id : Int,
-  label : Int,
+  node_id : Int32,
+  label : Int32,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -12244,4 +12281,302 @@ fn precompute_heap_identity_has_alternative_exit(
     }
   }
   false
+}
+
+///|
+// Scalar constants have one opcode and a signed LEB; splats have two opcode
+// bytes. No per-node module encoding is needed to compare them with 18 bytes.
+fn precompute_materialization_sleb_size(input : Int64) -> Int32 {
+  let mut value = input
+  let mut size = 1
+  while value < -64L || value > 63L {
+    value = value >> 7
+    size += 1
+  }
+  size
+}
+
+///|
+fn precompute_materialization_repeated(
+  bytes : Array[Byte],
+  width : Int32,
+) -> Bool {
+  for index in width..<16 {
+    if bytes[index] != bytes[index % width] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn precompute_materialize_vector(
+  instr : @lib.Instruction,
+) -> Array[@lib.Instruction]? {
+  let bytes = match precompute_v128_const_bytes(instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let mut best_size = 18
+  let mut best : Array[@lib.Instruction]? = None
+  for width in [1, 2, 4, 8] {
+    if !precompute_materialization_repeated(bytes, width) {
+      continue
+    }
+    let bits = precompute_v128_read_u64(bytes, 0)
+    let value = match width {
+      1 => ((bytes[0].to_uint() << 24).reinterpret_as_int() >> 24).to_int64()
+      2 => ((bits.to_uint() << 16).reinterpret_as_int() >> 16).to_int64()
+      4 => bits.to_uint().reinterpret_as_int().to_int64()
+      _ => bits.reinterpret_as_int64()
+    }
+    let size = 3 + precompute_materialization_sleb_size(value)
+    if size < best_size {
+      best_size = size
+      best = Some(
+        match width {
+          1 =>
+            [
+              @lib.Instruction::i32_const(@lib.I32(value.to_int())),
+              @lib.Instruction::i8x16_splat(),
+            ]
+          2 =>
+            [
+              @lib.Instruction::i32_const(@lib.I32(value.to_int())),
+              @lib.Instruction::i16x8_splat(),
+            ]
+          4 =>
+            [
+              @lib.Instruction::i32_const(@lib.I32(value.to_int())),
+              @lib.Instruction::i32x4_splat(),
+            ]
+          _ =>
+            [
+              @lib.Instruction::i64_const(@lib.I64(value)),
+              @lib.Instruction::i64x2_splat(),
+            ]
+        },
+      )
+    }
+    // f32 costs seven bytes and can beat a five-byte signed i32 immediate.
+    if width == 4 && 7 < best_size {
+      best_size = 7
+      best = Some([
+        @lib.Instruction::f32_const(
+          @lib.F32(Float::reinterpret_from_uint(bits.to_uint())),
+        ),
+        @lib.Instruction::f32x4_splat(),
+      ])
+    }
+    // f64 costs eleven and can beat a nine/ten-byte signed i64 immediate.
+    // Reinterpret only: retain every NaN payload and signed-zero bit.
+    if width == 8 && 11 < best_size {
+      best_size = 11
+      best = Some([
+        @lib.Instruction::f64_const(@lib.F64(bits.reinterpret_as_double())),
+        @lib.Instruction::f64x2_splat(),
+      ])
+    }
+  }
+  best
+}
+
+///|
+fn precompute_materialize_vector_children(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(bt, @lib.Expr(body)) =>
+      match precompute_materialize_vector_body(body) {
+        Some(next) => Some(@lib.Instruction::block(bt, @lib.Expr::new(next)))
+        None => None
+      }
+    @lib.Loop(bt, @lib.Expr(body)) =>
+      match precompute_materialize_vector_body(body) {
+        Some(next) => Some(@lib.Instruction::loop_(bt, @lib.Expr::new(next)))
+        None => None
+      }
+    @lib.TryTable(bt, catches, @lib.Expr(body)) =>
+      match precompute_materialize_vector_body(body) {
+        Some(next) =>
+          Some(@lib.Instruction::try_table(bt, catches, @lib.Expr::new(next)))
+        None => None
+      }
+    @lib.If(bt, yes, no) => {
+      let next_yes = precompute_materialize_vector_body(yes)
+      let next_no = match no {
+        Some(body) => precompute_materialize_vector_body(body)
+        None => None
+      }
+      if next_yes is None && next_no is None {
+        return None
+      }
+      let yes = match next_yes {
+        Some(next) => next
+        None => yes
+      }
+      let no = match no {
+        Some(body) =>
+          Some(
+            match next_no {
+              Some(next) => next
+              None => body
+            },
+          )
+        None => None
+      }
+      Some(@lib.Instruction::if_(bt, yes, no))
+    }
+    @lib.Try(bt, expr, catches, delegate) => {
+      let @lib.Expr(body) = expr
+      let next_body = precompute_materialize_vector_body(body)
+      let mut next_catches : Array[@lib.LegacyCatch]? = None
+      for index in 0..<catches.length() {
+        let child = match catches[index] {
+          @lib.LegacyCatch(_, @lib.Expr(child))
+          | @lib.LegacyCatchAll(@lib.Expr(child)) => child
+        }
+        match precompute_materialize_vector_body(child) {
+          Some(next) => {
+            if next_catches is None {
+              next_catches = Some(catches.copy())
+            }
+            next_catches.unwrap()[index] = match catches[index] {
+              @lib.LegacyCatch(tag, _) =>
+                @lib.LegacyCatch::tagged(tag, @lib.Expr::new(next))
+              @lib.LegacyCatchAll(_) =>
+                @lib.LegacyCatch::all(@lib.Expr::new(next))
+            }
+          }
+          None => ()
+        }
+      }
+      if next_body is None && next_catches is None {
+        return None
+      }
+      let expr = match next_body {
+        Some(next) => @lib.Expr::new(next)
+        None => expr
+      }
+      let catches = match next_catches {
+        Some(next) => next
+        None => catches
+      }
+      Some(@lib.Instruction::try_(bt, expr, catches, delegate~))
+    }
+    _ => None
+  }
+}
+
+///|
+// None means unchanged: scalar leaves and unchanged control bodies need no
+// result tuple, mutable capture, callback, or replacement control wrapper.
+fn precompute_materialize_vector_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut out : Array[@lib.Instruction]? = None
+  for index in 0..<body.length() {
+    let original = body[index]
+    let nested = precompute_materialize_vector_children(original)
+    let instr = match nested {
+      Some(next) => next
+      None => original
+    }
+    let splat = precompute_materialize_vector(instr)
+    if nested is Some(_) || splat is Some(_) {
+      if out is None {
+        let prefix : Array[@lib.Instruction] = Array::new(
+          capacity=body.length() + 1,
+        )
+        for previous in 0..<index {
+          prefix.push(body[previous])
+        }
+        out = Some(prefix)
+      }
+    }
+    match out {
+      Some(items) =>
+        match splat {
+          Some(pair) =>
+            for item in pair {
+              items.push(item)
+            }
+          None => items.push(instr)
+        }
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+// Run after folding and writeback repair, so vector users see literals while
+// folding. Apply the smaller final representation only under a size policy.
+fn precompute_materialize_vectors_for_size(
+  mod_ : @lib.Module,
+  shrink_level : Int32,
+  touched~ : Array[Bool]? = None,
+) -> @lib.Module {
+  if shrink_level <= 0 || pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let mut next : Array[@lib.Func]? = None
+  for index in 0..<funcs.length() {
+    if touched is Some(selected) &&
+      (index >= selected.length() || !selected[index]) {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[index]
+    match precompute_materialize_vector_body(body) {
+      Some(body) => {
+        if next is None {
+          next = Some(funcs.copy())
+        }
+        next.unwrap()[index] = @lib.Func::new(locals, @lib.Expr::new(body))
+      }
+      None => ()
+    }
+  }
+  let next = match next {
+    Some(next) => next
+    None => return mod_
+  }
+  let candidate = mod_.with_code_sec(@lib.CodeSec::new(next))
+  let baseline = if mod_.compiler_fact_custom_section is Some(_) {
+    mod_.without_compiler_fact_custom_section()
+  } else {
+    mod_
+  }
+  // One full-module check includes body/section framing and all retained names.
+  match @binary.encoded_module_sizes(baseline, candidate) {
+    Ok((before, after)) if after < before => candidate
+    _ => mod_
+  }
+}
+
+///|
+fn precompute_materialize_stack_vectors_for_size(
+  mod_ : @lib.Module,
+  descriptors : Array[@ir.HotPassDescriptor],
+  shrink_level : Int32,
+  touched~ : Array[Bool]? = None,
+) -> @lib.Module {
+  if shrink_level <= 0 {
+    return mod_
+  }
+  for descriptor in descriptors {
+    if descriptor.name == "precompute" ||
+      descriptor.name == "precompute-propagate" {
+      return precompute_materialize_vectors_for_size(
+        mod_,
+        shrink_level,
+        touched~,
+      )
+    }
+  }
+  mod_
 }

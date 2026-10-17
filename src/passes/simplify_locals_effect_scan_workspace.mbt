@@ -1,7 +1,7 @@
 ///|
 priv struct SimplifyLocalsEffectScanWorkspace {
-  marks : Array[Int]
-  mut epoch : Int
+  marks : Array[Int32]
+  mut epoch : Int32
 }
 
 ///|
@@ -16,7 +16,7 @@ fn SimplifyLocalsEffectScanWorkspace::new() -> SimplifyLocalsEffectScanWorkspace
 fn SimplifyLocalsEffectScanWorkspace::begin(
   self : SimplifyLocalsEffectScanWorkspace,
   func : @ir.HotFunc,
-) -> Array[Int] {
+) -> Array[Int32] {
   let nodes = @ir.hot_node_count(func)
   while self.marks.length() < nodes {
     self.marks.push(0)

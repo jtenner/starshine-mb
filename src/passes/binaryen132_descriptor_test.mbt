@@ -132,7 +132,7 @@ test "descriptor bottom recomputation preserves multivalue payload and operand c
     let output = pass_test_run_pipeline(source, ["local-subtyping"]).unwrap()
     assert_true(@validate.validate_module(output) is Ok(_))
     let hot = @ir.hot_lift_func(output, @lib.FuncIdx::new(3U))
-    let calls : Array[Int] = []
+    let calls : Array[Int32] = []
     for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
       let data = @ir.hot_node_get(hot, node)
       if data.op is @ir.HotOp::Call {

@@ -1,5 +1,5 @@
 ///|
-fn dae2_graph_fields_build(nodes : Int) -> Dae2Graph {
+fn dae2_graph_fields_build(nodes : Int32) -> Dae2Graph {
   let graph = Dae2Graph::new()
   ignore(graph.locations(nodes + 2))
   for node in 0..<(nodes - 1) {
@@ -16,7 +16,7 @@ fn dae2_graph_fields_build(nodes : Int) -> Dae2Graph {
 }
 
 ///|
-fn dae2_graph_fields_reference(nodes : Int) -> Dae2MutableGraphReference {
+fn dae2_graph_fields_reference(nodes : Int32) -> Dae2MutableGraphReference {
   let graph = Dae2MutableGraphReference::new()
   ignore(graph.locations(nodes + 2))
   for node in 0..<(nodes - 1) {
@@ -35,7 +35,7 @@ fn dae2_graph_fields_reference(nodes : Int) -> Dae2MutableGraphReference {
 ///|
 fn dae2_graph_fields_bench(
   it : @bench.T,
-  nodes : Int,
+  nodes : Int32,
   reference : Bool,
 ) -> Unit {
   let actual = dae2_graph_fields_build(nodes)

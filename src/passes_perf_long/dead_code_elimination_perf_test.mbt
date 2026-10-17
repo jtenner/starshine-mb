@@ -1,6 +1,6 @@
 ///|
 fn dead_code_elimination_perf_scalar_drop_module(
-  function_count : Int,
+  function_count : Int32,
 ) -> @lib.Module {
   let func_types : Array[@lib.TypeIdx] = Array::new(capacity=function_count)
   let funcs : Array[@lib.Func] = Array::new(capacity=function_count)

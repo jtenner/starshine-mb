@@ -222,7 +222,7 @@ test "simplify-locals defers aggregate multi-read locals on the first cycle" {
   )
   let get_counts = simplify_locals_count_local_gets(func)
   @debug.assert_eq(get_counts[0], 2)
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   let (changed, has_deferred) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -244,7 +244,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
   @debug.assert_eq(initial_counts[0], 2)
   @debug.assert_eq(initial_counts[1], 1)
   let policy = SimplifyLocalsPolicy::new(true, false, true)
-  let first_detached : Array[Int] = []
+  let first_detached : Array[Int32] = []
   let (first_changed, first_deferred) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -259,7 +259,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
   let after_first_counts = simplify_locals_count_local_gets(func)
   @debug.assert_eq(after_first_counts[0], 2)
   @debug.assert_eq(after_first_counts[1], 0)
-  let cleanup_detached : Array[Int] = []
+  let cleanup_detached : Array[Int32] = []
   let cleanup_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
   ignore(
     simplify_locals_run_dead_cleanup(
@@ -273,7 +273,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
   simplify_locals_rehome_detached_control_owners(func, cleanup_rehomed)
   simplify_locals_delete_detached_nodes(func, cleanup_detached)
   @debug.assert_eq(simplify_locals_count_local_gets(func)[0], 2)
-  let live_set_locals : Array[Int] = []
+  let live_set_locals : Array[Int32] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if @ir.hot_node_is_live(func, node_id) {
       let node = @ir.hot_node_get(func, node_id)
@@ -284,7 +284,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
     }
   }
   @debug.assert_eq(live_set_locals, [0, 0])
-  let second_detached : Array[Int] = []
+  let second_detached : Array[Int32] = []
   let (second_changed, _) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -295,7 +295,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
   )
   assert_false(second_changed)
   simplify_locals_delete_detached_nodes(func, second_detached)
-  let second_cleanup_detached : Array[Int] = []
+  let second_cleanup_detached : Array[Int32] = []
   let second_cleanup_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
   assert_false(
     simplify_locals_run_dead_cleanup(
@@ -309,7 +309,7 @@ test "simplify-locals no-tee keeps aggregate multi-read producers after copy sin
   simplify_locals_rehome_detached_control_owners(func, second_cleanup_rehomed)
   simplify_locals_delete_detached_nodes(func, second_cleanup_detached)
   @debug.assert_eq(simplify_locals_count_local_gets(func)[0], 2)
-  let structure_detached : Array[Int] = []
+  let structure_detached : Array[Int32] = []
   assert_false(
     simplify_locals_run_structure_rewrites(
       func,
@@ -326,7 +326,7 @@ test "simplify-locals no-tee canonicalizes repeated copies without sinking their
     "(module (func (local i32 i32) i32.const 70 local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 71 i32.const 1 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 72 i32.const 2 i32.add local.set 0 local.get 0 drop))",
   )
   let policy = SimplifyLocalsPolicy::new(true, false, true)
-  let first_detached : Array[Int] = []
+  let first_detached : Array[Int32] = []
   let (first_changed, first_deferred) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -337,7 +337,7 @@ test "simplify-locals no-tee canonicalizes repeated copies without sinking their
   )
   assert_false(first_changed)
   assert_true(first_deferred)
-  let second_detached : Array[Int] = []
+  let second_detached : Array[Int32] = []
   let (second_changed, _) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -351,7 +351,7 @@ test "simplify-locals no-tee canonicalizes repeated copies without sinking their
   assert_true(
     simplify_locals_run_equivalent_cleanup(simplify_locals_wbtest_ctx(), func),
   )
-  let late_detached : Array[Int] = []
+  let late_detached : Array[Int32] = []
   let late_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
   assert_true(
     simplify_locals_run_dead_cleanup(
@@ -367,7 +367,7 @@ test "simplify-locals no-tee canonicalizes repeated copies without sinking their
   let counts = simplify_locals_count_local_gets(func)
   @debug.assert_eq(counts[0], 3)
   @debug.assert_eq(counts[1], 0)
-  let source_sets : Array[Int] = []
+  let source_sets : Array[Int32] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if @ir.hot_node_is_live(func, node_id) {
       let node = @ir.hot_node_get(func, node_id)
@@ -378,7 +378,7 @@ test "simplify-locals no-tee canonicalizes repeated copies without sinking their
     }
   }
   @debug.assert_eq(source_sets.length(), 3)
-  let final_detached : Array[Int] = []
+  let final_detached : Array[Int32] = []
   let (final_changed, _) = simplify_locals_run_main_cycle(
     simplify_locals_wbtest_ctx(),
     func,
@@ -483,7 +483,7 @@ test "simplify-locals keeps deferred repeated-read sinking core-valid" {
 test "simplify-locals full runner keeps conditional block result formation valid" {
   let source = "(module (func (param i32) (local i32) block i32.const 7 local.set 1 local.get 0 br_if 0 i32.const 9 local.set 1 end local.get 1 drop))"
   let probe = pass_test_lift_first_func(source)
-  let probe_detached : Array[Int] = []
+  let probe_detached : Array[Int32] = []
   assert_true(
     simplify_locals_try_rewrite_block_return(
       probe,
@@ -584,7 +584,7 @@ test "simplify-locals recognizes simple loop tail writes before sink cleanup" {
   assert_true(tail is Some(_))
   let counts = simplify_locals_count_local_gets(func)
   @debug.assert_eq(counts[0], 1)
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   assert_true(
     simplify_locals_try_rewrite_loop_return(
       func,
@@ -712,7 +712,7 @@ test "simplify-locals does not rewrite block returns when the fallthrough value 
       #|)
     ),
   )
-  let detached : Array[Int] = []
+  let detached : Array[Int32] = []
   assert_false(
     simplify_locals_try_rewrite_block_return(
       func,
@@ -820,8 +820,8 @@ test "simplify-locals deferred follow-up records only scanned first-cycle sets" 
       #|    end))
     ),
   )
-  let detached : Array[Int] = []
-  let deferred_sets : Array[Int] = []
+  let detached : Array[Int32] = []
+  let deferred_sets : Array[Int32] = []
   assert_false(
     simplify_locals_scan_region(
       func,

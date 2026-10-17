@@ -1,7 +1,7 @@
 ///|
 fn coalesce_slot_queries_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   dense : Bool,
   indexed : Bool,
 ) -> Unit {

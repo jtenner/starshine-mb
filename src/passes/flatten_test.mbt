@@ -79,10 +79,10 @@ fn flatten_test_assert_rich_left_payload_order(
   func : @ir.HotFunc,
   ctx : HotPassContext,
   region_ref : @ir.HotRegionRef,
-  rich_left : Int,
-  rich_payloads : Array[Int],
-  branch : Int,
-  binary : Int,
+  rich_left : Int32,
+  rich_payloads : Array[Int32],
+  branch : Int32,
+  binary : Int32,
 ) -> Unit raise {
   @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
   let mut left_set_root = -1
@@ -1436,7 +1436,7 @@ test "flatten routes one multivalue br_table through a legacy try and two direct
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -1714,7 +1714,7 @@ test "flatten routes one scalar br_table through a legacy try two enclosing bloc
   }
   @debug.assert_eq(@ir.hot_region_root_count(func, try_body), 7)
   let stage_set = @ir.hot_region_get(func, try_body, 0)
-  let target_locals : Array[Int] = []
+  let target_locals : Array[Int32] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push(
       @ir.hot_node_get(
@@ -1915,7 +1915,7 @@ test "flatten routes one multivalue br_table through a legacy try two enclosing 
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -2138,7 +2138,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try two
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -2361,7 +2361,7 @@ test "flatten routes one multivalue br_table through a legacy try enclosing bloc
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -2575,7 +2575,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try enc
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -3131,7 +3131,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -3357,7 +3357,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -3597,7 +3597,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 5; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -3682,8 +3682,8 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
 
 ///|
 fn flatten_assert_tuple_try_table_block_if_chain(
-  block_count : Int,
-  if_count : Int,
+  block_count : Int32,
+  if_count : Int32,
   expect_changed : Bool,
 ) -> Unit raise {
   let i32_type = @lib.ValType::i32()
@@ -3718,10 +3718,10 @@ fn flatten_assert_tuple_try_table_block_if_chain(
       result_types,
     ),
   )
-  let controls : Array[Int] = [try_id]
-  let labels : Array[Int] = [@ir.hot_control_node_label(func, try_id)]
-  let blocks : Array[Int] = []
-  let ifs : Array[Int] = []
+  let controls : Array[Int32] = [try_id]
+  let labels : Array[Int32] = [@ir.hot_control_node_label(func, try_id)]
+  let blocks : Array[Int32] = []
+  let ifs : Array[Int32] = []
   let mut child_id = try_id
   for block_index = 0; block_index < block_count; block_index = block_index + 1 {
     let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [
@@ -3853,7 +3853,7 @@ fn flatten_assert_tuple_try_table_block_if_chain(
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0
       target_index < target_count
       target_index = target_index + 1 {
@@ -4198,7 +4198,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try enc
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -4443,7 +4443,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try enc
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 5; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -4713,7 +4713,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try enc
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 6; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -4964,7 +4964,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try two
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 5; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -5236,7 +5236,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try two
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 6; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -5521,7 +5521,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try two
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 7; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -6949,7 +6949,7 @@ test "flatten routes one tuple-made multivalue br_table to legacy try and three 
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 4; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -11598,7 +11598,7 @@ test "flatten moves nested throw_ref effects before unreachable placeholders" {
 }
 
 ///|
-fn flatten_test_nested_tail_call_placeholder(mode : Int) -> Unit raise {
+fn flatten_test_nested_tail_call_placeholder(mode : Int32) -> Unit raise {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
@@ -14067,7 +14067,7 @@ test "flatten scalarizes one exclusive tuple-made inputful loop result tail" {
     [@lib.ValType::f32(), @lib.ValType::f64()],
     [first_result, second_result],
   )
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for root_idx = 0; root_idx < old_root_count - 2; root_idx = root_idx + 1 {
     roots.push(@ir.hot_region_get(func, body_ref, root_idx))
   }
@@ -14800,7 +14800,7 @@ test "flatten intentionally leaves shared multivalue loop br_if flow fail closed
   let branch = @ir.hot_region_get(func, body_ref, 2)
   let first_payload = @ir.hot_child_get(func, branch, 0)
   let root_count = @ir.hot_region_root_count(func, body_ref)
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for idx = 0; idx < root_count; idx = idx + 1 {
     roots.push(@ir.hot_region_get(func, body_ref, idx))
     if idx == 2 {
@@ -15300,7 +15300,7 @@ test "flatten routes one independently scalar multivalue br_table through a lega
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -15507,7 +15507,7 @@ test "flatten routes one exclusively tuple-made multivalue br_table through a le
     @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
     second_payload,
   )
-  let target_locals : Array[Array[Int]] = []
+  let target_locals : Array[Array[Int32]] = []
   for target_index = 0; target_index < 3; target_index = target_index + 1 {
     target_locals.push([
       @ir.hot_node_get(
@@ -18399,8 +18399,8 @@ test "flatten removes three independently owned add-drop suffix roots after a sc
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let owned_nodes : Array[Int] = []
-  let suffix_roots : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int32] = []
+  let suffix_roots : Array[Int32] = [branch_id]
   for value = 9; value <= 13; value = value + 2 {
     let left = @ir.hot_build_const_i32(func, @lib.I32(value))
     let right = @ir.hot_build_const_i32(func, @lib.I32(value + 1))
@@ -18467,8 +18467,8 @@ test "flatten removes three independently owned multiply-drop suffix roots after
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let owned_nodes : Array[Int] = []
-  let suffix_roots : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int32] = []
+  let suffix_roots : Array[Int32] = [branch_id]
   for value = 9; value <= 13; value = value + 2 {
     let left = @ir.hot_build_const_i32(func, @lib.I32(value))
     let right = @ir.hot_build_const_i32(func, @lib.I32(value + 1))
@@ -18537,8 +18537,8 @@ fn flatten_test_remove_three_alternating_add_multiply_suffix_roots(
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let owned_nodes : Array[Int] = []
-  let suffix_roots : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int32] = []
+  let suffix_roots : Array[Int32] = [branch_id]
   for root_index = 0; root_index < 3; root_index = root_index + 1 {
     let value = 9 + root_index * 2
     let left = @ir.hot_build_const_i32(func, @lib.I32(value))
@@ -18644,8 +18644,8 @@ fn flatten_test_remove_four_direct_binary_suffix_roots(
       @lib.Instruction::i32_and(),
     ]
   }
-  let owned_nodes : Array[Int] = []
-  let suffix_roots : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int32] = []
+  let suffix_roots : Array[Int32] = [branch_id]
   for root_index = 0
       root_index < instructions.length()
       root_index = root_index + 1 {
@@ -18709,9 +18709,9 @@ test "flatten removes an and-multiply-subtract-add suffix sequence after a scala
 fn flatten_test_build_owned_binary_drop_root(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  left_value : Int,
-  right_value : Int,
-) -> Array[Int] {
+  left_value : Int32,
+  right_value : Int32,
+) -> Array[Int32] {
   let left = @ir.hot_build_const_i32(func, @lib.I32(left_value))
   let right = @ir.hot_build_const_i32(func, @lib.I32(right_value))
   let binary = @ir.hot_build_binary(func, @lib.ValType::i32(), left, right)
@@ -18724,10 +18724,10 @@ fn flatten_test_build_owned_binary_drop_root(
 fn flatten_test_build_owned_unary_drop_root(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
-  input_value : Int,
+  input_value : Int32,
   result_type : @lib.ValType,
   convert : Bool,
-) -> Array[Int] {
+) -> Array[Int32] {
   let input = @ir.hot_build_const_i32(func, @lib.I32(input_value))
   let value = if convert {
     @ir.hot_build_convert(func, result_type, input)
@@ -18820,8 +18820,8 @@ fn flatten_test_remove_mixed_nontrapping_suffix_roots(
       ),
     ]
   }
-  let suffix_roots : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     suffix_roots.push(root[0])
     for node_id in root {
@@ -18939,8 +18939,8 @@ fn flatten_test_remove_middle_divzero_suffix_roots(
       ),
     ]
   }
-  let suffix_roots : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     suffix_roots.push(root[0])
     for node_id in root {
@@ -19048,8 +19048,8 @@ fn flatten_test_remove_sequence_with_unreachable_root(
       ),
     ]
   }
-  let suffix_roots : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     suffix_roots.push(root[0])
     for node_id in root {
@@ -19162,8 +19162,8 @@ fn flatten_test_remove_sequence_with_direct_call(
       ),
     ]
   }
-  let suffix_roots : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     suffix_roots.push(root[0])
     for node_id in root {
@@ -19442,8 +19442,8 @@ fn flatten_test_build_owned_one_multiply_child_drop(
   func : @ir.HotFunc,
   outer_instr : @lib.Instruction,
   multiply_on_left : Bool,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let multiply_left = @ir.hot_build_const_i32(func, @lib.I32(base))
   let multiply_right = @ir.hot_build_const_i32(func, @lib.I32(base + 1))
   let multiply = @ir.hot_build_binary(
@@ -19554,8 +19554,8 @@ fn flatten_test_remove_sequence_with_one_multiply_child_drop(
       ),
     ]
   }
-  let suffix_roots : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     suffix_roots.push(root[0])
     for node_id in root {
@@ -19611,7 +19611,7 @@ test "flatten removes an extend-nested-submul-and suffix sequence after a scalar
 ///|
 fn flatten_test_remove_sequence_with_binary_argument_call(
   argument_instr : @lib.Instruction,
-  right_value : Int,
+  right_value : Int32,
 ) -> Unit raise {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
@@ -19795,7 +19795,7 @@ fn flatten_test_remove_sequence_with_unary_or_conversion_argument_call(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [
+  let owned_nodes : Array[Int32] = [
     first[0],
     first[1],
     first[2],
@@ -19923,7 +19923,7 @@ fn flatten_test_remove_sequence_with_two_constant_argument_call(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call, first_argument, second_argument]
+  let owned_nodes : Array[Int32] = [call, first_argument, second_argument]
   for root in [first, last] {
     for node_id in root {
       owned_nodes.push(node_id)
@@ -19999,7 +19999,7 @@ fn flatten_test_remove_sequence_with_constant_argument_vector(
       10,
     )
   }
-  let arguments : Array[Int] = if four_arguments {
+  let arguments : Array[Int32] = if four_arguments {
     [
       @ir.hot_build_const_i64(func, @lib.I64(10L)),
       @ir.hot_build_const_i32(func, @lib.I32(11)),
@@ -20047,7 +20047,7 @@ fn flatten_test_remove_sequence_with_constant_argument_vector(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for argument in arguments {
     owned_nodes.push(argument)
   }
@@ -20142,7 +20142,7 @@ fn flatten_test_remove_sequence_with_one_rich_argument_vector(
       13,
     )
   }
-  let arguments : Array[Int] = if conversion {
+  let arguments : Array[Int32] = if conversion {
     [
       @ir.hot_build_const_i32(func, @lib.I32(10)),
       @ir.hot_build_const_i64(func, @lib.I64(11L)),
@@ -20191,7 +20191,7 @@ fn flatten_test_remove_sequence_with_one_rich_argument_vector(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for argument in arguments {
     owned_nodes.push(argument)
   }
@@ -20337,7 +20337,7 @@ fn flatten_test_remove_sequence_with_binary_and_unary_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for rich in [binary, unary] {
     for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
       owned_nodes.push(rich[node_idx])
@@ -20483,7 +20483,7 @@ fn flatten_test_remove_sequence_with_binary_and_conversion_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for rich in [binary, conversion] {
     for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
       owned_nodes.push(rich[node_idx])
@@ -20530,7 +20530,7 @@ test "flatten removes an extend-callextenddiv-unreachable suffix sequence after 
 
 ///|
 fn flatten_test_remove_sequence_with_two_binary_arguments(
-  pair_kind : Int,
+  pair_kind : Int32,
 ) -> Unit raise {
   let division_first = pair_kind == 1 || pair_kind == 3
   let i32_type = @lib.ValType::i32()
@@ -20629,7 +20629,7 @@ fn flatten_test_remove_sequence_with_two_binary_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for rich in [first_argument, second_argument] {
     for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
       owned_nodes.push(rich[node_idx])
@@ -20783,7 +20783,7 @@ fn flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for rich in [first_argument, second_argument] {
     for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
       owned_nodes.push(rich[node_idx])
@@ -20846,7 +20846,7 @@ test "flatten removes an extend-callextendextend-unreachable suffix sequence aft
 
 ///|
 fn flatten_test_remove_sequence_with_two_rich_argument_vector(
-  pair_kind : Int,
+  pair_kind : Int32,
 ) -> Unit raise {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
@@ -20929,7 +20929,7 @@ fn flatten_test_remove_sequence_with_two_rich_argument_vector(
       true,
     )
   }
-  let arguments : Array[Int] = if pair_kind == 0 {
+  let arguments : Array[Int32] = if pair_kind == 0 {
     [
       @ir.hot_build_const_i64(func, @lib.I64(11L)),
       first_rich[1],
@@ -20982,7 +20982,7 @@ fn flatten_test_remove_sequence_with_two_rich_argument_vector(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call]
+  let owned_nodes : Array[Int32] = [call]
   for argument in arguments {
     owned_nodes.push(argument)
   }
@@ -21078,7 +21078,7 @@ test "flatten removes an interleaved four-rich call suffix after a scalar legacy
     @lib.ValType::i64(),
     true,
   )
-  let arguments : Array[Int] = [
+  let arguments : Array[Int32] = [
     division[1],
     @ir.hot_build_const_i64(func, @lib.I64(21L)),
     add[1],
@@ -21105,7 +21105,7 @@ test "flatten removes an interleaved four-rich call suffix after a scalar legacy
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call, dead_unreachable]
+  let owned_nodes : Array[Int32] = [call, dead_unreachable]
   for argument in arguments {
     owned_nodes.push(argument)
   }
@@ -21234,7 +21234,7 @@ fn flatten_test_remove_sequence_with_binary_and_constant_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call, constant, rich[1], rich[2], rich[3]]
+  let owned_nodes : Array[Int32] = [call, constant, rich[1], rich[2], rich[3]]
   for root in [first, last] {
     for node_id in root {
       owned_nodes.push(node_id)
@@ -21366,7 +21366,7 @@ fn flatten_test_remove_sequence_with_unary_or_conversion_and_constant_arguments(
     fn(_) { () },
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
-  let owned_nodes : Array[Int] = [call, constant, rich[1], rich[2]]
+  let owned_nodes : Array[Int32] = [call, constant, rich[1], rich[2]]
   for root in [first, last] {
     for node_id in root {
       owned_nodes.push(node_id)
@@ -21414,8 +21414,8 @@ test "flatten removes an and-callconstextend-unreachable suffix sequence after a
 fn flatten_test_build_owned_two_multiply_children_drop(
   func : @ir.HotFunc,
   outer_instr : @lib.Instruction,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let left = flatten_test_build_owned_binary_drop_root(
     func,
     @lib.Instruction::i32_mul(),
@@ -21509,8 +21509,8 @@ fn flatten_test_remove_sequence_with_two_multiply_children_drop(
       ),
     ]
   }
-  let body : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let body : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -21567,8 +21567,8 @@ test "flatten removes an extend-tworichsub-and suffix sequence after a scalar le
 fn flatten_test_build_owned_deeper_two_multiply_children_drop(
   func : @ir.HotFunc,
   subtract_tree : Bool,
-  base : Int,
-) -> Array[Int] {
+  base : Int32,
+) -> Array[Int32] {
   let rich = flatten_test_build_owned_two_multiply_children_drop(
     func,
     if subtract_tree {
@@ -21684,8 +21684,8 @@ fn flatten_test_remove_sequence_with_deeper_two_multiply_children_drop(
       ),
     ]
   }
-  let body : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let body : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {
@@ -21741,8 +21741,8 @@ test "flatten removes an extend-deepsub-divzero suffix sequence after a scalar l
 ///|
 fn flatten_test_build_owned_direct_drop_const(
   func : @ir.HotFunc,
-  value : Int,
-) -> Array[Int] {
+  value : Int32,
+) -> Array[Int32] {
   let constant = @ir.hot_build_const_i32(func, @lib.I32(value))
   [@ir.hot_build_drop(func, constant), constant]
 }
@@ -21799,8 +21799,8 @@ fn flatten_test_remove_sequence_with_direct_drop_const(
       [call],
     ]
   }
-  let body : Array[Int] = [branch_id]
-  let owned_nodes : Array[Int] = []
+  let body : Array[Int32] = [branch_id]
+  let owned_nodes : Array[Int32] = []
   for root in roots {
     body.push(root[0])
     for node_id in root {

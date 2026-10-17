@@ -2,7 +2,7 @@
 // Run after all writeback repair: restored functions still use original indices.
 fn oi_cleanup_module_encoding(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
+  touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
   let mut changed = false
   let candidate = match mod_.code_sec {
@@ -43,11 +43,31 @@ fn oi_cleanup_module_encoding(
 // unchanged and commit only a validated whole-module byte saving.
 fn oi_group_numeric_locals_if_smaller(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
-  function_comparisons? : Array[Int]? = None,
+  touched~ : Array[Bool]? = None,
+  allow_frequency~ : Bool = true,
+  function_comparisons~ : Array[Int32]? = None,
 ) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let mut has_body_locals = false
+  for index in 0..<funcs.length() {
+    if touched is Some(set) && (index >= set.length() || !set[index]) {
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[index]
+    if locals.length() > 0 {
+      has_body_locals = true
+      break
+    }
+  }
+  if !has_body_locals {
+    return mod_
+  }
   if pass_module_has_legacy_try(mod_) ||
-    oi_local_group_has_offset_metadata(mod_) {
+    oi_local_group_has_offset_metadata(mod_) ||
+    (mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_)) {
     return mod_
   }
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(
@@ -55,22 +75,107 @@ fn oi_group_numeric_locals_if_smaller(
     touched~,
   )
   ignore(function_comparisons)
-  if physical_equal(grouped, mod_) {
-    return mod_
+  // SL preserves body-local declarations and their names. Its boundary cleanup
+  // groups types only; OI can also choose the existing unused-local removal.
+  if !allow_frequency {
+    return oi_select_local_group_candidate(mod_, grouped, None)
   }
-  let size_baseline = if mod_.compiler_fact_custom_section is Some(_) {
-    mod_.without_compiler_fact_custom_section()
-  } else {
-    mod_
-  }
-  match @binary.encoded_module_sizes(size_baseline, grouped) {
-    Ok((old_size, new_size)) if new_size < old_size =>
-      if oi_validate_local_group_changed_bodies(mod_, grouped) {
-        return grouped
+  // Frequency order can save more access bytes across a LEB boundary than
+  // first-type grouping saves in declarations. Compare one existing candidate;
+  // keep the numeric/touched admission boundary and the fixed parameter prefix.
+  let params = rl_defined_func_param_cache(mod_)
+  let mut selected : Array[Bool]? = None
+  for index in 0..<funcs.length() {
+    if touched is Some(set) && (index >= set.length() || !set[index]) {
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[index]
+    if locals.length() == 0 {
+      continue
+    }
+    let ps = match params.get(index) {
+      Some(ps) => ps
+      None => continue
+    }
+    if ps.length() + locals.length() > 128 &&
+      ps.all(run_hot_pipeline_raw_numeric_local_type) &&
+      locals
+      .runs()
+      .all(fn(run) { run_hot_pipeline_raw_numeric_local_type(run.vt) }) {
+      if selected is None {
+        selected = Some(Array::make(funcs.length(), false))
       }
-    _ => ()
+      selected.unwrap()[index] = true
+    }
   }
-  mod_
+  let selected = match selected {
+    Some(selected) => selected
+    None => return oi_select_local_group_candidate(mod_, grouped, None)
+  }
+  let frequency = match
+    run_hot_pipeline_apply_reorder_locals_to_touched(
+      mod_,
+      selected,
+      params_by_func=Some(params),
+    ) {
+    Ok(frequency) if !physical_equal(frequency, mod_) => Some(frequency)
+    _ => None
+  }
+  oi_select_local_group_candidate(mod_, grouped, frequency)
+}
+
+///|
+// Candidates retain the caller's numeric/touched and metadata admission.
+// Rank complete encoded costs first, then validate only the candidate needed.
+// A cheaper invalid candidate must not exclude a profitable valid fallback.
+fn oi_select_local_group_candidate(
+  before : @lib.Module,
+  grouped : @lib.Module,
+  frequency : @lib.Module?,
+) -> @lib.Module {
+  let baseline = if before.compiler_fact_custom_section is Some(_) {
+    before.without_compiler_fact_custom_section()
+  } else {
+    before
+  }
+  let grouped_size = if physical_equal(grouped, before) {
+    None
+  } else {
+    match @binary.encoded_module_sizes(baseline, grouped) {
+      Ok((old_size, new_size)) if new_size < old_size => Some(new_size)
+      _ => None
+    }
+  }
+  let frequency_size = match frequency {
+    Some(candidate) if !physical_equal(candidate, before) =>
+      match @binary.encoded_module_sizes(baseline, candidate) {
+        Ok((old_size, new_size)) if new_size < old_size => Some(new_size)
+        _ => None
+      }
+    _ => None
+  }
+  let frequency_first = match (grouped_size, frequency_size) {
+    (None, Some(_)) => true
+    (Some(grouped_size), Some(frequency_size)) => frequency_size < grouped_size
+    _ => false
+  }
+  if frequency_first {
+    let candidate = frequency.unwrap()
+    if oi_validate_local_group_changed_bodies(before, candidate) {
+      return candidate
+    }
+  }
+  if grouped_size is Some(_) &&
+    oi_validate_local_group_changed_bodies(before, grouped) {
+    return grouped
+  }
+  if !frequency_first && frequency_size is Some(_) {
+    let candidate = frequency.unwrap()
+    if oi_validate_local_group_changed_bodies(before, candidate) {
+      return candidate
+    }
+  }
+  before
 }
 
 ///|

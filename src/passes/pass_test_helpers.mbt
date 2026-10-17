@@ -33,7 +33,7 @@ pub fn pass_test_lift_first_func(text : String) -> @ir.HotFunc {
 pub fn pass_test_run_pipeline(
   text : String,
   requested_passes : Array[String],
-  options? : HotPipelineOptions = HotPipelineOptions::new(),
+  options~ : HotPipelineOptions = HotPipelineOptions::new(),
 ) -> Result[@lib.Module, String] {
   run_hot_pipeline(pass_test_module_from_wat(text), options, requested_passes)
 }

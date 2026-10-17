@@ -2,15 +2,15 @@
 // One original continuation owns each mutable ordered read set. Siblings borrow
 // it only during their recursive visit; suffix/loop accumulation copies first.
 priv struct SlCleanupReadSet {
-  reads : Array[Int]
-  mut word : Int
+  reads : Array[Int32]
+  mut word : Int32
   mut members_shared : Bool
   mut bits : UInt64
-  mut members : Map[Int, UInt]?
+  mut members : Map[Int32, UInt32]?
 }
 
 ///|
-fn SlCleanupReadSet::new(reads : Array[Int]) -> SlCleanupReadSet {
+fn SlCleanupReadSet::new(reads : Array[Int32]) -> SlCleanupReadSet {
   { reads, word: 0, bits: 0UL, members: None, members_shared: false, }
 }
 
@@ -33,8 +33,8 @@ fn SlCleanupReadSet::copy(self : SlCleanupReadSet) -> SlCleanupReadSet {
 ///|
 fn SlCleanupReadSet::contains(
   self : SlCleanupReadSet,
-  local_id : Int,
-  membership_probes? : Array[Int]? = None,
+  local_id : Int32,
+  membership_probes~ : Array[Int32]? = None,
 ) -> Bool {
   // Zero bits mean no index: a nonempty indexed set never loses its first bit.
   // Cache the first 64-local word without a map; only other words need entries.
@@ -82,7 +82,7 @@ fn SlCleanupReadSet::contains(
 ///|
 fn SlCleanupReadSet::index_read(
   self : SlCleanupReadSet,
-  local_id : Int,
+  local_id : Int32,
 ) -> Unit {
   let word = local_id >> 6
   let bit = 1UL << (local_id & 63)
@@ -100,7 +100,7 @@ fn SlCleanupReadSet::index_read(
           members
         }
       None => {
-        let members : Map[Int, UInt] = Map([])
+        let members : Map[Int32, UInt32] = Map([])
         self.members = Some(members)
         members
       }
@@ -116,8 +116,8 @@ fn SlCleanupReadSet::index_read(
 ///|
 fn SlCleanupReadSet::insert(
   self : SlCleanupReadSet,
-  local_id : Int,
-  membership_probes? : Array[Int]? = None,
+  local_id : Int32,
+  membership_probes~ : Array[Int32]? = None,
 ) -> Unit {
   if !self.contains(local_id, membership_probes~) {
     self.reads.push(local_id)
@@ -131,7 +131,7 @@ fn SlCleanupReadSet::insert(
 fn SlCleanupReadSet::collect(
   self : SlCleanupReadSet,
   instrs : Array[@lib.Instruction],
-  membership_probes? : Array[Int]? = None,
+  membership_probes~ : Array[Int32]? = None,
 ) -> Unit {
   for instr in instrs {
     self.collect_instr(instr, membership_probes~)
@@ -142,7 +142,7 @@ fn SlCleanupReadSet::collect(
 fn SlCleanupReadSet::collect_instr(
   self : SlCleanupReadSet,
   instr : @lib.Instruction,
-  membership_probes? : Array[Int]? = None,
+  membership_probes~ : Array[Int32]? = None,
 ) -> Unit {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) =>

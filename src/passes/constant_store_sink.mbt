@@ -1,12 +1,12 @@
 ///|
 #valtype
 priv struct SlConstantStoreSink {
-  store : Int
-  read : Int
+  store : Int32
+  read : Int32
 }
 
 ///|
-fn SlConstantStoreSink::new(store : Int, read : Int) -> SlConstantStoreSink {
+fn SlConstantStoreSink::new(store : Int32, read : Int32) -> SlConstantStoreSink {
   { store, read, }
 }
 
@@ -39,10 +39,10 @@ fn sl_constant_store_prefix_is_nontrapping(instr : @lib.Instruction) -> Bool {
 
 ///|
 fn sl_constant_pending_get(
-  dense : Array[Int]?,
-  sparse : Map[Int, Int]?,
-  local : Int,
-) -> Int {
+  dense : Array[Int32]?,
+  sparse : Map[Int32, Int32]?,
+  local : Int32,
+) -> Int32 {
   match dense {
     Some(row) =>
       if local >= 0 && local < row.length() {
@@ -56,10 +56,10 @@ fn sl_constant_pending_get(
 
 ///|
 fn sl_constant_pending_set(
-  dense : Array[Int]?,
-  sparse : Map[Int, Int]?,
-  local : Int,
-  store : Int,
+  dense : Array[Int32]?,
+  sparse : Map[Int32, Int32]?,
+  local : Int32,
+  store : Int32,
 ) -> Unit {
   match dense {
     Some(row) => row[local] = store
@@ -76,8 +76,8 @@ fn sl_constant_pending_set(
 // later reads, including enclosing catches and structured releases.
 fn sl_sink_constant_stores_flat(
   instrs : Array[@lib.Instruction],
-  scan_visits? : Array[Int]? = None,
-) -> (Array[@lib.Instruction], Int) {
+  scan_visits~ : Array[Int32]? = None,
+) -> (Array[@lib.Instruction], Int32) {
   let mut candidates = 0
   let mut max_local = -1
   let mut nonnegative = true
@@ -92,7 +92,7 @@ fn sl_sink_constant_stores_flat(
       candidates += 1
       let local = raw.reinterpret_as_int()
       nonnegative = nonnegative && local >= 0
-      max_local = Int::max(max_local, local)
+      max_local = Int32::max(max_local, local)
     }
   }
   if candidates == 0 {
@@ -106,7 +106,7 @@ fn sl_sink_constant_stores_flat(
   } else {
     None
   }
-  let sparse : Map[Int, Int]? = if use_dense { None } else { Some(Map([])) }
+  let sparse : Map[Int32, Int32]? = if use_dense { None } else { Some(Map([])) }
   let mut sinks : Array[SlConstantStoreSink]? = None
   let mut last_barrier = -1
   let mut active = 0
@@ -203,7 +203,7 @@ fn sl_sink_constant_stores_flat(
 ///|
 fn sl_sink_constant_stores(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let mut normalized = instrs
   let mut nested_count = 0
   for idx in 0..<instrs.length() {

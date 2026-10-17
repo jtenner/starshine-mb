@@ -14,7 +14,7 @@ fn pgg_test_run(text : String) -> @lib.Module {
 ///|
 fn pgg_test_defined_global_init(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> Array[@lib.Instruction] raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>

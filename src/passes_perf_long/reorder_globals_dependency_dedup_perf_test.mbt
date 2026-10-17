@@ -1,5 +1,5 @@
 ///|
-fn rg_dependency_dedup_fixture(count : Int) -> @lib.Module {
+fn rg_dependency_dedup_fixture(count : Int32) -> @lib.Module {
   let imports : Array[@lib.Import] = []
   let init : Array[@lib.Instruction] = [
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -36,7 +36,7 @@ fn rg_dependency_dedup_fixture(count : Int) -> @lib.Module {
 }
 
 ///|
-fn rg_dependency_dedup_bench(it : @bench.T, count : Int) -> Unit {
+fn rg_dependency_dedup_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = rg_dependency_dedup_fixture(count)
   let output = @passes.reorder_globals_run_module_pass(fixture)
   if output.global_sec is None {

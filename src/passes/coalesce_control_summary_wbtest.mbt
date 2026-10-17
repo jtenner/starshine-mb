@@ -1,5 +1,5 @@
 ///|
-fn cl_control_nested_fixture(depth : Int) -> @lib.Instruction {
+fn cl_control_nested_fixture(depth : Int32) -> @lib.Instruction {
   let mut instr = @lib.Instruction::return_()
   for index = 0; index < depth; index = index + 1 {
     instr = @lib.Instruction::block(

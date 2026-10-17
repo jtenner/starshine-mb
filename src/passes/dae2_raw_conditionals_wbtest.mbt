@@ -4,9 +4,9 @@
 fn raw_conditional_boundary_bits(
   input : @lib.Module,
   raw : Bool,
-  closed_world? : Bool = false,
-  write_demands? : Array[Array[(Int, Bool)]]? = None,
-) -> (Array[Bool], Int) {
+  closed_world~ : Bool = false,
+  write_demands~ : Array[Array[(Int32, Bool)]]? = None,
+) -> (Array[Bool], Int32) {
   let input = dae2_prepare_legacy_handlers(input).unwrap()
   let context = @ir.hot_module_context_from_module(input)
   let indices = dae_collect_func_type_indices(input)
@@ -31,11 +31,10 @@ fn raw_conditional_boundary_bits(
   let boundary_count = graph.used.length()
   let intrinsic_imports = dae2_intrinsic_import_mask(context)
   let mut admitted = 0
-  let source_writes : Array[Array[(Int, Int)]] = Array::makei(infos.length(), fn(
-    _,
-  ) {
-    []
-  })
+  let source_writes : Array[Array[(Int32, Int32)]] = Array::makei(
+    infos.length(),
+    fn(_) { [] },
+  )
   for index in imported..<indices.length() {
     let body = input.code_sec.unwrap().0[index - imported]
     let @lib.Func(_, @lib.Expr(instructions)) = body
@@ -105,7 +104,7 @@ fn raw_conditional_boundary_bits(
 ///|
 fn raw_conditional_compare_boundaries(
   input : @lib.Module,
-  expected : Int,
+  expected : Int32,
 ) -> Unit raise {
   @validate.validate_module(input).unwrap()
   let saved = @binary.encode_module(input).unwrap()
@@ -132,7 +131,10 @@ fn raw_conditional_compare_boundaries(
     }
     assert_eq(actual, reference)
     assert_eq(count, expected)
-    let output = dae2_run_module_pass(input, closed_world).unwrap()
+    let output = match dae2_run_module_pass(input, closed_world) {
+      Ok(output) => output
+      Err(error) => fail("raw conditional DAE2 failed: \{error}")
+    }
     let reference = dae2_run_module_pass(
       input,
       closed_world,
@@ -263,16 +265,19 @@ test "DAE2 raw conditional result types and prefix stack slots preserve complete
 }
 
 ///|
-test "DAE2 raw conditionals intentionally retain HOT for unsupported control" {
+test "DAE2 raw conditionals admit loops and intentionally retain HOT for handlers" {
   for
-    body in [
-      "local.get 0 if loop local.get 1 local.set 0 end end local.get 0", "block (result i32) local.get 0 if local.get 1 br 1 end local.get 0 end",
-      "local.get 0 if local.get 1 return end local.get 0", "(try (result i32) (do local.get 0 if (result i32) local.get 1 else local.get 0 end) (catch_all i32.const 7))",
+    (body, admitted) in [
+      ("local.get 0 if loop local.get 1 local.set 0 end end local.get 0", 2),
+      (
+        "(try (result i32) (do local.get 0 if (result i32) local.get 1 else local.get 0 end) (catch_all i32.const 7))",
+        1,
+      ),
     ] {
     let input = pass_test_module_from_wat(
       "(module (func $h (param i32 i32 i64) (result i32) \{body}) (func (export \"run\") (param i32 i32) (result i32) local.get 0 local.get 1 i64.const 9 call $h))",
     )
-    raw_conditional_compare_boundaries(input, 1)
+    raw_conditional_compare_boundaries(input, admitted)
   }
 }
 

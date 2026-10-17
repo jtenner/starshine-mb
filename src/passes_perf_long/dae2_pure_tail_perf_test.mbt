@@ -1,5 +1,5 @@
 ///|
-fn perf_long_dae2_pure_tail(count : Int) -> @lib.Module {
+fn perf_long_dae2_pure_tail(count : Int32) -> @lib.Module {
   let prototype = perf_long_dae2_joined_readers(1)
   let funcs = prototype.code_sec.unwrap().0
   let (locals, body) = match funcs[0] {
@@ -9,7 +9,7 @@ fn perf_long_dae2_pure_tail(count : Int) -> @lib.Module {
   for _ in 0..<32 {
     body.push(@lib.Instruction::call(@lib.FuncIdx::new(2U)))
   }
-  fn append_sum(start : Int, length : Int) -> Unit {
+  fn append_sum(start : Int32, length : Int32) -> Unit {
     if length == 1 {
       body.push(@lib.Instruction::i32_const(@lib.I32(start % 8)))
     } else {
@@ -84,7 +84,7 @@ test "DAE2 pure-tail fixture actively removes its unused argument" {
 ///|
 fn perf_long_dae2_pure_tail_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   pass : String,
 ) -> Unit {
   // Fewer than 64 statement roots exercise the direct dependency scan. A

@@ -1,7 +1,7 @@
 ///|
 fn oi_group_numeric_locals_if_smaller_reference(
   mod_ : @lib.Module,
-  touched? : Array[Bool]? = None,
+  touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) ||
     oi_local_group_has_offset_metadata(mod_) {
@@ -64,8 +64,8 @@ fn dfe_group_numeric_locals_if_smaller_reference(
 ///|
 fn local_group_identity_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
+  count : Int32,
+  width : Int32,
   changed : Bool,
   oi : Bool,
   reference : Bool,

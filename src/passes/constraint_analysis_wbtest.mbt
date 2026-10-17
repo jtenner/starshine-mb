@@ -113,7 +113,7 @@ test "constraint analysis avoids capturing nonexistent results of terminating tu
 }
 
 ///|
-fn ca_test_opcode_count(mod_ : @lib.Module, opcode : @lib.Instruction) -> Int {
+fn ca_test_opcode_count(mod_ : @lib.Module, opcode : @lib.Instruction) -> Int32 {
   let mut count = 0
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs

@@ -27,13 +27,13 @@ pub fn rume_nonfunction_summary() -> String {
 
 ///|
 priv enum RumeItem {
-  Func(UInt)
-  Global(UInt)
-  Table(UInt)
-  Mem(UInt)
+  Func(UInt32)
+  Global(UInt32)
+  Table(UInt32)
+  Mem(UInt32)
   Tag
-  Elem(UInt)
-  Data(UInt)
+  Elem(UInt32)
+  Data(UInt32)
 }
 
 ///|
@@ -59,12 +59,12 @@ priv struct RumeCallTableAnalysis {
   table_call_types : Array[Array[@lib.TypeIdx]]
   runtime_modified_tables : @bitset.BitSet
   queued_tables : @bitset.BitSet
-  indirect_candidate_visits : Array[Int]?
+  indirect_candidate_visits : Array[Int32]?
   used_types : @bitset.BitSet?
 }
 
 ///|
-fn rume_imported_func_count(mod_ : @lib.Module) -> Int {
+fn rume_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -80,7 +80,7 @@ fn rume_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_imported_table_count(mod_ : @lib.Module) -> Int {
+fn rume_imported_table_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -96,7 +96,7 @@ fn rume_imported_table_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_imported_mem_count(mod_ : @lib.Module) -> Int {
+fn rume_imported_mem_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -112,7 +112,7 @@ fn rume_imported_mem_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-pub fn rume_imported_global_count(mod_ : @lib.Module) -> Int {
+pub fn rume_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -128,7 +128,7 @@ pub fn rume_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_imported_tag_count(mod_ : @lib.Module) -> Int {
+fn rume_imported_tag_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -144,7 +144,9 @@ fn rume_imported_tag_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_imported_counts(mod_ : @lib.Module) -> (Int, Int, Int, Int, Int) {
+fn rume_imported_counts(
+  mod_ : @lib.Module,
+) -> (Int32, Int32, Int32, Int32, Int32) {
   let mut func_imports = 0
   let mut table_imports = 0
   let mut mem_imports = 0
@@ -272,7 +274,7 @@ fn rume_interval_end_saturates(start : UInt64, len : UInt64) -> Bool {
 ///|
 fn rume_sorted_spans_overlap(
   spans : Array[(UInt64, UInt64)],
-  comparisons : Array[Int]?,
+  comparisons : Array[Int32]?,
 ) -> Bool {
   if spans.length() < 2 {
     return false
@@ -314,7 +316,7 @@ fn rume_sorted_spans_overlap(
 
 ///|
 fn rume_build_flat_table_infos(
-  table_count : Int,
+  table_count : Int32,
   mod_ : @lib.Module,
 ) -> Array[RumeFlatTableInfo] {
   let infos : Array[RumeFlatTableInfo] = []
@@ -411,7 +413,7 @@ fn rume_build_flat_table_infos(
 
 ///|
 fn rume_build_table_to_elem_map(
-  table_count : Int,
+  table_count : Int32,
   mod_ : @lib.Module,
 ) -> Array[Array[@lib.ElemIdx]] {
   let table_to_elems : Array[Array[@lib.ElemIdx]] = []
@@ -445,7 +447,7 @@ fn rume_build_table_to_elem_map(
 
 ///|
 fn rume_build_mem_to_data_map(
-  mem_count : Int,
+  mem_count : Int32,
   mod_ : @lib.Module,
 ) -> Array[Array[@lib.DataIdx]] {
   let mem_to_datas : Array[Array[@lib.DataIdx]] = []
@@ -562,7 +564,7 @@ fn rume_record_declaring_elem_kind(
 
 ///|
 fn rume_build_func_to_declaring_elem_map(
-  func_count : Int,
+  func_count : Int32,
   mod_ : @lib.Module,
 ) -> Array[Array[@lib.ElemIdx]] {
   let func_to_elems : Array[Array[@lib.ElemIdx]] = []
@@ -590,7 +592,7 @@ fn rume_build_func_to_declaring_elem_map(
 }
 
 ///|
-fn rume_defined_func_count(mod_ : @lib.Module) -> Int {
+fn rume_defined_func_count(mod_ : @lib.Module) -> Int32 {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
     None => 0
@@ -598,7 +600,7 @@ fn rume_defined_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_defined_table_count(mod_ : @lib.Module) -> Int {
+fn rume_defined_table_count(mod_ : @lib.Module) -> Int32 {
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) => tables.length()
     None => 0
@@ -606,7 +608,7 @@ fn rume_defined_table_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_defined_mem_count(mod_ : @lib.Module) -> Int {
+fn rume_defined_mem_count(mod_ : @lib.Module) -> Int32 {
   match mod_.mem_sec {
     Some(@lib.MemSec(mems)) => mems.length()
     None => 0
@@ -614,7 +616,7 @@ fn rume_defined_mem_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_defined_global_count(mod_ : @lib.Module) -> Int {
+fn rume_defined_global_count(mod_ : @lib.Module) -> Int32 {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
     None => 0
@@ -622,7 +624,7 @@ fn rume_defined_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rume_defined_tag_count(mod_ : @lib.Module) -> Int {
+fn rume_defined_tag_count(mod_ : @lib.Module) -> Int32 {
   match mod_.tag_sec {
     Some(@lib.TagSec(tags)) => tags.length()
     None => 0
@@ -697,7 +699,7 @@ fn rume_mark_declaring_elem(
 ///|
 fn rume_special_imported_funcs(
   mod_ : @lib.Module,
-  func_count : Int,
+  func_count : Int32,
   module_name : String,
   base_name : String,
 ) -> @bitset.BitSet {
@@ -724,7 +726,10 @@ fn rume_special_imported_funcs(
 }
 
 ///|
-fn rume_js_called_funcs(mod_ : @lib.Module, func_count : Int) -> @bitset.BitSet {
+fn rume_js_called_funcs(
+  mod_ : @lib.Module,
+  func_count : Int32,
+) -> @bitset.BitSet {
   let matches = @bitset.BitSet::new(func_count)
   match mod_.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
@@ -968,7 +973,7 @@ fn rume_mark_exported_return_ref_funcs(
 fn rume_mark_defined_funcs(
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
-  func_imports : Int,
+  func_imports : Int32,
 ) -> Unit {
   let mut idx = func_imports
   while idx < used_funcs.length() {
@@ -1271,7 +1276,7 @@ fn rume_reference_elem_payload(
 fn rume_reference_table_init(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  table_imports : Int,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -1344,7 +1349,7 @@ fn rume_note_table_runtime_modification(
 fn rume_use_indirect_call(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  table_imports : Int,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -1619,8 +1624,8 @@ fn rume_direct_call_signature(
 fn rume_single_result_block_operand_count(
   analysis : RumeCallTableAnalysis,
   block_type : @lib.BlockType,
-  condition_count : Int,
-) -> Int? {
+  condition_count : Int32,
+) -> Int32? {
   match block_type {
     @lib.VoidBlockType => None
     @lib.ValTypeBlockType(_) => Some(condition_count)
@@ -1637,7 +1642,7 @@ fn rume_single_result_block_operand_count(
 fn rume_single_result_operand_count(
   analysis : RumeCallTableAnalysis,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -1865,8 +1870,8 @@ fn rume_single_result_operand_count(
 fn rume_single_value_expr_start(
   analysis : RumeCallTableAnalysis,
   instrs : Array[@lib.Instruction],
-  end_inclusive : Int,
-) -> Int {
+  end_inclusive : Int32,
+) -> Int32 {
   let mut needed = 1
   let mut idx = end_inclusive
   while idx >= 0 {
@@ -1892,7 +1897,7 @@ fn rume_single_value_expr_start(
 fn rume_elem_is_exact_ref_func_payload(
   mod_ : @lib.Module,
   elem_idx : @lib.ElemIdx,
-  expected_size : Int,
+  expected_size : Int32,
 ) -> Bool {
   if expected_size < 0 {
     return false
@@ -1927,7 +1932,7 @@ fn rume_configure_all_elem_operand(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
   instrs : Array[@lib.Instruction],
-  call_index : Int,
+  call_index : Int32,
   func_idx : @lib.FuncIdx,
 ) -> @lib.ElemIdx? {
   let param_count = match rume_direct_call_signature(analysis, func_idx) {
@@ -1993,7 +1998,7 @@ fn rume_process_direct_call(
   previous : @lib.Instruction?,
   func_locals : @lib.FunctionLocals?,
   instrs : Array[@lib.Instruction],
-  call_index : Int,
+  call_index : Int32,
 ) -> Unit {
   rume_mark_func(queue, used_funcs, func_idx)
   if analysis.closed_world &&
@@ -2025,7 +2030,7 @@ fn rume_scan_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  table_imports : Int,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2036,7 +2041,7 @@ fn rume_scan_expr(
   used_datas : @bitset.BitSet,
   decl_only_elems : @bitset.BitSet,
   func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
-  func_locals? : @lib.FunctionLocals? = None,
+  func_locals~ : @lib.FunctionLocals? = None,
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   let mut previous : @lib.Instruction? = None
@@ -2057,7 +2062,7 @@ fn rume_scan_instruction(
   instr : @lib.Instruction,
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  table_imports : Int,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2071,7 +2076,7 @@ fn rume_scan_instruction(
   previous : @lib.Instruction?,
   func_locals : @lib.FunctionLocals?,
   direct_call_instrs : Array[@lib.Instruction],
-  direct_call_index : Int,
+  direct_call_index : Int32,
 ) -> Unit {
   match analysis.used_types {
     Some(used_types) => rume_mark_instruction_direct_types(used_types, instr)
@@ -2357,7 +2362,7 @@ fn rume_scan_instruction(
 ///|
 fn rume_function_locals(
   analysis : RumeCallTableAnalysis,
-  abs_idx : UInt,
+  abs_idx : UInt32,
   body_locals : @lib.Locals,
 ) -> @lib.FunctionLocals? {
   let slot = abs_idx.reinterpret_as_int()
@@ -2375,9 +2380,9 @@ fn rume_function_locals(
 fn rume_process_func(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  abs_idx : UInt,
-  func_imports : Int,
-  table_imports : Int,
+  abs_idx : UInt32,
+  func_imports : Int32,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2432,9 +2437,9 @@ fn rume_process_func(
 fn rume_process_global(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  abs_idx : UInt,
-  global_imports : Int,
-  table_imports : Int,
+  abs_idx : UInt32,
+  global_imports : Int32,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2469,8 +2474,8 @@ fn rume_process_global(
 fn rume_process_table(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  abs_idx : UInt,
-  table_imports : Int,
+  abs_idx : UInt32,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2507,7 +2512,7 @@ fn rume_process_table(
 
 ///|
 fn rume_process_mem(
-  abs_idx : UInt,
+  abs_idx : UInt32,
   queue : Array[RumeItem],
   used_datas : @bitset.BitSet,
   mem_to_datas : Array[Array[@lib.DataIdx]],
@@ -2522,8 +2527,8 @@ fn rume_process_mem(
 fn rume_process_elem(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  elem_idx : UInt,
-  table_imports : Int,
+  elem_idx : UInt32,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -2580,8 +2585,8 @@ fn rume_process_elem(
 fn rume_process_data(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
-  data_idx : UInt,
-  table_imports : Int,
+  data_idx : UInt32,
+  table_imports : Int32,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -3033,8 +3038,8 @@ fn rume_mark_nonfunction_active_offset_segments(
 ///|
 fn rume_mark_imported_parent_segments(
   mod_ : @lib.Module,
-  table_imports : Int,
-  mem_imports : Int,
+  table_imports : Int32,
+  mem_imports : Int32,
   queue : Array[RumeItem],
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
@@ -3226,11 +3231,11 @@ fn rume_finish_used_type_flags(
 fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
   keep_import_parent_segments : Bool,
-  keep_all_funcs? : Bool = false,
-  keep_all_imports? : Bool = false,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
-  indirect_candidate_visits? : Array[Int]? = None,
+  keep_all_funcs~ : Bool = false,
+  keep_all_imports~ : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
+  indirect_candidate_visits~ : Array[Int32]? = None,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -3495,8 +3500,8 @@ fn rume_collect_liveness_with_import_parent_policy(
 ///|
 fn rume_collect_liveness(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -3519,7 +3524,7 @@ fn rume_collect_liveness(
 }
 
 ///|
-fn rume_build_used_remap(used : @bitset.BitSet) -> Array[Int] {
+fn rume_build_used_remap(used : @bitset.BitSet) -> Array[Int32] {
   let remap = Array::make(used.length(), -1)
   let mut next_idx = 0
   let mut idx = 0
@@ -3534,7 +3539,7 @@ fn rume_build_used_remap(used : @bitset.BitSet) -> Array[Int] {
 }
 
 ///|
-fn rume_build_defined_remap(kept : @bitset.BitSet) -> Array[Int] {
+fn rume_build_defined_remap(kept : @bitset.BitSet) -> Array[Int32] {
   let remap = Array::make(kept.length(), -1)
   let mut next_idx = 0
   let mut idx = 0
@@ -3549,7 +3554,7 @@ fn rume_build_defined_remap(kept : @bitset.BitSet) -> Array[Int] {
 }
 
 ///|
-fn rume_remap_is_identity(remap : Array[Int]) -> Bool {
+fn rume_remap_is_identity(remap : Array[Int32]) -> Bool {
   let mut idx = 0
   while idx < remap.length() {
     if remap[idx] != idx {
@@ -3575,7 +3580,7 @@ fn rume_all_true(flags : @bitset.BitSet) -> Bool {
 ///|
 fn rume_kept_defined_from_used(
   used : @bitset.BitSet,
-  imported_count : Int,
+  imported_count : Int32,
 ) -> @bitset.BitSet {
   let kept = @bitset.BitSet::new(used.length() - imported_count)
   let mut idx = imported_count
@@ -3605,7 +3610,7 @@ fn rume_merge_func_keep_set(
 fn rume_func_needs_unreachable_body(
   used_funcs : @bitset.BitSet,
   referenced_funcs : @bitset.BitSet,
-  abs_idx : Int,
+  abs_idx : Int32,
 ) -> Bool {
   abs_idx >= 0 &&
   abs_idx < referenced_funcs.length() &&
@@ -3614,14 +3619,14 @@ fn rume_func_needs_unreachable_body(
 }
 
 ///|
-fn rume_rewrite_abs(raw : UInt, remap : Array[Int]) -> UInt {
+fn rume_rewrite_abs(raw : UInt32, remap : Array[Int32]) -> UInt32 {
   remap[raw.reinterpret_as_int()].reinterpret_as_uint()
 }
 
 ///|
 fn rume_rewrite_func_idx(
   idx : @lib.FuncIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.FuncIdx {
   let @lib.FuncIdx(raw) = idx
   @lib.FuncIdx::new(rume_rewrite_abs(raw, remap))
@@ -3630,7 +3635,7 @@ fn rume_rewrite_func_idx(
 ///|
 fn rume_rewrite_global_idx(
   idx : @lib.GlobalIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.GlobalIdx {
   let @lib.GlobalIdx(raw) = idx
   @lib.GlobalIdx::new(rume_rewrite_abs(raw, remap))
@@ -3639,20 +3644,20 @@ fn rume_rewrite_global_idx(
 ///|
 fn rume_rewrite_table_idx(
   idx : @lib.TableIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.TableIdx {
   let @lib.TableIdx(raw) = idx
   @lib.TableIdx::new(rume_rewrite_abs(raw, remap))
 }
 
 ///|
-fn rume_rewrite_mem_idx(idx : @lib.MemIdx, remap : Array[Int]) -> @lib.MemIdx {
+fn rume_rewrite_mem_idx(idx : @lib.MemIdx, remap : Array[Int32]) -> @lib.MemIdx {
   let @lib.MemIdx(raw) = idx
   @lib.MemIdx::new(rume_rewrite_abs(raw, remap))
 }
 
 ///|
-fn rume_rewrite_tag_idx(idx : @lib.TagIdx, remap : Array[Int]) -> @lib.TagIdx {
+fn rume_rewrite_tag_idx(idx : @lib.TagIdx, remap : Array[Int32]) -> @lib.TagIdx {
   let @lib.TagIdx(raw) = idx
   @lib.TagIdx::new(rume_rewrite_abs(raw, remap))
 }
@@ -3660,7 +3665,7 @@ fn rume_rewrite_tag_idx(idx : @lib.TagIdx, remap : Array[Int]) -> @lib.TagIdx {
 ///|
 fn rume_rewrite_elem_idx(
   idx : @lib.ElemIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ElemIdx {
   let @lib.ElemIdx(raw) = idx
   @lib.ElemIdx::new(remap[raw.reinterpret_as_int()].reinterpret_as_uint())
@@ -3669,7 +3674,7 @@ fn rume_rewrite_elem_idx(
 ///|
 fn rume_rewrite_data_idx(
   idx : @lib.DataIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.DataIdx {
   let @lib.DataIdx(raw) = idx
   @lib.DataIdx::new(remap[raw.reinterpret_as_int()].reinterpret_as_uint())
@@ -3678,7 +3683,7 @@ fn rume_rewrite_data_idx(
 ///|
 fn rume_rewrite_catch(
   catch_ : @lib.Catch,
-  tag_remap : Array[Int],
+  tag_remap : Array[Int32],
 ) -> @lib.Catch {
   match catch_ {
     @lib.Catch(tag_idx, label_idx) =>
@@ -3692,7 +3697,7 @@ fn rume_rewrite_catch(
 ///|
 fn rume_rewrite_resume_handlers(
   handlers : Array[@lib.ResumeHandler],
-  tag_remap : Array[Int],
+  tag_remap : Array[Int32],
 ) -> Array[@lib.ResumeHandler] {
   let rewritten : Array[@lib.ResumeHandler] = []
   for handler in handlers {
@@ -3716,7 +3721,7 @@ fn rume_rewrite_resume_handlers(
 ///|
 fn rume_rewrite_memarg(
   memarg : @lib.MemArg,
-  mem_remap : Array[Int],
+  mem_remap : Array[Int32],
 ) -> @lib.MemArg {
   let @lib.MemArg(align, mem_idx, offset) = memarg
   @lib.MemArg::new(
@@ -3732,13 +3737,13 @@ fn rume_rewrite_memarg(
 ///|
 pub fn rume_rewrite_instruction(
   instr : @lib.Instruction,
-  func_remap : Array[Int],
-  global_remap : Array[Int],
-  table_remap : Array[Int],
-  mem_remap : Array[Int],
-  tag_remap : Array[Int],
-  elem_remap : Array[Int],
-  data_remap : Array[Int],
+  func_remap : Array[Int32],
+  global_remap : Array[Int32],
+  table_remap : Array[Int32],
+  mem_remap : Array[Int32],
+  tag_remap : Array[Int32],
+  elem_remap : Array[Int32],
+  data_remap : Array[Int32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, body) =>
@@ -4173,13 +4178,13 @@ pub fn rume_rewrite_instruction(
 ///|
 fn rume_rewrite_expr(
   expr : @lib.Expr,
-  func_remap : Array[Int],
-  global_remap : Array[Int],
-  table_remap : Array[Int],
-  mem_remap : Array[Int],
-  tag_remap : Array[Int],
-  elem_remap : Array[Int],
-  data_remap : Array[Int],
+  func_remap : Array[Int32],
+  global_remap : Array[Int32],
+  table_remap : Array[Int32],
+  mem_remap : Array[Int32],
+  tag_remap : Array[Int32],
+  elem_remap : Array[Int32],
+  data_remap : Array[Int32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
@@ -4195,7 +4200,10 @@ fn rume_rewrite_expr(
 }
 
 ///|
-fn rume_func_idx_is_mapped(idx : @lib.FuncIdx, func_remap : Array[Int]) -> Bool {
+fn rume_func_idx_is_mapped(
+  idx : @lib.FuncIdx,
+  func_remap : Array[Int32],
+) -> Bool {
   let @lib.FuncIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
   slot >= 0 && slot < func_remap.length() && func_remap[slot] >= 0
@@ -4204,7 +4212,7 @@ fn rume_func_idx_is_mapped(idx : @lib.FuncIdx, func_remap : Array[Int]) -> Bool 
 ///|
 fn rume_decl_only_instr_has_dropped_func(
   instr : @lib.Instruction,
-  func_remap : Array[Int],
+  func_remap : Array[Int32],
 ) -> Bool {
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) =>
@@ -4251,7 +4259,7 @@ fn rume_decl_only_instr_has_dropped_func(
 ///|
 fn rume_decl_only_expr_has_dropped_func(
   expr : @lib.Expr,
-  func_remap : Array[Int],
+  func_remap : Array[Int32],
 ) -> Bool {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
@@ -4265,13 +4273,13 @@ fn rume_decl_only_expr_has_dropped_func(
 ///|
 fn rume_rewrite_elem_kind(
   kind : @lib.ElemKind,
-  func_remap : Array[Int],
-  global_remap : Array[Int],
-  table_remap : Array[Int],
-  mem_remap : Array[Int],
-  tag_remap : Array[Int],
-  elem_remap : Array[Int],
-  data_remap : Array[Int],
+  func_remap : Array[Int32],
+  global_remap : Array[Int32],
+  table_remap : Array[Int32],
+  mem_remap : Array[Int32],
+  tag_remap : Array[Int32],
+  elem_remap : Array[Int32],
+  data_remap : Array[Int32],
   declaration_only : Bool,
 ) -> @lib.ElemKind {
   match kind {
@@ -4364,7 +4372,7 @@ fn rume_sort_indirect_name_assocs(
 ///|
 fn rume_rewrite_name_map(
   names : @lib.NameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.NameMap? {
   match names {
     Some(@lib.NameMap(entries)) => {
@@ -4392,7 +4400,7 @@ fn rume_rewrite_name_map(
 ///|
 fn rume_rewrite_indirect_name_map(
   names : @lib.IndirectNameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.IndirectNameMap? {
   match names {
     Some(@lib.IndirectNameMap(entries)) => {
@@ -4423,7 +4431,7 @@ fn rume_rewrite_indirect_name_map(
 ///|
 fn rume_rewrite_label_name_map(
   names : @lib.IndirectNameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
   nullified_funcs : @bitset.BitSet?,
 ) -> @lib.IndirectNameMap? {
   match names {
@@ -4459,14 +4467,14 @@ fn rume_rewrite_label_name_map(
 ///|
 fn rume_rewrite_name_sec(
   name_sec : @lib.NameSec?,
-  func_remap : Array[Int],
-  table_remap : Array[Int],
-  mem_remap : Array[Int],
-  global_remap : Array[Int],
-  elem_remap : Array[Int],
-  data_remap : Array[Int],
-  tag_remap : Array[Int],
-  nullified_funcs? : @bitset.BitSet? = None,
+  func_remap : Array[Int32],
+  table_remap : Array[Int32],
+  mem_remap : Array[Int32],
+  global_remap : Array[Int32],
+  elem_remap : Array[Int32],
+  data_remap : Array[Int32],
+  tag_remap : Array[Int32],
+  nullified_funcs~ : @bitset.BitSet? = None,
 ) -> @lib.NameSec? {
   match name_sec {
     Some(sec) => {
@@ -4524,7 +4532,7 @@ fn rume_rewrite_name_sec(
 ///|
 fn rume_rewrite_func_annotation_sec(
   sec : @lib.FuncAnnotationSec?,
-  func_remap : Array[Int],
+  func_remap : Array[Int32],
 ) -> @lib.FuncAnnotationSec? {
   match sec {
     Some(@lib.FuncAnnotationSec(entries)) => {
@@ -4972,7 +4980,7 @@ fn rume_new_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
 fn rume_queue_type_dependency(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   type_idx : @lib.TypeIdx,
 ) -> Unit {
   match type_idx {
@@ -4992,7 +5000,7 @@ fn rume_queue_type_dependency(
 fn rume_queue_heap_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   heap_type : @lib.HeapType,
 ) -> Unit {
   match heap_type {
@@ -5010,7 +5018,7 @@ fn rume_queue_heap_type_dependencies(
 fn rume_queue_ref_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   ref_type : @lib.RefType,
 ) -> Unit {
   match ref_type {
@@ -5026,7 +5034,7 @@ fn rume_queue_ref_type_dependencies(
 fn rume_queue_val_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   val_type : @lib.ValType,
 ) -> Unit {
   match val_type {
@@ -5042,7 +5050,7 @@ fn rume_queue_val_type_dependencies(
 fn rume_queue_storage_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   storage_type : @lib.StorageType,
 ) -> Unit {
   match storage_type {
@@ -5058,7 +5066,7 @@ fn rume_queue_storage_type_dependencies(
 fn rume_queue_field_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   field_type : @lib.FieldType,
 ) -> Unit {
   let @lib.FieldType(storage_type, _) = field_type
@@ -5071,7 +5079,7 @@ fn rume_queue_field_type_dependencies(
 fn rume_queue_metadata_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   metadata : @lib.TypeMetadata,
 ) -> Unit {
   let { describes, descriptor, .. } = metadata
@@ -5091,7 +5099,7 @@ fn rume_queue_metadata_dependencies(
 fn rume_queue_comp_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   comp_type : @lib.CompType,
 ) -> Unit {
   match comp_type {
@@ -5124,7 +5132,7 @@ fn rume_queue_comp_type_dependencies(
 fn rume_queue_sub_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   subtype : @lib.SubType,
 ) -> Unit {
   match subtype {
@@ -5154,7 +5162,7 @@ fn rume_queue_sub_type_dependencies(
 fn rume_queue_rec_type_dependencies(
   used_types : @bitset.BitSet,
   queued_types : @bitset.BitSet,
-  queue : Array[Int],
+  queue : Array[Int32],
   rec_type : @lib.RecType,
 ) -> Unit {
   match rec_type {
@@ -5173,10 +5181,10 @@ fn rume_queue_rec_type_dependencies(
 fn rume_close_type_dependencies(
   used_types : @bitset.BitSet,
   rec_types : Array[@lib.RecType],
-  dependency_type_visits? : Array[Int]? = None,
+  dependency_type_visits~ : Array[Int32]? = None,
 ) -> Unit {
   let queued_types = @bitset.BitSet::new(used_types.length())
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   let mut type_idx = 0
   while type_idx < used_types.length() {
     if used_types[type_idx] {
@@ -5324,8 +5332,8 @@ fn rume_collect_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
 }
 
 ///|
-fn rume_build_type_remap(used_types : @bitset.BitSet) -> Map[UInt, UInt] {
-  let remap : Map[UInt, UInt] = Map([])
+fn rume_build_type_remap(used_types : @bitset.BitSet) -> Map[UInt32, UInt32] {
+  let remap : Map[UInt32, UInt32] = Map([])
   let mut next_idx = 0
   let mut idx = 0
   while idx < used_types.length() {
@@ -5362,7 +5370,7 @@ fn rume_rebuild_type_sec(
 ///|
 fn rume_rewrite_type_name_map(
   names : @lib.NameMap?,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.NameMap? {
   match names {
     Some(@lib.NameMap(entries)) => {
@@ -5386,7 +5394,7 @@ fn rume_rewrite_type_name_map(
 ///|
 fn rume_rewrite_field_name_map(
   names : @lib.IndirectNameMap?,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.IndirectNameMap? {
   match names {
     Some(@lib.IndirectNameMap(entries)) => {
@@ -5411,7 +5419,7 @@ fn rume_rewrite_field_name_map(
 ///|
 fn rume_rewrite_type_and_field_names(
   mod_ : @lib.Module,
-  remap : Map[UInt, UInt],
+  remap : Map[UInt32, UInt32],
 ) -> @lib.Module {
   match mod_.name_sec {
     Some(names) =>
@@ -5497,7 +5505,7 @@ fn rume_direct_func_roots_cover_all_types(mod_ : @lib.Module) -> Bool {
 ///|
 fn rume_compact_type_sec(
   mod_ : @lib.Module,
-  precomputed_used_types? : @bitset.BitSet? = None,
+  precomputed_used_types~ : @bitset.BitSet? = None,
 ) -> @lib.Module {
   let used_types = match precomputed_used_types {
     Some(flags) => flags
@@ -5532,7 +5540,7 @@ fn rume_compact_type_sec(
 ///|
 fn rume_decl_only_elem_parent_is_dropped(
   mode : @lib.ElemMode,
-  table_remap : Array[Int],
+  table_remap : Array[Int32],
 ) -> Bool {
   match mode {
     @lib.Active(@lib.TableIdx(raw_idx), _) => {
@@ -6106,7 +6114,7 @@ fn rume_root_module_for_extract(
 }
 
 ///|
-fn rume_identity_remap(length : Int) -> Array[Int] {
+fn rume_identity_remap(length : Int32) -> Array[Int32] {
   let remap = Array::make(length, 0)
   let mut idx = 0
   while idx < length {
@@ -6120,9 +6128,9 @@ fn rume_identity_remap(length : Int) -> Array[Int] {
 fn rume_build_extract_defined_order(
   mod_ : @lib.Module,
   kept_defined : @bitset.BitSet,
-  func_imports : Int,
-) -> Array[Int] {
-  let order : Array[Int] = []
+  func_imports : Int32,
+) -> Array[Int32] {
+  let order : Array[Int32] = []
   let seen = @bitset.BitSet::new(kept_defined.length())
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
@@ -6157,9 +6165,9 @@ fn rume_build_extract_defined_order(
 ///|
 fn rume_build_extract_func_remap(
   used_funcs : @bitset.BitSet,
-  func_imports : Int,
-  ordered_defined : Array[Int],
-) -> Array[Int] {
+  func_imports : Int32,
+  ordered_defined : Array[Int32],
+) -> Array[Int32] {
   let remap = Array::make(used_funcs.length(), -1)
   let mut next_idx = 0
   let mut import_idx = 0
@@ -6579,8 +6587,8 @@ fn rume_has_unrewritable_metadata(mod_ : @lib.Module) -> Bool {
 ///|
 pub fn rume_run_module_pass(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   if rume_has_unrewritable_metadata(mod_) ||
     rume_module_has_offset_sensitive_metadata(mod_) {
@@ -6615,7 +6623,7 @@ fn rume_prune_nonfunction_empty_const_active_elems(
   used_elems : @bitset.BitSet,
   used_funcs : @bitset.BitSet,
 ) -> Unit {
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       for idx = 0; idx < elems.length(); idx = idx + 1 {
@@ -6695,8 +6703,8 @@ fn rume_prune_nonfunction_empty_const_active_elems(
 ///|
 pub fn rume_run_nonfunction_module_pass(
   mod_ : @lib.Module,
-  traps_never_happen? : Bool = false,
-  closed_world? : Bool = false,
+  traps_never_happen~ : Bool = false,
+  closed_world~ : Bool = false,
 ) -> @lib.Module {
   if rume_has_unrewritable_metadata(mod_) ||
     rume_module_has_offset_sensitive_metadata(mod_) {

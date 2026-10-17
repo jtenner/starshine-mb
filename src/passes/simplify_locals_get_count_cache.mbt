@@ -1,9 +1,9 @@
 ///|
 priv struct SimplifyLocalsGetCounts {
   mut owner : @ir.HotFunc?
-  mut revision : Int
-  mut local_count : Int
-  mut counts : Array[Int]
+  mut revision : Int32
+  mut local_count : Int32
+  mut counts : Array[Int32]
 }
 
 ///|
@@ -27,8 +27,8 @@ fn simplify_locals_new_get_count_cache(
 fn simplify_locals_counts_for_cycle(
   func : @ir.HotFunc,
   cache : SimplifyLocalsGetCounts?,
-  full_scans? : Array[Int]? = None,
-) -> Array[Int] {
+  full_scans~ : Array[Int32]? = None,
+) -> Array[Int32] {
   match cache {
     Some(cache) => cache.snapshot(func, full_scans~)
     None => {
@@ -45,8 +45,8 @@ fn simplify_locals_counts_for_cycle(
 fn SimplifyLocalsGetCounts::snapshot(
   self : SimplifyLocalsGetCounts,
   func : @ir.HotFunc,
-  full_scans? : Array[Int]? = None,
-) -> Array[Int] {
+  full_scans~ : Array[Int32]? = None,
+) -> Array[Int32] {
   let revision = @ir.hot_revision_current(func)
   let local_count = @ir.hot_local_count(func)
   match self.owner {

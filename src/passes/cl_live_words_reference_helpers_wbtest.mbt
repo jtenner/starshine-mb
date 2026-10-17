@@ -37,7 +37,7 @@ fn cl_push_label_live(
 fn cl_live_for_label(
   label_lives : Array[Array[Bool]],
   label_idx : @lib.LabelIdx,
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Array[Bool] {
   let depth = cl_label_idx_raw(label_idx)
   if depth >= 0 && depth < label_lives.length() {
@@ -51,7 +51,7 @@ fn cl_live_for_br_table(
   label_lives : Array[Array[Bool]],
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
-  total_locals : Int,
+  total_locals : Int32,
 ) -> Array[Bool] {
   let out = cl_live_for_label(label_lives, default_label, total_locals)
   for label in labels {

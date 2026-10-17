@@ -19,7 +19,7 @@ pub fn remove_unused_names_summary() -> String {
 ///|
 fn remove_unused_names_control_block_type_for_ty(
   func : @ir.HotFunc,
-  ty : Int,
+  ty : Int32,
 ) -> @lib.BlockType {
   match @ir.hot_type_get(func, ty) {
     @ir.HotTypeInfo::BlockResult(block_type) => block_type
@@ -31,7 +31,7 @@ fn remove_unused_names_control_block_type_for_ty(
 ///|
 fn remove_unused_names_loop_label_has_entry_params(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, node_id)
   if label_id < 0 {
@@ -51,8 +51,8 @@ fn remove_unused_names_loop_label_has_entry_params(
 ///|
 fn remove_unused_names_label_in_controls(
   func : @ir.HotFunc,
-  label_id : Int,
-  control_ids : Array[Int],
+  label_id : Int32,
+  control_ids : Array[Int32],
 ) -> Bool {
   for control_id in control_ids {
     if @ir.hot_control_node_label(func, control_id) == label_id {
@@ -66,9 +66,9 @@ fn remove_unused_names_label_in_controls(
 fn remove_unused_names_node_targets_any_control(
   func : @ir.HotFunc,
   node : @ir.HotNode,
-  control_ids : Array[Int],
+  control_ids : Array[Int32],
 ) -> Bool {
-  let targets_label = fn(label_id : Int) {
+  let targets_label = fn(label_id : Int32) {
     remove_unused_names_label_in_controls(func, label_id, control_ids)
   }
   match node.op {
@@ -123,11 +123,11 @@ fn remove_unused_names_compute_live_label_uses(
 ) -> @bitset.BitSet {
   let used = @bitset.BitSet::new(func.labels.length())
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for slot = 0; slot < @ir.hot_root_count(func); slot = slot + 1 {
     stack.push(@ir.hot_root_get(func, slot))
   }
-  let mark = fn(label_id : Int) {
+  let mark = fn(label_id : Int32) {
     if label_id >= 0 && label_id < used.length() {
       used[label_id] = true
     }
@@ -184,9 +184,9 @@ fn remove_unused_names_compute_live_label_uses(
 ///|
 fn remove_unused_names_peel_same_typed_blocks(
   func : @ir.HotFunc,
-  block_id : Int,
-  removed_ids : Array[Int],
-  roots : Array[Int],
+  block_id : Int32,
+  removed_ids : Array[Int32],
+  roots : Array[Int32],
 ) -> Unit {
   removed_ids.clear()
   let block_ty = @ir.hot_node_get(func, block_id).ty
@@ -223,7 +223,7 @@ fn remove_unused_names_peel_same_typed_blocks(
 ///|
 fn remove_unused_names_detach_peeled_blocks(
   func : @ir.HotFunc,
-  removed_ids : Array[Int],
+  removed_ids : Array[Int32],
 ) -> Unit {
   for removed_id in removed_ids {
     @ir.hot_region_replace_body(
@@ -236,10 +236,10 @@ fn remove_unused_names_detach_peeled_blocks(
 
 ///|
 fn remove_unused_names_replacement_label_for_controls(
-  label_id : Int,
+  label_id : Int32,
   removed_labels : @bitset.BitSet,
-  replacement_label : Int,
-) -> Int {
+  replacement_label : Int32,
+) -> Int32 {
   if label_id >= 0 &&
     label_id < removed_labels.length() &&
     removed_labels[label_id] {
@@ -252,9 +252,9 @@ fn remove_unused_names_replacement_label_for_controls(
 ///|
 fn remove_unused_names_retarget_node_labels(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   removed_labels : @bitset.BitSet,
-  replacement_label : Int,
+  replacement_label : Int32,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -280,7 +280,7 @@ fn remove_unused_names_retarget_node_labels(
     @ir.HotOp::BrTable => {
       let old_targets = @ir.hot_branch_table_targets(func, node.imm0)
       let old_default = @ir.hot_branch_table_default_target(func, node.imm0)
-      let new_targets : Array[Int] = []
+      let new_targets : Array[Int32] = []
       let mut changed = false
       for target in old_targets {
         let next_target = remove_unused_names_replacement_label_for_controls(
@@ -350,11 +350,11 @@ fn remove_unused_names_retarget_node_labels(
 ///|
 fn remove_unused_names_retarget_subtree_labels(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   removed_labels : @bitset.BitSet,
-  replacement_label : Int,
+  replacement_label : Int32,
 ) -> Bool {
-  let stack : Array[Int] = [node_id]
+  let stack : Array[Int32] = [node_id]
   let mut changed = false
   while stack.length() > 0 {
     let current = stack.pop().unwrap()
@@ -377,7 +377,7 @@ fn remove_unused_names_retarget_region_labels(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   removed_labels : @bitset.BitSet,
-  replacement_label : Int,
+  replacement_label : Int32,
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -397,11 +397,11 @@ fn remove_unused_names_retarget_region_labels(
 fn remove_unused_names_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  removed_ids : Array[Int],
-  peeled_roots : Array[Int],
+  removed_ids : Array[Int32],
+  peeled_roots : Array[Int32],
   used_labels : @bitset.BitSet,
   removed_labels : @bitset.BitSet,
-  touched_removed_labels : Array[Int],
+  touched_removed_labels : Array[Int32],
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -430,20 +430,20 @@ fn remove_unused_names_visit_region(
 }
 
 ///|
-fn remove_unused_names_demote_loop(func : @ir.HotFunc, node_id : Int) -> Unit {
+fn remove_unused_names_demote_loop(func : @ir.HotFunc, node_id : Int32) -> Unit {
   @ir.hot_control_demote_loop_to_block(func, node_id)
 }
 
 ///|
 fn remove_unused_names_visit_control_node(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   node : @ir.HotNode,
-  removed_ids : Array[Int],
-  peeled_roots : Array[Int],
+  removed_ids : Array[Int32],
+  peeled_roots : Array[Int32],
   used_labels : @bitset.BitSet,
   removed_labels : @bitset.BitSet,
-  touched_removed_labels : Array[Int],
+  touched_removed_labels : Array[Int32],
 ) -> Bool {
   let mut changed = false
   match node.op {
@@ -584,11 +584,11 @@ fn remove_unused_names_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  let removed_ids : Array[Int] = []
-  let peeled_roots : Array[Int] = []
+  let removed_ids : Array[Int32] = []
+  let peeled_roots : Array[Int32] = []
   let used_labels = remove_unused_names_compute_live_label_uses(func)
   let removed_labels = @bitset.BitSet::new(func.labels.length())
-  let touched_removed_labels : Array[Int] = []
+  let touched_removed_labels : Array[Int32] = []
   if !remove_unused_names_visit_region(
       func,
       @ir.HotRegionRef::root(),

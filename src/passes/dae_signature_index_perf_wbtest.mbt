@@ -1,5 +1,5 @@
 ///|
-fn dae_signature_bench(it : @bench.T, count : Int, reference : Bool) -> Unit {
+fn dae_signature_bench(it : @bench.T, count : Int32, reference : Bool) -> Unit {
   let input = dae_signature_fixture(count)
   @validate.validate_module(input).unwrap()
   let indices = dae_collect_func_type_indices(input)

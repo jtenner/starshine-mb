@@ -2,7 +2,7 @@
 // Both paths construct and consume every root, retaining identical classifiers.
 fn oi_root_storage_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   mixed : Bool,
   before : Bool,
 ) -> Unit raise {

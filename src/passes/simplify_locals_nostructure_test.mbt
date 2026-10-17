@@ -1,5 +1,5 @@
 ///|
-fn simplify_locals_nostructure_test_many_i32_locals(count : Int) -> String {
+fn simplify_locals_nostructure_test_many_i32_locals(count : Int32) -> String {
   let out = StringBuilder::new()
   for i = 0; i < count; i = i + 1 {
     out.write_string(" (local i32)")
@@ -74,7 +74,7 @@ fn slns_test_module_has_nonvoid_no_normal_try_table(mod_ : @lib.Module) -> Bool 
 }
 
 ///|
-fn slns_test_deep_result_if_local_tee_chain(depth : Int) -> String {
+fn slns_test_deep_result_if_local_tee_chain(depth : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string(
     "(module (memory 1) (func (param i32) (result i32) (local i32) local.get 0 i32.load local.tee 1 ",
@@ -97,8 +97,8 @@ fn slns_test_deep_result_if_local_tee_chain(depth : Int) -> String {
 
 ///|
 fn slns_test_deep_result_if_many_local_write_chain(
-  depth : Int,
-  local_count : Int,
+  depth : Int32,
+  local_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result i32) ")
@@ -123,7 +123,7 @@ fn slns_test_deep_result_if_many_local_write_chain(
 }
 
 ///|
-fn slns_test_many_result_if_local_write(count : Int) -> String {
+fn slns_test_many_result_if_local_write(count : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string(
     "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
@@ -138,7 +138,7 @@ fn slns_test_many_result_if_local_write(count : Int) -> String {
 }
 
 ///|
-fn slns_test_deep_br_table_local_write(depth : Int) -> String {
+fn slns_test_deep_br_table_local_write(depth : Int32) -> String {
   let out = StringBuilder::new()
   out.write_string(
     "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
@@ -158,7 +158,10 @@ fn slns_test_deep_br_table_local_write(depth : Int) -> String {
 }
 
 ///|
-fn slns_test_deep_block_local_write(depth : Int, local_count : Int) -> String {
+fn slns_test_deep_block_local_write(
+  depth : Int32,
+  local_count : Int32,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result i32) ")
   out.write_string(
@@ -173,6 +176,148 @@ fn slns_test_deep_block_local_write(depth : Int, local_count : Int) -> String {
   }
   out.write_string("local.get 1))")
   out.to_string()
+}
+
+///|
+test "simplify-locals-nostructure removes a dead tee carrier across inert control" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param f64) (local i32 i32 i32 i32 i32 i64 f32 f64)
+        #|    i32.const 40
+        #|    local.tee 1
+        #|    drop
+        #|    block
+        #|      nop
+        #|    end
+        #|    local.get 1
+        #|    drop
+        #|    i32.const 41
+        #|    local.set 2
+        #|    i32.const 0
+        #|    if
+        #|      nop
+        #|    end
+        #|    local.get 2
+        #|    drop))
+      ),
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dead tee-carrier cleanup, got \{err}")
+  }
+  let @lib.CodeSec(funcs) = optimized.code_sec.unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+  assert_eq(
+    body
+    .filter(fn(instr) {
+      instr is @lib.LocalGet(@lib.LocalIdx(1U)) ||
+      instr is @lib.LocalSet(@lib.LocalIdx(1U)) ||
+      instr is @lib.LocalTee(@lib.LocalIdx(1U))
+    })
+    .length(),
+    0,
+    msg="\{trace}\n\{@debug.to_string(body)}",
+  )
+  assert_eq(body.filter(fn(instr) { instr is @lib.Block(_, _) }).length(), 0)
+  assert_eq(
+    body
+    .filter(fn(instr) { instr == @lib.Instruction::i32_const(@lib.I32(40)) })
+    .length(),
+    1,
+  )
+}
+
+///|
+test "simplify-locals-nostructure keeps an effectful producer while removing its dead tee carrier" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $make (import "m" "make") (result i32))
+        #|  (func (local i32 i32)
+        #|    call $make
+        #|    local.tee 0
+        #|    drop
+        #|    block
+        #|      nop
+        #|    end
+        #|    local.get 0
+        #|    drop
+        #|    i32.const 41
+        #|    local.set 1
+        #|    i32.const 0
+        #|    if
+        #|      nop
+        #|    end
+        #|    local.get 1
+        #|    drop))
+      ),
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effectful dead tee-carrier cleanup, got \{err}")
+  }
+  let @lib.CodeSec(funcs) = optimized.code_sec.unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+  assert_eq(
+    body
+    .filter(fn(instr) {
+      instr is @lib.LocalGet(@lib.LocalIdx(0U)) ||
+      instr is @lib.LocalSet(@lib.LocalIdx(0U)) ||
+      instr is @lib.LocalTee(@lib.LocalIdx(0U))
+    })
+    .length(),
+    0,
+  )
+  assert_eq(
+    body
+    .filter(fn(instr) { instr == @lib.Instruction::call(@lib.FuncIdx::new(0U)) })
+    .length(),
+    1,
+  )
+}
+
+///|
+test "simplify-locals-nostructure retains a tee carrier across an effectful later read" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $make (import "m" "make") (result i32))
+        #|  (func $use (import "m" "use") (param i32))
+        #|  (func (result i32) (local i32)
+        #|    call $make
+        #|    local.tee 0
+        #|    drop
+        #|    block
+        #|      nop
+        #|    end
+        #|    local.get 0
+        #|    call $use
+        #|    local.get 0))
+      ),
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected live tee-carrier preservation, got \{err}")
+  }
+  let @lib.CodeSec(funcs) = optimized.code_sec.unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+  assert_true(
+    body.any(fn(instr) { instr is @lib.LocalGet(@lib.LocalIdx(0U)) }),
+    msg=@debug.to_string(body),
+  )
+  assert_true(
+    body.any(fn(instr) {
+      instr is @lib.LocalTee(@lib.LocalIdx(0U)) ||
+      instr is @lib.LocalSet(@lib.LocalIdx(0U))
+    }),
+    msg=@debug.to_string(body),
+  )
 }
 
 ///|
@@ -3601,8 +3746,9 @@ test "simplify-locals-nostructure does not synthesize if results" {
 
 ///|
 test "simplify-locals-nostructure sinks across fallthrough block without block result" {
-  // Binaryen version_130 sinks this simple fallthrough block carrier but keeps
-  // the block itself void; this is not the disabled structure-synthesis family.
+  // Binaryen version_133 sinks this fallthrough carrier but retains a void
+  // block containing one nop. Starshine removes that inert shell for a smaller
+  // encoding without synthesizing a block result.
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) block i32.const 7 local.set 0 end local.get 0))",
@@ -3616,11 +3762,18 @@ test "simplify-locals-nostructure sinks across fallthrough block without block r
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("block (Void)"), msg=pretty)
+  assert_false(pretty.contains("block (Void)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_false(pretty.contains("block I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+  let binaryen133_shape = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32) block nop end i32.const 7))",
+  )
+  assert_true(
+    @binary.encode_module(optimized).unwrap().length() <
+    @binary.encode_module(binaryen133_shape).unwrap().length(),
+  )
 }
 
 ///|
@@ -3756,7 +3909,7 @@ test "simplify-locals-nostructure keeps the no-structure if boundary through its
 
 ///|
 fn simplify_locals_nostructure_giant_post_inline_call_builder(
-  call_count : Int,
+  call_count : Int32,
 ) -> String {
   let source = StringBuilder::new()
   source.write_string(

@@ -1,7 +1,7 @@
 ///|
 fn dae2_legacy_setup_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit raise {

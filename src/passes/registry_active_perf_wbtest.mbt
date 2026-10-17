@@ -1,5 +1,5 @@
 ///|
-fn registry_active_fixture(name : String, count : Int) -> @lib.Module {
+fn registry_active_fixture(name : String, count : Int32) -> @lib.Module {
   let seed = match name {
     "constraint-analysis" =>
       pass_test_module_from_wat(
@@ -25,7 +25,7 @@ fn registry_active_fixture(name : String, count : Int) -> @lib.Module {
 }
 
 ///|
-fn registry_active_bench(it : @bench.T, name : String, count : Int) -> Unit {
+fn registry_active_bench(it : @bench.T, name : String, count : Int32) -> Unit {
   let input = registry_active_fixture(name, count)
   @validate.validate_module(input).unwrap()
   let flag = if name == "no-inline" ||
@@ -69,7 +69,7 @@ fn registry_active_bench(it : @bench.T, name : String, count : Int) -> Unit {
 }
 
 ///|
-fn registry_active_stable_import_bench(it : @bench.T, count : Int) -> Unit {
+fn registry_active_stable_import_bench(it : @bench.T, count : Int32) -> Unit {
   let wat : Array[String] = ["(module (type $sig (func))"]
   for _ in 0..<count {
     wat.push("(import \"env\" \"shared\" (func (type $sig)))")
@@ -199,7 +199,7 @@ test "bench active registry apply compiler facts" (it : @bench.T) {
 }
 
 ///|
-fn registry_active_dae_alias_bench(it : @bench.T, count : Int) -> Unit {
+fn registry_active_dae_alias_bench(it : @bench.T, count : Int32) -> Unit {
   let wat : Array[String] = [
     "(module (func $helper (param i32) (result i32) i32.const 7) (func (export \"run\")",
   ]
@@ -259,7 +259,7 @@ test "bench active registry inline-main named wrapper" (it : @bench.T) {
 }
 
 ///|
-fn registry_active_handler_bench(it : @bench.T, count : Int) -> Unit {
+fn registry_active_handler_bench(it : @bench.T, count : Int32) -> Unit {
   let wat : Array[String] = ["(module (tag $e)"]
   for _ in 0..<count {
     wat.push(

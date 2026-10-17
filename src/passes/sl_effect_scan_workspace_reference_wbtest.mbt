@@ -2,9 +2,9 @@
 // Frozen V14 traversal, including its per-query arena-sized visitation row.
 fn sl_effect_scan_before_workspace(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> (@ir.EffectMask, Int) {
-  let pending : Array[Int] = [node_id]
+  node_id : Int32,
+) -> (@ir.EffectMask, Int32) {
+  let pending : Array[Int32] = [node_id]
   let seen = Array::make(@ir.hot_node_count(func), false)
   let mut mask = 0U
   let mut visited_nodes = 0

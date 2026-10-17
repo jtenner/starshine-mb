@@ -182,7 +182,7 @@ test "OI root storage rebuild observes edited nested regions without stale facts
 ///|
 // Frozen boxed root-storage boundary; classification and shared flow are unchanged.
 priv struct OiBoxedRootStorageReference {
-  position : Int
+  position : Int32
   kind : RawOiRootKind
   instr : @lib.Instruction
   is_pure_stack_operand : Bool
@@ -207,7 +207,7 @@ fn OiBoxedRegionStorageReference::from_instrs(
 
 ///|
 fn OiBoxedRootStorageReference::from_instr(
-  position : Int,
+  position : Int32,
   instr : @lib.Instruction,
 ) -> OiBoxedRootStorageReference {
   let kind = match instr {

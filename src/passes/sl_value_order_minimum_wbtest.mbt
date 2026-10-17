@@ -1,5 +1,5 @@
 ///|
-fn sl_first_use_minimum_fixture(width : Int, hazard : Bool) -> @ir.HotFunc {
+fn sl_first_use_minimum_fixture(width : Int32, hazard : Bool) -> @ir.HotFunc {
   let wat = ["(module (func (param i32) (result i32) (local i32 i32)"]
   if hazard {
     wat.push("i32.const 9")

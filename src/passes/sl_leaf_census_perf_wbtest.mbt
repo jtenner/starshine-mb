@@ -1,8 +1,8 @@
 ///|
 fn sl_leaf_census_bench(
   it : @bench.T,
-  width : Int,
-  depth : Int,
+  width : Int32,
+  depth : Int32,
   active : Bool,
   reference : Bool,
 ) -> Unit raise {

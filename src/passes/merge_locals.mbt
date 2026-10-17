@@ -253,7 +253,7 @@ fn merge_locals_verify_and_rollback(
   func : @ir.HotFunc,
   post_graph : @ir.HotLocalGraph,
   optimized : Array[MergeLocalsOptimizedCopy],
-) -> Int {
+) -> Int32 {
   let mut kept = 0
   for rewrite in optimized {
     let expected_write = match rewrite.orientation {
@@ -298,11 +298,11 @@ fn merge_locals_remove_instrumentation(
 
 ///|
 priv struct MergeLocalsRawCandidate {
-  set_idx : Int
-  source_local : Int
-  target_local : Int
-  virtual_source : Int
-  copy_source : Int
+  set_idx : Int32
+  source_local : Int32
+  target_local : Int32
+  virtual_source : Int32
+  copy_source : Int32
 }
 
 ///|
@@ -313,13 +313,13 @@ priv struct MergeLocalsRawRewrite {
 }
 
 ///|
-fn merge_locals_raw_idx(idx : @lib.LocalIdx) -> Int {
+fn merge_locals_raw_idx(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn merge_locals_raw_local_idx(idx : Int) -> @lib.LocalIdx {
+fn merge_locals_raw_local_idx(idx : Int32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(idx.reinterpret_as_uint())
 }
 
@@ -368,7 +368,7 @@ fn merge_locals_raw_is_straight_line(instrs : Array[@lib.Instruction]) -> Bool {
 ///|
 fn merge_locals_raw_candidates(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
+  local_count : Int32,
 ) -> Array[MergeLocalsRawCandidate] {
   let out : Array[MergeLocalsRawCandidate] = []
   for idx = 1; idx < instrs.length(); idx = idx + 1 {
@@ -399,8 +399,8 @@ fn merge_locals_raw_candidates(
 ///|
 fn merge_locals_raw_candidate_map(
   candidates : Array[MergeLocalsRawCandidate],
-  instr_count : Int,
-) -> Array[Int] {
+  instr_count : Int32,
+) -> Array[Int32] {
   let map = Array::make(instr_count, -1)
   for idx = 0; idx < candidates.length(); idx = idx + 1 {
     let set_idx = candidates[idx].set_idx
@@ -414,14 +414,14 @@ fn merge_locals_raw_candidate_map(
 ///|
 fn merge_locals_raw_build_influences(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
+  local_count : Int32,
   candidates : Array[MergeLocalsRawCandidate],
-) -> Array[Array[Int]] {
+) -> Array[Array[Int32]] {
   let source_count = local_count + instrs.length() * 2 + 2
   // Empty buckets share a read-only sentinel. Allocate a private bucket on its
   // first get, so instruction-only sources do not each allocate an empty array.
-  let influences : Array[Array[Int]] = Array::make(source_count, [])
-  let current : Array[Int] = []
+  let influences : Array[Array[Int32]] = Array::make(source_count, [])
+  let current : Array[Int32] = []
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     current.push(local_id)
   }
@@ -462,8 +462,8 @@ fn merge_locals_raw_build_influences(
 ///|
 fn merge_locals_raw_retarget_gets(
   instrs : Array[@lib.Instruction],
-  get_indices : Array[Int],
-  local_id : Int,
+  get_indices : Array[Int32],
+  local_id : Int32,
 ) -> Unit {
   for idx in get_indices {
     instrs[idx] = @lib.Instruction::local_get(
@@ -475,11 +475,11 @@ fn merge_locals_raw_retarget_gets(
 ///|
 fn merge_locals_raw_build_get_sources(
   instrs : Array[@lib.Instruction],
-  local_count : Int,
+  local_count : Int32,
   candidates : Array[MergeLocalsRawCandidate],
-) -> Array[Int] {
+) -> Array[Int32] {
   let get_sources = Array::make(instrs.length(), -1)
-  let current : Array[Int] = []
+  let current : Array[Int32] = []
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     current.push(local_id)
   }
@@ -533,7 +533,7 @@ fn merge_locals_run_raw_straight_line_func(
   )
   let rewritten = original.copy()
   let orientations = Array::make(candidates.length(), 0)
-  let rewrite_gets : Array[Array[Int]] = []
+  let rewrite_gets : Array[Array[Int32]] = []
   for candidate_idx = 0
       candidate_idx < candidates.length()
       candidate_idx = candidate_idx + 1 {
@@ -739,15 +739,15 @@ fn merge_locals_run_raw_legacy_func(
 ///|
 fn merge_locals_collect_subtree_min_local_reads(
   func : @ir.HotFunc,
-  node_id : Int,
-  minima : @hashmap.HashMap[Int, Int],
-  second_minima : @hashmap.HashMap[Int, Int],
-  pending : Array[Int],
-  visit_epochs : Array[Int],
-  epoch : Int,
+  node_id : Int32,
+  minima : @hashmap.HashMap[Int32, Int32],
+  second_minima : @hashmap.HashMap[Int32, Int32],
+  pending : Array[Int32],
+  visit_epochs : Array[Int32],
+  epoch : Int32,
   region_worklist : Array[@ir.HotRegionRef],
   queued_controls : Array[Bool],
-  visits? : Array[Int]? = None,
+  visits~ : Array[Int32]? = None,
 ) -> Unit {
   pending.clear()
   pending.push(node_id)
@@ -825,16 +825,16 @@ fn merge_locals_collect_subtree_min_local_reads(
 fn merge_locals_region_has_stack_carried_copy(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  visits? : Array[Int]? = None,
+  visits~ : Array[Int32]? = None,
 ) -> Bool {
   let region_worklist = [region_ref]
   let node_count = @ir.hot_node_count(func)
   let visit_epochs = Array::make(node_count, 0)
   let queued_controls = Array::make(node_count, false)
-  let pending_nodes : Array[Int] = []
+  let pending_nodes : Array[Int32] = []
   let epoch = 1
-  let later_min_reads : @hashmap.HashMap[Int, Int] = @hashmap.new()
-  let later_second_min_reads : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  let later_min_reads : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
+  let later_second_min_reads : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
   while !region_worklist.is_empty() {
     let current_region = region_worklist.pop().unwrap()
     let count = @ir.hot_region_root_count(func, current_region)

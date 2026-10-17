@@ -13,7 +13,7 @@ fn dae_unreachable_before_inline(instr : @lib.Instruction) -> Bool {
 ///|
 fn dae_unreachable_inline_bench(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   unreachable : Bool,
   reference : Bool,
 ) -> Unit {

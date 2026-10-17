@@ -28,10 +28,10 @@ pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
 ///|
 fn pass_compute_label_used_except(
   func : @ir.HotFunc,
-  excluded_node : Int,
+  excluded_node : Int32,
 ) -> @bitset.BitSet {
   let label_used = @bitset.BitSet::new(func.labels.length())
-  let mark_label = fn(label_id : Int) {
+  let mark_label = fn(label_id : Int32) {
     if label_id >= 0 && label_id < label_used.length() {
       label_used[label_id] = true
     }
@@ -78,7 +78,10 @@ fn pass_compute_label_used_except(
 }
 
 ///|
-pub fn pass_label_is_used(label_id : Int, label_used : @bitset.BitSet) -> Bool {
+pub fn pass_label_is_used(
+  label_id : Int32,
+  label_used : @bitset.BitSet,
+) -> Bool {
   label_id >= 0 && label_id < label_used.length() && label_used[label_id]
 }
 
@@ -879,9 +882,9 @@ pub fn pass_mark_mutated(ctx : HotPassContext, func : @ir.HotFunc) -> Unit {
 pub fn pass_replace_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   new_node : @ir.HotNode,
-  preserve_value_order? : Bool = false,
+  preserve_value_order~ : Bool = false,
 ) -> Unit {
   @ir.hot_replace_node(func, node_id, new_node, preserve_value_order~)
   pass_mark_mutated(ctx, func)
@@ -892,10 +895,10 @@ pub fn pass_splice_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  remove_count : Int,
-  node_ids : Array[Int],
-) -> Array[Int] {
+  idx : Int32,
+  remove_count : Int32,
+  node_ids : Array[Int32],
+) -> Array[Int32] {
   let removed = @ir.hot_region_splice(
     func, region_ref, idx, remove_count, node_ids,
   )
@@ -913,10 +916,10 @@ pub fn pass_splice_region(
 pub fn pass_delete_detached_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_ids : Array[Int],
+  node_ids : Array[Int32],
 ) -> Unit {
-  let live_node_ids : Array[Int] = []
-  let seen : @set.Set[Int] = @set.Set([])
+  let live_node_ids : Array[Int32] = []
+  let seen : @set.Set[Int32] = @set.Set([])
   let mut has_control = false
   for node_id in node_ids {
     if @ir.hot_node_is_live(func, node_id) && !seen.contains(node_id) {
@@ -942,8 +945,8 @@ pub fn pass_delete_detached_nodes(
 pub fn pass_node_use_count(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   @ir.node_use_count(pass_require_use_def(ctx, func), node_id)
 }
 
@@ -951,7 +954,7 @@ pub fn pass_node_use_count(
 pub fn pass_node_is_unused(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   pass_node_use_count(ctx, func, node_id) == 0
 }
@@ -985,7 +988,7 @@ pub fn pass_verify_before_after(
 // Control bodies share HOT's child storage with expression operands. Visitors
 // that also walk region roots use this count and pass_value_operand_slot to
 // include typed control entries without visiting structural region children.
-fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
+fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int32) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block => node.imm1
@@ -1001,7 +1004,7 @@ fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
 }
 
 ///|
-fn pass_value_operand_slot(node : @ir.HotNode, index : Int) -> Int {
+fn pass_value_operand_slot(node : @ir.HotNode, index : Int32) -> Int32 {
   if node.op is @ir.HotOp::If {
     // Entry values execute before the condition. Slots 1 and 2 are regions.
     if index < node.child_count - 3 {
@@ -1015,7 +1018,7 @@ fn pass_value_operand_slot(node : @ir.HotNode, index : Int) -> Int {
 }
 
 ///|
-fn pass_can_discard_unused_value(func : @ir.HotFunc, node : Int) -> Bool {
+fn pass_can_discard_unused_value(func : @ir.HotFunc, node : Int32) -> Bool {
   let op = @ir.hot_node_get(func, node).op
   match op {
     @ir.Nop
@@ -1093,8 +1096,8 @@ fn pass_const_instruction_vectors_bits_equal(
 // https://webassembly.github.io/spec/js-api/#read-the-imports
 fn globals_are_provably_disjoint(
   module_ctx : @ir.HotModuleContext?,
-  lhs : Int,
-  rhs : Int,
+  lhs : Int32,
+  rhs : Int32,
 ) -> Bool {
   if lhs == rhs || lhs < 0 || rhs < 0 {
     return false
@@ -1120,7 +1123,7 @@ fn globals_are_provably_disjoint(
 // same entry prefix require another evaluation, which node-indexed rewrites
 // cannot select separately. Reuse one sparse count row across controls.
 fn pass_has_repeated_entry_evaluation(func : @ir.HotFunc) -> Bool {
-  let mut counts : @hashmap.HashMap[@ir.NodeId, Int]? = None
+  let mut counts : @hashmap.HashMap[@ir.NodeId, Int32]? = None
   let mut retained_width = 0
   for node_id in 0..<@ir.hot_node_count(func) {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -1144,7 +1147,7 @@ fn pass_has_repeated_entry_evaluation(func : @ir.HotFunc) -> Bool {
       _ => {
         // clear visits retained capacity. Drop a wide row before narrow
         // prefixes, so every clear remains bounded by this prefix's width.
-        let row : @hashmap.HashMap[@ir.NodeId, Int] = @hashmap.new(
+        let row : @hashmap.HashMap[@ir.NodeId, Int32] = @hashmap.new(
           capacity=count,
         )
         counts = Some(row)
@@ -1170,8 +1173,8 @@ fn pass_has_repeated_entry_evaluation(func : @ir.HotFunc) -> Bool {
 // Rewind removes branch/body marks while retaining incoming stack producers.
 priv struct PassSourceCaptures {
   seen : Array[Bool]
-  depths : Array[Int]
-  touched : Array[Int]
+  depths : Array[Int32]
+  touched : Array[Int32]
 }
 
 ///|
@@ -1186,13 +1189,13 @@ fn PassSourceCaptures::new(func : @ir.HotFunc) -> PassSourceCaptures {
 ///|
 fn PassSourceCaptures::contains(
   self : PassSourceCaptures,
-  node_id : Int,
+  node_id : Int32,
 ) -> Bool {
   node_id >= 0 && node_id < self.seen.length() && self.seen[node_id]
 }
 
 ///|
-fn PassSourceCaptures::mark(self : PassSourceCaptures, node_id : Int) -> Unit {
+fn PassSourceCaptures::mark(self : PassSourceCaptures, node_id : Int32) -> Unit {
   if node_id < 0 {
     return
   }
@@ -1208,7 +1211,7 @@ fn PassSourceCaptures::mark(self : PassSourceCaptures, node_id : Int) -> Unit {
 }
 
 ///|
-fn PassSourceCaptures::rewind(self : PassSourceCaptures, depth : Int) -> Unit {
+fn PassSourceCaptures::rewind(self : PassSourceCaptures, depth : Int32) -> Unit {
   while self.touched.length() > depth {
     let node_id = self.touched.pop().unwrap()
     self.seen[node_id] = false
@@ -1219,8 +1222,8 @@ fn PassSourceCaptures::rewind(self : PassSourceCaptures, depth : Int) -> Unit {
 ///|
 fn PassSourceCaptures::is_region_capture(
   self : PassSourceCaptures,
-  node_id : Int,
-  depth : Int,
+  node_id : Int32,
+  depth : Int32,
 ) -> Bool {
   self.contains(node_id) && self.depths[node_id] >= depth
 }

@@ -1,7 +1,7 @@
 // Validation, HOT lifting, and LocalGraph construction stay outside timing.
 
 ///|
-fn ssa_nomerge_param_tee_fixture(pairs : Int) -> @lib.Module {
+fn ssa_nomerge_param_tee_fixture(pairs : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<pairs {
     body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
@@ -30,7 +30,7 @@ fn ssa_nomerge_param_tee_fixture(pairs : Int) -> @lib.Module {
 }
 
 ///|
-fn ssa_nomerge_param_tee_bench(it : @bench.T, pairs : Int) -> Unit {
+fn ssa_nomerge_param_tee_bench(it : @bench.T, pairs : Int32) -> Unit {
   let fixture = ssa_nomerge_param_tee_fixture(pairs)
   ignore(opportunity_run(fixture, "ssa-nomerge", true))
   let hot = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))

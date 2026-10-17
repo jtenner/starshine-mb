@@ -37,7 +37,7 @@ fn ssa_full_test_first_defined_func(
 ///|
 fn ssa_full_test_collect_local_get_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -62,8 +62,8 @@ fn ssa_full_test_collect_local_get_indices(
 ///|
 fn ssa_full_test_local_get_indices(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_full_test_collect_local_get_indices(instrs, out)
   out
 }
@@ -71,7 +71,7 @@ fn ssa_full_test_local_get_indices(
 ///|
 fn ssa_full_test_collect_local_set_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -96,8 +96,8 @@ fn ssa_full_test_collect_local_set_indices(
 ///|
 fn ssa_full_test_local_set_indices(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_full_test_collect_local_set_indices(instrs, out)
   out
 }
@@ -105,7 +105,7 @@ fn ssa_full_test_local_set_indices(
 ///|
 fn ssa_full_test_collect_local_tee_indices(
   instrs : Array[@lib.Instruction],
-  out : Array[UInt],
+  out : Array[UInt32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -130,8 +130,8 @@ fn ssa_full_test_collect_local_tee_indices(
 ///|
 fn ssa_full_test_local_tee_indices(
   instrs : Array[@lib.Instruction],
-) -> Array[UInt] {
-  let out : Array[UInt] = []
+) -> Array[UInt32] {
+  let out : Array[UInt32] = []
   ssa_full_test_collect_local_tee_indices(instrs, out)
   out
 }

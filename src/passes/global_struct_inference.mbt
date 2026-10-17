@@ -9,7 +9,7 @@ pub fn global_struct_inference_desc_cast_summary() -> String {
 }
 
 ///|
-fn gsi_type_slot(type_idx : @lib.TypeIdx, type_count : Int) -> Int {
+fn gsi_type_slot(type_idx : @lib.TypeIdx, type_count : Int32) -> Int32 {
   match type_idx {
     @lib.TypeIdx(idx) => {
       let slot = idx.reinterpret_as_int()
@@ -37,8 +37,8 @@ priv struct GsiValueGroup {
 
 ///|
 priv struct GsiSplitOperand {
-  start : Int
-  end_exclusive : Int
+  start : Int32
+  end_exclusive : Int32
   expr : @lib.Expr
 }
 
@@ -46,13 +46,13 @@ priv struct GsiSplitOperand {
 priv struct GsiDirectFieldReadRequest {
   global_idx : @lib.GlobalIdx
   type_idx : @lib.TypeIdx
-  field_idx : Int
+  field_idx : Int32
 }
 
 ///|
 priv struct GsiTypedFieldReadRequest {
   type_idx : @lib.TypeIdx
-  field_idx : Int
+  field_idx : Int32
 }
 
 ///|
@@ -157,7 +157,7 @@ fn gsi_mark_nested_global_struct_allocs(
 }
 
 ///|
-fn gsi_global_idx_order(global_idx : @lib.GlobalIdx) -> Int {
+fn gsi_global_idx_order(global_idx : @lib.GlobalIdx) -> Int32 {
   let @lib.GlobalIdx(raw) = global_idx
   raw.reinterpret_as_int()
 }
@@ -189,7 +189,7 @@ fn gsi_propagate_closed_world_subtype_facts(
   candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]],
 ) -> Unit {
   let type_count = poisoned_type_slots.length()
-  let poison_queue : Array[Int] = []
+  let poison_queue : Array[Int32] = []
   let mut has_candidates = false
   for slot = 0; slot < type_count; slot = slot + 1 {
     if poisoned_type_slots[slot] {
@@ -214,7 +214,7 @@ fn gsi_propagate_closed_world_subtype_facts(
   if !has_candidates {
     return
   }
-  let candidate_slots : Array[Int] = []
+  let candidate_slots : Array[Int32] = []
   let candidate_values : Array[@lib.GlobalIdx] = []
   let seen : Array[@hashmap.HashMap[@lib.GlobalIdx, Bool]] = []
   for slot = 0; slot < type_count; slot = slot + 1 {
@@ -408,7 +408,7 @@ fn gsi_exact_single_candidate_globals(
     type_count,
     None,
   )
-  let candidate_count_by_type_slot : Array[Int] = Array::make(type_count, 0)
+  let candidate_count_by_type_slot : Array[Int32] = Array::make(type_count, 0)
   let direct_candidates_by_type_slot = gsi_exact_direct_candidate_globals(
     env, mod_, facts,
   )
@@ -432,7 +432,7 @@ fn gsi_mark_external_struct_origins(
   value_type : @lib.ValType,
   poisoned_type_slots : Array[Bool],
   cached_value_types : Array[@lib.ValType],
-  cached_slots : Array[Array[Int]],
+  cached_slots : Array[Array[Int32]],
 ) -> Unit {
   let external_type = match value_type {
     @lib.RefTypeValType(_) => value_type
@@ -446,7 +446,7 @@ fn gsi_mark_external_struct_origins(
       return
     }
   }
-  let compatible_slots : Array[Int] = []
+  let compatible_slots : Array[Int32] = []
   let type_count = poisoned_type_slots.length()
   for slot = 0; slot < type_count; slot = slot + 1 {
     let type_idx = gsi_type_idx_from_slot(slot)
@@ -471,7 +471,7 @@ fn gsi_mark_imported_struct_origins(
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
   cached_value_types : Array[@lib.ValType],
-  cached_slots : Array[Array[Int]],
+  cached_slots : Array[Array[Int32]],
 ) -> Unit {
   let imports = match mod_.import_sec {
     Some(@lib.ImportSec(imports)) => imports
@@ -519,22 +519,22 @@ fn gsi_mark_imported_struct_origins(
 
 ///|
 priv struct GsiExportedOriginRoots {
-  funcs : Array[Int]
-  globals : Array[Int]
+  funcs : Array[Int32]
+  globals : Array[Int32]
 }
 
 ///|
 fn gsi_exported_origin_roots(
   mod_ : @lib.Module,
-  first_defined_func : Int,
-  defined_func_count : Int,
-  first_defined_global : Int,
-  defined_global_count : Int,
+  first_defined_func : Int32,
+  defined_func_count : Int32,
+  first_defined_global : Int32,
+  defined_global_count : Int32,
 ) -> GsiExportedOriginRoots {
   // One entity may be exported under many names. Plan each body or initializer
   // once so export aliases do not multiply closed-world scanning work.
-  let funcs : Array[Int] = []
-  let globals : Array[Int] = []
+  let funcs : Array[Int32] = []
+  let globals : Array[Int32] = []
   let func_seen = Array::make(defined_func_count, false)
   let global_seen = Array::make(defined_global_count, false)
   match mod_.export_sec {
@@ -570,8 +570,8 @@ fn gsi_exported_origin_roots(
 
 ///|
 priv struct GsiGlobalVisitStamps {
-  marks : Array[Int]
-  mut generation : Int
+  marks : Array[Int32]
+  mut generation : Int32
 }
 
 ///|
@@ -592,7 +592,10 @@ fn GsiGlobalVisitStamps::begin_root(self : GsiGlobalVisitStamps) -> Unit {
 }
 
 ///|
-fn GsiGlobalVisitStamps::visit(self : GsiGlobalVisitStamps, slot : Int) -> Bool {
+fn GsiGlobalVisitStamps::visit(
+  self : GsiGlobalVisitStamps,
+  slot : Int32,
+) -> Bool {
   if slot < 0 {
     return false
   }
@@ -615,7 +618,7 @@ fn gsi_collect_returned_ref_funcs(
   results : Array[@lib.ValType],
   callable_funcs : Array[@lib.FuncIdx],
   defined_globals : Array[@lib.Global],
-  first_defined_global : Int,
+  first_defined_global : Int32,
   visited_globals : GsiGlobalVisitStamps,
 ) -> Unit {
   let @lib.Expr(instrs) = expr
@@ -698,7 +701,7 @@ fn gsi_mark_exported_param_struct_origins(
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
   cached_value_types : Array[@lib.ValType],
-  cached_slots : Array[Array[Int]],
+  cached_slots : Array[Array[Int32]],
 ) -> Unit {
   if mod_.export_sec is None {
     return
@@ -820,7 +823,7 @@ fn gsi_mark_external_table_callable_param_struct_origins(
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
   cached_value_types : Array[@lib.ValType],
-  cached_slots : Array[Array[Int]],
+  cached_slots : Array[Array[Int32]],
 ) -> Unit {
   let external_table_types : Array[@lib.RefType] = []
   match mod_.import_sec {
@@ -891,7 +894,7 @@ fn gsi_build_closed_world_facts(
   let type_count = env.global_types.length()
   let poisoned_type_slots : Array[Bool] = Array::make(type_count, false)
   let cached_external_value_types : Array[@lib.ValType] = []
-  let cached_external_type_slots : Array[Array[Int]] = []
+  let cached_external_type_slots : Array[Array[Int32]] = []
   let candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]] = []
   for slot = 0; slot < type_count; slot = slot + 1 {
     ignore(slot)
@@ -1089,8 +1092,8 @@ fn gsi_const_expr_for_field(
 ///|
 fn gsi_instr_slice(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for idx = start; idx < end_exclusive; idx = idx + 1 {
@@ -1103,7 +1106,7 @@ fn gsi_instr_slice(
 fn gsi_unnestable_stack_operand_count(
   env : @validate.Env,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -1300,8 +1303,8 @@ fn gsi_unnestable_instr_result_type(
 fn gsi_find_operand_start(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
-  end_inclusive : Int,
-) -> Int {
+  end_inclusive : Int32,
+) -> Int32 {
   let mut needed = 1
   let mut idx = end_inclusive
   while idx >= 0 {
@@ -1326,7 +1329,7 @@ fn gsi_find_operand_start(
 fn gsi_split_constructor_operands(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
-  operand_count : Int,
+  operand_count : Int32,
 ) -> Array[GsiSplitOperand]? {
   if operand_count < 0 || instrs.length() < operand_count + 1 {
     return None
@@ -1408,7 +1411,7 @@ fn gsi_append_operand_expr(
 ///|
 fn gsi_instr_field_read_type_and_index(
   instr : @lib.Instruction,
-) -> (@lib.TypeIdx, Int)? {
+) -> (@lib.TypeIdx, Int32)? {
   match instr {
     @lib.StructGet(read_type, @lib.U32(raw_idx))
     | @lib.StructGetS(read_type, @lib.U32(raw_idx))
@@ -1512,7 +1515,7 @@ fn gsi_requests_may_need_unnested_candidate_field(
   facts : GsiClosedWorldFacts?,
   candidate : @lib.GlobalIdx,
   candidate_type : @lib.TypeIdx,
-  field_idx : Int,
+  field_idx : Int32,
 ) -> Bool {
   for request in requests.direct_reads {
     if request.global_idx == candidate &&
@@ -1566,7 +1569,7 @@ fn gsi_try_unnest_global_init(
   facts : GsiClosedWorldFacts?,
   global_idx : @lib.GlobalIdx,
   global_ : @lib.Global,
-  next_fresh_abs_idx : Int,
+  next_fresh_abs_idx : Int32,
   fresh_globals : Array[@lib.Global],
 ) -> @lib.Global? {
   let @lib.Global(global_type, init) = global_
@@ -1751,8 +1754,8 @@ fn gsi_candidate_field_values(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
-  field_operand_start : Int,
-  expected_extra_operands : Int,
+  field_operand_start : Int32,
+  expected_extra_operands : Int32,
   defaults_only : Bool,
 ) -> Array[@lib.Expr?]? {
   let fields = match env.resolve_struct_fields(type_idx) {
@@ -1827,13 +1830,13 @@ fn gsi_candidate_global_values(
 }
 
 ///|
-fn gsi_pack_unsigned(value : Int, bits : Int) -> Int {
+fn gsi_pack_unsigned(value : Int32, bits : Int32) -> Int32 {
   let mask = if bits == 8 { 0xFF } else { 0xFFFF }
   value & mask
 }
 
 ///|
-fn gsi_pack_signed(value : Int, bits : Int) -> Int {
+fn gsi_pack_signed(value : Int32, bits : Int32) -> Int32 {
   let masked = gsi_pack_unsigned(value, bits)
   let sign_bit = 1 << (bits - 1)
   if (masked & sign_bit) != 0 {
@@ -1844,7 +1847,7 @@ fn gsi_pack_signed(value : Int, bits : Int) -> Int {
 }
 
 ///|
-fn gsi_packed_expr(expr : @lib.Expr, bits : Int, signed : Bool) -> @lib.Expr? {
+fn gsi_packed_expr(expr : @lib.Expr, bits : Int32, signed : Bool) -> @lib.Expr? {
   match expr {
     @lib.Expr([@lib.I32Const(@lib.I32(value))]) =>
       Some(
@@ -2088,7 +2091,7 @@ fn gsi_one_value_local_fold_block(
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   local_idx : @lib.LocalIdx,
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
@@ -2279,7 +2282,7 @@ fn gsi_candidate_global_descriptor_expr(
 }
 
 ///|
-fn gsi_type_idx_from_slot(slot : Int) -> @lib.TypeIdx {
+fn gsi_type_idx_from_slot(slot : Int32) -> @lib.TypeIdx {
   @lib.TypeIdx::new(slot.reinterpret_as_uint())
 }
 
@@ -2302,7 +2305,7 @@ fn gsi_candidate_type_matches_read_type(
 fn gsi_folded_global_descriptor_expr(
   env : @validate.Env,
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   global_idx : @lib.GlobalIdx,
   type_idx : @lib.TypeIdx,
   operand_ref_type : @lib.RefType?,
@@ -2338,7 +2341,7 @@ fn gsi_folded_global_descriptor_expr(
 fn gsi_folded_candidate_global_descriptor_expr(
   env : @validate.Env,
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   global_idx : @lib.GlobalIdx,
   read_type_idx : @lib.TypeIdx,
   result_type : @lib.ValType,
@@ -2376,7 +2379,7 @@ fn gsi_folded_candidate_global_field_expr(
   env : @validate.Env,
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   global_idx : @lib.GlobalIdx,
   read_type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
@@ -2442,7 +2445,7 @@ fn gsi_folded_candidate_global_field_expr(
 fn gsi_find_value_group(
   groups : Array[GsiValueGroup],
   value : @lib.Expr,
-) -> Int {
+) -> Int32 {
   for idx = 0; idx < groups.length(); idx = idx + 1 {
     if pass_const_instruction_vectors_bits_equal(groups[idx].value.0, value.0) {
       return idx
@@ -2457,7 +2460,7 @@ fn gsi_one_value_descriptor_local_fold_block(
   local_env : @validate.Env,
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   local_idx : @lib.LocalIdx,
   type_idx : @lib.TypeIdx,
 ) -> @lib.Instruction? {
@@ -2523,7 +2526,7 @@ fn gsi_two_value_descriptor_singleton_select_block(
   local_env : @validate.Env,
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   local_idx : @lib.LocalIdx,
   type_idx : @lib.TypeIdx,
 ) -> @lib.Instruction? {
@@ -2604,7 +2607,7 @@ fn gsi_two_value_singleton_select_block(
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   local_idx : @lib.LocalIdx,
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
@@ -2692,8 +2695,8 @@ fn gsi_two_value_singleton_select_block(
 ///|
 fn gsi_function_local_env(
   env : @validate.Env,
-  imported_func_count : Int,
-  defined_idx : Int,
+  imported_func_count : Int32,
+  defined_idx : Int32,
   locals : @lib.Locals,
 ) -> @validate.Env? {
   let func_idx = @lib.FuncIdx::new(
@@ -2714,7 +2717,7 @@ fn gsi_folded_global_field_expr(
   env : @validate.Env,
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   global_idx : @lib.GlobalIdx,
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
@@ -2749,7 +2752,7 @@ fn gsi_folded_direct_global_read_expr(
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   global_idx : @lib.GlobalIdx,
   read_instr : @lib.Instruction,
 ) -> @lib.Expr? {
@@ -2928,7 +2931,7 @@ fn gsi_rewrite_instrs(
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   optimize_desc_casts : Bool,
@@ -3223,7 +3226,7 @@ fn gsi_instrs_may_rewrite(
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
-  global_type_slots : Array[Int],
+  global_type_slots : Array[Int32],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
   optimize_desc_casts : Bool,

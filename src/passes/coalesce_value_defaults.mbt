@@ -5,8 +5,8 @@
 fn cl_default_identity(
   interner : CLValueInterner,
   ty : @lib.ValType,
-  formats? : Array[Int]? = None,
-) -> Int {
+  formats~ : Array[Int32]? = None,
+) -> Int32 {
   let slot = if ty == @lib.ValType::i32() {
     0
   } else if ty == @lib.ValType::i64() {

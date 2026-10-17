@@ -1,7 +1,7 @@
 ///|
 priv struct Dae2TypeWorkspace {
   mut types : @lib.TypeSec
-  mut flat_count : Int
+  mut flat_count : Int32
 }
 
 ///|
@@ -81,29 +81,29 @@ fn dae2_exposure_module(mod_ : @lib.Module) -> @lib.Module {
 ///|
 fn dae2_call_info(
   infos : Array[Dae2Function],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   func : @ir.HotFunc,
-  node : Int,
+  node : Int32,
 ) -> Dae2Function {
   infos[dae2_call_info_index(type_infos, func, node)]
 }
 
 ///|
 fn dae2_call_info_index(
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   func : @ir.HotFunc,
-  node : Int,
-) -> Int {
+  node : Int32,
+) -> Int32 {
   let data = @ir.hot_node_get(func, node)
   dae2_call_info_index_from_data(type_infos, func, data)
 }
 
 ///|
 fn dae2_call_info_index_from_data(
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   func : @ir.HotFunc,
   data : @ir.HotNode,
-) -> Int {
+) -> Int32 {
   match data.op {
     @ir.Call | @ir.ReturnCall => data.imm0
     _ => {
@@ -114,7 +114,7 @@ fn dae2_call_info_index_from_data(
 }
 
 ///|
-fn dae2_type_slot(index : @lib.TypeIdx, base : Int) -> Int {
+fn dae2_type_slot(index : @lib.TypeIdx, base : Int32) -> Int32 {
   match index {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
     @lib.RecIdx(raw) => base + raw.reinterpret_as_int()
@@ -122,7 +122,7 @@ fn dae2_type_slot(index : @lib.TypeIdx, base : Int) -> Int {
 }
 
 ///|
-fn dae2_table_slot(index : @lib.TableIdx) -> Int {
+fn dae2_table_slot(index : @lib.TableIdx) -> Int32 {
   match index {
     @lib.TableIdx(raw) => raw.reinterpret_as_int()
   }
@@ -286,10 +286,10 @@ fn dae2_mark_host_table_call_types(
 ///|
 fn dae2_type_ref_edges(
   graph : Dae2Graph,
-  owner : Int,
+  owner : Int32,
   value : @lib.ValType,
-  base : Int,
-  embedded_types_root : Array[Int],
+  base : Int32,
+  embedded_types_root : Array[Int32],
 ) -> Unit {
   match value {
     @lib.RefTypeValType(ref_type) =>
@@ -319,10 +319,10 @@ fn dae2_type_ref_edges(
 ///|
 fn dae2_type_field_edges(
   graph : Dae2Graph,
-  owner : Int,
+  owner : Int32,
   field : @lib.FieldType,
-  base : Int,
-  embedded_types_root : Array[Int],
+  base : Int32,
+  embedded_types_root : Array[Int32],
 ) -> Unit {
   let @lib.FieldType(storage, _) = field
   match storage {
@@ -340,8 +340,8 @@ fn dae2_prepare_type_locations(
   infos : Array[Dae2Function],
   exposure : Array[DaeFunctionExposure],
   closed_world : Bool,
-  private_elements? : Array[Bool]? = None,
-) -> Array[Int] {
+  private_elements~ : Array[Bool]? = None,
+) -> Array[Int32] {
   let total = context.subtypes.length()
   let bases = Array::make(total, 0)
   match mod_.type_sec {
@@ -578,7 +578,7 @@ fn dae2_rewrite_type_section(
   types : @lib.TypeSec,
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
 ) -> @lib.TypeSec {
   let @lib.TypeSec(groups) = types
   let mut index = 0
@@ -629,9 +629,9 @@ fn dae2_preserve_control_types(
   context : @ir.HotModuleContext,
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  type_infos : Array[Int],
+  type_infos : Array[Int32],
   lower_state : HotPipelineLowerState,
-  replacements : @hashmap.HashMap[Int, @lib.TypeIdx],
+  replacements : @hashmap.HashMap[Int32, @lib.TypeIdx],
 ) -> Unit {
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     if !@ir.hot_node_is_live(func, node) || !@ir.hot_is_control_node(func, node) {
@@ -690,9 +690,68 @@ fn dae2_preserve_control_types(
 }
 
 ///|
+// A successful raw replay keeps complete control signatures. Preserve their
+// original types independently of the private families being pruned, as HOT
+// replay does. This scan runs only after admission and owns no source arrays.
+fn dae2_preserve_raw_control_types(
+  body : Array[@lib.Instruction],
+  context : @ir.HotModuleContext,
+  graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  type_infos : Array[Int32],
+  workspace : Dae2TypeWorkspace,
+  replacements : @hashmap.HashMap[Int32, @lib.TypeIdx],
+) -> Unit {
+  fn preserve(block : @lib.BlockType) -> Unit {
+    guard block is @lib.TypeIdxBlockType(index) else { return }
+    let old_index = dae2_type_slot(index, 0)
+    if old_index < 0 ||
+      old_index >= type_infos.length() ||
+      type_infos[old_index] < 0 ||
+      replacements.get(old_index) is Some(_) {
+      return
+    }
+    let info = infos[type_infos[old_index]]
+    if !dae2_signature_changes(graph, info) {
+      return
+    }
+    let @lib.FuncType(params, results) = match
+      @ir.hot_module_resolve_type_func_type(context, index) {
+      Some(signature) => signature
+      None => return
+    }
+    replacements.set(
+      old_index,
+      workspace.append_signature(params, results, @lib.TypeMetadata::new()),
+    )
+  }
+  fn visit(instructions : Array[@lib.Instruction]) -> Unit {
+    for instruction in instructions {
+      match instruction {
+        @lib.Block(block, @lib.Expr(child))
+        | @lib.Loop(block, @lib.Expr(child)) => {
+          // Source preorder matches the control-node allocation order in HOT.
+          preserve(block)
+          visit(child)
+        }
+        @lib.If(block, yes, no) => {
+          preserve(block)
+          visit(yes)
+          if no is Some(child) {
+            visit(child)
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  visit(body)
+}
+
+///|
 fn dae2_original_block_type(
   block : @lib.BlockType,
-  replacements : @hashmap.HashMap[Int, @lib.TypeIdx],
+  replacements : @hashmap.HashMap[Int32, @lib.TypeIdx],
 ) -> @lib.BlockType {
   if block is @lib.TypeIdxBlockType(index) {
     if replacements.get(dae2_type_slot(index, 0)) is Some(replacement) {
@@ -705,7 +764,7 @@ fn dae2_original_block_type(
 ///|
 fn dae2_original_control_types(
   body : Array[@lib.Instruction],
-  replacements : @hashmap.HashMap[Int, @lib.TypeIdx],
+  replacements : @hashmap.HashMap[Int32, @lib.TypeIdx],
 ) -> Array[@lib.Instruction] {
   body.map(fn(instruction) {
     match instruction {
@@ -971,7 +1030,7 @@ fn dae2_capture_stack_effect(
   instr : @lib.Instruction,
   mod_ : @lib.Module,
   module_ctx : @ir.HotModuleContext,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   if instr is @lib.Unreachable ||
     run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
     dae_instr_has_branch(instr) {
@@ -1008,11 +1067,12 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let candidates = Array::make(funcs.length(), false)
   let mut may_change = false
   for index = 0; index < funcs.length(); index = index + 1 {
     if dae2_cleanup_func_may_change(funcs[index], params[index], module_ctx) {
+      candidates[index] = true
       may_change = true
-      break
     }
   }
   if !may_change {
@@ -1022,10 +1082,17 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)
   })
-  let remaps : Array[Array[Int]?] = []
+  let remaps : Array[Array[Int32]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
+  let imported = rl_imported_func_count(mod_)
   for index = 0; index < funcs.length(); index = index + 1 {
+    if !candidates[index] {
+      bodies.push(funcs[index])
+      remaps.push(None)
+      changed_labels.push(false)
+      continue
+    }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[index]
     let (instrs, forwarding_changed, scalar) = dae2_cleanup_forwarding(
       instrs, module_ctx,
@@ -1056,12 +1123,14 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
       params[index],
       stack_effects~,
       propagate_parameter_aliases=true,
+      reorder_body_locals=true,
+      local_name_sec=mod_.name_sec,
+      function_abs=imported + index,
     )
     bodies.push(body)
     remaps.push(Some(mapping))
   }
   let next = mod_.with_code_sec(@lib.CodeSec::new(bodies))
-  let imported = rl_imported_func_count(mod_)
   match rl_rewrite_name_sec(mod_.name_sec, imported, remaps) {
     Some(names) => {
       // Removing a control label changes the ordinal of later labels. Keep
@@ -1109,11 +1178,11 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
 // The summary belongs to this body/signature snapshot and contains no HOT arena.
 fn dae2_collect_control_type_infos(
   body : Array[@lib.Instruction],
-  type_infos : Array[Int],
-  out : Array[Int],
-  call_infos? : Array[Int]? = None,
-  suffix_state? : Dae2StackSuffixState? = None,
-  function_index? : Int = 0,
+  type_infos : Array[Int32],
+  out : Array[Int32],
+  call_infos~ : Array[Int32]? = None,
+  suffix_state~ : Dae2StackSuffixState? = None,
+  function_index~ : Int32 = 0,
 ) -> Bool {
   let mut has_calls = false
   for instruction in body {
@@ -1234,11 +1303,18 @@ fn dae2_collect_control_type_infos(
       _ => None
     }
     match (suffix_state, block_type) {
-      (Some(state), Some(block)) =>
+      (Some(state), Some(block)) => {
         // Bit 1 records structured control; bit 2 excludes static shapes
         // requiring general HOT normalization. Reuse this mandatory scan.
+        let unsupported = match block {
+          @lib.TypeIdxBlockType(index) =>
+            !(instruction is @lib.Loop(_, _) &&
+            dae2_stack_suffix_indexed_loop_has_no_results(state.context, index))
+          _ => false
+        }
         state.admissions[function_index] = state.admissions[function_index] |
-          (if block is @lib.TypeIdxBlockType(_) { 3 } else { 1 })
+          (if unsupported { 3 } else { 1 })
+      }
       _ => ()
     }
     if block_type is Some(@lib.TypeIdxBlockType(index)) {

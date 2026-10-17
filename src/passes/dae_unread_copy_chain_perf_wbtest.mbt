@@ -1,5 +1,5 @@
 ///|
-fn dae_unread_copy_chain_fixture(count : Int) -> @lib.Func {
+fn dae_unread_copy_chain_fixture(count : Int32) -> @lib.Func {
   let locals = Array::make(count, @lib.ValType::i32())
   let body : Array[@lib.Instruction] = []
   for idx in 0..<count {
@@ -16,7 +16,7 @@ fn dae_unread_copy_chain_fixture(count : Int) -> @lib.Func {
 }
 
 ///|
-fn dae_unread_copy_chain_bench(it : @bench.T, count : Int) -> Unit {
+fn dae_unread_copy_chain_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dae_unread_copy_chain_fixture(count)
   let (cleaned, changed) = dae_cleanup_unread_locals(fixture, [])
   let @lib.Func(locals, @lib.Expr(body)) = cleaned
@@ -55,7 +55,7 @@ test "bench dae unread copy chain count=256" (it : @bench.T) {
 }
 
 ///|
-fn dae_nested_unread_copy_chain_fixture(count : Int) -> @lib.Func {
+fn dae_nested_unread_copy_chain_fixture(count : Int32) -> @lib.Func {
   let locals = Array::make(count, @lib.ValType::i32())
   let body : Array[@lib.Instruction] = []
   for idx in 0..<count {
@@ -81,8 +81,8 @@ test "DAE nested unread copy chain removes all local dependencies" {
   let @lib.Func(locals, @lib.Expr(body)) = cleaned
   assert_true(changed)
   assert_eq(locals.length(), 0)
-  let reads : Array[Int] = []
-  let writes : Array[Int] = []
+  let reads : Array[Int32] = []
+  let writes : Array[Int32] = []
   pass_lower_count_locals(body, reads, writes)
   assert_true(reads.is_empty() && writes.is_empty())
 }
@@ -118,13 +118,13 @@ test "DAE unread copy pairs stay within each conditional arm" {
     ),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
   ]
-  let pairs : Array[(Int, Int)] = []
+  let pairs : Array[(Int32, Int32)] = []
   dae_collect_unread_simple_copy_pairs(body, Array::make(4, 1), pairs)
   assert_eq(pairs, [(1, 2), (3, 0)])
 }
 
 ///|
-fn dae_nested_unread_copy_chain_bench(it : @bench.T, count : Int) -> Unit {
+fn dae_nested_unread_copy_chain_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dae_nested_unread_copy_chain_fixture(count)
   let (cleaned, changed) = dae_cleanup_unread_locals(fixture, [])
   let @lib.Func(locals, _) = cleaned

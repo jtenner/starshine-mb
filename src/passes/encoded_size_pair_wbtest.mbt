@@ -26,7 +26,7 @@ test "encoded size pairs match full encoding at body and section length boundari
 }
 
 ///|
-fn encoded_size_fixture(count : Int, width : Int) -> @lib.Module {
+fn encoded_size_fixture(count : Int32, width : Int32) -> @lib.Module {
   let input = pass_test_module_from_wat("(module (func))")
   let func = @lib.Func::new(
     @lib.Locals::empty(),

@@ -17,7 +17,7 @@ fn gsi_test_closed_world_type_is_poisoned(
 fn gsi_test_closed_world_candidate_count(
   facts : GsiClosedWorldFacts,
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   let slot = gsi_type_slot(
     type_idx,
     facts.candidate_globals_by_type_slot.length(),
@@ -33,7 +33,7 @@ fn gsi_test_closed_world_candidate_count(
 fn gsi_test_closed_world_candidate_indices(
   facts : GsiClosedWorldFacts,
   type_idx : @lib.TypeIdx,
-) -> Array[Int] {
+) -> Array[Int32] {
   let slot = gsi_type_slot(
     type_idx,
     facts.candidate_globals_by_type_slot.length(),
@@ -41,7 +41,7 @@ fn gsi_test_closed_world_candidate_indices(
   if slot < 0 {
     []
   } else {
-    let out : Array[Int] = []
+    let out : Array[Int32] = []
     for global_idx in facts.candidate_globals_by_type_slot[slot] {
       let @lib.GlobalIdx(raw) = global_idx
       out.push(raw.reinterpret_as_int())

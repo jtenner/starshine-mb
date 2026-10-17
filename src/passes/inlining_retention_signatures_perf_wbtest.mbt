@@ -1,7 +1,7 @@
 ///|
 fn inl_retention_signature_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   retain : Bool,
 ) -> Unit {
   let (base, indices) = inl_signature_keys_perf_fixture(count, count)
@@ -16,7 +16,7 @@ fn inl_retention_signature_bench(
     )
   let infos = inl_build_function_infos(mod_)
   let touched = Array::make(count, true)
-  let quotas : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let quotas : @hashmap.HashMap[String, Int32] = @hashmap.new()
   if retain {
     quotas.set("p:r:", 1)
   }
@@ -54,13 +54,13 @@ test "bench campaign retention funcs=512 quota" (it : @bench.T) {
 }
 
 ///|
-fn inl_sparse_retention_bench(it : @bench.T, count : Int) -> Unit {
+fn inl_sparse_retention_bench(it : @bench.T, count : Int32) -> Unit {
   let mod_ = inl_sparse_retention_fixture(count)
   let infos = inl_build_function_infos(mod_)
   let candidates = Array::make(count, false)
   candidates[0] = true
   candidates[count - 1] = true
-  let quotas : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let quotas : @hashmap.HashMap[String, Int32] = @hashmap.new()
   quotas.set("p:r:", 1)
   let result = inl_remove_dead_inlined_helpers(
     mod_, infos, candidates, candidates, quotas,

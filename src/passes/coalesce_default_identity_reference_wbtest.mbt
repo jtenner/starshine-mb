@@ -1,10 +1,10 @@
 ///|
 fn cl_default_identity_reference_initial(
   interner : CLValueInterner,
-  idx : Int,
-  param_count : Int,
+  idx : Int32,
+  param_count : Int32,
   ty : @lib.ValType,
-) -> Int {
+) -> Int32 {
   if idx < param_count {
     interner.fresh()
   } else if @lib.has_default(ty) {
@@ -19,8 +19,8 @@ fn cl_default_identity_reference_compute(
   actions : Array[CLAction],
   liveness : CLLiveness,
   types : Array[@lib.ValType],
-  param_count : Int,
-  live_visits? : Array[Int]? = None,
+  param_count : Int32,
+  live_visits~ : Array[Int32]? = None,
 ) -> CLBitMatrix {
   let total_locals = types.length()
   let interferences = CLBitMatrix::new(total_locals)

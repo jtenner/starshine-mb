@@ -154,13 +154,15 @@ test "memory-packing public pipeline rewrites active memory.init across correcte
 
 ///|
 test "memory-packing dispatch accepts a valid descriptor test before active memory.init" {
+  // The binary-facing fixture uses absolute type indices. RecIdx is a valid
+  // validator representation but Encode rejects it until it is normalized.
   let described = @lib.SubType::comp_type(
     @lib.CompType::struct_([]),
-    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::rec(1))),
+    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
   )
   let descriptor = @lib.SubType::comp_type(
     @lib.CompType::struct_([]),
-    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::rec(0))),
+    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
   )
   let target = @lib.HeapType::new(@lib.TypeIdx::new(0U))
   let input = @lib.Module::new()
@@ -209,14 +211,27 @@ test "memory-packing dispatch accepts a valid descriptor test before active memo
     Ok(_) => ()
     Err(err) => fail("expected descriptor input to validate, got \{err}")
   }
+  let input_bytes = match @binary.encode_module(input) {
+    Ok(bytes) => bytes
+    Err(err) => fail("descriptor memory-packing input encoding failed: \{err}")
+  }
   let output = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
     Ok(module_) => module_
     Err(err) => fail("expected memory-packing dispatch, got \{err}")
   }
+  let output_bytes = match @binary.encode_module(output) {
+    Ok(bytes) => bytes
+    Err(err) => fail("descriptor memory-packing output encoding failed: \{err}")
+  }
+  assert_true(
+    output_bytes.length() < input_bytes.length(),
+    msg="the positive dispatcher rewrite must save complete encoded bytes",
+  )
   assert_false(
     mp_wbtest_instrs_have_memory_init(mp_wbtest_first_func_body(output)),
   )
+  assert_eq(output.type_sec, input.type_sec)
   match @validate.validate_module(output) {
     Ok(_) => ()
     Err(err) =>
@@ -256,6 +271,11 @@ test "memory-packing active byte length is not its runtime source length" {
     Ok(output) => output
     Err(err) => fail(err)
   }
+  assert_true(
+    @binary.encode_module(output).unwrap().length() <
+    @binary.encode_module(input).unwrap().length(),
+    msg="the positive dispatcher rewrite must save complete encoded bytes",
+  )
   let body = mp_wbtest_first_func_body(output)
   assert_true(body[body.length() - 1] is @lib.Unreachable)
 }

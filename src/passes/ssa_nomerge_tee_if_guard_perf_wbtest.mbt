@@ -1,6 +1,6 @@
 ///|
 fn ssa_tee_if_guard_fixture(
-  prefixes : Int,
+  prefixes : Int32,
   distinct_targets : Bool,
 ) -> Array[@lib.Instruction] {
   let instrs : Array[@lib.Instruction] = []
@@ -32,7 +32,7 @@ fn ssa_tee_if_guard_fixture(
 ///|
 fn ssa_tee_if_guard_bench(
   it : @bench.T,
-  prefixes : Int,
+  prefixes : Int32,
   distinct_targets : Bool,
 ) -> Unit {
   let fixture = ssa_tee_if_guard_fixture(prefixes, distinct_targets)

@@ -1,7 +1,7 @@
 ///|
 fn precompute_raw_identity_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   active : Bool,
 ) -> Unit {
   let mod_ = pass_test_module_from_wat(

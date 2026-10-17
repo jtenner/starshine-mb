@@ -1,7 +1,7 @@
 ///|
 fn dae2_lazy_children_fixture(
   observed : Bool,
-) -> (Dae2Graph, Array[Dae2Function], @ir.HotFunc, Int, HotPipelineLowerState) {
+) -> (Dae2Graph, Array[Dae2Function], @ir.HotFunc, Int32, HotPipelineLowerState) {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 7 i32.const 11 i32.add))",
   )

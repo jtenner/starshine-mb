@@ -1,7 +1,7 @@
 ///|
 fn gr_test_defined_global_type(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> @lib.GlobalType raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>

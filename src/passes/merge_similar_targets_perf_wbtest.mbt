@@ -1,5 +1,7 @@
 ///|
-fn msf_targets_bench_fixture(count : Int) -> (@lib.Module, Array[@lib.FuncIdx]) {
+fn msf_targets_bench_fixture(
+  count : Int32,
+) -> (@lib.Module, Array[@lib.FuncIdx]) {
   let targets : Array[@lib.FuncIdx] = []
   let funcs : Array[@lib.Func] = []
   let type_idxs : Array[@lib.TypeIdx] = []
@@ -22,7 +24,7 @@ fn msf_targets_bench_fixture(count : Int) -> (@lib.Module, Array[@lib.FuncIdx]) 
 }
 
 ///|
-fn msf_targets_bench(it : @bench.T, count : Int) -> Unit {
+fn msf_targets_bench(it : @bench.T, count : Int32) -> Unit {
   let (mod_, targets) = msf_targets_bench_fixture(count)
   let prepared = msf_append_declarative_targets(mod_, targets)
   match prepared.elem_sec {

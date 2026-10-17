@@ -1,7 +1,7 @@
 ///|
 fn tuple_alias_chain_bench_fixture(
-  depth : Int,
-) -> (@ir.HotFunc, HotTupleOptimizationQuerySummary, Array[Int]) {
+  depth : Int32,
+) -> (@ir.HotFunc, HotTupleOptimizationQuerySummary, Array[Int32]) {
   let instrs : Array[@lib.Instruction] = []
   let locals : Array[@lib.ValType] = []
   for idx in 1..<=depth {
@@ -38,7 +38,7 @@ fn tuple_alias_chain_bench_fixture(
 }
 
 ///|
-fn tuple_alias_chain_bench(it : @bench.T, depth : Int) -> Unit {
+fn tuple_alias_chain_bench(it : @bench.T, depth : Int32) -> Unit {
   let (func, summary, group_ids) = tuple_alias_chain_bench_fixture(depth)
   match
     tuple_optimization_resolve_copy_payload_local(

@@ -1,6 +1,6 @@
 ///|
-fn tuple_optimization_neighbor_perf_bench(it : @bench.T, count : Int) -> Unit {
-  let preflight : Array[Int] = []
+fn tuple_optimization_neighbor_perf_bench(it : @bench.T, count : Int32) -> Unit {
+  let preflight : Array[Int32] = []
   for neighbor in 0..<count {
     tuple_optimization_add_neighbor(preflight, neighbor)
   }
@@ -11,7 +11,7 @@ fn tuple_optimization_neighbor_perf_bench(it : @bench.T, count : Int) -> Unit {
     abort("tuple neighbor fixture lost insertion order or deduplication")
   }
   it.bench(fn() {
-    let neighbors : Array[Int] = []
+    let neighbors : Array[Int32] = []
     for neighbor in 0..<count {
       tuple_optimization_add_neighbor(neighbors, neighbor)
     }
@@ -31,7 +31,7 @@ test "bench tuple neighbor ascending count=2048" (it : @bench.T) {
 
 ///|
 test "tuple neighbor append fast path keeps order and deduplicates" {
-  let neighbors : Array[Int] = []
+  let neighbors : Array[Int32] = []
   for neighbor in [2, 5, 5, 3, 7, 2, 9] {
     tuple_optimization_add_neighbor(neighbors, neighbor)
   }

@@ -10,7 +10,7 @@ fn die_assume_stable_bindings_summary() -> String {
 
 ///|
 priv struct DieSeenImport {
-  func_idx : Int
+  func_idx : Int32
   func_type : @lib.FuncType
   type_idx : @lib.TypeIdx
 }
@@ -30,7 +30,7 @@ fn die_import_key(
 }
 
 ///|
-fn die_imported_func_count(mod_ : @lib.Module) -> Int {
+fn die_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -70,7 +70,7 @@ fn die_has_repeated_function_import_lookup(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
-fn die_defined_func_count(mod_ : @lib.Module) -> Int {
+fn die_defined_func_count(mod_ : @lib.Module) -> Int32 {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
     None => 0
@@ -78,8 +78,8 @@ fn die_defined_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn die_identity_remap(length : Int) -> Array[Int] {
-  let remap : Array[Int] = []
+fn die_identity_remap(length : Int32) -> Array[Int32] {
+  let remap : Array[Int32] = []
   for idx = 0; idx < length; idx = idx + 1 {
     remap.push(idx)
   }
@@ -87,12 +87,15 @@ fn die_identity_remap(length : Int) -> Array[Int] {
 }
 
 ///|
-fn die_rewrite_abs(raw : UInt, remap : Array[Int]) -> UInt {
+fn die_rewrite_abs(raw : UInt32, remap : Array[Int32]) -> UInt32 {
   remap[raw.reinterpret_as_int()].reinterpret_as_uint()
 }
 
 ///|
-fn die_rewrite_func_idx(idx : @lib.FuncIdx, remap : Array[Int]) -> @lib.FuncIdx {
+fn die_rewrite_func_idx(
+  idx : @lib.FuncIdx,
+  remap : Array[Int32],
+) -> @lib.FuncIdx {
   let @lib.FuncIdx(raw) = idx
   @lib.FuncIdx::new(die_rewrite_abs(raw, remap))
 }
@@ -100,7 +103,7 @@ fn die_rewrite_func_idx(idx : @lib.FuncIdx, remap : Array[Int]) -> @lib.FuncIdx 
 ///|
 fn die_rewrite_instruction(
   instr : @lib.Instruction,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.Instruction {
   match instr {
     @lib.Block(block_type, body) =>
@@ -165,7 +168,7 @@ fn die_rewrite_instruction(
 }
 
 ///|
-fn die_rewrite_expr(expr : @lib.Expr, remap : Array[Int]) -> @lib.Expr {
+fn die_rewrite_expr(expr : @lib.Expr, remap : Array[Int32]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -177,7 +180,7 @@ fn die_rewrite_expr(expr : @lib.Expr, remap : Array[Int]) -> @lib.Expr {
 ///|
 fn die_rewrite_elem_kind(
   kind : @lib.ElemKind,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(funcs) => {
@@ -206,7 +209,7 @@ fn die_rewrite_elem_kind(
 
 ///|
 fn die_sort_name_assocs(entries : Array[@lib.NameAssoc]) -> Unit {
-  let ordered : Array[(Int, @lib.NameAssoc)] = []
+  let ordered : Array[(Int32, @lib.NameAssoc)] = []
   for idx = 0; idx < entries.length(); idx = idx + 1 {
     ordered.push((idx, entries[idx]))
   }
@@ -230,7 +233,7 @@ fn die_sort_name_assocs(entries : Array[@lib.NameAssoc]) -> Unit {
 fn die_sort_indirect_name_assocs(
   entries : Array[@lib.IndirectNameAssoc],
 ) -> Unit {
-  let ordered : Array[(Int, @lib.IndirectNameAssoc)] = []
+  let ordered : Array[(Int32, @lib.IndirectNameAssoc)] = []
   for idx = 0; idx < entries.length(); idx = idx + 1 {
     ordered.push((idx, entries[idx]))
   }
@@ -253,7 +256,7 @@ fn die_sort_indirect_name_assocs(
 ///|
 fn die_rewrite_func_name_map(
   names : @lib.NameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
   removed_funcs : Array[Bool],
 ) -> @lib.NameMap? {
   match names {
@@ -282,7 +285,7 @@ fn die_rewrite_func_name_map(
 ///|
 fn die_rewrite_func_indirect_name_map(
   names : @lib.IndirectNameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
   removed_funcs : Array[Bool],
 ) -> @lib.IndirectNameMap? {
   match names {
@@ -314,7 +317,7 @@ fn die_rewrite_func_indirect_name_map(
 ///|
 fn die_rewrite_name_sec(
   name_sec : @lib.NameSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
   removed_funcs : Array[Bool],
 ) -> @lib.NameSec? {
   match name_sec {
@@ -382,7 +385,7 @@ fn die_func_annotation_present(
 ///|
 fn die_rewrite_func_annotation_sec(
   sec : @lib.FuncAnnotationSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.FuncAnnotationSec? {
   let mut final_total = 0
   for next_idx in remap {
@@ -438,7 +441,7 @@ fn die_rewrite_func_annotation_sec(
 ///|
 fn die_plan_remap(
   mod_ : @lib.Module,
-) -> (Array[Int], Array[Bool], Array[Bool], Bool) {
+) -> (Array[Int32], Array[Bool], Array[Bool], Bool) {
   let import_func_count = die_imported_func_count(mod_)
   let defined_func_count = die_defined_func_count(mod_)
   let total_func_count = import_func_count + defined_func_count
@@ -450,7 +453,7 @@ fn die_plan_remap(
     init_idx += 1
   }
   let duplicate_import_funcs : Array[Bool] = []
-  let canonical_import_func : Array[Int] = []
+  let canonical_import_func : Array[Int32] = []
   let mut import_init_idx = 0
   while import_init_idx < import_func_count {
     duplicate_import_funcs.push(false)

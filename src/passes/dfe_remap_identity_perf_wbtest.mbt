@@ -1,9 +1,9 @@
 ///|
 fn dfe_remap_identity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nested : Bool,
-  pattern : Int,
+  pattern : Int32,
   reference : Bool,
 ) -> Unit {
   let body : Array[@lib.Instruction] = []

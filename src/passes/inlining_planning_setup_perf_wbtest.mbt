@@ -1,23 +1,23 @@
 ///|
 fn inl_build_function_infos_reference(
   mod_ : @lib.Module,
-  optimize_level? : Int = 0,
-  shrink_level? : Int = 0,
-  always_inline_max_size? : Int = 2,
-  one_caller_inline_max_size? : Int = -1,
-  flexible_inline_max_size? : Int = 20,
-  max_combined_binary_size? : Int = 400 * 1024,
-  allow_functions_with_loops? : Bool = false,
-  trivial_mode_cache? : Array[(Bool, Bool)?]? = None,
-  classification_counts? : Array[Int]? = None,
-  body_measure_cache? : InlBodyMeasureCache? = None,
+  optimize_level~ : Int32 = 0,
+  shrink_level~ : Int32 = 0,
+  always_inline_max_size~ : Int32 = 2,
+  one_caller_inline_max_size~ : Int32 = -1,
+  flexible_inline_max_size~ : Int32 = 20,
+  max_combined_binary_size~ : Int32 = 400 * 1024,
+  allow_functions_with_loops~ : Bool = false,
+  trivial_mode_cache~ : Array[(Bool, Bool)?]? = None,
+  classification_counts~ : Array[Int32]? = None,
+  body_measure_cache~ : InlBodyMeasureCache? = None,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
   inl_mark_global_uses(mod_, used)
-  let direct_targets_by_func : Array[Array[Int]] = []
+  let direct_targets_by_func : Array[Array[Int32]] = []
   for _ in 0..<imports {
     direct_targets_by_func.push([])
   }
@@ -25,7 +25,7 @@ fn inl_build_function_infos_reference(
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
-        let direct_targets : Array[Int] = []
+        let direct_targets : Array[Int32] = []
         inl_scan_refs(body, refs, used, direct_targets=Some(direct_targets))
         direct_targets_by_func.push(direct_targets)
       }
@@ -254,8 +254,8 @@ fn inl_allocate_reusable_scratch_local_reference(
   pool_types : Array[@lib.ValType],
   pool_used : Array[Bool],
   next_locals : @lib.Locals,
-  absolute_pool_base : Int,
-) -> Int {
+  absolute_pool_base : Int32,
+) -> Int32 {
   for slot = 0; slot < pool_types.length(); slot = slot + 1 {
     if !pool_used[slot] && pool_types[slot] == local_type {
       pool_used[slot] = true
@@ -272,7 +272,7 @@ fn inl_allocate_reusable_scratch_local_reference(
 ///|
 fn inl_planning_setup_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let seed = pass_test_module_from_wat(
@@ -318,7 +318,7 @@ fn inl_planning_setup_bench(
 ///|
 fn inl_scratch_cursor_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   mixed : Bool,
   reference : Bool,
 ) -> Unit {

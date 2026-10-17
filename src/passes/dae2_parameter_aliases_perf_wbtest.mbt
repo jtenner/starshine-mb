@@ -1,9 +1,9 @@
 ///|
 fn dae2_parameter_aliases_perf_run(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   original : Bool,
-  tee? : Bool = false,
+  tee~ : Bool = false,
 ) -> Unit {
   let body = Array::makei(count, fn(i) {
     if tee {
@@ -60,7 +60,7 @@ test "bench parameter aliases 512 propagate" (it : @bench.T) {
 ///|
 fn dae2_parameter_aliases_no_work_perf(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   original : Bool,
 ) -> Unit {
   let body = Array::makei(count, fn(i) {

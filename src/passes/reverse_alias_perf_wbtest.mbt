@@ -1,8 +1,8 @@
 ///|
 fn reverse_alias_perf_run(
   it : @bench.T,
-  width : Int,
-  shape : Int,
+  width : Int32,
+  shape : Int32,
   reference : Bool,
 ) -> Unit raise {
   let locals = Array::make(width * 2, "i32").join(" ")

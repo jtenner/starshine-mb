@@ -1,6 +1,6 @@
 ///|
 fn inl_marked_suffix_perf_fixture(
-  count : Int,
+  count : Int32,
 ) -> (Array[@lib.Instruction], Array[Bool]) {
   let body : Array[@lib.Instruction] = []
   for idx in 0..<count {
@@ -61,7 +61,7 @@ test "Inlining marked suffix preserves nested and tail-call coverage" {
 }
 
 ///|
-fn inl_marked_suffix_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn inl_marked_suffix_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let (body, marked) = inl_marked_suffix_perf_fixture(count)
   if inl_suffix_calls_marked_func(body, 0, marked) {
     abort("Inlining marked suffix benchmark must have no matching call")
@@ -80,7 +80,7 @@ test "bench Inlining marked suffix count=256" (it : @bench.T) {
 }
 
 ///|
-fn inl_self_suffix_perf_bench(it : @bench.T, self_abs : Int) -> Unit {
+fn inl_self_suffix_perf_bench(it : @bench.T, self_abs : Int32) -> Unit {
   let body = Array::make(16, @lib.Instruction::nop())
   if inl_suffix_has_self_call(body, 0, self_abs) {
     abort("Inlining self suffix benchmark must have no self call")

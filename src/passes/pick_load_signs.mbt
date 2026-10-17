@@ -22,11 +22,11 @@ pub fn pick_load_signs_summary() -> String {
 
 ///|
 priv struct PLSUsage {
-  mut signed_usages : Int
-  mut signed_bits : Int
-  mut unsigned_usages : Int
-  mut unsigned_bits : Int
-  mut total_usages : Int
+  mut signed_usages : Int32
+  mut signed_bits : Int32
+  mut unsigned_usages : Int32
+  mut unsigned_bits : Int32
+  mut total_usages : Int32
   mut invalid : Bool
 }
 
@@ -44,11 +44,11 @@ fn PLSUsage::new() -> PLSUsage {
 
 ///|
 priv struct PLSCandidateLoad {
-  local_idx : Int
-  set_node : Int
-  load_id : Int
-  load_addr_id : Int
-  load_bits : Int
+  local_idx : Int32
+  set_node : Int32
+  load_id : Int32
+  load_addr_id : Int32
+  load_bits : Int32
   load_is_i64 : Bool
   current_signed : Bool
   target_signed : Bool
@@ -58,31 +58,31 @@ priv struct PLSCandidateLoad {
 priv struct PLSShiftExtCacheEntry {
   has_result : Bool
   is_signed : Bool
-  bits : Int
-  root_id : Int
+  bits : Int32
+  root_id : Int32
 }
 
 ///|
 priv struct PLSElidableUse {
-  local_idx : Int
-  read_id : Int
-  root_id : Int
-  bits : Int
+  local_idx : Int32
+  read_id : Int32
+  root_id : Int32
+  bits : Int32
   target_signed : Bool
 }
 
 ///|
 priv struct PLSAnalysis {
   candidates : Array[PLSCandidateLoad]
-  rewritable_candidates : Int
+  rewritable_candidates : Int32
   elidable_uses : Array[PLSElidableUse]
 }
 
 ///|
 fn pls_record_signed_usage(
   usage_by_local : Array[PLSUsage],
-  local_idx : Int,
-  bits : Int,
+  local_idx : Int32,
+  bits : Int32,
 ) -> Unit {
   let usage = usage_by_local[local_idx]
   if usage.invalid {
@@ -102,8 +102,8 @@ fn pls_record_signed_usage(
 ///|
 fn pls_record_unsigned_usage(
   usage_by_local : Array[PLSUsage],
-  local_idx : Int,
-  bits : Int,
+  local_idx : Int32,
+  bits : Int32,
 ) -> Unit {
   let usage = usage_by_local[local_idx]
   if usage.invalid {
@@ -121,7 +121,7 @@ fn pls_record_unsigned_usage(
 }
 
 ///|
-fn pls_load_info(instr : @lib.Instruction) -> (Bool, Int, Bool)? {
+fn pls_load_info(instr : @lib.Instruction) -> (Bool, Int32, Bool)? {
   match instr {
     @lib.Instruction::I32Load8S(_) => Some((true, 8, false))
     @lib.Instruction::I32Load8U(_) => Some((false, 8, false))
@@ -228,7 +228,7 @@ fn pls_load_with_signedness(
 }
 
 ///|
-fn pls_i32_const_node(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
+fn pls_i32_const_node(func : @ir.HotFunc, node_id : Int32) -> @lib.I32? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -244,7 +244,7 @@ fn pls_i32_const_node(func : @ir.HotFunc, node_id : Int) -> @lib.I32? {
 }
 
 ///|
-fn pls_i64_const_node(func : @ir.HotFunc, node_id : Int) -> @lib.I64? {
+fn pls_i64_const_node(func : @ir.HotFunc, node_id : Int32) -> @lib.I64? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
@@ -262,7 +262,7 @@ fn pls_i64_const_node(func : @ir.HotFunc, node_id : Int) -> @lib.I64? {
 ///|
 fn pls_const_i32_eq(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   expected : @lib.I32,
 ) -> Bool {
   match pls_i32_const_node(func, node_id) {
@@ -274,7 +274,7 @@ fn pls_const_i32_eq(
 ///|
 fn pls_const_i64_eq(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   expected : @lib.I64,
 ) -> Bool {
   match pls_i64_const_node(func, node_id) {
@@ -284,7 +284,7 @@ fn pls_const_i64_eq(
 }
 
 ///|
-fn pls_i32_low_mask_bits(mask : @lib.I32) -> Int? {
+fn pls_i32_low_mask_bits(mask : @lib.I32) -> Int32? {
   let @lib.I32(value) = mask
   let mut bits = 0
   let mut value_u = value.reinterpret_as_uint()
@@ -300,7 +300,7 @@ fn pls_i32_low_mask_bits(mask : @lib.I32) -> Int? {
 }
 
 ///|
-fn pls_i64_low_mask_bits(mask : @lib.I64) -> Int? {
+fn pls_i64_low_mask_bits(mask : @lib.I64) -> Int32? {
   let @lib.I64(value) = mask
   let mut bits = 0
   let mut value_u = value.reinterpret_as_uint64()
@@ -316,14 +316,14 @@ fn pls_i64_low_mask_bits(mask : @lib.I64) -> Int? {
 }
 
 ///|
-fn pls_i32_shift_ext_bits(shift : @lib.I32) -> Int {
+fn pls_i32_shift_ext_bits(shift : @lib.I32) -> Int32 {
   let @lib.I32(value) = shift
   let effective = value.reinterpret_as_uint() & 31U
   32 - effective.reinterpret_as_int()
 }
 
 ///|
-fn pls_i64_shift_ext_bits(shift : @lib.I64) -> Int {
+fn pls_i64_shift_ext_bits(shift : @lib.I64) -> Int32 {
   let @lib.I64(value) = shift
   let effective = value.reinterpret_as_uint64() & 63UL
   64 - effective.to_int()
@@ -359,9 +359,9 @@ fn pls_target_signedness(
 fn pls_extension_from_grandparent_zero_ext(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
-  parent_id : Int,
+  parent_id : Int32,
   shift_bits : @lib.I32,
-) -> (Bool, Int, Int)? {
+) -> (Bool, Int32, Int32)? {
   for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
@@ -390,9 +390,9 @@ fn pls_extension_from_grandparent_zero_ext(
 fn pls_extension_from_grandparent_zero_ext64(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
-  parent_id : Int,
+  parent_id : Int32,
   shift_bits : @lib.I64,
-) -> (Bool, Int, Int)? {
+) -> (Bool, Int32, Int32)? {
   for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
@@ -421,10 +421,10 @@ fn pls_extension_from_grandparent_zero_ext64(
 fn pls_extension_from_parent(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
-  _read_node_id : Int,
+  _read_node_id : Int32,
   site : @ir.HotUseSite,
-  shift_ext_cache : @hashmap.HashMap[Int, PLSShiftExtCacheEntry],
-) -> (Bool, Int, Int)? {
+  shift_ext_cache : @hashmap.HashMap[Int32, PLSShiftExtCacheEntry],
+) -> (Bool, Int32, Int32)? {
   if !pls_is_child_use_slot(site.kind) {
     return None
   }
@@ -558,12 +558,12 @@ fn pls_analyze_candidates(
   use_def : @ir.HotUseDef,
 ) -> PLSAnalysis {
   let usage_by_local : Array[PLSUsage] = []
-  let usage_slot_by_local : @hashmap.HashMap[Int, Int] = @hashmap.new(
+  let usage_slot_by_local : @hashmap.HashMap[Int32, Int32] = @hashmap.new(
     capacity=candidates.length() * 2 + 1,
   )
-  let local_work_list : Array[Int] = []
+  let local_work_list : Array[Int32] = []
   let cleanup_uses : Array[PLSElidableUse] = []
-  let shift_ext_cache : @hashmap.HashMap[Int, PLSShiftExtCacheEntry] = @hashmap.new(
+  let shift_ext_cache : @hashmap.HashMap[Int32, PLSShiftExtCacheEntry] = @hashmap.new(
     capacity=candidates.length() * 2 + 1,
   )
   for candidate in candidates {
@@ -653,7 +653,7 @@ fn pls_analyze_candidates(
       target_signed,
     }
   }
-  let candidate_by_write : @hashmap.HashMap[Int, PLSCandidateLoad] = @hashmap.new(
+  let candidate_by_write : @hashmap.HashMap[Int32, PLSCandidateLoad] = @hashmap.new(
     capacity=candidates.length() * 2 + 1,
   )
   for candidate in candidates {
@@ -662,7 +662,7 @@ fn pls_analyze_candidates(
       candidate_by_write.set(candidate.set_node, candidate)
     }
   }
-  let cleanup_eligibility : Array[(Int, Bool)?] = Array::make(
+  let cleanup_eligibility : Array[(Int32, Bool)?] = Array::make(
     usage_by_local.length(),
     None,
   )
@@ -704,7 +704,7 @@ fn pls_analyze_candidates(
     }
   }
   let elidable_uses : Array[PLSElidableUse] = []
-  let seen_roots : @hashmap.HashMap[Int, Bool] = @hashmap.new(
+  let seen_roots : @hashmap.HashMap[Int32, Bool] = @hashmap.new(
     capacity=cleanup_uses.length() * 2 + 1,
   )
   for cleanup_use in cleanup_uses {

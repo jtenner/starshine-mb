@@ -1,6 +1,6 @@
 ///|
 fn pls_analysis_bench_fixture(
-  count : Int,
+  count : Int32,
 ) -> (@ir.HotFunc, @ir.HotUseDef, Array[PLSCandidateLoad]) {
   let body : Array[@lib.Instruction] = []
   for _ in 0..<count {
@@ -35,7 +35,7 @@ fn pls_analysis_bench_fixture(
 }
 
 ///|
-fn pls_analysis_bench(it : @bench.T, count : Int) -> Unit {
+fn pls_analysis_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, use_def, candidates) = pls_analysis_bench_fixture(count)
   let expected = pls_analyze_candidates(func, candidates.copy(), use_def)
   if expected.rewritable_candidates != count ||
@@ -59,7 +59,7 @@ test "bench pick-load-signs analysis count=256" (it : @bench.T) {
 
 ///|
 fn pls_sparse_analysis_bench_fixture(
-  unrelated : Int,
+  unrelated : Int32,
 ) -> (@ir.HotFunc, @ir.HotUseDef, Array[PLSCandidateLoad]) {
   let body : Array[@lib.Instruction] = [
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -94,7 +94,7 @@ fn pls_sparse_analysis_bench_fixture(
 }
 
 ///|
-fn pls_sparse_analysis_bench(it : @bench.T, unrelated : Int) -> Unit {
+fn pls_sparse_analysis_bench(it : @bench.T, unrelated : Int32) -> Unit {
   let (func, use_def, candidates) = pls_sparse_analysis_bench_fixture(unrelated)
   let expected = pls_analyze_candidates(func, candidates.copy(), use_def)
   if expected.rewritable_candidates != 1 || expected.elidable_uses.length() != 1 {

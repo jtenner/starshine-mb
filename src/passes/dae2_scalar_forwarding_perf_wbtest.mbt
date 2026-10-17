@@ -1,7 +1,7 @@
 ///|
 fn dae2_scalar_forwarding_perf_run(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   original : Bool,
 ) -> Unit {
   let body = Array::makei(count, fn(i) {

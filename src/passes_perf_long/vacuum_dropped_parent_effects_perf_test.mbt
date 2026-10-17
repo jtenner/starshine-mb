@@ -1,5 +1,7 @@
 ///|
-fn vacuum_dropped_parent_effects_perf_module(repetitions : Int) -> @lib.Module {
+fn vacuum_dropped_parent_effects_perf_module(
+  repetitions : Int32,
+) -> @lib.Module {
   let i32_func_type = @lib.TypeIdx::new(0U)
   let void_func_type = @lib.TypeIdx::new(1U)
   let body : Array[@lib.Instruction] = []
@@ -37,7 +39,7 @@ fn vacuum_dropped_parent_effects_perf_module(repetitions : Int) -> @lib.Module {
 }
 
 ///|
-fn vacuum_candidate_free_calls_perf_module(repetitions : Int) -> @lib.Module {
+fn vacuum_candidate_free_calls_perf_module(repetitions : Int32) -> @lib.Module {
   let void_func_type = @lib.TypeIdx::new(0U)
   let body : Array[@lib.Instruction] = []
   for repetition = 0; repetition < repetitions; repetition = repetition + 1 {
@@ -69,7 +71,7 @@ fn vacuum_candidate_free_calls_perf_module(repetitions : Int) -> @lib.Module {
 ///|
 fn vacuum_dropped_parent_effects_perf_counts(
   instrs : Array[@lib.Instruction],
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   let mut calls = 0
   let mut drops = 0
   let mut adds = 0
@@ -122,7 +124,7 @@ fn vacuum_dropped_parent_effects_perf_counts(
 ///|
 fn vacuum_dropped_parent_effects_perf_worker_counts(
   mod_ : @lib.Module,
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   match mod_.code_sec {
     Some(@lib.CodeSec([_, _, @lib.Func(_, @lib.Expr(body))])) =>
       vacuum_dropped_parent_effects_perf_counts(body)
@@ -152,7 +154,7 @@ fn vacuum_dropped_parent_effects_perf_direct_func(
 ///|
 fn vacuum_dropped_parent_effects_perf_preflight(
   fixture : @lib.Module,
-  repetitions : Int,
+  repetitions : Int32,
 ) -> @lib.Module {
   let optimized = match
     @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
@@ -175,7 +177,7 @@ fn vacuum_dropped_parent_effects_perf_preflight(
 ///|
 fn vacuum_candidate_free_calls_perf_preflight(
   fixture : @lib.Module,
-  repetitions : Int,
+  repetitions : Int32,
 ) -> @lib.Module {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -216,7 +218,7 @@ fn vacuum_candidate_free_calls_perf_preflight(
 }
 
 ///|
-fn vacuum_constant_result_if_perf_module(function_count : Int) -> @lib.Module {
+fn vacuum_constant_result_if_perf_module(function_count : Int32) -> @lib.Module {
   let result_type = @lib.TypeIdx::new(0U)
   let funcs : Array[@lib.Func] = []
   let types : Array[@lib.TypeIdx] = []
@@ -251,7 +253,7 @@ fn vacuum_constant_result_if_perf_module(function_count : Int) -> @lib.Module {
 ///|
 fn vacuum_constant_result_if_perf_preflight(
   fixture : @lib.Module,
-  function_count : Int,
+  function_count : Int32,
 ) -> @lib.Module {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -307,7 +309,7 @@ fn vacuum_constant_result_if_perf_preflight(
 }
 
 ///|
-fn vacuum_unreachable_arm_perf_module(repetitions : Int) -> @lib.Module {
+fn vacuum_unreachable_arm_perf_module(repetitions : Int32) -> @lib.Module {
   let result_type = @lib.TypeIdx::new(0U)
   let void_type = @lib.TypeIdx::new(1U)
   let body : Array[@lib.Instruction] = []
@@ -350,7 +352,7 @@ fn vacuum_unreachable_arm_perf_module(repetitions : Int) -> @lib.Module {
 ///|
 fn vacuum_unreachable_arm_perf_preflight(
   fixture : @lib.Module,
-  repetitions : Int,
+  repetitions : Int32,
 ) -> @lib.Module {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

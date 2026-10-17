@@ -13,7 +13,7 @@ fn remove_unused_names_test_body(text : String) -> Array[@lib.Instruction] {
 ///|
 fn remove_unused_names_o4z_run(
   text : String,
-  passes? : Array[String] = ["remove-unused-names"],
+  passes~ : Array[String] = ["remove-unused-names"],
 ) -> (Array[@lib.Instruction], Array[String]) {
   let trace : Array[String] = []
   let optimized = match

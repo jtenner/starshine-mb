@@ -5,7 +5,7 @@
 // execution cases live in tests/optimizer/regressions/ssa-canonical-merges.
 fn ssa_test_assert_canonical_merge_encoding(
   input : @lib.Module,
-  rewritten_fixture : Int?,
+  rewritten_fixture : Int32?,
 ) -> Unit raise {
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
@@ -32,7 +32,7 @@ fn ssa_test_assert_canonical_merge_encoding(
 }
 
 ///|
-fn ssa_test_canonical_merge_fixture(id : Int) -> Array[Int] {
+fn ssa_test_canonical_merge_fixture(id : Int32) -> Array[Int32] {
   match id {
     // ssa-nomerge rewrites copy-needing scalar typed loop-param br_if
     78 =>

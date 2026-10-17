@@ -10,8 +10,8 @@ priv struct SgoGlobalInfo {
   mut mutable_ : Bool
   value_type : @lib.ValType
   mut init : @lib.Expr?
-  mut read_count : Int
-  mut write_count : Int
+  mut read_count : Int32
+  mut write_count : Int32
 }
 
 ///|
@@ -47,20 +47,23 @@ priv enum SgoScalarFlowKind {
 ///|
 priv struct SgoScalarIndependentFragment {
   result_kind : SgoScalarFlowKind
-  start_pos : Int
-  next_pos : Int
-  replay_end_pos : Int
+  start_pos : Int32
+  next_pos : Int32
+  replay_end_pos : Int32
   replay_nested_block : Bool
 }
 
 ///|
-fn sgo_global_idx_slot(idx : @lib.GlobalIdx) -> Int {
+fn sgo_global_idx_slot(idx : @lib.GlobalIdx) -> Int32 {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn sgo_defined_global_abs_idx(imported_globals : Int, defined_idx : Int) -> Int {
+fn sgo_defined_global_abs_idx(
+  imported_globals : Int32,
+  defined_idx : Int32,
+) -> Int32 {
   imported_globals + defined_idx
 }
 
@@ -88,17 +91,17 @@ fn sgo_expr_single_const(expr : @lib.Expr) -> @lib.Instruction? {
 }
 
 ///|
-fn sgo_empty_const_array(length : Int) -> Array[@lib.Instruction?] {
+fn sgo_empty_const_array(length : Int32) -> Array[@lib.Instruction?] {
   Array::make(length, None)
 }
 
 ///|
-fn sgo_empty_expr_array(length : Int) -> Array[@lib.Expr?] {
+fn sgo_empty_expr_array(length : Int32) -> Array[@lib.Expr?] {
   Array::make(length, None)
 }
 
 ///|
-fn sgo_empty_global_idx_array(length : Int) -> Array[@lib.GlobalIdx?] {
+fn sgo_empty_global_idx_array(length : Int32) -> Array[@lib.GlobalIdx?] {
   Array::make(length, None)
 }
 
@@ -273,7 +276,7 @@ fn sgo_collect_func_type_indices(mod_ : @lib.Module) -> Array[@lib.TypeIdx] {
 fn sgo_resolve_func_type(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  func_abs : Int,
+  func_abs : Int32,
 ) -> @lib.FuncType? {
   if func_abs < 0 || func_abs >= func_type_indices.length() {
     return None
@@ -286,7 +289,7 @@ fn sgo_resolve_func_type(
 }
 
 ///|
-fn sgo_func_idx_slot(idx : @lib.FuncIdx) -> Int {
+fn sgo_func_idx_slot(idx : @lib.FuncIdx) -> Int32 {
   let @lib.FuncIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -345,7 +348,9 @@ fn sgo_call_no_params_scalar_result_kind(
 }
 
 ///|
-fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
+fn sgo_collect_global_infos(
+  mod_ : @lib.Module,
+) -> (Array[SgoGlobalInfo], Int32) {
   let infos : Array[SgoGlobalInfo] = []
   let mut imported_globals = 0
   match mod_.import_sec {
@@ -594,7 +599,7 @@ fn sgo_same_literal_bits(
 ///|
 fn sgo_mark_same_init_write(
   idx : @lib.GlobalIdx,
-  pos : Int,
+  pos : Int32,
   instrs : Array[@lib.Instruction],
   init_consts : Array[@lib.Instruction?],
   flags : Array[Bool],
@@ -649,7 +654,7 @@ fn sgo_read_only_to_write_flags(
 ///|
 fn sgo_count_read_only_to_write_expr(
   expr : @lib.Expr,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Unit {
@@ -662,7 +667,7 @@ fn sgo_count_read_only_to_write_expr(
 ///|
 fn sgo_count_read_only_to_write_safe_read(
   idx : @lib.GlobalIdx,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   let slot = sgo_global_idx_slot(idx)
   if slot >= 0 && slot < safe_reads.length() {
@@ -791,8 +796,8 @@ fn sgo_structured_guarded_scalar_read(
 ///|
 fn sgo_count_structured_guarded_scalar_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match sgo_structured_guarded_scalar_read(instrs[pos]) {
     Some((idx, result_kind)) => {
@@ -815,7 +820,7 @@ fn sgo_count_structured_guarded_scalar_read(
 ///|
 fn sgo_count_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Unit {
@@ -1042,8 +1047,8 @@ fn sgo_if_arm_condition_read_idx(instr : @lib.Instruction) -> @lib.GlobalIdx? {
 ///|
 fn sgo_count_if_arm_condition_read_only_to_write_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match sgo_if_arm_condition_read_idx(instrs[pos]) {
     Some(idx) =>
@@ -1069,8 +1074,8 @@ fn sgo_count_if_arm_condition_read_only_to_write_read(
 ///|
 fn sgo_count_if_arm_condition_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match sgo_if_arm_condition_read_idx(instrs[pos]) {
     Some(idx) =>
@@ -1093,7 +1098,7 @@ fn sgo_count_if_arm_condition_if_return_read(
 ///|
 fn sgo_read_only_to_write_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -1169,7 +1174,7 @@ fn sgo_local_effect_value_is_independent(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_select_operand_independent_local_tee_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent constant local.tee supplies one
@@ -1234,7 +1239,7 @@ fn sgo_select_operand_independent_local_tee_read_at(
 ///|
 fn sgo_compare_operand_independent_local_tee_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent constant-or-local.get local.tee
@@ -1311,7 +1316,7 @@ fn sgo_independent_global_set_result_block_matches(
 ///|
 fn sgo_compare_operand_independent_global_set_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent constant-or-local.get global.set
@@ -1423,7 +1428,7 @@ fn sgo_push_memory_store_result_block_effect(
 ///|
 fn sgo_compare_operand_independent_memory_store_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent constant memory store may produce
@@ -1468,7 +1473,7 @@ fn sgo_compare_operand_independent_memory_store_read_at(
 ///|
 fn sgo_select_operand_independent_call_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -1502,7 +1507,7 @@ fn sgo_select_operand_independent_call_read_at(
 ///|
 fn sgo_compare_operand_independent_call_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -1566,8 +1571,8 @@ fn sgo_is_nontrapping_i32_binary_flow_instr(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_i32_call_binary_pure_suffix_depth_after(
   instr : @lib.Instruction,
-  depth : Int,
-) -> Int? {
+  depth : Int32,
+) -> Int32? {
   // Narrow source-backed suffixes: one nontrapping pure i32 parent above the
   // nontrapping i32 binary call sibling. Broader pure suffix chains still need
   // separate probes and tests before admission.
@@ -1585,7 +1590,7 @@ fn sgo_i32_call_binary_pure_suffix_depth_after(
 ///|
 fn sgo_i32_pure_suffix_tail_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // One source-backed suffix may also be a constant-fed i32 equality compare.
@@ -1631,8 +1636,8 @@ fn sgo_i32_pure_suffix_tail_matches(
 ///|
 fn sgo_i32_pure_suffix_empty_if_end(
   instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   if start + 2 < instrs.length() &&
     sgo_const_instr(instrs[start]) != None &&
     sgo_is_compare_instr(instrs[start + 1]) &&
@@ -1663,8 +1668,8 @@ fn sgo_i32_pure_suffix_empty_if_end(
 ///|
 fn sgo_i32_pure_suffix_if_return_drop_end(
   instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   if start + 4 < instrs.length() &&
     sgo_const_instr(instrs[start]) != None &&
     sgo_is_compare_instr(instrs[start + 1]) &&
@@ -1702,7 +1707,7 @@ fn sgo_i32_pure_suffix_if_return_drop_end(
 ///|
 fn sgo_pure_i32_binary_operand_independent_call_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -1806,7 +1811,7 @@ fn sgo_is_i64_const(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_i64_pure_suffix_tail_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow source-backed i64 suffixes: one i64.eqz, or one constant-fed
@@ -1850,8 +1855,8 @@ fn sgo_i64_pure_suffix_tail_matches(
 ///|
 fn sgo_i64_pure_suffix_empty_if_end(
   instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   if start + 1 < instrs.length() &&
     instrs[start] == @lib.Instruction::i64_eqz() &&
     sgo_instr_is_empty_void_if(instrs[start + 1]) {
@@ -1870,8 +1875,8 @@ fn sgo_i64_pure_suffix_empty_if_end(
 ///|
 fn sgo_i64_pure_suffix_if_return_drop_end(
   instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   if start + 3 < instrs.length() &&
     instrs[start] == @lib.Instruction::i64_eqz() &&
     sgo_is_return_guard(instrs[start + 1]) &&
@@ -1894,7 +1899,7 @@ fn sgo_i64_pure_suffix_if_return_drop_end(
 ///|
 fn sgo_pure_i64_binary_operand_independent_call_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -2216,7 +2221,7 @@ fn sgo_scalar_pure_expr_result_kind(
 ///|
 fn sgo_scalar_result_block_effect_prefix(
   body : Array[@lib.Instruction],
-) -> (SgoScalarFlowKind, Int)? {
+) -> (SgoScalarFlowKind, Int32)? {
   match body {
     [value, @lib.LocalSet(_), result] if sgo_local_effect_value_is_independent(
         value,
@@ -2281,7 +2286,7 @@ fn sgo_scalar_result_if_kind(instr : @lib.Instruction) -> SgoScalarFlowKind? {
 ///|
 fn sgo_scalar_independent_fragment_starts_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
 ) -> Bool {
   if pos < 0 || pos >= instrs.length() {
     return false
@@ -2300,7 +2305,7 @@ fn sgo_scalar_independent_fragment_starts_at(
 ///|
 fn sgo_scalar_independent_fragment_can_end_at(
   instrs : Array[@lib.Instruction],
-  end_pos : Int,
+  end_pos : Int32,
 ) -> Bool {
   if end_pos <= 0 {
     return false
@@ -2321,7 +2326,7 @@ fn sgo_scalar_independent_fragment_can_end_at(
 ///|
 fn sgo_scalar_independent_fragment_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> SgoScalarIndependentFragment? {
@@ -2495,7 +2500,7 @@ fn sgo_scalar_independent_fragment_at(
 fn sgo_scalar_fragment_cleanup_replay(
   instrs : Array[@lib.Instruction],
   fragment : SgoScalarIndependentFragment,
-  unary_end : Int,
+  unary_end : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Array[@lib.Instruction] {
@@ -2563,10 +2568,10 @@ fn sgo_scalar_fragment_cleanup_replay(
 ///|
 fn sgo_scalar_independent_fragment_before(
   instrs : Array[@lib.Instruction],
-  end_pos : Int,
+  end_pos : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Int, SgoScalarIndependentFragment)? {
+) -> (Int32, SgoScalarIndependentFragment)? {
   if end_pos > 0 {
     match
       sgo_scalar_independent_fragment_at(
@@ -2667,7 +2672,7 @@ fn sgo_float_binary_compare_types_match(
 ///|
 fn sgo_scalar_flow_guard_tail_matches(
   instrs : Array[@lib.Instruction],
-  tail_pos : Int,
+  tail_pos : Int32,
   idx : @lib.GlobalIdx,
   kind : SgoScalarFlowKind,
 ) -> Bool {
@@ -2685,8 +2690,8 @@ fn sgo_scalar_flow_guard_tail_matches(
 ///|
 fn sgo_scalar_const_prefix_start(
   instrs : Array[@lib.Instruction],
-  end : Int,
-) -> Int {
+  end : Int32,
+) -> Int32 {
   let mut start = end
   while start > 0 && sgo_scalar_const_kind(instrs[start - 1]) != None {
     start = start - 1
@@ -2697,11 +2702,11 @@ fn sgo_scalar_const_prefix_start(
 ///|
 fn sgo_scalar_pure_suffix_with_prefix_tail_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   idx : @lib.GlobalIdx,
   initial_kind : SgoScalarFlowKind,
-  prefix_start : Int,
-  prefix_end : Int,
+  prefix_start : Int32,
+  prefix_end : Int32,
 ) -> Bool {
   let mut scan = start
   let mut kind = initial_kind
@@ -2750,12 +2755,12 @@ fn sgo_scalar_pure_suffix_with_prefix_tail_matches(
 ///|
 fn sgo_scalar_pure_suffix_cleanup_end(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   initial_kind : SgoScalarFlowKind,
   if_return : Bool,
-  prefix_start : Int,
-  prefix_end : Int,
-) -> Int? {
+  prefix_start : Int32,
+  prefix_end : Int32,
+) -> Int32? {
   let mut scan = start
   let mut kind = initial_kind
   let mut prefix_scan = prefix_end
@@ -2811,7 +2816,7 @@ fn sgo_scalar_pure_suffix_cleanup_end(
 ///|
 fn sgo_scalar_call_parent_chain_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -2920,10 +2925,10 @@ fn sgo_scalar_call_parent_chain_read_at(
 ///|
 fn sgo_scalar_call_parent_cleanup_prefix(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> (Array[@lib.Instruction], SgoScalarFlowKind, Int, Int, Int)? {
+) -> (Array[@lib.Instruction], SgoScalarFlowKind, Int32, Int32, Int32)? {
   if pos >= instrs.length() {
     return None
   }
@@ -3010,7 +3015,7 @@ fn sgo_scalar_call_parent_cleanup_prefix(
 ///|
 fn sgo_float_guard_tail_matches(
   instrs : Array[@lib.Instruction],
-  tail_pos : Int,
+  tail_pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   if tail_pos >= instrs.length() {
@@ -3027,7 +3032,7 @@ fn sgo_float_guard_tail_matches(
 ///|
 fn sgo_float_result_first_compare_tail_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   idx : @lib.GlobalIdx,
   op : @lib.Instruction,
 ) -> Bool {
@@ -3041,7 +3046,7 @@ fn sgo_float_result_first_compare_tail_matches(
 ///|
 fn sgo_float_binary_operand_independent_call_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -3105,7 +3110,7 @@ fn sgo_float_binary_operand_independent_call_read_at(
 ///|
 fn sgo_float_call_binary_compare_prefix_func(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> @lib.FuncIdx? {
@@ -3170,7 +3175,7 @@ fn sgo_i32_add_grow_arg_is_independent(
 ///|
 fn sgo_compare_operand_independent_memory_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent memory.size or constant-or-local.get
@@ -3301,7 +3306,7 @@ fn sgo_table_grow_arg_is_independent(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_compare_operand_independent_table_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: an independent table.size or constant-or-local.get
@@ -3456,7 +3461,7 @@ fn sgo_compare_operand_independent_table_read_at(
 ///|
 fn sgo_select_operand_independent_memory_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: the guarded global is a select operand while an
@@ -3581,7 +3586,7 @@ fn sgo_select_operand_independent_memory_read_at(
 ///|
 fn sgo_select_operand_independent_table_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   // Narrow FlowScanner subset: the guarded global is a select operand while an
@@ -3953,7 +3958,7 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
 ///|
 fn sgo_read_only_to_write_pure_condition_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
@@ -3988,7 +3993,7 @@ fn sgo_read_only_to_write_pure_condition_read_at(
 ///|
 fn sgo_read_only_to_write_if_return_value_read_at(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
@@ -4060,7 +4065,7 @@ fn sgo_is_compare_instr(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_is_exact_if_return_set(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   match instrs {
@@ -4121,7 +4126,7 @@ fn sgo_is_exact_if_return_set(
 ///|
 fn sgo_if_return_tail_matches(
   instrs : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   if start + 2 == instrs.length() {
@@ -4136,7 +4141,7 @@ fn sgo_if_return_tail_matches(
 ///|
 fn sgo_is_pure_condition_if_return_set(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   if pos != 0 {
@@ -4175,7 +4180,7 @@ fn sgo_collect_read_only_to_write_body(
 }
 
 ///|
-fn sgo_skip_noop_const_drops(instrs : Array[@lib.Instruction]) -> Int {
+fn sgo_skip_noop_const_drops(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut start = 0
   while start + 1 < instrs.length() &&
         sgo_const_instr(instrs[start]) != None &&
@@ -4291,7 +4296,7 @@ fn sgo_if_is_nested_multiglobal_read_only_to_write_set(
 ///|
 fn sgo_count_nested_multiglobal_read_only_to_write_expr(
   expr : @lib.Expr,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
   infos : Array[SgoGlobalInfo],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
@@ -4303,7 +4308,7 @@ fn sgo_count_nested_multiglobal_read_only_to_write_expr(
 ///|
 fn sgo_count_nested_multiglobal_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
   infos : Array[SgoGlobalInfo],
 ) -> Unit {
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
@@ -4515,8 +4520,8 @@ fn sgo_block_condition_pure_read_matches(
 ///|
 fn sgo_flat_prefix_is_read_only_to_write_guard(
   flat : Array[@lib.Instruction],
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   if end_exclusive <= start + 1 || end_exclusive > flat.length() {
@@ -4561,8 +4566,8 @@ fn sgo_block_condition_nested_guard_final_read_matches(
 ///|
 fn sgo_external_condition_stack_after(
   instr : @lib.Instruction,
-  depth : Int,
-) -> Int? {
+  depth : Int32,
+) -> Int32? {
   match sgo_const_instr(instr) {
     Some(_) => return Some(depth + 1)
     None => ()
@@ -4588,8 +4593,8 @@ fn sgo_external_condition_stack_after(
 ///|
 fn sgo_is_short_block_condition_external_legacy(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  if_index : Int,
+  pos : Int32,
+  if_index : Int32,
 ) -> Bool {
   let start = pos + 1
   let len = if_index - start
@@ -4606,8 +4611,8 @@ fn sgo_is_short_block_condition_external_legacy(
 ///|
 fn sgo_is_short_block_condition_external_reverse_legacy(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  if_index : Int,
+  pos : Int32,
+  if_index : Int32,
 ) -> Bool {
   pos > 0 &&
   if_index == pos + 2 &&
@@ -4618,10 +4623,10 @@ fn sgo_is_short_block_condition_external_reverse_legacy(
 ///|
 fn sgo_block_condition_external_pure_if_index_with_depth(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  initial_depth : Int,
+  pos : Int32,
+  initial_depth : Int32,
   reverse_legacy : Bool,
-) -> Int? {
+) -> Int32? {
   let mut depth = initial_depth
   let mut pure_count = 0
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
@@ -4658,16 +4663,16 @@ fn sgo_block_condition_external_pure_if_index_with_depth(
 ///|
 fn sgo_block_condition_external_pure_if_index(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
+  pos : Int32,
+) -> Int32? {
   sgo_block_condition_external_pure_if_index_with_depth(instrs, pos, 1, false)
 }
 
 ///|
 fn sgo_block_condition_reverse_external_pure_if_index(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
+  pos : Int32,
+) -> Int32? {
   if pos <= 0 || sgo_const_instr(instrs[pos - 1]) == None {
     return None
   }
@@ -4677,8 +4682,8 @@ fn sgo_block_condition_reverse_external_pure_if_index(
 ///|
 fn sgo_count_block_condition_external_pure_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
@@ -4704,8 +4709,8 @@ fn sgo_count_block_condition_external_pure_read(
 ///|
 fn sgo_count_block_condition_external_pure_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
@@ -4734,8 +4739,8 @@ fn sgo_count_block_condition_external_pure_if_return_read(
 ///|
 fn sgo_count_block_condition_reverse_external_pure_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
@@ -4761,8 +4766,8 @@ fn sgo_count_block_condition_reverse_external_pure_read(
 ///|
 fn sgo_count_block_condition_reverse_external_pure_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instrs[pos] {
     @lib.Block(_, @lib.Expr(body)) =>
@@ -4792,7 +4797,7 @@ fn sgo_count_block_condition_reverse_external_pure_if_return_read(
 fn sgo_count_block_condition_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
@@ -4959,7 +4964,7 @@ fn sgo_block_condition_independent_global_set_final_read_idx(
 fn sgo_count_block_condition_independent_memory_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
@@ -4980,7 +4985,7 @@ fn sgo_count_block_condition_independent_memory_read_only_to_write_read(
 fn sgo_count_block_condition_independent_table_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
@@ -5001,7 +5006,7 @@ fn sgo_count_block_condition_independent_table_read_only_to_write_read(
 fn sgo_count_block_condition_independent_local_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
@@ -5029,7 +5034,7 @@ fn sgo_count_block_condition_independent_local_read_only_to_write_read(
 fn sgo_count_block_condition_independent_global_set_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
@@ -5051,7 +5056,7 @@ fn sgo_count_block_condition_independent_global_set_read_only_to_write_read(
 fn sgo_count_block_condition_independent_call_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Unit {
@@ -5076,8 +5081,8 @@ fn sgo_count_block_condition_independent_call_read_only_to_write_read(
 ///|
 fn sgo_count_block_condition_independent_call_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Unit {
@@ -5103,8 +5108,8 @@ fn sgo_count_block_condition_independent_call_if_return_read(
 ///|
 fn sgo_count_block_condition_independent_memory_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos + 2 >= instrs.length() {
     return
@@ -5125,8 +5130,8 @@ fn sgo_count_block_condition_independent_memory_if_return_read(
 ///|
 fn sgo_count_block_condition_independent_table_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos + 2 >= instrs.length() {
     return
@@ -5147,8 +5152,8 @@ fn sgo_count_block_condition_independent_table_if_return_read(
 ///|
 fn sgo_count_block_condition_independent_local_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos + 2 >= instrs.length() {
     return
@@ -5169,8 +5174,8 @@ fn sgo_count_block_condition_independent_local_if_return_read(
 ///|
 fn sgo_count_block_condition_independent_global_set_if_return_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos + 2 >= instrs.length() {
     return
@@ -5192,7 +5197,7 @@ fn sgo_count_block_condition_independent_global_set_if_return_read(
 fn sgo_count_block_condition_safe_body_read(
   body : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   if sgo_block_condition_final_read_matches(body, idx) ||
     sgo_block_condition_pure_read_matches(body, idx) ||
@@ -5212,7 +5217,7 @@ fn sgo_count_block_condition_safe_body_read(
 fn sgo_count_block_condition_if_return_body_read(
   body : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
 }
@@ -5222,7 +5227,7 @@ fn sgo_count_block_condition_eqz_read_only_to_write_read(
   instr : @lib.Instruction,
   eqz : @lib.Instruction,
   if_instr : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, if_instr) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if eqz ==
@@ -5242,7 +5247,7 @@ fn sgo_count_block_condition_compare_read_only_to_write_read(
   const_instr : @lib.Instruction,
   cmp_instr : @lib.Instruction,
   if_instr : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, if_instr) {
     (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if sgo_const_instr(
@@ -5262,8 +5267,8 @@ fn sgo_count_block_condition_compare_read_only_to_write_read(
 ///|
 fn sgo_count_block_condition_reverse_compare_read_only_to_write_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos <= 0 || pos + 2 >= instrs.length() {
     return
@@ -5292,7 +5297,7 @@ fn sgo_count_block_condition_if_return_block_set_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
   block_tail : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next, block_tail) {
     (
@@ -5315,7 +5320,7 @@ fn sgo_count_block_condition_if_return_set_read(
   next : @lib.Instruction,
   value : @lib.Instruction,
   set : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, next, set) {
     (@lib.Block(_, @lib.Expr(body)), if_instr, @lib.GlobalSet(idx)) if sgo_is_return_guard(
@@ -5334,7 +5339,7 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
   if_instr : @lib.Instruction,
   value : @lib.Instruction,
   set : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, set) {
     (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if eqz ==
@@ -5361,7 +5366,7 @@ fn sgo_count_block_condition_eqz_if_return_block_set_read(
   eqz : @lib.Instruction,
   if_instr : @lib.Instruction,
   block_tail : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instr {
     @lib.Block(_, @lib.Expr(body)) if eqz == @lib.Instruction::i32_eqz() &&
@@ -5383,7 +5388,7 @@ fn sgo_count_block_condition_compare_if_return_set_read(
   if_instr : @lib.Instruction,
   value : @lib.Instruction,
   set : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match (instr, set) {
     (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if sgo_const_instr(
@@ -5405,7 +5410,7 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
   cmp_instr : @lib.Instruction,
   if_instr : @lib.Instruction,
   block_tail : @lib.Instruction,
-  safe_reads : Array[Int],
+  safe_reads : Array[Int32],
 ) -> Unit {
   match instr {
     @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
@@ -5423,8 +5428,8 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
 ///|
 fn sgo_count_block_condition_reverse_compare_if_return_set_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos <= 0 || pos + 4 >= instrs.length() {
     return
@@ -5451,8 +5456,8 @@ fn sgo_count_block_condition_reverse_compare_if_return_set_read(
 ///|
 fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
   instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
+  pos : Int32,
+  safe_reads : Array[Int32],
 ) -> Unit {
   if pos <= 0 || pos + 3 >= instrs.length() {
     return
@@ -5774,7 +5779,7 @@ fn sgo_build_code_consts(
 fn sgo_record_alias_for_global(
   aliases : Array[@lib.GlobalIdx?],
   infos : Array[SgoGlobalInfo],
-  abs_idx : Int,
+  abs_idx : Int32,
   init : @lib.Expr,
 ) -> Unit {
   if abs_idx < 0 || abs_idx >= infos.length() || infos[abs_idx].mutable_ {
@@ -5802,7 +5807,7 @@ fn sgo_record_alias_for_global(
 fn sgo_rewrite_global_sec(
   global_sec : @lib.GlobalSec?,
   infos : Array[SgoGlobalInfo],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> (@lib.GlobalSec?, Array[@lib.Instruction?], Array[@lib.GlobalIdx?], Bool) {
   let startup_consts = sgo_build_initial_startup_consts(infos)
   let aliases = sgo_empty_global_idx_array(infos.length())
@@ -5971,7 +5976,7 @@ fn sgo_rewrite_data_sec(
 ///|
 fn sgo_runtime_trace_clear(
   facts : Array[@lib.Instruction?],
-  touched : Array[Int],
+  touched : Array[Int32],
   marked : Array[Bool],
 ) -> Unit {
   for slot in touched {
@@ -6020,7 +6025,7 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_runtime_trace_trackable(
   infos : Array[SgoGlobalInfo],
-  slot : Int,
+  slot : Int32,
 ) -> Bool {
   slot >= 0 && slot < infos.length()
 }
@@ -6029,15 +6034,15 @@ fn sgo_runtime_trace_trackable(
 priv struct SgoRuntimeTraceWorkspace {
   facts : Array[@lib.Instruction?]
   marked : Array[Bool]
-  touched : Array[Int]
-  mutable_imports : Array[Int]
+  touched : Array[Int32]
+  mutable_imports : Array[Int32]
 }
 
 ///|
 fn SgoRuntimeTraceWorkspace::new(
   infos : Array[SgoGlobalInfo],
 ) -> SgoRuntimeTraceWorkspace {
-  let mutable_imports : Array[Int] = []
+  let mutable_imports : Array[Int32] = []
   for slot = 0; slot < infos.length(); slot = slot + 1 {
     if infos[slot].imported && infos[slot].mutable_ {
       mutable_imports.push(slot)
@@ -6083,7 +6088,7 @@ fn sgo_rewrite_runtime_trace_expr(
 }
 
 ///|
-fn sgo_i32_add_no_overflow(lhs : Int, rhs : Int) -> Int? {
+fn sgo_i32_add_no_overflow(lhs : Int32, rhs : Int32) -> Int32? {
   let sum = lhs.to_int64() + rhs.to_int64()
   if sum >= -2147483648L && sum <= 2147483647L {
     Some(sum.to_int())
@@ -6135,9 +6140,9 @@ fn sgo_instr_refs_local(
 fn sgo_instrs_ref_local(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-  skip_start : Int,
-  skip_end : Int,
-  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
+  skip_start : Int32,
+  skip_end : Int32,
+  outside_refs~ : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Bool {
   match outside_refs {
     Some(has_outside_refs) => if has_outside_refs(local_idx) { return true }
@@ -6173,12 +6178,12 @@ fn sgo_instr_is_nonzero_i32_const(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_cheap_cleanup_compare_if_shell(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   out : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
-) -> Int? {
+  outside_refs~ : ((@lib.LocalIdx) -> Bool)? = None,
+) -> Int32? {
   match
     sgo_scalar_call_parent_cleanup_prefix(instrs, pos, mod_, func_type_indices) {
     Some((replay, result_kind, suffix_start, prefix_start, prefix_end)) => {
@@ -7235,12 +7240,12 @@ fn sgo_cheap_cleanup_compare_if_shell(
 ///|
 fn sgo_cheap_cleanup_select_if_shell(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   out : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
-) -> Int? {
+  outside_refs~ : ((@lib.LocalIdx) -> Bool)? = None,
+) -> Int32? {
   if pos == 0 && pos + 4 < instrs.length() {
     match
       (
@@ -8261,11 +8266,11 @@ fn sgo_cheap_cleanup_select_if_shell(
 ///|
 fn sgo_cheap_cleanup_block_if_shell(
   instrs : Array[@lib.Instruction],
-  pos : Int,
+  pos : Int32,
   out : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-) -> Int? {
+) -> Int32? {
   if pos + 1 < instrs.length() {
     match (instrs[pos], instrs[pos + 1]) {
       (
@@ -9049,7 +9054,7 @@ fn sgo_cleanup_unreachable_drop_debris_expr(
 ///|
 fn sgo_cheap_cleanup_whole_load_select_dead_if(
   instrs : Array[@lib.Instruction],
-  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
+  outside_refs~ : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Array[@lib.Instruction]? {
   match instrs {
     [
@@ -9083,7 +9088,7 @@ fn sgo_cheap_cleanup_whole_load_select_dead_if(
 ///|
 fn sgo_has_prior_local_write(
   instrs : Array[@lib.Instruction],
-  end : Int,
+  end : Int32,
   local_idx : @lib.LocalIdx,
 ) -> Bool {
   let stop = if end < instrs.length() { end } else { instrs.length() }
@@ -9102,9 +9107,9 @@ fn sgo_cheap_cleanup_instrs(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
-  function_body? : Array[@lib.Instruction]? = None,
-  function_root? : Bool = true,
+  outside_refs~ : ((@lib.LocalIdx) -> Bool)? = None,
+  function_body~ : Array[@lib.Instruction]? = None,
+  function_root~ : Bool = true,
 ) -> (Array[@lib.Instruction], Bool) {
   let function_body = Some(function_body.unwrap_or(instrs))
   // This common post-SGO shell is already final after preserving the load's
@@ -9428,8 +9433,8 @@ fn sgo_cheap_cleanup_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  function_body? : Array[@lib.Instruction]? = None,
-  function_root? : Bool = true,
+  function_body~ : Array[@lib.Instruction]? = None,
+  function_root~ : Bool = true,
 ) -> (@lib.Expr, Bool) {
   let @lib.Expr(original_region) = expr
   let full_body = function_body.unwrap_or(original_region)
@@ -9486,10 +9491,10 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
   facts : Array[@lib.Instruction?],
-  mutable_imports : Array[Int],
+  mutable_imports : Array[Int32],
 ) -> (@lib.Expr, Bool, Bool) {
   let marked = Array::make(facts.length(), false)
-  let touched : Array[Int] = []
+  let touched : Array[Int32] = []
   for slot = 0; slot < facts.length(); slot = slot + 1 {
     if facts[slot] is Some(_) {
       marked[slot] = true
@@ -9506,8 +9511,8 @@ fn sgo_rewrite_runtime_trace_expr_with_sparse_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
   facts : Array[@lib.Instruction?],
-  mutable_imports : Array[Int],
-  touched : Array[Int],
+  mutable_imports : Array[Int32],
+  touched : Array[Int32],
   marked : Array[Bool],
 ) -> (@lib.Expr, Bool, Bool) {
   let @lib.Expr(instrs) = expr
@@ -9744,7 +9749,7 @@ fn sgo_build_module(
 ///|
 fn sgo_build_immutable_literal_consts(
   mod_ : @lib.Module,
-) -> (Int, Array[@lib.Instruction?]) {
+) -> (Int32, Array[@lib.Instruction?]) {
   let mut imported_globals = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9774,7 +9779,7 @@ fn sgo_build_immutable_literal_consts(
 fn sgo_rewrite_immutable_literal_instr(
   instr : @lib.Instruction,
   consts : Array[@lib.Instruction?],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.Instruction? {
   match instr {
     @lib.GlobalGet(idx) => {
@@ -9844,7 +9849,7 @@ fn sgo_rewrite_immutable_literal_instr(
 fn sgo_rewrite_immutable_literal_instrs(
   instrs : Array[@lib.Instruction],
   consts : Array[@lib.Instruction?],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> (Array[@lib.Instruction], Bool) {
   let mut next : Array[@lib.Instruction]? = None
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -9927,8 +9932,8 @@ fn sgo_run_immutable_literal_siblings(mod_ : @lib.Module) -> SgoPassResult {
 fn sgo_run_core(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-  perf? : HotPerfSession? = None,
-  legacy_try? : Bool? = None,
+  perf~ : HotPerfSession? = None,
+  legacy_try~ : Bool? = None,
 ) -> SgoPassResult {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     let touched = match mod_.code_sec {
@@ -10066,8 +10071,8 @@ fn sgo_final_cleanup_binary_root_is_pure(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_final_cleanup_pure_expr_range(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Bool {
   let mut stack_depth = 0
   for idx = start; idx < end_; idx = idx + 1 {
@@ -10093,11 +10098,11 @@ fn sgo_final_cleanup_pure_expr_range(
 ///|
 fn sgo_final_cleanup_dropped_pure_result_if_length(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  purity_checks? : Array[Int]? = None,
-) -> Int {
+  start : Int32,
+  purity_checks~ : Array[Int32]? = None,
+) -> Int32 {
   let max_condition_length = 16
-  let condition_limit = Int::min(
+  let condition_limit = Int32::min(
     instrs.length() - 2,
     start + max_condition_length,
   )
@@ -10263,7 +10268,7 @@ fn sgo_final_cleanup_instrs(
 ///|
 fn sgo_final_cleanup_label_targets_depth(
   label_idx : @lib.LabelIdx,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   let @lib.LabelIdx(raw) = label_idx
   raw.reinterpret_as_int() == depth
@@ -10272,7 +10277,7 @@ fn sgo_final_cleanup_label_targets_depth(
 ///|
 fn sgo_final_cleanup_instr_branches_to_depth(
   instr : @lib.Instruction,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   match instr {
     @lib.Br(label_idx)
@@ -10331,7 +10336,7 @@ fn sgo_final_cleanup_instr_branches_to_depth(
 ///|
 fn sgo_final_cleanup_prefix_is_stack_neutral(
   body : Array[@lib.Instruction],
-  end_ : Int,
+  end_ : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> Bool {
@@ -10531,7 +10536,7 @@ fn sgo_apply_final_cleanup(cleaned : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn sgo_count_touched(touched : Array[Bool]) -> Int {
+fn sgo_count_touched(touched : Array[Bool]) -> Int32 {
   let mut count = 0
   for item in touched {
     if item {
@@ -10545,7 +10550,7 @@ fn sgo_count_touched(touched : Array[Bool]) -> Int {
 fn sgo_local_ref_count(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -10620,8 +10625,8 @@ fn sgo_instr_contains_return(instr : @lib.Instruction) -> Bool {
 ///|
 fn sgo_cleanup_can_erase_returns(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   function_root : Bool,
 ) -> Bool {
   for i = start; i < end; i = i + 1 {

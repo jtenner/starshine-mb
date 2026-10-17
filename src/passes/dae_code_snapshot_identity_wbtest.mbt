@@ -20,7 +20,7 @@ test "DAE code snapshots retain shared functions containing NaN constants" {
         @lib.Locals::empty(),
         @lib.Expr::new([
           @lib.Instruction::f32_const(
-            @lib.F32((0x7fc00002 : Int).reinterpret_as_float()),
+            @lib.F32((0x7fc00002 : Int32).reinterpret_as_float()),
           ),
         ]),
       ),

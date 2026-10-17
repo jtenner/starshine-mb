@@ -3,21 +3,21 @@
 
 ///|
 priv struct Dae2LocalAliasReference {
-  start : Int
-  params : Int
-  reads : Array[Int]
-  writes : Array[Int]
+  start : Int32
+  params : Int32
+  reads : Array[Int32]
+  writes : Array[Int32]
   active : Array[@lib.Instruction?]
   targets : Array[Int64]
-  undo : Array[Int]
+  undo : Array[Int32]
 }
 
 ///|
 fn Dae2LocalAliasReference::new(
-  start : Int,
-  params : Int,
-  reads : Array[Int],
-  writes : Array[Int],
+  start : Int32,
+  params : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
 ) -> Dae2LocalAliasReference {
   {
     start,
@@ -87,9 +87,9 @@ fn Dae2LocalAliasReference::replace_reads(
 ///|
 fn local_alias_reference_has(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  params : Int,
-  writes : Array[Int],
+  start : Int32,
+  params : Int32,
+  writes : Array[Int32],
 ) -> Bool {
   for position in 0..<instrs.length() {
     match instrs[position] {
@@ -143,10 +143,10 @@ fn local_alias_reference_has(
 ///|
 fn local_alias_reference_cleanup(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  params : Int,
-  reads : Array[Int],
-  writes : Array[Int],
+  start : Int32,
+  params : Int32,
+  reads : Array[Int32],
+  writes : Array[Int32],
 ) -> (Array[@lib.Instruction], Array[Int64]?) {
   if params == 0 || !local_alias_reference_has(instrs, start, params, writes) {
     return (instrs, None)
@@ -178,7 +178,7 @@ fn local_alias_reference_cleanup(
 // to use the original exact-sized map without allocating this visitor/output.
 fn local_alias_reference_remap(
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
   aliases : Array[Int64],
 ) -> Array[@lib.Instruction] {
   let out = Array::new(capacity=instrs.length())

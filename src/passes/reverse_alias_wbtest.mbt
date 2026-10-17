@@ -1,5 +1,7 @@
 ///|
-fn reverse_alias_compact(input : @lib.Module) -> (@lib.Func, Array[Int]) raise {
+fn reverse_alias_compact(
+  input : @lib.Module,
+) -> (@lib.Func, Array[Int32]) raise {
   @validate.validate_module(input).unwrap()
   let saved = @binary.encode_module(input).unwrap()
   let result = pass_lower_compact_captures_with_map(

@@ -1,5 +1,5 @@
 ///|
-fn dae_forwarding_facts_fixture(count : Int) -> DaeCurrentBoundaryGraph {
+fn dae_forwarding_facts_fixture(count : Int32) -> DaeCurrentBoundaryGraph {
   let text = StringBuilder::new()
   text.write_string("(module ")
   for i in 0..<count {

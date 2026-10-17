@@ -64,14 +64,17 @@ test "DAE2 observes every readonly store operand and preserves private imported-
 }
 
 ///|
-test "DAE2 retains HOT analysis for intentionally unsupported branched observable control" {
+test "DAE2 analyzes branched observable control without HOT lifts" {
   let input = pass_test_module_from_wat(
-    "(module (global $g (mut i32) (i32.const 0)) (func $keep (param i32) local.get 0 global.set $g block br 0 end) (func (export \"keep\") (param i32) local.get 0 call $keep))",
+    "(module (global $g (mut i32) (i32.const 0)) (func $keep (param i32) local.get 0 global.set $g block br 0 end) (func $helper (param i64) (result i32) i32.const 7) (func (export \"keep\") (param i32) local.get 0 call $keep) (func (export \"run\") (result i32) i64.const 9 call $helper))",
   )
+  let saved = @binary.encode_module(input).unwrap()
   let lifts = [0]
   let output = dae2_run_module_pass(input, false, analysis_lifts=Some(lifts)).unwrap()
   @validate.validate_module(output).unwrap()
-  assert_eq(lifts[0], 1)
+  assert_eq(lifts[0], 0)
+  assert_eq(output.code_sec.unwrap().0[0], input.code_sec.unwrap().0[0])
+  assert_eq(output.code_sec.unwrap().0[2], input.code_sec.unwrap().0[2])
   assert_eq(
     @ir.hot_module_resolve_func_type(
       @ir.hot_module_context_from_module(output),
@@ -79,6 +82,16 @@ test "DAE2 retains HOT analysis for intentionally unsupported branched observabl
     ),
     Some(@lib.FuncType::new([@lib.ValType::i32()], [])),
   )
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([], [@lib.ValType::i32()])),
+  )
+  let @lib.Func(_, @lib.Expr(caller)) = output.code_sec.unwrap().0[3]
+  assert_eq(caller, [@lib.Instruction::call(@lib.FuncIdx::new(1U))])
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
 
 ///|

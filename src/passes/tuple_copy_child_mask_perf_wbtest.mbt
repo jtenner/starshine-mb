@@ -1,5 +1,5 @@
 ///|
-fn tuple_copy_child_mask_perf_fixture(islands : Int) -> String {
+fn tuple_copy_child_mask_perf_fixture(islands : Int32) -> String {
   let wat = StringBuilder::new()
   wat.write_string(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (local",
@@ -19,7 +19,7 @@ fn tuple_copy_child_mask_perf_fixture(islands : Int) -> String {
 }
 
 ///|
-fn tuple_copy_child_mask_perf_bench(it : @bench.T, islands : Int) -> Unit {
+fn tuple_copy_child_mask_perf_bench(it : @bench.T, islands : Int32) -> Unit {
   let fixture = @ir.ir_test_build_hot_from_wat(
     tuple_copy_child_mask_perf_fixture(islands),
   )

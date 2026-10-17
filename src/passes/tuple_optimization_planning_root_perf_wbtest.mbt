@@ -1,10 +1,10 @@
 ///|
 fn tuple_planning_root_perf_fixture(
-  count : Int,
-) -> (@ir.HotFunc, @ir.HotUseDef, Array[Int], Array[Int]) {
+  count : Int32,
+) -> (@ir.HotFunc, @ir.HotUseDef, Array[Int32], Array[Int32]) {
   let func = @ir.HotFunc::new()
-  let child_hosts : Array[Int] = []
-  let root_hosts : Array[Int] = []
+  let child_hosts : Array[Int32] = []
+  let root_hosts : Array[Int32] = []
   for idx in 0..<count {
     let child = @ir.hot_build_const_i32(func, @lib.I32(idx))
     @ir.hot_append_root(func, @ir.hot_build_drop(func, child))
@@ -19,7 +19,7 @@ fn tuple_planning_root_perf_fixture(
 ///|
 fn tuple_planning_root_perf_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   roots : Bool,
 ) -> Unit {
   let (func, use_def, child_hosts, root_hosts) = tuple_planning_root_perf_fixture(

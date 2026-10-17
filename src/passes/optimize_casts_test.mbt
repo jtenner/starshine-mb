@@ -222,7 +222,7 @@ fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
 }
 
 ///|
-fn optimize_casts_count_substring(text : String, needle : String) -> Int {
+fn optimize_casts_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }

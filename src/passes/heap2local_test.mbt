@@ -1,5 +1,5 @@
 ///|
-fn heap2local_pair_fields(field_count : Int) -> Array[@lib.FieldType] {
+fn heap2local_pair_fields(field_count : Int32) -> Array[@lib.FieldType] {
   let fields : Array[@lib.FieldType] = []
   for _ in 0..<field_count {
     fields.push(
@@ -262,7 +262,7 @@ test "heap2local scalarizes repeated branch-selected variant writes" {
     @lib.StorageType::val_type(@lib.ValType::i32()),
     @lib.Mut::const_(),
   )
-  let make_value = fn(payload : Int) -> Array[@lib.Instruction] {
+  let make_value = fn(payload : Int32) -> Array[@lib.Instruction] {
     [
       @lib.Instruction::i32_const(@lib.I32(1)),
       @lib.Instruction::if_(
@@ -1167,7 +1167,7 @@ test "heap2local preserves mixed array scratch write order" {
     )
   let output = heap2local_run_module(module_)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
-  let allocations : Array[Int] = []
+  let allocations : Array[Int32] = []
   for instr in body {
     match instr {
       @lib.ArrayNewDefault(@lib.TypeIdx(index)) =>

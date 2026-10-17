@@ -6,18 +6,18 @@
 priv struct Dae2RawReplayState {
   graph : Dae2Graph
   source : Dae2Graph
-  boundary_count : Int
+  boundary_count : Int32
   sparse : Bool
-  epochs : Array[Int]
-  touched : Array[Int]
-  mut epoch : Int
+  epochs : Array[Int32]
+  touched : Array[Int32]
+  mut epoch : Int32
   mut failed : Bool
 }
 
 ///|
 fn Dae2Graph::raw_rewrite_boundary_snapshot(
   self : Dae2Graph,
-  boundary_count : Int,
+  boundary_count : Int32,
 ) -> Dae2Graph {
   // The module's solved expression mask can be large. The reusable state
   // outlives rewriting, so it must not keep that mask alive in finalization.
@@ -35,8 +35,8 @@ fn Dae2Graph::raw_rewrite_boundary_snapshot(
 ///|
 fn Dae2RawReplayState::new(
   source : Dae2Graph,
-  boundary_count : Int,
-  sparse? : Bool = true,
+  boundary_count : Int32,
+  sparse~ : Bool = true,
 ) -> Dae2RawReplayState {
   let source = source.raw_rewrite_boundary_snapshot(boundary_count)
   let graph = if sparse {
@@ -105,7 +105,7 @@ fn Dae2RawReplayState::reset(self : Dae2RawReplayState) -> Unit {
 ///|
 fn Dae2RawReplayState::register(
   self : Dae2RawReplayState,
-  location : Int,
+  location : Int32,
 ) -> Unit {
   if !self.sparse {
     return

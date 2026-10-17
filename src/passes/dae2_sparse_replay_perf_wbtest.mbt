@@ -1,8 +1,8 @@
 ///|
 fn dae2_sparse_replay_bench(
   it : @bench.T,
-  boundaries : Int,
-  nodes : Int,
+  boundaries : Int32,
+  nodes : Int32,
   sparse : Bool,
 ) -> Unit {
   let source = Dae2Graph::new()

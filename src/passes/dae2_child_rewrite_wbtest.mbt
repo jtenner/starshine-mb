@@ -1,5 +1,5 @@
 ///|
-fn dae2_child_fixture() -> (@ir.HotFunc, Int, Int, Int) {
+fn dae2_child_fixture() -> (@ir.HotFunc, Int32, Int32, Int32) {
   let func = @ir.HotFunc::new()
   let left = @ir.hot_build_const_i32(func, @lib.I32(1))
   let right = @ir.hot_build_const_i32(func, @lib.I32(2))

@@ -2,7 +2,7 @@
 fn sl_legacy_try_has_local_access(
   body : Array[@lib.Instruction],
   catches : Array[@lib.LegacyCatch],
-  local_id : Int,
+  local_id : Int32,
   reads : Bool,
 ) -> Bool {
   let body_access = if reads {

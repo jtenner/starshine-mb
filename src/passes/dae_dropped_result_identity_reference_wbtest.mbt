@@ -1,10 +1,10 @@
 ///|
 fn dae_dropped_result_cleanup_reference(
   instrs : Array[@lib.Instruction],
-  callee_abs : Int,
+  callee_abs : Int32,
   stop_at_unreachable_root : Bool,
-  preserve_uninhabitable_control? : Bool = false,
-) -> (Array[@lib.Instruction], Int) {
+  preserve_uninhabitable_control~ : Bool = false,
+) -> (Array[@lib.Instruction], Int32) {
   let out : Array[@lib.Instruction] = []
   let mut rewrites = 0
   let mut idx = 0

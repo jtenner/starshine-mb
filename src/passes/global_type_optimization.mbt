@@ -55,7 +55,7 @@ fn gto_placeholder_field() -> @lib.FieldType {
 }
 
 ///|
-fn gto_type_plan(plans : Array[Int], type_idx : @lib.TypeIdx) -> Int {
+fn gto_type_plan(plans : Array[Int32], type_idx : @lib.TypeIdx) -> Int32 {
   match type_idx {
     @lib.TypeIdx(raw) => {
       let index = raw.to_int()
@@ -70,7 +70,7 @@ fn gto_type_plan(plans : Array[Int], type_idx : @lib.TypeIdx) -> Int {
 }
 
 ///|
-fn gto_rewrite_subtype(subtype : @lib.SubType, plan : Int) -> @lib.SubType {
+fn gto_rewrite_subtype(subtype : @lib.SubType, plan : Int32) -> @lib.SubType {
   if plan == 0 {
     return subtype
   }
@@ -96,7 +96,7 @@ fn gto_rewrite_subtype(subtype : @lib.SubType, plan : Int) -> @lib.SubType {
 ///|
 fn gto_rewrite_field_access(
   instr : @lib.Instruction,
-  plans : Array[Int],
+  plans : Array[Int32],
 ) -> @lib.Instruction {
   let (type_idx, @lib.U32(field)) = match gto_field_access(instr) {
     Some((type_idx, field, _, _)) => (type_idx, field)
@@ -131,7 +131,7 @@ fn gto_rewrite_field_access(
 ///|
 fn gto_rewrite_expr(
   expr : @lib.Expr,
-  plans : Array[Int],
+  plans : Array[Int32],
   old_subtypes : Array[@lib.SubType],
   env : @validate.Env,
   failed : Array[Bool],

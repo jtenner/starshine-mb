@@ -1,7 +1,7 @@
 ///|
 fn cl_sparse_extra_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   dense : Bool,
   structured : Bool,
   reference : Bool,

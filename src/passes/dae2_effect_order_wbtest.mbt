@@ -14,7 +14,7 @@ test "DAE2 HOT fallback keeps discarded internal calls before later imports" {
     ).unwrap()
     @validate.validate_module(output).unwrap()
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
-    let calls : Array[UInt] = []
+    let calls : Array[UInt32] = []
     for instr in body {
       match instr {
         @lib.Call(@lib.FuncIdx(index)) => calls.push(index)
@@ -41,7 +41,7 @@ test "DAE2 HOT fallback retains carried import arguments before intervening writ
     ).unwrap()
     @validate.validate_module(output).unwrap()
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
-    let events : Array[Int] = []
+    let events : Array[Int32] = []
     for instr in body {
       match instr {
         @lib.Call(@lib.FuncIdx(index)) =>

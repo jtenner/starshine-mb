@@ -1,8 +1,8 @@
 ///|
 fn parameter_alias_reference_pass_lower_count_locals(
   instrs : Array[@lib.Instruction],
-  gets : Array[Int],
-  writes : Array[Int],
+  gets : Array[Int32],
+  writes : Array[Int32],
 ) -> Unit {
   let visit_body = fn(body) {
     parameter_alias_reference_pass_lower_count_locals(body, gets, writes)
@@ -21,10 +21,10 @@ fn parameter_alias_reference_pass_lower_count_locals(
 ///|
 fn parameter_alias_reference_pass_lower_remove_balanced_captures(
   instrs : Array[@lib.Instruction],
-  start : Int,
-  gets : Array[Int],
-  writes : Array[Int],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
+  start : Int32,
+  gets : Array[Int32],
+  writes : Array[Int32],
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let removed = Array::make(instrs.length(), false)
@@ -118,7 +118,7 @@ fn parameter_alias_reference_pass_lower_remove_balanced_captures(
 ///|
 fn parameter_alias_reference_pass_lower_remap_locals(
   instrs : Array[@lib.Instruction],
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let visit_body = fn(body) {
     parameter_alias_reference_pass_lower_remap_locals(body, indices)
@@ -147,8 +147,8 @@ fn parameter_alias_reference_pass_lower_compact_captures_with_map(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
-  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
-) -> (@lib.Func, Array[Int]) {
+  stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
+) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
   if locals.length() <= original_locals.length() {
@@ -228,7 +228,7 @@ fn dae2_parameter_aliases_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)
   })
-  let remaps : Array[Array[Int]?] = []
+  let remaps : Array[Array[Int32]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
   for index = 0; index < funcs.length(); index = index + 1 {

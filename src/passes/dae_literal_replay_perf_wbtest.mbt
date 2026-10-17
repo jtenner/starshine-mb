@@ -1,7 +1,7 @@
 ///|
 fn dae_literal_replay_benchmark(
   it : @bench.T,
-  padding : Int,
+  padding : Int32,
   reference : Bool,
 ) -> Unit {
   let base = pass_test_module_from_wat(

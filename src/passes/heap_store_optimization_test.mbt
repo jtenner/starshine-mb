@@ -2,7 +2,7 @@
 using @binary {trait Decode}
 
 ///|
-fn hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
+fn hso_struct_fields(field_count : Int32) -> Array[@lib.FieldType] {
   let fields : Array[@lib.FieldType] = []
   for _ in 0..<field_count {
     fields.push(
@@ -81,7 +81,7 @@ fn hso_i64_global_test_run(
 
 ///|
 fn hso_test_module_with_locals(
-  field_count : Int,
+  field_count : Int32,
   local_types : Array[@lib.ValType],
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
@@ -120,7 +120,7 @@ fn hso_decode_fixture_module(bytes : Bytes) -> @lib.Module {
 }
 
 ///|
-fn hso_bytes_from_ints(values : Array[Int]) -> Bytes {
+fn hso_bytes_from_ints(values : Array[Int32]) -> Bytes {
   let out = @buffer.new(size_hint=values.length())
   for value in values {
     out.write_byte(value.to_byte())
@@ -129,7 +129,7 @@ fn hso_bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
-fn hso_test_index_of(text : String, needle : String) -> Int? {
+fn hso_test_index_of(text : String, needle : String) -> Int32? {
   if needle.length() == 0 || needle.length() > text.length() {
     return None
   }
@@ -145,7 +145,7 @@ fn hso_test_index_of(text : String, needle : String) -> Int? {
 }
 
 ///|
-fn hso_test_count_occurrences(text : String, needle : String) -> Int {
+fn hso_test_count_occurrences(text : String, needle : String) -> Int32 {
   if needle.length() == 0 || needle.length() > text.length() {
     return 0
   }
@@ -172,7 +172,7 @@ fn hso_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func raise {
 }
 
 ///|
-fn hso_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+fn hso_test_count_drop(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -196,7 +196,7 @@ fn hso_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn hso_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+fn hso_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -538,7 +538,7 @@ fn hso_assert_table_grow_wrapped_passive_boundary(
 
 ///|
 fn hso_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let struct_ref_type = @lib.ValType::ref_null(
@@ -585,7 +585,7 @@ fn hso_array_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
 
 ///|
 fn hso_ref_result_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let struct_ref_type = @lib.ValType::ref_null(
@@ -615,7 +615,7 @@ fn hso_ref_result_test_module(
 
 ///|
 fn hso_memory_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_mem_sec(
@@ -625,7 +625,7 @@ fn hso_memory_test_module(
 
 ///|
 fn hso_two_memory_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_mem_sec(
@@ -638,7 +638,7 @@ fn hso_two_memory_test_module(
 
 ///|
 fn hso_memory_table_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_memory_test_module(field_count, body).with_table_sec(
@@ -792,7 +792,7 @@ fn hso_type7_i32_eqref_memory_table_i32_local_void_test_module(
 
 ///|
 fn hso_memory_global_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_memory_test_module(field_count, body).with_global_sec(
@@ -864,7 +864,7 @@ fn hso_i31ref_memory_global_test_module(
 
 ///|
 fn hso_memory_ref_result_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_ref_result_test_module(field_count, body).with_mem_sec(
@@ -874,7 +874,7 @@ fn hso_memory_ref_result_test_module(
 
 ///|
 fn hso_table_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_table_sec(
@@ -892,7 +892,7 @@ fn hso_table_test_module(
 
 ///|
 fn hso_two_table_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_table_sec(
@@ -917,7 +917,7 @@ fn hso_two_table_test_module(
 
 ///|
 fn hso_table_global_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_table_test_module(field_count, body).with_global_sec(
@@ -1104,7 +1104,7 @@ fn hso_return_call_ref_test_run(
 
 ///|
 fn hso_global_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_global_sec(
@@ -1119,7 +1119,7 @@ fn hso_global_test_module(
 
 ///|
 fn hso_two_global_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_global_sec(
@@ -1138,7 +1138,7 @@ fn hso_two_global_test_module(
 
 ///|
 fn hso_immutable_global_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_global_sec(
@@ -1153,7 +1153,7 @@ fn hso_immutable_global_test_module(
 
 ///|
 fn hso_call_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let struct_ref_type = @lib.ValType::ref_null(
@@ -1199,7 +1199,7 @@ fn hso_call_test_module(
 ///|
 fn hso_call_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_call_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1214,7 +1214,7 @@ fn hso_call_test_run(
 
 ///|
 fn hso_call_catch_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let struct_ref_type = @lib.ValType::ref_null(
@@ -1267,7 +1267,7 @@ fn hso_call_catch_test_module(
 ///|
 fn hso_call_catch_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_call_catch_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1282,7 +1282,7 @@ fn hso_call_catch_test_run(
 
 ///|
 fn hso_memory_table_call_catch_test_module(
-  field_count : Int,
+  field_count : Int32,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let struct_ref_type = @lib.ValType::ref_null(
@@ -1349,7 +1349,7 @@ fn hso_memory_table_call_catch_test_module(
 ///|
 fn hso_memory_table_call_catch_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_table_call_catch_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1417,7 +1417,7 @@ fn hso_desc_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
 ///|
 fn hso_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1431,7 +1431,7 @@ fn hso_test_run(
 ///|
 fn hso_test_run_with_locals(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
   local_types : Array[@lib.ValType],
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_test_module_with_locals(field_count, local_types, body)
@@ -1461,7 +1461,7 @@ fn hso_array_test_run(
 ///|
 fn hso_ref_result_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_ref_result_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1475,7 +1475,7 @@ fn hso_ref_result_test_run(
 ///|
 fn hso_memory_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1491,7 +1491,7 @@ fn hso_memory_test_run(
 ///|
 fn hso_two_memory_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_two_memory_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1507,7 +1507,7 @@ fn hso_two_memory_test_run(
 ///|
 fn hso_memory_table_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_table_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1583,7 +1583,7 @@ fn hso_type7_i32_eqref_memory_table_i32_local_void_test_run(
 ///|
 fn hso_memory_data_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_test_module(field_count, body)
     .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
@@ -1603,7 +1603,7 @@ fn hso_memory_data_test_run(
 ///|
 fn hso_memory_test_run_with_locals(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
   local_types : Array[@lib.ValType],
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_test_module_with_locals(field_count, local_types, body).with_mem_sec(
@@ -1622,7 +1622,7 @@ fn hso_memory_test_run_with_locals(
 ///|
 fn hso_memory_global_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_global_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1673,7 +1673,7 @@ test "heap-store-optimization removes dropped unreachable debris on no-candidate
 ///|
 fn hso_memory_ref_result_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_memory_ref_result_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1689,7 +1689,7 @@ fn hso_memory_ref_result_test_run(
 ///|
 fn hso_table_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_table_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1705,7 +1705,7 @@ fn hso_table_test_run(
 ///|
 fn hso_two_table_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_two_table_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1721,7 +1721,7 @@ fn hso_two_table_test_run(
 ///|
 fn hso_table_elem_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_table_test_module(field_count, body).with_elem_sec(
     @lib.ElemSec::new([
@@ -1744,7 +1744,7 @@ fn hso_table_elem_test_run(
 ///|
 fn hso_table_global_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_table_global_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1760,7 +1760,7 @@ fn hso_table_global_test_run(
 ///|
 fn hso_global_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_global_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1776,7 +1776,7 @@ fn hso_global_test_run(
 ///|
 fn hso_two_global_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_two_global_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -1792,7 +1792,7 @@ fn hso_two_global_test_run(
 ///|
 fn hso_immutable_global_test_run(
   body : Array[@lib.Instruction],
-  field_count : Int,
+  field_count : Int32,
 ) -> Result[@lib.Module, String] {
   let mod_ = hso_immutable_global_test_module(field_count, body)
   match @validate.validate_module(mod_) {
@@ -22284,7 +22284,7 @@ test "heap-store-optimization folds earlier chain stores before a later target-l
 
 ///|
 fn hso_assert_pure_branch_old_field_folds_through_bytes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   preserved_root : String,
 ) -> Unit raise {
   let optimized = match

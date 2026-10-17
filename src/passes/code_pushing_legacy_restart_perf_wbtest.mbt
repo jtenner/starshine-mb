@@ -1,6 +1,6 @@
 ///|
 fn code_pushing_legacy_restart_perf_body(
-  moves : Int,
+  moves : Int32,
 ) -> Array[@lib.Instruction] {
   let source = StringBuilder::new()
   source.write_string("(module (func")
@@ -31,7 +31,7 @@ fn code_pushing_legacy_restart_perf_body(
 }
 
 ///|
-fn code_pushing_legacy_restart_perf_bench(it : @bench.T, moves : Int) -> Unit {
+fn code_pushing_legacy_restart_perf_bench(it : @bench.T, moves : Int32) -> Unit {
   let body = code_pushing_legacy_restart_perf_body(moves)
   let (_, changed) = code_pushing_raw_rewrite_legacy_instrs(body, body)
   if !changed {

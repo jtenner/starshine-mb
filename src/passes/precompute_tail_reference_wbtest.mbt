@@ -1,8 +1,8 @@
 ///|
 fn precompute_raw_fold_output_tail_reference(
   out : Array[@lib.Instruction],
-  module_ctx? : @ir.HotModuleContext? = None,
-  label_arities? : Array[Int?] = [],
+  module_ctx~ : @ir.HotModuleContext? = None,
+  label_arities~ : Array[Int32?] = [],
 ) -> Bool {
   if precompute_raw_fold_same_target_br_table_tail(out, label_arities) {
     return true

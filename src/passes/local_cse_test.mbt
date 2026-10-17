@@ -1,5 +1,5 @@
 ///|
-fn lcse_test_defined_func(mod_ : @lib.Module, idx : Int) -> @lib.Func {
+fn lcse_test_defined_func(mod_ : @lib.Module, idx : Int32) -> @lib.Func {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs.get(idx) {
@@ -19,7 +19,7 @@ fn lcse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
 fn lcse_test_count_local_tee(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -42,7 +42,7 @@ fn lcse_test_count_local_tee(
 }
 
 ///|
-fn lcse_test_count_any_local_tee(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_any_local_tee(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -65,7 +65,7 @@ fn lcse_test_count_any_local_tee(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_drop(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -88,7 +88,7 @@ fn lcse_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_ref_as_non_null(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_ref_as_non_null(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -111,7 +111,7 @@ fn lcse_test_count_ref_as_non_null(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_ref_cast(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_ref_cast(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -134,7 +134,7 @@ fn lcse_test_count_ref_cast(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_ref_i31(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_ref_i31(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -157,7 +157,7 @@ fn lcse_test_count_ref_i31(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -180,7 +180,7 @@ fn lcse_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn lcse_test_count_block(instrs : Array[@lib.Instruction]) -> Int {
+fn lcse_test_count_block(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -208,7 +208,7 @@ fn lcse_test_count_block(instrs : Array[@lib.Instruction]) -> Int {
 fn lcse_test_count_local_get(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -234,7 +234,7 @@ fn lcse_test_count_local_get(
 fn lcse_test_count_global_get(
   instrs : Array[@lib.Instruction],
   global_idx : @lib.GlobalIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -260,7 +260,7 @@ fn lcse_test_count_global_get(
 fn lcse_test_count_array_new(
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -286,7 +286,7 @@ fn lcse_test_count_array_new(
 fn lcse_test_count_array_new_default(
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -315,7 +315,7 @@ fn lcse_test_count_array_new_default(
 fn lcse_test_count_array_new_fixed(
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -345,7 +345,7 @@ fn lcse_test_count_array_new_data(
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
   data_idx : @lib.DataIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -375,7 +375,7 @@ fn lcse_test_count_array_new_elem(
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
   elem_idx : @lib.ElemIdx,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {

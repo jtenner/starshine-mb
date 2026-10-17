@@ -62,9 +62,9 @@ fn optimize_instructions_large_effectful_select_fixture() -> String {
 
 ///|
 fn optimize_instructions_structured_gate_fixture(
-  repeats : Int,
-  extra_calls : Int,
-  extra_writes : Int,
+  repeats : Int32,
+  extra_calls : Int32,
+  extra_writes : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string(
@@ -2376,7 +2376,7 @@ fn optimize_instructions_test_run_hot(text : String) -> @ir.HotFunc {
 fn optimize_instructions_test_count_substring(
   text : String,
   needle : String,
-) -> Int {
+) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -2401,7 +2401,7 @@ fn optimize_instructions_assert_strings_in_order(
 ) -> Unit raise {
   let mut start = 0
   for needle in needles {
-    let mut found : Int? = None
+    let mut found : Int32? = None
     let limit = text.length() - needle.length()
     let mut i = start
     while i <= limit {
@@ -2419,7 +2419,7 @@ fn optimize_instructions_assert_strings_in_order(
 }
 
 ///|
-fn optimize_instructions_shared_dag_fixture(depth : Int) -> @ir.HotFunc {
+fn optimize_instructions_shared_dag_fixture(depth : Int32) -> @ir.HotFunc {
   let func = @ir.HotFunc::new()
   let mut value = @ir.hot_build_const_i32(func, @lib.I32(0))
   for i = 0; i < depth; i = i + 1 {
@@ -2915,7 +2915,7 @@ test "optimize-instructions recursively simplifies boolean if arms" {
     Some(region) => region
     None => fail("expected boolean if condition to retain an else arm")
   }
-  let assert_arm = fn(region : @ir.HotRegionRef, local_id : Int) raise {
+  let assert_arm = fn(region : @ir.HotRegionRef, local_id : Int32) raise {
     @debug.assert_eq(@ir.hot_region_root_count(func, region), 1)
     let arm = @ir.hot_region_get(func, region, 0)
     match @ir.hot_node_get(func, arm).op {
@@ -3024,7 +3024,7 @@ test "optimize-instructions recursively simplifies boolean try body and catch" {
 
   let assert_region = fn(
     region : @ir.HotRegionRef,
-    expected_local : Int,
+    expected_local : Int32,
     label : String,
   ) raise {
     @debug.assert_eq(@ir.hot_region_root_count(func, region), 2)
@@ -3172,7 +3172,7 @@ test "optimize-instructions masks signed remainders in boolean context" {
   // mask when only truthiness is observed. The focused oracle
   // `.tmp/oi-probes/boolean-leaf-binary-rules.wat` proves masks 7 and INT_MAX
   // while retaining a non-power-of-two divisor.
-  let assert_direct_mask = fn(divisor : Int, expected_mask : Int) raise {
+  let assert_direct_mask = fn(divisor : Int32, expected_mask : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (func (param i32) (result i32) (if (result i32) (i32.rem_s (local.get 0) (i32.const \{divisor})) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3237,7 +3237,7 @@ test "optimize-instructions folds i32 eqz block constants in boolean context" {
   // asks `getFallthrough` for an i32.eqz operand and replaces a constant block
   // tail with the truth value while preserving the original block evaluation as
   // a drop. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-const.wat`.
-  let assert_fold = fn(tail : Int, expected : Int) raise {
+  let assert_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (if (result i32) (i32.eqz (block (result i32) (global.set 0 (local.get 0)) (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3271,7 +3271,7 @@ test "optimize-instructions folds i32 eqz local tee constants in boolean context
   // looks through a direct local.tee via `Properties::getFallthrough`, then
   // preserves the complete tee evaluation under a drop before the i32 truth
   // value. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-local-tee.wat`.
-  let assert_fold = fn(tail : Int, expected : Int) raise {
+  let assert_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (func (param i32) (result i32) (if (result i32) (i32.eqz (local.tee 0 (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3309,7 +3309,7 @@ test "optimize-instructions folds i64 eqz block constants in boolean context" {
   // `getFallthrough` constant fold to i64.eqz operands and emits an i32 truth
   // value after preserving the original i64 block evaluation as a drop. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-const.wat`.
-  let assert_fold = fn(tail : Int, expected : Int) raise {
+  let assert_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (if (result i32) (i64.eqz (block (result i64) (global.set 0 (local.get 0)) (i64.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3356,7 +3356,7 @@ test "optimize-instructions folds i64 zero comparison through a constant tee con
     @validate.validate_module(output).unwrap()
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
     assert_false(body.contains(@lib.Instruction::i64_eq()))
-    fn writes(instrs : Array[@lib.Instruction]) -> Int {
+    fn writes(instrs : Array[@lib.Instruction]) -> Int32 {
       let mut count = 0
       for instr in instrs {
         match instr {
@@ -3385,7 +3385,7 @@ test "optimize-instructions folds i64 eqz local tee constants in boolean context
   // direct local.tee fallthrough rule to i64.eqz and still emits an i32 truth
   // value after dropping the full i64 tee evaluation. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-local-tee.wat`.
-  let assert_fold = fn(tail : Int, expected : Int) raise {
+  let assert_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (func (param i64) (result i32) (if (result i32) (i64.eqz (local.tee 0 (i64.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3424,7 +3424,7 @@ test "optimize-instructions folds eqz loop-body constants in boolean context" {
   // `optimizeBoolean` folds an i32/i64 constant. The pure loop evaluation then
   // disappears, leaving the i32 truth value. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-control.wat`.
-  let assert_i32_fold = fn(tail : Int, expected : Int) raise {
+  let assert_i32_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (func (result i32) (if (result i32) (i32.eqz (loop (result i32) (i32.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3438,7 +3438,7 @@ test "optimize-instructions folds eqz loop-body constants in boolean context" {
       other => fail("expected folded i32 loop truth constant, got \{other}")
     }
   }
-  let assert_i64_fold = fn(tail : Int, expected : Int) raise {
+  let assert_i64_fold = fn(tail : Int32, expected : Int32) raise {
     let func = optimize_instructions_test_run_hot(
       "(module (func (result i32) (if (result i32) (i64.eqz (loop (result i64) (i64.const \{tail}))) (then (i32.const 11)) (else (i32.const 22)))))",
     )
@@ -3495,7 +3495,7 @@ test "optimize-instructions folds i32 eqz one-sided if constants in boolean cont
   // when the sibling arm is unreachable, then `optimizeBoolean` folds its
   // constant while preserving the complete original if under a drop. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-next.wat`.
-  let assert_fold = fn(then_live : Bool, tail : Int, expected : Int) raise {
+  let assert_fold = fn(then_live : Bool, tail : Int32, expected : Int32) raise {
     let operand = if then_live {
       "(if (result i32) (local.get 0) (then (i32.const \{tail})) (else (unreachable)))"
     } else {
@@ -3539,7 +3539,7 @@ test "optimize-instructions folds i64 eqz one-sided if constants in boolean cont
   // one-unreachable-arm fallthrough rule to i64 if values while still emitting
   // i32 truth and preserving the complete original if under a drop. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-next.wat`.
-  let assert_fold = fn(then_live : Bool, tail : Int, expected : Int) raise {
+  let assert_fold = fn(then_live : Bool, tail : Int32, expected : Int32) raise {
     let operand = if then_live {
       "(if (result i64) (local.get 0) (then (i64.const \{tail})) (else (unreachable)))"
     } else {
@@ -3584,7 +3584,7 @@ test "optimize-instructions folds i32 eqz nonthrowing try constants in boolean c
   // `EffectAnalyzer(...).throws()` proves its body nonthrowing, then
   // `optimizeBoolean` folds the selected i32 constant. Oracle:
   // `.tmp/oi-probes/boolean-eqz-fallthrough-try.wat`.
-  let assert_fold = fn(tail : Int, expected : Int) raise {
+  let assert_fold = fn(tail : Int32, expected : Int32) raise {
     let i32_type = @lib.ValType::i32()
     let func = @ir.HotFunc::new()
     @ir.hot_body_result_type_set(
@@ -3639,7 +3639,7 @@ test "optimize-instructions folds i64 eqz nonthrowing try constants in boolean c
   // Red-first OI-F behavior-parity follow-up: Binaryen v130 applies the same
   // proven-nonthrowing legacy try fallthrough to i64.eqz while still emitting
   // i32 truth. Oracle: `.tmp/oi-probes/boolean-eqz-fallthrough-try.wat`.
-  let assert_fold = fn(tail : Int64, expected : Int) raise {
+  let assert_fold = fn(tail : Int64, expected : Int32) raise {
     let i32_type = @lib.ValType::i32()
     let i64_type = @lib.ValType::i64()
     let func = @ir.HotFunc::new()
@@ -4523,7 +4523,7 @@ test "optimize-instructions folds unary-tree idempotent-call self-selects" {
   // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-scalar-tree-foldability.wat`
   // (`i32_unary`).
-  let optimize_caller = fn(right_local : Int) raise {
+  let optimize_caller = fn(right_local : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32 i32) (result i32) local.get 0 i32.eqz call $id i32.const 0 local.get " +
       right_local.to_string() +
       " i32.eqz call $id select))"
@@ -4557,7 +4557,7 @@ test "optimize-instructions folds binary-tree idempotent-call self-selects" {
   // `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-scalar-tree-foldability.wat`
   // (`i32_binary` and `i64_binary`).
-  let optimize_i32 = fn(right_const : Int) raise {
+  let optimize_i32 = fn(right_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_const.to_string() +
       " i32.add call $id select))"
@@ -4643,7 +4643,7 @@ test "optimize-instructions folds multi-operand idempotent-call self-selects" {
   // Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-next-foldability.wat`
   // (`multi_equal` and `multi_mismatch`).
-  let optimize_caller = fn(right_const : Int) raise {
+  let optimize_caller = fn(right_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 i32.const 7 call $id i32.const 0 local.get 0 i32.const " +
       right_const.to_string() +
       " call $id select))"
@@ -4836,7 +4836,7 @@ test "optimize-instructions folds mixed-signature tree-bearing calls" {
   // constant remains. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-next4-foldability.wat`
   // (`mixed_tree_direct_equal` and `mixed_tree_direct_mismatch`).
-  let optimize_caller = fn(right_inner_const : Int) raise {
+  let optimize_caller = fn(right_inner_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64) (result i64) local.get 0 i64.extend_i32_s local.get 1 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 1 i32.add local.get 1 call $id local.get 0 i32.const " +
       right_inner_const.to_string() +
       " i32.add local.get 1 call $id i64.eqz select))"
@@ -4907,7 +4907,7 @@ test "optimize-instructions folds two mixed-signature call trees" {
   // `.tmp/oi-probes/select-idempotent-call-next5-foldability.wat`
   // (`mixed_two_trees_equal` and both mismatch functions).
   let optimize_caller = fn(
-    right_i32_const : Int,
+    right_i32_const : Int32,
     right_i64_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64) (result i64) local.get 0 i64.extend_i32_s local.get 1 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 1 i32.add local.get 1 i64.const 7 i64.add call $id local.get 0 i32.const " +
@@ -4954,8 +4954,8 @@ test "optimize-instructions folds three-operand idempotent calls" {
   // `.tmp/oi-probes/select-idempotent-call-next5-foldability.wat`
   // (`three_direct_equal` and both mismatch functions).
   let optimize_caller = fn(
-    right_second_const : Int,
-    right_third_const : Int,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 7 i32.const 9 call $id i32.const 0 local.get 0 i32.const " +
       right_second_const.to_string() +
@@ -5002,8 +5002,8 @@ test "optimize-instructions folds first tree in three-operand calls" {
   // (`three_first_tree_equal`, `three_first_tree_mismatch`, and
   // `three_first_direct_mismatch`).
   let optimize_caller = fn(
-    right_tree_const : Int,
-    right_second_const : Int,
+    right_tree_const : Int32,
+    right_second_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.const 7 i32.const 9 call $id i32.const 0 local.get 0 i32.const " +
       right_tree_const.to_string() +
@@ -5050,8 +5050,8 @@ test "optimize-instructions folds second tree in three-operand calls" {
   // (`three_second_tree_equal`, `three_second_tree_mismatch`, and
   // `three_second_direct_mismatch`).
   let optimize_caller = fn(
-    right_tree_const : Int,
-    right_third_const : Int,
+    right_tree_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 local.get 0 i32.const 7 i32.add i32.const 9 call $id i32.const 0 local.get 0 local.get 0 i32.const " +
       right_tree_const.to_string() +
@@ -5098,8 +5098,8 @@ test "optimize-instructions folds third tree in three-operand calls" {
   // (`three_third_tree_equal`, `three_third_tree_mismatch`, and
   // `three_third_direct_mismatch`).
   let optimize_caller = fn(
-    right_second_const : Int,
-    right_tree_const : Int,
+    right_second_const : Int32,
+    right_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 7 local.get 0 i32.const 9 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_second_const.to_string() +
@@ -5146,9 +5146,9 @@ test "optimize-instructions folds first-second trees in three-operand calls" {
   // `.tmp/oi-probes/select-idempotent-call-next7-foldability.wat`
   // (`three_first_second_trees_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
-    right_direct_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
+    right_direct_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add local.get 0 i32.const 7 i32.add i32.const 9 call $id i32.const 0 local.get 0 i32.const " +
       right_first_const.to_string() +
@@ -5197,9 +5197,9 @@ test "optimize-instructions folds first-third trees in three-operand calls" {
   // `.tmp/oi-probes/select-idempotent-call-next7-foldability.wat`
   // (`three_first_third_trees_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_direct_const : Int,
-    right_third_const : Int,
+    right_first_const : Int32,
+    right_direct_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.const 7 local.get 0 i32.const 9 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_const.to_string() +
@@ -5248,9 +5248,9 @@ test "optimize-instructions folds second-third trees in three-operand calls" {
   // `.tmp/oi-probes/select-idempotent-call-next7-foldability.wat`
   // (`three_second_third_trees_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_direct_const : Int,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_direct_const : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) i32.const 3 local.get 0 i32.const 7 i32.add local.get 0 i32.const 9 i32.add call $id i32.const 0 i32.const " +
       right_direct_const.to_string() +
@@ -5298,9 +5298,9 @@ test "optimize-instructions folds all trees in three-operand calls" {
   // `.tmp/oi-probes/select-idempotent-call-next8-foldability.wat`
   // (`three_all_trees_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add local.get 0 i32.const 7 i32.add local.get 0 i32.const 9 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_const.to_string() +
@@ -5346,10 +5346,10 @@ test "optimize-instructions folds four-operand i32 idempotent calls" {
   // `.tmp/oi-probes/select-idempotent-call-next9-foldability.wat`
   // (`four_i32_direct_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_local : Int,
-    right_second_const : Int,
-    right_third_const : Int,
-    right_fourth_const : Int,
+    right_first_local : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 7 i32.const 9 i32.const 11 call $id i32.const 0 local.get " +
       right_first_local.to_string() +
@@ -5397,10 +5397,10 @@ test "optimize-instructions folds first i32 tree in four-operand calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next10-foldability.wat`
   // (`four_i32_first_tree_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_tree_const : Int,
-    right_second_const : Int,
-    right_third_const : Int,
-    right_fourth_const : Int,
+    right_tree_const : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.const 7 i32.const 9 i32.const 11 call $id i32.const 0 local.get 0 i32.const " +
       right_tree_const.to_string() +
@@ -5449,10 +5449,10 @@ test "optimize-instructions folds second i32 tree in four-operand calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next11-foldability.wat`
   // (`four_i32_second_tree_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_tree_const : Int,
-    right_third_const : Int,
-    right_fourth_const : Int,
+    right_first_const : Int32,
+    right_tree_const : Int32,
+    right_third_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add i32.const 9 i32.const 11 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5501,10 +5501,10 @@ test "optimize-instructions folds third i32 tree in four-operand calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next12-foldability.wat`
   // (`four_i32_third_tree_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
-    right_tree_const : Int,
-    right_fourth_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
+    right_tree_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32) (result i32) i32.const 5 i32.const 7 local.get 0 i32.const 9 i32.add i32.const 11 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5553,10 +5553,10 @@ test "optimize-instructions folds fourth i32 tree in four-operand calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next13-foldability.wat`
   // (`four_i32_fourth_tree_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
-    right_third_const : Int,
-    right_tree_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
+    right_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32) (result i32) i32.const 5 i32.const 7 i32.const 9 local.get 0 i32.const 11 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5606,10 +5606,10 @@ test "optimize-instructions folds first and second i32 trees in four-operand cal
   // `.tmp/oi-probes/select-idempotent-call-next15-foldability.wat`
   // (`first_second_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
-    right_third_const : Int,
-    right_fourth_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add i32.const 9 i32.const 11 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -5659,10 +5659,10 @@ test "optimize-instructions folds first and third i32 trees in four-operand call
   // `.tmp/oi-probes/select-idempotent-call-next15-foldability.wat`
   // (`first_third_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_const : Int,
+    right_first_tree_const : Int32,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 5 i32.add i32.const 7 local.get 1 i32.const 9 i32.add i32.const 11 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -5712,10 +5712,10 @@ test "optimize-instructions folds first and fourth i32 trees in four-operand cal
   // `.tmp/oi-probes/select-idempotent-call-next15-foldability.wat`
   // (`first_fourth_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_const : Int,
-    right_third_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_const : Int32,
+    right_third_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 5 i32.add i32.const 7 i32.const 9 local.get 1 i32.const 11 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -5765,10 +5765,10 @@ test "optimize-instructions folds second and third i32 trees in four-operand cal
   // `.tmp/oi-probes/select-idempotent-call-next16-foldability.wat`
   // (`second_third_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_const : Int,
+    right_first_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add local.get 1 i32.const 9 i32.add i32.const 11 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5818,10 +5818,10 @@ test "optimize-instructions folds second and fourth i32 trees in four-operand ca
   // `.tmp/oi-probes/select-idempotent-call-next16-foldability.wat`
   // (`second_fourth_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_tree_const : Int,
-    right_third_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add i32.const 9 local.get 1 i32.const 11 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5871,10 +5871,10 @@ test "optimize-instructions folds third and fourth i32 trees in four-operand cal
   // `.tmp/oi-probes/select-idempotent-call-next16-foldability.wat`
   // (`third_fourth_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32) (result i32) i32.const 5 i32.const 7 local.get 0 i32.const 9 i32.add local.get 1 i32.const 11 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -5923,7 +5923,7 @@ test "optimize-instructions folds four-operand i64 idempotent calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next9-foldability.wat`
   // (`four_i64_direct_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_local : Int,
+    right_first_local : Int32,
     right_second_const : Int64,
     right_third_const : Int64,
     right_fourth_const : Int64,
@@ -5975,10 +5975,10 @@ test "optimize-instructions folds first second and third i32 trees in four-opera
   // `.tmp/oi-probes/select-idempotent-call-next20-foldability.wat`
   // (`first_second_third_i32_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add local.get 2 i32.const 9 i32.add i32.const 11 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -6030,10 +6030,10 @@ test "optimize-instructions folds first second and fourth i32 trees in four-oper
   // `.tmp/oi-probes/select-idempotent-call-next21-foldability.wat`
   // (`first_second_fourth_i32_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
-    right_third_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add i32.const 9 local.get 2 i32.const 11 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -6085,10 +6085,10 @@ test "optimize-instructions folds first third and fourth i32 trees in four-opera
   // `.tmp/oi-probes/select-idempotent-call-next21-foldability.wat`
   // (`first_third_fourth_i32_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32 i32) (result i32) local.get 0 i32.const 5 i32.add i32.const 7 local.get 1 i32.const 9 i32.add local.get 2 i32.const 11 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -6140,10 +6140,10 @@ test "optimize-instructions folds second third and fourth i32 trees in four-oper
   // `.tmp/oi-probes/select-idempotent-call-next21-foldability.wat`
   // (`second_third_fourth_i32_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32 i32) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add local.get 1 i32.const 9 i32.add local.get 2 i32.const 11 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -6195,10 +6195,10 @@ test "optimize-instructions folds all four i32 trees in four-operand calls" {
   // `.tmp/oi-probes/select-idempotent-call-next22-foldability.wat`
   // (`all_four_i32_equal` and its four mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
-    right_fourth_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
+    right_fourth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i32 i32) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.add local.get 3 i32.add) (func (param i32 i32 i32 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add local.get 2 i32.const 9 i32.add local.get 3 i32.const 11 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -7058,9 +7058,9 @@ test "optimize-instructions folds mixed three-operand idempotent calls" {
   // `.tmp/oi-probes/select-idempotent-call-next9-foldability.wat`
   // (`mixed_three_direct_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_local : Int,
-    right_second_local : Int,
-    right_third_const : Int,
+    right_first_local : Int32,
+    right_second_local : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_s local.get 1 i64.add local.get 2 i64.extend_i32_s i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 local.get 1 i32.const 9 call $id local.get " +
       right_first_local.to_string() +
@@ -7107,8 +7107,8 @@ test "optimize-instructions folds mixed i32-result three-operand idempotent call
   // `.tmp/oi-probes/select-idempotent-call-next10-foldability.wat`
   // (`mixed_three_i32_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_local : Int,
-    right_second_local : Int,
+    right_first_local : Int32,
+    right_second_local : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i64.const 9 call $id i32.const 0 local.get " +
@@ -7158,9 +7158,9 @@ test "optimize-instructions folds alternate-order mixed i32-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next25-foldability.wat`
   // (`mixed_i32_order_direct_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (result i32) i32.const 5 i64.const 7 i32.const 9 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -7208,9 +7208,9 @@ test "optimize-instructions folds first tree in alternate-order mixed i32-result
   // oracle: `.tmp/oi-probes/select-idempotent-call-next25-foldability.wat`
   // (`mixed_i32_order_first_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_tree_const : Int,
+    right_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32) (result i32) local.get 0 i32.const 5 i32.add i64.const 7 i32.const 9 call $id i32.const 0 local.get 0 i32.const " +
       right_tree_const.to_string() +
@@ -7259,9 +7259,9 @@ test "optimize-instructions folds second tree in alternate-order mixed i32-resul
   // `.tmp/oi-probes/select-idempotent-call-next25-foldability.wat`
   // (`mixed_i32_order_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64) (result i32) i32.const 5 local.get 0 i64.const 7 i64.add i32.const 9 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -7310,9 +7310,9 @@ test "optimize-instructions folds third tree in alternate-order mixed i32-result
   // `.tmp/oi-probes/select-idempotent-call-next26-foldability.wat`
   // (`mixed_i32_order_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_tree_const : Int,
+    right_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32) (result i32) i32.const 5 i64.const 7 local.get 0 i32.const 9 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -7361,9 +7361,9 @@ test "optimize-instructions folds first and second trees in alternate-order mixe
   // `.tmp/oi-probes/select-idempotent-call-next26-foldability.wat`
   // (`mixed_i32_order_first_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i64.const 7 i64.add i32.const 9 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -7412,9 +7412,9 @@ test "optimize-instructions folds first and third trees in alternate-order mixed
   // `.tmp/oi-probes/select-idempotent-call-next26-foldability.wat`
   // (`mixed_i32_order_first_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 5 i32.add i64.const 7 local.get 1 i32.const 9 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -7463,9 +7463,9 @@ test "optimize-instructions folds second and third trees in alternate-order mixe
   // `.tmp/oi-probes/select-idempotent-call-next27-foldability.wat`
   // (`mixed_i32_order_second_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64 i32) (result i32) i32.const 5 local.get 0 i64.const 7 i64.add local.get 1 i32.const 9 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -7514,9 +7514,9 @@ test "optimize-instructions folds all three trees in alternate-order mixed i32-r
   // `.tmp/oi-probes/select-idempotent-call-next27-foldability.wat`
   // (`mixed_i32_order_all_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32 i64 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i64.const 7 i64.add local.get 2 i32.const 9 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -7566,7 +7566,7 @@ test "optimize-instructions folds alternate-order mixed i64-result calls" {
   // (`mixed_i64_order_direct_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (result i64) i64.const 0 i64.const 5 i32.const 7 i64.const 9 call $id i64.const " +
@@ -7616,7 +7616,7 @@ test "optimize-instructions folds first tree in alternate-order mixed i64-result
   // (`mixed_i64_order_first_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 9 call $id local.get 0 i64.const " +
@@ -7666,7 +7666,7 @@ test "optimize-instructions folds second tree in alternate-order mixed i64-resul
   // (`mixed_i64_order_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32) (result i64) i64.const 0 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 9 call $id i64.const " +
@@ -7716,7 +7716,7 @@ test "optimize-instructions folds third tree in alternate-order mixed i64-result
   // (`mixed_i64_order_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64) (result i64) i64.const 0 i64.const 5 i32.const 7 local.get 0 i64.const 9 i64.add call $id i64.const " +
@@ -7767,7 +7767,7 @@ test "optimize-instructions folds first+second trees in alternate-order mixed i6
   // (`mixed_i64_order_first_second_tree_equal` and its three mismatches).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 9 call $id local.get 0 i64.const " +
@@ -7818,7 +7818,7 @@ test "optimize-instructions folds first+third trees in alternate-order mixed i64
   // (`mixed_i64_order_first_third_tree_equal` and its three mismatches).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64 i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 9 i64.add call $id local.get 0 i64.const " +
@@ -7869,7 +7869,7 @@ test "optimize-instructions folds second+third trees in alternate-order mixed i6
   // (`mixed_i64_order_second_third_tree_equal` and its three mismatches).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32 i64) (result i64) i64.const 0 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 9 i64.add call $id i64.const " +
@@ -7920,7 +7920,7 @@ test "optimize-instructions folds all three trees in alternate-order mixed i64-r
   // (`mixed_i64_order_all_three_tree_equal` and its three mismatches).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 9 i64.add call $id local.get 0 i64.const " +
@@ -7971,7 +7971,7 @@ test "optimize-instructions folds direct i64-i64-i32 mixed i64-result calls" {
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (result i64) i64.const 0 i64.const 5 i64.const 7 i32.const 9 call $id i64.const " +
       right_first_const.to_string() +
@@ -8021,7 +8021,7 @@ test "optimize-instructions folds first tree in i64-i64-i32 mixed i64-result cal
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i64.const 7 i32.const 9 call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8072,7 +8072,7 @@ test "optimize-instructions folds second tree in i64-i64-i32 mixed i64-result ca
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i64.const 5 local.get 0 i64.const 7 i64.add i32.const 9 call $id i64.const " +
       right_first_const.to_string() +
@@ -8123,7 +8123,7 @@ test "optimize-instructions folds third tree in i64-i64-i32 mixed i64-result cal
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i64.const 5 i64.const 7 local.get 0 i32.const 9 i32.add call $id i64.const " +
       right_first_const.to_string() +
@@ -8174,7 +8174,7 @@ test "optimize-instructions folds first and second trees in i64-i64-i32 mixed i6
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i64.const 7 i64.add i32.const 9 call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8225,7 +8225,7 @@ test "optimize-instructions folds first and third trees in i64-i64-i32 mixed i64
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i64.const 7 local.get 1 i32.const 9 i32.add call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8276,7 +8276,7 @@ test "optimize-instructions folds second and third trees in i64-i64-i32 mixed i6
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 i64.const 5 local.get 0 i64.const 7 i64.add local.get 1 i32.const 9 i32.add call $id i64.const " +
       right_first_const.to_string() +
@@ -8327,7 +8327,7 @@ test "optimize-instructions folds all trees in i64-i64-i32 mixed i64-result call
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i64) local.get 0 local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i64 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i64.const 7 i64.add local.get 2 i32.const 9 i32.add call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8377,7 +8377,7 @@ test "optimize-instructions folds direct i64-i64-i32 mixed i32-result calls" {
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (result i32) i64.const 5 i64.const 7 i32.const 9 call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8427,7 +8427,7 @@ test "optimize-instructions folds first tree in i64-i64-i32 mixed i32-result cal
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64) (result i32) local.get 0 i64.const 5 i64.add i64.const 7 i32.const 9 call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8478,7 +8478,7 @@ test "optimize-instructions folds second tree in i64-i64-i32 mixed i32-result ca
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64) (result i32) i64.const 5 local.get 0 i64.const 7 i64.add i32.const 9 call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8529,7 +8529,7 @@ test "optimize-instructions folds third tree in i64-i64-i32 mixed i32-result cal
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i32) (result i32) i64.const 5 i64.const 7 local.get 0 i32.const 9 i32.add call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8580,7 +8580,7 @@ test "optimize-instructions folds first and second trees in i64-i64-i32 mixed i3
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64 i64) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i64.const 7 i64.add i32.const 9 call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8631,7 +8631,7 @@ test "optimize-instructions folds first and third trees in i64-i64-i32 mixed i32
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64 i32) (result i32) local.get 0 i64.const 5 i64.add i64.const 7 local.get 1 i32.const 9 i32.add call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8682,7 +8682,7 @@ test "optimize-instructions folds second and third trees in i64-i64-i32 mixed i3
   let optimize_caller = fn(
     right_first_const : Int64,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64 i32) (result i32) i64.const 5 local.get 0 i64.const 7 i64.add local.get 1 i32.const 9 i32.add call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8733,7 +8733,7 @@ test "optimize-instructions folds all three trees in i64-i64-i32 mixed i32-resul
   let optimize_caller = fn(
     right_first_tree_const : Int64,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i64 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add) (func (param i64 i64 i32) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i64.const 7 i64.add local.get 2 i32.const 9 i32.add call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8782,8 +8782,8 @@ test "optimize-instructions folds direct i64-i32-i32 mixed i32-result calls" {
   // (`mixed_i64_i32_i32_i32_direct_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (result i32) i64.const 5 i32.const 7 i32.const 9 call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8832,8 +8832,8 @@ test "optimize-instructions folds first tree in i64-i32-i32 mixed i32-result cal
   // (`mixed_i64_i32_i32_i32_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i64) (result i32) local.get 0 i64.const 5 i64.add i32.const 7 i32.const 9 call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -8883,8 +8883,8 @@ test "optimize-instructions folds second tree in i64-i32-i32 mixed i32-result ca
   // (`mixed_i64_i32_i32_i32_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
-    right_third_const : Int,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) i64.const 5 local.get 0 i32.const 7 i32.add i32.const 9 call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8934,8 +8934,8 @@ test "optimize-instructions folds third tree in i64-i32-i32 mixed i32-result cal
   // (`mixed_i64_i32_i32_i32_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
-    right_third_tree_const : Int,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i32) (result i32) i64.const 5 i32.const 7 local.get 0 i32.const 9 i32.add call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -8985,8 +8985,8 @@ test "optimize-instructions folds first-second trees in i64-i32-i32 mixed i32-re
   // (`mixed_i64_i32_i32_i32_first_second_tree_equal` and mismatches).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
-    right_third_const : Int,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i64 i32) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i32.const 9 call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -9036,8 +9036,8 @@ test "optimize-instructions folds first-third trees in i64-i32-i32 mixed i32-res
   // (`mixed_i64_i32_i32_i32_first_third_tree_equal` and mismatches).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
-    right_third_tree_const : Int,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i64 i32) (result i32) local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i32.const 9 i32.add call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -9087,8 +9087,8 @@ test "optimize-instructions folds second-third trees in i64-i32-i32 mixed i32-re
   // (`mixed_i64_i32_i32_i32_second_third_tree_equal` and mismatches).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i32 i32) (result i32) i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i32.const 9 i32.add call $id i32.const 0 i64.const " +
       right_first_const.to_string() +
@@ -9138,8 +9138,8 @@ test "optimize-instructions folds all three trees in i64-i32-i32 mixed i32-resul
   // (`mixed_i64_i32_i32_i32_all_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.add) (func (param i64 i32 i32) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i32.const 9 i32.add call $id i32.const 0 local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -9187,7 +9187,7 @@ test "optimize-instructions folds direct i32-i64-i64 mixed i32-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next46-foldability.wat`
   // (`mixed_i32_i64_i64_i32_direct_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9237,7 +9237,7 @@ test "optimize-instructions folds first tree in i32-i64-i64 mixed i32-result cal
   // oracle: `.tmp/oi-probes/select-idempotent-call-next46-foldability.wat`
   // (`mixed_i32_i64_i64_i32_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9288,7 +9288,7 @@ test "optimize-instructions folds second tree in i32-i64-i64 mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-next47-foldability.wat`
   // (`mixed_i32_i64_i64_i32_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9339,7 +9339,7 @@ test "optimize-instructions folds third tree in i32-i64-i64 mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-next47-foldability.wat`
   // (`mixed_i32_i64_i64_i32_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9390,7 +9390,7 @@ test "optimize-instructions folds first-second trees in i32-i64-i64 mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-next47-foldability.wat`
   // (`mixed_i32_i64_i64_i32_first_second_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9441,7 +9441,7 @@ test "optimize-instructions folds first-third trees in i32-i64-i64 mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-next48-foldability.wat`
   // (`mixed_i32_i64_i64_i32_first_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9492,7 +9492,7 @@ test "optimize-instructions folds second-third trees in i32-i64-i64 mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-next48-foldability.wat`
   // (`mixed_i32_i64_i64_i32_second_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9543,7 +9543,7 @@ test "optimize-instructions folds all three trees in i32-i64-i64 mixed i32-resul
   // `.tmp/oi-probes/select-idempotent-call-next48-foldability.wat`
   // (`mixed_i32_i64_i64_i32_all_three_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9593,7 +9593,7 @@ test "optimize-instructions folds direct i32-i64-i64 mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next49-foldability.wat`
   // (`mixed_i32_i64_i64_i64_direct_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9643,7 +9643,7 @@ test "optimize-instructions folds first tree in i32-i64-i64 mixed i64-result cal
   // oracle: `.tmp/oi-probes/select-idempotent-call-next49-foldability.wat`
   // (`mixed_i32_i64_i64_i64_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9694,7 +9694,7 @@ test "optimize-instructions folds second tree in i32-i64-i64 mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-next49-foldability.wat`
   // (`mixed_i32_i64_i64_i64_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9745,7 +9745,7 @@ test "optimize-instructions folds third tree in i32-i64-i64 mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-next50-foldability.wat`
   // (`mixed_i32_i64_i64_i64_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9796,7 +9796,7 @@ test "optimize-instructions folds first-second trees in i32-i64-i64 mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-next50-foldability.wat`
   // (`mixed_i32_i64_i64_i64_first_second_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
     right_third_const : Int64,
   ) raise {
@@ -9847,7 +9847,7 @@ test "optimize-instructions folds first-third trees in i32-i64-i64 mixed i64-res
   // `.tmp/oi-probes/select-idempotent-call-next50-foldability.wat`
   // (`mixed_i32_i64_i64_i64_first_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9898,7 +9898,7 @@ test "optimize-instructions folds second-third trees in i32-i64-i64 mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-next51-foldability.wat`
   // (`mixed_i32_i64_i64_i64_second_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -9949,7 +9949,7 @@ test "optimize-instructions folds all three trees in i32-i64-i64 mixed i64-resul
   // `.tmp/oi-probes/select-idempotent-call-next51-foldability.wat`
   // (`mixed_i32_i64_i64_i64_all_three_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
     right_third_tree_const : Int64,
   ) raise {
@@ -10000,11 +10000,11 @@ test "optimize-instructions folds direct five-operand mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-five-direct-foldability.wat`
   // (`mixed_five_direct_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10059,11 +10059,11 @@ test "optimize-instructions folds first tree in five-operand mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-third-tree-foldability.wat`
   // (`mixed_five_first_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -10119,11 +10119,11 @@ test "optimize-instructions folds second tree in five-operand mixed i64-result c
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-third-tree-foldability.wat`
   // (`mixed_five_second_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10179,11 +10179,11 @@ test "optimize-instructions folds third tree in five-operand mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-third-tree-foldability.wat`
   // (`mixed_five_third_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10239,11 +10239,11 @@ test "optimize-instructions folds fourth tree in five-operand mixed i64-result c
   // `.tmp/oi-probes/select-idempotent-call-five-fourth-fifth-first-second-tree-foldability.wat`
   // (`mixed_five_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10299,11 +10299,11 @@ test "optimize-instructions folds fifth tree in five-operand mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-fourth-fifth-first-second-tree-foldability.wat`
   // (`mixed_five_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -10359,11 +10359,11 @@ test "optimize-instructions folds first+second trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-fourth-fifth-first-second-tree-foldability.wat`
   // (`mixed_five_first_second_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -10419,11 +10419,11 @@ test "optimize-instructions folds first+third trees in five-operand mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-five-first-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_first_third_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -10479,11 +10479,11 @@ test "optimize-instructions folds first+fourth trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-first-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_first_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -10539,11 +10539,11 @@ test "optimize-instructions folds first+fifth trees in five-operand mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-five-first-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_first_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -10600,11 +10600,11 @@ test "optimize-instructions folds second+third trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-second-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_second_third_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10661,11 +10661,11 @@ test "optimize-instructions folds second+fourth trees in five-operand mixed i64-
   // `.tmp/oi-probes/select-idempotent-call-five-second-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_second_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10721,11 +10721,11 @@ test "optimize-instructions folds second+fifth trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-second-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_second_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -10781,11 +10781,11 @@ test "optimize-instructions folds third+fourth trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_third_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -10842,11 +10842,11 @@ test "optimize-instructions folds third+fifth trees in five-operand mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-five-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_third_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 1 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -10902,11 +10902,11 @@ test "optimize-instructions folds fourth+fifth trees in five-operand mixed i64-r
   // `.tmp/oi-probes/select-idempotent-call-five-third-fourth-fifth-tree-foldability.wat`
   // (`mixed_five_fourth_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -10962,11 +10962,11 @@ test "optimize-instructions folds first+second+third trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-three-tree-foldability.wat`
   // (`mixed_five_first_second_third_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11023,11 +11023,11 @@ test "optimize-instructions folds first+second+fourth trees in five-operand mixe
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-three-tree-foldability.wat`
   // (`mixed_five_first_second_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11084,11 +11084,11 @@ test "optimize-instructions folds first+second+fifth trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-first-second-three-tree-foldability.wat`
   // (`mixed_five_first_second_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 2 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11145,11 +11145,11 @@ test "optimize-instructions folds first+third+fourth trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-first-three-tree-foldability.wat`
   // (`mixed_five_first_third_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11205,11 +11205,11 @@ test "optimize-instructions folds first+third+fifth trees in five-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-five-first-three-tree-foldability.wat`
   // (`mixed_five_first_third_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11266,11 +11266,11 @@ test "optimize-instructions folds first+fourth+fifth trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-first-three-tree-foldability.wat`
   // (`mixed_five_first_fourth_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11327,11 +11327,11 @@ test "optimize-instructions folds second+third+fourth trees in five-operand mixe
   // `.tmp/oi-probes/select-idempotent-call-five-second-three-tree-foldability.wat`
   // (`mixed_five_second_third_fourth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 call $id i32.const " +
       right_first_const.to_string() +
@@ -11388,11 +11388,11 @@ test "optimize-instructions folds second+third+fifth trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-second-three-tree-foldability.wat`
   // (`mixed_five_second_third_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -11449,11 +11449,11 @@ test "optimize-instructions folds second+fourth+fifth trees in five-operand mixe
   // `.tmp/oi-probes/select-idempotent-call-five-second-three-tree-foldability.wat`
   // (`mixed_five_second_fourth_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -11510,11 +11510,11 @@ test "optimize-instructions folds first+second+third+fifth trees in five-operand
   // `.tmp/oi-probes/select-idempotent-call-five-final-three-and-first-four-tree-foldability.wat`
   // (`mixed_five_first_second_third_fifth_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 local.get 3 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11570,11 +11570,11 @@ test "optimize-instructions folds first+second+third+fourth trees in five-operan
   // `.tmp/oi-probes/select-idempotent-call-five-final-three-and-first-four-tree-foldability.wat`
   // (`mixed_five_first_second_third_fourth_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add local.get 3 i64.const 11 i64.add i32.const 13 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11631,11 +11631,11 @@ test "optimize-instructions folds first+second+fourth+fifth trees in five-operan
   // `.tmp/oi-probes/select-idempotent-call-five-remaining-four-tree-foldability.wat`
   // (`mixed_five_first_second_fourth_fifth_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11692,11 +11692,11 @@ test "optimize-instructions folds first+third+fourth+fifth trees in five-operand
   // `.tmp/oi-probes/select-idempotent-call-five-remaining-four-tree-foldability.wat`
   // (`mixed_five_first_third_fourth_fifth_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11753,11 +11753,11 @@ test "optimize-instructions folds second+third+fourth+fifth trees in five-operan
   // `.tmp/oi-probes/select-idempotent-call-five-remaining-four-tree-foldability.wat`
   // (`mixed_five_second_third_fourth_fifth_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i64 i32 i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -11813,11 +11813,11 @@ test "optimize-instructions folds third+fourth+fifth trees in five-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-five-final-three-and-first-four-tree-foldability.wat`
   // (`mixed_five_third_fourth_fifth_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -11872,11 +11872,11 @@ test "optimize-instructions folds all five trees in five-operand mixed i64-resul
   // `.tmp/oi-probes/select-idempotent-call-five-all-tree-foldability.wat`
   // (`mixed_five_all_tree_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add) (func (param i32 i64 i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add local.get 3 i64.const 11 i64.add local.get 4 i32.const 13 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -11932,11 +11932,11 @@ test "optimize-instructions folds first+second+third trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-fifth-sixth-first-second-third-tree-foldability.wat`
   // (`first_second_third_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -11997,11 +11997,11 @@ test "optimize-instructions folds first+second+fourth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-second-next-three-tree-foldability.wat`
   // (`first_second_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -12062,11 +12062,11 @@ test "optimize-instructions folds first+second+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-second-next-three-tree-foldability.wat`
   // (`first_second_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -12127,11 +12127,11 @@ test "optimize-instructions folds first+second+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-second-next-three-tree-foldability.wat`
   // (`first_second_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -12192,11 +12192,11 @@ test "optimize-instructions folds first+third+fourth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-third-next-three-tree-foldability.wat`
   // (`first_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -12256,11 +12256,11 @@ test "optimize-instructions folds first+third+fifth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-third-next-three-tree-foldability.wat`
   // (`first_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -12321,11 +12321,11 @@ test "optimize-instructions folds first+third+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-third-next-three-tree-foldability.wat`
   // (`first_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -12386,11 +12386,11 @@ test "optimize-instructions folds first+fourth+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-next-three-tree-foldability.wat`
   // (`first_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -12450,11 +12450,11 @@ test "optimize-instructions folds first+fourth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-next-three-tree-foldability.wat`
   // (`first_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -12515,11 +12515,11 @@ test "optimize-instructions folds first+fifth+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-next-three-tree-foldability.wat`
   // (`first_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -12580,11 +12580,11 @@ test "optimize-instructions folds second+third+fourth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-next-three-tree-foldability.wat`
   // (`second_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -12645,11 +12645,11 @@ test "optimize-instructions folds second+third+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-next-three-tree-foldability.wat`
   // (`second_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -12710,11 +12710,11 @@ test "optimize-instructions folds second+third+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-next-three-tree-foldability.wat`
   // (`second_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -12775,11 +12775,11 @@ test "optimize-instructions folds second+fourth+fifth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-next-three-tree-foldability.wat`
   // (`second_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -12839,11 +12839,11 @@ test "optimize-instructions folds second+fourth+sixth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-next-three-tree-foldability.wat`
   // (`second_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -12903,11 +12903,11 @@ test "optimize-instructions folds second+fifth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-next-three-tree-foldability.wat`
   // (`second_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -12967,11 +12967,11 @@ test "optimize-instructions folds third+fourth+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-tree-foldability.wat`
   // (`third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -13031,11 +13031,11 @@ test "optimize-instructions folds third+fourth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-tree-foldability.wat`
   // (`third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -13095,11 +13095,11 @@ test "optimize-instructions folds third+fifth+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-tree-foldability.wat`
   // (`third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -13159,11 +13159,11 @@ test "optimize-instructions folds fourth+fifth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -13223,11 +13223,11 @@ test "optimize-instructions folds first+second+third+fourth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`first_second_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -13287,11 +13287,11 @@ test "optimize-instructions folds first+second+third+fifth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`first_second_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -13351,11 +13351,11 @@ test "optimize-instructions folds first+second+third+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13415,11 +13415,11 @@ test "optimize-instructions folds first+second+fourth+fifth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -13479,11 +13479,11 @@ test "optimize-instructions folds first+second+fourth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13543,11 +13543,11 @@ test "optimize-instructions folds first+second+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-more-four-tree-foldability.wat`
   // (`first_second_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13607,11 +13607,11 @@ test "optimize-instructions folds first+third+fourth+fifth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-more-four-tree-foldability.wat`
   // (`first_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -13671,11 +13671,11 @@ test "optimize-instructions folds first+third+fourth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-more-four-tree-foldability.wat`
   // (`first_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13735,11 +13735,11 @@ test "optimize-instructions folds first+third+fifth+sixth trees in six-operand m
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-more-four-tree-foldability.wat`
   // (`first_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13799,11 +13799,11 @@ test "optimize-instructions folds first+fourth+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-more-four-tree-foldability.wat`
   // (`first_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -13863,11 +13863,11 @@ test "optimize-instructions folds second+third+fourth+fifth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-more-four-tree-foldability.wat`
   // (`second_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -13927,11 +13927,11 @@ test "optimize-instructions folds second+third+fourth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-four-tree-foldability.wat`
   // (`second_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -13991,11 +13991,11 @@ test "optimize-instructions folds second+third+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-four-tree-foldability.wat`
   // (`second_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -14055,11 +14055,11 @@ test "optimize-instructions folds second+fourth+fifth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-four-tree-foldability.wat`
   // (`second_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -14119,11 +14119,11 @@ test "optimize-instructions folds third+fourth+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-four-tree-3456-foldability.wat`
   // (`third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -14183,11 +14183,11 @@ test "optimize-instructions folds first+second+third+fourth+fifth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-five-tree-foldability.wat`
   // (`first_second_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -14247,11 +14247,11 @@ test "optimize-instructions folds first+second+third+fourth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-five-tree-foldability.wat`
   // (`first_second_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14311,11 +14311,11 @@ test "optimize-instructions folds first+second+third+fifth+sixth trees in six-op
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-five-tree-foldability.wat`
   // (`first_second_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14375,11 +14375,11 @@ test "optimize-instructions folds first+second+fourth+fifth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-five-tree-foldability.wat`
   // (`first_second_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14439,11 +14439,11 @@ test "optimize-instructions folds first+third+fourth+fifth+sixth trees in six-op
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-next-five-tree-foldability.wat`
   // (`first_third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14503,11 +14503,11 @@ test "optimize-instructions folds second+third+fourth+fifth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-five-and-all-six-tree-foldability.wat`
   // (`second_third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -14567,11 +14567,11 @@ test "optimize-instructions folds first+second+third+fourth+fifth+sixth trees in
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-final-five-and-all-six-tree-foldability.wat`
   // (`first_second_third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14631,11 +14631,11 @@ test "optimize-instructions folds first+second trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-sixth-first-second-first-third-tree-foldability.wat`
   // (`first_second_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -14695,11 +14695,11 @@ test "optimize-instructions folds first+third trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-sixth-first-second-first-third-tree-foldability.wat`
   // (`first_third_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -14759,11 +14759,11 @@ test "optimize-instructions folds first+fourth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-fifth-sixth-tree-foldability.wat`
   // (`first_fourth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -14823,11 +14823,11 @@ test "optimize-instructions folds first+fifth trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-fifth-sixth-tree-foldability.wat`
   // (`first_fifth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -14887,11 +14887,11 @@ test "optimize-instructions folds first+sixth trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-first-fourth-fifth-sixth-tree-foldability.wat`
   // (`first_sixth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -14951,11 +14951,11 @@ test "optimize-instructions folds second+third trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-fourth-fifth-tree-foldability.wat`
   // (`second_third_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15015,11 +15015,11 @@ test "optimize-instructions folds second+fourth trees in six-operand mixed i32-r
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-fourth-fifth-tree-foldability.wat`
   // (`second_fourth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64 i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15079,11 +15079,11 @@ test "optimize-instructions folds second+fifth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-third-fourth-fifth-tree-foldability.wat`
   // (`second_fifth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -15143,11 +15143,11 @@ test "optimize-instructions folds second+sixth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-sixth-third-fourth-third-fifth-tree-foldability.wat`
   // (`second_sixth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64 i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -15207,11 +15207,11 @@ test "optimize-instructions folds third+fourth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-sixth-third-fourth-third-fifth-tree-foldability.wat`
   // (`third_fourth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15271,11 +15271,11 @@ test "optimize-instructions folds third+fifth trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-second-sixth-third-fourth-third-fifth-tree-foldability.wat`
   // (`third_fifth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i32) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -15336,11 +15336,11 @@ test "optimize-instructions folds third+sixth trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-sixth-fourth-fifth-fourth-sixth-tree-foldability.wat`
   // (`third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -15400,11 +15400,11 @@ test "optimize-instructions folds fourth+fifth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-sixth-fourth-fifth-fourth-sixth-tree-foldability.wat`
   // (`fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64 i32) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -15464,11 +15464,11 @@ test "optimize-instructions folds fourth+sixth trees in six-operand mixed i32-re
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-sixth-fourth-fifth-fourth-sixth-tree-foldability.wat`
   // (`fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 local.get 0 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -15528,11 +15528,11 @@ test "optimize-instructions folds fifth+sixth trees in six-operand mixed i32-res
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-fifth-sixth-first-second-third-tree-foldability.wat`
   // (`fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -15591,11 +15591,11 @@ test "optimize-instructions folds first tree in six-operand mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-direct-first-second-foldability.wat`
   // (`first_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 local.get 0 i32.const " +
@@ -15655,11 +15655,11 @@ test "optimize-instructions folds second tree in six-operand mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-direct-first-second-foldability.wat`
   // (`second_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15719,11 +15719,11 @@ test "optimize-instructions folds third tree in six-operand mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-fourth-fifth-tree-foldability.wat`
   // (`third_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15783,11 +15783,11 @@ test "optimize-instructions folds fourth tree in six-operand mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-fourth-fifth-tree-foldability.wat`
   // (`fourth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -15847,11 +15847,11 @@ test "optimize-instructions folds fifth tree in six-operand mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-third-fourth-fifth-tree-foldability.wat`
   // (`fifth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i32) (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const 0 i32.const " +
@@ -15911,11 +15911,11 @@ test "optimize-instructions folds sixth tree in six-operand mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-sixth-first-second-first-third-tree-foldability.wat`
   // (`sixth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (param i64) (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 local.get 0 i64.const 17 i64.add call $id i32.const 0 i32.const " +
@@ -15975,11 +15975,11 @@ test "optimize-instructions folds first+second+third trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-second-three-tree-foldability.wat`
   // (`first_second_third_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -16040,11 +16040,11 @@ test "optimize-instructions folds first+second+fourth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-second-three-tree-foldability.wat`
   // (`first_second_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -16105,11 +16105,11 @@ test "optimize-instructions folds first+second+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-second-three-tree-foldability.wat`
   // (`first_second_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -16170,11 +16170,11 @@ test "optimize-instructions folds first+second+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-foldability.wat`
   // (`first_second_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -16235,11 +16235,11 @@ test "optimize-instructions folds first+third+fourth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-foldability.wat`
   // (`first_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -16299,11 +16299,11 @@ test "optimize-instructions folds first+third+fifth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-foldability.wat`
   // (`first_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -16363,11 +16363,11 @@ test "optimize-instructions folds first+third+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round2-foldability.wat`
   // (`first_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -16427,11 +16427,11 @@ test "optimize-instructions folds first+fourth+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round2-foldability.wat`
   // (`first_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -16491,11 +16491,11 @@ test "optimize-instructions folds first+fourth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round2-foldability.wat`
   // (`first_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 local.get 2 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -16556,11 +16556,11 @@ test "optimize-instructions folds first+fifth+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round3-foldability.wat`
   // (`first_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add local.get 2 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -16621,11 +16621,11 @@ test "optimize-instructions folds second+third+fourth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round3-foldability.wat`
   // (`second_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const " +
@@ -16685,11 +16685,11 @@ test "optimize-instructions folds second+third+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round3-foldability.wat`
   // (`second_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -16750,11 +16750,11 @@ test "optimize-instructions folds second+third+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round4-foldability.wat`
   // (`second_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -16815,11 +16815,11 @@ test "optimize-instructions folds second+fourth+fifth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round4-foldability.wat`
   // (`second_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -16879,11 +16879,11 @@ test "optimize-instructions folds second+fourth+sixth trees in six-operand mixed
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round4-foldability.wat`
   // (`second_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i64 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -16944,11 +16944,11 @@ test "optimize-instructions folds second+fifth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round5-foldability.wat`
   // (`second_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -17009,11 +17009,11 @@ test "optimize-instructions folds third+fourth+fifth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round5-foldability.wat`
   // (`third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -17073,11 +17073,11 @@ test "optimize-instructions folds third+fourth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-tree-round5-foldability.wat`
   // (`third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -17137,11 +17137,11 @@ test "optimize-instructions folds third+fifth+sixth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 1 i32.const 13 i32.add local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -17201,11 +17201,11 @@ test "optimize-instructions folds fourth+fifth+sixth trees in six-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add local.get 2 i64.const 17 i64.add call $id i32.const " +
@@ -17264,11 +17264,11 @@ test "optimize-instructions folds first+second+third+fourth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-and-first-four-tree-foldability.wat`
   // (`first_second_third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add local.get 3 i64.const 11 i64.add i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -17328,11 +17328,11 @@ test "optimize-instructions folds first+second+third+fifth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 local.get 3 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -17392,11 +17392,11 @@ test "optimize-instructions folds first+second+third+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -17456,11 +17456,11 @@ test "optimize-instructions folds first+second+fourth+fifth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-four-tree-foldability.wat`
   // (`first_second_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -17520,11 +17520,11 @@ test "optimize-instructions folds first+second+fourth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_second_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i64 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add i32.const 13 local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -17584,11 +17584,11 @@ test "optimize-instructions folds first+second+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_second_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -17648,11 +17648,11 @@ test "optimize-instructions folds first+third+fourth+fifth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -17712,11 +17712,11 @@ test "optimize-instructions folds first+third+fourth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32 i64 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -17776,11 +17776,11 @@ test "optimize-instructions folds first+third+fifth+sixth trees in six-operand m
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -17840,11 +17840,11 @@ test "optimize-instructions folds second+third+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-four-tree-foldability.wat`
   // (`second_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id i32.const " +
@@ -17904,11 +17904,11 @@ test "optimize-instructions folds second+third+fourth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-four-tree-foldability.wat`
   // (`second_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 local.get 3 i64.const 17 i64.add call $id i32.const " +
@@ -17968,11 +17968,11 @@ test "optimize-instructions folds second+third+fourth+fifth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-four-tree-foldability.wat`
   // (`second_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32 i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -18032,11 +18032,11 @@ test "optimize-instructions folds first+fourth+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-four-tree-foldability.wat`
   // (`first_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -18096,11 +18096,11 @@ test "optimize-instructions folds fifth+sixth trees in six-operand mixed i64-res
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-two-tree-foldability.wat`
   // (`fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id i32.const " +
@@ -18160,11 +18160,11 @@ test "optimize-instructions folds fourth+sixth trees in six-operand mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-two-tree-foldability.wat`
   // (`fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 local.get 0 i64.const 17 i64.add call $id i32.const " +
@@ -18224,11 +18224,11 @@ test "optimize-instructions folds fourth+fifth trees in six-operand mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-two-tree-foldability.wat`
   // (`fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -18288,11 +18288,11 @@ test "optimize-instructions folds third and sixth trees in six-operand mixed i64
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-third-next-three-two-tree-foldability.wat`
   // (`third_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const " +
@@ -18352,11 +18352,11 @@ test "optimize-instructions folds third and fifth trees in six-operand mixed i64
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-third-next-three-two-tree-foldability.wat`
   // (`third_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -18416,11 +18416,11 @@ test "optimize-instructions folds third and fourth trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-third-next-three-two-tree-foldability.wat`
   // (`third_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const " +
@@ -18480,11 +18480,11 @@ test "optimize-instructions folds second and sixth trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-second-next-three-two-tree-foldability.wat`
   // (`second_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const " +
@@ -18544,11 +18544,11 @@ test "optimize-instructions folds second and fifth trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-second-next-three-two-tree-foldability.wat`
   // (`second_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -18608,11 +18608,11 @@ test "optimize-instructions folds second and fourth trees in six-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-second-next-three-two-tree-foldability.wat`
   // (`second_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const " +
@@ -18672,11 +18672,11 @@ test "optimize-instructions folds second and third trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-two-tree-foldability.wat`
   // (`second_third_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const " +
@@ -18736,11 +18736,11 @@ test "optimize-instructions folds first and sixth trees in six-operand mixed i64
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-two-tree-foldability.wat`
   // (`first_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -18800,11 +18800,11 @@ test "optimize-instructions folds first and fifth trees in six-operand mixed i64
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-two-tree-foldability.wat`
   // (`first_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -18864,11 +18864,11 @@ test "optimize-instructions folds first and fourth trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-two-tree-foldability.wat`
   // (`first_fourth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -18928,11 +18928,11 @@ test "optimize-instructions folds first and third trees in six-operand mixed i64
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-two-tree-foldability.wat`
   // (`first_third_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -18992,11 +18992,11 @@ test "optimize-instructions folds first and second trees in six-operand mixed i6
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-two-tree-foldability.wat`
   // (`first_second_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -19055,11 +19055,11 @@ test "optimize-instructions folds sixth tree in six-operand mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-one-tree-foldability.wat`
   // (`sixth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 local.get 1 i64.const 17 i64.add call $id i32.const " +
@@ -19118,11 +19118,11 @@ test "optimize-instructions folds fifth tree in six-operand mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-one-tree-foldability.wat`
   // (`fifth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 call $id i32.const " +
@@ -19181,11 +19181,11 @@ test "optimize-instructions folds fourth tree in six-operand mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-three-one-tree-foldability.wat`
   // (`fourth_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 i64.const 17 call $id i32.const " +
@@ -19244,11 +19244,11 @@ test "optimize-instructions folds third tree in six-operand mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-one-tree-foldability.wat`
   // (`third_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 call $id i32.const " +
@@ -19307,11 +19307,11 @@ test "optimize-instructions folds second tree in six-operand mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-one-tree-foldability.wat`
   // (`second_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 3 local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const " +
@@ -19370,11 +19370,11 @@ test "optimize-instructions folds first tree in six-operand mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-first-three-one-tree-foldability.wat`
   // (`first_tree_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id local.get 0 i32.const " +
@@ -19433,11 +19433,11 @@ test "optimize-instructions folds direct six-operand mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-direct-foldability.wat`
   // (`direct_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const " +
@@ -19496,11 +19496,11 @@ test "optimize-instructions folds direct six-operand mixed i32-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-six-i32-result-canonical-direct-first-second-foldability.wat`
   // (`direct_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add local.get 5 i32.wrap_i64 i32.add) (func (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 call $id i32.const 0 i32.const " +
@@ -19559,11 +19559,11 @@ test "optimize-instructions folds direct five-operand mixed i32-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-direct-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -19618,11 +19618,11 @@ test "optimize-instructions folds first tree in five-operand mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -19678,11 +19678,11 @@ test "optimize-instructions folds second tree in five-operand mixed i32-result c
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-second-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -19738,11 +19738,11 @@ test "optimize-instructions folds third tree in five-operand mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-third-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -19798,11 +19798,11 @@ test "optimize-instructions folds fourth tree in five-operand mixed i32-result c
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-fourth-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -19858,11 +19858,11 @@ test "optimize-instructions folds fifth tree in five-operand mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-fifth-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32) (result i32) i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -19918,11 +19918,11 @@ test "optimize-instructions folds first and second trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-second-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -19977,11 +19977,11 @@ test "optimize-instructions folds first and third trees in five-operand mixed i3
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-third-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20036,11 +20036,11 @@ test "optimize-instructions folds first and fourth trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-fourth-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20095,11 +20095,11 @@ test "optimize-instructions folds first and fifth trees in five-operand mixed i3
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-fifth-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20155,11 +20155,11 @@ test "optimize-instructions folds second and third trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-second-third-tree-foldability.wat`
   // (`equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20215,11 +20215,11 @@ test "optimize-instructions folds second and fourth trees in five-operand mixed 
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-two-tree-foldability.wat`
   // (`second_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20275,11 +20275,11 @@ test "optimize-instructions folds second and fifth trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-two-tree-foldability.wat`
   // (`second_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 1 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20335,11 +20335,11 @@ test "optimize-instructions folds third and fourth trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-two-tree-foldability.wat`
   // (`third_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20395,11 +20395,11 @@ test "optimize-instructions folds third and fifth trees in five-operand mixed i3
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-two-and-first-three-tree-foldability.wat`
   // (`third_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i32) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 local.get 1 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20455,11 +20455,11 @@ test "optimize-instructions folds fourth and fifth trees in five-operand mixed i
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-two-and-first-three-tree-foldability.wat`
   // (`fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32) (result i32) i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -20514,11 +20514,11 @@ test "optimize-instructions folds first second and third trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-two-and-first-three-tree-foldability.wat`
   // (`first_second_third_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20573,11 +20573,11 @@ test "optimize-instructions folds first second and fourth trees in five-operand 
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-foldability.wat`
   // (`first_second_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20632,11 +20632,11 @@ test "optimize-instructions folds first second and fifth trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-foldability.wat`
   // (`first_second_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 i64.const 11 local.get 2 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20691,11 +20691,11 @@ test "optimize-instructions folds first third and fourth trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-foldability.wat`
   // (`first_third_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i32 i64) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20750,11 +20750,11 @@ test "optimize-instructions folds first third and fifth trees in five-operand mi
   // oracle: `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-b-foldability.wat`
   // (`first_third_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i32 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20809,11 +20809,11 @@ test "optimize-instructions folds first fourth and fifth trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-b-foldability.wat`
   // (`first_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20868,11 +20868,11 @@ test "optimize-instructions folds first second third and fourth trees in five-op
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-four-tree-foldability.wat`
   // (`first_second_third_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32 i64) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add local.get 3 i64.const 11 i64.add i32.const 13 call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20927,11 +20927,11 @@ test "optimize-instructions folds first second third and fifth trees in five-ope
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-four-tree-foldability.wat`
   // (`first_second_third_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32 i32) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add i64.const 11 local.get 3 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -20986,11 +20986,11 @@ test "optimize-instructions folds first second fourth and fifth trees in five-op
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-first-four-tree-foldability.wat`
   // (`first_second_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i64 i32) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -21045,11 +21045,11 @@ test "optimize-instructions folds first third fourth and fifth trees in five-ope
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-tree-placements-foldability.wat`
   // (`first_third_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i32 i64 i32) (result i32) local.get 0 i32.const 3 i32.add i64.const 5 local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -21104,11 +21104,11 @@ test "optimize-instructions folds second third fourth and fifth trees in five-op
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-tree-placements-foldability.wat`
   // (`second_third_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32 i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add local.get 3 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -21163,11 +21163,11 @@ test "optimize-instructions folds all five trees in five-operand mixed i32-resul
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-tree-placements-foldability.wat`
   // (`all_five_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32 i64 i32) (result i32) local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 2 i32.const 7 i32.add local.get 3 i64.const 11 i64.add local.get 4 i32.const 13 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -21222,11 +21222,11 @@ test "optimize-instructions folds second third and fourth trees in five-operand 
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-next-three-tree-b-foldability.wat`
   // (`second_third_fourth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32 i64) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 11 i64.add i32.const 13 call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -21282,11 +21282,11 @@ test "optimize-instructions folds second third and fifth trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-three-tree-foldability.wat`
   // (`second_third_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i32 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 11 local.get 2 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -21342,11 +21342,11 @@ test "optimize-instructions folds second fourth and fifth trees in five-operand 
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-three-tree-foldability.wat`
   // (`second_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i64 i64 i32) (result i32) i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -21401,11 +21401,11 @@ test "optimize-instructions folds third fourth and fifth trees in five-operand m
   // `.tmp/oi-probes/select-idempotent-call-five-i32-result-canonical-final-three-tree-foldability.wat`
   // (`third_fourth_fifth_equal` and its five mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32) (result i32) local.get 0 local.get 1 i32.wrap_i64 i32.add local.get 2 i32.add local.get 3 i32.wrap_i64 i32.add local.get 4 i32.add) (func (param i32 i64 i32) (result i32) i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add call $id i32.const 0 i32.const " +
       right_first_const.to_string() +
@@ -21460,8 +21460,8 @@ test "optimize-instructions folds direct i64-i32-i32 mixed i64-result calls" {
   // (`mixed_i64_i32_i32_direct_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (result i64) i64.const 0 i64.const 5 i32.const 7 i32.const 9 call $id i64.const " +
       right_first_const.to_string() +
@@ -21510,8 +21510,8 @@ test "optimize-instructions folds first tree in i64-i32-i32 mixed i64-result cal
   // (`mixed_i64_i32_i32_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
-    right_third_const : Int,
+    right_second_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i32.const 7 i32.const 9 call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -21561,8 +21561,8 @@ test "optimize-instructions folds second tree in i64-i32-i32 mixed i64-result ca
   // (`mixed_i64_i32_i32_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
-    right_third_const : Int,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i64.const 5 local.get 0 i32.const 7 i32.add i32.const 9 call $id i64.const " +
       right_first_const.to_string() +
@@ -21612,8 +21612,8 @@ test "optimize-instructions folds third tree in i64-i32-i32 mixed i64-result cal
   // (`mixed_i64_i32_i32_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
-    right_third_tree_const : Int,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i64.const 5 i32.const 7 local.get 0 i32.const 9 i32.add call $id i64.const " +
       right_first_const.to_string() +
@@ -21663,8 +21663,8 @@ test "optimize-instructions folds first-second trees in i64-i32-i32 mixed i64-re
   // (`mixed_i64_i32_i32_first_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
-    right_third_const : Int,
+    right_second_tree_const : Int32,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i32.const 9 call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -21714,8 +21714,8 @@ test "optimize-instructions folds first-third trees in i64-i32-i32 mixed i64-res
   // (`mixed_i64_i32_i32_first_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
-    right_third_tree_const : Int,
+    right_second_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i32.const 9 i32.add call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -21765,8 +21765,8 @@ test "optimize-instructions folds second-third trees in i64-i32-i32 mixed i64-re
   // (`mixed_i64_i32_i32_second_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32 i32) (result i64) i64.const 0 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i32.const 9 i32.add call $id i64.const " +
       right_first_const.to_string() +
@@ -21816,8 +21816,8 @@ test "optimize-instructions folds all three trees in i64-i32-i32 mixed i64-resul
   // (`mixed_i64_i32_i32_all_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
-    right_third_tree_const : Int,
+    right_second_tree_const : Int32,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i32) (result i64) local.get 0 local.get 1 i64.extend_i32_u i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32 i32) (result i64) i64.const 0 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i32.const 9 i32.add call $id local.get 0 i64.const " +
       right_first_tree_const.to_string() +
@@ -21865,8 +21865,8 @@ test "optimize-instructions folds direct i32-i32-i64 mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next36-foldability.wat`
   // (`mixed_i32_i32_i64_direct_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (result i64) i64.const 0 i32.const 5 i32.const 7 i64.const 9 call $id i32.const " +
@@ -21916,8 +21916,8 @@ test "optimize-instructions folds first tree in i32-i32-i64 mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-next37-foldability.wat`
   // (`mixed_i32_i32_i64_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_tree_const : Int,
-    right_second_const : Int,
+    right_tree_const : Int32,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add i32.const 7 i64.const 9 call $id local.get 0 i32.const " +
@@ -21967,8 +21967,8 @@ test "optimize-instructions folds second tree in i32-i32-i64 mixed i64-result ca
   // `.tmp/oi-probes/select-idempotent-call-next37-foldability.wat`
   // (`mixed_i32_i32_i64_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_tree_const : Int,
+    right_first_const : Int32,
+    right_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32) (result i64) i64.const 0 i32.const 5 local.get 0 i32.const 7 i32.add i64.const 9 call $id i32.const " +
@@ -22018,8 +22018,8 @@ test "optimize-instructions folds third tree in i32-i32-i64 mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-next37-foldability.wat`
   // (`mixed_i32_i32_i64_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
     right_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i64) (result i64) i64.const 0 i32.const 5 i32.const 7 local.get 0 i64.const 9 i64.add call $id i32.const " +
@@ -22069,8 +22069,8 @@ test "optimize-instructions folds first+second trees in i32-i32-i64 mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-next38-foldability.wat`
   // (`mixed_i32_i32_i64_first_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32 i32) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add i64.const 9 call $id local.get 0 i32.const " +
@@ -22120,8 +22120,8 @@ test "optimize-instructions folds first+third trees in i32-i32-i64 mixed i64-res
   // `.tmp/oi-probes/select-idempotent-call-next38-foldability.wat`
   // (`mixed_i32_i32_i64_first_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_const : Int,
+    right_first_tree_const : Int32,
+    right_second_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add i32.const 7 local.get 1 i64.const 9 i64.add call $id local.get 0 i32.const " +
@@ -22171,8 +22171,8 @@ test "optimize-instructions folds second+third trees in i32-i32-i64 mixed i64-re
   // `.tmp/oi-probes/select-idempotent-call-next38-foldability.wat`
   // (`mixed_i32_i32_i64_second_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_tree_const : Int,
+    right_first_const : Int32,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32 i64) (result i64) i64.const 0 i32.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 9 i64.add call $id i32.const " +
@@ -22222,8 +22222,8 @@ test "optimize-instructions folds all three trees in i32-i32-i64 mixed i64-resul
   // `.tmp/oi-probes/select-idempotent-call-next39-foldability.wat`
   // (`mixed_i32_i32_i64_all_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.extend_i32_u i64.add local.get 2 i64.add) (func (param i32 i32 i64) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 9 i64.add call $id local.get 0 i32.const " +
@@ -22272,8 +22272,8 @@ test "optimize-instructions folds direct i32-i32-i64 mixed i32-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next39-foldability.wat`
   // (`mixed_i32_i32_i64_i32_direct_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (result i32) i32.const 5 i32.const 7 i64.const 9 call $id i32.const 0 i32.const " +
@@ -22323,8 +22323,8 @@ test "optimize-instructions folds first tree in i32-i32-i64 mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-next39-foldability.wat`
   // (`mixed_i32_i32_i64_i32_first_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_tree_const : Int,
-    right_second_const : Int,
+    right_tree_const : Int32,
+    right_second_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32) (result i32) local.get 0 i32.const 5 i32.add i32.const 7 i64.const 9 call $id i32.const 0 local.get 0 i32.const " +
@@ -22374,8 +22374,8 @@ test "optimize-instructions folds second tree in i32-i32-i64 mixed i32-result ca
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_second_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_tree_const : Int,
+    right_first_const : Int32,
+    right_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add i64.const 9 call $id i32.const 0 i32.const " +
@@ -22425,8 +22425,8 @@ test "optimize-instructions folds third tree in i32-i32-i64 mixed i32-result cal
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_third_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
     right_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64) (result i32) i32.const 5 i32.const 7 local.get 0 i64.const 9 i64.add call $id i32.const 0 i32.const " +
@@ -22476,8 +22476,8 @@ test "optimize-instructions folds first and second trees in i32-i32-i64 mixed i3
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_first_second_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32 i32) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add i64.const 9 call $id i32.const 0 local.get 0 i32.const " +
@@ -22527,8 +22527,8 @@ test "optimize-instructions folds first and third trees in i32-i32-i64 mixed i32
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_first_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_const : Int,
+    right_first_tree_const : Int32,
+    right_second_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) local.get 0 i32.const 5 i32.add i32.const 7 local.get 1 i64.const 9 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -22578,8 +22578,8 @@ test "optimize-instructions folds second and third trees in i32-i32-i64 mixed i3
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_second_third_tree_equal` and mismatches).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_tree_const : Int,
+    right_first_const : Int32,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i32.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 9 i64.add call $id i32.const 0 i32.const " +
@@ -22629,8 +22629,8 @@ test "optimize-instructions folds all three trees in i32-i32-i64 mixed i32-resul
   // `.tmp/oi-probes/select-idempotent-call-next40-foldability.wat`
   // (`mixed_i32_i32_i64_i32_all_tree_equal` and its mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
-    right_second_tree_const : Int,
+    right_first_tree_const : Int32,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32 i64) (result i32) local.get 0 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32 i32 i64) (result i32) local.get 0 i32.const 5 i32.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 9 i64.add call $id i32.const 0 local.get 0 i32.const " +
@@ -22680,7 +22680,7 @@ test "optimize-instructions folds first tree in mixed i32-result calls" {
   // (`mixed_three_i32_first_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_tree_const : Int64,
-    right_second_local : Int,
+    right_second_local : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i32 i32) (result i32) local.get 0 i64.const 1 i64.add local.get 1 i64.const 9 call $id i32.const 0 local.get 0 i64.const " +
@@ -22729,7 +22729,7 @@ test "optimize-instructions folds second tree in mixed i32-result calls" {
   // (`mixed_three_i32_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_tree_const : Int,
+    right_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32) (result i32) i64.const 5 local.get 0 i32.const 7 i32.add i64.const 9 call $id i32.const 0 i64.const " +
@@ -22780,7 +22780,7 @@ test "optimize-instructions folds third tree in mixed i32-result calls" {
   // (`mixed_three_i32_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64) (result i32) i64.const 5 i32.const 7 local.get 0 i64.const 9 i64.add call $id i32.const 0 i64.const " +
@@ -22829,7 +22829,7 @@ test "optimize-instructions folds first and second trees in mixed i32-result cal
   // (`mixed_i32_first_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i32) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add i64.const 9 call $id i32.const 0 local.get 0 i64.const " +
@@ -22880,7 +22880,7 @@ test "optimize-instructions folds first and third trees in mixed i32-result call
   // (`mixed_i32_first_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_const : Int,
+    right_second_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i64) (result i32) local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 9 i64.add call $id i32.const 0 local.get 0 i64.const " +
@@ -22931,7 +22931,7 @@ test "optimize-instructions folds second and third trees in mixed i32-result cal
   // (`mixed_i32_second_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i32 i64) (result i32) i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 9 i64.add call $id i32.const 0 i64.const " +
@@ -22982,7 +22982,7 @@ test "optimize-instructions folds all three trees in mixed i32-result calls" {
   // (`mixed_i32_all_three_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
     right_first_tree_const : Int64,
-    right_second_tree_const : Int,
+    right_second_tree_const : Int32,
     right_third_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i64 i32 i64) (result i32) local.get 0 i32.wrap_i64 local.get 1 i32.add local.get 2 i32.wrap_i64 i32.add) (func (param i64 i32 i64) (result i32) local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 2 i64.const 9 i64.add call $id i32.const 0 local.get 0 i64.const " +
@@ -23031,9 +23031,9 @@ test "optimize-instructions folds first tree in mixed i64-result calls" {
   // oracle: `.tmp/oi-probes/select-idempotent-call-next14-foldability.wat`
   // (`mixed_three_i64_first_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_tree_const : Int,
+    right_tree_const : Int32,
     right_second_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add i64.const 7 i32.const 9 call $id local.get 0 i32.const " +
       right_tree_const.to_string() +
@@ -23080,9 +23080,9 @@ test "optimize-instructions folds second tree in mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next14-foldability.wat`
   // (`mixed_three_i64_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 5 local.get 0 i64.const 7 i64.add i32.const 9 call $id i32.const " +
       right_first_const.to_string() +
@@ -23131,9 +23131,9 @@ test "optimize-instructions folds third tree in mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next14-foldability.wat`
   // (`mixed_three_i64_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_tree_const : Int,
+    right_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 5 i64.const 7 local.get 0 i32.const 9 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -23181,9 +23181,9 @@ test "optimize-instructions folds first and second trees in mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-next23-foldability.wat`
   // (`mixed_i64_first_second_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add local.get 1 i64.const 7 i64.add i32.const 9 call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -23233,9 +23233,9 @@ test "optimize-instructions folds first and third trees in mixed i64-result call
   // `.tmp/oi-probes/select-idempotent-call-next24-foldability.wat`
   // (`mixed_i64_first_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32 i32) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add i64.const 7 local.get 1 i32.const 9 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -23285,9 +23285,9 @@ test "optimize-instructions folds second and third trees in mixed i64-result cal
   // `.tmp/oi-probes/select-idempotent-call-next24-foldability.wat`
   // (`mixed_i64_second_third_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 5 local.get 0 i64.const 7 i64.add local.get 1 i32.const 9 i32.add call $id i32.const " +
       right_first_const.to_string() +
@@ -23337,9 +23337,9 @@ test "optimize-instructions folds all three trees in mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-next24-foldability.wat`
   // (`mixed_i64_all_three_tree_equal` and its three mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add) (func (param i32 i64 i32) (result i64) i64.const 0 local.get 0 i32.const 5 i32.add local.get 1 i64.const 7 i64.add local.get 2 i32.const 9 i32.add call $id local.get 0 i32.const " +
       right_first_tree_const.to_string() +
@@ -23764,7 +23764,7 @@ test "optimize-instructions folds tree-bearing multi-operand idempotent calls" {
   // inner constant remains. Source: `OptimizeInstructions.cpp:2891-2947`;
   // oracle: `.tmp/oi-probes/select-idempotent-call-next2-foldability.wat`
   // (`mixed_tree_equal` and `mixed_tree_mismatch`).
-  let optimize_caller = fn(right_inner_const : Int) raise {
+  let optimize_caller = fn(right_inner_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.const 7 call $id i32.const 0 local.get 0 i32.const " +
       right_inner_const.to_string() +
       " i32.add i32.const 7 call $id select))"
@@ -23801,7 +23801,7 @@ test "optimize-instructions folds second-slot tree-bearing idempotent calls" {
   // `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-next3-foldability.wat`
   // (`second_tree_equal` and `second_tree_mismatch`).
-  let optimize_caller = fn(right_inner_const : Int) raise {
+  let optimize_caller = fn(right_inner_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 local.get 0 i32.const 1 i32.add call $id i32.const 0 local.get 0 local.get 0 i32.const " +
       right_inner_const.to_string() +
       " i32.add call $id select))"
@@ -23839,8 +23839,8 @@ test "optimize-instructions folds two tree-bearing idempotent-call operands" {
   // (`two_trees_equal`, `two_trees_first_mismatch`, and
   // `two_trees_second_mismatch`).
   let optimize_caller = fn(
-    right_first_const : Int,
-    right_second_const : Int,
+    right_first_const : Int32,
+    right_second_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i32) (result i32) local.get 0 local.get 1 i32.add) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add local.get 0 i32.const 7 i32.add call $id i32.const 0 local.get 0 i32.const " +
       right_first_const.to_string() +
@@ -23885,7 +23885,7 @@ test "optimize-instructions folds i32.mul-tree idempotent-call self-selects" {
   // not. Source: `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-next2-foldability.wat`
   // (`mul_equal` and `mul_mismatch`).
-  let optimize_caller = fn(right_const : Int) raise {
+  let optimize_caller = fn(right_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32) (result i32) local.get 0 i32.const 3 i32.mul call $id i32.const 0 local.get 0 i32.const " +
       right_const.to_string() +
       " i32.mul call $id select))"
@@ -23919,7 +23919,7 @@ test "optimize-instructions folds composed-tree idempotent-call self-selects" {
   // `OptimizeInstructions.cpp:2891-2947`; oracle:
   // `.tmp/oi-probes/select-idempotent-call-next-foldability.wat`
   // (`composed_equal` and `composed_mismatch`).
-  let optimize_caller = fn(right_const : Int) raise {
+  let optimize_caller = fn(right_const : Int32) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32) (result i32) local.get 0) (func (param i32) (result i32) local.get 0 i32.const 1 i32.add i32.eqz call $id i32.const 0 local.get 0 i32.const " +
       right_const.to_string() +
       " i32.add i32.eqz call $id select))"
@@ -24164,7 +24164,7 @@ test "optimize-instructions hoists eqz from select arms paired with booleans" {
     wat : String,
     expected_unary : @lib.Instruction,
     expected_const : @ir.HotConstPayload,
-    const_slot : Int,
+    const_slot : Int32,
   ) raise {
     let func = optimize_instructions_test_run_hot(wat)
     let root = @ir.hot_root_get(func, 0)
@@ -26278,9 +26278,41 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
   assert_false(pretty_atomic.contains("offset=U64(8)"), msg=pretty_atomic)
   assert_false(pretty_atomic.contains("offset=U64(16)"), msg=pretty_atomic)
   assert_false(pretty_atomic.contains("I32(3008)"), msg=pretty_atomic)
-  optimize_instructions_assert_strings_in_order(pretty_atomic, [
-    "i32.atomic.store", "(local.get (Local 1025))", "(local.get (Local 0))", "i64.extend_i32u",
-    "i64.xor",
+  let @lib.Func(atomic_locals, @lib.Expr(atomic_body)) = optimized_atomic.code_sec.unwrap().0[0]
+  // Frequency ordering changes indices; both temporaries must still retain
+  // the matching load value across the store, in the original effect order.
+  @debug.assert_eq(atomic_locals.length(), 2)
+  @debug.assert_eq(atomic_body.length(), 13)
+  let wide = match atomic_body[2] {
+    @lib.LocalSet(idx) => idx
+    instr => fail("expected wide atomic-load temporary, got \{instr}")
+  }
+  let narrow = match atomic_body[5] {
+    @lib.LocalSet(idx) => idx
+    instr => fail("expected narrow atomic-load temporary, got \{instr}")
+  }
+  @debug.assert_eq(atomic_locals.get(wide.0.to_int()), @lib.ValType::i64())
+  @debug.assert_eq(atomic_locals.get(narrow.0.to_int()), @lib.ValType::i32())
+  @debug.assert_eq(atomic_body, [
+    @lib.Instruction::i32_const(@lib.I32(3016)),
+    @lib.Instruction::i64_atomic_load(
+      @lib.MemArg::new(@lib.U32(3), None, @lib.U64(0UL)),
+    ),
+    @lib.Instruction::local_set(wide),
+    @lib.Instruction::i32_const(@lib.I32(3012)),
+    @lib.Instruction::i32_atomic_load(
+      @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL)),
+    ),
+    @lib.Instruction::local_set(narrow),
+    @lib.Instruction::i32_const(@lib.I32(3024)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_atomic_store(
+      @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL)),
+    ),
+    @lib.Instruction::local_get(wide),
+    @lib.Instruction::local_get(narrow),
+    @lib.Instruction::i64_extend_i32u(),
+    @lib.Instruction::i64_xor(),
   ])
 
   let func_type64 = @lib.RecType::new(
@@ -26597,7 +26629,7 @@ test "optimize-instructions preserves atomic localtee addresses" {
     ]),
   )
   let address_tees : Array[@lib.LocalIdx] = []
-  let atomic_kinds : Array[Int] = []
+  let atomic_kinds : Array[Int32] = []
   for index = 0; index < body.length(); index = index + 1 {
     match body[index] {
       @lib.I32AtomicLoad(_, _) => {
@@ -28847,7 +28879,7 @@ test "optimize-instructions folds integer eq/ne constant compares" {
 ///|
 fn optimize_instructions_test_assert_i32_const_result(
   wat : String,
-  expected : Int,
+  expected : Int32,
   label : String,
 ) -> Unit raise {
   let func = optimize_instructions_test_run_hot(wat)
@@ -34338,7 +34370,7 @@ test "optimize-instructions folds ref.test from loop fallthrough facts" {
 ///|
 fn optimize_instructions_test_validate_br_on_hot(
   module_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
   func : @ir.HotFunc,
 ) -> Unit raise {
   match @ir.hot_verify_all(func, cache=Some(())) {
@@ -36949,18 +36981,18 @@ test "optimize-instructions folds descriptor casts with call-produced exact desc
 
 ///|
 fn optimize_instructions_test_descriptor_call_operand_miss_module(
-  desc_arg_count : Int,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
-  effectful_block_call_args? : Bool = false,
-  direct_call_args? : Bool = false,
-  parameterized_direct_call_args? : Bool = false,
-  reference_direct_call_args? : Bool = false,
-  parameterized_reference_direct_call_args? : Bool = false,
-  local_tee_call_args? : Bool = false,
-  trapping_scalar_call_args? : Bool = false,
-  select_call_args? : Bool = false,
+  desc_arg_count : Int32,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
+  effectful_block_call_args~ : Bool = false,
+  direct_call_args~ : Bool = false,
+  parameterized_direct_call_args~ : Bool = false,
+  reference_direct_call_args~ : Bool = false,
+  parameterized_reference_direct_call_args~ : Bool = false,
+  local_tee_call_args~ : Bool = false,
+  trapping_scalar_call_args~ : Bool = false,
+  select_call_args~ : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -37252,18 +37284,18 @@ fn optimize_instructions_test_descriptor_call_operand_miss_module(
 
 ///|
 fn optimize_instructions_test_assert_descriptor_call_operand_miss(
-  desc_arg_count : Int,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
-  effectful_block_call_args? : Bool = false,
-  direct_call_args? : Bool = false,
-  parameterized_direct_call_args? : Bool = false,
-  reference_direct_call_args? : Bool = false,
-  parameterized_reference_direct_call_args? : Bool = false,
-  local_tee_call_args? : Bool = false,
-  trapping_scalar_call_args? : Bool = false,
-  select_call_args? : Bool = false,
+  desc_arg_count : Int32,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
+  effectful_block_call_args~ : Bool = false,
+  direct_call_args~ : Bool = false,
+  parameterized_direct_call_args~ : Bool = false,
+  reference_direct_call_args~ : Bool = false,
+  parameterized_reference_direct_call_args~ : Bool = false,
+  local_tee_call_args~ : Bool = false,
+  trapping_scalar_call_args~ : Bool = false,
+  select_call_args~ : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_descriptor_call_operand_miss_module(
     desc_arg_count,
@@ -42346,7 +42378,7 @@ test "optimize-instructions folds descriptor casts with mixed 5-ref 1-desc call 
 }
 
 ///|
-fn optimize_instructions_test_i32_params(count : Int) -> Array[@lib.ValType] {
+fn optimize_instructions_test_i32_params(count : Int32) -> Array[@lib.ValType] {
   let params : Array[@lib.ValType] = []
   for arg = 0; arg < count; arg = arg + 1 {
     params.push(@lib.ValType::i32())
@@ -42355,7 +42387,7 @@ fn optimize_instructions_test_i32_params(count : Int) -> Array[@lib.ValType] {
 }
 
 ///|
-fn optimize_instructions_test_i64_params(count : Int) -> Array[@lib.ValType] {
+fn optimize_instructions_test_i64_params(count : Int32) -> Array[@lib.ValType] {
   let params : Array[@lib.ValType] = []
   for arg = 0; arg < count; arg = arg + 1 {
     params.push(@lib.ValType::i64())
@@ -42365,7 +42397,7 @@ fn optimize_instructions_test_i64_params(count : Int) -> Array[@lib.ValType] {
 
 ///|
 fn optimize_instructions_test_local_sum_then_global_set(
-  arg_count : Int,
+  arg_count : Int32,
   global_idx : @lib.GlobalIdx,
 ) -> Array[@lib.Instruction] {
   let instrs : Array[@lib.Instruction] = []
@@ -42381,11 +42413,11 @@ fn optimize_instructions_test_local_sum_then_global_set(
 
 ///|
 fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -42574,11 +42606,11 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
 
 ///|
 fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_miss_module(
     ref_arg_count,
@@ -42654,14 +42686,14 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_miss(
 
 ///|
 fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
-  exact_ref_result? : Bool = true,
-  exact_cast_target? : Bool = true,
-  nullable_cast_target? : Bool = false,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
+  exact_ref_result~ : Bool = true,
+  exact_cast_target~ : Bool = true,
+  nullable_cast_target~ : Bool = false,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
 ) -> @lib.Module {
   let base_type = @lib.TypeIdx::new(0U)
   let base_descriptor_type = @lib.TypeIdx::new(1U)
@@ -42839,8 +42871,8 @@ fn optimize_instructions_test_mixed_direct_call_descriptor_success_module(
 
 ///|
 fn optimize_instructions_test_assert_mixed_direct_call_descriptor_success(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count, desc_arg_count,
@@ -42873,11 +42905,11 @@ fn optimize_instructions_test_assert_mixed_direct_call_descriptor_success(
 
 ///|
 fn optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_success_boundary(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count,
@@ -42947,14 +42979,14 @@ fn optimize_instructions_test_assert_nonlocal_direct_call_exact_descriptor_succe
 
 ///|
 fn optimize_instructions_test_assert_mixed_direct_call_descriptor_exactifies_success(
-  ref_arg_count : Int,
-  desc_arg_count : Int,
-  exact_ref_result? : Bool = true,
-  exact_cast_target? : Bool = false,
-  nullable_cast_target? : Bool = false,
-  const_call_args? : Bool = false,
-  i64_const_call_args? : Bool = false,
-  global_call_args? : Bool = false,
+  ref_arg_count : Int32,
+  desc_arg_count : Int32,
+  exact_ref_result~ : Bool = true,
+  exact_cast_target~ : Bool = false,
+  nullable_cast_target~ : Bool = false,
+  const_call_args~ : Bool = false,
+  i64_const_call_args~ : Bool = false,
+  global_call_args~ : Bool = false,
 ) -> Unit raise {
   let module_ = optimize_instructions_test_mixed_direct_call_descriptor_success_module(
     ref_arg_count,
@@ -57487,7 +57519,7 @@ test "optimize-instructions directizes multi-root loop fallthrough call_ref targ
   let typed_func_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
   )
-  let multi_root_loop_target = fn(seed : Int) {
+  let multi_root_loop_target = fn(seed : Int32) {
     @lib.Instruction::loop_(
       @lib.BlockType::val_type(typed_func_ref),
       @lib.Expr::new([
@@ -57599,7 +57631,7 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
     )
   let rewrite_target_to_br_on_null = fn(
     func : @ir.HotFunc,
-    root : Int,
+    root : Int32,
     tail : Bool,
   ) {
     let ref_func = @ir.hot_child_get(func, root, 0)
@@ -57774,7 +57806,11 @@ test "optimize-instructions directizes br_on_non_null and cast fallthrough call_
         ),
       ]),
     )
-  let rewrite_target_to_br_on = fn(func : @ir.HotFunc, root : Int, kind : Int) {
+  let rewrite_target_to_br_on = fn(
+    func : @ir.HotFunc,
+    root : Int32,
+    kind : Int32,
+  ) {
     let ref_func = @ir.hot_child_get(func, root, 0)
     let target_block = @ir.hot_build_block(
       func,
@@ -57850,7 +57886,7 @@ test "optimize-instructions directizes br_on_non_null and cast fallthrough call_
     @ir.hot_child_set(func, root, 0, target_block)
     branch
   }
-  let assert_directized = fn(kind : Int, name : String) raise {
+  let assert_directized = fn(kind : Int32, name : String) raise {
     let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
     let root = @ir.hot_root_get(func, 0)
     let branch = rewrite_target_to_br_on(func, root, kind)
@@ -71764,7 +71800,7 @@ test "optimize-instructions localizes twenty-sixth lane from twenty-six-result s
 
 ///|
 fn optimize_instructions_test_tuple_selected_child_type(
-  lane : Int,
+  lane : Int32,
 ) -> @lib.ValType {
   match lane % 4 {
     0 => @lib.ValType::i32()
@@ -71776,7 +71812,7 @@ fn optimize_instructions_test_tuple_selected_child_type(
 
 ///|
 fn optimize_instructions_test_tuple_selected_child_types(
-  arity : Int,
+  arity : Int32,
 ) -> Array[@lib.ValType] {
   let out : Array[@lib.ValType] = []
   for lane = 0; lane < arity; lane = lane + 1 {
@@ -71788,8 +71824,8 @@ fn optimize_instructions_test_tuple_selected_child_types(
 ///|
 fn optimize_instructions_test_assert_selected_child_localizes(
   label : String,
-  arity : Int,
-  selected_lane : Int,
+  arity : Int32,
+  selected_lane : Int32,
 ) -> Unit raise {
   let selected_results = optimize_instructions_test_tuple_selected_child_types(
     arity,
@@ -75650,7 +75686,7 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
 
 ///|
 fn optimize_instructions_tuple_optimization_effect_boundary_fixture(
-  effect_count : Int,
+  effect_count : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module")
@@ -81333,7 +81369,7 @@ test "optimize-instructions keeps local tee before same-local get" {
   for parameter in [0, 41, -7] {
     let storage = Array::make(locals.length() + 1, 0)
     storage[0] = parameter
-    let stack : Array[Int] = []
+    let stack : Array[Int32] = []
     for instr in body {
       match instr {
         @lib.Nop => ()
@@ -82499,11 +82535,11 @@ test "optimize-instructions folds second+fourth+fifth+sixth trees in six-operand
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-four-and-first-five-tree-foldability.wat`
   // (`second_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i64 i32 i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id i32.const " +
@@ -82563,11 +82599,11 @@ test "optimize-instructions folds third+fourth+fifth+sixth trees in six-operand 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-four-and-first-five-tree-foldability.wat`
   // (`third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64 i32 i64) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 2 i32.const 13 i32.add local.get 3 i64.const 17 i64.add call $id i32.const " +
@@ -82626,11 +82662,11 @@ test "optimize-instructions folds first+second+third+fourth+fifth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-four-and-first-five-tree-foldability.wat`
   // (`first_second_third_fourth_fifth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add i64.const 17 call $id local.get 0 i32.const " +
@@ -82689,11 +82725,11 @@ test "optimize-instructions folds first+second+third+fourth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-five-tree-foldability.wat`
   // (`first_second_third_fourth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add i32.const 13 local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -82752,11 +82788,11 @@ test "optimize-instructions folds first+second+third+fifth+sixth trees in six-op
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-five-tree-foldability.wat`
   // (`first_second_third_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add i64.const 11 local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -82815,11 +82851,11 @@ test "optimize-instructions folds first+third+fourth+fifth+sixth trees in six-op
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-five-all-six-foldability.wat`
   // (`first_third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -82878,11 +82914,11 @@ test "optimize-instructions folds second+third+fourth+fifth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-five-all-six-foldability.wat`
   // (`second_third_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i64 i32) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add local.get 1 i32.const 7 i32.add local.get 0 i64.const 11 i64.add local.get 1 i32.const 13 i32.add local.get 0 i64.const 17 i64.add call $id i32.const " +
@@ -82941,11 +82977,11 @@ test "optimize-instructions folds all six trees in six-operand mixed i64-result 
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-final-five-all-six-foldability.wat`
   // (`all_six_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_tree_const : Int,
+    right_third_tree_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add local.get 0 i32.const 7 i32.add local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -83004,11 +83040,11 @@ test "optimize-instructions folds first+second+fourth+fifth+sixth trees in six-o
   // `.tmp/oi-probes/select-idempotent-call-six-i64-result-canonical-next-three-five-tree-foldability.wat`
   // (`first_second_fourth_fifth_sixth_equal` and its six mismatch functions).
   let optimize_caller = fn(
-    right_first_tree_const : Int,
+    right_first_tree_const : Int32,
     right_second_tree_const : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth_tree_const : Int64,
-    right_fifth_tree_const : Int,
+    right_fifth_tree_const : Int32,
     right_sixth_tree_const : Int64,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add) (func (param i32 i64) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add local.get 1 i64.const 5 i64.add i32.const 7 local.get 1 i64.const 11 i64.add local.get 0 i32.const 13 i32.add local.get 1 i64.const 17 i64.add call $id local.get 0 i32.const " +
@@ -83066,13 +83102,13 @@ test "optimize-instructions folds direct seven-operand mixed i64-result calls" {
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-direct-first-second-foldability.wat`
   // (`direct_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 i32.const 19 call $id i32.const " +
       right_first.to_string() +
@@ -83132,13 +83168,13 @@ test "optimize-instructions folds first tree in seven-operand mixed i64-result c
   // oracle: `.tmp/oi-probes/select-idempotent-call-seven-i64-result-direct-first-second-foldability.wat`
   // (`first_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first_const : Int,
+    right_first_const : Int32,
     right_second : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 local.get 0 i32.const 3 i32.add i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 i32.const 19 call $id local.get 0 i32.const " +
       right_first_const.to_string() +
@@ -83199,13 +83235,13 @@ test "optimize-instructions folds second tree in seven-operand mixed i64-result 
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-direct-first-second-foldability.wat`
   // (`second_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second_const : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 local.get 0 i64.const 5 i64.add i32.const 7 i64.const 11 i32.const 13 i64.const 17 i32.const 19 call $id i32.const " +
       right_first.to_string() +
@@ -83266,13 +83302,13 @@ test "optimize-instructions folds third tree in seven-operand mixed i64-result c
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-third-fourth-seventh-foldability.wat`
   // (`third_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second : Int64,
-    right_third_const : Int,
+    right_third_const : Int32,
     right_fourth : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 3 i64.const 5 local.get 0 i32.const 7 i32.add i64.const 11 i32.const 13 i64.const 17 i32.const 19 call $id i32.const " +
       right_first.to_string() +
@@ -83333,13 +83369,13 @@ test "optimize-instructions folds fourth tree in seven-operand mixed i64-result 
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-third-fourth-seventh-foldability.wat`
   // (`fourth_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth_const : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i64) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 local.get 0 i64.const 11 i64.add i32.const 13 i64.const 17 i32.const 19 call $id i32.const " +
       right_first.to_string() +
@@ -83400,13 +83436,13 @@ test "optimize-instructions folds fifth tree in seven-operand mixed i64-result c
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-fifth-sixth-first-seventh-foldability.wat`
   // (`fifth_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth : Int64,
-    right_fifth_const : Int,
+    right_fifth_const : Int32,
     right_sixth : Int64,
-    right_seventh : Int,
+    right_seventh : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 local.get 0 i32.const 13 i32.add i64.const 17 i32.const 19 call $id i32.const " +
       right_first.to_string() +
@@ -83467,13 +83503,13 @@ test "optimize-instructions folds seventh tree in seven-operand mixed i64-result
   // `.tmp/oi-probes/select-idempotent-call-seven-i64-result-third-fourth-seventh-foldability.wat`
   // (`seventh_equal` and its seven mismatch functions).
   let optimize_caller = fn(
-    right_first : Int,
+    right_first : Int32,
     right_second : Int64,
-    right_third : Int,
+    right_third : Int32,
     right_fourth : Int64,
-    right_fifth : Int,
+    right_fifth : Int32,
     right_sixth : Int64,
-    right_seventh_const : Int,
+    right_seventh_const : Int32,
   ) raise {
     let wat = "(module (@binaryen.idempotent) (func $id (param i32 i64 i32 i64 i32 i64 i32) (result i64) local.get 0 i64.extend_i32_u local.get 1 i64.add local.get 2 i64.extend_i32_u i64.add local.get 3 i64.add local.get 4 i64.extend_i32_u i64.add local.get 5 i64.add local.get 6 i64.extend_i32_u i64.add) (func (param i32) (result i64) i64.const 0 i32.const 3 i64.const 5 i32.const 7 i64.const 11 i32.const 13 i64.const 17 local.get 0 i32.const 19 i32.add call $id i32.const " +
       right_first.to_string() +
@@ -84118,7 +84154,7 @@ test "optimize-instructions compresses embenchen sparse exponent br_table" {
 ///|
 fn optimize_instructions_test_deep_local_tee_max_bits_chain(
   width : String,
-  depth : Int,
+  depth : Int32,
 ) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result ")
@@ -84433,7 +84469,7 @@ test "optimize-instructions handles local select operands inside a value block" 
 ///|
 fn optimize_instructions_assert_flat_effect_sequence(
   mod_ : @lib.Module,
-  count : Int,
+  count : Int32,
 ) -> Unit raise {
   assert_true(@validate.validate_module(mod_).is_ok())
   let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[count]

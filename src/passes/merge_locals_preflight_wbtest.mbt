@@ -18,7 +18,7 @@ test "merge-locals stack-carried preflight scans a flat copy region once" {
 }
 
 ///|
-fn merge_locals_preflight_nested_hazard(kind : Int) -> Bool {
+fn merge_locals_preflight_nested_hazard(kind : Int32) -> Bool {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )

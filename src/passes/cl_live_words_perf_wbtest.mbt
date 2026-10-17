@@ -1,5 +1,9 @@
 ///|
-fn cl_live_words_bench(it : @bench.T, width : Int, dense : Bool) -> Unit raise {
+fn cl_live_words_bench(
+  it : @bench.T,
+  width : Int32,
+  dense : Bool,
+) -> Unit raise {
   let last = width - 1
   let body : Array[@lib.Instruction] = []
   for _ in 0..<16 {

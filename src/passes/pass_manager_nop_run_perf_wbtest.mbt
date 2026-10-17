@@ -1,5 +1,5 @@
 ///|
-fn nop_run_bench(it : @bench.T, width : Int, kind : Int) -> Unit {
+fn nop_run_bench(it : @bench.T, width : Int32, kind : Int32) -> Unit {
   let body = Array::makei(width, fn(i) {
     if kind == 0 || (kind == 2 && i % 2 == 0) {
       @lib.Instruction::nop()

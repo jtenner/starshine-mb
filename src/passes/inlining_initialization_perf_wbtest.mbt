@@ -1,7 +1,7 @@
 ///|
 fn inlining_initialization_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let body : Array[@lib.Instruction] = []

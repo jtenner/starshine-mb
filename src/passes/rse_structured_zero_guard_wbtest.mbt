@@ -1,7 +1,7 @@
 ///|
 test "rse repeated zero reset guard covers legacy try body and catches" {
   let local_idx = @lib.LocalIdx::new(0U)
-  let resets = fn(count : Int) {
+  let resets = fn(count : Int32) {
     let body : Array[@lib.Instruction] = []
     for rep = 0; rep < count; rep = rep + 1 {
       ignore(rep)

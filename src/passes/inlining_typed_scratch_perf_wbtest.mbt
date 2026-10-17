@@ -1,7 +1,7 @@
 ///|
 fn inl_typed_scratch_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   mixed : Bool,
   indexed : Bool,
 ) -> Unit {

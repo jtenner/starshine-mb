@@ -1,7 +1,7 @@
 ///|
 fn cl_control_summary_bench(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   self_branch : Bool,
   reference : Bool,
 ) -> Unit {
@@ -134,7 +134,7 @@ test "bench coalesce control depth=512 self-branch summary" (it : @bench.T) {
 ///|
 fn cl_control_collector_bench(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   reference : Bool,
 ) -> Unit {
   let body = [cl_control_nested_fixture(depth)]

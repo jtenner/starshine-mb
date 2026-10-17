@@ -2,7 +2,7 @@
 // plan construction is timed; plans are read-only and may be rebuilt safely.
 
 ///|
-fn ssa_plan_lookup_fixture(pairs : Int) -> @lib.Module {
+fn ssa_plan_lookup_fixture(pairs : Int32) -> @lib.Module {
   let body : Array[@lib.Instruction] = []
   for idx = 0; idx < pairs; idx = idx + 1 {
     body.push(@lib.Instruction::i32_const(@lib.I32(idx)))
@@ -14,7 +14,7 @@ fn ssa_plan_lookup_fixture(pairs : Int) -> @lib.Module {
 }
 
 ///|
-fn ssa_plan_lookup_bench(it : @bench.T, pairs : Int, full : Bool) -> Unit {
+fn ssa_plan_lookup_bench(it : @bench.T, pairs : Int32, full : Bool) -> Unit {
   let fixture = ssa_plan_lookup_fixture(pairs)
   ignore(opportunity_run(fixture, "ssa-nomerge", true))
   let hot = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))

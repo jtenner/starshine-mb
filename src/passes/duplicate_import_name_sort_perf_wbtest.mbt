@@ -1,5 +1,5 @@
 ///|
-fn die_name_sort_fixture(count : Int) -> Array[@lib.NameAssoc] {
+fn die_name_sort_fixture(count : Int32) -> Array[@lib.NameAssoc] {
   let entries : Array[@lib.NameAssoc] = []
   for idx in 0..<count {
     entries.push(
@@ -13,7 +13,7 @@ fn die_name_sort_fixture(count : Int) -> Array[@lib.NameAssoc] {
 }
 
 ///|
-fn die_indirect_sort_fixture(count : Int) -> Array[@lib.IndirectNameAssoc] {
+fn die_indirect_sort_fixture(count : Int32) -> Array[@lib.IndirectNameAssoc] {
   let entries : Array[@lib.IndirectNameAssoc] = []
   for idx in 0..<count {
     entries.push(
@@ -27,7 +27,7 @@ fn die_indirect_sort_fixture(count : Int) -> Array[@lib.IndirectNameAssoc] {
 }
 
 ///|
-fn die_name_sort_bench(it : @bench.T, count : Int) -> Unit {
+fn die_name_sort_bench(it : @bench.T, count : Int32) -> Unit {
   let original = die_name_sort_fixture(count)
   it.bench(fn() {
     let entries = original.copy()
@@ -37,7 +37,7 @@ fn die_name_sort_bench(it : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn die_indirect_sort_bench(it : @bench.T, count : Int) -> Unit {
+fn die_indirect_sort_bench(it : @bench.T, count : Int32) -> Unit {
   let original = die_indirect_sort_fixture(count)
   it.bench(fn() {
     let entries = original.copy()

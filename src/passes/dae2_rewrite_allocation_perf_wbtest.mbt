@@ -1,8 +1,8 @@
 ///|
 fn dae2_type_append_reference(
   original : @lib.TypeSec,
-  additions : Int,
-) -> (@lib.TypeSec, Int) {
+  additions : Int32,
+) -> (@lib.TypeSec, Int32) {
   let mut types = original
   let mut checksum = 0
   for index in 0..<additions {
@@ -33,8 +33,8 @@ fn dae2_type_append_reference(
 ///|
 fn dae2_type_append_workspace(
   original : @lib.TypeSec,
-  additions : Int,
-) -> (@lib.TypeSec, Int) {
+  additions : Int32,
+) -> (@lib.TypeSec, Int32) {
   let workspace = Dae2TypeWorkspace::new(original)
   let mut checksum = 0
   for index in 0..<additions {
@@ -57,7 +57,7 @@ fn dae2_type_append_workspace(
 ///|
 fn dae2_type_append_bench(
   it : @bench.T,
-  additions : Int,
+  additions : Int32,
   workspace : Bool,
 ) -> Unit {
   let original = @lib.TypeSec::new(
@@ -84,14 +84,14 @@ fn dae2_type_append_bench(
 }
 
 ///|
-fn dae2_leaf_keep_reference(func : @ir.HotFunc, node : Int) -> Int {
+fn dae2_leaf_keep_reference(func : @ir.HotFunc, node : Int32) -> Int32 {
   let children = @ir.hot_child_span(func, node).map(fn(child) { child })
   ignore(dae2_replace_children_if_changed(func, node, children))
   node
 }
 
 ///|
-fn dae2_leaf_keep_bench(it : @bench.T, leaves : Int, scalar : Bool) -> Unit {
+fn dae2_leaf_keep_bench(it : @bench.T, leaves : Int32, scalar : Bool) -> Unit {
   let func = @ir.HotFunc::new()
   let nodes = Array::makei(leaves, fn(index) {
     @ir.hot_build_const_i32(func, @lib.I32(index))

@@ -2,9 +2,9 @@
 fn sl_type_seed_bench_run(
   body : Array[@lib.Instruction],
   env : @validate.Env,
-  queries : Int,
+  queries : Int32,
   reuse : Bool,
-) -> Int {
+) -> Int32 {
   let mut seed : SlStatementTypeSeed? = None
   let mut completed = 0
   for query in 0..<queries {
@@ -34,8 +34,8 @@ fn sl_type_seed_bench_run(
 ///|
 fn sl_type_seed_bench(
   it : @bench.T,
-  locals : Int,
-  queries : Int,
+  locals : Int32,
+  queries : Int32,
   reuse : Bool,
 ) -> Unit raise {
   let env = sl_type_seed_env(locals)
@@ -115,7 +115,7 @@ test "bench statement type seed locals=8192 queries=32 reuse" (it : @bench.T) {
 ///|
 fn sl_type_seed_balanced_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit raise {
   let locals = Array::make(width, "i32").join(" ")

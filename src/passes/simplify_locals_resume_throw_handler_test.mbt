@@ -125,7 +125,7 @@ fn rse_resume_throw_handler_join_module(throw_ref : Bool) -> @lib.Module {
 fn simplify_locals_resume_throw_sequence(
   throw_ref : Bool,
   cont : @lib.TypeIdx,
-  label : UInt,
+  label : UInt32,
 ) -> Array[@lib.Instruction] {
   let body : Array[@lib.Instruction] = []
   if throw_ref {

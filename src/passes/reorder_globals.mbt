@@ -4,7 +4,7 @@ pub fn reorder_globals_summary() -> String {
 }
 
 ///|
-fn rg_imported_global_count(mod_ : @lib.Module) -> Int {
+fn rg_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -20,18 +20,18 @@ fn rg_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn rg_global_idx_raw(idx : @lib.GlobalIdx) -> Int {
+fn rg_global_idx_raw(idx : @lib.GlobalIdx) -> Int32 {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn rg_global_idx_from_int(idx : Int) -> @lib.GlobalIdx {
+fn rg_global_idx_from_int(idx : Int32) -> @lib.GlobalIdx {
   @lib.GlobalIdx::new(idx.reinterpret_as_uint())
 }
 
 ///|
-fn rg_note_global_use(counts : Array[Int], idx : @lib.GlobalIdx) -> Unit {
+fn rg_note_global_use(counts : Array[Int32], idx : @lib.GlobalIdx) -> Unit {
   let raw = rg_global_idx_raw(idx)
   if raw >= 0 && raw < counts.length() {
     counts[raw] += 1
@@ -39,7 +39,7 @@ fn rg_note_global_use(counts : Array[Int], idx : @lib.GlobalIdx) -> Unit {
 }
 
 ///|
-fn rg_count_expr(expr : @lib.Expr, counts : Array[Int]) -> Unit {
+fn rg_count_expr(expr : @lib.Expr, counts : Array[Int32]) -> Unit {
   let @lib.Expr(instrs) = expr
   rg_count_instrs(instrs, counts)
 }
@@ -47,7 +47,7 @@ fn rg_count_expr(expr : @lib.Expr, counts : Array[Int]) -> Unit {
 ///|
 fn rg_count_instrs(
   instrs : Array[@lib.Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     rg_count_instruction(instr, counts)
@@ -55,7 +55,10 @@ fn rg_count_instrs(
 }
 
 ///|
-fn rg_count_instruction(instr : @lib.Instruction, counts : Array[Int]) -> Unit {
+fn rg_count_instruction(
+  instr : @lib.Instruction,
+  counts : Array[Int32],
+) -> Unit {
   match instr {
     @lib.Block(_, body) => rg_count_expr(body, counts)
     @lib.Loop(_, body) => rg_count_expr(body, counts)
@@ -82,7 +85,7 @@ fn rg_count_instruction(instr : @lib.Instruction, counts : Array[Int]) -> Unit {
 }
 
 ///|
-fn rg_count_elem_kind(kind : @lib.ElemKind, counts : Array[Int]) -> Unit {
+fn rg_count_elem_kind(kind : @lib.ElemKind, counts : Array[Int32]) -> Unit {
   match kind {
     @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
       for expr in exprs {
@@ -93,7 +96,7 @@ fn rg_count_elem_kind(kind : @lib.ElemKind, counts : Array[Int]) -> Unit {
 }
 
 ///|
-fn rg_count_elem_mode(mode : @lib.ElemMode, counts : Array[Int]) -> Unit {
+fn rg_count_elem_mode(mode : @lib.ElemMode, counts : Array[Int32]) -> Unit {
   match mode {
     @lib.Active(_, expr) => rg_count_expr(expr, counts)
     _ => ()
@@ -101,7 +104,7 @@ fn rg_count_elem_mode(mode : @lib.ElemMode, counts : Array[Int]) -> Unit {
 }
 
 ///|
-fn rg_count_data_mode(mode : @lib.DataMode, counts : Array[Int]) -> Unit {
+fn rg_count_data_mode(mode : @lib.DataMode, counts : Array[Int32]) -> Unit {
   match mode {
     @lib.Active(_, expr) => rg_count_expr(expr, counts)
     _ => ()
@@ -111,8 +114,8 @@ fn rg_count_data_mode(mode : @lib.DataMode, counts : Array[Int]) -> Unit {
 ///|
 fn rg_count_global_traffic(
   mod_ : @lib.Module,
-  total_globals : Int,
-) -> Array[Int] {
+  total_globals : Int32,
+) -> Array[Int32] {
   let counts = Array::make(total_globals, 0)
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) =>
@@ -173,10 +176,10 @@ fn rg_count_global_traffic(
 
 ///|
 fn rg_note_global_dep(
-  deps : Array[Int],
+  deps : Array[Int32],
   seen : Array[Bool],
   idx : @lib.GlobalIdx,
-  total : Int,
+  total : Int32,
 ) -> Unit {
   let raw = rg_global_idx_raw(idx)
   if raw >= 0 && raw < total && !seen[raw] {
@@ -188,8 +191,8 @@ fn rg_note_global_dep(
 ///|
 fn rg_collect_expr_global_deps(
   expr : @lib.Expr,
-  total_globals : Int,
-  deps : Array[Int],
+  total_globals : Int32,
+  deps : Array[Int32],
   seen : Array[Bool],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
@@ -199,8 +202,8 @@ fn rg_collect_expr_global_deps(
 ///|
 fn rg_collect_instrs_global_deps(
   instrs : Array[@lib.Instruction],
-  total_globals : Int,
-  deps : Array[Int],
+  total_globals : Int32,
+  deps : Array[Int32],
   seen : Array[Bool],
 ) -> Unit {
   for instr in instrs {
@@ -211,8 +214,8 @@ fn rg_collect_instrs_global_deps(
 ///|
 fn rg_collect_instruction_global_deps(
   instr : @lib.Instruction,
-  total_globals : Int,
-  deps : Array[Int],
+  total_globals : Int32,
+  deps : Array[Int32],
   seen : Array[Bool],
 ) -> Unit {
   match instr {
@@ -247,10 +250,10 @@ fn rg_collect_instruction_global_deps(
 ///|
 fn rg_build_dependency_graph(
   globals : Array[@lib.Global],
-  imported_globals : Int,
-) -> Array[Array[Int]] {
+  imported_globals : Int32,
+) -> Array[Array[Int32]] {
   let total_globals = imported_globals + globals.length()
-  let graph : Array[Array[Int]] = Array::new(capacity=total_globals)
+  let graph : Array[Array[Int32]] = Array::new(capacity=total_globals)
   for idx = 0; idx < total_globals; idx = idx + 1 {
     ignore(idx)
     graph.push([])
@@ -261,7 +264,7 @@ fn rg_build_dependency_graph(
       defined_idx = defined_idx + 1 {
     let @lib.Global(_, init) = globals[defined_idx]
     let dependent = imported_globals + defined_idx
-    let dependencies : Array[Int] = []
+    let dependencies : Array[Int32] = []
     rg_collect_expr_global_deps(init, total_globals, dependencies, seen)
     for dependency in dependencies {
       seen[dependency] = false
@@ -275,10 +278,10 @@ fn rg_build_dependency_graph(
 
 ///|
 fn rg_candidate_is_better(
-  candidate : Int,
-  best : Int,
+  candidate : Int32,
+  best : Int32,
   custom_counts : Array[Double],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Bool {
   if best < 0 {
     return true
@@ -297,10 +300,10 @@ fn rg_candidate_is_better(
 
 ///|
 fn rg_ready_heap_push(
-  heap : Array[Int],
-  candidate : Int,
+  heap : Array[Int32],
+  candidate : Int32,
   custom_counts : Array[Double],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Unit {
   heap.push(candidate)
   let mut pos = heap.length() - 1
@@ -323,10 +326,10 @@ fn rg_ready_heap_push(
 
 ///|
 fn rg_ready_heap_pop(
-  heap : Array[Int],
+  heap : Array[Int32],
   custom_counts : Array[Double],
-  imported_globals : Int,
-) -> Int? {
+  imported_globals : Int32,
+) -> Int32? {
   if heap.length() == 0 {
     return None
   }
@@ -371,10 +374,10 @@ fn rg_ready_heap_pop(
 
 ///|
 fn rg_candidate_order(
-  deps : Array[Array[Int]],
+  deps : Array[Array[Int32]],
   custom_counts : Array[Double],
-  imported_globals : Int,
-) -> Array[Int] {
+  imported_globals : Int32,
+) -> Array[Int32] {
   let n = custom_counts.length()
   let indegrees = Array::make(n, 0)
   for dependency = 0; dependency < n; dependency = dependency + 1 {
@@ -383,13 +386,13 @@ fn rg_candidate_order(
     }
   }
   let emitted = Array::make(n, false)
-  let ready : Array[Int] = Array::new(capacity=n)
+  let ready : Array[Int32] = Array::new(capacity=n)
   for candidate = 0; candidate < n; candidate = candidate + 1 {
     if indegrees[candidate] == 0 {
       rg_ready_heap_push(ready, candidate, custom_counts, imported_globals)
     }
   }
-  let order : Array[Int] = Array::new(capacity=n)
+  let order : Array[Int32] = Array::new(capacity=n)
   while order.length() < n {
     let mut best = match
       rg_ready_heap_pop(ready, custom_counts, imported_globals) {
@@ -421,7 +424,7 @@ fn rg_candidate_order(
 }
 
 ///|
-fn rg_true_counts(counts : Array[Int]) -> Array[Double] {
+fn rg_true_counts(counts : Array[Int32]) -> Array[Double] {
   let out : Array[Double] = Array::new(capacity=counts.length())
   for count in counts {
     out.push(count.to_double())
@@ -431,9 +434,9 @@ fn rg_true_counts(counts : Array[Int]) -> Array[Double] {
 
 ///|
 fn rg_summed_dependent_counts(
-  deps : Array[Array[Int]],
+  deps : Array[Array[Int32]],
   base : Array[Double],
-  topological : Array[Int],
+  topological : Array[Int32],
 ) -> Array[Double] {
   let out = base.copy()
   for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
@@ -447,9 +450,9 @@ fn rg_summed_dependent_counts(
 
 ///|
 fn rg_exponential_dependent_counts(
-  deps : Array[Array[Int]],
+  deps : Array[Array[Int32]],
   base : Array[Double],
-  topological : Array[Int],
+  topological : Array[Int32],
 ) -> Array[Double] {
   let out = base.copy()
   for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
@@ -462,7 +465,7 @@ fn rg_exponential_dependent_counts(
 }
 
 ///|
-fn rg_uleb_size(raw : Int) -> Int {
+fn rg_uleb_size(raw : Int32) -> Int32 {
   let mut value = raw
   let mut size = 1
   while value >= 128 {
@@ -473,7 +476,7 @@ fn rg_uleb_size(raw : Int) -> Int {
 }
 
 ///|
-fn rg_order_cost(order : Array[Int], true_counts : Array[Double]) -> Double {
+fn rg_order_cost(order : Array[Int32], true_counts : Array[Double]) -> Double {
   let mut cost = 0.0
   for new_idx = 0; new_idx < order.length(); new_idx = new_idx + 1 {
     let old_idx = order[new_idx]
@@ -483,7 +486,7 @@ fn rg_order_cost(order : Array[Int], true_counts : Array[Double]) -> Double {
 }
 
 ///|
-fn rg_dependency_graph_is_empty(deps : Array[Array[Int]]) -> Bool {
+fn rg_dependency_graph_is_empty(deps : Array[Array[Int32]]) -> Bool {
   for dependents in deps {
     if dependents.length() > 0 {
       return false
@@ -493,8 +496,8 @@ fn rg_dependency_graph_is_empty(deps : Array[Array[Int]]) -> Bool {
 }
 
 ///|
-fn rg_identity_order(length : Int) -> Array[Int] {
-  let order : Array[Int] = Array::new(capacity=length)
+fn rg_identity_order(length : Int32) -> Array[Int32] {
+  let order : Array[Int32] = Array::new(capacity=length)
   for idx = 0; idx < length; idx = idx + 1 {
     order.push(idx)
   }
@@ -503,9 +506,9 @@ fn rg_identity_order(length : Int) -> Array[Int] {
 
 ///|
 fn rg_sort_unconstrained_order(
-  order : Array[Int],
+  order : Array[Int32],
   custom_counts : Array[Double],
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Unit {
   order.sort_by(fn(lhs, rhs) {
     if rg_candidate_is_better(lhs, rhs, custom_counts, imported_globals) {
@@ -520,10 +523,10 @@ fn rg_sort_unconstrained_order(
 
 ///|
 fn rg_choose_order(
-  deps : Array[Array[Int]],
+  deps : Array[Array[Int32]],
   true_counts : Array[Double],
-  imported_globals : Int,
-) -> Array[Int] {
+  imported_globals : Int32,
+) -> Array[Int32] {
   let original = rg_identity_order(true_counts.length())
   if rg_dependency_graph_is_empty(deps) {
     let greedy = original.copy()
@@ -533,7 +536,7 @@ fn rg_choose_order(
     }
     return original
   }
-  let candidates : Array[Array[Int]] = []
+  let candidates : Array[Array[Int32]] = []
   let topological = rg_candidate_order(
     deps,
     Array::make(true_counts.length(), 0.0),
@@ -568,7 +571,7 @@ fn rg_choose_order(
 }
 
 ///|
-fn rg_order_is_identity(order : Array[Int]) -> Bool {
+fn rg_order_is_identity(order : Array[Int32]) -> Bool {
   for idx = 0; idx < order.length(); idx = idx + 1 {
     if order[idx] != idx {
       return false
@@ -578,7 +581,7 @@ fn rg_order_is_identity(order : Array[Int]) -> Bool {
 }
 
 ///|
-fn rg_old_abs_to_new_abs(order : Array[Int]) -> Array[Int] {
+fn rg_old_abs_to_new_abs(order : Array[Int32]) -> Array[Int32] {
   let remap = Array::make(order.length(), 0)
   for new_idx = 0; new_idx < order.length(); new_idx = new_idx + 1 {
     remap[order[new_idx]] = new_idx
@@ -589,7 +592,7 @@ fn rg_old_abs_to_new_abs(order : Array[Int]) -> Array[Int] {
 ///|
 fn rg_rewrite_global_idx(
   idx : @lib.GlobalIdx,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.GlobalIdx {
   let raw = rg_global_idx_raw(idx)
   if raw >= 0 && raw < remap.length() {
@@ -600,7 +603,7 @@ fn rg_rewrite_global_idx(
 }
 
 ///|
-fn rg_rewrite_expr(expr : @lib.Expr, remap : Array[Int]) -> @lib.Expr {
+fn rg_rewrite_expr(expr : @lib.Expr, remap : Array[Int32]) -> @lib.Expr {
   let @lib.Expr(original) = expr
   let instrs = original.copy()
   rg_rewrite_instrs_in_place(instrs, remap)
@@ -610,7 +613,7 @@ fn rg_rewrite_expr(expr : @lib.Expr, remap : Array[Int]) -> @lib.Expr {
 ///|
 fn rg_rewrite_instrs_in_place(
   instrs : Array[@lib.Instruction],
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -685,7 +688,7 @@ fn rg_rewrite_instrs_in_place(
 ///|
 fn rg_rewrite_table_sec(
   table_sec : @lib.TableSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.TableSec? {
   match table_sec {
     Some(@lib.TableSec(tables)) => {
@@ -709,9 +712,9 @@ fn rg_rewrite_table_sec(
 ///|
 fn rg_rewrite_globals(
   globals : Array[@lib.Global],
-  order : Array[Int],
-  imported_globals : Int,
-  remap : Array[Int],
+  order : Array[Int32],
+  imported_globals : Int32,
+  remap : Array[Int32],
 ) -> Array[@lib.Global] {
   let out : Array[@lib.Global] = Array::new(capacity=globals.length())
   for old_abs in order {
@@ -727,7 +730,7 @@ fn rg_rewrite_globals(
 ///|
 fn rg_rewrite_export_sec(
   export_sec : @lib.ExportSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ExportSec? {
   match export_sec {
     Some(@lib.ExportSec(exports)) => {
@@ -753,7 +756,7 @@ fn rg_rewrite_export_sec(
 ///|
 fn rg_rewrite_elem_mode(
   mode : @lib.ElemMode,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ElemMode {
   match mode {
     @lib.Active(table_idx, expr) =>
@@ -765,7 +768,7 @@ fn rg_rewrite_elem_mode(
 ///|
 fn rg_rewrite_elem_kind(
   kind : @lib.ElemKind,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncExprsElemKind(exprs) => {
@@ -789,7 +792,7 @@ fn rg_rewrite_elem_kind(
 ///|
 fn rg_rewrite_elem_sec(
   elem_sec : @lib.ElemSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.ElemSec? {
   match elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -812,7 +815,7 @@ fn rg_rewrite_elem_sec(
 ///|
 fn rg_rewrite_data_sec(
   data_sec : @lib.DataSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.DataSec? {
   match data_sec {
     Some(@lib.DataSec(datas)) => {
@@ -838,7 +841,7 @@ fn rg_rewrite_data_sec(
 ///|
 fn rg_rewrite_code_sec(
   code_sec : @lib.CodeSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.CodeSec? {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -855,7 +858,7 @@ fn rg_rewrite_code_sec(
 
 ///|
 fn rg_sort_name_assocs_stable(entries : Array[@lib.NameAssoc]) -> Unit {
-  let ordered : Array[(Int, @lib.NameAssoc)] = []
+  let ordered : Array[(Int32, @lib.NameAssoc)] = []
   for idx = 0; idx < entries.length(); idx = idx + 1 {
     ordered.push((idx, entries[idx]))
   }
@@ -878,7 +881,7 @@ fn rg_sort_name_assocs_stable(entries : Array[@lib.NameAssoc]) -> Unit {
 ///|
 fn rg_rewrite_global_name_map(
   names : @lib.NameMap?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.NameMap? {
   match names {
     Some(@lib.NameMap(entries)) => {
@@ -902,7 +905,7 @@ fn rg_rewrite_global_name_map(
 ///|
 fn rg_rewrite_name_sec(
   name_sec : @lib.NameSec?,
-  remap : Array[Int],
+  remap : Array[Int32],
 ) -> @lib.NameSec? {
   match name_sec {
     Some(sec) =>
@@ -947,9 +950,141 @@ fn reorder_globals_run_module_pass_with_threshold(
   let true_counts = rg_true_counts(counts)
   let deps = rg_build_dependency_graph(globals, imported_globals)
   let order = rg_choose_order(deps, true_counts, imported_globals)
-  if rg_order_is_identity(order) {
-    return mod_
+  let identity = rg_order_is_identity(order)
+  if identity {
+    // Traffic can be zero while a name above a LEB boundary still costs more.
+    // Keep the old always-mode rule and the unnamed no-op path allocation-free.
+    if !enforce_public_threshold {
+      return mod_
+    }
+    match mod_.name_sec {
+      Some(sec) =>
+        match sec.global_names {
+          Some(@lib.NameMap(names)) if !names.is_empty() => ()
+          _ => return mod_
+        }
+      None => return mod_
+    }
   }
+  let mut best = mod_
+  let baseline = if enforce_public_threshold &&
+    mod_.compiler_fact_custom_section is Some(_) {
+    mod_.without_compiler_fact_custom_section()
+  } else {
+    mod_
+  }
+  let mut comparisons_left = 4
+  if !identity {
+    let greedy = rg_apply_order(mod_, globals, order, imported_globals)
+    if !enforce_public_threshold {
+      return greedy
+    }
+    match @binary.encoded_module_sizes(baseline, greedy) {
+      Ok((before, after)) if after < before => best = greedy
+      _ => ()
+    }
+    comparisons_left -= 1
+  }
+  // Try one traffic-ranked swap per index-width boundary. Names participate
+  // in the ranking and complete module framing participates in the decision.
+  // This is bounded (four boundaries for wasm u32), not an all-pairs search.
+  let weighted = counts
+  let mut has_name_traffic = false
+  match mod_.name_sec {
+    Some(sec) =>
+      match sec.global_names {
+        Some(@lib.NameMap(names)) =>
+          for entry in names {
+            let @lib.NameAssoc(index, _) = entry
+            let index = index.reinterpret_as_int()
+            if index >= 0 && index < weighted.length() {
+              weighted[index] += 1
+              has_name_traffic = true
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
+  for boundary in [128, 16384, 2097152, 268435456] {
+    if comparisons_left == 0 {
+      break
+    }
+    if boundary <= imported_globals || boundary >= total_globals {
+      continue
+    }
+    let mut low = imported_globals
+    for index in imported_globals..<boundary {
+      if weighted[index] < weighted[low] {
+        low = index
+      }
+    }
+    let mut high = boundary
+    for index in boundary..<total_globals {
+      if weighted[index] > weighted[high] {
+        high = index
+      }
+    }
+    if weighted[high] <= weighted[low] {
+      continue
+    }
+    let swap = rg_identity_order(total_globals)
+    swap[low] = high
+    swap[high] = low
+    if swap == order {
+      continue
+    }
+    let remap = rg_old_abs_to_new_abs(swap)
+    let mut legal = true
+    for dependency in 0..<deps.length() {
+      for dependent in deps[dependency] {
+        if remap[dependency] >= remap[dependent] {
+          legal = false
+        }
+      }
+    }
+    if !legal {
+      continue
+    }
+    let candidate = rg_apply_order(mod_, globals, swap, imported_globals)
+    comparisons_left -= 1
+    let comparison = if physical_equal(best, mod_) { baseline } else { best }
+    match @binary.encoded_module_sizes(comparison, candidate) {
+      Ok((before, after)) if after < before => best = candidate
+      _ => ()
+    }
+  }
+  // A single swap cannot combine independent name-only wins. Reuse the
+  // dependency-constrained search once with names included, after the old
+  // candidates so ties keep their output. Limit this extra search to the
+  // first width boundary, within the same four-comparison budget.
+  if has_name_traffic && total_globals <= 16384 && comparisons_left > 0 {
+    let named_order = rg_choose_order(
+      deps,
+      rg_true_counts(weighted),
+      imported_globals,
+    )
+    if named_order != order && !rg_order_is_identity(named_order) {
+      let candidate = rg_apply_order(
+        mod_, globals, named_order, imported_globals,
+      )
+      let comparison = if physical_equal(best, mod_) { baseline } else { best }
+      match @binary.encoded_module_sizes(comparison, candidate) {
+        Ok((before, after)) if after < before => best = candidate
+        _ => ()
+      }
+    }
+  }
+  best
+}
+
+///|
+fn rg_apply_order(
+  mod_ : @lib.Module,
+  globals : Array[@lib.Global],
+  order : Array[Int32],
+  imported_globals : Int32,
+) -> @lib.Module {
   let remap = rg_old_abs_to_new_abs(order)
   let mut out = mod_
   if globals.length() > 0 {

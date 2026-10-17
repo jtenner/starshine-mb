@@ -1,8 +1,8 @@
 ///|
 fn unread_write_bench(
   it : @bench.T,
-  count : Int,
-  mode : Int,
+  count : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit raise {
   let locals = Array::make(count, "i32").join(" ")

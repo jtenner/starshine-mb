@@ -43,7 +43,7 @@ fn gsi_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func raise {
 }
 
 ///|
-fn gsi_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+fn gsi_test_count_drop(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -67,7 +67,7 @@ fn gsi_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn gsi_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+fn gsi_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     match instr {
@@ -147,10 +147,10 @@ fn gsi_test_ref_type_exact(
 
 ///|
 fn gsi_desc_cast_test_module(
-  target_nullable? : Bool = false,
-  desc_global_count? : Int = 1,
-  include_strict_subtype? : Bool = false,
-  exact_cast_target? : Bool = false,
+  target_nullable~ : Bool = false,
+  desc_global_count~ : Int32 = 1,
+  include_strict_subtype~ : Bool = false,
+  exact_cast_target~ : Bool = false,
 ) -> @lib.Module {
   let type_a = @lib.TypeIdx::new(0U)
   let type_a_desc = @lib.TypeIdx::new(1U)
@@ -398,7 +398,7 @@ fn gsi_desc_cast_test_pretty(
 }
 
 ///|
-fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int raise {
+fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int32 raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
     None => fail("expected global section")
@@ -408,7 +408,7 @@ fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int raise {
 ///|
 fn gsi_test_global_init_contains(
   mod_ : @lib.Module,
-  defined_idx : Int,
+  defined_idx : Int32,
   needle : @lib.Instruction,
 ) -> Bool raise {
   match mod_.global_sec {

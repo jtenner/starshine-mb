@@ -1,5 +1,5 @@
 ///|
-fn dae_signature_fixture(count : Int) -> @lib.Module {
+fn dae_signature_fixture(count : Int32) -> @lib.Module {
   let source = StringBuilder::new()
   source.write_string("(module")
   for _ in 0..<count {

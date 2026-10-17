@@ -1,5 +1,5 @@
 ///|
-fn dae2_indexed_sources_fixture(pairs : Int, reads : Int) -> @lib.Module {
+fn dae2_indexed_sources_fixture(pairs : Int32, reads : Int32) -> @lib.Module {
   let wat = ["(module"]
   for index in 0..<pairs {
     wat.push(
@@ -20,8 +20,8 @@ fn dae2_indexed_sources_fixture(pairs : Int, reads : Int) -> @lib.Module {
 ///|
 fn dae2_indexed_sources_pipeline_bench(
   it : @bench.T,
-  pairs : Int,
-  reads : Int,
+  pairs : Int32,
+  reads : Int32,
   optimizing : Bool,
 ) -> Unit {
   let input = dae2_indexed_sources_fixture(pairs, reads)

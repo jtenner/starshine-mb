@@ -1,5 +1,5 @@
 ///|
-fn no_inline_wildcard_bench_inputs(size : Int) -> (String, String) {
+fn no_inline_wildcard_bench_inputs(size : Int32) -> (String, String) {
   let pattern = StringBuilder::new()
   let text = StringBuilder::new()
   for _ in 0..<size {
@@ -10,7 +10,7 @@ fn no_inline_wildcard_bench_inputs(size : Int) -> (String, String) {
 }
 
 ///|
-fn no_inline_wildcard_adversarial_inputs(size : Int) -> (String, String) {
+fn no_inline_wildcard_adversarial_inputs(size : Int32) -> (String, String) {
   let pattern = StringBuilder::new()
   let text = StringBuilder::new()
   pattern.write_char('*')
@@ -52,8 +52,8 @@ fn no_inline_wildcard_reference(pattern : String, text : String) -> Bool {
 
 ///|
 fn no_inline_wildcard_enumerated_string(
-  encoded : Int,
-  length : Int,
+  encoded : Int32,
+  length : Int32,
   alphabet : String,
 ) -> String {
   let out = StringBuilder::new()
@@ -66,7 +66,7 @@ fn no_inline_wildcard_enumerated_string(
 }
 
 ///|
-fn no_inline_wildcard_power(base : Int, exponent : Int) -> Int {
+fn no_inline_wildcard_power(base : Int32, exponent : Int32) -> Int32 {
   let mut value = 1
   for _ in 0..<exponent {
     value *= base
@@ -75,7 +75,7 @@ fn no_inline_wildcard_power(base : Int, exponent : Int) -> Int {
 }
 
 ///|
-fn no_inline_wildcard_bench(it : @bench.T, size : Int) -> Unit {
+fn no_inline_wildcard_bench(it : @bench.T, size : Int32) -> Unit {
   let (pattern, name) = no_inline_wildcard_bench_inputs(size)
   if !no_inline_wildcard_match(pattern, name) {
     abort("wildcard benchmark must match")

@@ -17,8 +17,8 @@ fn directize_perf_type_sec() -> @lib.TypeSec {
 ///|
 fn directize_perf_long_i32_expr(
   body : Array[@lib.Instruction],
-  local_idx : UInt,
-  depth : Int,
+  local_idx : UInt32,
+  depth : Int32,
 ) -> Unit {
   body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(local_idx)))
   for _ in 0..<depth {
@@ -28,7 +28,7 @@ fn directize_perf_long_i32_expr(
 }
 
 ///|
-fn directize_perf_module(call_count : Int, depth : Int) -> @lib.Module {
+fn directize_perf_module(call_count : Int32, depth : Int32) -> @lib.Module {
   let type_idx = @lib.TypeIdx::new(0U)
   let body : Array[@lib.Instruction] = Array::new(
     capacity=call_count * (depth * 4 + 8),
@@ -87,7 +87,7 @@ fn directize_perf_module(call_count : Int, depth : Int) -> @lib.Module {
 }
 
 ///|
-fn directize_perf_measure(call_count : Int, depth : Int) -> UInt64 {
+fn directize_perf_measure(call_count : Int32, depth : Int32) -> UInt64 {
   for _ in 0..<2 {
     ignore(
       @passes.run_hot_pipeline(
@@ -162,7 +162,9 @@ test "bench directize pass select calls=256 depth=64" (it : @bench.T) {
 }
 
 ///|
-fn directize_dynamic_target_breadth_module(function_count : Int) -> @lib.Module {
+fn directize_dynamic_target_breadth_module(
+  function_count : Int32,
+) -> @lib.Module {
   let callee_type = @lib.TypeIdx::new(0U)
   let caller_type = @lib.TypeIdx::new(1U)
   let func_types : Array[@lib.TypeIdx] = [callee_type]

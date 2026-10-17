@@ -1,7 +1,7 @@
 ///|
 test "reorder-globals ready heap freezes imported-global order" {
   let counts = [1.0, 100.0, 5.0, 5.0]
-  let heap : Array[Int] = []
+  let heap : Array[Int32] = []
   for candidate in [3, 1, 2, 0] {
     rg_ready_heap_push(heap, candidate, counts, 2)
   }
@@ -14,7 +14,7 @@ test "reorder-globals ready heap freezes imported-global order" {
 
 ///|
 test "reorder-globals candidate families preserve source ordering and score dependencies" {
-  let deps : Array[Array[Int]] = [[2], [], []]
+  let deps : Array[Array[Int32]] = [[2], [], []]
   let true_counts = [0.0, 5.0, 10.0]
   @debug.assert_eq(rg_candidate_order(deps, [0.0, 0.0, 0.0], 0), [0, 1, 2])
   @debug.assert_eq(rg_candidate_order(deps, true_counts, 0), [1, 0, 2])
@@ -31,7 +31,7 @@ test "reorder-globals candidate families preserve source ordering and score depe
 
 ///|
 test "reorder-globals chooses the lowest true ULEB cost and keeps candidate ties stable" {
-  let deps : Array[Array[Int]] = Array::new(capacity=129)
+  let deps : Array[Array[Int32]] = Array::new(capacity=129)
   for idx = 0; idx < 129; idx = idx + 1 {
     deps.push(if idx == 0 { [128] } else { [] })
   }

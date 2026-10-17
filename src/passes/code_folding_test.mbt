@@ -19,7 +19,7 @@ fn code_folding_test_run_module(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn code_folding_test_repeated_i32_drops(count : Int) -> String {
+fn code_folding_test_repeated_i32_drops(count : Int32) -> String {
   let mut text = ""
   for i = 0; i < count; i = i + 1 {
     text = text + " (i32.const " + i.to_string() + ") (drop)"
@@ -28,7 +28,7 @@ fn code_folding_test_repeated_i32_drops(count : Int) -> String {
 }
 
 ///|
-fn code_folding_test_count_substring(text : String, needle : String) -> Int {
+fn code_folding_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -47,7 +47,7 @@ fn code_folding_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
-fn code_folding_test_index_of(items : Array[String], needle : String) -> Int {
+fn code_folding_test_index_of(items : Array[String], needle : String) -> Int32 {
   for i, item in items {
     if item == needle {
       return i

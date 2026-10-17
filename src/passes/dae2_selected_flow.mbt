@@ -4,8 +4,8 @@
 // including unrepresented control reads which need the existing fallback.
 fn dae2_unresolved_flow_reads(
   func : @ir.HotFunc,
-  written : Array[Int],
-  entry_sources : Array[Int]?,
+  written : Array[Int32],
+  entry_sources : Array[Int32]?,
 ) -> Array[Bool] {
   Array::makei(@ir.hot_node_count(func), fn(node) {
     if !@ir.hot_node_is_live(func, node) {

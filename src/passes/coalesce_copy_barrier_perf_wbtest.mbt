@@ -1,8 +1,8 @@
 ///|
 fn cl_copy_barrier_bench(
   it : @bench.T,
-  width : Int,
-  kind : Int,
+  width : Int32,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let text = StringBuilder::new()

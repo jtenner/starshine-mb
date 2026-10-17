@@ -1,9 +1,9 @@
 ///|
 fn sl_flat_statement_reference(
   body : Array[@lib.Instruction],
-  start : Int,
+  start : Int32,
   env : @validate.Env,
-) -> Int {
+) -> Int32 {
   let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
     body,
     env,

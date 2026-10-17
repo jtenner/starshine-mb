@@ -15,7 +15,11 @@ fn rse_test_run_hot(text : String) -> @ir.HotFunc {
 }
 
 ///|
-fn rse_expect_op(func : @ir.HotFunc, node_id : Int, expected : String) -> Unit {
+fn rse_expect_op(
+  func : @ir.HotFunc,
+  node_id : Int32,
+  expected : String,
+) -> Unit {
   let op = @ir.hot_node_get(func, node_id).op
   match expected {
     "local.set" =>

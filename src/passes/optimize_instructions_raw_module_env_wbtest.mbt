@@ -1,5 +1,5 @@
 ///|
-fn oi_raw_module_env_fixture(count : Int) -> @lib.Module {
+fn oi_raw_module_env_fixture(count : Int32) -> @lib.Module {
   let functions : Array[String] = []
   for _ in 0..<count {
     functions.push(

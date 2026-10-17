@@ -20,7 +20,7 @@ test "flatten keeps a pending tee before a later root reads its local" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["flatten"]).unwrap()
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   let storage = Array::make(locals.length(), 0)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for instr in body {
     match instr {
       @lib.I32Const(@lib.I32(value)) => stack.push(value)

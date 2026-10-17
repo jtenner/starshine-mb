@@ -1,35 +1,37 @@
 ///|
 fn dae_literal_replay_reference(
   mod_ : @lib.Module,
-  original_param_counts : Array[Int],
-  original_call_counts : Array[Int],
-  original_active_nonself_call_counts : Array[Int],
-  original_active_parameterized_nonself_call_counts : Array[Int],
-  original_nonself_undropped_call_counts : Array[Int],
-  original_self_call_counts : Array[Int],
+  original_param_counts : Array[Int32],
+  original_call_counts : Array[Int32],
+  original_active_nonself_call_counts : Array[Int32],
+  original_active_parameterized_nonself_call_counts : Array[Int32],
+  original_nonself_undropped_call_counts : Array[Int32],
+  original_self_call_counts : Array[Int32],
   original_private_result_dead_suffix_calls_from_escaped_operand_callees : Array[
-    Int,
+    Int32,
   ],
-  original_escaped_dead_suffix_call_counts : Array[Int],
+  original_escaped_dead_suffix_call_counts : Array[Int32],
   original_dead_suffix_undropped_self_calls : Array[Bool],
   original_dead_suffix_dropped_self_calls : Array[Bool],
   original_dead_suffix_block_undropped_self_calls : Array[Bool],
-  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int],
+  original_dead_suffix_result_calls_from_undropped_self_callers : Array[Int32],
   original_dead_suffix_result_calls_from_no_param_undropped_self_callers : Array[
-    Int,
+    Int32,
   ],
   original_dead_suffix_same_self_result_operand_calls : Array[Bool],
   original_dead_suffix_undropped_self_call_param_operands : Array[Bool],
   original_dead_suffix_result_other_calls : Array[Bool],
   original_dead_suffix_escaped_result_call_facts : DaeOriginalDeadSuffixEscapedResultCallFacts,
   original_dead_suffix_mutual_calls : Array[Bool],
-  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[Int],
-  original_dead_suffix_escaped_result_operand_call_counts : Array[Int],
-  original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
-    Int,
+  original_dead_suffix_calls_from_param_operand_self_result_callers : Array[
+    Int32,
   ],
-  reverse? : Bool = true,
-  max_def_exclusive? : Int = -1,
+  original_dead_suffix_escaped_result_operand_call_counts : Array[Int32],
+  original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
+    Int32,
+  ],
+  reverse~ : Bool = true,
+  max_def_exclusive~ : Int32 = -1,
 ) -> DaePassResult {
   let original_dead_suffix_undropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.undropped_calls
   let original_dead_suffix_dropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.dropped_calls

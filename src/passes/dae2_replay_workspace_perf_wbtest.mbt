@@ -1,7 +1,7 @@
 ///|
 fn dae2_replay_workspace_bench(
   it : @bench.T,
-  boundaries : Int,
+  boundaries : Int32,
   reuse : Bool,
 ) -> Unit {
   let source = Dae2Graph::new()

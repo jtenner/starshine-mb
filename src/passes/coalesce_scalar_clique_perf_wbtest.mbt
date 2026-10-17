@@ -1,8 +1,8 @@
 ///|
 fn cl_scalar_clique_bench(
   it : @bench.T,
-  width : Int,
-  count : Int,
+  width : Int32,
+  count : Int32,
   original : Bool,
 ) -> Unit raise {
   let members = Array::makei(count, fn(i) {

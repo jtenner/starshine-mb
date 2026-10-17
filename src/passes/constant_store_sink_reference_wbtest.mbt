@@ -4,7 +4,7 @@
 // quadratic construction of the desired feature, not with a shipped speed.
 fn sl_constant_sink_reference(
   instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
+) -> (Array[@lib.Instruction], Int32) {
   let changes = Array::make(instrs.length(), -1)
   let mut count = 0
   for store in 1..<instrs.length() {

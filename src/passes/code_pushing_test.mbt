@@ -260,7 +260,7 @@ test "code-pushing executes under O4z instead of silently skipping its slot" {
 ///|
 fn code_pushing_test_run_hot_func(
   func : @ir.HotFunc,
-  ignore_implicit_traps? : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
 ) -> @ir.HotFunc {
   let ctx = HotPassContext::new(
     code_pushing_descriptor(),
@@ -290,7 +290,7 @@ test "code-pushing keeps SIMD store after an earlier memory load" {
     ["code-pushing"],
     options=HotPipelineOptions::new(ignore_implicit_traps=true),
   ).unwrap()
-  let events : Array[Int] = []
+  let events : Array[Int32] = []
   for instr in audit_body(output) {
     match instr {
       @lib.I32Load(_) => events.push(1)
@@ -304,7 +304,7 @@ test "code-pushing keeps SIMD store after an earlier memory load" {
 ///|
 fn code_pushing_test_run_hot(
   text : String,
-  ignore_implicit_traps? : Bool = false,
+  ignore_implicit_traps~ : Bool = false,
 ) -> @ir.HotFunc {
   code_pushing_test_run_hot_func(
     pass_test_lift_first_func(text),
@@ -315,7 +315,7 @@ fn code_pushing_test_run_hot(
 ///|
 fn code_pushing_expect_op(
   func : @ir.HotFunc,
-  node_id : Int,
+  node_id : Int32,
   expected : String,
 ) -> Unit {
   let op = @ir.hot_node_get(func, node_id).op
@@ -2572,7 +2572,7 @@ fn code_pushing_br_on_null_fixture(
   let nonnull_extern = @lib.ValType::ref_type(
     @lib.RefType::new(false, extern_heap),
   )
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if operand_reads_moved {
     body.push(
       @ir.hot_build_local_set(
@@ -2733,7 +2733,7 @@ fn code_pushing_br_on_non_null_fixture(
     [],
   )
   let target = @ir.hot_control_node_label(func, block_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if operand_reads_moved {
     body.push(
       @ir.hot_build_local_set(
@@ -3079,7 +3079,7 @@ fn code_pushing_br_on_cast_fixture(
     [],
   )
   let target = @ir.hot_control_node_label(func, block_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if operand_reads_moved {
     body.push(
       @ir.hot_build_local_set(
@@ -3249,7 +3249,7 @@ fn code_pushing_br_on_cast_fail_fixture(
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, any_ref))
   let block_id = @ir.hot_build_block(func, @lib.BlockType::val_type(any_ref), [])
   let target = @ir.hot_control_node_label(func, block_id)
-  let body : Array[Int] = []
+  let body : Array[Int32] = []
   if operand_reads_moved {
     body.push(
       @ir.hot_build_local_set(

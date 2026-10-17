@@ -1,5 +1,5 @@
 ///|
-fn inl_dead_suffix_targets_perf_fixture(count : Int) -> @lib.Func {
+fn inl_dead_suffix_targets_perf_fixture(count : Int32) -> @lib.Func {
   let body : Array[@lib.Instruction] = [@lib.Instruction::unreachable_()]
   for idx in 0..<count {
     body.push(@lib.Instruction::call(@lib.FuncIdx::new(idx.to_uint())))
@@ -8,7 +8,7 @@ fn inl_dead_suffix_targets_perf_fixture(count : Int) -> @lib.Func {
 }
 
 ///|
-fn inl_dead_suffix_targets_perf_bench(it : @bench.T, count : Int) -> Unit {
+fn inl_dead_suffix_targets_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let func = inl_dead_suffix_targets_perf_fixture(count)
   let facts = inl_collect_dead_suffix_targets(func)
   if !facts.has_any ||
@@ -66,7 +66,7 @@ test "bench inlining dead-suffix distinct targets count=256" (it : @bench.T) {
 ///|
 fn inl_dead_suffix_repeated_target_perf_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let body : Array[@lib.Instruction] = [@lib.Instruction::unreachable_()]
   for _ in 0..<count {

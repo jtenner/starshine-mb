@@ -1,5 +1,5 @@
 ///|
-fn tail_call_ancestry_fixture(depth : Int) -> @lib.Module {
+fn tail_call_ancestry_fixture(depth : Int32) -> @lib.Module {
   let mut body : Array[@lib.Instruction] = [@lib.Instruction::nop()]
   for _ in 0..<depth {
     body = [
@@ -10,7 +10,7 @@ fn tail_call_ancestry_fixture(depth : Int) -> @lib.Module {
 }
 
 ///|
-fn tail_call_ancestry_bench(it : @bench.T, depth : Int) -> Unit {
+fn tail_call_ancestry_bench(it : @bench.T, depth : Int32) -> Unit {
   let fixture = tail_call_ancestry_fixture(depth)
   let expected = opportunity_run(fixture, "tail-call", true)
   if expected != fixture {

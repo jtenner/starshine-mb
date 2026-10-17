@@ -1,5 +1,5 @@
 ///|
-fn die_test_imported_func_count(mod_ : @lib.Module) -> Int {
+fn die_test_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -15,7 +15,7 @@ fn die_test_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn die_test_import_count(mod_ : @lib.Module) -> Int {
+fn die_test_import_count(mod_ : @lib.Module) -> Int32 {
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) => imports.length()
     None => 0
@@ -25,8 +25,8 @@ fn die_test_import_count(mod_ : @lib.Module) -> Int {
 ///|
 fn die_test_first_call_target(
   mod_ : @lib.Module,
-  defined_idx : Int,
-) -> UInt raise {
+  defined_idx : Int32,
+) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -40,8 +40,8 @@ fn die_test_first_call_target(
 ///|
 fn die_test_ref_func_target(
   mod_ : @lib.Module,
-  defined_idx : Int,
-) -> UInt raise {
+  defined_idx : Int32,
+) -> UInt32 raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs[defined_idx] {
@@ -76,7 +76,7 @@ fn die_test_host_lookup_source() -> String {
 }
 
 ///|
-fn die_test_two_call_targets(mod_ : @lib.Module) -> (UInt, UInt) raise {
+fn die_test_two_call_targets(mod_ : @lib.Module) -> (UInt32, UInt32) raise {
   match mod_.code_sec {
     Some(
       @lib.CodeSec(

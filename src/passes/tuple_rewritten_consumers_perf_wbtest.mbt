@@ -1,6 +1,6 @@
 ///|
 fn tuple_rewritten_consumer_perf_fixture(
-  group_count : Int,
+  group_count : Int32,
 ) -> (Array[HotTupleOptimizationGroup], @bitset.BitSet) {
   let groups : Array[HotTupleOptimizationGroup] = []
   let rewrite_mask = @bitset.BitSet::new(group_count)
@@ -34,13 +34,13 @@ fn tuple_rewritten_consumer_perf_fixture(
 ///|
 fn tuple_rewritten_consumer_perf_bench(
   it : @bench.T,
-  group_count : Int,
+  group_count : Int32,
 ) -> Unit {
   let (groups, rewrite_mask) = tuple_rewritten_consumer_perf_fixture(
     group_count,
   )
   it.bench(fn() {
-    let (consumers, host_consumers) = tuple_optimization_build_rewritten_consumer_facts(
+    let (consumers, host_consumers, all_consumers) = tuple_optimization_build_rewritten_consumer_facts(
       groups, rewrite_mask,
     )
     let mut count = 0
@@ -49,6 +49,9 @@ fn tuple_rewritten_consumer_perf_bench(
         count += 1
       }
       if host_consumers[source] {
+        count += 1
+      }
+      if all_consumers[source] {
         count += 1
       }
     }
@@ -64,18 +67,27 @@ test "TupleOptimization rewritten consumers honor mask and source bounds" {
   groups[2].copy_source = Some(0)
   groups[3].copy_source = Some(99)
   rewrite_mask[1] = false
-  let (consumers, host_consumers) = tuple_optimization_build_rewritten_consumer_facts(
+  let (consumers, host_consumers, all_consumers) = tuple_optimization_build_rewritten_consumer_facts(
     groups, rewrite_mask,
   )
   assert_true(consumers[0])
   assert_true(host_consumers[0])
   assert_false(consumers[3])
+  assert_true(all_consumers[0])
+  assert_false(all_consumers[1])
+  assert_false(all_consumers[2])
+  assert_false(all_consumers[3])
   rewrite_mask[2] = false
-  let (masked_consumers, masked_host_consumers) = tuple_optimization_build_rewritten_consumer_facts(
+  let (masked_consumers, masked_host_consumers, masked_all_consumers) = tuple_optimization_build_rewritten_consumer_facts(
     groups, rewrite_mask,
   )
   assert_false(masked_consumers[0])
   assert_false(masked_host_consumers[0])
+  // Masked valid copies still prevent source-only lane reuse.
+  assert_true(masked_all_consumers[0])
+  assert_false(masked_all_consumers[1])
+  assert_false(masked_all_consumers[2])
+  assert_false(masked_all_consumers[3])
 }
 
 ///|

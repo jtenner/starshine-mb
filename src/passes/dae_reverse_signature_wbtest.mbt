@@ -1,7 +1,7 @@
 ///|
 fn dae_reverse_signature_fixture(
-  types : Int,
-  helpers : Int,
+  types : Int32,
+  helpers : Int32,
   active : Bool,
 ) -> @lib.Module {
   let wat = ["(module"]

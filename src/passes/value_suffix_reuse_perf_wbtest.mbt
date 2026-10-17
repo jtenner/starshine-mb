@@ -1,8 +1,8 @@
 ///|
 fn sl_value_suffix_bench(
   it : @bench.T,
-  width : Int,
-  kind : Int,
+  width : Int32,
+  kind : Int32,
   reference : Bool,
 ) -> Unit {
   let body = if kind == 0 {

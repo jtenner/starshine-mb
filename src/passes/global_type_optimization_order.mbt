@@ -2,7 +2,7 @@
 priv struct GtoTypeOrder {
   types : Array[@lib.SubType]
   seen : Array[Bool]
-  order : Array[Int]
+  order : Array[Int32]
   control : Array[@lib.TypeIdx]
 }
 
@@ -137,7 +137,7 @@ fn GtoTypeOrder::scan(self : GtoTypeOrder, expr : @lib.Expr) -> Unit {
 ///|
 // Match collectHeapTypeInfo's first-use order: module expressions, module
 // declarations, then each function signature, locals and postorder body.
-fn gto_collect_type_order(mod_ : @lib.Module) -> Array[Int] {
+fn gto_collect_type_order(mod_ : @lib.Module) -> Array[Int32] {
   let context = @ir.hot_module_context_from_module(mod_)
   let collector = GtoTypeOrder::new(context.subtypes)
   gto_visit_initializers(mod_, fn(body) { collector.scan(body) })

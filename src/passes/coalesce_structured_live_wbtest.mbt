@@ -1,7 +1,7 @@
 ///|
 fn cl_structured_live_fixture(
-  width : Int,
-  repetitions : Int,
+  width : Int32,
+  repetitions : Int32,
 ) -> (Array[CLAction], CLLiveness, Array[@lib.ValType]) {
   let actions : Array[CLAction] = []
   for _ in 0..<repetitions {

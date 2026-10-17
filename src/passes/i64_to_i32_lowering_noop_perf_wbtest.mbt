@@ -1,5 +1,5 @@
 ///|
-fn i64_lower_noop_perf_bench(it : @bench.T, function_count : Int) -> Unit {
+fn i64_lower_noop_perf_bench(it : @bench.T, function_count : Int32) -> Unit {
   let fixture = il_no_target_perf_module(function_count)
   if i64_to_i32_lowering_run_module_pass(fixture) != fixture {
     abort("i64 lowering no-op fixture unexpectedly changed")

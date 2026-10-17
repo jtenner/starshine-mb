@@ -1,5 +1,5 @@
 ///|
-fn dfe_fixed_point_perf_fixture(depth : Int, wrappers : Int) -> @lib.Module {
+fn dfe_fixed_point_perf_fixture(depth : Int32, wrappers : Int32) -> @lib.Module {
   let imports : Array[@lib.Import] = []
   let type_idxs : Array[@lib.TypeIdx] = []
   let funcs : Array[@lib.Func] = []
@@ -51,7 +51,7 @@ fn dfe_fixed_point_perf_fixture(depth : Int, wrappers : Int) -> @lib.Module {
 }
 
 ///|
-fn dfe_fixed_point_perf_bench(it : @bench.T, depth : Int) -> Unit {
+fn dfe_fixed_point_perf_bench(it : @bench.T, depth : Int32) -> Unit {
   let wrappers = 128
   let fixture = dfe_fixed_point_perf_fixture(depth, wrappers)
   if @validate.validate_module(fixture).is_err() {

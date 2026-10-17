@@ -1,5 +1,5 @@
 ///|
-fn sl_wrapper_retirement_fixture(width : Int) -> @lib.Module {
+fn sl_wrapper_retirement_fixture(width : Int32) -> @lib.Module {
   let wat = ["(module (func (result i32) (local i32)"]
   for _ in 0..<width {
     wat.push("i32.const 7 local.set 0")
@@ -44,7 +44,7 @@ fn sl_wrapper_retirement_batch(
 ///|
 fn sl_wrapper_retirement_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let input = sl_wrapper_retirement_fixture(width)

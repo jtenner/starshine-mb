@@ -1,5 +1,5 @@
 ///|
-fn vacuum_guarded_hazard_perf_module(repetitions : Int) -> @lib.Module {
+fn vacuum_guarded_hazard_perf_module(repetitions : Int32) -> @lib.Module {
   let empty_func_type = @lib.TypeIdx::new(0U)
   let body : Array[@lib.Instruction] = []
   for value = 0; value < repetitions; value = value + 1 {
@@ -34,7 +34,7 @@ fn vacuum_guarded_hazard_perf_module(repetitions : Int) -> @lib.Module {
 }
 
 ///|
-fn vacuum_guarded_hazard_perf_nested_module(depth : Int) -> @lib.Module {
+fn vacuum_guarded_hazard_perf_nested_module(depth : Int32) -> @lib.Module {
   let empty_func_type = @lib.TypeIdx::new(0U)
   let mut body : Array[@lib.Instruction] = [
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -75,7 +75,7 @@ fn vacuum_guarded_hazard_perf_nested_module(depth : Int) -> @lib.Module {
 ///|
 fn vacuum_guarded_hazard_perf_count_instrs(
   instrs : Array[@lib.Instruction],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut local_sets = 0
   let mut calls = 0
   for instr in instrs {
@@ -120,7 +120,7 @@ fn vacuum_guarded_hazard_perf_count_instrs(
 }
 
 ///|
-fn vacuum_guarded_hazard_perf_counts(mod_ : @lib.Module) -> (Int, Int) {
+fn vacuum_guarded_hazard_perf_counts(mod_ : @lib.Module) -> (Int32, Int32) {
   let body = match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
     _ => abort("expected one Vacuum guarded-hazard benchmark function")
@@ -131,8 +131,8 @@ fn vacuum_guarded_hazard_perf_counts(mod_ : @lib.Module) -> (Int, Int) {
 ///|
 fn vacuum_guarded_hazard_perf_block_depth(
   instrs : Array[@lib.Instruction],
-  depth : Int,
-) -> Int {
+  depth : Int32,
+) -> Int32 {
   let mut maximum = depth
   for instr in instrs {
     match instr {
@@ -170,7 +170,7 @@ fn vacuum_guarded_hazard_perf_block_depth(
 }
 
 ///|
-fn vacuum_guarded_hazard_perf_module_block_depth(mod_ : @lib.Module) -> Int {
+fn vacuum_guarded_hazard_perf_module_block_depth(mod_ : @lib.Module) -> Int32 {
   match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
       vacuum_guarded_hazard_perf_block_depth(body, 0)
@@ -197,8 +197,8 @@ fn vacuum_guarded_hazard_perf_direct_func(fixture : @lib.Module) -> @ir.HotFunc 
 ///|
 fn vacuum_guarded_hazard_perf_assert_raw_skip(
   fixture : @lib.Module,
-  expected_local_sets : Int,
-  expected_calls : Int,
+  expected_local_sets : Int32,
+  expected_calls : Int32,
   expected_reason : String,
 ) -> @lib.Module {
   let lines : Array[String] = []

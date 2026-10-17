@@ -1,7 +1,7 @@
 ///|
 fn sl_value_suffix_reference(
   instrs : Array[@lib.Instruction],
-  count : Int,
+  count : Int32,
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
   if count <= 0 {

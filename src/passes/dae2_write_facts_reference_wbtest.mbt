@@ -1,10 +1,10 @@
 ///|
 fn dae2_writefacts_reference_entry_sources(
   func : @ir.HotFunc,
-  visits? : Array[Int]? = None,
-  interval_builds? : Array[Int]? = None,
-) -> Array[Int]? {
-  let root_writes : Array[Int] = []
+  visits~ : Array[Int32]? = None,
+  interval_builds~ : Array[Int32]? = None,
+) -> Array[Int32]? {
+  let root_writes : Array[Int32] = []
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
       root_writes.push(root)
@@ -55,8 +55,8 @@ fn dae2_writefacts_reference_entry_sources(
   let write_roots = Array::make(writes.length(), -1)
   let sources = Array::make(count, -2)
   let first_roots = Array::make(count, root_count)
-  let postorder : Array[Int] = []
-  let stack : Array[Int] = []
+  let postorder : Array[Int32] = []
+  let stack : Array[Int32] = []
   // First obtain a unique DAG postorder. Sources doubles as the discovery
   // marker and then the greatest reaching root ordinal, avoiding a seen array.
   for root in @ir.hot_root_span(func) {
@@ -162,21 +162,21 @@ fn dae2_writefacts_reference_entry_sources(
 fn dae2_writefacts_reference_analyze(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  index : Int,
-  type_infos : Array[Int],
+  index : Int32,
+  type_infos : Array[Int32],
   func : @ir.HotFunc,
-  local_graph_builds? : Array[Int]? = None,
-  fallback_write_builds? : Array[Int]? = None,
-  analysis_child_snapshots? : Array[Int]? = None,
-  intrinsic_imports? : Array[Bool]? = None,
+  local_graph_builds~ : Array[Int32]? = None,
+  fallback_write_builds~ : Array[Int32]? = None,
+  analysis_child_snapshots~ : Array[Int32]? = None,
+  intrinsic_imports~ : Array[Bool]? = None,
 ) -> Unit {
   // This phase changes only the dependency graph; HOT child slots stay stable.
   ignore(analysis_child_snapshots)
   let info = infos[index]
   let mut local_flow : @ir.HotLocalReadSources? = None
-  let mut fallback_writes : Array[Array[Int]]? = None
+  let mut fallback_writes : Array[Array[Int32]]? = None
   let mut written_locals : Array[Bool]? = None
-  let mut entry_read_sources : Array[Int]? = None
+  let mut entry_read_sources : Array[Int32]? = None
   let mut entry_source_attempted = false
   for node = 0; node < info.node_count; node = node + 1 {
     if !@ir.hot_node_is_live(func, node) {
@@ -260,7 +260,7 @@ fn dae2_writefacts_reference_analyze(
                 Some(count) => count[0] += 1
                 None => ()
               }
-              let writes : Array[Array[Int]] = Array::makei(
+              let writes : Array[Array[Int32]] = Array::makei(
                 @ir.hot_local_count(func),
                 fn(_) { [] },
               )
@@ -450,7 +450,7 @@ fn dae2_writefacts_reference_analyze(
 fn dae2_writefacts_reference_unresolved_reads(
   func : @ir.HotFunc,
   written : Array[Bool],
-  entry_sources : Array[Int]?,
+  entry_sources : Array[Int32]?,
 ) -> Array[Bool] {
   Array::makei(@ir.hot_node_count(func), fn(node) {
     if !@ir.hot_node_is_live(func, node) {
@@ -467,12 +467,12 @@ fn dae2_writefacts_reference_unresolved_reads(
 ///|
 fn dae2_writefacts_reference_single_sources(
   func : @ir.HotFunc,
-  entry_writes : Array[Int],
-  visits? : Array[Int]? = None,
-) -> Array[Int]? {
+  entry_writes : Array[Int32],
+  visits~ : Array[Int32]? = None,
+) -> Array[Int32]? {
   let mut completed = false
   let sources = Array::make(@ir.hot_node_count(func), -2)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut epoch = 0
   for root in @ir.hot_root_span(func) {
     if root < 0 {

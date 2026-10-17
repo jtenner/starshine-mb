@@ -1,7 +1,7 @@
 ///|
 fn sl_flat_statement_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   control : Bool,
   reference : Bool,
 ) -> Unit raise {

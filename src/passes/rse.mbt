@@ -24,29 +24,29 @@ priv enum RseLabelKind {
 
 ///|
 priv struct RseLabelScope {
-  label_id : Int
+  label_id : Int32
   kind : RseLabelKind
-  exits : Array[Array[Int]]
+  exits : Array[Array[Int32]]
   mut has_loop_branch : Bool
 }
 
 ///|
-fn RseLabelScope::new(label_id : Int, kind : RseLabelKind) -> RseLabelScope {
+fn RseLabelScope::new(label_id : Int32, kind : RseLabelKind) -> RseLabelScope {
   { label_id, kind, exits: [], has_loop_branch: false, }
 }
 
 ///|
 priv struct RseState {
-  local_values : Array[Int]
+  local_values : Array[Int32]
   mut initialized : Array[Bool]
-  value_ids : @hashmap.HashMap[String, Int]
+  value_ids : @hashmap.HashMap[String, Int32]
   scopes : Array[RseLabelScope]
-  next_value : Array[Int]
-  captured_values : Array[Int]
-  captured_depths : Array[Int]
-  captured_nodes : Array[Int]
-  previous_captured_values : Array[Int]
-  previous_captured_depths : Array[Int]
+  next_value : Array[Int32]
+  captured_values : Array[Int32]
+  captured_depths : Array[Int32]
+  captured_nodes : Array[Int32]
+  previous_captured_values : Array[Int32]
+  previous_captured_depths : Array[Int32]
   mut changed : Bool
   mut reachable : Bool
 }
@@ -111,7 +111,7 @@ fn rse_sync_interner(dst : RseState, src : RseState) -> Unit {
 }
 
 ///|
-fn rse_intern_value(state : RseState, key : String) -> Int {
+fn rse_intern_value(state : RseState, key : String) -> Int32 {
   match state.value_ids.get(key) {
     Some(value) => value
     None => {
@@ -124,7 +124,7 @@ fn rse_intern_value(state : RseState, key : String) -> Int {
 }
 
 ///|
-fn rse_fresh_value(state : RseState, node_id : Int) -> Int {
+fn rse_fresh_value(state : RseState, node_id : Int32) -> Int32 {
   let value = state.next_value[0]
   state.next_value[0] += 1
   ignore(node_id)
@@ -132,7 +132,7 @@ fn rse_fresh_value(state : RseState, node_id : Int) -> Int {
 }
 
 ///|
-fn rse_local_value_get(state : RseState, local_id : Int) -> Int {
+fn rse_local_value_get(state : RseState, local_id : Int32) -> Int32 {
   if local_id < 0 || local_id >= state.local_values.length() {
     -1
   } else {
@@ -141,7 +141,11 @@ fn rse_local_value_get(state : RseState, local_id : Int) -> Int {
 }
 
 ///|
-fn rse_local_value_set(state : RseState, local_id : Int, value : Int) -> Unit {
+fn rse_local_value_set(
+  state : RseState,
+  local_id : Int32,
+  value : Int32,
+) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id] = value
   }
@@ -157,7 +161,7 @@ fn rse_clear_all_local_values(state : RseState) -> Unit {
 ///|
 fn rse_merge_local_value_sources(
   state : RseState,
-  sources : Array[Array[Int]],
+  sources : Array[Array[Int32]],
 ) -> Unit {
   if sources.length() == 0 {
     rse_clear_all_local_values(state)
@@ -201,8 +205,8 @@ fn rse_merge_local_value_sources(
 ///|
 fn rse_record_branch_exit(
   state : RseState,
-  label_id : Int,
-  unknown? : Bool = false,
+  label_id : Int32,
+  unknown~ : Bool = false,
 ) -> Unit {
   if label_id < 0 {
     return
@@ -232,7 +236,7 @@ fn rse_record_branch_exit(
 fn rse_record_branch_table_exits(
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
+  node_id : Int32,
 ) -> Unit {
   match @ir.hot_branch_target(func, node_id) {
     Some(label_id) => rse_record_branch_exit(state, label_id)
@@ -265,7 +269,7 @@ fn rse_node_const_key(func : @ir.HotFunc, node : @ir.HotNode) -> String {
 }
 
 ///|
-fn rse_node_can_structurally_value(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn rse_node_can_structurally_value(func : @ir.HotFunc, node_id : Int32) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   ignore(func)
   ignore(node_id)
@@ -279,8 +283,8 @@ fn rse_node_can_structurally_value(func : @ir.HotFunc, node_id : Int) -> Bool {
 fn rse_structural_value(
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
-) -> Int? {
+  node_id : Int32,
+) -> Int32? {
   if !rse_node_can_structurally_value(func, node_id) {
     return None
   }
@@ -298,8 +302,8 @@ fn rse_structural_value(
 fn rse_replace_redundant_set(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  value_id : Int,
+  node_id : Int32,
+  value_id : Int32,
 ) -> Unit {
   let replacement_id = @ir.hot_build_drop(func, value_id)
   let replacement = @ir.hot_node_get(func, replacement_id)
@@ -311,15 +315,15 @@ fn rse_replace_redundant_set(
 fn rse_replace_redundant_tee(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  node_id : Int,
-  value_id : Int,
+  node_id : Int32,
+  value_id : Int32,
 ) -> Unit {
   let replacement = @ir.hot_node_get(func, value_id)
   pass_replace_node(ctx, func, node_id, replacement)
 }
 
 ///|
-fn rse_rewind_captures(state : RseState, depth : Int) -> Unit {
+fn rse_rewind_captures(state : RseState, depth : Int32) -> Unit {
   while state.captured_nodes.length() > depth {
     let node_id = state.captured_nodes.pop().unwrap()
     state.captured_values[node_id] = state.previous_captured_values
@@ -374,8 +378,8 @@ fn rse_visit_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let scope = RseLabelScope::new(
     @ir.hot_control_node_label(func, node_id),
     RseLabelKind::RseExitLabel,
@@ -400,7 +404,7 @@ fn rse_visit_if(
   ignore(state.scopes.pop())
   rse_sync_interner(state, then_state)
   rse_sync_interner(state, else_state)
-  let sources : Array[Array[Int]] = []
+  let sources : Array[Array[Int32]] = []
   if then_state.reachable {
     sources.push(then_state.local_values.copy())
   }
@@ -419,8 +423,8 @@ fn rse_visit_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   let mut previous_input = -1
   let mut lane = 0
@@ -457,7 +461,7 @@ fn rse_visit_control(
       state.scopes.push(scope)
       rse_visit_region(ctx, func, state, @ir.hot_region_body_ref(func, node_id))
       ignore(state.scopes.pop())
-      let sources : Array[Array[Int]] = []
+      let sources : Array[Array[Int32]] = []
       if state.reachable {
         sources.push(state.local_values.copy())
       }
@@ -562,10 +566,10 @@ fn rse_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
-  capture? : Bool = false,
-  force_eval? : Bool = false,
-) -> Int {
+  node_id : Int32,
+  capture~ : Bool = false,
+  force_eval~ : Bool = false,
+) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return -1
   }
@@ -594,8 +598,8 @@ fn rse_visit_uncaptured_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : RseState,
-  node_id : Int,
-) -> Int {
+  node_id : Int32,
+) -> Int32 {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return -1
   }
@@ -732,7 +736,7 @@ priv enum RseRawLabelKind {
 ///|
 priv struct RseRawLabelScope {
   kind : RseRawLabelKind
-  exits : Array[Array[Int]]
+  exits : Array[Array[Int32]]
   mut has_loop_branch : Bool
 }
 
@@ -743,26 +747,26 @@ fn RseRawLabelScope::new(kind : RseRawLabelKind) -> RseRawLabelScope {
 
 ///|
 priv struct RseRawInterner {
-  ids : @hashmap.HashMap[String, Int]
-  mut next_value : Int
+  ids : @hashmap.HashMap[String, Int32]
+  mut next_value : Int32
 }
 
 ///|
-fn RseRawInterner::new(capacity : Int) -> RseRawInterner {
+fn RseRawInterner::new(capacity : Int32) -> RseRawInterner {
   { ids: @hashmap.new(capacity~), next_value: 0, }
 }
 
 ///|
 priv struct RseRawState {
-  local_values : Array[Int]
-  mut candidates_by_value : @hashmap.HashMap[Int, Array[Int]]?
+  local_values : Array[Int32]
+  mut candidates_by_value : @hashmap.HashMap[Int32, Array[Int32]]?
   mut initialized : Array[Bool]
   local_types : Array[@lib.ValType]
   interner : RseRawInterner
   env : @validate.Env
-  stack : Array[Int]
+  stack : Array[Int32]
   stack_types : Array[@lib.ValType?]
-  mut next_unknown : Int
+  mut next_unknown : Int32
   mut changed : Bool
   mut reachable : Bool
 }
@@ -770,7 +774,7 @@ priv struct RseRawState {
 ///|
 fn RseRawState::new(
   local_types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   env : @validate.Env,
 ) -> RseRawState {
   let state = {
@@ -825,7 +829,7 @@ fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
 }
 
 ///|
-fn rse_raw_intern_value(state : RseRawState, key : String) -> Int {
+fn rse_raw_intern_value(state : RseRawState, key : String) -> Int32 {
   match state.interner.ids.get(key) {
     Some(value) => value
     None => {
@@ -838,14 +842,14 @@ fn rse_raw_intern_value(state : RseRawState, key : String) -> Int {
 }
 
 ///|
-fn rse_raw_fresh(state : RseRawState) -> Int {
+fn rse_raw_fresh(state : RseRawState) -> Int32 {
   let value = state.interner.next_value
   state.interner.next_value += 1
   value
 }
 
 ///|
-fn rse_raw_pop(state : RseRawState) -> Int {
+fn rse_raw_pop(state : RseRawState) -> Int32 {
   ignore(state.stack_types.pop())
   match state.stack.pop() {
     Some(value) => value
@@ -856,15 +860,15 @@ fn rse_raw_pop(state : RseRawState) -> Int {
 ///|
 fn rse_raw_push(
   state : RseRawState,
-  value : Int,
-  ty? : @lib.ValType? = None,
+  value : Int32,
+  ty~ : @lib.ValType? = None,
 ) -> Unit {
   state.stack.push(value)
   state.stack_types.push(ty)
 }
 
 ///|
-fn rse_raw_peek_type(state : RseRawState, depth? : Int = 0) -> @lib.ValType? {
+fn rse_raw_peek_type(state : RseRawState, depth~ : Int32 = 0) -> @lib.ValType? {
   match state.stack_types.get(state.stack_types.length() - 1 - depth) {
     Some(ty) => ty
     None => None
@@ -917,7 +921,7 @@ fn rse_raw_default_key_for_type(ty : @lib.ValType) -> String? {
 fn rse_raw_default_value_for_type(
   state : RseRawState,
   ty : @lib.ValType,
-) -> Int? {
+) -> Int32? {
   match rse_raw_default_key_for_type(ty) {
     Some(key) => Some(rse_raw_intern_value(state, key))
     None => None
@@ -940,7 +944,7 @@ fn rse_raw_default_instr_key(instr : @lib.Instruction) -> String? {
 fn rse_raw_default_instr_value(
   state : RseRawState,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match rse_raw_default_instr_key(instr) {
     Some(key) => Some(rse_raw_intern_value(state, key))
     None => None
@@ -949,11 +953,11 @@ fn rse_raw_default_instr_value(
 
 ///|
 priv struct RseRawLoopSummary {
-  writes : Array[Int]
-  same_values : Array[Int]
+  writes : Array[Int32]
+  same_values : Array[Int32]
   disagreed : Array[Bool]
-  default_writes : Array[Int]
-  default_values : Array[Int]
+  default_writes : Array[Int32]
+  default_values : Array[Int32]
 }
 
 ///|
@@ -978,8 +982,8 @@ fn RseRawLoopSummary::new(state : RseRawState) -> RseRawLoopSummary {
 ///|
 fn rse_raw_loop_summary_record_write(
   summary : RseRawLoopSummary,
-  local_id : Int,
-  value : Int,
+  local_id : Int32,
+  value : Int32,
 ) -> Unit {
   if local_id < 0 || local_id >= summary.writes.length() {
     return
@@ -1064,8 +1068,8 @@ fn rse_raw_loop_summary(
 ///|
 fn rse_raw_loop_summary_same_value(
   summary : RseRawLoopSummary,
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   if summary.disagreed[local_id] {
     -1
   } else {
@@ -1314,7 +1318,7 @@ fn rse_raw_prepare_loop_entry(
 }
 
 ///|
-fn rse_raw_local_get(state : RseRawState, local_id : Int) -> Int {
+fn rse_raw_local_get(state : RseRawState, local_id : Int32) -> Int32 {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id]
   } else {
@@ -1323,7 +1327,11 @@ fn rse_raw_local_get(state : RseRawState, local_id : Int) -> Int {
 }
 
 ///|
-fn rse_raw_local_set(state : RseRawState, local_id : Int, value : Int) -> Unit {
+fn rse_raw_local_set(
+  state : RseRawState,
+  local_id : Int32,
+  value : Int32,
+) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
     let previous = state.local_values[local_id]
     if previous != value {
@@ -1368,11 +1376,11 @@ fn rse_raw_local_set(state : RseRawState, local_id : Int, value : Int) -> Unit {
 ///|
 fn rse_raw_candidates_for_value(
   state : RseRawState,
-  value : Int,
-  candidate_visits? : Array[Int]? = None,
-) -> Array[Int] {
+  value : Int32,
+  candidate_visits~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if state.candidates_by_value is None {
-    let index : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
+    let index : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new(
       capacity=state.local_values.length() * 2 + 1,
     )
     for local_id = 0
@@ -1405,7 +1413,7 @@ fn rse_raw_candidates_for_value(
 ///|
 fn rse_raw_out_ends_with_local_get(
   out : Array[@lib.Instruction],
-  local_id : Int,
+  local_id : Int32,
 ) -> Bool {
   match out.last() {
     Some(@lib.Instruction::LocalGet(local_idx)) =>
@@ -1415,7 +1423,7 @@ fn rse_raw_out_ends_with_local_get(
 }
 
 ///|
-fn rse_raw_local_type(state : RseRawState, local_id : Int) -> @lib.ValType? {
+fn rse_raw_local_type(state : RseRawState, local_id : Int32) -> @lib.ValType? {
   if local_id >= 0 && local_id < state.local_types.length() {
     Some(state.local_types[local_id])
   } else {
@@ -1426,8 +1434,8 @@ fn rse_raw_local_type(state : RseRawState, local_id : Int) -> @lib.ValType? {
 ///|
 fn rse_raw_is_strict_subtype_local(
   state : RseRawState,
-  candidate_id : Int,
-  original_id : Int,
+  candidate_id : Int32,
+  original_id : Int32,
 ) -> Bool {
   if candidate_id == original_id {
     return false
@@ -1457,7 +1465,7 @@ fn rse_raw_concrete_ref_type_idx(ty : @lib.ValType) -> @lib.TypeIdx? {
 fn rse_raw_refined_aggregate_receiver_type(
   state : RseRawState,
   base_type : @lib.TypeIdx,
-  receiver_value : Int,
+  receiver_value : Int32,
   receiver_type : @lib.ValType?,
 ) -> @lib.TypeIdx? {
   let receiver_type = match receiver_type {
@@ -1492,9 +1500,9 @@ fn rse_raw_refined_aggregate_receiver_type(
 ///|
 fn rse_raw_refined_get_local(
   state : RseRawState,
-  local_id : Int,
-  candidate_visits? : Array[Int]? = None,
-) -> Int {
+  local_id : Int32,
+  candidate_visits~ : Array[Int32]? = None,
+) -> Int32 {
   let value = rse_raw_local_get(state, local_id)
   if value == -1 {
     return local_id
@@ -1531,7 +1539,7 @@ fn rse_raw_clear_values(state : RseRawState) -> Unit {
 ///|
 fn rse_raw_merge_sources(
   state : RseRawState,
-  sources : Array[Array[Int]],
+  sources : Array[Array[Int32]],
 ) -> Unit {
   state.candidates_by_value = None
   rse_raw_clear_stack(state)
@@ -1576,13 +1584,13 @@ fn rse_raw_merge_sources(
 }
 
 ///|
-fn rse_raw_local_id(idx : @lib.LocalIdx) -> Int {
+fn rse_raw_local_id(idx : @lib.LocalIdx) -> Int32 {
   let @lib.LocalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn rse_raw_label_depth(idx : @lib.LabelIdx) -> Int {
+fn rse_raw_label_depth(idx : @lib.LabelIdx) -> Int32 {
   let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
@@ -1591,7 +1599,7 @@ fn rse_raw_label_depth(idx : @lib.LabelIdx) -> Int {
 fn rse_raw_record_branch_exit(
   state : RseRawState,
   scopes : Array[RseRawLabelScope],
-  label_depth : Int,
+  label_depth : Int32,
 ) -> Unit {
   if label_depth < 0 || label_depth >= scopes.length() {
     return
@@ -1622,7 +1630,7 @@ fn rse_raw_record_resume_handler_exits(
 }
 
 ///|
-fn rse_raw_unary_key(state : RseRawState, op : String, value : Int) -> Int {
+fn rse_raw_unary_key(state : RseRawState, op : String, value : Int32) -> Int32 {
   if value == -1 {
     -1
   } else {
@@ -1634,9 +1642,9 @@ fn rse_raw_unary_key(state : RseRawState, op : String, value : Int) -> Int {
 fn rse_raw_binary_key(
   state : RseRawState,
   op : String,
-  lhs : Int,
-  rhs : Int,
-) -> Int {
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32 {
   if lhs == -1 || rhs == -1 {
     -1
   } else {
@@ -1645,7 +1653,11 @@ fn rse_raw_binary_key(
 }
 
 ///|
-fn rse_raw_unary_tag_key(state : RseRawState, tag : Int, value : Int) -> Int {
+fn rse_raw_unary_tag_key(
+  state : RseRawState,
+  tag : Int32,
+  value : Int32,
+) -> Int32 {
   if value == -1 {
     -1
   } else {
@@ -1656,10 +1668,10 @@ fn rse_raw_unary_tag_key(state : RseRawState, tag : Int, value : Int) -> Int {
 ///|
 fn rse_raw_binary_tag_key(
   state : RseRawState,
-  tag : Int,
-  lhs : Int,
-  rhs : Int,
-) -> Int {
+  tag : Int32,
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32 {
   if lhs == -1 || rhs == -1 {
     -1
   } else {
@@ -1668,7 +1680,7 @@ fn rse_raw_binary_tag_key(
 }
 
 ///|
-fn rse_raw_fast_binary_tag(instr : @lib.Instruction) -> Int? {
+fn rse_raw_fast_binary_tag(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Instruction::I32Add => Some(1)
     @lib.Instruction::I32Sub => Some(2)
@@ -2092,7 +2104,7 @@ fn rse_raw_rewrite_expr_scoped(
         if then_state.changed || else_state.changed {
           state.changed = true
         }
-        let sources : Array[Array[Int]] = []
+        let sources : Array[Array[Int32]] = []
         if then_state.reachable {
           sources.push(then_state.local_values.copy())
         }
@@ -2167,7 +2179,7 @@ fn rse_raw_rewrite_expr_scoped(
         let next = rse_raw_rewrite_expr_scoped(body, state, scopes)
         state.initialized = entry_initialized
         ignore(scopes.pop())
-        let sources : Array[Array[Int]] = []
+        let sources : Array[Array[Int32]] = []
         if state.reachable {
           sources.push(state.local_values.copy())
         }
@@ -2310,24 +2322,24 @@ fn rse_raw_rewrite_expr(
 
 ///|
 priv struct RseRawI32UnaryKey {
-  tag : Int
-  value : Int
+  tag : Int32
+  value : Int32
 } derive(Eq, Hash)
 
 ///|
-fn RseRawI32UnaryKey::new(tag : Int, value : Int) -> RseRawI32UnaryKey {
+fn RseRawI32UnaryKey::new(tag : Int32, value : Int32) -> RseRawI32UnaryKey {
   { tag, value, }
 }
 
 ///|
 priv struct RseRawI32Interner {
-  const_ids : @hashmap.HashMap[Int, Int]
-  unary_ids : @hashmap.HashMap[RseRawI32UnaryKey, Int]
-  mut next_value : Int
+  const_ids : @hashmap.HashMap[Int32, Int32]
+  unary_ids : @hashmap.HashMap[RseRawI32UnaryKey, Int32]
+  mut next_value : Int32
 }
 
 ///|
-fn RseRawI32Interner::new(capacity : Int) -> RseRawI32Interner {
+fn RseRawI32Interner::new(capacity : Int32) -> RseRawI32Interner {
   {
     const_ids: @hashmap.new(capacity~),
     unary_ids: @hashmap.new(capacity=capacity * 2 + 1),
@@ -2337,15 +2349,18 @@ fn RseRawI32Interner::new(capacity : Int) -> RseRawI32Interner {
 
 ///|
 priv struct RseRawI32State {
-  local_values : Array[Int]
-  stack : Array[Int]
+  local_values : Array[Int32]
+  stack : Array[Int32]
   interner : RseRawI32Interner
   mut changed : Bool
   mut reachable : Bool
 }
 
 ///|
-fn RseRawI32State::new(local_count : Int, param_count : Int) -> RseRawI32State {
+fn RseRawI32State::new(
+  local_count : Int32,
+  param_count : Int32,
+) -> RseRawI32State {
   let state = {
     local_values: Array::make(local_count, -1),
     stack: [],
@@ -2375,14 +2390,14 @@ fn RseRawI32State::clone_from(other : RseRawI32State) -> RseRawI32State {
 }
 
 ///|
-fn rse_raw_i32_fresh(state : RseRawI32State) -> Int {
+fn rse_raw_i32_fresh(state : RseRawI32State) -> Int32 {
   let value = state.interner.next_value
   state.interner.next_value += 1
   value
 }
 
 ///|
-fn rse_raw_i32_const_value(state : RseRawI32State, raw : Int) -> Int {
+fn rse_raw_i32_const_value(state : RseRawI32State, raw : Int32) -> Int32 {
   match state.interner.const_ids.get(raw) {
     Some(value) => value
     None => {
@@ -2396,9 +2411,9 @@ fn rse_raw_i32_const_value(state : RseRawI32State, raw : Int) -> Int {
 ///|
 fn rse_raw_i32_unary_value(
   state : RseRawI32State,
-  tag : Int,
-  value : Int,
-) -> Int {
+  tag : Int32,
+  value : Int32,
+) -> Int32 {
   if value == -1 {
     -1
   } else {
@@ -2415,7 +2430,7 @@ fn rse_raw_i32_unary_value(
 }
 
 ///|
-fn rse_raw_i32_value_code(value : Int) -> Int? {
+fn rse_raw_i32_value_code(value : Int32) -> Int32? {
   let base = 4096
   if value >= 0 && value < base {
     Some(value)
@@ -2434,10 +2449,10 @@ fn rse_raw_i32_value_code(value : Int) -> Int? {
 ///|
 fn rse_raw_i32_binary_value(
   state : RseRawI32State,
-  tag : Int,
-  lhs : Int,
-  rhs : Int,
-) -> Int {
+  tag : Int32,
+  lhs : Int32,
+  rhs : Int32,
+) -> Int32 {
   if lhs == -1 || rhs == -1 {
     -1
   } else {
@@ -2452,7 +2467,7 @@ fn rse_raw_i32_binary_value(
 }
 
 ///|
-fn rse_raw_i32_pop(state : RseRawI32State) -> Int {
+fn rse_raw_i32_pop(state : RseRawI32State) -> Int32 {
   match state.stack.pop() {
     Some(value) => value
     None => -1
@@ -2460,12 +2475,12 @@ fn rse_raw_i32_pop(state : RseRawI32State) -> Int {
 }
 
 ///|
-fn rse_raw_i32_push(state : RseRawI32State, value : Int) -> Unit {
+fn rse_raw_i32_push(state : RseRawI32State, value : Int32) -> Unit {
   state.stack.push(value)
 }
 
 ///|
-fn rse_raw_i32_local_get(state : RseRawI32State, local_id : Int) -> Int {
+fn rse_raw_i32_local_get(state : RseRawI32State, local_id : Int32) -> Int32 {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id]
   } else {
@@ -2476,8 +2491,8 @@ fn rse_raw_i32_local_get(state : RseRawI32State, local_id : Int) -> Int {
 ///|
 fn rse_raw_i32_local_set(
   state : RseRawI32State,
-  local_id : Int,
-  value : Int,
+  local_id : Int32,
+  value : Int32,
 ) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
     state.local_values[local_id] = value
@@ -2497,7 +2512,7 @@ fn rse_raw_i32_clear_values(state : RseRawI32State) -> Unit {
 fn rse_raw_i32_record_branch_exit(
   state : RseRawI32State,
   scopes : Array[RseRawLabelScope],
-  label_depth : Int,
+  label_depth : Int32,
 ) -> Unit {
   if label_depth < 0 || label_depth >= scopes.length() {
     return
@@ -2516,7 +2531,7 @@ fn rse_raw_i32_record_branch_exit(
 fn rse_raw_i32_const_instr_value(
   state : RseRawI32State,
   instr : @lib.Instruction,
-) -> Int? {
+) -> Int32? {
   match instr {
     @lib.Instruction::I32Const(@lib.I32(raw)) =>
       Some(rse_raw_i32_const_value(state, raw))
@@ -2526,11 +2541,11 @@ fn rse_raw_i32_const_instr_value(
 
 ///|
 priv struct RseRawI32LoopSummary {
-  writes : Array[Int]
-  same_values : Array[Int]
+  writes : Array[Int32]
+  same_values : Array[Int32]
   disagreed : Array[Bool]
-  default_writes : Array[Int]
-  default_values : Array[Int]
+  default_writes : Array[Int32]
+  default_values : Array[Int32]
 }
 
 ///|
@@ -2549,8 +2564,8 @@ fn RseRawI32LoopSummary::new(state : RseRawI32State) -> RseRawI32LoopSummary {
 ///|
 fn rse_raw_i32_loop_summary_record_write(
   summary : RseRawI32LoopSummary,
-  local_id : Int,
-  value : Int,
+  local_id : Int32,
+  value : Int32,
 ) -> Unit {
   if local_id < 0 || local_id >= summary.writes.length() {
     return
@@ -2571,8 +2586,8 @@ fn rse_raw_i32_loop_summary_record_write(
 ///|
 fn rse_raw_i32_loop_summary_same_value(
   summary : RseRawI32LoopSummary,
-  local_id : Int,
-) -> Int {
+  local_id : Int32,
+) -> Int32 {
   if summary.disagreed[local_id] {
     -1
   } else {
@@ -2581,7 +2596,7 @@ fn rse_raw_i32_loop_summary_same_value(
 }
 
 ///|
-fn rse_raw_i32_binary_tag(instr : @lib.Instruction) -> Int? {
+fn rse_raw_i32_binary_tag(instr : @lib.Instruction) -> Int32? {
   match instr {
     @lib.Instruction::I32Add => Some(1)
     @lib.Instruction::I32Sub => Some(2)
@@ -3249,7 +3264,7 @@ fn rse_raw_local_types(
 ///|
 fn rse_raw_count_local_reads(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
+  reads : Array[Int32],
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -3288,10 +3303,10 @@ fn rse_raw_count_local_reads(
 ///|
 fn rse_raw_unread_set_rhs_is_admitted(
   instrs : Array[@lib.Instruction],
-  idx : Int,
-  target_local : Int,
+  idx : Int32,
+  target_local : Int32,
   local_types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   env : @validate.Env,
 ) -> Bool {
   if idx <= 0 || target_local < 0 || target_local >= local_types.length() {
@@ -3326,9 +3341,9 @@ fn rse_raw_unread_set_rhs_is_admitted(
 ///|
 fn rse_raw_remove_unread_local_sets(
   instrs : Array[@lib.Instruction],
-  reads : Array[Int],
+  reads : Array[Int32],
   local_types : Array[@lib.ValType],
-  param_count : Int,
+  param_count : Int32,
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []

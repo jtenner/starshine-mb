@@ -1,5 +1,5 @@
 ///|
-fn round2_heap_variant_input(kind : Int) -> @lib.Module {
+fn round2_heap_variant_input(kind : Int32) -> @lib.Module {
   let base = @lib.TypeIdx::new(0U)
   let sub = @lib.TypeIdx::new(1U)
   let owner = @lib.LocalIdx::new(1U)

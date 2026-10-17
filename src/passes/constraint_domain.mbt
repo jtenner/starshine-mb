@@ -8,12 +8,12 @@ priv struct CaSpan {
 
 ///|
 priv struct CaRange {
-  bits : Int
+  bits : Int32
   spans : Array[CaSpan]
 } derive(Eq, @debug.Debug)
 
 ///|
-fn ca_max(bits : Int) -> UInt64 {
+fn ca_max(bits : Int32) -> UInt64 {
   if bits == 64 {
     0xffffffffffffffffUL
   } else {
@@ -22,7 +22,7 @@ fn ca_max(bits : Int) -> UInt64 {
 }
 
 ///|
-fn ca_range(bits : Int, spans : Array[CaSpan]) -> CaRange {
+fn ca_range(bits : Int32, spans : Array[CaSpan]) -> CaRange {
   let sorted = spans.copy()
   sorted.sort_by(fn(a, b) { a.lo.compare(b.lo) })
   let merged : Array[CaSpan] = []
@@ -65,12 +65,12 @@ fn ca_range(bits : Int, spans : Array[CaSpan]) -> CaRange {
 }
 
 ///|
-fn ca_top(bits : Int) -> CaRange {
+fn ca_top(bits : Int32) -> CaRange {
   ca_range(bits, [{ lo: 0UL, hi: ca_max(bits), }])
 }
 
 ///|
-fn ca_exact(bits : Int, value : UInt64) -> CaRange {
+fn ca_exact(bits : Int32, value : UInt64) -> CaRange {
   let value = value & ca_max(bits)
   ca_range(bits, [{ lo: value, hi: value, }])
 }
@@ -130,19 +130,19 @@ fn ca_add(range : CaRange, increment : UInt64) -> CaRange {
 ///|
 // Relation bits are LT=1, EQ=2, GT=4. Swapping operands exchanges LT/GT;
 // negating a predicate complements all three bits. These are different maps.
-fn ca_flip(relation : Int) -> Int {
+fn ca_flip(relation : Int32) -> Int32 {
   ((relation & 1) << 2) | (relation & 2) | ((relation & 4) >> 2)
 }
 
 ///|
-fn ca_not(relation : Int) -> Int {
+fn ca_not(relation : Int32) -> Int32 {
   relation ^ 7
 }
 
 ///|
 fn ca_relation_range(
-  bits : Int,
-  relation : Int,
+  bits : Int32,
+  relation : Int32,
   signed : Bool,
   value : UInt64,
 ) -> CaRange {
@@ -164,7 +164,7 @@ fn ca_relation_range(
 }
 
 ///|
-fn ca_relation_possible(a : CaRange, b : CaRange, signed : Bool) -> Int {
+fn ca_relation_possible(a : CaRange, b : CaRange, signed : Bool) -> Int32 {
   let sign = if signed { 1UL << (a.bits - 1) } else { 0UL }
   let left = ca_add(a, sign)
   let right = ca_add(b, sign)

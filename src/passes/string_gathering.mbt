@@ -6,18 +6,18 @@ pub fn string_gathering_summary() -> String {
 ///|
 priv struct SgStringSet {
   strings : Array[Bytes]
-  mut indices : Map[Bytes, Int]
+  mut indices : Map[Bytes, Int32]
 }
 
 ///|
 priv struct SgRewritePlan {
   strings : Array[Bytes]
-  string_indices : Map[Bytes, Int]
-  string_global_abs : Array[Int]
-  old_defined_to_abs : Array[Int]
+  string_indices : Map[Bytes, Int32]
+  string_global_abs : Array[Int32]
+  old_defined_to_abs : Array[Int32]
   old_preserve_type : Array[Bool]
   entry_is_fresh : Array[Bool]
-  entry_value : Array[Int]
+  entry_value : Array[Int32]
 }
 
 ///|
@@ -26,12 +26,12 @@ fn SgStringSet::new() -> SgStringSet {
 }
 
 ///|
-fn sg_string_index(set : SgStringSet, bytes : Bytes) -> Int? {
+fn sg_string_index(set : SgStringSet, bytes : Bytes) -> Int32? {
   set.indices.get(bytes)
 }
 
 ///|
-fn sg_intern_string(set : SgStringSet, bytes : Bytes) -> Int {
+fn sg_intern_string(set : SgStringSet, bytes : Bytes) -> Int32 {
   match sg_string_index(set, bytes) {
     Some(idx) => idx
     None => {
@@ -256,7 +256,7 @@ fn sg_module_has_string_const(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
-fn sg_imported_global_count(mod_ : @lib.Module) -> Int {
+fn sg_imported_global_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -272,20 +272,20 @@ fn sg_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn sg_global_idx_raw(idx : @lib.GlobalIdx) -> Int {
+fn sg_global_idx_raw(idx : @lib.GlobalIdx) -> Int32 {
   let @lib.GlobalIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
 ///|
-fn sg_global_idx(raw : Int) -> @lib.GlobalIdx {
+fn sg_global_idx(raw : Int32) -> @lib.GlobalIdx {
   @lib.GlobalIdx::new(raw.reinterpret_as_uint())
 }
 
 ///|
 fn sg_remap_existing_global_idx(
   idx : @lib.GlobalIdx,
-  imported_globals : Int,
+  imported_globals : Int32,
   plan : SgRewritePlan,
 ) -> @lib.GlobalIdx {
   let raw = sg_global_idx_raw(idx)
@@ -370,7 +370,7 @@ fn sg_sort_strings(strings : Array[Bytes]) -> Unit {
 
 ///|
 fn sg_reindex_strings(set : SgStringSet) -> Unit {
-  let indices : Map[Bytes, Int] = Map([])
+  let indices : Map[Bytes, Int32] = Map([])
   for idx = 0; idx < set.strings.length(); idx = idx + 1 {
     indices[set.strings[idx]] = idx
   }
@@ -381,12 +381,12 @@ fn sg_reindex_strings(set : SgStringSet) -> Unit {
 fn sg_make_rewrite_plan(
   mod_ : @lib.Module,
   set : SgStringSet,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> SgRewritePlan {
   sg_sort_strings(set.strings)
   sg_reindex_strings(set)
   let globals = sg_defined_globals(mod_)
-  let exported_globals : Map[UInt, Unit] = Map([])
+  let exported_globals : Map[UInt32, Unit] = Map([])
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
       for export_ in exports {
@@ -426,15 +426,15 @@ fn sg_make_rewrite_plan(
   let string_global_abs = Array::make(set.strings.length(), -1)
   let old_defined_to_abs = Array::make(globals.length(), -1)
   let entry_is_fresh : Array[Bool] = []
-  let entry_value : Array[Int] = []
+  let entry_value : Array[Int32] = []
 
-  fn push_old(old_idx : Int) -> Unit {
+  fn push_old(old_idx : Int32) -> Unit {
     old_defined_to_abs[old_idx] = imported_globals + entry_value.length()
     entry_is_fresh.push(false)
     entry_value.push(old_idx)
   }
 
-  fn push_fresh(string_idx : Int) -> Unit {
+  fn push_fresh(string_idx : Int32) -> Unit {
     string_global_abs[string_idx] = imported_globals + entry_value.length()
     entry_is_fresh.push(true)
     entry_value.push(string_idx)
@@ -482,7 +482,7 @@ fn sg_make_rewrite_plan(
 fn sg_rewrite_instr(
   instr : @lib.Instruction,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.Instruction {
   match instr {
     @lib.StringConst(bytes) =>
@@ -527,7 +527,7 @@ fn sg_rewrite_instr(
 fn sg_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Array[@lib.Instruction] {
   if !sg_instrs_need_rewrite(instrs, plan, imported_globals) {
     return instrs
@@ -539,7 +539,7 @@ fn sg_rewrite_instrs(
 fn sg_rewrite_instrs_unchecked(
   instrs : Array[@lib.Instruction],
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -552,7 +552,7 @@ fn sg_rewrite_instrs_unchecked(
 fn sg_instrs_need_rewrite(
   instrs : Array[@lib.Instruction],
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Bool {
   for instr in instrs {
     match instr {
@@ -591,7 +591,7 @@ fn sg_instrs_need_rewrite(
 fn sg_expr_needs_rewrite(
   expr : @lib.Expr,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> Bool {
   sg_instrs_need_rewrite(expr.0, plan, imported_globals)
 }
@@ -600,7 +600,7 @@ fn sg_expr_needs_rewrite(
 fn sg_rewrite_expr(
   expr : @lib.Expr,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.Expr {
   if !sg_expr_needs_rewrite(expr, plan, imported_globals) {
     return expr
@@ -613,7 +613,7 @@ fn sg_rewrite_expr(
 fn sg_rewrite_global_sec(
   global_sec : @lib.GlobalSec?,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.GlobalSec {
   let globals = match global_sec {
     Some(@lib.GlobalSec(globals)) => globals
@@ -674,7 +674,7 @@ fn sg_rewrite_global_sec(
 ///|
 fn sg_rewrite_export_sec(
   export_sec : @lib.ExportSec?,
-  imported_globals : Int,
+  imported_globals : Int32,
   plan : SgRewritePlan,
 ) -> @lib.ExportSec? {
   match export_sec {
@@ -704,7 +704,7 @@ fn sg_rewrite_export_sec(
 fn sg_rewrite_elem_mode(
   mode : @lib.ElemMode,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.ElemMode {
   match mode {
     @lib.Active(table_idx, expr) =>
@@ -720,7 +720,7 @@ fn sg_rewrite_elem_mode(
 fn sg_rewrite_elem_kind(
   kind : @lib.ElemKind,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncExprsElemKind(exprs) => {
@@ -745,7 +745,7 @@ fn sg_rewrite_elem_kind(
 fn sg_rewrite_elem_sec(
   elem_sec : @lib.ElemSec?,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.ElemSec? {
   match elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -769,7 +769,7 @@ fn sg_rewrite_elem_sec(
 fn sg_rewrite_data_sec(
   data_sec : @lib.DataSec?,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.DataSec? {
   match data_sec {
     Some(@lib.DataSec(datas)) => {
@@ -795,7 +795,7 @@ fn sg_rewrite_data_sec(
 ///|
 fn sg_rewrite_global_name_map(
   names : @lib.NameMap?,
-  imported_globals : Int,
+  imported_globals : Int32,
   plan : SgRewritePlan,
 ) -> @lib.NameMap? {
   match names {
@@ -832,7 +832,7 @@ fn sg_rewrite_global_name_map(
 ///|
 fn sg_rewrite_name_sec(
   name_sec : @lib.NameSec?,
-  imported_globals : Int,
+  imported_globals : Int32,
   plan : SgRewritePlan,
 ) -> @lib.NameSec? {
   match name_sec {
@@ -865,7 +865,7 @@ fn sg_rewrite_name_sec(
 fn sg_rewrite_code_sec(
   code_sec : @lib.CodeSec?,
   plan : SgRewritePlan,
-  imported_globals : Int,
+  imported_globals : Int32,
 ) -> @lib.CodeSec? {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {

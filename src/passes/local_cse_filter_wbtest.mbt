@@ -1,5 +1,5 @@
 ///|
-fn LcseRawExpr::review2_fixture(kind : Int) -> LcseRawExpr {
+fn LcseRawExpr::review2_fixture(kind : Int32) -> LcseRawExpr {
   {
     start: 0,
     end: 0,
@@ -28,7 +28,7 @@ fn LcseRawExpr::review2_fixture(kind : Int) -> LcseRawExpr {
 ///|
 test "review2 local-cse stable filters preserve duplicate survivor order" {
   let exprs = Array::makei(9, fn(i) { LcseRawExpr::review2_fixture(i) })
-  let filters : Array[((Array[Int]) -> Unit, Array[Int])] = [
+  let filters : Array[((Array[Int32]) -> Unit, Array[Int32])] = [
     (
       fn(active) { lcse_raw_filter_active_without_memory(exprs, active) },
       [6, 1, 0, 3, 4, 5, 7, 1],
@@ -86,9 +86,9 @@ test "review2 local-cse stable filters preserve duplicate survivor order" {
 }
 
 ///|
-fn lcse_local_filter_perf_bench(it : @bench.T, writes : Int) -> Unit {
+fn lcse_local_filter_perf_bench(it : @bench.T, writes : Int32) -> Unit {
   let exprs = Array::makei(256, fn(_) { LcseRawExpr::review2_fixture(0) })
-  let active : Array[Int] = []
+  let active : Array[Int32] = []
   for idx in 0..<256 {
     active.push(idx)
   }
@@ -115,9 +115,9 @@ test "bench Local CSE retained filter writes=256" (it : @bench.T) {
 }
 
 ///|
-fn lcse_other_filter_perf_bench(it : @bench.T, kind : Int) -> Unit {
+fn lcse_other_filter_perf_bench(it : @bench.T, kind : Int32) -> Unit {
   let exprs = Array::makei(256, fn(_) { LcseRawExpr::review2_fixture(0) })
-  let active : Array[Int] = []
+  let active : Array[Int32] = []
   for idx in 0..<256 {
     active.push(idx)
   }
