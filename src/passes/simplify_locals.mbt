@@ -4628,6 +4628,14 @@ fn simplify_locals_collect_block_branch_exits(
           if simplify_locals_branch_payload_count(func, node_id) != 0 {
             return false
           }
+          if node.child_count != 1 ||
+            simplify_locals_node_reads_local(
+              func,
+              @ir.hot_child_get(func, node_id, 0),
+              local_id,
+            ) {
+            return false
+          }
           match
             simplify_locals_find_branch_exit_set_for_local(
               func, region_ref, idx, target_label, local_id,

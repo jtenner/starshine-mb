@@ -352,9 +352,9 @@ fn lcse_simd_pure_result_type(instr : @lib.Instruction) -> @lib.ValType? {
     | @lib.Instruction::I16x8ExtractLaneS(_)
     | @lib.Instruction::I16x8ExtractLaneU(_)
     | @lib.Instruction::I32x4ExtractLane(_) => Some(@lib.ValType::i32())
-    @lib.Instruction::I64x2AllTrue
-    | @lib.Instruction::I64x2Bitmask
-    | @lib.Instruction::I64x2ExtractLane(_) => Some(@lib.ValType::i64())
+    @lib.Instruction::I64x2AllTrue | @lib.Instruction::I64x2Bitmask =>
+      Some(@lib.ValType::i32())
+    @lib.Instruction::I64x2ExtractLane(_) => Some(@lib.ValType::i64())
     @lib.Instruction::F32x4ExtractLane(_) => Some(@lib.ValType::f32())
     @lib.Instruction::F64x2ExtractLane(_) => Some(@lib.ValType::f64())
     _ =>
@@ -3131,8 +3131,16 @@ fn local_cse_run_raw_func_with_params(
   func : @lib.Func,
   params : Array[@lib.ValType],
   has_shared_memory~ : Bool = false,
+  env~ : @validate.Env? = None,
 ) -> (@lib.Func, Bool) {
-  let rewrite = lcse_raw_rewrite_func(func, params, [], [], has_shared_memory~)
+  let rewrite = lcse_raw_rewrite_func(
+    func,
+    params,
+    [],
+    [],
+    has_shared_memory~,
+    env~,
+  )
   (rewrite.func, rewrite.changed)
 }
 

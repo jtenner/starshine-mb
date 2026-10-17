@@ -3920,7 +3920,10 @@ fn dfe_rewrite_type_name_sec(
 
 ///|
 fn dfe_funcs_semantically_equal(left : @lib.Func, right : @lib.Func) -> Bool {
-  left == right
+  let @lib.Func(left_locals, @lib.Expr(left_body)) = left
+  let @lib.Func(right_locals, @lib.Expr(right_body)) = right
+  left_locals == right_locals &&
+  pass_const_instruction_vectors_bits_equal(left_body, right_body)
 }
 
 ///|

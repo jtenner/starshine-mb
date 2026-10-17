@@ -462,7 +462,8 @@ fn gsi_mark_external_struct_origins(
   let type_count = poisoned_type_slots.length()
   for slot = 0; slot < type_count; slot = slot + 1 {
     let type_idx = gsi_type_idx_from_slot(slot)
-    if env.resolve_struct_fields(type_idx) is Err(_) {
+    if env.resolve_struct_fields(type_idx) is Err(_) &&
+      env.resolve_array_field(type_idx) is Err(_) {
       continue
     }
     let exact_value_type = @lib.ValType::ref_type(
@@ -475,6 +476,33 @@ fn gsi_mark_external_struct_origins(
   }
   cached_value_types.push(external_type)
   cached_slots.push(compatible_slots)
+  for slot in compatible_slots {
+    let type_idx = gsi_type_idx_from_slot(slot)
+    match env.resolve_struct_fields(type_idx) {
+      Ok(fields) =>
+        for field in fields {
+          gsi_mark_external_struct_origins(
+            env,
+            field.unpack(),
+            poisoned_type_slots,
+            cached_value_types,
+            cached_slots,
+          )
+        }
+      Err(_) =>
+        match env.resolve_array_field(type_idx) {
+          Ok(field) =>
+            gsi_mark_external_struct_origins(
+              env,
+              field.unpack(),
+              poisoned_type_slots,
+              cached_value_types,
+              cached_slots,
+            )
+          Err(_) => ()
+        }
+    }
+  }
 }
 
 ///|
@@ -1002,10 +1030,69 @@ fn gsi_build_closed_world_facts(
       None => gsi_mark_all_struct_allocs(init_instrs, poisoned_type_slots)
     }
   }
+  gsi_merge_equivalent_struct_type_facts(
+    env, poisoned_type_slots, candidate_globals_by_type_slot,
+  )
   gsi_propagate_closed_world_subtype_facts(
     env, poisoned_type_slots, candidate_globals_by_type_slot,
   )
   { poisoned_type_slots, candidate_globals_by_type_slot, }
+}
+
+///|
+fn gsi_merge_equivalent_struct_type_facts(
+  env : @validate.Env,
+  poisoned_type_slots : Array[Bool],
+  candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+) -> Unit {
+  let type_count = poisoned_type_slots.length()
+  for lhs = 0; lhs < type_count; lhs = lhs + 1 {
+    if env.resolve_struct_fields(gsi_type_idx_from_slot(lhs)) is Err(_) {
+      continue
+    }
+    for rhs = lhs + 1; rhs < type_count; rhs = rhs + 1 {
+      if !poisoned_type_slots[lhs] &&
+        !poisoned_type_slots[rhs] &&
+        candidates_by_type_slot[lhs].is_empty() &&
+        candidates_by_type_slot[rhs].is_empty() {
+        continue
+      }
+      if env.resolve_struct_fields(gsi_type_idx_from_slot(rhs)) is Err(_) {
+        continue
+      }
+      let lhs_type = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(gsi_type_idx_from_slot(lhs)),
+        ),
+      )
+      let rhs_type = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(gsi_type_idx_from_slot(rhs)),
+        ),
+      )
+      if !@validate.Match::matches(lhs_type, rhs_type, env) ||
+        !@validate.Match::matches(rhs_type, lhs_type, env) {
+        continue
+      }
+      let poisoned = poisoned_type_slots[lhs] || poisoned_type_slots[rhs]
+      poisoned_type_slots[lhs] = poisoned
+      poisoned_type_slots[rhs] = poisoned
+      let lhs_candidates = candidates_by_type_slot[lhs].copy()
+      let rhs_candidates = candidates_by_type_slot[rhs].copy()
+      for candidate in rhs_candidates {
+        if !gsi_candidate_list_contains(candidates_by_type_slot[lhs], candidate) {
+          candidates_by_type_slot[lhs].push(candidate)
+        }
+      }
+      for candidate in lhs_candidates {
+        if !gsi_candidate_list_contains(candidates_by_type_slot[rhs], candidate) {
+          candidates_by_type_slot[rhs].push(candidate)
+        }
+      }
+    }
+  }
 }
 
 ///|

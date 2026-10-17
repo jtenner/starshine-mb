@@ -26196,10 +26196,8 @@ fn dae_instruction_is_erasable_before_unreachable_at(
   }
   if evidence.has_branch_control {
     match instrs[idx] {
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _) =>
+      @lib.Loop(_, _) => return false
+      @lib.Block(_, _) | @lib.If(_, _, _) | @lib.TryTable(_, _, _) =>
         if dae_instr_has_escaping_branch(instrs[idx], 0) {
           return false
         }
@@ -50661,6 +50659,19 @@ fn dae_func327_can_remap_i64_temp25_to_param0(
         if dae_instrs_reference_local(then_body, target) ||
           dae_instrs_reference_local(else_body, target) ||
           dae_instrs_reference_local(else_body, temp) {
+          return false
+        }
+        let mut temp_written = false
+        for then_instr in then_body {
+          match then_instr {
+            @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if local_idx ==
+              temp => temp_written = true
+            instr if !temp_written && dae_instr_references_local(instr, temp) =>
+              return false
+            _ => ()
+          }
+        }
+        if !temp_written {
           return false
         }
         let suffix = dae_copy_instr_suffix(body, idx + 1)

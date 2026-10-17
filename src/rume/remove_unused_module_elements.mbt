@@ -1094,6 +1094,8 @@ fn rume_scan_ref_func_liveness_instr(
     @lib.RefFunc(func_idx) =>
       if strong {
         rume_mark_func(queue, used_funcs, func_idx)
+      } else if analysis.closed_world {
+        rume_note_ref_func_liveness(analysis, queue, used_funcs, func_idx)
       } else {
         rume_reference_func(used_funcs, analysis.referenced_funcs, func_idx)
       }
@@ -1221,11 +1223,7 @@ fn rume_reference_elem_payload(
   if slot < 0 || slot >= used_elems.length() {
     return
   }
-  let already_kept = used_elems[slot]
   used_elems[slot] = true
-  if already_kept {
-    return
-  }
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       match elems.get(slot) {

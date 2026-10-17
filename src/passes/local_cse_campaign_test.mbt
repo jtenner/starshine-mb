@@ -39,3 +39,17 @@ test "campaign local-cse retains concrete function reference" {
   )
   assert_true(@validate.validate_module(output) is Ok(_))
 }
+
+///|
+test "campaign local-cse gives i64x2 boolean reductions i32 locals" {
+  for op in ["i64x2.all_true", "i64x2.bitmask"] {
+    let output = audit_run(
+      "(module (func (param v128) (result i32) (drop (\{op} (local.get 0))) (\{op} (local.get 0))))",
+      "local-cse",
+    )
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid local-cse output for \{op}, got \{err}")
+    }
+  }
+}

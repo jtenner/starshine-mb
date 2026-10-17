@@ -67,3 +67,20 @@ test "remove-unused-brs preserves continuation handler result type" {
     Err(err) => fail("expected valid RUB continuation output, got \{err}")
   }
 }
+
+///|
+test "remove-unused-brs counts continuation handler label uses" {
+  let input = remove_unused_brs_continuation_test_input()
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  assert_eq(
+    remove_unused_brs_count_label_uses_in_region(
+      func,
+      @ir.hot_region_body_ref(func, block_id),
+      block_label,
+    ),
+    1,
+  )
+}

@@ -994,6 +994,27 @@ fn dfe_test_defined_func_count(mod_ : @lib.Module) -> Int32 raise {
 }
 
 ///|
+test "duplicate-function-elimination distinguishes floating signed zero bodies" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $positive (result f32) f32.const 0)
+      #|  (func $negative (result f32) f32.const -0)
+      #|  (func (export "bits") (param i32) (result i32)
+      #|    local.get 0
+      #|    if (result f32)
+      #|      call $positive
+      #|    else
+      #|      call $negative
+      #|    end
+      #|    i32.reinterpret_f32))
+    ),
+  )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 3)
+}
+
+///|
 fn dfe_test_export_func_target(
   mod_ : @lib.Module,
   export_idx : Int32,

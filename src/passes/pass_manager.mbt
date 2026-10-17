@@ -15783,7 +15783,8 @@ fn run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
     }
     match normalized[idx] {
       @lib.TryTable(@lib.VoidBlockType, _, @lib.Expr(body)) =>
-        if !run_hot_pipeline_dce_raw_body_may_fallthrough(body) {
+        if !run_hot_pipeline_dce_raw_body_may_fallthrough(body) &&
+          !run_hot_pipeline_dce_raw_instrs_branch_to_depth(body, 0) {
           rewritten.push(normalized[idx])
           if idx + 1 < normalized.length() {
             match normalized[idx + 1] {
@@ -29076,15 +29077,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_instr(
           ),
         ),
       )
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      @lib.Instruction::loop_(
-        block_type,
-        @lib.Expr::new(
-          run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
-            body, params, locals, written_locals, changed,
-          ),
-        ),
-      )
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(body, written_locals)
+      @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+    }
     @lib.If(block_type, then_body, else_body) => {
       let rewritten_then = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
         then_body, params, locals, written_locals, changed,
@@ -30119,7 +30115,60 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
           ),
         ),
       )
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      run_hot_pipeline_raw_ssa_nomerge_consume_legacy_try_plan(
+        body, catches, cursor,
+      )
+      instr
+    }
     _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(
+  instrs : Array[@lib.Instruction],
+  cursor : SsaNoMergeRawRewriteCursor,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(_) => cursor.get_cursor = cursor.get_cursor + 1
+      @lib.LocalSet(_) | @lib.LocalTee(_) =>
+        cursor.write_cursor = cursor.write_cursor + 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(body, cursor)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(then_body, cursor)
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(body, cursor)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) =>
+        run_hot_pipeline_raw_ssa_nomerge_consume_legacy_try_plan(
+          body, catches, cursor,
+        )
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_consume_legacy_try_plan(
+  body : Array[@lib.Instruction],
+  catches : Array[@lib.LegacyCatch],
+  cursor : SsaNoMergeRawRewriteCursor,
+) -> Unit {
+  run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(body, cursor)
+  for catch_ in catches {
+    let catch_body = match catch_ {
+      @lib.LegacyCatch(_, @lib.Expr(catch_body))
+      | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+    }
+    run_hot_pipeline_raw_ssa_nomerge_consume_plan_instrs(catch_body, cursor)
   }
 }
 
@@ -36881,6 +36930,7 @@ fn RawOiRootFlowFact::from_instr(instr : @lib.Instruction) -> RawOiRootFlowFact 
     @lib.Block(_, _)
     | @lib.Loop(_, _)
     | @lib.If(_, _, _)
+    | @lib.Try(_, _, _, _)
     | @lib.TryTable(_, _, _) =>
       {
         has_nested_control: true,
@@ -38785,7 +38835,7 @@ fn RawOiIdenticalIfArmsFact::from_arms(
   // branch moves out of the removed `if` label scope, so rebase an outer target
   // by one. Branches to the removed `if` itself and nested branch trees stay on
   // the guarded HOT path rather than being copied with stale relative depths.
-  if then_body != else_body {
+  if !pass_const_instruction_vectors_bits_equal(then_body, else_body) {
     return None
   }
   match then_body {
@@ -56937,6 +56987,13 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1167_br_table_child_before_unreachable(
   if child_body.length() == 0 {
     return false
   }
+  if child_body.length() > 1 &&
+    run_hot_pipeline_raw_vacuum_body_targets_owner(
+      child_body[0:child_body.length() - 1].to_owned(),
+      0,
+    ) {
+    return false
+  }
   match child_body[child_body.length() - 1] {
     @lib.BrTable(labels, fallback) =>
       run_hot_pipeline_raw_vacuum_br_table_targets_outer_only(labels, fallback)
@@ -63348,7 +63405,8 @@ fn run_hot_pipeline_raw_vacuum_instr_cannot_fall_through_to_next(
     @lib.Br(_) | @lib.BrTable(_, _) | @lib.Return | @lib.Unreachable => true
     @lib.Block(_, @lib.Expr(body)) if body.length() > 0 =>
       match body[body.length() - 1] {
-        @lib.Br(@lib.LabelIdx(depth)) => depth > 0U
+        @lib.Br(@lib.LabelIdx(depth)) =>
+          depth > 0U && !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
         @lib.BrTable(targets, @lib.LabelIdx(default_depth)) if default_depth >
           0U => {
           for target in targets {
@@ -63357,9 +63415,10 @@ fn run_hot_pipeline_raw_vacuum_instr_cannot_fall_through_to_next(
               return false
             }
           }
-          true
+          !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
         }
-        @lib.Return | @lib.Unreachable => true
+        @lib.Return | @lib.Unreachable =>
+          !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0)
         _ => false
       }
     _ => false
@@ -85105,6 +85164,7 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
   let params = cl_defined_func_param_cache(mod_)
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let has_shared_memory = lcse_module_has_shared_memory(mod_)
+  let env = Some(@validate.Env::new().with_module(mod_))
   let mut rewritten : Array[@lib.Func]? = None
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
@@ -85124,6 +85184,7 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
       funcs[code_idx],
       params[code_idx],
       has_shared_memory~,
+      env~,
     )
     pipeline_trace_hook(
       options.trace,

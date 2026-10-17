@@ -2229,6 +2229,14 @@ fn hso_subtree_is_trapless_readonly_contained_control(
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
+  if node.op is @ir.HotOp::Loop &&
+    hso_region_targets_owner_label(
+      func,
+      @ir.hot_region_body_ref(func, node_id),
+      node_id,
+    ) {
+    return false
+  }
   if @ir.hot_is_branch(func, node_id) &&
     hso_branch_escapes_active_owners(func, active_owners, node_id) {
     return false

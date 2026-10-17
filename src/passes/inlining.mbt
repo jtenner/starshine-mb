@@ -2595,6 +2595,17 @@ fn inl_hoist_nested_return_calls_in_instrs(
               continue
             }
           }
+          if operand_types.any(fn(value_type) {
+              match value_type {
+                @lib.RefTypeValType(ref_type) => !ref_type.is_defaultable()
+                @lib.BotValType => true
+                _ => false
+              }
+            }) {
+            state.failed = true
+            out.push(instr)
+            continue
+          }
           let locals : Array[Int32] = []
           for operand_type in operand_types {
             locals.push(state.next_local_idx)

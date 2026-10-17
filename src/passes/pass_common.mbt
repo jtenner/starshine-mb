@@ -1064,8 +1064,57 @@ fn pass_const_instruction_bits_equal(
       a.reinterpret_as_int() == b.reinterpret_as_int()
     (@lib.F64Const(@lib.F64(a)), @lib.F64Const(@lib.F64(b))) =>
       a.reinterpret_as_int64() == b.reinterpret_as_int64()
-    (@lib.Block(a, @lib.Expr(xs)), @lib.Block(b, @lib.Expr(ys))) =>
+    (@lib.Block(a, @lib.Expr(xs)), @lib.Block(b, @lib.Expr(ys)))
+    | (@lib.Loop(a, @lib.Expr(xs)), @lib.Loop(b, @lib.Expr(ys))) =>
       a == b && pass_const_instruction_vectors_bits_equal(xs, ys)
+    (@lib.If(a, xs, x_else), @lib.If(b, ys, y_else)) => {
+      if a != b || !pass_const_instruction_vectors_bits_equal(xs, ys) {
+        return false
+      }
+      match (x_else, y_else) {
+        (Some(xs), Some(ys)) =>
+          pass_const_instruction_vectors_bits_equal(xs, ys)
+        (None, None) => true
+        _ => false
+      }
+    }
+    (
+      @lib.TryTable(a, catches, @lib.Expr(xs)),
+      @lib.TryTable(b, other_catches, @lib.Expr(ys)),
+    ) =>
+      a == b &&
+      catches == other_catches &&
+      pass_const_instruction_vectors_bits_equal(xs, ys)
+    (
+      @lib.Try(a, @lib.Expr(xs), catches, delegate),
+      @lib.Try(b, @lib.Expr(ys), other_catches, other_delegate),
+    ) => {
+      if a != b ||
+        delegate != other_delegate ||
+        catches.length() != other_catches.length() ||
+        !pass_const_instruction_vectors_bits_equal(xs, ys) {
+        return false
+      }
+      for i = 0; i < catches.length(); i = i + 1 {
+        let equal = match (catches[i], other_catches[i]) {
+          (
+            @lib.LegacyCatch::LegacyCatch(tag, @lib.Expr(xs)),
+            @lib.LegacyCatch::LegacyCatch(other_tag, @lib.Expr(ys)),
+          ) =>
+            tag == other_tag &&
+            pass_const_instruction_vectors_bits_equal(xs, ys)
+          (
+            @lib.LegacyCatch::LegacyCatchAll(@lib.Expr(xs)),
+            @lib.LegacyCatch::LegacyCatchAll(@lib.Expr(ys)),
+          ) => pass_const_instruction_vectors_bits_equal(xs, ys)
+          _ => false
+        }
+        if !equal {
+          return false
+        }
+      }
+      true
+    }
     _ => lhs == rhs
   }
 }

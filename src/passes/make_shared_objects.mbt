@@ -127,6 +127,79 @@ fn mso_rewrite_subtype(
 }
 
 ///|
+fn mso_note_reference_domain(
+  value_type : @lib.ValType,
+  types : Array[@lib.SubType],
+  has_function_domain : Array[Bool],
+  has_extern_domain : Array[Bool],
+) -> Unit {
+  let heap = match value_type {
+    @lib.RefTypeValType(ref_type) => ref_type.get_heap_type()
+    _ => return
+  }
+  match heap {
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.FuncAbsHeapType)
+    | @lib.AbsHeapTypeHeapType(@lib.NoFuncAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.NoFuncAbsHeapType) =>
+      has_function_domain[0] = true
+    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.ExternAbsHeapType)
+    | @lib.AbsHeapTypeHeapType(@lib.NoExternAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.NoExternAbsHeapType) =>
+      has_extern_domain[0] = true
+    @lib.HeapType(type_idx) if mso_function_type(types, type_idx) =>
+      has_function_domain[0] = true
+    _ => ()
+  }
+}
+
+///|
+fn mso_type_rewrite_conflates_reference_domains(
+  types : Array[@lib.SubType],
+) -> Bool {
+  let has_function_domain = [false]
+  let has_extern_domain = [false]
+  for subtype in types {
+    match subtype.get_comptype() {
+      @lib.FuncCompType(params, results) => {
+        for value_type in params {
+          mso_note_reference_domain(
+            value_type, types, has_function_domain, has_extern_domain,
+          )
+        }
+        for value_type in results {
+          mso_note_reference_domain(
+            value_type, types, has_function_domain, has_extern_domain,
+          )
+        }
+      }
+      @lib.StructCompType(fields) =>
+        for field in fields {
+          mso_note_reference_domain(
+            field.unpack(),
+            types,
+            has_function_domain,
+            has_extern_domain,
+          )
+        }
+      @lib.ArrayCompType(field) =>
+        mso_note_reference_domain(
+          field.unpack(),
+          types,
+          has_function_domain,
+          has_extern_domain,
+        )
+      _ => ()
+    }
+    if has_function_domain[0] && has_extern_domain[0] {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn mso_rewrite_expr(
   expr : @lib.Expr,
   types : Array[@lib.SubType],
@@ -848,6 +921,11 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => return mod_
   }
   let types = cl_module_subtypes(mod_)
+  // Both domains lower to the same shared i31 representation. Keep the module
+  // unchanged when doing that could make distinct structural types identical.
+  if mso_type_rewrite_conflates_reference_domains(types) {
+    return mod_
+  }
   let refs = mso_collect_references(mod_, types)
   // String values need a distinct external-handle lowering. Rewriting their
   // types to shared i31 while leaving string producers and casts in place can

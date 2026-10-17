@@ -138,7 +138,66 @@ fn dae2_table_slot(index : @lib.TableIdx) -> Int32 {
 ///|
 fn dae2_is_abstract_funcref_table(table_type : @lib.TableType) -> Bool {
   let @lib.TableType(ref_type, _) = table_type
-  ref_type.get_heap_type() == @lib.HeapType::abs(@lib.AbsHeapType::func())
+  dae2_is_abstract_funcref_ref_type(ref_type)
+}
+
+///|
+fn dae2_is_abstract_funcref_ref_type(ref_type : @lib.RefType) -> Bool {
+  match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.FuncAbsHeapType) => true
+    _ => false
+  }
+}
+
+///|
+fn dae2_is_abstract_funcref_global(global_type : @lib.GlobalType) -> Bool {
+  match global_type {
+    @lib.GlobalType(@lib.RefTypeValType(ref_type), _) =>
+      dae2_is_abstract_funcref_ref_type(ref_type)
+    _ => false
+  }
+}
+
+///|
+fn dae2_has_host_abstract_funcref_global(
+  mod_ : @lib.Module,
+  context : @ir.HotModuleContext,
+) -> Bool {
+  let mut global_import = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(global_type)) => {
+            if dae2_is_abstract_funcref_global(global_type) {
+              return true
+            }
+            global_import += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw))) => {
+            let slot = raw.reinterpret_as_int()
+            if slot >= global_import &&
+              slot < context.globals.length() &&
+              dae2_is_abstract_funcref_global(context.globals[slot]) {
+              return true
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|
@@ -443,6 +502,9 @@ fn dae2_prepare_type_locations(
   }
   let host_abstract_tables = dae2_host_abstract_funcref_tables(mod_, context)
   let has_host_abstract_table = host_abstract_tables.any(fn(visible) { visible })
+  let has_host_abstract_global = dae2_has_host_abstract_funcref_global(
+    mod_, context,
+  )
   let has_host_callable_parameter = dae2_has_host_callable_parameter(context)
   for index = 0; index < exposure.length(); index = index + 1 {
     let e = exposure[index]
@@ -452,7 +514,11 @@ fn dae2_prepare_type_locations(
         e.imported ||
         e.exported ||
         (
-          (has_host_abstract_table || has_host_callable_parameter) &&
+          (
+            has_host_abstract_table ||
+            has_host_abstract_global ||
+            has_host_callable_parameter
+          ) &&
           dae2_function_reference_may_reach_table(e)
         ) {
         public_types.observe(type_index)

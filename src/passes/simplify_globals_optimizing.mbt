@@ -785,7 +785,7 @@ fn sgo_structured_guarded_scalar_read(
                 [
                   @lib.GlobalGet(idx),
                   @lib.LocalGet(_),
-                  @lib.BrIf(_),
+                  @lib.BrIf(@lib.LabelIdx(0U)),
                   @lib.Drop,
                   result,
                 ] if sgo_scalar_const_kind(result) == Some(result_kind) =>

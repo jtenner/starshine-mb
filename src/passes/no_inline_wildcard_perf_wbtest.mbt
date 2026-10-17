@@ -95,6 +95,14 @@ test "NoInline wildcard rolling rows preserve empty and mixed patterns" {
 }
 
 ///|
+test "NoInline wildcard matches non-ASCII function names without indexing outside masks" {
+  assert_true(no_inline_wildcard_match("*", "λ"))
+  assert_true(no_inline_wildcard_match("λ", "λ"))
+  assert_true(no_inline_wildcard_match("λ*", "λ-name"))
+  assert_false(no_inline_wildcard_match("λ", "μ"))
+}
+
+///|
 test "NoInline wildcard matching advances without a quadratic DP grid" {
   let (pattern, name) = no_inline_wildcard_bench_inputs(512)
   let visits = [0]

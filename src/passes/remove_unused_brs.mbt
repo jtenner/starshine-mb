@@ -963,6 +963,12 @@ fn remove_unused_brs_compute_cycle_scan(
           }
         }
       }
+      @ir.HotOp::Continuation =>
+        for label_id in @ir.hot_continuation_targets(func, node_id) {
+          if label_id >= 0 && label_id < label_refs.length() {
+            label_refs[label_id] = label_refs[label_id] + 1
+          }
+        }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -977,12 +983,6 @@ fn remove_unused_brs_compute_cycle_scan(
           }
         }
       }
-      @ir.HotOp::Continuation =>
-        for label_id in @ir.hot_continuation_targets(func, node_id) {
-          if label_id >= 0 && label_id < label_refs.length() {
-            label_refs[label_id] = label_refs[label_id] + 1
-          }
-        }
       _ => ()
     }
     let payload_slots = match node.op {
@@ -5505,8 +5505,16 @@ fn remove_unused_brs_condition_is_safe_to_speculate(
     | @ir.HotOp::MemorySize
     | @ir.HotOp::TableSize
     | @ir.HotOp::RefNull
-    | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefFunc => true
+    @ir.HotOp::RefIsNull => {
+      if node.child_count != 1 {
+        return false
+      }
+      remove_unused_brs_condition_is_safe_to_speculate(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+    }
     @ir.HotOp::Unary | @ir.HotOp::Compare => {
       for slot = 0; slot < node.child_count; slot = slot + 1 {
         if !remove_unused_brs_condition_is_safe_to_speculate(
@@ -9019,6 +9027,12 @@ fn remove_unused_brs_count_label_uses_in_roots(
           }
         }
       }
+      @ir.HotOp::Continuation =>
+        for label_id in @ir.hot_continuation_targets(func, node_id) {
+          if label_id == target_label {
+            count += 1
+          }
+        }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {

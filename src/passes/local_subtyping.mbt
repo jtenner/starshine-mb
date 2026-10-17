@@ -1364,7 +1364,9 @@ fn ls_ref_null_normalized_type(ref_type : @lib.RefType) -> @lib.ValType {
     @lib.AbsHeapTypeHeapType(_) => @lib.HeapType::abs(@lib.AbsHeapType::none())
     other => other
   }
-  @lib.ValType::ref_type(@lib.RefType::new(true, heap_type))
+  @lib.ValType::ref_type(
+    @lib.RefType::new(true, heap_type, exact=ref_type.is_exact()),
+  )
 }
 
 ///|

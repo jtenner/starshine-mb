@@ -769,17 +769,7 @@ fn tuple_optimization_try_payload_source_read(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet => Some((node.imm0, node_id))
-    @ir.HotOp::LocalTee => {
-      if @ir.hot_child_count(func, node_id) != 1 {
-        return None
-      }
-      let child = @ir.hot_child_get(func, node_id, 0)
-      let child_node = @ir.hot_node_get(func, child)
-      match child_node.op {
-        @ir.HotOp::LocalGet => Some((child_node.imm0, child))
-        _ => None
-      }
-    }
+    @ir.HotOp::LocalTee => None
     _ => None
   }
 }

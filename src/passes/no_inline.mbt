@@ -127,6 +127,7 @@ priv struct NoInlineWildcardProgram {
   literal_masks : Array[UInt64]
   question_masks : Array[UInt64]
   star_masks : Array[UInt64]
+  fallback_pattern : String?
 }
 
 ///|
@@ -141,10 +142,17 @@ fn no_inline_wildcard_compile(pattern : String) -> NoInlineWildcardProgram {
   // preserving glob semantics.
   let mut pattern_length = 0
   let mut previous_star = false
+  let mut needs_fallback = false
   for pattern_idx = 0
       pattern_idx < pattern.length()
       pattern_idx = pattern_idx + 1 {
     let is_star = pattern[pattern_idx] == '*'
+    needs_fallback = needs_fallback ||
+      (
+        !is_star &&
+        pattern[pattern_idx] != '?' &&
+        pattern[pattern_idx].to_int() > 255
+      )
     if !is_star || !previous_star {
       pattern_length += 1
     }
@@ -168,7 +176,7 @@ fn no_inline_wildcard_compile(pattern : String) -> NoInlineWildcardProgram {
         star_masks[word_idx] = star_masks[word_idx] | bit
       } else if pattern_byte == '?' {
         question_masks[word_idx] = question_masks[word_idx] | bit
-      } else {
+      } else if pattern_byte.to_int() <= 255 {
         let offset = pattern_byte.to_int() * word_count + word_idx
         literal_masks[offset] = literal_masks[offset] | bit
       }
@@ -176,7 +184,51 @@ fn no_inline_wildcard_compile(pattern : String) -> NoInlineWildcardProgram {
     }
     previous_star = is_star
   }
-  { pattern_length, word_count, literal_masks, question_masks, star_masks, }
+  {
+    pattern_length,
+    word_count,
+    literal_masks,
+    question_masks,
+    star_masks,
+    fallback_pattern: if needs_fallback {
+      Some(pattern)
+    } else {
+      None
+    },
+  }
+}
+
+///|
+fn no_inline_wildcard_match_fallback(
+  pattern : String,
+  text : String,
+  visits : Array[Int32],
+) -> Bool {
+  let width = text.length() + 1
+  let mut previous = Array::make(width, false)
+  let mut current = Array::make(width, false)
+  previous[0] = true
+  for pattern_idx = 0
+      pattern_idx < pattern.length()
+      pattern_idx = pattern_idx + 1 {
+    current[0] = pattern[pattern_idx] == '*' && previous[0]
+    for text_idx = 1; text_idx <= text.length(); text_idx = text_idx + 1 {
+      visits[0] += 1
+      current[text_idx] = if pattern[pattern_idx] == '*' {
+        previous[text_idx] || current[text_idx - 1]
+      } else {
+        (
+          pattern[pattern_idx] == '?' ||
+          pattern[pattern_idx] == text[text_idx - 1]
+        ) &&
+        previous[text_idx - 1]
+      }
+    }
+    let old = previous
+    previous = current
+    current = old
+  }
+  previous[text.length()]
 }
 
 ///|
@@ -187,6 +239,11 @@ fn no_inline_wildcard_match_compiled(
   first : Array[UInt64],
   second : Array[UInt64],
 ) -> Bool {
+  match program.fallback_pattern {
+    Some(pattern) =>
+      return no_inline_wildcard_match_fallback(pattern, text, visits)
+    None => ()
+  }
   for word_idx = 0; word_idx < program.word_count; word_idx = word_idx + 1 {
     first[word_idx] = 0UL
     second[word_idx] = 0UL
@@ -200,14 +257,23 @@ fn no_inline_wildcard_match_compiled(
   for text_idx = 0; text_idx < text.length(); text_idx = text_idx + 1 {
     // Advance every reachable NFA state in machine-word batches. Star states
     // consume in place; literal and question states advance by one bit.
-    let literal_base = text[text_idx].to_int() * program.word_count
+    let text_unit = text[text_idx].to_int()
+    let literal_base = if text_unit <= 255 {
+      text_unit * program.word_count
+    } else {
+      -1
+    }
     let mut carry = 0UL
     for word_idx = 0; word_idx < program.word_count; word_idx = word_idx + 1 {
       visits[0] += 1
       let matched = current[word_idx] &
         (
           program.question_masks[word_idx] |
-          program.literal_masks[literal_base + word_idx]
+          (if literal_base >= 0 {
+            program.literal_masks[literal_base + word_idx]
+          } else {
+            0UL
+          })
         )
       next[word_idx] = (current[word_idx] & program.star_masks[word_idx]) |
         (matched << 1) |

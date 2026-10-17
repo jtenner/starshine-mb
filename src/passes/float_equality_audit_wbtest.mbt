@@ -48,3 +48,21 @@ test "audit similar function specialization preserves signed zero sites" {
   let (params, _) = msf_derive_params(funcs, { members: [0, 1], }, []).unwrap()
   @debug.assert_eq(params.length(), 1)
 }
+
+///|
+test "audit raw identical-if folding distinguishes floating signed zero" {
+  assert_true(
+    RawOiIdenticalIfArmsFact::from_arms(
+      [@lib.Instruction::f32_const(@lib.F32::new(0.0))],
+      [@lib.Instruction::f32_const(@lib.F32::new(-0.0))],
+    )
+    is None,
+  )
+  assert_true(
+    RawOiIdenticalIfArmsFact::from_arms(
+      [@lib.Instruction::f64_const(@lib.F64::new(0.0))],
+      [@lib.Instruction::f64_const(@lib.F64::new(-0.0))],
+    )
+    is None,
+  )
+}

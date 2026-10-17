@@ -1578,6 +1578,16 @@ fn code_pushing_try_flatten_dead_block_before_unreachable(
   }
   if unreachable_idx == 0 {
     for idx = 1; idx < body_count; idx = idx + 1 {
+      let root_id = @ir.hot_region_get(func, body_ref, idx)
+      if !code_pushing_node_is_movable_value(
+          func,
+          root_id,
+          traps_never_happen=ctx.traps_never_happen,
+          ignore_implicit_traps=ctx.ignore_implicit_traps,
+          module_ctx=ctx.module_ctx,
+        ) {
+        return false
+      }
       if !append_body_root(idx) {
         return false
       }

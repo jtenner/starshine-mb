@@ -1,13 +1,16 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-17
 sources:
   - ../raw/tooling/2026-10-09-output-differences-v133.json
   - ../raw/tooling/2026-10-04-starshine-v133-review.json
   - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
   - ../../../claude_review_10_3_6.md
   - ../../../src/passes/dae2_effect_order_wbtest.mbt
+  - ../../../src/passes/optimizer_correctness_regressions_test.mbt
+  - ../../../src/passes/optimizer_remaining_regressions_wbtest.mbt
+  - ../../../src/passes/local_subtyping_exact_wbtest.mbt
   - ../../../src/ir/hot_mutate.mbt
   - ../../../src/validate/frame_polymorphism_wbtest.mbt
   - ../../../src/cmd/p00_validator_wbtest.mbt
@@ -1306,6 +1309,60 @@ dossier; their timings do not support a general speed claim.
 Independent stringref and descriptor execution, the known combined-pass
 fixed-point gap, and the separate IR scaling leads remain in the
 [active backlog](../../../agent-todo.md#p00b--october-9-optimizer-and-ir-follow-up-ir2-effect-correctness).
+
+## October 17, 2026 — Optimization-pass audit red/green checkpoint
+
+An eight-agent read-only audit covered the optimization-pass implementations,
+shared walkers, dispatcher, module cleanup, and focused tests. The parent
+verified all findings in source. Thirty-two focused regressions then failed on
+the pre-fix code and pass after the repairs. The permanent fixtures are in the
+[main regression suite](../../../src/passes/optimizer_correctness_regressions_test.mbt),
+[remaining regression suite](../../../src/passes/optimizer_remaining_regressions_wbtest.mbt),
+[exact local-subtyping suite](../../../src/passes/local_subtyping_exact_wbtest.mbt),
+and pass-local test files.
+
+The repaired families are:
+
+- constant and type correctness: unsigned narrow precompute, SIMD LocalCSE
+  result types, bit-exact signed-zero equality in DFE and raw OI, and exact
+  reference types in LocalSubtyping;
+- control flow and effects: DAE infinite loops, leading unreachable in
+  CodePushing, nonlocal `br_if` in SGO, earlier exits in Vacuum, `try_table`
+  fallthrough in DCE, catch-target safety in CoalesceLocals, divergent loop
+  operands in HSO, `br_if` reads in SimplifyLocals, loop-carried SSA reads,
+  tuple `local.tee`, and non-defaultable inline tail hoists;
+- module and reference integrity: active-element slot preservation and late
+  `ref.func` liveness in RUME, exported and shared abstract function references
+  in DAE2, mixed function/external reference handling in MakeSharedObjects,
+  nested external origins in GSI, continuation handler exactification in
+  Precompute, and `ref.is_null` plus continuation-label uses in RemoveUnusedBrs;
+- robustness and shared infrastructure: Unicode wildcard matching in NoInline,
+  definite-write tracking in DAE artifact remapping, legacy `try` traversal in
+  raw OI, legacy `try` cursors in raw SSA, Memory64 LocalCSE properties, and the
+  second earlier-branch Vacuum case.
+
+All **1,854** checked-in `src/**/*test.mbt` files pass in 38 bounded shards.
+The single all-at-once `moon test` invocation exceeds this host's argument-size
+limit before it can launch the pass package; this is a command-size limitation,
+not a failing test. `moon fmt` and the native release builds pass. The release
+CLI used for comparison has SHA-256
+`e6b64ce56151b24153a35091d81099617b9c97cd673583bc5b089e6a6af73ea8`.
+
+The v133 comparison campaign requested **250,000** current-tree GenValid cases
+across 25 pass lanes and completed **248,232** comparisons. Twenty-three full
+lanes used independent `wasm-tools` validation and one MakeSharedObjects lane
+used Binaryen validation because current `wasm-tools` releases do not decode
+the required GC opcode. Those 24 full lanes have no validation, generator,
+command, property, or canonical-size regression. Five high-assurance lanes
+(50,000 cases) also have no observed semantic, determinism, or codec failure.
+The broad MakeSharedObjects diagnostic compared 8,232 of 10,000 cases; its
+1,640 independent-validator failures and 128 Binaryen command failures replay
+with identical counts and case behavior on baseline commit
+`e798b3162c7889390c29d0c3228c11033e9ffcd4`. Two additional 10,000-case
+baseline control lanes for GSI and MakeSharedObjects also match the current
+case ledgers. Therefore the observed diagnostic failures are pre-existing tool
+or oracle limits, not regressions from this repair set. They do not establish
+universal semantic parity beyond the executed profiles.
 
 ## October 5 2026 integrated validator renewal
 

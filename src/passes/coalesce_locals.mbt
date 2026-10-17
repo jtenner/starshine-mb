@@ -8933,6 +8933,48 @@ fn cl_instrs_have_stack_carried_tee_parameter_alias(
 }
 
 ///|
+fn cl_instrs_have_external_try_table_catch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, _) if !catches.is_empty() => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if cl_instrs_have_external_try_table_catch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_external_try_table_catch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_instrs_have_external_try_table_catch(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if cl_instrs_have_external_try_table_catch(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if cl_instrs_have_external_try_table_catch(catch_body) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -8964,6 +9006,10 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         }
         let @lib.Func(body_locals, @lib.Expr(instrs)) = funcs[code_idx]
         if !cl_func_may_have_coalesce_candidate(body_locals, instrs) {
+          rewritten_funcs.push(funcs[code_idx])
+          continue
+        }
+        if cl_instrs_have_external_try_table_catch(instrs) {
           rewritten_funcs.push(funcs[code_idx])
           continue
         }

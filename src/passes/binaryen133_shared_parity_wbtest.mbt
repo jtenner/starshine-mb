@@ -393,6 +393,63 @@ test "make-shared-objects preserves unsupported string heaps" {
 }
 
 ///|
+test "make-shared-objects does not merge distinct funcref and externref structs" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::funcref()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::externref()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+            @lib.Instruction::ref_test(
+              false,
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("invalid mixed reference-domain fixture: \{err}")
+  }
+  assert_eq(make_shared_objects_run_module_pass(input), input)
+}
+
+///|
 test "make-shared-objects fails closed on string producers" {
   let input = pass_test_module_from_wat(
     (

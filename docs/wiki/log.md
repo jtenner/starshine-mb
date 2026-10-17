@@ -1,3 +1,17 @@
+### 2026-10-17 — Repair 32 optimization-pass correctness gaps
+
+- [The red/green audit checkpoint](tooling/validation-gates.md#october-17-2026--optimization-pass-audit-redgreen-checkpoint)
+  records 32 source-verified defects across pass logic, shared walkers,
+  dispatcher behavior and module cleanup. All new regressions failed before
+  repair and pass after it; all 1,854 checked-in source test files pass in 38
+  bounded shards.
+- Twenty-four complete 10,000-case v133 lanes have no new validation,
+  generator, command, property or canonical-size regression. Five
+  high-assurance lanes also have no observed semantic, determinism or codec
+  failure. A broader MakeSharedObjects diagnostic is incomplete because of
+  independent-validator and Binaryen limitations, but exact baseline replay
+  shows the same failures and case behavior.
+
 ### 2026-10-17 — Reduce further DAE scans and lowering copies
 
 - [The further reductions](binaryen/passes/dae2/starshine-strategy.md#october-17-2026--further-scan-and-lowering-reductions)
