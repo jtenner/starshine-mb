@@ -11173,6 +11173,69 @@ test "DAE command fact reuse preserves result cascades and overwritten parameter
 }
 
 ///|
+test "DAE2 command reuses wide signatures while pruning one private callee" {
+  let params = Array::make(32, "i32").join(" ")
+  let args = Array::make(32, "i32.const 7").join(" ")
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $wide (export \"wide\") (param \{params}) (result i32) local.get 0) (func $leaf (param i32 i32) (result i32) local.get 1) (func (export \"run\") (result i32) \{args} call $wide drop \{args} call $wide drop i32.const 8 i32.const 9 call $leaf))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass_name in ["dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass_name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.export_sec, input.export_sec)
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(output.code_sec.unwrap().0[0], input.code_sec.unwrap().0[0])
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[2]
+    assert_eq(body.filter(fn(instr) { instr is @lib.Call(_) }).length(), 3)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "DAE2 closed command preserves contravariant family parameter types" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #| (type $root (sub (func (param eqref i32) (result i32))))
+      #| (type $child (sub $root (func (param anyref i32) (result i32))))
+      #| (elem declare func $target)
+      #| (func $target (type $child) (param anyref i32) (result i32)
+      #|   local.get 0 ref.is_null)
+      #| (func (export "run") (param anyref) (result i32)
+      #|   local.get 0 i32.const 7 ref.func $target call_ref $child))
+    ),
+  )
+  @validate.validate_module(input).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  for pass_name in ["dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass_name],
+      OptimizeOptions::new(closed_world=true),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.export_sec, input.export_sec)
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+      Some(@lib.FuncType::new([@lib.ValType::anyref()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
 test "DAE command body exposure keeps unseen signatures and private candidate effects" {
   let input = @passes.pass_test_module_from_wat(
     (

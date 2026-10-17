@@ -1644,18 +1644,21 @@ fn dae2_run_module_pass(
   )
   let solve_start = perf_start_timer_opt(perf, "detail:dae2:solve-and-admit")
   graph.solve()
-  let mut signature_change = false
   match mod_.type_sec {
     Some(types) => dae2_preserve_type_identity(types, graph, infos, type_infos)
     None => ()
   }
+  // Identity closure can restore parameters. Freeze decisions only after its
+  // final solve, then reuse them for repeated direct and indirect callees.
+  let signature_changes = infos.map(fn(info) {
+    dae2_signature_changes(graph, info)
+  })
+  let mut signature_change = false
   for index = 0; index < total_funcs; index = index + 1 {
     let info = infos[index]
     signature_change = signature_change ||
-      dae2_signature_changes(graph, info) ||
-      info.call_infos.any(fn(callee) {
-        dae2_signature_changes(graph, infos[callee])
-      })
+      signature_changes[index] ||
+      info.call_infos.any(fn(callee) { signature_changes[callee] })
   }
   perf_stop_timer_opt(perf, "detail:dae2:solve-and-admit", solve_start)
   if !signature_change {
@@ -1682,14 +1685,10 @@ fn dae2_run_module_pass(
   let mut stack_suffix_plan : Dae2StackSuffixPlan? = None
   for index = imported; index < total_funcs; index = index + 1 {
     let info = infos[index]
-    let kept_params : Array[@lib.ValType] = []
-    let removed_params : Array[@lib.ValType] = []
-    for param = 0; param < info.params.length(); param = param + 1 {
-      if graph.used[info.param_locations[param]] {
-        kept_params.push(info.params[param])
-      } else {
-        removed_params.push(info.params[param])
-      }
+    let (kept_params, removed_params) = if signature_changes[index] {
+      dae2_parameter_plan(graph, info)
+    } else {
+      (info.params, [])
     }
     let results = if graph.used[info.result_location] {
       info.results
@@ -1698,11 +1697,10 @@ fn dae2_run_module_pass(
     }
     let original_func = mod_.code_sec.unwrap().0[index - imported]
     let @lib.Func(_, @lib.Expr(original_body)) = original_func
-    let needs_rewrite = dae2_function_needs_rewrite(graph, infos, info)
+    let needs_rewrite = signature_changes[index] ||
+      info.call_infos.any(fn(callee) { signature_changes[callee] })
     let control_rewrite = info.control_type_infos.any(fn(family) {
-      family < 0 ||
-      family >= infos.length() ||
-      dae2_signature_changes(graph, infos[family])
+      family < 0 || family >= infos.length() || signature_changes[family]
     })
     let direct = if raw_rewrite && (needs_rewrite || control_rewrite) {
       // Raw replay proves retained headers keep their full original signature.
@@ -1928,11 +1926,7 @@ fn dae2_run_module_pass(
       }
     }
     let original_type_slot = dae2_type_slot(indices[index], 0)
-    let type_info = infos[type_infos[original_type_slot]]
-    let type_changed = type_info.param_locations.any(fn(loc) {
-        !graph.used[loc]
-      }) ||
-      (!info.results.is_empty() && !graph.used[type_info.result_location])
+    let type_changed = signature_changes[type_infos[original_type_slot]]
     let private_element = match private_elements {
       Some(mask) => mask[index]
       None => false
@@ -1949,7 +1943,12 @@ fn dae2_run_module_pass(
       }
       group.slots.push(new_indices.length())
       group.signatures.push(
-        @lib.SubType::comp_type(@lib.CompType::func(kept_params, results)),
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            dae2_owned_signature_params(kept_params, info.params),
+            results,
+          ),
+        ),
       )
       // Assign the final group member index after all lowering has appended
       // its block signatures. Original module indices stay valid until then.
@@ -1960,7 +1959,11 @@ fn dae2_run_module_pass(
     } else {
       let metadata = context.subtypes[original_type_slot].metadata()
       new_indices.push(
-        type_workspace.append_signature(kept_params, results, metadata),
+        type_workspace.append_signature(
+          dae2_owned_signature_params(kept_params, info.params),
+          results,
+          metadata,
+        ),
       )
     }
   }
@@ -1979,6 +1982,7 @@ fn dae2_run_module_pass(
     graph,
     infos,
     type_infos,
+    signature_changes=Some(signature_changes),
   )
   // Signature rewriting can make a new private definition identical to an
   // existing function type. Resolve this only after type-family rewrites have
@@ -2060,6 +2064,38 @@ fn dae2_run_module_pass(
 fn dae2_signature_changes(graph : Dae2Graph, info : Dae2Function) -> Bool {
   info.param_locations.any(fn(location) { !graph.used[location] }) ||
   (!info.results.is_empty() && !graph.used[info.result_location])
+}
+
+///|
+fn dae2_parameter_plan(
+  graph : Dae2Graph,
+  info : Dae2Function,
+  params~ : Array[@lib.ValType]? = None,
+) -> (Array[@lib.ValType], Array[@lib.ValType]) {
+  // Subtype families share demand locations, but contravariant members can
+  // have different parameter types. Project the declared member's own types.
+  let params = match params {
+    Some(params) => params
+    None => info.params
+  }
+  let mut first_removed = 0
+  while first_removed < params.length() &&
+        graph.used[info.param_locations[first_removed]] {
+    first_removed += 1
+  }
+  if first_removed == params.length() {
+    return (params, [])
+  }
+  let kept = Array::makei(first_removed, fn(param) { params[param] })
+  let removed : Array[@lib.ValType] = []
+  for param = first_removed; param < params.length(); param = param + 1 {
+    if graph.used[info.param_locations[param]] {
+      kept.push(params[param])
+    } else {
+      removed.push(params[param])
+    }
+  }
+  (kept, removed)
 }
 
 ///|
@@ -2436,4 +2472,23 @@ test "dae2 discarded typed block results evaluate entry imports exactly once" {
       )
     }
   }
+}
+
+///|
+test "DAE2 parameter plan retains unchanged params and preserves removal order" {
+  let graph = Dae2Graph::new()
+  let params = [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::f64()]
+  let info = Dae2Function::new(graph, params, [])
+  for location in info.param_locations {
+    graph.observe(location)
+  }
+  let (unchanged, removed) = dae2_parameter_plan(graph, info)
+  assert_eq(unchanged, params)
+  assert_true(removed.is_empty())
+  assert_true(physical_equal(unchanged, params))
+  graph.used[info.param_locations[1]] = false
+  let (kept, removed) = dae2_parameter_plan(graph, info)
+  assert_eq(kept, [@lib.ValType::i32(), @lib.ValType::f64()])
+  assert_eq(removed, [@lib.ValType::i64()])
+  assert_eq(params.length(), 3)
 }

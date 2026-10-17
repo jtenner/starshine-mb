@@ -566,11 +566,29 @@ fn dae2_prepare_type_locations(
 }
 
 ///|
+fn dae2_owned_signature_params(
+  params : Array[@lib.ValType],
+  source : Array[@lib.ValType],
+) -> Array[@lib.ValType] {
+  // Unchanged plans borrow source arrays. A newly materialized signature
+  // owns its parameters, as it did before lazy plan construction.
+  if physical_equal(params, source) {
+    params.copy()
+  } else {
+    params
+  }
+}
+
+///|
 fn dae2_rewrite_signature_type(
   subtype : @lib.SubType,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> @lib.SubType {
+  let params = match subtype.get_comptype() {
+    @lib.FuncCompType(source, _) => dae2_owned_signature_params(params, source)
+    _ => params
+  }
   let comp = @lib.CompType::func(params, results)
   match subtype {
     @lib.SubType(final_, supers, metadata, _) =>
@@ -586,48 +604,95 @@ fn dae2_rewrite_type_section(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
   type_infos : Array[Int32],
+  signature_changes~ : Array[Bool]? = None,
 ) -> @lib.TypeSec {
   let @lib.TypeSec(groups) = types
   let mut index = 0
-  let rewritten = groups.map(fn(group) {
-    let members = match group {
-      @lib.SingleRecType(sub) => [sub]
-      @lib.GroupRecType(members) => members
+  fn rewrite(subtype : @lib.SubType, current : Int32) -> @lib.SubType {
+    if current >= type_infos.length() || type_infos[current] < 0 {
+      return subtype
     }
-    let members = members.map(fn(subtype) {
-      let current = index
-      index += 1
-      if current >= type_infos.length() || type_infos[current] < 0 {
-        return subtype
+    let info_index = type_infos[current]
+    let info = infos[info_index]
+    let changed = match signature_changes {
+      Some(changes) => changes[info_index]
+      // Identity stabilization can observe locations and solve again. Its
+      // callers must inspect the current graph rather than a final cache.
+      None => dae2_signature_changes(graph, info)
+    }
+    if !changed {
+      return subtype
+    }
+    match subtype.get_comptype() {
+      @lib.FuncCompType(params, results) => {
+        let (kept, _) = dae2_parameter_plan(graph, info, params=Some(params))
+        dae2_rewrite_signature_type(
+          subtype,
+          kept,
+          if graph.used[info.result_location] {
+            results
+          } else {
+            []
+          },
+        )
       }
-      let info = infos[type_infos[current]]
-      match subtype.get_comptype() {
-        @lib.FuncCompType(params, results) => {
-          let kept : Array[@lib.ValType] = []
-          for param = 0; param < params.length(); param = param + 1 {
-            if graph.used[info.param_locations[param]] {
-              kept.push(params[param])
-            }
-          }
-          dae2_rewrite_signature_type(
-            subtype,
-            kept,
-            if graph.used[info.result_location] {
-              results
-            } else {
-              []
-            },
-          )
+      _ => subtype
+    }
+  }
+  let mut rewritten : Array[@lib.RecType]? = None
+  for group_index = 0
+      group_index < groups.length()
+      group_index = group_index + 1 {
+    let group = groups[group_index]
+    let next_group = match group {
+      @lib.SingleRecType(subtype) => {
+        let next = rewrite(subtype, index)
+        index += 1
+        if physical_equal(next, subtype) {
+          group
+        } else {
+          @lib.RecType::new(next)
         }
-        _ => subtype
       }
-    })
-    match group {
-      @lib.SingleRecType(_) => @lib.RecType::new(members[0])
-      _ => @lib.RecType::group(members)
+      @lib.GroupRecType(members) => {
+        let mut next_members : Array[@lib.SubType]? = None
+        for slot = 0; slot < members.length(); slot = slot + 1 {
+          let next = rewrite(members[slot], index)
+          index += 1
+          if !physical_equal(next, members[slot]) {
+            let rows = match next_members {
+              Some(rows) => rows
+              None => {
+                let rows = members.copy()
+                next_members = Some(rows)
+                rows
+              }
+            }
+            rows[slot] = next
+          }
+        }
+        match next_members {
+          Some(members) => @lib.RecType::group(members)
+          None => group
+        }
+      }
     }
-  })
-  @lib.TypeSec::new(rewritten)
+    if !physical_equal(next_group, group) {
+      let rows = match rewritten {
+        Some(rows) => rows
+        None => {
+          let rows = groups.copy()
+          rewritten = Some(rows)
+          rows
+        }
+      }
+      rows[group_index] = next_group
+    }
+  }
+  match rewritten {
+    Some(groups) => @lib.TypeSec::new(groups)
+    None => types
+  }
 }
 
 ///|
