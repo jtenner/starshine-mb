@@ -5,7 +5,7 @@
 #export_name("ffi_binary_compiler_fact_module_opcode_offsets")
 pub fn ffi_binary_compiler_fact_module_opcode_offsets(
   value0 : @lib.Module,
-) -> Result[Array[Array[UInt]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[UInt32]], @binary.BinaryEncodeError] {
   @binary.compiler_fact_module_opcode_offsets(value0)
 }
 
@@ -14,7 +14,7 @@ pub fn ffi_binary_compiler_fact_module_opcode_offsets(
 #export_name("ffi_binary_compiler_fact_module_opcode_sites")
 pub fn ffi_binary_compiler_fact_module_opcode_sites(
   value0 : @lib.Module,
-) -> Result[Array[Array[(UInt, @lib.Instruction)]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[(UInt32, @lib.Instruction)]], @binary.BinaryEncodeError] {
   @binary.compiler_fact_module_opcode_sites(value0)
 }
 
@@ -24,7 +24,7 @@ pub fn ffi_binary_compiler_fact_module_opcode_sites(
 pub fn ffi_binary_compiler_fact_opcode_offsets(
   value0 : @lib.Expr,
   stringrefs : Array[Bytes]??,
-) -> Result[Array[UInt], @binary.BinaryEncodeError] {
+) -> Result[Array[UInt32], @binary.BinaryEncodeError] {
   @binary.compiler_fact_opcode_offsets(value0, stringrefs?)
 }
 
@@ -34,7 +34,7 @@ pub fn ffi_binary_compiler_fact_opcode_offsets(
 pub fn ffi_binary_compiler_fact_opcode_sites(
   value0 : @lib.Expr,
   stringrefs : Array[Bytes]??,
-) -> Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError] {
+) -> Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError] {
   @binary.compiler_fact_opcode_sites(value0, stringrefs?)
 }
 
@@ -52,8 +52,8 @@ pub fn ffi_binary_decode_module(
 #export_name("ffi_binary_decode_module_with_detail")
 pub fn ffi_binary_decode_module_with_detail(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail] {
+  value1 : Int32,
+) -> Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail] {
   @binary.decode_module_with_detail(value0, value1)
 }
 
@@ -73,8 +73,18 @@ pub fn ffi_binary_encode_module(
 pub fn ffi_binary_encoded_module_sizes(
   value0 : @lib.Module,
   value1 : @lib.Module,
-) -> Result[(Int, Int), @binary.EncodeError] {
+) -> Result[(Int32, Int32), @binary.EncodeError] {
   @binary.encoded_module_sizes(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_encoded_type_compaction_is_strictly_smaller")
+pub fn ffi_binary_encoded_type_compaction_is_strictly_smaller(
+  value0 : @lib.Module,
+  value1 : @lib.Module,
+) -> Bool {
+  @binary.encoded_type_compaction_is_strictly_smaller(value0, value1)
 }
 
 ///|
@@ -82,8 +92,8 @@ pub fn ffi_binary_encoded_module_sizes(
 #export_name("ffi_binary_size_signed")
 pub fn ffi_binary_size_signed(
   value0 : Int64,
-  value1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  value1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   @binary.size_signed(value0, value1)
 }
 
@@ -92,8 +102,8 @@ pub fn ffi_binary_size_signed(
 #export_name("ffi_binary_size_unsigned")
 pub fn ffi_binary_size_unsigned(
   value0 : UInt64,
-  value1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  value1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   @binary.size_unsigned(value0, value1)
 }
 
@@ -110,7 +120,7 @@ pub fn ffi_binary_fuzz_run_binary_roundtrip_fuzz(
 ///|
 #doc(hidden)
 #export_name("ffi_bitset_BitSet_at")
-pub fn ffi_bitset_BitSet_at(receiver : @bitset.BitSet, value1 : Int) -> Bool {
+pub fn ffi_bitset_BitSet_at(receiver : @bitset.BitSet, value1 : Int32) -> Bool {
   @bitset.BitSet::at(receiver, value1)
 }
 
@@ -133,7 +143,7 @@ pub fn ffi_bitset_BitSet_fill(receiver : @bitset.BitSet, value1 : Bool) -> Unit 
 #export_name("ffi_bitset_BitSet_grow")
 pub fn ffi_bitset_BitSet_grow(
   receiver : @bitset.BitSet,
-  value1 : Int,
+  value1 : Int32,
   fill : Bool?,
 ) -> Unit {
   @bitset.BitSet::grow(receiver, value1, fill?)
@@ -142,21 +152,21 @@ pub fn ffi_bitset_BitSet_grow(
 ///|
 #doc(hidden)
 #export_name("ffi_bitset_BitSet_length")
-pub fn ffi_bitset_BitSet_length(receiver : @bitset.BitSet) -> Int {
+pub fn ffi_bitset_BitSet_length(receiver : @bitset.BitSet) -> Int32 {
   @bitset.BitSet::length(receiver)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_bitset_BitSet_make")
-pub fn ffi_bitset_BitSet_make(value0 : Int, value1 : Bool) -> @bitset.BitSet {
+pub fn ffi_bitset_BitSet_make(value0 : Int32, value1 : Bool) -> @bitset.BitSet {
   @bitset.BitSet::make(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_bitset_BitSet_new")
-pub fn ffi_bitset_BitSet_new(value0 : Int) -> @bitset.BitSet {
+pub fn ffi_bitset_BitSet_new(value0 : Int32) -> @bitset.BitSet {
   @bitset.BitSet::new(value0)
 }
 
@@ -165,7 +175,7 @@ pub fn ffi_bitset_BitSet_new(value0 : Int) -> @bitset.BitSet {
 #export_name("ffi_bitset_BitSet_set")
 pub fn ffi_bitset_BitSet_set(
   receiver : @bitset.BitSet,
-  value1 : Int,
+  value1 : Int32,
   value2 : Bool,
 ) -> Unit {
   @bitset.BitSet::set(receiver, value1, value2)
@@ -299,7 +309,7 @@ pub fn ffi_cli_CliInputFormat_wat() -> @cli.CliInputFormat {
 #doc(hidden)
 #export_name("ffi_cli_CliOptimizationFlag_olevel")
 pub fn ffi_cli_CliOptimizationFlag_olevel(
-  value0 : Int,
+  value0 : Int32,
   value1 : Bool,
 ) -> @cli.CliOptimizationFlag {
   @cli.CliOptimizationFlag::olevel(value0, value1)
@@ -461,13 +471,13 @@ pub fn ffi_cli_CliParseResult_new(
   optimize_flags : Array[@cli.CliOptimizationFlag]?,
   trap_mode : @cli.TrapMode??,
   ignore_implicit_traps : Bool?,
-  monomorphize_min_benefit : Int??,
-  inlining_always_inline_max_size : Int??,
-  inlining_one_caller_inline_max_size : Int??,
-  inlining_flexible_inline_max_size : Int??,
-  inlining_max_combined_binary_size : Int??,
+  monomorphize_min_benefit : Int32??,
+  inlining_always_inline_max_size : Int32??,
+  inlining_one_caller_inline_max_size : Int32??,
+  inlining_flexible_inline_max_size : Int32??,
+  inlining_max_combined_binary_size : Int32??,
   inlining_allow_functions_with_loops : Bool??,
-  inlining_partial_inlining_ifs : Int??,
+  inlining_partial_inlining_ifs : Int32??,
   low_memory_unused : Bool??,
   low_memory_bound : UInt64??,
   closed_world : Bool??,
@@ -757,7 +767,7 @@ pub fn ffi_cmd_persist_text_differential_artifacts(
   value4 : @cmd.FuzzFailurePersistIO,
   repro_dir : String?,
   seed : UInt64?,
-  attempt : Int?,
+  attempt : Int32?,
 ) -> Result[@cmd.TextDifferentialArtifactPaths, String] {
   @cmd.persist_text_differential_artifacts(
     value0,
@@ -832,7 +842,7 @@ pub fn ffi_cmd_run_cmd(
 ///|
 #doc(hidden)
 #export_name("ffi_cmd_run_cmd_exit_code")
-pub fn ffi_cmd_run_cmd_exit_code(value0 : Array[String]) -> Int {
+pub fn ffi_cmd_run_cmd_exit_code(value0 : Array[String]) -> Int32 {
   @cmd.run_cmd_exit_code(value0)
 }
 
@@ -843,7 +853,7 @@ pub fn ffi_cmd_run_cmd_exit_code_with_adapter(
   value0 : Array[String],
   value1 : @cmd.CmdIO,
   config_json : String??,
-) -> Int {
+) -> Int32 {
   @cmd.run_cmd_exit_code_with_adapter(value0, value1, config_json?)
 }
 
@@ -851,7 +861,7 @@ pub fn ffi_cmd_run_cmd_exit_code_with_adapter(
 #doc(hidden)
 #export_name("ffi_cmd_run_cmd_fuzz_harness")
 pub fn ffi_cmd_run_cmd_fuzz_harness(
-  value0 : Int,
+  value0 : Int32,
   seed : UInt64?,
   optimize_passes : Array[String]?,
   generator_profile : String?,
@@ -861,7 +871,7 @@ pub fn ffi_cmd_run_cmd_fuzz_harness(
   check_encode_decode_idempotence : Bool?,
   check_optimizer_determinism : Bool?,
   differential_adapters : @cmd.DifferentialAdapters??,
-  differential_every : Int?,
+  differential_every : Int32?,
   on_failure : ((@cmd.FuzzFailureReport) -> Result[Unit, String])??,
 ) -> Result[@cmd.CmdFuzzStats, String] {
   @cmd.run_cmd_fuzz_harness(
@@ -1202,16 +1212,16 @@ pub fn ffi_cmd_CmdError_unknown_pass_flag(value0 : String) -> @cmd.CmdError {
 #doc(hidden)
 #export_name("ffi_cmd_CmdFuzzStats_new")
 pub fn ffi_cmd_CmdFuzzStats_new(
-  attempts : Int?,
-  generated_valid : Int?,
-  generated_invalid : Int?,
-  pipeline_validated : Int?,
-  optimized : Int?,
-  roundtripped : Int?,
-  differential_checked : Int?,
-  optimize_idempotence_checked : Int?,
-  encode_decode_idempotence_checked : Int?,
-  optimizer_determinism_checked : Int?,
+  attempts : Int32?,
+  generated_valid : Int32?,
+  generated_invalid : Int32?,
+  pipeline_validated : Int32?,
+  optimized : Int32?,
+  roundtripped : Int32?,
+  differential_checked : Int32?,
+  optimize_idempotence_checked : Int32?,
+  encode_decode_idempotence_checked : Int32?,
+  optimizer_determinism_checked : Int32?,
   generator_profile : String?,
   pass_profile : String?,
 ) -> @cmd.CmdFuzzStats {
@@ -1270,11 +1280,11 @@ pub fn ffi_cmd_CmdRunSummary_new(
   input_files : Array[String]?,
   output_files : Array[String]?,
   resolved_passes : Array[String]?,
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
   traps_never_happen : Bool?,
   ignore_implicit_traps : Bool?,
-  monomorphize_min_benefit : Int?,
+  monomorphize_min_benefit : Int32?,
   closed_world : Bool?,
   low_memory_unused : Bool?,
   low_memory_bound : UInt64?,
@@ -1300,7 +1310,7 @@ pub fn ffi_cmd_CmdRunSummary_new(
 pub fn ffi_cmd_DifferentialAdapters_new(
   wasm_tools_validate : ((Bytes) -> Result[Bool, String])?,
   binaryen_validate : ((Bytes) -> Result[Bool, String])?,
-  per_case_timeout_ms : Int??,
+  per_case_timeout_ms : Int32??,
 ) -> @cmd.DifferentialAdapters {
   @cmd.DifferentialAdapters::new(
     wasm_tools_validate?,
@@ -1456,7 +1466,7 @@ pub fn ffi_cmd_FuzzCorpusDedupIndex_to_text(
 #export_name("ffi_cmd_FuzzCorpusSource_new")
 pub fn ffi_cmd_FuzzCorpusSource_new(
   value0 : UInt64,
-  value1 : Int,
+  value1 : Int32,
   value2 : String,
   value3 : String,
   value4 : String,
@@ -1479,8 +1489,8 @@ pub fn ffi_cmd_FuzzFailurePersistIO_new(
 #export_name("ffi_cmd_FuzzFailureReport_new")
 pub fn ffi_cmd_FuzzFailureReport_new(
   value0 : UInt64,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
   value3 : String,
   value4 : String,
   optimize_passes : Array[String]?,
@@ -1488,13 +1498,13 @@ pub fn ffi_cmd_FuzzFailureReport_new(
   generator_profile : String?,
   pass_profile : String?,
   generator_config_label : String?,
-  generated_attempts : Int?,
+  generated_attempts : Int32?,
   feature_facts : String?,
   wasm : Bytes??,
   reduced_wasm : Bytes??,
-  reduction_original_size : Int??,
-  reduction_final_size : Int??,
-  reduction_predicate_evaluations : Int??,
+  reduction_original_size : Int32??,
+  reduction_final_size : Int32??,
+  reduction_predicate_evaluations : Int32??,
   reduction_steps : Array[@cmd.FuzzReductionStep]?,
 ) -> @cmd.FuzzFailureReport {
   @cmd.FuzzFailureReport::new(
@@ -1523,12 +1533,12 @@ pub fn ffi_cmd_FuzzFailureReport_new(
 #doc(hidden)
 #export_name("ffi_cmd_InliningOptions_new")
 pub fn ffi_cmd_InliningOptions_new(
-  always_inline_max_size : Int?,
-  one_caller_inline_max_size : Int?,
-  flexible_inline_max_size : Int?,
-  max_combined_binary_size : Int?,
+  always_inline_max_size : Int32?,
+  one_caller_inline_max_size : Int32?,
+  flexible_inline_max_size : Int32?,
+  max_combined_binary_size : Int32?,
   allow_functions_with_loops : Bool?,
-  partial_inlining_ifs : Int?,
+  partial_inlining_ifs : Int32?,
 ) -> @cmd.InliningOptions {
   @cmd.InliningOptions::new(
     always_inline_max_size?,
@@ -1544,10 +1554,10 @@ pub fn ffi_cmd_InliningOptions_new(
 #doc(hidden)
 #export_name("ffi_cmd_OptimizeOptions_new")
 pub fn ffi_cmd_OptimizeOptions_new(
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
   inlining : @cmd.InliningOptions?,
-  monomorphize_min_benefit : Int?,
+  monomorphize_min_benefit : Int32?,
   closed_world : Bool?,
   zero_filled_memory : Bool?,
   fast_math : Bool?,
@@ -1727,10 +1737,10 @@ pub fn ffi_diff_render_line_diff(
 #doc(hidden)
 #export_name("ffi_diff_DiffChange_new")
 pub fn ffi_diff_DiffChange_new(
-  value0 : Int,
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
+  value0 : Int32,
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Int32,
 ) -> @diff.DiffChange {
   @diff.DiffChange::new(value0, value1, value2, value3)
 }
@@ -1828,7 +1838,7 @@ pub fn ffi_ffi_bridge_function_reference_builder_new() -> @ffi_bridge.FunctionRe
 #export_name("ffi_ffi_bridge_generate_engine_state_case")
 pub fn ffi_ffi_bridge_generate_engine_state_case(
   value0 : UInt64,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ffi_bridge.EncodedEngineStateCase {
   @ffi_bridge.generate_engine_state_case(value0, value1)
 }
@@ -1844,7 +1854,7 @@ pub fn ffi_ffi_bridge_global_builder_new() -> @ffi_bridge.GlobalBuilder {
 #doc(hidden)
 #export_name("ffi_ffi_bridge_import_builder_new")
 pub fn ffi_ffi_bridge_import_builder_new(
-  value0 : Int,
+  value0 : Int32,
 ) -> @ffi_bridge.ImportBuilder {
   @ffi_bridge.import_builder_new(value0)
 }
@@ -1881,7 +1891,7 @@ pub fn ffi_ffi_bridge_instruction_if(
 #doc(hidden)
 #export_name("ffi_ffi_bridge_instruction_memory_builtin")
 pub fn ffi_ffi_bridge_instruction_memory_builtin(
-  value0 : Int,
+  value0 : Int32,
 ) -> @lib.Instruction {
   @ffi_bridge.instruction_memory_builtin(value0)
 }
@@ -1890,7 +1900,7 @@ pub fn ffi_ffi_bridge_instruction_memory_builtin(
 #doc(hidden)
 #export_name("ffi_ffi_bridge_instruction_ref_cast_nominal")
 pub fn ffi_ffi_bridge_instruction_ref_cast_nominal(
-  value0 : Int,
+  value0 : Int32,
 ) -> @lib.Instruction {
   @ffi_bridge.instruction_ref_cast_nominal(value0)
 }
@@ -1899,7 +1909,7 @@ pub fn ffi_ffi_bridge_instruction_ref_cast_nominal(
 #doc(hidden)
 #export_name("ffi_ffi_bridge_instruction_ref_test_nominal")
 pub fn ffi_ffi_bridge_instruction_ref_test_nominal(
-  value0 : Int,
+  value0 : Int32,
 ) -> @lib.Instruction {
   @ffi_bridge.instruction_ref_test_nominal(value0)
 }
@@ -1925,7 +1935,7 @@ pub fn ffi_ffi_bridge_instructions_push(
 #doc(hidden)
 #export_name("ffi_ffi_bridge_memory_argument")
 pub fn ffi_ffi_bridge_memory_argument(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : UInt64,
 ) -> @lib.MemArg {
   @ffi_bridge.memory_argument(value0, value1)
@@ -1943,7 +1953,7 @@ pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
 #export_name("ffi_ffi_bridge_module_with_compiler_exports")
 pub fn ffi_ffi_bridge_module_with_compiler_exports(
   value0 : @lib.Module,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.Module {
   @ffi_bridge.module_with_compiler_exports(value0, value1)
 }
@@ -1991,7 +2001,7 @@ pub fn ffi_ffi_bridge_module_with_globals(
 #export_name("ffi_ffi_bridge_module_with_start_function")
 pub fn ffi_ffi_bridge_module_with_start_function(
   value0 : @lib.Module,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.Module {
   @ffi_bridge.module_with_start_function(value0, value1)
 }
@@ -2000,7 +2010,7 @@ pub fn ffi_ffi_bridge_module_with_start_function(
 #doc(hidden)
 #export_name("ffi_ffi_bridge_nominal_ref_type")
 pub fn ffi_ffi_bridge_nominal_ref_type(
-  value0 : Int,
+  value0 : Int32,
   value1 : Bool,
 ) -> @lib.ValType {
   @ffi_bridge.nominal_ref_type(value0, value1)
@@ -2012,8 +2022,8 @@ pub fn ffi_ffi_bridge_nominal_ref_type(
 pub fn ffi_ffi_bridge_optimize_module(
   value0 : @lib.Module,
   value1 : Array[String],
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
 ) -> Result[@lib.Module, String] {
   @ffi_bridge.optimize_module(value0, value1, optimize_level?, shrink_level?)
 }
@@ -2088,21 +2098,21 @@ pub fn ffi_ffi_bridge_validate_wasi_preview1_schema(
 ///|
 #doc(hidden)
 #export_name("ffi_ffi_bridge_validation_error_byte_at")
-pub fn ffi_ffi_bridge_validation_error_byte_at(value0 : UInt) -> Byte {
+pub fn ffi_ffi_bridge_validation_error_byte_at(value0 : UInt32) -> Byte {
   @ffi_bridge.validation_error_byte_at(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ffi_bridge_validation_error_byte_length")
-pub fn ffi_ffi_bridge_validation_error_byte_length() -> UInt {
+pub fn ffi_ffi_bridge_validation_error_byte_length() -> UInt32 {
   @ffi_bridge.validation_error_byte_length()
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ffi_bridge_validation_error_function_index")
-pub fn ffi_ffi_bridge_validation_error_function_index() -> Int {
+pub fn ffi_ffi_bridge_validation_error_function_index() -> Int32 {
   @ffi_bridge.validation_error_function_index()
 }
 
@@ -2125,7 +2135,7 @@ pub fn ffi_ffi_bridge_wasi_preview1_fd_write_schema() -> @ffi_bridge.WasiPreview
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_case_index")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_case_index(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> Int {
+) -> Int32 {
   @ffi_bridge.EncodedEngineStateCase::case_index(receiver)
 }
 
@@ -2143,7 +2153,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_case_seed(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::comparison_module_byte_at(
     receiver, value1,
@@ -2155,7 +2165,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::comparison_module_byte_length(receiver)
 }
 
@@ -2164,7 +2174,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_length(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::error_byte_at(receiver, value1)
 }
@@ -2174,7 +2184,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_error_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::error_byte_length(receiver)
 }
 
@@ -2192,7 +2202,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_expects_trap(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_generator_attempts")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_generator_attempts(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> Int {
+) -> Int32 {
   @ffi_bridge.EncodedEngineStateCase::generator_attempts(receiver)
 }
 
@@ -2210,7 +2220,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_is_ok(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_module_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::module_byte_at(receiver, value1)
 }
@@ -2220,7 +2230,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_module_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::module_byte_length(receiver)
 }
 
@@ -2229,7 +2239,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_length(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_outcome_kind_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_outcome_kind_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::outcome_kind_byte_at(receiver, value1)
 }
@@ -2239,7 +2249,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_outcome_kind_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_outcome_kind_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_outcome_kind_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::outcome_kind_byte_length(receiver)
 }
 
@@ -2257,7 +2267,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_root_seed(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::selected_profile_byte_at(receiver, value1)
 }
@@ -2267,7 +2277,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::selected_profile_byte_length(receiver)
 }
 
@@ -2276,7 +2286,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_length(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_static_instruction_count")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_static_instruction_count(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> Int {
+) -> Int32 {
   @ffi_bridge.EncodedEngineStateCase::static_instruction_count(receiver)
 }
 
@@ -2285,7 +2295,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_static_instruction_count(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::support_module_byte_at(receiver, value1)
 }
@@ -2295,7 +2305,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::support_module_byte_length(receiver)
 }
 
@@ -2304,7 +2314,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_length(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_count")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_count(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::support_module_count(receiver)
 }
 
@@ -2313,8 +2323,8 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_count(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
-  value2 : UInt,
+  value1 : UInt32,
+  value2 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::support_module_indexed_byte_at(
     receiver, value1, value2,
@@ -2326,8 +2336,8 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
-) -> UInt {
+  value1 : UInt32,
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::support_module_indexed_byte_length(
     receiver, value1,
   )
@@ -2338,7 +2348,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_length(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedEngineStateCase::trap_family_byte_at(receiver, value1)
 }
@@ -2348,7 +2358,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_at(
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_length")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedEngineStateCase::trap_family_byte_length(receiver)
 }
 
@@ -2357,7 +2367,7 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_length(
 #export_name("ffi_ffi_bridge_EncodedModule_byte_at")
 pub fn ffi_ffi_bridge_EncodedModule_byte_at(
   receiver : @ffi_bridge.EncodedModule,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> Byte {
   @ffi_bridge.EncodedModule::byte_at(receiver, value1)
 }
@@ -2367,7 +2377,7 @@ pub fn ffi_ffi_bridge_EncodedModule_byte_at(
 #export_name("ffi_ffi_bridge_EncodedModule_byte_length")
 pub fn ffi_ffi_bridge_EncodedModule_byte_length(
   receiver : @ffi_bridge.EncodedModule,
-) -> UInt {
+) -> UInt32 {
   @ffi_bridge.EncodedModule::byte_length(receiver)
 }
 
@@ -2385,7 +2395,7 @@ pub fn ffi_ffi_bridge_EncodedModule_is_ok(
 #export_name("ffi_ffi_bridge_FunctionReferenceBuilder_push")
 pub fn ffi_ffi_bridge_FunctionReferenceBuilder_push(
   receiver : @ffi_bridge.FunctionReferenceBuilder,
-  value1 : Int,
+  value1 : Int32,
 ) -> Unit {
   @ffi_bridge.FunctionReferenceBuilder::push(receiver, value1)
 }
@@ -2395,7 +2405,7 @@ pub fn ffi_ffi_bridge_FunctionReferenceBuilder_push(
 #export_name("ffi_ffi_bridge_GlobalBuilder_push")
 pub fn ffi_ffi_bridge_GlobalBuilder_push(
   receiver : @ffi_bridge.GlobalBuilder,
-  value1 : Int,
+  value1 : Int32,
 ) -> Unit {
   @ffi_bridge.GlobalBuilder::push(receiver, value1)
 }
@@ -2477,14 +2487,14 @@ pub fn ffi_fs_write_file_bytes(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_bitset_clear")
-pub fn ffi_ir_bitset_clear(value0 : @ir.Bitset, value1 : Int) -> Bool {
+pub fn ffi_ir_bitset_clear(value0 : @ir.Bitset, value1 : Int32) -> Bool {
   @ir.bitset_clear(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_bitset_contains")
-pub fn ffi_ir_bitset_contains(value0 : @ir.Bitset, value1 : Int) -> Bool {
+pub fn ffi_ir_bitset_contains(value0 : @ir.Bitset, value1 : Int32) -> Bool {
   @ir.bitset_contains(value0, value1)
 }
 
@@ -2510,7 +2520,7 @@ pub fn ffi_ir_bitset_equals(value0 : @ir.Bitset, value1 : @ir.Bitset) -> Bool {
 #export_name("ffi_ir_bitset_for_each_set_bit")
 pub fn ffi_ir_bitset_for_each_set_bit(
   value0 : @ir.Bitset,
-  value1 : (Int) -> Unit,
+  value1 : (Int32) -> Unit,
 ) -> Unit {
   @ir.bitset_for_each_set_bit(value0, value1)
 }
@@ -2528,14 +2538,14 @@ pub fn ffi_ir_bitset_intersect_into(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_bitset_new")
-pub fn ffi_ir_bitset_new(value0 : Int) -> @ir.Bitset {
+pub fn ffi_ir_bitset_new(value0 : Int32) -> @ir.Bitset {
   @ir.bitset_new(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_bitset_set")
-pub fn ffi_ir_bitset_set(value0 : @ir.Bitset, value1 : Int) -> Bool {
+pub fn ffi_ir_bitset_set(value0 : @ir.Bitset, value1 : Int32) -> Bool {
   @ir.bitset_set(value0, value1)
 }
 
@@ -2554,7 +2564,7 @@ pub fn ffi_ir_bitset_union_into(
 #export_name("ffi_ir_block_local_defs")
 pub fn ffi_ir_block_local_defs(
   value0 : @ir.HotUseDef,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.Bitset {
   @ir.block_local_defs(value0, value1)
 }
@@ -2564,7 +2574,7 @@ pub fn ffi_ir_block_local_defs(
 #export_name("ffi_ir_block_local_uses")
 pub fn ffi_ir_block_local_uses(
   value0 : @ir.HotUseDef,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.Bitset {
   @ir.block_local_uses(value0, value1)
 }
@@ -2681,7 +2691,7 @@ pub fn ffi_ir_cache_invalidate_analyses(
 #export_name("ffi_ir_cfg_block_boundary_reasons")
 pub fn ffi_ir_cfg_block_boundary_reasons(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.CfgBlockBoundaryReason] {
   @ir.cfg_block_boundary_reasons(value0, value1)
 }
@@ -2689,14 +2699,14 @@ pub fn ffi_ir_cfg_block_boundary_reasons(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_block_count")
-pub fn ffi_ir_cfg_block_count(value0 : @ir.HotCfg) -> Int {
+pub fn ffi_ir_cfg_block_count(value0 : @ir.HotCfg) -> Int32 {
   @ir.cfg_block_count(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_block_for_node")
-pub fn ffi_ir_cfg_block_for_node(value0 : @ir.HotCfg, value1 : Int) -> Int? {
+pub fn ffi_ir_cfg_block_for_node(value0 : @ir.HotCfg, value1 : Int32) -> Int32? {
   @ir.cfg_block_for_node(value0, value1)
 }
 
@@ -2706,8 +2716,8 @@ pub fn ffi_ir_cfg_block_for_node(value0 : @ir.HotCfg, value1 : Int) -> Int? {
 pub fn ffi_ir_cfg_block_for_region_root(
   value0 : @ir.HotCfg,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-) -> Int? {
+  value2 : Int32,
+) -> Int32? {
   @ir.cfg_block_for_region_root(value0, value1, value2)
 }
 
@@ -2716,7 +2726,7 @@ pub fn ffi_ir_cfg_block_for_region_root(
 #export_name("ffi_ir_cfg_block_get")
 pub fn ffi_ir_cfg_block_get(
   value0 : @ir.HotCfg,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotBlockInfo {
   @ir.cfg_block_get(value0, value1)
 }
@@ -2724,7 +2734,7 @@ pub fn ffi_ir_cfg_block_get(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_block_worklist_seed")
-pub fn ffi_ir_cfg_block_worklist_seed(value0 : @ir.HotCfg) -> Array[Int] {
+pub fn ffi_ir_cfg_block_worklist_seed(value0 : @ir.HotCfg) -> Array[Int32] {
   @ir.cfg_block_worklist_seed(value0)
 }
 
@@ -2755,7 +2765,7 @@ pub fn ffi_ir_cfg_control_successor_policy(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_entry_block")
-pub fn ffi_ir_cfg_entry_block(value0 : @ir.HotCfg) -> Int {
+pub fn ffi_ir_cfg_entry_block(value0 : @ir.HotCfg) -> Int32 {
   @ir.cfg_entry_block(value0)
 }
 
@@ -2771,21 +2781,21 @@ pub fn ffi_ir_cfg_exception_target_policy(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_exceptional_exit_block")
-pub fn ffi_ir_cfg_exceptional_exit_block(value0 : @ir.HotCfg) -> Int? {
+pub fn ffi_ir_cfg_exceptional_exit_block(value0 : @ir.HotCfg) -> Int32? {
   @ir.cfg_exceptional_exit_block(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_exit_block")
-pub fn ffi_ir_cfg_exit_block(value0 : @ir.HotCfg) -> Int {
+pub fn ffi_ir_cfg_exit_block(value0 : @ir.HotCfg) -> Int32 {
   @ir.cfg_exit_block(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_postorder")
-pub fn ffi_ir_cfg_postorder(value0 : @ir.HotCfg) -> Array[Int] {
+pub fn ffi_ir_cfg_postorder(value0 : @ir.HotCfg) -> Array[Int32] {
   @ir.cfg_postorder(value0)
 }
 
@@ -2794,7 +2804,7 @@ pub fn ffi_ir_cfg_postorder(value0 : @ir.HotCfg) -> Array[Int] {
 #export_name("ffi_ir_cfg_predecessor_edges")
 pub fn ffi_ir_cfg_predecessor_edges(
   value0 : @ir.HotCfg,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.CfgEdge] {
   @ir.cfg_predecessor_edges(value0, value1)
 }
@@ -2804,7 +2814,7 @@ pub fn ffi_ir_cfg_predecessor_edges(
 #export_name("ffi_ir_cfg_predecessors")
 pub fn ffi_ir_cfg_predecessors(
   value0 : @ir.HotCfg,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.CfgEdge] {
   @ir.cfg_predecessors(value0, value1)
 }
@@ -2812,7 +2822,7 @@ pub fn ffi_ir_cfg_predecessors(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_preorder")
-pub fn ffi_ir_cfg_preorder(value0 : @ir.HotCfg) -> Array[Int] {
+pub fn ffi_ir_cfg_preorder(value0 : @ir.HotCfg) -> Array[Int32] {
   @ir.cfg_preorder(value0)
 }
 
@@ -2822,7 +2832,7 @@ pub fn ffi_ir_cfg_preorder(value0 : @ir.HotCfg) -> Array[Int] {
 pub fn ffi_ir_cfg_region_blocks_in_rpo(
   value0 : @ir.HotCfg,
   value1 : @ir.HotRegionRef,
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.cfg_region_blocks_in_rpo(value0, value1)
 }
 
@@ -2833,7 +2843,7 @@ pub fn ffi_ir_cfg_region_root_can_reach_next(
   value0 : @ir.HotFunc,
   value1 : @ir.HotCfg,
   value2 : @ir.HotRegionRef,
-  value3 : Int,
+  value3 : Int32,
 ) -> Bool {
   @ir.cfg_region_root_can_reach_next(value0, value1, value2, value3)
 }
@@ -2841,7 +2851,7 @@ pub fn ffi_ir_cfg_region_root_can_reach_next(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_cfg_reverse_postorder")
-pub fn ffi_ir_cfg_reverse_postorder(value0 : @ir.HotCfg) -> Array[Int] {
+pub fn ffi_ir_cfg_reverse_postorder(value0 : @ir.HotCfg) -> Array[Int32] {
   @ir.cfg_reverse_postorder(value0)
 }
 
@@ -2850,7 +2860,7 @@ pub fn ffi_ir_cfg_reverse_postorder(value0 : @ir.HotCfg) -> Array[Int] {
 #export_name("ffi_ir_cfg_reverse_postorder_from_exit")
 pub fn ffi_ir_cfg_reverse_postorder_from_exit(
   value0 : @ir.HotCfg,
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.cfg_reverse_postorder_from_exit(value0)
 }
 
@@ -2859,7 +2869,7 @@ pub fn ffi_ir_cfg_reverse_postorder_from_exit(
 #export_name("ffi_ir_cfg_reverse_postorder_from_exit_with_exceptions")
 pub fn ffi_ir_cfg_reverse_postorder_from_exit_with_exceptions(
   value0 : @ir.HotCfg,
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.cfg_reverse_postorder_from_exit_with_exceptions(value0)
 }
 
@@ -2868,7 +2878,7 @@ pub fn ffi_ir_cfg_reverse_postorder_from_exit_with_exceptions(
 #export_name("ffi_ir_cfg_reverse_postorder_with_exceptions")
 pub fn ffi_ir_cfg_reverse_postorder_with_exceptions(
   value0 : @ir.HotCfg,
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.cfg_reverse_postorder_with_exceptions(value0)
 }
 
@@ -2877,7 +2887,7 @@ pub fn ffi_ir_cfg_reverse_postorder_with_exceptions(
 #export_name("ffi_ir_cfg_successor_edges")
 pub fn ffi_ir_cfg_successor_edges(
   value0 : @ir.HotCfg,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.CfgEdge] {
   @ir.cfg_successor_edges(value0, value1)
 }
@@ -2887,7 +2897,7 @@ pub fn ffi_ir_cfg_successor_edges(
 #export_name("ffi_ir_cfg_successors")
 pub fn ffi_ir_cfg_successors(
   value0 : @ir.HotCfg,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.CfgEdge] {
   @ir.cfg_successors(value0, value1)
 }
@@ -2948,8 +2958,8 @@ pub fn ffi_ir_dom_build(value0 : @ir.HotCfg) -> @ir.HotDominators {
 #export_name("ffi_ir_dom_children")
 pub fn ffi_ir_dom_children(
   value0 : @ir.HotDominators,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.dom_children(value0, value1)
 }
 
@@ -2965,8 +2975,8 @@ pub fn ffi_ir_dom_debug_dump(value0 : @ir.HotDominators) -> String {
 #export_name("ffi_ir_dom_dominates")
 pub fn ffi_ir_dom_dominates(
   value0 : @ir.HotDominators,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.dom_dominates(value0, value1, value2)
 }
@@ -2976,15 +2986,15 @@ pub fn ffi_ir_dom_dominates(
 #export_name("ffi_ir_dom_frontier")
 pub fn ffi_ir_dom_frontier(
   value0 : @ir.HotDominators,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.dom_frontier(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_dom_idom")
-pub fn ffi_ir_dom_idom(value0 : @ir.HotDominators, value1 : Int) -> Int? {
+pub fn ffi_ir_dom_idom(value0 : @ir.HotDominators, value1 : Int32) -> Int32? {
   @ir.dom_idom(value0, value1)
 }
 
@@ -2993,8 +3003,8 @@ pub fn ffi_ir_dom_idom(value0 : @ir.HotDominators, value1 : Int) -> Int? {
 #export_name("ffi_ir_dom_strictly_dominates")
 pub fn ffi_ir_dom_strictly_dominates(
   value0 : @ir.HotDominators,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.dom_strictly_dominates(value0, value1, value2)
 }
@@ -3006,7 +3016,7 @@ pub fn ffi_ir_effects_atomic_order_mask(
   value0 : @lib.AtomicOrder,
   read : Bool,
   write : Bool,
-) -> UInt {
+) -> UInt32 {
   @ir.effects_atomic_order_mask(value0, read~, write~)
 }
 
@@ -3014,8 +3024,8 @@ pub fn ffi_ir_effects_atomic_order_mask(
 #doc(hidden)
 #export_name("ffi_ir_effects_atomic_orders_conflict")
 pub fn ffi_ir_effects_atomic_orders_conflict(
-  value0 : UInt,
-  value1 : UInt,
+  value0 : UInt32,
+  value1 : UInt32,
   earlier_shared : Bool,
   later_shared : Bool,
 ) -> Bool {
@@ -3033,15 +3043,15 @@ pub fn ffi_ir_effects_atomic_orders_conflict(
 pub fn ffi_ir_effects_for_block(
   value0 : @ir.HotFunc,
   value1 : @ir.HotCfg,
-  value2 : Int,
-) -> UInt {
+  value2 : Int32,
+) -> UInt32 {
   @ir.effects_for_block(value0, value1, value2)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_effects_for_node")
-pub fn ffi_ir_effects_for_node(value0 : @ir.HotFunc, value1 : Int) -> UInt {
+pub fn ffi_ir_effects_for_node(value0 : @ir.HotFunc, value1 : Int32) -> UInt32 {
   @ir.effects_for_node(value0, value1)
 }
 
@@ -3051,35 +3061,35 @@ pub fn ffi_ir_effects_for_node(value0 : @ir.HotFunc, value1 : Int) -> UInt {
 pub fn ffi_ir_effects_for_region(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> UInt {
+) -> UInt32 {
   @ir.effects_for_region(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_effects_is_pure")
-pub fn ffi_ir_effects_is_pure(value0 : UInt) -> Bool {
+pub fn ffi_ir_effects_is_pure(value0 : UInt32) -> Bool {
   @ir.effects_is_pure(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_effects_may_throw")
-pub fn ffi_ir_effects_may_throw(value0 : UInt) -> Bool {
+pub fn ffi_ir_effects_may_throw(value0 : UInt32) -> Bool {
   @ir.effects_may_throw(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_effects_reads_memory")
-pub fn ffi_ir_effects_reads_memory(value0 : UInt) -> Bool {
+pub fn ffi_ir_effects_reads_memory(value0 : UInt32) -> Bool {
   @ir.effects_reads_memory(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_effects_writes_memory")
-pub fn ffi_ir_effects_writes_memory(value0 : UInt) -> Bool {
+pub fn ffi_ir_effects_writes_memory(value0 : UInt32) -> Bool {
   @ir.effects_writes_memory(value0)
 }
 
@@ -3089,7 +3099,7 @@ pub fn ffi_ir_effects_writes_memory(value0 : UInt) -> Bool {
 pub fn ffi_ir_hot_alloc_branch_table(
   value0 : @ir.HotFunc,
   value1 : @ir.HotBranchTable,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_branch_table(value0, value1)
 }
 
@@ -3099,7 +3109,7 @@ pub fn ffi_ir_hot_alloc_branch_table(
 pub fn ffi_ir_hot_alloc_call_sig(
   value0 : @ir.HotFunc,
   value1 : @ir.HotCallSig,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_call_sig(value0, value1)
 }
 
@@ -3109,21 +3119,24 @@ pub fn ffi_ir_hot_alloc_call_sig(
 pub fn ffi_ir_hot_alloc_catch_info(
   value0 : @ir.HotFunc,
   value1 : @ir.HotCatchInfo,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_catch_info(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_alloc_child_span")
-pub fn ffi_ir_hot_alloc_child_span(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_alloc_child_span(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_alloc_child_span(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_alloc_children")
-pub fn ffi_ir_hot_alloc_children(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_alloc_children(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_alloc_children(value0, value1)
 }
 
@@ -3133,7 +3146,7 @@ pub fn ffi_ir_hot_alloc_children(value0 : @ir.HotFunc, value1 : Int) -> Int {
 pub fn ffi_ir_hot_alloc_const(
   value0 : @ir.HotFunc,
   value1 : @ir.HotConstPayload,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_const(value0, value1)
 }
 
@@ -3143,7 +3156,7 @@ pub fn ffi_ir_hot_alloc_const(
 pub fn ffi_ir_hot_alloc_instr_payload(
   value0 : @ir.HotFunc,
   value1 : @ir.HotInstrPayload,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_instr_payload(value0, value1)
 }
 
@@ -3153,14 +3166,17 @@ pub fn ffi_ir_hot_alloc_instr_payload(
 pub fn ffi_ir_hot_alloc_memarg(
   value0 : @ir.HotFunc,
   value1 : @ir.HotMemArg,
-) -> Int {
+) -> Int32 {
   @ir.hot_alloc_memarg(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_alloc_node")
-pub fn ffi_ir_hot_alloc_node(value0 : @ir.HotFunc, value1 : @ir.HotNode) -> Int {
+pub fn ffi_ir_hot_alloc_node(
+  value0 : @ir.HotFunc,
+  value1 : @ir.HotNode,
+) -> Int32 {
   @ir.hot_alloc_node(value0, value1)
 }
 
@@ -3170,21 +3186,21 @@ pub fn ffi_ir_hot_alloc_node(value0 : @ir.HotFunc, value1 : @ir.HotNode) -> Int 
 pub fn ffi_ir_hot_append_body_local(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-) -> Int {
+) -> Int32 {
   @ir.hot_append_body_local(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_append_root")
-pub fn ffi_ir_hot_append_root(value0 : @ir.HotFunc, value1 : Int) -> Unit {
+pub fn ffi_ir_hot_append_root(value0 : @ir.HotFunc, value1 : Int32) -> Unit {
   @ir.hot_append_root(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_body_result_type")
-pub fn ffi_ir_hot_body_result_type(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_body_result_type(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_body_result_type(value0)
 }
 
@@ -3193,7 +3209,7 @@ pub fn ffi_ir_hot_body_result_type(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_body_result_type_set")
 pub fn ffi_ir_hot_body_result_type_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Unit {
   @ir.hot_body_result_type_set(value0, value1)
 }
@@ -3203,8 +3219,8 @@ pub fn ffi_ir_hot_body_result_type_set(
 #export_name("ffi_ir_hot_branch_table_default_target")
 pub fn ffi_ir_hot_branch_table_default_target(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_branch_table_default_target(value0, value1)
 }
 
@@ -3213,9 +3229,9 @@ pub fn ffi_ir_hot_branch_table_default_target(
 #export_name("ffi_ir_hot_branch_table_set")
 pub fn ffi_ir_hot_branch_table_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Array[Int],
-  value3 : Int,
+  value1 : Int32,
+  value2 : Array[Int32],
+  value3 : Int32,
 ) -> Unit {
   @ir.hot_branch_table_set(value0, value1, value2, value3)
 }
@@ -3225,8 +3241,8 @@ pub fn ffi_ir_hot_branch_table_set(
 #export_name("ffi_ir_hot_branch_table_targets")
 pub fn ffi_ir_hot_branch_table_targets(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.hot_branch_table_targets(value0, value1)
 }
 
@@ -3235,15 +3251,15 @@ pub fn ffi_ir_hot_branch_table_targets(
 #export_name("ffi_ir_hot_branch_table_targets_for_node")
 pub fn ffi_ir_hot_branch_table_targets_for_node(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.hot_branch_table_targets_for_node(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_branch_target")
-pub fn ffi_ir_hot_branch_target(value0 : @ir.HotFunc, value1 : Int) -> Int? {
+pub fn ffi_ir_hot_branch_target(value0 : @ir.HotFunc, value1 : Int32) -> Int32? {
   @ir.hot_branch_target(value0, value1)
 }
 
@@ -3252,8 +3268,8 @@ pub fn ffi_ir_hot_branch_target(value0 : @ir.HotFunc, value1 : Int) -> Int? {
 #export_name("ffi_ir_hot_branch_target_set")
 pub fn ffi_ir_hot_branch_target_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_branch_target_set(value0, value1, value2)
 }
@@ -3265,8 +3281,8 @@ pub fn ffi_ir_hot_build_atomic(
   value0 : @ir.HotFunc,
   value1 : Array[@lib.ValType],
   value2 : @lib.Instruction,
-  value3 : Array[Int],
-) -> Int {
+  value3 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_atomic(value0, value1, value2, value3)
 }
 
@@ -3276,9 +3292,9 @@ pub fn ffi_ir_hot_build_atomic(
 pub fn ffi_ir_hot_build_binary(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
-  value3 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_binary(value0, value1, value2, value3)
 }
 
@@ -3288,8 +3304,8 @@ pub fn ffi_ir_hot_build_binary(
 pub fn ffi_ir_hot_build_block(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
-  value2 : Array[Int],
-) -> Int {
+  value2 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_block(value0, value1, value2)
 }
 
@@ -3298,9 +3314,9 @@ pub fn ffi_ir_hot_build_block(
 #export_name("ffi_ir_hot_build_br")
 pub fn ffi_ir_hot_build_br(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  values : Array[Int]?,
-) -> Int {
+  value1 : Int32,
+  values : Array[Int32]?,
+) -> Int32 {
   @ir.hot_build_br(value0, value1, values?)
 }
 
@@ -3309,10 +3325,10 @@ pub fn ffi_ir_hot_build_br(
 #export_name("ffi_ir_hot_build_br_if")
 pub fn ffi_ir_hot_build_br_if(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  values : Array[Int]?,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+  values : Array[Int32]?,
+) -> Int32 {
   @ir.hot_build_br_if(value0, value1, value2, values?)
 }
 
@@ -3321,11 +3337,11 @@ pub fn ffi_ir_hot_build_br_if(
 #export_name("ffi_ir_hot_build_br_table")
 pub fn ffi_ir_hot_build_br_table(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
-  value2 : Int,
-  value3 : Int,
-  values : Array[Int]?,
-) -> Int {
+  value1 : Array[Int32],
+  value2 : Int32,
+  value3 : Int32,
+  values : Array[Int32]?,
+) -> Int32 {
   @ir.hot_build_br_table(value0, value1, value2, value3, values?)
 }
 
@@ -3334,10 +3350,10 @@ pub fn ffi_ir_hot_build_br_table(
 #export_name("ffi_ir_hot_build_call")
 pub fn ffi_ir_hot_build_call(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : Array[@lib.ValType],
-  value3 : Array[Int],
-) -> Int {
+  value3 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_call(value0, value1, value2, value3)
 }
 
@@ -3349,9 +3365,9 @@ pub fn ffi_ir_hot_build_call_indirect(
   value1 : @lib.TypeIdx,
   value2 : @lib.TableIdx,
   value3 : Array[@lib.ValType],
-  value4 : Array[Int],
-  value5 : Int,
-) -> Int {
+  value4 : Array[Int32],
+  value5 : Int32,
+) -> Int32 {
   @ir.hot_build_call_indirect(value0, value1, value2, value3, value4, value5)
 }
 
@@ -3362,9 +3378,9 @@ pub fn ffi_ir_hot_build_call_ref(
   value0 : @ir.HotFunc,
   value1 : @lib.TypeIdx,
   value2 : Array[@lib.ValType],
-  value3 : Array[Int],
-  value4 : Int,
-) -> Int {
+  value3 : Array[Int32],
+  value4 : Int32,
+) -> Int32 {
   @ir.hot_build_call_ref(value0, value1, value2, value3, value4)
 }
 
@@ -3375,7 +3391,7 @@ pub fn ffi_ir_hot_build_catch_payload(
   value0 : @ir.HotFunc,
   value1 : @lib.TagIdx,
   value2 : @lib.ValType,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_catch_payload(value0, value1, value2)
 }
 
@@ -3384,9 +3400,9 @@ pub fn ffi_ir_hot_build_catch_payload(
 #export_name("ffi_ir_hot_build_compare")
 pub fn ffi_ir_hot_build_compare(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_compare(value0, value1, value2)
 }
 
@@ -3396,7 +3412,7 @@ pub fn ffi_ir_hot_build_compare(
 pub fn ffi_ir_hot_build_const_f32(
   value0 : @ir.HotFunc,
   value1 : @lib.F32,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_const_f32(value0, value1)
 }
 
@@ -3406,7 +3422,7 @@ pub fn ffi_ir_hot_build_const_f32(
 pub fn ffi_ir_hot_build_const_f64(
   value0 : @ir.HotFunc,
   value1 : @lib.F64,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_const_f64(value0, value1)
 }
 
@@ -3416,7 +3432,7 @@ pub fn ffi_ir_hot_build_const_f64(
 pub fn ffi_ir_hot_build_const_i32(
   value0 : @ir.HotFunc,
   value1 : @lib.I32,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_const_i32(value0, value1)
 }
 
@@ -3426,7 +3442,7 @@ pub fn ffi_ir_hot_build_const_i32(
 pub fn ffi_ir_hot_build_const_i64(
   value0 : @ir.HotFunc,
   value1 : @lib.I64,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_const_i64(value0, value1)
 }
 
@@ -3436,14 +3452,14 @@ pub fn ffi_ir_hot_build_const_i64(
 pub fn ffi_ir_hot_build_const_v128_splat(
   value0 : @ir.HotFunc,
   value1 : Byte,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_const_v128_splat(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_const_v128_zero")
-pub fn ffi_ir_hot_build_const_v128_zero(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_build_const_v128_zero(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_build_const_v128_zero(value0)
 }
 
@@ -3453,22 +3469,22 @@ pub fn ffi_ir_hot_build_const_v128_zero(value0 : @ir.HotFunc) -> Int {
 pub fn ffi_ir_hot_build_convert(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
-) -> Int {
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_convert(value0, value1, value2)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_delegate")
-pub fn ffi_ir_hot_build_delegate(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_build_delegate(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_build_delegate(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_drop")
-pub fn ffi_ir_hot_build_drop(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_build_drop(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_build_drop(value0, value1)
 }
 
@@ -3477,9 +3493,9 @@ pub fn ffi_ir_hot_build_drop(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_build_global_get")
 pub fn ffi_ir_hot_build_global_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.ValType,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_global_get(value0, value1, value2)
 }
 
@@ -3488,9 +3504,9 @@ pub fn ffi_ir_hot_build_global_get(
 #export_name("ffi_ir_hot_build_global_set")
 pub fn ffi_ir_hot_build_global_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_global_set(value0, value1, value2)
 }
 
@@ -3501,8 +3517,8 @@ pub fn ffi_ir_hot_build_heap(
   value0 : @ir.HotFunc,
   value1 : Array[@lib.ValType],
   value2 : @lib.Instruction,
-  value3 : Array[Int],
-) -> Int {
+  value3 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_heap(value0, value1, value2, value3)
 }
 
@@ -3512,10 +3528,10 @@ pub fn ffi_ir_hot_build_heap(
 pub fn ffi_ir_hot_build_if(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
-  value2 : Int,
-  value3 : Array[Int],
-  else_body : Array[Int]??,
-) -> Int {
+  value2 : Int32,
+  value3 : Array[Int32],
+  else_body : Array[Int32]??,
+) -> Int32 {
   @ir.hot_build_if(value0, value1, value2, value3, else_body?)
 }
 
@@ -3526,15 +3542,18 @@ pub fn ffi_ir_hot_build_load(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
   value2 : @lib.MemArg,
-  value3 : Int,
-) -> Int {
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_load(value0, value1, value2, value3)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_local_get")
-pub fn ffi_ir_hot_build_local_get(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_build_local_get(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_build_local_get(value0, value1)
 }
 
@@ -3543,9 +3562,9 @@ pub fn ffi_ir_hot_build_local_get(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_build_local_set")
 pub fn ffi_ir_hot_build_local_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_local_set(value0, value1, value2)
 }
 
@@ -3554,8 +3573,8 @@ pub fn ffi_ir_hot_build_local_set(
 #export_name("ffi_ir_hot_build_local_set_from_tee")
 pub fn ffi_ir_hot_build_local_set_from_tee(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_build_local_set_from_tee(value0, value1)
 }
 
@@ -3564,9 +3583,9 @@ pub fn ffi_ir_hot_build_local_set_from_tee(
 #export_name("ffi_ir_hot_build_local_set_from_value")
 pub fn ffi_ir_hot_build_local_set_from_value(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_local_set_from_value(value0, value1, value2)
 }
 
@@ -3575,9 +3594,9 @@ pub fn ffi_ir_hot_build_local_set_from_value(
 #export_name("ffi_ir_hot_build_local_tee")
 pub fn ffi_ir_hot_build_local_tee(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_local_tee(value0, value1, value2)
 }
 
@@ -3586,8 +3605,8 @@ pub fn ffi_ir_hot_build_local_tee(
 #export_name("ffi_ir_hot_build_local_tee_from_set")
 pub fn ffi_ir_hot_build_local_tee_from_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_build_local_tee_from_set(value0, value1)
 }
 
@@ -3597,8 +3616,8 @@ pub fn ffi_ir_hot_build_local_tee_from_set(
 pub fn ffi_ir_hot_build_loop(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
-  value2 : Array[Int],
-) -> Int {
+  value2 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_loop(value0, value1, value2)
 }
 
@@ -3608,18 +3627,18 @@ pub fn ffi_ir_hot_build_loop(
 pub fn ffi_ir_hot_build_node(
   value0 : @ir.HotFunc,
   value1 : @ir.HotOp,
-  value2 : Int,
-  imm0 : Int?,
-  imm1 : Int?,
-  children : Array[Int]?,
-) -> Int {
+  value2 : Int32,
+  imm0 : Int32?,
+  imm1 : Int32?,
+  children : Array[Int32]?,
+) -> Int32 {
   @ir.hot_build_node(value0, value1, value2, imm0?, imm1?, children?)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_nop")
-pub fn ffi_ir_hot_build_nop(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_build_nop(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_build_nop(value0)
 }
 
@@ -3630,7 +3649,7 @@ pub fn ffi_ir_hot_build_ref_func(
   value0 : @ir.HotFunc,
   value1 : @lib.FuncIdx,
   value2 : @lib.RefType,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_ref_func(value0, value1, value2)
 }
 
@@ -3640,7 +3659,7 @@ pub fn ffi_ir_hot_build_ref_func(
 pub fn ffi_ir_hot_build_ref_null(
   value0 : @ir.HotFunc,
   value1 : @lib.RefType,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_ref_null(value0, value1)
 }
 
@@ -3649,9 +3668,9 @@ pub fn ffi_ir_hot_build_ref_null(
 #export_name("ffi_ir_hot_build_region")
 pub fn ffi_ir_hot_build_region(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
-  value2 : Int,
-) -> Int {
+  value1 : Array[Int32],
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_region(value0, value1, value2)
 }
 
@@ -3663,8 +3682,8 @@ pub fn ffi_ir_hot_build_resolved_block(
   value1 : @lib.BlockType,
   value2 : Array[@lib.ValType],
   value3 : Array[@lib.ValType],
-  value4 : Array[Int],
-) -> Int {
+  value4 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_resolved_block(value0, value1, value2, value3, value4)
 }
 
@@ -3673,8 +3692,8 @@ pub fn ffi_ir_hot_build_resolved_block(
 #export_name("ffi_ir_hot_build_return")
 pub fn ffi_ir_hot_build_return(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
-) -> Int {
+  value1 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_return(value0, value1)
 }
 
@@ -3683,9 +3702,9 @@ pub fn ffi_ir_hot_build_return(
 #export_name("ffi_ir_hot_build_return_call")
 pub fn ffi_ir_hot_build_return_call(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Array[Int],
-) -> Int {
+  value1 : Int32,
+  value2 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_return_call(value0, value1, value2)
 }
 
@@ -3696,9 +3715,9 @@ pub fn ffi_ir_hot_build_return_call_indirect(
   value0 : @ir.HotFunc,
   value1 : @lib.TypeIdx,
   value2 : @lib.TableIdx,
-  value3 : Array[Int],
-  value4 : Int,
-) -> Int {
+  value3 : Array[Int32],
+  value4 : Int32,
+) -> Int32 {
   @ir.hot_build_return_call_indirect(value0, value1, value2, value3, value4)
 }
 
@@ -3708,9 +3727,9 @@ pub fn ffi_ir_hot_build_return_call_indirect(
 pub fn ffi_ir_hot_build_return_call_ref(
   value0 : @ir.HotFunc,
   value1 : @lib.TypeIdx,
-  value2 : Array[Int],
-  value3 : Int,
-) -> Int {
+  value2 : Array[Int32],
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_return_call_ref(value0, value1, value2, value3)
 }
 
@@ -3720,10 +3739,10 @@ pub fn ffi_ir_hot_build_return_call_ref(
 pub fn ffi_ir_hot_build_select(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
-  value3 : Int,
-  value4 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+  value4 : Int32,
+) -> Int32 {
   @ir.hot_build_select(value0, value1, value2, value3, value4)
 }
 
@@ -3734,8 +3753,8 @@ pub fn ffi_ir_hot_build_simd(
   value0 : @ir.HotFunc,
   value1 : Array[@lib.ValType],
   value2 : @lib.Instruction,
-  value3 : Array[Int],
-) -> Int {
+  value3 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_simd(value0, value1, value2, value3)
 }
 
@@ -3745,9 +3764,9 @@ pub fn ffi_ir_hot_build_simd(
 pub fn ffi_ir_hot_build_store(
   value0 : @ir.HotFunc,
   value1 : @lib.MemArg,
-  value2 : Int,
-  value3 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_store(value0, value1, value2, value3)
 }
 
@@ -3757,7 +3776,7 @@ pub fn ffi_ir_hot_build_store(
 pub fn ffi_ir_hot_build_string_const(
   value0 : @ir.HotFunc,
   value1 : Bytes,
-) -> Int {
+) -> Int32 {
   @ir.hot_build_string_const(value0, value1)
 }
 
@@ -3766,10 +3785,10 @@ pub fn ffi_ir_hot_build_string_const(
 #export_name("ffi_ir_hot_build_table_get")
 pub fn ffi_ir_hot_build_table_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.ValType,
-  value3 : Int,
-) -> Int {
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_table_get(value0, value1, value2, value3)
 }
 
@@ -3778,10 +3797,10 @@ pub fn ffi_ir_hot_build_table_get(
 #export_name("ffi_ir_hot_build_table_set")
 pub fn ffi_ir_hot_build_table_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_table_set(value0, value1, value2, value3)
 }
 
@@ -3791,15 +3810,18 @@ pub fn ffi_ir_hot_build_table_set(
 pub fn ffi_ir_hot_build_throw(
   value0 : @ir.HotFunc,
   value1 : @lib.TagIdx,
-  value2 : Array[Int],
-) -> Int {
+  value2 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_throw(value0, value1, value2)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_throw_ref")
-pub fn ffi_ir_hot_build_throw_ref(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_build_throw_ref(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_build_throw_ref(value0, value1)
 }
 
@@ -3809,9 +3831,9 @@ pub fn ffi_ir_hot_build_throw_ref(value0 : @ir.HotFunc, value1 : Int) -> Int {
 pub fn ffi_ir_hot_build_try(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
-  value2 : Array[Int],
-  catch_body : Array[Int]??,
-) -> Int {
+  value2 : Array[Int32],
+  catch_body : Array[Int32]??,
+) -> Int32 {
   @ir.hot_build_try(value0, value1, value2, catch_body?)
 }
 
@@ -3822,9 +3844,9 @@ pub fn ffi_ir_hot_build_try_table(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
   value2 : Array[@ir.HotCatchArm],
-  value3 : Array[Int],
-  catch_list_body : Array[Int]?,
-) -> Int {
+  value3 : Array[Int32],
+  catch_list_body : Array[Int32]?,
+) -> Int32 {
   @ir.hot_build_try_table(value0, value1, value2, value3, catch_list_body?)
 }
 
@@ -3834,9 +3856,9 @@ pub fn ffi_ir_hot_build_try_table(
 pub fn ffi_ir_hot_build_tuple_extract(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
-  value3 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_build_tuple_extract(value0, value1, value2, value3)
 }
 
@@ -3846,8 +3868,8 @@ pub fn ffi_ir_hot_build_tuple_extract(
 pub fn ffi_ir_hot_build_tuple_make(
   value0 : @ir.HotFunc,
   value1 : Array[@lib.ValType],
-  value2 : Array[Int],
-) -> Int {
+  value2 : Array[Int32],
+) -> Int32 {
   @ir.hot_build_tuple_make(value0, value1, value2)
 }
 
@@ -3857,15 +3879,15 @@ pub fn ffi_ir_hot_build_tuple_make(
 pub fn ffi_ir_hot_build_unary(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
-) -> Int {
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_build_unary(value0, value1, value2)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_build_unreachable")
-pub fn ffi_ir_hot_build_unreachable(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_build_unreachable(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_build_unreachable(value0)
 }
 
@@ -3874,7 +3896,7 @@ pub fn ffi_ir_hot_build_unreachable(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_call_sig_get")
 pub fn ffi_ir_hot_call_sig_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotCallSig {
   @ir.hot_call_sig_get(value0, value1)
 }
@@ -3884,7 +3906,7 @@ pub fn ffi_ir_hot_call_sig_get(
 #export_name("ffi_ir_hot_catch_info_get")
 pub fn ffi_ir_hot_catch_info_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotCatchInfo {
   @ir.hot_catch_info_get(value0, value1)
 }
@@ -3894,7 +3916,7 @@ pub fn ffi_ir_hot_catch_info_get(
 #export_name("ffi_ir_hot_catch_payload_tag")
 pub fn ffi_ir_hot_catch_payload_tag(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.TagIdx {
   @ir.hot_catch_payload_tag(value0, value1)
 }
@@ -3902,7 +3924,7 @@ pub fn ffi_ir_hot_catch_payload_tag(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_child_count")
-pub fn ffi_ir_hot_child_count(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_child_count(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_child_count(value0, value1)
 }
 
@@ -3911,9 +3933,9 @@ pub fn ffi_ir_hot_child_count(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_child_get")
 pub fn ffi_ir_hot_child_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-) -> Int {
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_child_get(value0, value1, value2)
 }
 
@@ -3922,9 +3944,9 @@ pub fn ffi_ir_hot_child_get(
 #export_name("ffi_ir_hot_child_set")
 pub fn ffi_ir_hot_child_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Int32,
 ) -> Unit {
   @ir.hot_child_set(value0, value1, value2, value3)
 }
@@ -3932,14 +3954,17 @@ pub fn ffi_ir_hot_child_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_child_span")
-pub fn ffi_ir_hot_child_span(value0 : @ir.HotFunc, value1 : Int) -> Array[Int] {
+pub fn ffi_ir_hot_child_span(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.hot_child_span(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_child_storage_count")
-pub fn ffi_ir_hot_child_storage_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_child_storage_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_child_storage_count(value0)
 }
 
@@ -3948,7 +3973,7 @@ pub fn ffi_ir_hot_child_storage_count(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_const_get")
 pub fn ffi_ir_hot_const_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotConstPayload {
   @ir.hot_const_get(value0, value1)
 }
@@ -3958,8 +3983,8 @@ pub fn ffi_ir_hot_const_get(
 #export_name("ffi_ir_hot_continuation_targets")
 pub fn ffi_ir_hot_continuation_targets(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.hot_continuation_targets(value0, value1)
 }
 
@@ -3968,8 +3993,8 @@ pub fn ffi_ir_hot_continuation_targets(
 #export_name("ffi_ir_hot_continuation_targets_set")
 pub fn ffi_ir_hot_continuation_targets_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Array[Int],
+  value1 : Int32,
+  value2 : Array[Int32],
 ) -> Unit {
   @ir.hot_continuation_targets_set(value0, value1, value2)
 }
@@ -3979,8 +4004,8 @@ pub fn ffi_ir_hot_continuation_targets_set(
 #export_name("ffi_ir_hot_control_demote_if_to_block")
 pub fn ffi_ir_hot_control_demote_if_to_block(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Array[Int],
+  value1 : Int32,
+  value2 : Array[Int32],
 ) -> Unit {
   @ir.hot_control_demote_if_to_block(value0, value1, value2)
 }
@@ -3990,7 +4015,7 @@ pub fn ffi_ir_hot_control_demote_if_to_block(
 #export_name("ffi_ir_hot_control_demote_loop_to_block")
 pub fn ffi_ir_hot_control_demote_loop_to_block(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Unit {
   @ir.hot_control_demote_loop_to_block(value0, value1)
 }
@@ -3998,7 +4023,10 @@ pub fn ffi_ir_hot_control_demote_loop_to_block(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_control_node_label")
-pub fn ffi_ir_hot_control_node_label(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_control_node_label(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_control_node_label(value0, value1)
 }
 
@@ -4016,8 +4044,8 @@ pub fn ffi_ir_hot_control_region_slot_info(
 #export_name("ffi_ir_hot_control_result_type_set")
 pub fn ffi_ir_hot_control_result_type_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_control_result_type_set(value0, value1, value2)
 }
@@ -4032,7 +4060,7 @@ pub fn ffi_ir_hot_debug_dump_core(value0 : @ir.HotFunc) -> String {
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_default_flags_for_op")
-pub fn ffi_ir_hot_default_flags_for_op(value0 : @ir.HotOp) -> UInt {
+pub fn ffi_ir_hot_default_flags_for_op(value0 : @ir.HotOp) -> UInt32 {
   @ir.hot_default_flags_for_op(value0)
 }
 
@@ -4041,7 +4069,7 @@ pub fn ffi_ir_hot_default_flags_for_op(value0 : @ir.HotOp) -> UInt {
 #export_name("ffi_ir_hot_delete_detached_control_forest")
 pub fn ffi_ir_hot_delete_detached_control_forest(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
+  value1 : Array[Int32],
 ) -> Bool {
   @ir.hot_delete_detached_control_forest(value0, value1)
 }
@@ -4051,7 +4079,7 @@ pub fn ffi_ir_hot_delete_detached_control_forest(
 #export_name("ffi_ir_hot_delete_detached_control_subtree")
 pub fn ffi_ir_hot_delete_detached_control_subtree(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_delete_detached_control_subtree(value0, value1)
 }
@@ -4061,7 +4089,7 @@ pub fn ffi_ir_hot_delete_detached_control_subtree(
 #export_name("ffi_ir_hot_delete_detached_forest")
 pub fn ffi_ir_hot_delete_detached_forest(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
+  value1 : Array[Int32],
 ) -> Bool {
   @ir.hot_delete_detached_forest(value0, value1)
 }
@@ -4071,7 +4099,7 @@ pub fn ffi_ir_hot_delete_detached_forest(
 #export_name("ffi_ir_hot_delete_detached_node")
 pub fn ffi_ir_hot_delete_detached_node(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Unit {
   @ir.hot_delete_detached_node(value0, value1)
 }
@@ -4081,7 +4109,7 @@ pub fn ffi_ir_hot_delete_detached_node(
 #export_name("ffi_ir_hot_delete_detached_nodes")
 pub fn ffi_ir_hot_delete_detached_nodes(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
+  value1 : Array[Int32],
 ) -> Unit {
   @ir.hot_delete_detached_nodes(value0, value1)
 }
@@ -4089,7 +4117,7 @@ pub fn ffi_ir_hot_delete_detached_nodes(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_delete_node")
-pub fn ffi_ir_hot_delete_node(value0 : @ir.HotFunc, value1 : Int) -> Unit {
+pub fn ffi_ir_hot_delete_node(value0 : @ir.HotFunc, value1 : Int32) -> Unit {
   @ir.hot_delete_node(value0, value1)
 }
 
@@ -4098,7 +4126,7 @@ pub fn ffi_ir_hot_delete_node(value0 : @ir.HotFunc, value1 : Int) -> Unit {
 #export_name("ffi_ir_hot_has_exceptional_succ")
 pub fn ffi_ir_hot_has_exceptional_succ(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_has_exceptional_succ(value0, value1)
 }
@@ -4106,7 +4134,7 @@ pub fn ffi_ir_hot_has_exceptional_succ(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_has_side_effect")
-pub fn ffi_ir_hot_has_side_effect(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_has_side_effect(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_has_side_effect(value0, value1)
 }
 
@@ -4115,7 +4143,7 @@ pub fn ffi_ir_hot_has_side_effect(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_instr_payload_get")
 pub fn ffi_ir_hot_instr_payload_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotInstrPayload {
   @ir.hot_instr_payload_get(value0, value1)
 }
@@ -4123,14 +4151,14 @@ pub fn ffi_ir_hot_instr_payload_get(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_is_branch")
-pub fn ffi_ir_hot_is_branch(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_is_branch(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_is_branch(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_is_control_node")
-pub fn ffi_ir_hot_is_control_node(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_is_control_node(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_is_control_node(value0, value1)
 }
 
@@ -4139,7 +4167,7 @@ pub fn ffi_ir_hot_is_control_node(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_is_terminator_node")
 pub fn ffi_ir_hot_is_terminator_node(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_is_terminator_node(value0, value1)
 }
@@ -4150,17 +4178,20 @@ pub fn ffi_ir_hot_is_terminator_node(
 pub fn ffi_ir_hot_label_alloc(
   value0 : @ir.HotFunc,
   value1 : @ir.HotLabelKind,
-  value2 : Int,
-  value3 : Int,
-  value4 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+  value4 : Int32,
+) -> Int32 {
   @ir.hot_label_alloc(value0, value1, value2, value3, value4)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_label_branch_arity")
-pub fn ffi_ir_hot_label_branch_arity(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_label_branch_arity(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_label_branch_arity(value0, value1)
 }
 
@@ -4169,7 +4200,7 @@ pub fn ffi_ir_hot_label_branch_arity(value0 : @ir.HotFunc, value1 : Int) -> Int 
 #export_name("ffi_ir_hot_label_get")
 pub fn ffi_ir_hot_label_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotLabelInfo {
   @ir.hot_label_get(value0, value1)
 }
@@ -4177,7 +4208,7 @@ pub fn ffi_ir_hot_label_get(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_label_is_live")
-pub fn ffi_ir_hot_label_is_live(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_label_is_live(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_label_is_live(value0, value1)
 }
 
@@ -4186,7 +4217,7 @@ pub fn ffi_ir_hot_label_is_live(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_label_kind")
 pub fn ffi_ir_hot_label_kind(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotLabelKind {
   @ir.hot_label_kind(value0, value1)
 }
@@ -4194,7 +4225,7 @@ pub fn ffi_ir_hot_label_kind(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_label_owner")
-pub fn ffi_ir_hot_label_owner(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_label_owner(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_label_owner(value0, value1)
 }
 
@@ -4203,8 +4234,8 @@ pub fn ffi_ir_hot_label_owner(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_label_owner_set")
 pub fn ffi_ir_hot_label_owner_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_label_owner_set(value0, value1, value2)
 }
@@ -4212,7 +4243,10 @@ pub fn ffi_ir_hot_label_owner_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_label_result_type")
-pub fn ffi_ir_hot_label_result_type(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_label_result_type(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_label_result_type(value0, value1)
 }
 
@@ -4315,6 +4349,7 @@ pub fn ffi_ir_hot_lift_func_with_context_result(
   capture_stack_locals : Bool?,
   materialize_multi_values : Bool?,
   record_local_accesses : Bool?,
+  record_capture_sources : Bool?,
 ) -> Result[@ir.HotFunc, @ir.HotLiftError] {
   @ir.hot_lift_func_with_context_result(
     value0,
@@ -4323,6 +4358,7 @@ pub fn ffi_ir_hot_lift_func_with_context_result(
     capture_stack_locals?,
     materialize_multi_values?,
     record_local_accesses?,
+    record_capture_sources?,
   )
 }
 
@@ -4348,22 +4384,29 @@ pub fn ffi_ir_hot_lift_local_accesses(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_lift_release_local_accesses")
+pub fn ffi_ir_hot_lift_release_local_accesses(value0 : @ir.HotFunc) -> Unit {
+  @ir.hot_lift_release_local_accesses(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_local_body_count")
-pub fn ffi_ir_hot_local_body_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_local_body_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_local_body_count(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_local_count")
-pub fn ffi_ir_hot_local_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_local_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_local_count(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_local_is_param")
-pub fn ffi_ir_hot_local_is_param(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_local_is_param(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_local_is_param(value0, value1)
 }
 
@@ -4372,8 +4415,8 @@ pub fn ffi_ir_hot_local_is_param(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_local_node_id_set")
 pub fn ffi_ir_hot_local_node_id_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_local_node_id_set(value0, value1, value2)
 }
@@ -4381,7 +4424,7 @@ pub fn ffi_ir_hot_local_node_id_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_local_param_count")
-pub fn ffi_ir_hot_local_param_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_local_param_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_local_param_count(value0)
 }
 
@@ -4390,7 +4433,7 @@ pub fn ffi_ir_hot_local_param_count(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_local_type")
 pub fn ffi_ir_hot_local_type(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.ValType? {
   @ir.hot_local_type(value0, value1)
 }
@@ -4400,8 +4443,8 @@ pub fn ffi_ir_hot_local_type(
 #export_name("ffi_ir_hot_loop_entry_values_clear")
 pub fn ffi_ir_hot_loop_entry_values_clear(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.hot_loop_entry_values_clear(value0, value1)
 }
 
@@ -4458,11 +4501,11 @@ pub fn ffi_ir_hot_lower_func_with_options(
 #export_name("ffi_ir_hot_make_simple_node")
 pub fn ffi_ir_hot_make_simple_node(
   value0 : @ir.HotOp,
-  value1 : Int,
-  value2 : UInt,
-  value3 : Int,
-  value4 : Int,
-  value5 : Array[Int],
+  value1 : Int32,
+  value2 : UInt32,
+  value3 : Int32,
+  value4 : Int32,
+  value5 : Array[Int32],
 ) -> @ir.HotNode {
   @ir.hot_make_simple_node(value0, value1, value2, value3, value4, value5)
 }
@@ -4470,7 +4513,7 @@ pub fn ffi_ir_hot_make_simple_node(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_may_trap")
-pub fn ffi_ir_hot_may_trap(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_may_trap(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_may_trap(value0, value1)
 }
 
@@ -4479,7 +4522,7 @@ pub fn ffi_ir_hot_may_trap(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_memarg_get")
 pub fn ffi_ir_hot_memarg_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotMemArg {
   @ir.hot_memarg_get(value0, value1)
 }
@@ -4688,14 +4731,14 @@ pub fn ffi_ir_hot_module_resolve_type_func_type(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_module_subtype_count")
-pub fn ffi_ir_hot_module_subtype_count(value0 : @ir.HotModuleContext) -> Int {
+pub fn ffi_ir_hot_module_subtype_count(value0 : @ir.HotModuleContext) -> Int32 {
   @ir.hot_module_subtype_count(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_count")
-pub fn ffi_ir_hot_node_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_node_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_node_count(value0)
 }
 
@@ -4704,7 +4747,7 @@ pub fn ffi_ir_hot_node_count(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_node_exact_instr")
 pub fn ffi_ir_hot_node_exact_instr(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.Instruction? {
   @ir.hot_node_exact_instr(value0, value1)
 }
@@ -4714,8 +4757,8 @@ pub fn ffi_ir_hot_node_exact_instr(
 #export_name("ffi_ir_hot_node_exact_instr_payload_id")
 pub fn ffi_ir_hot_node_exact_instr_payload_id(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Int? {
+  value1 : Int32,
+) -> Int32? {
   @ir.hot_node_exact_instr_payload_id(value0, value1)
 }
 
@@ -4724,7 +4767,7 @@ pub fn ffi_ir_hot_node_exact_instr_payload_id(
 #export_name("ffi_ir_hot_node_exact_instr_set")
 pub fn ffi_ir_hot_node_exact_instr_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.Instruction,
 ) -> Unit {
   @ir.hot_node_exact_instr_set(value0, value1, value2)
@@ -4733,14 +4776,14 @@ pub fn ffi_ir_hot_node_exact_instr_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_flags")
-pub fn ffi_ir_hot_node_flags(value0 : @ir.HotFunc, value1 : Int) -> UInt {
+pub fn ffi_ir_hot_node_flags(value0 : @ir.HotFunc, value1 : Int32) -> UInt32 {
   @ir.hot_node_flags(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_get")
-pub fn ffi_ir_hot_node_get(value0 : @ir.HotFunc, value1 : Int) -> @ir.HotNode {
+pub fn ffi_ir_hot_node_get(value0 : @ir.HotFunc, value1 : Int32) -> @ir.HotNode {
   @ir.hot_node_get(value0, value1)
 }
 
@@ -4749,8 +4792,8 @@ pub fn ffi_ir_hot_node_get(value0 : @ir.HotFunc, value1 : Int) -> @ir.HotNode {
 #export_name("ffi_ir_hot_node_has_flag")
 pub fn ffi_ir_hot_node_has_flag(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : UInt,
+  value1 : Int32,
+  value2 : UInt32,
 ) -> Bool {
   @ir.hot_node_has_flag(value0, value1, value2)
 }
@@ -4758,14 +4801,14 @@ pub fn ffi_ir_hot_node_has_flag(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_is_deleted")
-pub fn ffi_ir_hot_node_is_deleted(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_node_is_deleted(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_node_is_deleted(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_is_live")
-pub fn ffi_ir_hot_node_is_live(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_node_is_live(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_node_is_live(value0, value1)
 }
 
@@ -4774,7 +4817,7 @@ pub fn ffi_ir_hot_node_is_live(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 #export_name("ffi_ir_hot_node_kind_is_atomic")
 pub fn ffi_ir_hot_node_kind_is_atomic(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_atomic(value0, value1)
 }
@@ -4784,7 +4827,7 @@ pub fn ffi_ir_hot_node_kind_is_atomic(
 #export_name("ffi_ir_hot_node_kind_is_branch")
 pub fn ffi_ir_hot_node_kind_is_branch(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_branch(value0, value1)
 }
@@ -4792,7 +4835,10 @@ pub fn ffi_ir_hot_node_kind_is_branch(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_kind_is_call")
-pub fn ffi_ir_hot_node_kind_is_call(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_node_kind_is_call(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Bool {
   @ir.hot_node_kind_is_call(value0, value1)
 }
 
@@ -4801,7 +4847,7 @@ pub fn ffi_ir_hot_node_kind_is_call(value0 : @ir.HotFunc, value1 : Int) -> Bool 
 #export_name("ffi_ir_hot_node_kind_is_control")
 pub fn ffi_ir_hot_node_kind_is_control(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_control(value0, value1)
 }
@@ -4811,7 +4857,7 @@ pub fn ffi_ir_hot_node_kind_is_control(
 #export_name("ffi_ir_hot_node_kind_is_exception")
 pub fn ffi_ir_hot_node_kind_is_exception(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_exception(value0, value1)
 }
@@ -4821,7 +4867,7 @@ pub fn ffi_ir_hot_node_kind_is_exception(
 #export_name("ffi_ir_hot_node_kind_is_global")
 pub fn ffi_ir_hot_node_kind_is_global(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_global(value0, value1)
 }
@@ -4829,7 +4875,10 @@ pub fn ffi_ir_hot_node_kind_is_global(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_kind_is_heap")
-pub fn ffi_ir_hot_node_kind_is_heap(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_node_kind_is_heap(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Bool {
   @ir.hot_node_kind_is_heap(value0, value1)
 }
 
@@ -4838,7 +4887,7 @@ pub fn ffi_ir_hot_node_kind_is_heap(value0 : @ir.HotFunc, value1 : Int) -> Bool 
 #export_name("ffi_ir_hot_node_kind_is_local")
 pub fn ffi_ir_hot_node_kind_is_local(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_local(value0, value1)
 }
@@ -4848,7 +4897,7 @@ pub fn ffi_ir_hot_node_kind_is_local(
 #export_name("ffi_ir_hot_node_kind_is_memory")
 pub fn ffi_ir_hot_node_kind_is_memory(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_memory(value0, value1)
 }
@@ -4858,7 +4907,7 @@ pub fn ffi_ir_hot_node_kind_is_memory(
 #export_name("ffi_ir_hot_node_kind_is_numeric")
 pub fn ffi_ir_hot_node_kind_is_numeric(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_numeric(value0, value1)
 }
@@ -4866,7 +4915,10 @@ pub fn ffi_ir_hot_node_kind_is_numeric(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_kind_is_simd")
-pub fn ffi_ir_hot_node_kind_is_simd(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_node_kind_is_simd(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Bool {
   @ir.hot_node_kind_is_simd(value0, value1)
 }
 
@@ -4875,7 +4927,7 @@ pub fn ffi_ir_hot_node_kind_is_simd(value0 : @ir.HotFunc, value1 : Int) -> Bool 
 #export_name("ffi_ir_hot_node_kind_is_table")
 pub fn ffi_ir_hot_node_kind_is_table(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_table(value0, value1)
 }
@@ -4885,7 +4937,7 @@ pub fn ffi_ir_hot_node_kind_is_table(
 #export_name("ffi_ir_hot_node_kind_is_tuple")
 pub fn ffi_ir_hot_node_kind_is_tuple(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_kind_is_tuple(value0, value1)
 }
@@ -4895,7 +4947,7 @@ pub fn ffi_ir_hot_node_kind_is_tuple(
 #export_name("ffi_ir_hot_node_may_throw_exception")
 pub fn ffi_ir_hot_node_may_throw_exception(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_node_may_throw_exception(value0, value1)
 }
@@ -4903,7 +4955,7 @@ pub fn ffi_ir_hot_node_may_throw_exception(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_op")
-pub fn ffi_ir_hot_node_op(value0 : @ir.HotFunc, value1 : Int) -> @ir.HotOp {
+pub fn ffi_ir_hot_node_op(value0 : @ir.HotFunc, value1 : Int32) -> @ir.HotOp {
   @ir.hot_node_op(value0, value1)
 }
 
@@ -4912,9 +4964,9 @@ pub fn ffi_ir_hot_node_op(value0 : @ir.HotFunc, value1 : Int) -> @ir.HotOp {
 #export_name("ffi_ir_hot_node_promote_to_block")
 pub fn ffi_ir_hot_node_promote_to_block(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.BlockType,
-  value3 : Array[Int],
+  value3 : Array[Int32],
 ) -> Unit {
   @ir.hot_node_promote_to_block(value0, value1, value2, value3)
 }
@@ -4924,15 +4976,18 @@ pub fn ffi_ir_hot_node_promote_to_block(
 #export_name("ffi_ir_hot_node_repeated_live_child")
 pub fn ffi_ir_hot_node_repeated_live_child(
   value0 : @ir.HotFunc,
-  value1 : Int,
-) -> Int? {
+  value1 : Int32,
+) -> Int32? {
   @ir.hot_node_repeated_live_child(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_result_arity")
-pub fn ffi_ir_hot_node_result_arity(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_node_result_arity(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_node_result_arity(value0, value1)
 }
 
@@ -4941,7 +4996,7 @@ pub fn ffi_ir_hot_node_result_arity(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_node_set")
 pub fn ffi_ir_hot_node_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @ir.HotNode,
 ) -> Unit {
   @ir.hot_node_set(value0, value1, value2)
@@ -4950,7 +5005,7 @@ pub fn ffi_ir_hot_node_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_node_type")
-pub fn ffi_ir_hot_node_type(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_node_type(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_node_type(value0, value1)
 }
 
@@ -4959,8 +5014,8 @@ pub fn ffi_ir_hot_node_type(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_node_use_count")
 pub fn ffi_ir_hot_node_use_count(
   value0 : @ir.HotNodeUseCounts,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_node_use_count(value0, value1)
 }
 
@@ -4978,8 +5033,8 @@ pub fn ffi_ir_hot_node_use_counts_build(
 #export_name("ffi_ir_hot_nodes_match_simple_value")
 pub fn ffi_ir_hot_nodes_match_simple_value(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.hot_nodes_match_simple_value(value0, value1, value2)
 }
@@ -4996,7 +5051,7 @@ pub fn ffi_ir_hot_ordered_catch_payloads_repairable(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_param_count")
-pub fn ffi_ir_hot_param_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_param_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_param_count(value0)
 }
 
@@ -5023,8 +5078,8 @@ pub fn ffi_ir_hot_pass_requires(
 #export_name("ffi_ir_hot_preserve_replacement_position")
 pub fn ffi_ir_hot_preserve_replacement_position(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_preserve_replacement_position(value0, value1, value2)
 }
@@ -5034,7 +5089,7 @@ pub fn ffi_ir_hot_preserve_replacement_position(
 #export_name("ffi_ir_hot_region_body_ref")
 pub fn ffi_ir_hot_region_body_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotRegionRef {
   @ir.hot_region_body_ref(value0, value1)
 }
@@ -5044,7 +5099,7 @@ pub fn ffi_ir_hot_region_body_ref(
 #export_name("ffi_ir_hot_region_catch_list_ref")
 pub fn ffi_ir_hot_region_catch_list_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotRegionRef {
   @ir.hot_region_catch_list_ref(value0, value1)
 }
@@ -5054,7 +5109,7 @@ pub fn ffi_ir_hot_region_catch_list_ref(
 #export_name("ffi_ir_hot_region_catch_ref")
 pub fn ffi_ir_hot_region_catch_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotRegionRef? {
   @ir.hot_region_catch_ref(value0, value1)
 }
@@ -5064,7 +5119,7 @@ pub fn ffi_ir_hot_region_catch_ref(
 #export_name("ffi_ir_hot_region_else_ref")
 pub fn ffi_ir_hot_region_else_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotRegionRef? {
   @ir.hot_region_else_ref(value0, value1)
 }
@@ -5075,8 +5130,8 @@ pub fn ffi_ir_hot_region_else_ref(
 pub fn ffi_ir_hot_region_get(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-) -> Int {
+  value2 : Int32,
+) -> Int32 {
   @ir.hot_region_get(value0, value1, value2)
 }
 
@@ -5086,7 +5141,7 @@ pub fn ffi_ir_hot_region_get(
 pub fn ffi_ir_hot_region_holder_block_label(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_holder_block_label(value0, value1)
 }
 
@@ -5096,7 +5151,7 @@ pub fn ffi_ir_hot_region_holder_block_label(
 pub fn ffi_ir_hot_region_holder_block_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_holder_block_root(value0, value1)
 }
 
@@ -5106,8 +5161,8 @@ pub fn ffi_ir_hot_region_holder_block_root(
 pub fn ffi_ir_hot_region_insert(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-  value3 : Array[Int],
+  value2 : Int32,
+  value3 : Array[Int32],
 ) -> Unit {
   @ir.hot_region_insert(value0, value1, value2, value3)
 }
@@ -5118,7 +5173,7 @@ pub fn ffi_ir_hot_region_insert(
 pub fn ffi_ir_hot_region_is_strict_no_work_block_chain(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : (Int) -> Bool,
+  value2 : (Int32) -> Bool,
 ) -> Bool {
   @ir.hot_region_is_strict_no_work_block_chain(value0, value1, value2)
 }
@@ -5129,7 +5184,7 @@ pub fn ffi_ir_hot_region_is_strict_no_work_block_chain(
 pub fn ffi_ir_hot_region_is_strict_no_work_forest(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : (Int) -> Bool,
+  value2 : (Int32) -> Bool,
 ) -> Bool {
   @ir.hot_region_is_strict_no_work_forest(value0, value1, value2)
 }
@@ -5140,9 +5195,9 @@ pub fn ffi_ir_hot_region_is_strict_no_work_forest(
 pub fn ffi_ir_hot_region_remove(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-  value3 : Int,
-) -> Array[Int] {
+  value2 : Int32,
+  value3 : Int32,
+) -> Array[Int32] {
   @ir.hot_region_remove(value0, value1, value2, value3)
 }
 
@@ -5172,7 +5227,7 @@ pub fn ffi_ir_hot_region_repeated_live_block_body_or_self(
 pub fn ffi_ir_hot_region_repeated_live_block_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_repeated_live_block_root(value0, value1)
 }
 
@@ -5182,7 +5237,7 @@ pub fn ffi_ir_hot_region_repeated_live_block_root(
 pub fn ffi_ir_hot_region_repeated_live_if_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_repeated_live_if_root(value0, value1)
 }
 
@@ -5192,7 +5247,7 @@ pub fn ffi_ir_hot_region_repeated_live_if_root(
 pub fn ffi_ir_hot_region_repeated_live_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_repeated_live_root(value0, value1)
 }
 
@@ -5202,7 +5257,7 @@ pub fn ffi_ir_hot_region_repeated_live_root(
 pub fn ffi_ir_hot_region_replace_body(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Array[Int],
+  value2 : Array[Int32],
 ) -> Unit {
   @ir.hot_region_replace_body(value0, value1, value2)
 }
@@ -5213,7 +5268,7 @@ pub fn ffi_ir_hot_region_replace_body(
 pub fn ffi_ir_hot_region_result_arity(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int {
+) -> Int32 {
   @ir.hot_region_result_arity(value0, value1)
 }
 
@@ -5223,7 +5278,7 @@ pub fn ffi_ir_hot_region_result_arity(
 pub fn ffi_ir_hot_region_root_count(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int {
+) -> Int32 {
   @ir.hot_region_root_count(value0, value1)
 }
 
@@ -5233,9 +5288,9 @@ pub fn ffi_ir_hot_region_root_count(
 pub fn ffi_ir_hot_region_set(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-  value3 : Int,
-) -> Int {
+  value2 : Int32,
+  value3 : Int32,
+) -> Int32 {
   @ir.hot_region_set(value0, value1, value2, value3)
 }
 
@@ -5245,7 +5300,7 @@ pub fn ffi_ir_hot_region_set(
 pub fn ffi_ir_hot_region_single_exit_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_exit_root(value0, value1)
 }
 
@@ -5275,7 +5330,7 @@ pub fn ffi_ir_hot_region_single_live_block_body_or_self(
 pub fn ffi_ir_hot_region_single_live_block_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_live_block_root(value0, value1)
 }
 
@@ -5285,7 +5340,7 @@ pub fn ffi_ir_hot_region_single_live_block_root(
 pub fn ffi_ir_hot_region_single_live_if_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_live_if_root(value0, value1)
 }
 
@@ -5295,7 +5350,7 @@ pub fn ffi_ir_hot_region_single_live_if_root(
 pub fn ffi_ir_hot_region_single_live_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_live_root(value0, value1)
 }
 
@@ -5305,7 +5360,7 @@ pub fn ffi_ir_hot_region_single_live_root(
 pub fn ffi_ir_hot_region_single_plain_br_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_plain_br_root(value0, value1)
 }
 
@@ -5315,7 +5370,7 @@ pub fn ffi_ir_hot_region_single_plain_br_root(
 pub fn ffi_ir_hot_region_single_plain_br_target(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> Int? {
+) -> Int32? {
   @ir.hot_region_single_plain_br_target(value0, value1)
 }
 
@@ -5325,10 +5380,10 @@ pub fn ffi_ir_hot_region_single_plain_br_target(
 pub fn ffi_ir_hot_region_splice(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-  value3 : Int,
-  value4 : Array[Int],
-) -> Array[Int] {
+  value2 : Int32,
+  value3 : Int32,
+  value4 : Array[Int32],
+) -> Array[Int32] {
   @ir.hot_region_splice(value0, value1, value2, value3, value4)
 }
 
@@ -5338,8 +5393,8 @@ pub fn ffi_ir_hot_region_splice(
 pub fn ffi_ir_hot_region_split_trailing_payload_roots(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-) -> (Array[Int], Array[Int])? {
+  value2 : Int32,
+) -> (Array[Int32], Array[Int32])? {
   @ir.hot_region_split_trailing_payload_roots(value0, value1, value2)
 }
 
@@ -5349,7 +5404,7 @@ pub fn ffi_ir_hot_region_split_trailing_payload_roots(
 pub fn ffi_ir_hot_region_split_trailing_plain_br_root(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> (Array[Int], Int)? {
+) -> (Array[Int32], Int32)? {
   @ir.hot_region_split_trailing_plain_br_root(value0, value1)
 }
 
@@ -5359,7 +5414,7 @@ pub fn ffi_ir_hot_region_split_trailing_plain_br_root(
 pub fn ffi_ir_hot_region_split_trailing_plain_br_target(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-) -> (Array[Int], Int)? {
+) -> (Array[Int32], Int32)? {
   @ir.hot_region_split_trailing_plain_br_target(value0, value1)
 }
 
@@ -5368,7 +5423,7 @@ pub fn ffi_ir_hot_region_split_trailing_plain_br_target(
 #export_name("ffi_ir_hot_region_then_ref")
 pub fn ffi_ir_hot_region_then_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotRegionRef {
   @ir.hot_region_then_ref(value0, value1)
 }
@@ -5379,8 +5434,8 @@ pub fn ffi_ir_hot_region_then_ref(
 pub fn ffi_ir_hot_region_truncate_suffix(
   value0 : @ir.HotFunc,
   value1 : @ir.HotRegionRef,
-  value2 : Int,
-) -> Array[Int] {
+  value2 : Int32,
+) -> Array[Int32] {
   @ir.hot_region_truncate_suffix(value0, value1, value2)
 }
 
@@ -5412,9 +5467,9 @@ pub fn ffi_ir_hot_repair_scalar_catch_payloads(value0 : @ir.HotFunc) -> Bool {
 #export_name("ffi_ir_hot_replace_child_span")
 pub fn ffi_ir_hot_replace_child_span(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Array[Int],
-) -> Array[Int] {
+  value1 : Int32,
+  value2 : Array[Int32],
+) -> Array[Int32] {
   @ir.hot_replace_child_span(value0, value1, value2)
 }
 
@@ -5423,8 +5478,8 @@ pub fn ffi_ir_hot_replace_child_span(
 #export_name("ffi_ir_hot_replace_child_spans_and_control_result_type")
 pub fn ffi_ir_hot_replace_child_spans_and_control_result_type(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
   value3 : Array[@ir.HotChildSpanRewrite],
 ) -> Unit {
   @ir.hot_replace_child_spans_and_control_result_type(
@@ -5437,7 +5492,7 @@ pub fn ffi_ir_hot_replace_child_spans_and_control_result_type(
 #export_name("ffi_ir_hot_replace_local_set_with_drop")
 pub fn ffi_ir_hot_replace_local_set_with_drop(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_replace_local_set_with_drop(value0, value1)
 }
@@ -5447,7 +5502,7 @@ pub fn ffi_ir_hot_replace_local_set_with_drop(
 #export_name("ffi_ir_hot_replace_local_tee_with_value")
 pub fn ffi_ir_hot_replace_local_tee_with_value(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_replace_local_tee_with_value(value0, value1)
 }
@@ -5457,7 +5512,7 @@ pub fn ffi_ir_hot_replace_local_tee_with_value(
 #export_name("ffi_ir_hot_replace_node")
 pub fn ffi_ir_hot_replace_node(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @ir.HotNode,
   preserve_value_order : Bool?,
 ) -> Unit {
@@ -5469,7 +5524,7 @@ pub fn ffi_ir_hot_replace_node(
 #export_name("ffi_ir_hot_replace_node_preserving_position")
 pub fn ffi_ir_hot_replace_node_preserving_position(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @ir.HotNode,
 ) -> Unit {
   @ir.hot_replace_node_preserving_position(value0, value1, value2)
@@ -5485,28 +5540,28 @@ pub fn ffi_ir_hot_revision_bump(value0 : @ir.HotFunc) -> Unit {
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_revision_current")
-pub fn ffi_ir_hot_revision_current(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_revision_current(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_revision_current(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_append")
-pub fn ffi_ir_hot_root_append(value0 : @ir.HotFunc, value1 : Int) -> Unit {
+pub fn ffi_ir_hot_root_append(value0 : @ir.HotFunc, value1 : Int32) -> Unit {
   @ir.hot_root_append(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_count")
-pub fn ffi_ir_hot_root_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_root_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_root_count(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_get")
-pub fn ffi_ir_hot_root_get(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_root_get(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_root_get(value0, value1)
 }
 
@@ -5515,8 +5570,8 @@ pub fn ffi_ir_hot_root_get(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_root_insert")
 pub fn ffi_ir_hot_root_insert(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_root_insert(value0, value1, value2)
 }
@@ -5524,7 +5579,7 @@ pub fn ffi_ir_hot_root_insert(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_remove")
-pub fn ffi_ir_hot_root_remove(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_root_remove(value0 : @ir.HotFunc, value1 : Int32) -> Int32 {
   @ir.hot_root_remove(value0, value1)
 }
 
@@ -5533,8 +5588,8 @@ pub fn ffi_ir_hot_root_remove(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_root_set")
 pub fn ffi_ir_hot_root_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.hot_root_set(value0, value1, value2)
 }
@@ -5542,7 +5597,7 @@ pub fn ffi_ir_hot_root_set(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_span")
-pub fn ffi_ir_hot_root_span(value0 : @ir.HotFunc) -> Array[Int] {
+pub fn ffi_ir_hot_root_span(value0 : @ir.HotFunc) -> Array[Int32] {
   @ir.hot_root_span(value0)
 }
 
@@ -5551,17 +5606,17 @@ pub fn ffi_ir_hot_root_span(value0 : @ir.HotFunc) -> Array[Int] {
 #export_name("ffi_ir_hot_root_splice")
 pub fn ffi_ir_hot_root_splice(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  value3 : Array[Int],
-) -> Array[Int] {
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Array[Int32],
+) -> Array[Int32] {
   @ir.hot_root_splice(value0, value1, value2, value3)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_root_storage_count")
-pub fn ffi_ir_hot_root_storage_count(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_root_storage_count(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_root_storage_count(value0)
 }
 
@@ -5579,7 +5634,7 @@ pub fn ffi_ir_hot_scalar_catch_payloads_repairable(
 #export_name("ffi_ir_hot_set_body_local_type")
 pub fn ffi_ir_hot_set_body_local_type(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.ValType,
 ) -> Bool {
   @ir.hot_set_body_local_type(value0, value1, value2)
@@ -5599,7 +5654,7 @@ pub fn ffi_ir_hot_side_table_kind_for_op(
 #export_name("ffi_ir_hot_simple_value_key")
 pub fn ffi_ir_hot_simple_value_key(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotSimpleValueKey? {
   @ir.hot_simple_value_key(value0, value1)
 }
@@ -5609,7 +5664,7 @@ pub fn ffi_ir_hot_simple_value_key(
 #export_name("ffi_ir_hot_source_first_effect_orders")
 pub fn ffi_ir_hot_source_first_effect_orders(
   value0 : @ir.HotFunc,
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.hot_source_first_effect_orders(value0)
 }
 
@@ -5618,9 +5673,9 @@ pub fn ffi_ir_hot_source_first_effect_orders(
 #export_name("ffi_ir_hot_split_trailing_payload_roots")
 pub fn ffi_ir_hot_split_trailing_payload_roots(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
-  value2 : Int,
-) -> (Array[Int], Array[Int])? {
+  value1 : Array[Int32],
+  value2 : Int32,
+) -> (Array[Int32], Array[Int32])? {
   @ir.hot_split_trailing_payload_roots(value0, value1, value2)
 }
 
@@ -5629,7 +5684,7 @@ pub fn ffi_ir_hot_split_trailing_payload_roots(
 #export_name("ffi_ir_hot_try_table_catches_set")
 pub fn ffi_ir_hot_try_table_catches_set(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : Array[@ir.HotCatchArm],
 ) -> Unit {
   @ir.hot_try_table_catches_set(value0, value1, value2)
@@ -5640,7 +5695,7 @@ pub fn ffi_ir_hot_try_table_catches_set(
 #export_name("ffi_ir_hot_tuple_make_promote_to_block")
 pub fn ffi_ir_hot_tuple_make_promote_to_block(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.BlockType,
 ) -> Unit {
   @ir.hot_tuple_make_promote_to_block(value0, value1, value2)
@@ -5651,7 +5706,7 @@ pub fn ffi_ir_hot_tuple_make_promote_to_block(
 #export_name("ffi_ir_hot_type_get")
 pub fn ffi_ir_hot_type_get(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotTypeInfo {
   @ir.hot_type_get(value0, value1)
 }
@@ -5662,7 +5717,7 @@ pub fn ffi_ir_hot_type_get(
 pub fn ffi_ir_hot_type_intern_block_result(
   value0 : @ir.HotFunc,
   value1 : @lib.BlockType,
-) -> Int {
+) -> Int32 {
   @ir.hot_type_intern_block_result(value0, value1)
 }
 
@@ -5674,7 +5729,7 @@ pub fn ffi_ir_hot_type_intern_resolved_block_result(
   value1 : @lib.BlockType,
   value2 : Array[@lib.ValType],
   value3 : Array[@lib.ValType],
-) -> Int {
+) -> Int32 {
   @ir.hot_type_intern_resolved_block_result(value0, value1, value2, value3)
 }
 
@@ -5684,7 +5739,7 @@ pub fn ffi_ir_hot_type_intern_resolved_block_result(
 pub fn ffi_ir_hot_type_intern_results(
   value0 : @ir.HotFunc,
   value1 : Array[@lib.ValType],
-) -> Int {
+) -> Int32 {
   @ir.hot_type_intern_results(value0, value1)
 }
 
@@ -5694,21 +5749,21 @@ pub fn ffi_ir_hot_type_intern_results(
 pub fn ffi_ir_hot_type_intern_value(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-) -> Int {
+) -> Int32 {
   @ir.hot_type_intern_value(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_type_intern_void")
-pub fn ffi_ir_hot_type_intern_void(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_type_intern_void(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_type_intern_void(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_type_is_void")
-pub fn ffi_ir_hot_type_is_void(value0 : @ir.HotFunc, value1 : Int) -> Bool {
+pub fn ffi_ir_hot_type_is_void(value0 : @ir.HotFunc, value1 : Int32) -> Bool {
   @ir.hot_type_is_void(value0, value1)
 }
 
@@ -5718,7 +5773,7 @@ pub fn ffi_ir_hot_type_is_void(value0 : @ir.HotFunc, value1 : Int) -> Bool {
 pub fn ffi_ir_hot_type_resolve_results(
   value0 : @ir.HotFunc,
   value1 : @ir.HotModuleContext,
-  value2 : Int,
+  value2 : Int32,
 ) -> Array[@lib.ValType]? {
   @ir.hot_type_resolve_results(value0, value1, value2)
 }
@@ -5726,7 +5781,10 @@ pub fn ffi_ir_hot_type_resolve_results(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_type_result_arity")
-pub fn ffi_ir_hot_type_result_arity(value0 : @ir.HotFunc, value1 : Int) -> Int {
+pub fn ffi_ir_hot_type_result_arity(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> Int32 {
   @ir.hot_type_result_arity(value0, value1)
 }
 
@@ -5735,7 +5793,7 @@ pub fn ffi_ir_hot_type_result_arity(value0 : @ir.HotFunc, value1 : Int) -> Int {
 #export_name("ffi_ir_hot_type_results")
 pub fn ffi_ir_hot_type_results(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@lib.ValType] {
   @ir.hot_type_results(value0, value1)
 }
@@ -5743,7 +5801,7 @@ pub fn ffi_ir_hot_type_results(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_hot_type_void")
-pub fn ffi_ir_hot_type_void(value0 : @ir.HotFunc) -> Int {
+pub fn ffi_ir_hot_type_void(value0 : @ir.HotFunc) -> Int32 {
   @ir.hot_type_void(value0)
 }
 
@@ -5821,7 +5879,7 @@ pub fn ffi_ir_hot_verify_dominators(
 #export_name("ffi_ir_hot_verify_node_exact_instr_payload")
 pub fn ffi_ir_hot_verify_node_exact_instr_payload(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_verify_node_exact_instr_payload(value0, value1)
 }
@@ -5842,7 +5900,7 @@ pub fn ffi_ir_hot_verify_ssa(
 #export_name("ffi_ir_hot_weaken_body_local_to_nullable_ref")
 pub fn ffi_ir_hot_weaken_body_local_to_nullable_ref(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.hot_weaken_body_local_to_nullable_ref(value0, value1)
 }
@@ -5861,7 +5919,7 @@ pub fn ffi_ir_ir_test_assert_verify_and_lower(
 #export_name("ffi_ir_ir_test_build_hot_from_wat")
 pub fn ffi_ir_ir_test_build_hot_from_wat(
   value0 : String,
-  code_idx : Int?,
+  code_idx : Int32?,
 ) -> @ir.IrTestHotFixture {
   @ir.ir_test_build_hot_from_wat(value0, code_idx?)
 }
@@ -5897,14 +5955,14 @@ pub fn ffi_ir_ir_test_dump_ssa(value0 : @ir.HotFunc) -> String {
 ///|
 #doc(hidden)
 #export_name("ffi_ir_live_in")
-pub fn ffi_ir_live_in(value0 : @ir.HotLiveness, value1 : Int) -> @ir.Bitset {
+pub fn ffi_ir_live_in(value0 : @ir.HotLiveness, value1 : Int32) -> @ir.Bitset {
   @ir.live_in(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_live_out")
-pub fn ffi_ir_live_out(value0 : @ir.HotLiveness, value1 : Int) -> @ir.Bitset {
+pub fn ffi_ir_live_out(value0 : @ir.HotLiveness, value1 : Int32) -> @ir.Bitset {
   @ir.live_out(value0, value1)
 }
 
@@ -5968,9 +6026,9 @@ pub fn ffi_ir_local_graph_can_move_set_past_node(
   value0 : @ir.HotFunc,
   value1 : @ir.HotCfg,
   value2 : @ir.HotLocalGraph,
-  value3 : Int,
-  value4 : Int,
-) -> Array[Int] {
+  value3 : Int32,
+  value4 : Int32,
+) -> Array[Int32] {
   @ir.local_graph_can_move_set_past_node(value0, value1, value2, value3, value4)
 }
 
@@ -5979,7 +6037,7 @@ pub fn ffi_ir_local_graph_can_move_set_past_node(
 #export_name("ffi_ir_local_graph_entry_source_has_legal_default")
 pub fn ffi_ir_local_graph_entry_source_has_legal_default(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_entry_source_has_legal_default(value0, value1)
 }
@@ -5989,7 +6047,7 @@ pub fn ffi_ir_local_graph_entry_source_has_legal_default(
 #export_name("ffi_ir_local_graph_entry_source_is_default")
 pub fn ffi_ir_local_graph_entry_source_is_default(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_entry_source_is_default(value0, value1)
 }
@@ -5999,7 +6057,7 @@ pub fn ffi_ir_local_graph_entry_source_is_default(
 #export_name("ffi_ir_local_graph_entry_source_is_param")
 pub fn ffi_ir_local_graph_entry_source_is_param(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_entry_source_is_param(value0, value1)
 }
@@ -6009,7 +6067,7 @@ pub fn ffi_ir_local_graph_entry_source_is_param(
 #export_name("ffi_ir_local_graph_get_is_merge")
 pub fn ffi_ir_local_graph_get_is_merge(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_get_is_merge(value0, value1)
 }
@@ -6019,7 +6077,7 @@ pub fn ffi_ir_local_graph_get_is_merge(
 #export_name("ffi_ir_local_graph_get_is_single_source")
 pub fn ffi_ir_local_graph_get_is_single_source(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_get_is_single_source(value0, value1)
 }
@@ -6029,8 +6087,8 @@ pub fn ffi_ir_local_graph_get_is_single_source(
 #export_name("ffi_ir_local_graph_influenced_gets_for_set")
 pub fn ffi_ir_local_graph_influenced_gets_for_set(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_graph_influenced_gets_for_set(value0, value1)
 }
 
@@ -6039,8 +6097,8 @@ pub fn ffi_ir_local_graph_influenced_gets_for_set(
 #export_name("ffi_ir_local_graph_influenced_gets_for_write")
 pub fn ffi_ir_local_graph_influenced_gets_for_write(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_graph_influenced_gets_for_write(value0, value1)
 }
 
@@ -6049,7 +6107,7 @@ pub fn ffi_ir_local_graph_influenced_gets_for_write(
 #export_name("ffi_ir_local_graph_local_is_already_ssa")
 pub fn ffi_ir_local_graph_local_is_already_ssa(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_local_is_already_ssa(value0, value1)
 }
@@ -6059,7 +6117,7 @@ pub fn ffi_ir_local_graph_local_is_already_ssa(
 #export_name("ffi_ir_local_graph_node_is_write")
 pub fn ffi_ir_local_graph_node_is_write(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_node_is_write(value0, value1)
 }
@@ -6069,8 +6127,8 @@ pub fn ffi_ir_local_graph_node_is_write(
 #export_name("ffi_ir_local_graph_reaching_source_count_for_get")
 pub fn ffi_ir_local_graph_reaching_source_count_for_get(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.local_graph_reaching_source_count_for_get(value0, value1)
 }
 
@@ -6079,8 +6137,8 @@ pub fn ffi_ir_local_graph_reaching_source_count_for_get(
 #export_name("ffi_ir_local_graph_reaching_source_for_get")
 pub fn ffi_ir_local_graph_reaching_source_for_get(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> @ir.HotLocalGraphSource {
   @ir.local_graph_reaching_source_for_get(value0, value1, value2)
 }
@@ -6090,8 +6148,8 @@ pub fn ffi_ir_local_graph_reaching_source_for_get(
 #export_name("ffi_ir_local_graph_reaching_source_value_for_get")
 pub fn ffi_ir_local_graph_reaching_source_value_for_get(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> @ir.HotLocalGraphSourceValue {
   @ir.local_graph_reaching_source_value_for_get(value0, value1, value2)
 }
@@ -6101,7 +6159,7 @@ pub fn ffi_ir_local_graph_reaching_source_value_for_get(
 #export_name("ffi_ir_local_graph_reaching_sources_for_get")
 pub fn ffi_ir_local_graph_reaching_sources_for_get(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotLocalGraphSource] {
   @ir.local_graph_reaching_sources_for_get(value0, value1)
 }
@@ -6141,7 +6199,7 @@ pub fn ffi_ir_local_graph_source_is_param_entry(
 #export_name("ffi_ir_local_graph_write_has_merge_influences")
 pub fn ffi_ir_local_graph_write_has_merge_influences(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_write_has_merge_influences(value0, value1)
 }
@@ -6151,7 +6209,7 @@ pub fn ffi_ir_local_graph_write_has_merge_influences(
 #export_name("ffi_ir_local_graph_write_is_no_merge_freshenable")
 pub fn ffi_ir_local_graph_write_is_no_merge_freshenable(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_write_is_no_merge_freshenable(value0, value1)
 }
@@ -6161,7 +6219,7 @@ pub fn ffi_ir_local_graph_write_is_no_merge_freshenable(
 #export_name("ffi_ir_local_graph_write_is_set")
 pub fn ffi_ir_local_graph_write_is_set(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_write_is_set(value0, value1)
 }
@@ -6171,7 +6229,7 @@ pub fn ffi_ir_local_graph_write_is_set(
 #export_name("ffi_ir_local_graph_write_is_tee")
 pub fn ffi_ir_local_graph_write_is_tee(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.local_graph_write_is_tee(value0, value1)
 }
@@ -6181,8 +6239,8 @@ pub fn ffi_ir_local_graph_write_is_tee(
 #export_name("ffi_ir_local_graph_write_local_id")
 pub fn ffi_ir_local_graph_write_local_id(
   value0 : @ir.HotLocalGraph,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.local_graph_write_local_id(value0, value1)
 }
 
@@ -6191,8 +6249,8 @@ pub fn ffi_ir_local_graph_write_local_id(
 #export_name("ffi_ir_local_live_in")
 pub fn ffi_ir_local_live_in(
   value0 : @ir.HotLiveness,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.local_live_in(value0, value1, value2)
 }
@@ -6202,8 +6260,8 @@ pub fn ffi_ir_local_live_in(
 #export_name("ffi_ir_local_live_out")
 pub fn ffi_ir_local_live_out(
   value0 : @ir.HotLiveness,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.local_live_out(value0, value1, value2)
 }
@@ -6213,8 +6271,8 @@ pub fn ffi_ir_local_live_out(
 #export_name("ffi_ir_local_read_nodes")
 pub fn ffi_ir_local_read_nodes(
   value0 : @ir.HotUseDef,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_read_nodes(value0, value1)
 }
 
@@ -6223,8 +6281,8 @@ pub fn ffi_ir_local_read_nodes(
 #export_name("ffi_ir_local_read_nodes_borrowed")
 pub fn ffi_ir_local_read_nodes_borrowed(
   value0 : @ir.HotUseDef,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_read_nodes_borrowed(value0, value1)
 }
 
@@ -6233,8 +6291,8 @@ pub fn ffi_ir_local_read_nodes_borrowed(
 #export_name("ffi_ir_local_read_source_count_for_get")
 pub fn ffi_ir_local_read_source_count_for_get(
   value0 : @ir.HotLocalReadSources,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.local_read_source_count_for_get(value0, value1)
 }
 
@@ -6243,8 +6301,8 @@ pub fn ffi_ir_local_read_source_count_for_get(
 #export_name("ffi_ir_local_read_source_value_for_get")
 pub fn ffi_ir_local_read_source_value_for_get(
   value0 : @ir.HotLocalReadSources,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> @ir.HotLocalGraphSourceValue {
   @ir.local_read_source_value_for_get(value0, value1, value2)
 }
@@ -6254,8 +6312,8 @@ pub fn ffi_ir_local_read_source_value_for_get(
 #export_name("ffi_ir_local_write_block_ids")
 pub fn ffi_ir_local_write_block_ids(
   value0 : @ir.HotUseDef,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_write_block_ids(value0, value1)
 }
 
@@ -6264,8 +6322,8 @@ pub fn ffi_ir_local_write_block_ids(
 #export_name("ffi_ir_local_write_nodes")
 pub fn ffi_ir_local_write_nodes(
   value0 : @ir.HotUseDef,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_write_nodes(value0, value1)
 }
 
@@ -6274,22 +6332,25 @@ pub fn ffi_ir_local_write_nodes(
 #export_name("ffi_ir_local_write_nodes_borrowed")
 pub fn ffi_ir_local_write_nodes_borrowed(
   value0 : @ir.HotUseDef,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.local_write_nodes_borrowed(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_loop_blocks")
-pub fn ffi_ir_loop_blocks(value0 : @ir.HotLoopInfo, value1 : Int) -> Array[Int] {
+pub fn ffi_ir_loop_blocks(
+  value0 : @ir.HotLoopInfo,
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.loop_blocks(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_loop_depth")
-pub fn ffi_ir_loop_depth(value0 : @ir.HotLoopInfo, value1 : Int) -> Int {
+pub fn ffi_ir_loop_depth(value0 : @ir.HotLoopInfo, value1 : Int32) -> Int32 {
   @ir.loop_depth(value0, value1)
 }
 
@@ -6298,7 +6359,7 @@ pub fn ffi_ir_loop_depth(value0 : @ir.HotLoopInfo, value1 : Int) -> Int {
 #export_name("ffi_ir_loop_exits")
 pub fn ffi_ir_loop_exits(
   value0 : @ir.HotLoopInfo,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotLoopExit] {
   @ir.loop_exits(value0, value1)
 }
@@ -6306,14 +6367,17 @@ pub fn ffi_ir_loop_exits(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_loop_for_block")
-pub fn ffi_ir_loop_for_block(value0 : @ir.HotLoopInfo, value1 : Int) -> Int? {
+pub fn ffi_ir_loop_for_block(
+  value0 : @ir.HotLoopInfo,
+  value1 : Int32,
+) -> Int32? {
   @ir.loop_for_block(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_loop_header")
-pub fn ffi_ir_loop_header(value0 : @ir.HotLoopInfo, value1 : Int) -> Int {
+pub fn ffi_ir_loop_header(value0 : @ir.HotLoopInfo, value1 : Int32) -> Int32 {
   @ir.loop_header(value0, value1)
 }
 
@@ -6339,15 +6403,15 @@ pub fn ffi_ir_loop_info_debug_dump(value0 : @ir.HotLoopInfo) -> String {
 #export_name("ffi_ir_loop_latches")
 pub fn ffi_ir_loop_latches(
   value0 : @ir.HotLoopInfo,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.loop_latches(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_node_use_count")
-pub fn ffi_ir_node_use_count(value0 : @ir.HotUseDef, value1 : Int) -> Int {
+pub fn ffi_ir_node_use_count(value0 : @ir.HotUseDef, value1 : Int32) -> Int32 {
   @ir.node_use_count(value0, value1)
 }
 
@@ -6356,7 +6420,7 @@ pub fn ffi_ir_node_use_count(value0 : @ir.HotUseDef, value1 : Int) -> Int {
 #export_name("ffi_ir_node_use_sites")
 pub fn ffi_ir_node_use_sites(
   value0 : @ir.HotUseDef,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotUseSite] {
   @ir.node_use_sites(value0, value1)
 }
@@ -6366,7 +6430,7 @@ pub fn ffi_ir_node_use_sites(
 #export_name("ffi_ir_node_use_sites_borrowed")
 pub fn ffi_ir_node_use_sites_borrowed(
   value0 : @ir.HotUseDef,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotUseSite] {
   @ir.node_use_sites_borrowed(value0, value1)
 }
@@ -6383,8 +6447,8 @@ pub fn ffi_ir_postdom_build(value0 : @ir.HotCfg) -> @ir.HotPostDominators {
 #export_name("ffi_ir_postdom_children")
 pub fn ffi_ir_postdom_children(
   value0 : @ir.HotPostDominators,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.postdom_children(value0, value1)
 }
 
@@ -6400,8 +6464,8 @@ pub fn ffi_ir_postdom_debug_dump(value0 : @ir.HotPostDominators) -> String {
 #export_name("ffi_ir_postdom_frontier")
 pub fn ffi_ir_postdom_frontier(
   value0 : @ir.HotPostDominators,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.postdom_frontier(value0, value1)
 }
 
@@ -6410,8 +6474,8 @@ pub fn ffi_ir_postdom_frontier(
 #export_name("ffi_ir_postdom_ipdom")
 pub fn ffi_ir_postdom_ipdom(
   value0 : @ir.HotPostDominators,
-  value1 : Int,
-) -> Int? {
+  value1 : Int32,
+) -> Int32? {
   @ir.postdom_ipdom(value0, value1)
 }
 
@@ -6420,8 +6484,8 @@ pub fn ffi_ir_postdom_ipdom(
 #export_name("ffi_ir_postdom_postdominates")
 pub fn ffi_ir_postdom_postdominates(
   value0 : @ir.HotPostDominators,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Bool {
   @ir.postdom_postdominates(value0, value1, value2)
 }
@@ -6455,15 +6519,15 @@ pub fn ffi_ir_ssa_build_local(
 #export_name("ffi_ir_ssa_def_for_local_set")
 pub fn ffi_ir_ssa_def_for_local_set(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.ssa_def_for_local_set(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_default_init_def")
-pub fn ffi_ir_ssa_default_init_def(value0 : Int) -> @ir.HotSsaValueOrigin {
+pub fn ffi_ir_ssa_default_init_def(value0 : Int32) -> @ir.HotSsaValueOrigin {
   @ir.ssa_default_init_def(value0)
 }
 
@@ -6501,21 +6565,21 @@ pub fn ffi_ir_ssa_insert_predecessor_copies(
   value1 : @ir.HotRegionRef,
   value2 : @ir.HotBlockInfo,
   value3 : Array[@ir.HotSsaCopy],
-) -> Array[Int] {
+) -> Array[Int32] {
   @ir.ssa_insert_predecessor_copies(value0, value1, value2, value3)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_local_set_def")
-pub fn ffi_ir_ssa_local_set_def(value0 : Int) -> @ir.HotSsaValueOrigin {
+pub fn ffi_ir_ssa_local_set_def(value0 : Int32) -> @ir.HotSsaValueOrigin {
   @ir.ssa_local_set_def(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_local_tee_def")
-pub fn ffi_ir_ssa_local_tee_def(value0 : Int) -> @ir.HotSsaValueOrigin {
+pub fn ffi_ir_ssa_local_tee_def(value0 : Int32) -> @ir.HotSsaValueOrigin {
   @ir.ssa_local_tee_def(value0)
 }
 
@@ -6524,29 +6588,29 @@ pub fn ffi_ir_ssa_local_tee_def(value0 : Int) -> @ir.HotSsaValueOrigin {
 #export_name("ffi_ir_ssa_maybe_def_for_local_set")
 pub fn ffi_ir_ssa_maybe_def_for_local_set(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
-) -> Int? {
+  value1 : Int32,
+) -> Int32? {
   @ir.ssa_maybe_def_for_local_set(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_param_entry_def")
-pub fn ffi_ir_ssa_param_entry_def(value0 : Int) -> @ir.HotSsaValueOrigin {
+pub fn ffi_ir_ssa_param_entry_def(value0 : Int32) -> @ir.HotSsaValueOrigin {
   @ir.ssa_param_entry_def(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_phi_block")
-pub fn ffi_ir_ssa_phi_block(value0 : @ir.HotLocalSsa, value1 : Int) -> Int {
+pub fn ffi_ir_ssa_phi_block(value0 : @ir.HotLocalSsa, value1 : Int32) -> Int32 {
   @ir.ssa_phi_block(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_phi_def")
-pub fn ffi_ir_ssa_phi_def(value0 : Int) -> @ir.HotSsaValueOrigin {
+pub fn ffi_ir_ssa_phi_def(value0 : Int32) -> @ir.HotSsaValueOrigin {
   @ir.ssa_phi_def(value0)
 }
 
@@ -6555,7 +6619,7 @@ pub fn ffi_ir_ssa_phi_def(value0 : Int) -> @ir.HotSsaValueOrigin {
 #export_name("ffi_ir_ssa_phi_inputs")
 pub fn ffi_ir_ssa_phi_inputs(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotSsaPhiInput] {
   @ir.ssa_phi_inputs(value0, value1)
 }
@@ -6563,7 +6627,7 @@ pub fn ffi_ir_ssa_phi_inputs(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_ssa_phi_local")
-pub fn ffi_ir_ssa_phi_local(value0 : @ir.HotLocalSsa, value1 : Int) -> Int {
+pub fn ffi_ir_ssa_phi_local(value0 : @ir.HotLocalSsa, value1 : Int32) -> Int32 {
   @ir.ssa_phi_local(value0, value1)
 }
 
@@ -6583,9 +6647,9 @@ pub fn ffi_ir_ssa_phi_placement_blocks(
   value2 : @ir.HotDominators,
   value3 : @ir.HotLiveness,
   value4 : @ir.HotUseDef,
-  value5 : Array[Int],
-  value6 : Int,
-) -> Array[Int] {
+  value5 : Array[Int32],
+  value6 : Int32,
+) -> Array[Int32] {
   @ir.ssa_phi_placement_blocks(
     value0, value1, value2, value3, value4, value5, value6,
   )
@@ -6596,8 +6660,8 @@ pub fn ffi_ir_ssa_phi_placement_blocks(
 #export_name("ffi_ir_ssa_phis_for_block")
 pub fn ffi_ir_ssa_phis_for_block(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
-) -> Array[Int] {
+  value1 : Int32,
+) -> Array[Int32] {
   @ir.ssa_phis_for_block(value0, value1)
 }
 
@@ -6606,7 +6670,7 @@ pub fn ffi_ir_ssa_phis_for_block(
 #export_name("ffi_ir_ssa_remove_dead_local_defs")
 pub fn ffi_ir_ssa_remove_dead_local_defs(
   value0 : @ir.HotFunc,
-  value1 : Array[Int],
+  value1 : Array[Int32],
 ) -> Unit {
   @ir.ssa_remove_dead_local_defs(value0, value1)
 }
@@ -6623,8 +6687,8 @@ pub fn ffi_ir_ssa_rename_policy() -> @ir.HotSsaRenamePolicy {
 #export_name("ffi_ir_ssa_rewrite_local_use")
 pub fn ffi_ir_ssa_rewrite_local_use(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Unit {
   @ir.ssa_rewrite_local_use(value0, value1, value2)
 }
@@ -6634,7 +6698,7 @@ pub fn ffi_ir_ssa_rewrite_local_use(
 #export_name("ffi_ir_ssa_simple_condition_value_block_allowed")
 pub fn ffi_ir_ssa_simple_condition_value_block_allowed(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.ssa_simple_condition_value_block_allowed(value0, value1)
 }
@@ -6644,9 +6708,9 @@ pub fn ffi_ir_ssa_simple_condition_value_block_allowed(
 #export_name("ffi_ir_ssa_simple_drop_result_if_allowed")
 pub fn ffi_ir_ssa_simple_drop_result_if_allowed(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Int32,
 ) -> Bool {
   @ir.ssa_simple_drop_result_if_allowed(value0, value1, value2, value3)
 }
@@ -6656,9 +6720,9 @@ pub fn ffi_ir_ssa_simple_drop_result_if_allowed(
 #export_name("ffi_ir_ssa_simple_drop_value_block_allowed")
 pub fn ffi_ir_ssa_simple_drop_value_block_allowed(
   value0 : @ir.HotFunc,
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
+  value1 : Int32,
+  value2 : Int32,
+  value3 : Int32,
 ) -> Bool {
   @ir.ssa_simple_drop_value_block_allowed(value0, value1, value2, value3)
 }
@@ -6669,7 +6733,7 @@ pub fn ffi_ir_ssa_simple_drop_value_block_allowed(
 pub fn ffi_ir_ssa_simple_result_if_arm_value_block_allowed(
   value0 : @ir.HotFunc,
   value1 : @lib.ValType,
-  value2 : Int,
+  value2 : Int32,
 ) -> Bool {
   @ir.ssa_simple_result_if_arm_value_block_allowed(value0, value1, value2)
 }
@@ -6679,7 +6743,7 @@ pub fn ffi_ir_ssa_simple_result_if_arm_value_block_allowed(
 #export_name("ffi_ir_ssa_simple_value_block_operand_allowed")
 pub fn ffi_ir_ssa_simple_value_block_operand_allowed(
   value0 : @ir.HotFunc,
-  value1 : Int,
+  value1 : Int32,
 ) -> Bool {
   @ir.ssa_simple_value_block_operand_allowed(value0, value1)
 }
@@ -6689,7 +6753,7 @@ pub fn ffi_ir_ssa_simple_value_block_operand_allowed(
 #export_name("ffi_ir_ssa_uses_of_value")
 pub fn ffi_ir_ssa_uses_of_value(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@ir.HotSsaUseOrigin] {
   @ir.ssa_uses_of_value(value0, value1)
 }
@@ -6706,8 +6770,8 @@ pub fn ffi_ir_ssa_v1_exclusions() -> Array[@ir.HotSsaExcludedFeature] {
 #export_name("ffi_ir_ssa_value_for_local_get")
 pub fn ffi_ir_ssa_value_for_local_get(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
-) -> Int {
+  value1 : Int32,
+) -> Int32 {
   @ir.ssa_value_for_local_get(value0, value1)
 }
 
@@ -6716,7 +6780,7 @@ pub fn ffi_ir_ssa_value_for_local_get(
 #export_name("ffi_ir_ssa_value_origin")
 pub fn ffi_ir_ssa_value_origin(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotSsaValueOrigin {
   @ir.ssa_value_origin(value0, value1)
 }
@@ -6726,7 +6790,7 @@ pub fn ffi_ir_ssa_value_origin(
 #export_name("ffi_ir_ssa_value_type")
 pub fn ffi_ir_ssa_value_type(
   value0 : @ir.HotLocalSsa,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.ValType {
   @ir.ssa_value_type(value0, value1)
 }
@@ -6808,8 +6872,8 @@ pub fn ffi_ir_HotAnalysisCache_new() -> @ir.HotAnalysisCache {
 #doc(hidden)
 #export_name("ffi_ir_HotBranchTable_new")
 pub fn ffi_ir_HotBranchTable_new(
-  value0 : Array[Int],
-  value1 : Int,
+  value0 : Array[Int32],
+  value1 : Int32,
 ) -> @ir.HotBranchTable {
   @ir.HotBranchTable::new(value0, value1)
 }
@@ -6827,14 +6891,14 @@ pub fn ffi_ir_HotCallSig_new(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_HotCatchArm_all")
-pub fn ffi_ir_HotCatchArm_all(value0 : Int) -> @ir.HotCatchArm {
+pub fn ffi_ir_HotCatchArm_all(value0 : Int32) -> @ir.HotCatchArm {
   @ir.HotCatchArm::all(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_HotCatchArm_all_ref")
-pub fn ffi_ir_HotCatchArm_all_ref(value0 : Int) -> @ir.HotCatchArm {
+pub fn ffi_ir_HotCatchArm_all_ref(value0 : Int32) -> @ir.HotCatchArm {
   @ir.HotCatchArm::all_ref(value0)
 }
 
@@ -6843,7 +6907,7 @@ pub fn ffi_ir_HotCatchArm_all_ref(value0 : Int) -> @ir.HotCatchArm {
 #export_name("ffi_ir_HotCatchArm_catch_")
 pub fn ffi_ir_HotCatchArm_catch_(
   value0 : @lib.TagIdx,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotCatchArm {
   @ir.HotCatchArm::catch_(value0, value1)
 }
@@ -6853,7 +6917,7 @@ pub fn ffi_ir_HotCatchArm_catch_(
 #export_name("ffi_ir_HotCatchArm_catch_ref")
 pub fn ffi_ir_HotCatchArm_catch_ref(
   value0 : @lib.TagIdx,
-  value1 : Int,
+  value1 : Int32,
 ) -> @ir.HotCatchArm {
   @ir.HotCatchArm::catch_ref(value0, value1)
 }
@@ -6871,8 +6935,8 @@ pub fn ffi_ir_HotCatchInfo_new(
 #doc(hidden)
 #export_name("ffi_ir_HotChildSpanRewrite_new")
 pub fn ffi_ir_HotChildSpanRewrite_new(
-  value0 : Int,
-  value1 : Array[Int],
+  value0 : Int32,
+  value1 : Array[Int32],
 ) -> @ir.HotChildSpanRewrite {
   @ir.HotChildSpanRewrite::new(value0, value1)
 }
@@ -6936,7 +7000,7 @@ pub fn ffi_ir_HotConstPayload_string_const(
 #export_name("ffi_ir_HotFunc_new")
 pub fn ffi_ir_HotFunc_new(
   locals : @ir.HotLocals?,
-  body_result_type : Int?,
+  body_result_type : Int32?,
 ) -> @ir.HotFunc {
   @ir.HotFunc::new(locals?, body_result_type?)
 }
@@ -6954,16 +7018,16 @@ pub fn ffi_ir_HotInstrPayload_new(
 #doc(hidden)
 #export_name("ffi_ir_HotLocalSsa_new")
 pub fn ffi_ir_HotLocalSsa_new(
-  revision : Int?,
+  revision : Int32?,
   value_types : Array[@lib.ValType]?,
   value_origins : Array[@ir.HotSsaValueOrigin]?,
   phis : Array[@ir.HotSsaPhi]?,
-  entry_defs : Array[Int]?,
-  phi_value_ids : Array[Int]?,
-  block_phis : Array[Array[Int]]?,
+  entry_defs : Array[Int32]?,
+  phi_value_ids : Array[Int32]?,
+  block_phis : Array[Array[Int32]]?,
   phi_inputs : Array[Array[@ir.HotSsaPhiInput]]?,
-  local_get_values : Array[Int]?,
-  local_write_defs : Array[Int]?,
+  local_get_values : Array[Int32]?,
+  local_write_defs : Array[Int32]?,
   value_uses : Array[Array[@ir.HotSsaUseOrigin]]?,
 ) -> @ir.HotLocalSsa {
   @ir.HotLocalSsa::new(
@@ -6985,7 +7049,7 @@ pub fn ffi_ir_HotLocalSsa_new(
 #doc(hidden)
 #export_name("ffi_ir_HotLocals_new")
 pub fn ffi_ir_HotLocals_new(
-  param_count : Int?,
+  param_count : Int32?,
   params : Array[@lib.ValType]?,
   locals : Array[@lib.ValType]?,
 ) -> @ir.HotLocals {
@@ -7109,7 +7173,7 @@ pub fn ffi_ir_HotRegionRef_root() -> @ir.HotRegionRef {
 #doc(hidden)
 #export_name("ffi_ir_HotSsaConcreteLocals_new")
 pub fn ffi_ir_HotSsaConcreteLocals_new(
-  value_locals : Array[Int]?,
+  value_locals : Array[Int32]?,
   extra_local_types : Array[@lib.ValType]?,
 ) -> @ir.HotSsaConcreteLocals {
   @ir.HotSsaConcreteLocals::new(value_locals?, extra_local_types?)
@@ -7118,14 +7182,14 @@ pub fn ffi_ir_HotSsaConcreteLocals_new(
 ///|
 #doc(hidden)
 #export_name("ffi_ir_HotSsaCopy_new")
-pub fn ffi_ir_HotSsaCopy_new(value0 : Int, value1 : Int) -> @ir.HotSsaCopy {
+pub fn ffi_ir_HotSsaCopy_new(value0 : Int32, value1 : Int32) -> @ir.HotSsaCopy {
   @ir.HotSsaCopy::new(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_ir_HotSsaPhi_new")
-pub fn ffi_ir_HotSsaPhi_new(value0 : Int, value1 : Int) -> @ir.HotSsaPhi {
+pub fn ffi_ir_HotSsaPhi_new(value0 : Int32, value1 : Int32) -> @ir.HotSsaPhi {
   @ir.HotSsaPhi::new(value0, value1)
 }
 
@@ -7133,8 +7197,8 @@ pub fn ffi_ir_HotSsaPhi_new(value0 : Int, value1 : Int) -> @ir.HotSsaPhi {
 #doc(hidden)
 #export_name("ffi_ir_HotSsaPhiInput_new")
 pub fn ffi_ir_HotSsaPhiInput_new(
-  value0 : Int,
-  value1 : Int,
+  value0 : Int32,
+  value1 : Int32,
 ) -> @ir.HotSsaPhiInput {
   @ir.HotSsaPhiInput::new(value0, value1)
 }
@@ -7200,7 +7264,7 @@ pub fn ffi_lib_func_extern_type(value0 : @lib.TypeIdx) -> @lib.ExternType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_func_idx")
-pub fn ffi_lib_func_idx(value0 : UInt) -> @lib.FuncIdx {
+pub fn ffi_lib_func_idx(value0 : UInt32) -> @lib.FuncIdx {
   @lib.func_idx(value0)
 }
 
@@ -7231,7 +7295,7 @@ pub fn ffi_lib_global_extern_type(value0 : @lib.GlobalType) -> @lib.ExternType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_global_idx")
-pub fn ffi_lib_global_idx(value0 : UInt) -> @lib.GlobalIdx {
+pub fn ffi_lib_global_idx(value0 : UInt32) -> @lib.GlobalIdx {
   @lib.global_idx(value0)
 }
 
@@ -7310,7 +7374,7 @@ pub fn ffi_lib_module_uses_custom_descriptors(value0 : @lib.Module) -> Bool {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_rec_idx")
-pub fn ffi_lib_rec_idx(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_rec_idx(value0 : UInt32) -> @lib.TypeIdx {
   @lib.rec_idx(value0)
 }
 
@@ -7366,7 +7430,7 @@ pub fn ffi_lib_table_extern_type(value0 : @lib.TableType) -> @lib.ExternType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_table_idx")
-pub fn ffi_lib_table_idx(value0 : UInt) -> @lib.TableIdx {
+pub fn ffi_lib_table_idx(value0 : UInt32) -> @lib.TableIdx {
   @lib.table_idx(value0)
 }
 
@@ -9520,7 +9584,7 @@ pub fn ffi_lib_DataCntSec_new(value0 : @lib.U32) -> @lib.DataCntSec {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_DataIdx_new")
-pub fn ffi_lib_DataIdx_new(value0 : UInt) -> @lib.DataIdx {
+pub fn ffi_lib_DataIdx_new(value0 : UInt32) -> @lib.DataIdx {
   @lib.DataIdx::new(value0)
 }
 
@@ -9553,7 +9617,7 @@ pub fn ffi_lib_DataSec_new(value0 : Array[@lib.Data]) -> @lib.DataSec {
 #export_name("ffi_lib_DefType_new")
 pub fn ffi_lib_DefType_new(
   value0 : @lib.RecType,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> @lib.DefType {
   @lib.DefType::new(value0, value1)
 }
@@ -9585,7 +9649,7 @@ pub fn ffi_lib_Elem_reftype(receiver : @lib.Elem) -> @lib.RefType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_ElemIdx_new")
-pub fn ffi_lib_ElemIdx_new(value0 : UInt) -> @lib.ElemIdx {
+pub fn ffi_lib_ElemIdx_new(value0 : UInt32) -> @lib.ElemIdx {
   @lib.ElemIdx::new(value0)
 }
 
@@ -9862,7 +9926,7 @@ pub fn ffi_lib_FuncAnnotation_new(
 #doc(hidden)
 #export_name("ffi_lib_FuncAnnotationAssoc_new")
 pub fn ffi_lib_FuncAnnotationAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : Array[@lib.FuncAnnotation],
 ) -> @lib.FuncAnnotationAssoc {
   @lib.FuncAnnotationAssoc::new(value0, value1)
@@ -9880,7 +9944,7 @@ pub fn ffi_lib_FuncAnnotationSec_new(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_FuncIdx_new")
-pub fn ffi_lib_FuncIdx_new(value0 : UInt) -> @lib.FuncIdx {
+pub fn ffi_lib_FuncIdx_new(value0 : UInt32) -> @lib.FuncIdx {
   @lib.FuncIdx::new(value0)
 }
 
@@ -9976,7 +10040,7 @@ pub fn ffi_lib_FunctionLocals_new(
 #export_name("ffi_lib_FunctionLocals_param_count")
 pub fn ffi_lib_FunctionLocals_param_count(
   receiver : @lib.FunctionLocals,
-) -> Int {
+) -> Int32 {
   @lib.FunctionLocals::param_count(receiver)
 }
 
@@ -10002,7 +10066,7 @@ pub fn ffi_lib_Global_new(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_GlobalIdx_new")
-pub fn ffi_lib_GlobalIdx_new(value0 : UInt) -> @lib.GlobalIdx {
+pub fn ffi_lib_GlobalIdx_new(value0 : UInt32) -> @lib.GlobalIdx {
   @lib.GlobalIdx::new(value0)
 }
 
@@ -10089,7 +10153,7 @@ pub fn ffi_lib_HeapType_shared_abs(value0 : @lib.AbsHeapType) -> @lib.HeapType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_I32_new")
-pub fn ffi_lib_I32_new(value0 : Int) -> @lib.I32 {
+pub fn ffi_lib_I32_new(value0 : Int32) -> @lib.I32 {
   @lib.I32::new(value0)
 }
 
@@ -10122,7 +10186,7 @@ pub fn ffi_lib_ImportSec_new(value0 : Array[@lib.Import]) -> @lib.ImportSec {
 #doc(hidden)
 #export_name("ffi_lib_IndirectNameAssoc_new")
 pub fn ffi_lib_IndirectNameAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.NameMap,
 ) -> @lib.IndirectNameAssoc {
   @lib.IndirectNameAssoc::new(value0, value1)
@@ -14583,7 +14647,7 @@ pub fn ffi_lib_Instruction_waitqueue_notify() -> @lib.Instruction {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_LabelIdx_new")
-pub fn ffi_lib_LabelIdx_new(value0 : UInt) -> @lib.LabelIdx {
+pub fn ffi_lib_LabelIdx_new(value0 : UInt32) -> @lib.LabelIdx {
   @lib.LabelIdx::new(value0)
 }
 
@@ -14621,7 +14685,7 @@ pub fn ffi_lib_Limits_addr_valtype(receiver : @lib.Limits) -> @lib.ValType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Limits_i32")
-pub fn ffi_lib_Limits_i32(value0 : UInt, value1 : UInt?) -> @lib.Limits {
+pub fn ffi_lib_Limits_i32(value0 : UInt32, value1 : UInt32?) -> @lib.Limits {
   @lib.Limits::i32(value0, value1)
 }
 
@@ -14635,7 +14699,7 @@ pub fn ffi_lib_Limits_i64(value0 : UInt64, value1 : UInt64?) -> @lib.Limits {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Limits_mem_addr_bits")
-pub fn ffi_lib_Limits_mem_addr_bits(receiver : @lib.Limits) -> Int {
+pub fn ffi_lib_Limits_mem_addr_bits(receiver : @lib.Limits) -> Int32 {
   @lib.Limits::mem_addr_bits(receiver)
 }
 
@@ -14880,14 +14944,14 @@ pub fn ffi_lib_LoadOp_v128_load8x8u() -> @lib.LoadOp {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_LocalIdx_new")
-pub fn ffi_lib_LocalIdx_new(value0 : UInt) -> @lib.LocalIdx {
+pub fn ffi_lib_LocalIdx_new(value0 : UInt32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_lib_LocalRun_count")
-pub fn ffi_lib_LocalRun_count(receiver : @lib.LocalRun) -> UInt {
+pub fn ffi_lib_LocalRun_count(receiver : @lib.LocalRun) -> UInt32 {
   @lib.LocalRun::count(receiver)
 }
 
@@ -14895,7 +14959,7 @@ pub fn ffi_lib_LocalRun_count(receiver : @lib.LocalRun) -> UInt {
 #doc(hidden)
 #export_name("ffi_lib_LocalRun_new")
 pub fn ffi_lib_LocalRun_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.ValType,
 ) -> @lib.LocalRun {
   @lib.LocalRun::new(value0, value1)
@@ -14931,7 +14995,10 @@ pub fn ffi_lib_Locals_append_types(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Locals_at")
-pub fn ffi_lib_Locals_at(receiver : @lib.Locals, value1 : Int) -> @lib.ValType? {
+pub fn ffi_lib_Locals_at(
+  receiver : @lib.Locals,
+  value1 : Int32,
+) -> @lib.ValType? {
   @lib.Locals::at(receiver, value1)
 }
 
@@ -14952,7 +15019,7 @@ pub fn ffi_lib_Locals_empty() -> @lib.Locals {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Locals_ensure_index")
-pub fn ffi_lib_Locals_ensure_index(receiver : @lib.Locals) -> Array[Int] {
+pub fn ffi_lib_Locals_ensure_index(receiver : @lib.Locals) -> Array[Int32] {
   @lib.Locals::ensure_index(receiver)
 }
 
@@ -14975,7 +15042,10 @@ pub fn ffi_lib_Locals_from_types(value0 : Array[@lib.ValType]) -> @lib.Locals {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Locals_get")
-pub fn ffi_lib_Locals_get(receiver : @lib.Locals, value1 : Int) -> @lib.ValType {
+pub fn ffi_lib_Locals_get(
+  receiver : @lib.Locals,
+  value1 : Int32,
+) -> @lib.ValType {
   @lib.Locals::get(receiver, value1)
 }
 
@@ -14984,7 +15054,7 @@ pub fn ffi_lib_Locals_get(receiver : @lib.Locals, value1 : Int) -> @lib.ValType 
 #export_name("ffi_lib_Locals_insert_run")
 pub fn ffi_lib_Locals_insert_run(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.LocalRun,
 ) -> Unit {
   @lib.Locals::insert_run(receiver, value1, value2)
@@ -15014,7 +15084,7 @@ pub fn ffi_lib_Locals_iter(receiver : @lib.Locals) -> Iter[@lib.ValType] {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Locals_length")
-pub fn ffi_lib_Locals_length(receiver : @lib.Locals) -> Int {
+pub fn ffi_lib_Locals_length(receiver : @lib.Locals) -> Int32 {
   @lib.Locals::length(receiver)
 }
 
@@ -15057,7 +15127,7 @@ pub fn ffi_lib_Locals_push_run(
 #export_name("ffi_lib_Locals_remove_run")
 pub fn ffi_lib_Locals_remove_run(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.LocalRun? {
   @lib.Locals::remove_run(receiver, value1)
 }
@@ -15065,7 +15135,7 @@ pub fn ffi_lib_Locals_remove_run(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_Locals_run_count")
-pub fn ffi_lib_Locals_run_count(receiver : @lib.Locals) -> Int {
+pub fn ffi_lib_Locals_run_count(receiver : @lib.Locals) -> Int32 {
   @lib.Locals::run_count(receiver)
 }
 
@@ -15081,7 +15151,7 @@ pub fn ffi_lib_Locals_runs(receiver : @lib.Locals) -> Array[@lib.LocalRun] {
 #export_name("ffi_lib_Locals_set")
 pub fn ffi_lib_Locals_set(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.ValType,
 ) -> Bool {
   @lib.Locals::set(receiver, value1, value2)
@@ -15092,8 +15162,8 @@ pub fn ffi_lib_Locals_set(
 #export_name("ffi_lib_Locals_set_run_count")
 pub fn ffi_lib_Locals_set_run_count(
   receiver : @lib.Locals,
-  value1 : Int,
-  value2 : UInt,
+  value1 : Int32,
+  value2 : UInt32,
 ) -> Bool {
   @lib.Locals::set_run_count(receiver, value1, value2)
 }
@@ -15102,7 +15172,7 @@ pub fn ffi_lib_Locals_set_run_count(
 #doc(hidden)
 #export_name("ffi_lib_Locals_single")
 pub fn ffi_lib_Locals_single(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.ValType,
 ) -> @lib.Locals {
   @lib.Locals::single(value0, value1)
@@ -15113,7 +15183,7 @@ pub fn ffi_lib_Locals_single(
 #export_name("ffi_lib_Locals_unsafe_get")
 pub fn ffi_lib_Locals_unsafe_get(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.ValType {
   @lib.Locals::unsafe_get(receiver, value1)
 }
@@ -15123,7 +15193,7 @@ pub fn ffi_lib_Locals_unsafe_get(
 #export_name("ffi_lib_Locals_without_prefix")
 pub fn ffi_lib_Locals_without_prefix(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.Locals {
   @lib.Locals::without_prefix(receiver, value1)
 }
@@ -15142,7 +15212,7 @@ pub fn ffi_lib_MemArg_new(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_MemIdx_new")
-pub fn ffi_lib_MemIdx_new(value0 : UInt) -> @lib.MemIdx {
+pub fn ffi_lib_MemIdx_new(value0 : UInt32) -> @lib.MemIdx {
   @lib.MemIdx::new(value0)
 }
 
@@ -15215,7 +15285,7 @@ pub fn ffi_lib_Module_new(
 #export_name("ffi_lib_Module_pretty_print_defined_func")
 pub fn ffi_lib_Module_pretty_print_defined_func(
   receiver : @lib.Module,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> String {
   @lib.Module::pretty_print_defined_func(receiver, value1)
 }
@@ -15461,7 +15531,7 @@ pub fn ffi_lib_Name_from_string(value0 : String) -> @lib.Name {
 #doc(hidden)
 #export_name("ffi_lib_NameAssoc_new")
 pub fn ffi_lib_NameAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.Name,
 ) -> @lib.NameAssoc {
   @lib.NameAssoc::new(value0, value1)
@@ -15554,7 +15624,7 @@ pub fn ffi_lib_PackType_i8() -> @lib.PackType {
 #export_name("ffi_lib_PrettyPrintContext_indent")
 pub fn ffi_lib_PrettyPrintContext_indent(
   receiver : @lib.PrettyPrintContext,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> String {
   @lib.PrettyPrintContext::indent(receiver, value1)
 }
@@ -15572,11 +15642,11 @@ pub fn ffi_lib_PrettyPrintContext_indent_unit(
 #doc(hidden)
 #export_name("ffi_lib_PrettyPrintContext_new")
 pub fn ffi_lib_PrettyPrintContext_new(
-  max_line_width : UInt?,
+  max_line_width : UInt32?,
   tabs_or_spaces : @lib.TabsOrSpaces?,
-  tab_width : UInt?,
-  continuation_indent : UInt?,
-  source_indent_width : UInt?,
+  tab_width : UInt32?,
+  continuation_indent : UInt32?,
+  source_indent_width : UInt32?,
 ) -> @lib.PrettyPrintContext {
   @lib.PrettyPrintContext::new(
     max_line_width?,
@@ -15592,7 +15662,7 @@ pub fn ffi_lib_PrettyPrintContext_new(
 #export_name("ffi_lib_RecType_get_subtype")
 pub fn ffi_lib_RecType_get_subtype(
   receiver : @lib.RecType,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> @lib.SubType? {
   @lib.RecType::get_subtype(receiver, value1)
 }
@@ -15735,7 +15805,7 @@ pub fn ffi_lib_ResumeHandler_on_switch(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_S33_new")
-pub fn ffi_lib_S33_new(value0 : UInt) -> @lib.S33 {
+pub fn ffi_lib_S33_new(value0 : UInt32) -> @lib.S33 {
   @lib.S33::new(value0)
 }
 
@@ -15976,7 +16046,7 @@ pub fn ffi_lib_Table_new(
 ///|
 #doc(hidden)
 #export_name("ffi_lib_TableIdx_new")
-pub fn ffi_lib_TableIdx_new(value0 : UInt) -> @lib.TableIdx {
+pub fn ffi_lib_TableIdx_new(value0 : UInt32) -> @lib.TableIdx {
   @lib.TableIdx::new(value0)
 }
 
@@ -16014,7 +16084,7 @@ pub fn ffi_lib_TabsOrSpaces_tabs() -> @lib.TabsOrSpaces {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_TagIdx_new")
-pub fn ffi_lib_TagIdx_new(value0 : UInt) -> @lib.TagIdx {
+pub fn ffi_lib_TagIdx_new(value0 : UInt32) -> @lib.TagIdx {
   @lib.TagIdx::new(value0)
 }
 
@@ -16035,14 +16105,14 @@ pub fn ffi_lib_TagType_new(value0 : @lib.TypeIdx) -> @lib.TagType {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_TypeIdx_new")
-pub fn ffi_lib_TypeIdx_new(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_TypeIdx_new(value0 : UInt32) -> @lib.TypeIdx {
   @lib.TypeIdx::new(value0)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_lib_TypeIdx_rec")
-pub fn ffi_lib_TypeIdx_rec(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_TypeIdx_rec(value0 : UInt32) -> @lib.TypeIdx {
   @lib.TypeIdx::rec(value0)
 }
 
@@ -16084,7 +16154,7 @@ pub fn ffi_lib_TypeSec_new(value0 : Array[@lib.RecType]) -> @lib.TypeSec {
 ///|
 #doc(hidden)
 #export_name("ffi_lib_U32_new")
-pub fn ffi_lib_U32_new(value0 : UInt) -> @lib.U32 {
+pub fn ffi_lib_U32_new(value0 : UInt32) -> @lib.U32 {
   @lib.U32::new(value0)
 }
 
@@ -17445,8 +17515,8 @@ pub fn ffi_passes_dead_code_elimination_summary() -> String {
 #doc(hidden)
 #export_name("ffi_passes_default_function_optimization_passes")
 pub fn ffi_passes_default_function_optimization_passes(
-  value0 : Int,
-  value1 : Int,
+  value0 : Int32,
+  value1 : Int32,
 ) -> Array[String] {
   @passes.default_function_optimization_passes(value0, value1)
 }
@@ -17456,8 +17526,8 @@ pub fn ffi_passes_default_function_optimization_passes(
 #export_name("ffi_passes_default_function_optimization_passes_for_module")
 pub fn ffi_passes_default_function_optimization_passes_for_module(
   value0 : @lib.Module,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
 ) -> Array[String] {
   @passes.default_function_optimization_passes_for_module(
     value0, value1, value2,
@@ -17653,8 +17723,8 @@ pub fn ffi_passes_inline_main_summary() -> String {
 #doc(hidden)
 #export_name("ffi_passes_inlining_nested_function_pipeline_passes")
 pub fn ffi_passes_inlining_nested_function_pipeline_passes(
-  value0 : Int,
-  value1 : Int,
+  value0 : Int32,
+  value1 : Int32,
 ) -> Array[String] {
   @passes.inlining_nested_function_pipeline_passes(value0, value1)
 }
@@ -17674,14 +17744,14 @@ pub fn ffi_passes_inlining_run_module_pass(
   optimize : Bool?,
   trace : ((String) -> Unit)??,
   pass_name : String?,
-  optimize_level : Int?,
-  shrink_level : Int?,
-  always_inline_max_size : Int?,
-  one_caller_inline_max_size : Int?,
-  flexible_inline_max_size : Int?,
-  max_combined_binary_size : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
+  always_inline_max_size : Int32?,
+  one_caller_inline_max_size : Int32?,
+  flexible_inline_max_size : Int32?,
+  max_combined_binary_size : Int32?,
   allow_functions_with_loops : Bool?,
-  partial_inlining_ifs : Int?,
+  partial_inlining_ifs : Int32?,
 ) -> @lib.Module {
   @passes.inlining_run_module_pass(
     value0,
@@ -17833,8 +17903,8 @@ pub fn ffi_passes_no_full_inline_summary() -> String {
 #export_name("ffi_passes_no_inline_copy_policy_annotations")
 pub fn ffi_passes_no_inline_copy_policy_annotations(
   value0 : @lib.Module,
-  value1 : UInt,
-  value2 : UInt,
+  value1 : UInt32,
+  value2 : UInt32,
 ) -> @lib.Module {
   @passes.no_inline_copy_policy_annotations(value0, value1, value2)
 }
@@ -18101,7 +18171,7 @@ pub fn ffi_passes_pass_compute_label_used(
 pub fn ffi_passes_pass_delete_detached_nodes(
   value0 : @passes.HotPassContext,
   value1 : @ir.HotFunc,
-  value2 : Array[Int],
+  value2 : Array[Int32],
 ) -> Unit {
   @passes.pass_delete_detached_nodes(value0, value1, value2)
 }
@@ -18110,7 +18180,7 @@ pub fn ffi_passes_pass_delete_detached_nodes(
 #doc(hidden)
 #export_name("ffi_passes_pass_label_is_used")
 pub fn ffi_passes_pass_label_is_used(
-  value0 : Int,
+  value0 : Int32,
   value1 : @bitset.BitSet,
 ) -> Bool {
   @passes.pass_label_is_used(value0, value1)
@@ -18132,7 +18202,7 @@ pub fn ffi_passes_pass_mark_mutated(
 pub fn ffi_passes_pass_node_is_unused(
   value0 : @passes.HotPassContext,
   value1 : @ir.HotFunc,
-  value2 : Int,
+  value2 : Int32,
 ) -> Bool {
   @passes.pass_node_is_unused(value0, value1, value2)
 }
@@ -18143,8 +18213,8 @@ pub fn ffi_passes_pass_node_is_unused(
 pub fn ffi_passes_pass_node_use_count(
   value0 : @passes.HotPassContext,
   value1 : @ir.HotFunc,
-  value2 : Int,
-) -> Int {
+  value2 : Int32,
+) -> Int32 {
   @passes.pass_node_use_count(value0, value1, value2)
 }
 
@@ -18289,7 +18359,7 @@ pub fn ffi_passes_pass_registry_random_executable_sequence(
 pub fn ffi_passes_pass_replace_node(
   value0 : @passes.HotPassContext,
   value1 : @ir.HotFunc,
-  value2 : Int,
+  value2 : Int32,
   value3 : @ir.HotNode,
   preserve_value_order : Bool?,
 ) -> Unit {
@@ -18409,10 +18479,10 @@ pub fn ffi_passes_pass_splice_region(
   value0 : @passes.HotPassContext,
   value1 : @ir.HotFunc,
   value2 : @ir.HotRegionRef,
-  value3 : Int,
-  value4 : Int,
-  value5 : Array[Int],
-) -> Array[Int] {
+  value3 : Int32,
+  value4 : Int32,
+  value5 : Array[Int32],
+) -> Array[Int32] {
   @passes.pass_splice_region(value0, value1, value2, value3, value4, value5)
 }
 
@@ -18466,7 +18536,7 @@ pub fn ffi_passes_pass_verify_before_after(
 #export_name("ffi_passes_perf_count_cfg_build")
 pub fn ffi_passes_perf_count_cfg_build(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_cfg_build(value0, count?)
 }
@@ -18476,7 +18546,7 @@ pub fn ffi_passes_perf_count_cfg_build(
 #export_name("ffi_passes_perf_count_child_span_alloc")
 pub fn ffi_passes_perf_count_child_span_alloc(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_child_span_alloc(value0, count?)
 }
@@ -18487,7 +18557,7 @@ pub fn ffi_passes_perf_count_child_span_alloc(
 pub fn ffi_passes_perf_count_dataflow_build(
   value0 : @passes.HotPerfSession,
   value1 : String,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_dataflow_build(value0, value1, count?)
 }
@@ -18508,7 +18578,7 @@ pub fn ffi_passes_perf_count_hot_alloc_delta(
 #export_name("ffi_passes_perf_count_node_alloc")
 pub fn ffi_passes_perf_count_node_alloc(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_node_alloc(value0, count?)
 }
@@ -18518,7 +18588,7 @@ pub fn ffi_passes_perf_count_node_alloc(
 #export_name("ffi_passes_perf_count_region_splice")
 pub fn ffi_passes_perf_count_region_splice(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_region_splice(value0, count?)
 }
@@ -18528,7 +18598,7 @@ pub fn ffi_passes_perf_count_region_splice(
 #export_name("ffi_passes_perf_count_side_table_alloc")
 pub fn ffi_passes_perf_count_side_table_alloc(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_side_table_alloc(value0, count?)
 }
@@ -18538,7 +18608,7 @@ pub fn ffi_passes_perf_count_side_table_alloc(
 #export_name("ffi_passes_perf_count_traversal_visit")
 pub fn ffi_passes_perf_count_traversal_visit(
   value0 : @passes.HotPerfSession,
-  count : Int?,
+  count : Int32?,
 ) -> Unit {
   @passes.perf_count_traversal_visit(value0, count?)
 }
@@ -18813,6 +18883,16 @@ pub fn ffi_passes_rume_extract_functions(
 #export_name("ffi_passes_rume_nonfunction_summary")
 pub fn ffi_passes_rume_nonfunction_summary() -> String {
   @passes.rume_nonfunction_summary()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_rume_run_host_roots_module_pass")
+pub fn ffi_passes_rume_run_host_roots_module_pass(
+  value0 : @lib.Module,
+  value1 : Array[String],
+) -> Result[@lib.Module, String] {
+  @passes.rume_run_host_roots_module_pass(value0, value1)
 }
 
 ///|
@@ -19133,7 +19213,7 @@ pub fn ffi_passes_CompilerFactIndex_compiler_fact_exact_call_target(
   receiver : @passes.CompilerFactIndex,
   value1 : @representation.CodeSite,
   target_value_site : @representation.ValueSite??,
-) -> UInt? {
+) -> UInt32? {
   @passes.CompilerFactIndex::compiler_fact_exact_call_target(
     receiver,
     value1,
@@ -19288,8 +19368,8 @@ pub fn ffi_passes_HotPassContext_new(
   fast_math : Bool?,
   perf : @passes.HotPerfSession??,
   module_ctx : @ir.HotModuleContext??,
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
 ) -> @passes.HotPassContext {
   @passes.HotPassContext::new(
     value0,
@@ -19360,13 +19440,13 @@ pub fn ffi_passes_HotPassResult_unchanged() -> @passes.HotPassResult {
 #doc(hidden)
 #export_name("ffi_passes_HotPerfCounters_new")
 pub fn ffi_passes_HotPerfCounters_new(
-  node_allocs : Int?,
-  child_span_allocs : Int?,
-  side_table_allocs : Int?,
-  region_splices : Int?,
-  cfg_builds : Int?,
-  dataflow_builds : Int?,
-  traversal_visits : Int?,
+  node_allocs : Int32?,
+  child_span_allocs : Int32?,
+  side_table_allocs : Int32?,
+  region_splices : Int32?,
+  cfg_builds : Int32?,
+  dataflow_builds : Int32?,
+  traversal_visits : Int32?,
 ) -> @passes.HotPerfCounters {
   @passes.HotPerfCounters::new(
     node_allocs?,
@@ -19429,14 +19509,14 @@ pub fn ffi_passes_HotPipelineOptions_new(
   zero_filled_memory : Bool?,
   fast_math : Bool?,
   compiler_fact_policy : @passes.CompilerFactUsePolicy?,
-  optimize_level : Int?,
-  shrink_level : Int?,
-  inlining_always_inline_max_size : Int?,
-  inlining_one_caller_inline_max_size : Int?,
-  inlining_flexible_inline_max_size : Int?,
-  inlining_max_combined_binary_size : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
+  inlining_always_inline_max_size : Int32?,
+  inlining_one_caller_inline_max_size : Int32?,
+  inlining_flexible_inline_max_size : Int32?,
+  inlining_max_combined_binary_size : Int32?,
   inlining_allow_functions_with_loops : Bool?,
-  inlining_partial_inlining_ifs : Int?,
+  inlining_partial_inlining_ifs : Int32?,
   stack_function_passes : Bool?,
   trace : ((String) -> Unit)??,
   perf : @passes.HotPerfSession??,
@@ -19490,7 +19570,7 @@ pub fn ffi_passes_perf_long_passes_perf_long_import_usage() -> Unit {
 #export_name("ffi_representation_AccessFacts_new")
 pub fn ffi_representation_AccessFacts_new(
   in_bounds : Bool?,
-  alignment_log2 : UInt??,
+  alignment_log2 : UInt32??,
 ) -> @representation.AccessFacts {
   @representation.AccessFacts::new(in_bounds?, alignment_log2?)
 }
@@ -19510,7 +19590,7 @@ pub fn ffi_representation_AccessSiteFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_AliasSource_global")
 pub fn ffi_representation_AliasSource_global(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AliasSource {
   @representation.AliasSource::global(value0)
 }
@@ -19519,7 +19599,7 @@ pub fn ffi_representation_AliasSource_global(
 #doc(hidden)
 #export_name("ffi_representation_AliasSource_parameter")
 pub fn ffi_representation_AliasSource_parameter(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AliasSource {
   @representation.AliasSource::parameter(value0)
 }
@@ -19558,7 +19638,7 @@ pub fn ffi_representation_AllocationFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_AllocationFieldFacts_new")
 pub fn ffi_representation_AllocationFieldFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   no_post_init_writes : Bool?,
   stored_value : @representation.ValueFacts??,
 ) -> @representation.AllocationFieldFacts {
@@ -19573,7 +19653,7 @@ pub fn ffi_representation_AllocationFieldFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_AllocationKind_array")
 pub fn ffi_representation_AllocationKind_array(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AllocationKind {
   @representation.AllocationKind::array(value0)
 }
@@ -19582,7 +19662,7 @@ pub fn ffi_representation_AllocationKind_array(
 #doc(hidden)
 #export_name("ffi_representation_AllocationKind_box")
 pub fn ffi_representation_AllocationKind_box(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AllocationKind {
   @representation.AllocationKind::box(value0)
 }
@@ -19591,7 +19671,7 @@ pub fn ffi_representation_AllocationKind_box(
 #doc(hidden)
 #export_name("ffi_representation_AllocationKind_closure")
 pub fn ffi_representation_AllocationKind_closure(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AllocationKind {
   @representation.AllocationKind::closure(value0)
 }
@@ -19600,7 +19680,7 @@ pub fn ffi_representation_AllocationKind_closure(
 #doc(hidden)
 #export_name("ffi_representation_AllocationKind_other_gc")
 pub fn ffi_representation_AllocationKind_other_gc(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AllocationKind {
   @representation.AllocationKind::other_gc(value0)
 }
@@ -19609,7 +19689,7 @@ pub fn ffi_representation_AllocationKind_other_gc(
 #doc(hidden)
 #export_name("ffi_representation_AllocationKind_struct_")
 pub fn ffi_representation_AllocationKind_struct_(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.AllocationKind {
   @representation.AllocationKind::struct_(value0)
 }
@@ -19673,7 +19753,7 @@ pub fn ffi_representation_CallProfile_new(
 #export_name("ffi_representation_CallSiteFacts_new")
 pub fn ffi_representation_CallSiteFacts_new(
   value0 : @representation.CodeSite,
-  direct_target : UInt??,
+  direct_target : UInt32??,
   profile : @representation.CallProfile??,
   inline_policy : @representation.InlinePolicy??,
   provenance : @representation.SourceProvenance??,
@@ -19700,7 +19780,7 @@ pub fn ffi_representation_ClosedAliasSet_new(
 #doc(hidden)
 #export_name("ffi_representation_ClosedFunctionSet_new")
 pub fn ffi_representation_ClosedFunctionSet_new(
-  value0 : Array[UInt],
+  value0 : Array[UInt32],
 ) -> @representation.ClosedFunctionSet {
   @representation.ClosedFunctionSet::new(value0)
 }
@@ -19709,7 +19789,7 @@ pub fn ffi_representation_ClosedFunctionSet_new(
 #doc(hidden)
 #export_name("ffi_representation_ClosedGlobalSet_new")
 pub fn ffi_representation_ClosedGlobalSet_new(
-  value0 : Array[UInt],
+  value0 : Array[UInt32],
 ) -> @representation.ClosedGlobalSet {
   @representation.ClosedGlobalSet::new(value0)
 }
@@ -19727,7 +19807,7 @@ pub fn ffi_representation_ClosedHeapTypeSet_new(
 #doc(hidden)
 #export_name("ffi_representation_ClosedMemorySet_new")
 pub fn ffi_representation_ClosedMemorySet_new(
-  value0 : Array[UInt],
+  value0 : Array[UInt32],
 ) -> @representation.ClosedMemorySet {
   @representation.ClosedMemorySet::new(value0)
 }
@@ -19736,7 +19816,7 @@ pub fn ffi_representation_ClosedMemorySet_new(
 #doc(hidden)
 #export_name("ffi_representation_ClosedTableSet_new")
 pub fn ffi_representation_ClosedTableSet_new(
-  value0 : Array[UInt],
+  value0 : Array[UInt32],
 ) -> @representation.ClosedTableSet {
   @representation.ClosedTableSet::new(value0)
 }
@@ -19745,7 +19825,7 @@ pub fn ffi_representation_ClosedTableSet_new(
 #doc(hidden)
 #export_name("ffi_representation_ClosedTypeViewSet_new")
 pub fn ffi_representation_ClosedTypeViewSet_new(
-  value0 : Array[UInt],
+  value0 : Array[UInt32],
 ) -> @representation.ClosedTypeViewSet {
   @representation.ClosedTypeViewSet::new(value0)
 }
@@ -19763,8 +19843,8 @@ pub fn ffi_representation_ClosedValueSet_new(
 #doc(hidden)
 #export_name("ffi_representation_CodeSite_new")
 pub fn ffi_representation_CodeSite_new(
-  value0 : UInt,
-  value1 : UInt,
+  value0 : UInt32,
+  value1 : UInt32,
 ) -> @representation.CodeSite {
   @representation.CodeSite::new(value0, value1)
 }
@@ -19774,7 +19854,7 @@ pub fn ffi_representation_CodeSite_new(
 #export_name("ffi_representation_CompilerFactCustomSection_new")
 pub fn ffi_representation_CompilerFactCustomSection_new(
   value0 : @representation.OptimizationFactsSec,
-  version : UInt?,
+  version : UInt32?,
   module_fingerprint : Bytes??,
 ) -> @representation.CompilerFactCustomSection {
   @representation.CompilerFactCustomSection::new(
@@ -20331,7 +20411,7 @@ pub fn ffi_representation_FactHeapType_struct_() -> @representation.FactHeapType
 #doc(hidden)
 #export_name("ffi_representation_FactHeapType_type_index")
 pub fn ffi_representation_FactHeapType_type_index(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.FactHeapType {
   @representation.FactHeapType::type_index(value0)
 }
@@ -20358,7 +20438,7 @@ pub fn ffi_representation_FactOperand_value(
 #doc(hidden)
 #export_name("ffi_representation_FactValue_f32_bits")
 pub fn ffi_representation_FactValue_f32_bits(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.FactValue {
   @representation.FactValue::f32_bits(value0)
 }
@@ -20376,7 +20456,7 @@ pub fn ffi_representation_FactValue_f64_bits(
 #doc(hidden)
 #export_name("ffi_representation_FactValue_immutable_global")
 pub fn ffi_representation_FactValue_immutable_global(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.FactValue {
   @representation.FactValue::immutable_global(value0)
 }
@@ -20394,7 +20474,7 @@ pub fn ffi_representation_FactValue_integer(
 #doc(hidden)
 #export_name("ffi_representation_FactValue_ref_func")
 pub fn ffi_representation_FactValue_ref_func(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.FactValue {
   @representation.FactValue::ref_func(value0)
 }
@@ -20422,7 +20502,7 @@ pub fn ffi_representation_FactValue_v128(
 #export_name("ffi_representation_FieldFacts_new")
 pub fn ffi_representation_FieldFacts_new(
   value0 : @representation.TypeView,
-  value1 : UInt,
+  value1 : UInt32,
   stored_contents : @representation.ValueFacts??,
   writes : @representation.WriteFacts??,
   usage : @representation.FieldUsageFacts??,
@@ -20461,7 +20541,7 @@ pub fn ffi_representation_FloatClassMask_all() -> @representation.FloatClassMask
 #export_name("ffi_representation_FloatClassMask_bits")
 pub fn ffi_representation_FloatClassMask_bits(
   receiver : @representation.FloatClassMask,
-) -> UInt {
+) -> UInt32 {
   @representation.FloatClassMask::bits(receiver)
 }
 
@@ -20486,7 +20566,7 @@ pub fn ffi_representation_FloatClassMask_empty() -> @representation.FloatClassMa
 #doc(hidden)
 #export_name("ffi_representation_FloatClassMask_from_bits")
 pub fn ffi_representation_FloatClassMask_from_bits(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.FloatClassMask {
   @representation.FloatClassMask::from_bits(value0)
 }
@@ -20592,7 +20672,7 @@ pub fn ffi_representation_FloatWidth_f64() -> @representation.FloatWidth {
 #doc(hidden)
 #export_name("ffi_representation_FunctionBodyFacts_new")
 pub fn ffi_representation_FunctionBodyFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   sites : Array[@representation.ExpressionFact]?,
   relations : Array[@representation.ScopedRelationFacts]?,
   calls : Array[@representation.CallSiteFacts]?,
@@ -20630,7 +20710,7 @@ pub fn ffi_representation_FunctionBoundaryFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_FunctionFacts_new")
 pub fn ffi_representation_FunctionFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   effects : @representation.EffectFacts??,
   parameters : Array[@representation.ParameterFacts]?,
   results : Array[@representation.ResultFacts]?,
@@ -20663,8 +20743,8 @@ pub fn ffi_representation_FunctionProfile_new(
 #doc(hidden)
 #export_name("ffi_representation_FunctionResultRef_new")
 pub fn ffi_representation_FunctionResultRef_new(
-  value0 : UInt,
-  value1 : UInt,
+  value0 : UInt32,
+  value1 : UInt32,
 ) -> @representation.FunctionResultRef {
   @representation.FunctionResultRef::new(value0, value1)
 }
@@ -20673,7 +20753,7 @@ pub fn ffi_representation_FunctionResultRef_new(
 #doc(hidden)
 #export_name("ffi_representation_GlobalFacts_new")
 pub fn ffi_representation_GlobalFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   initial_value : @representation.ValueFacts??,
   steady_state_value : @representation.ValueFacts??,
   mutation : @representation.MutationFacts??,
@@ -20717,7 +20797,7 @@ pub fn ffi_representation_HeapDomain_subtypes_of(
 #doc(hidden)
 #export_name("ffi_representation_HintTarget_function")
 pub fn ffi_representation_HintTarget_function(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.HintTarget {
   @representation.HintTarget::function(value0)
 }
@@ -20735,7 +20815,7 @@ pub fn ffi_representation_HintTarget_site(
 #doc(hidden)
 #export_name("ffi_representation_IndexedValueFacts_new")
 pub fn ffi_representation_IndexedValueFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @representation.ValueFacts,
 ) -> @representation.IndexedValueFacts {
   @representation.IndexedValueFacts::new(value0, value1)
@@ -20784,7 +20864,7 @@ pub fn ffi_representation_IntConstant_new(
 #export_name("ffi_representation_IntWidth_bit_count")
 pub fn ffi_representation_IntWidth_bit_count(
   receiver : @representation.IntWidth,
-) -> UInt {
+) -> UInt32 {
   @representation.IntWidth::bit_count(receiver)
 }
 
@@ -21107,7 +21187,7 @@ pub fn ffi_representation_OptimizationGoal_prefer_speed() -> @representation.Opt
 #export_name("ffi_representation_OptimizationHint_branch_probability")
 pub fn ffi_representation_OptimizationHint_branch_probability(
   value0 : @representation.CodeSite,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> @representation.OptimizationHint {
   @representation.OptimizationHint::branch_probability(value0, value1)
 }
@@ -21157,8 +21237,8 @@ pub fn ffi_representation_OptimizationHint_inline_(
 #export_name("ffi_representation_OptimizationHint_likely_call_target")
 pub fn ffi_representation_OptimizationHint_likely_call_target(
   value0 : @representation.CodeSite,
-  value1 : UInt,
-  value2 : UInt,
+  value1 : UInt32,
+  value2 : UInt32,
 ) -> @representation.OptimizationHint {
   @representation.OptimizationHint::likely_call_target(value0, value1, value2)
 }
@@ -21169,7 +21249,7 @@ pub fn ffi_representation_OptimizationHint_likely_call_target(
 pub fn ffi_representation_OptimizationHint_likely_heap_type(
   value0 : @representation.ValueSite,
   value1 : @representation.FactHeapType,
-  value2 : UInt,
+  value2 : UInt32,
 ) -> @representation.OptimizationHint {
   @representation.OptimizationHint::likely_heap_type(value0, value1, value2)
 }
@@ -21178,7 +21258,7 @@ pub fn ffi_representation_OptimizationHint_likely_heap_type(
 #doc(hidden)
 #export_name("ffi_representation_ParameterFacts_new")
 pub fn ffi_representation_ParameterFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   value : @representation.ValueFacts??,
   uses : @representation.ParameterUseMask??,
   escape_sinks : @representation.EscapeSinkMask??,
@@ -21190,8 +21270,8 @@ pub fn ffi_representation_ParameterFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_ParameterRef_new")
 pub fn ffi_representation_ParameterRef_new(
-  value0 : UInt,
-  value1 : UInt,
+  value0 : UInt32,
+  value1 : UInt32,
 ) -> @representation.ParameterRef {
   @representation.ParameterRef::new(value0, value1)
 }
@@ -21379,7 +21459,7 @@ pub fn ffi_representation_RelationKind_unsigned_less_than() -> @representation.R
 #doc(hidden)
 #export_name("ffi_representation_ResultFacts_new")
 pub fn ffi_representation_ResultFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   value : @representation.ValueFacts??,
   identity : @representation.ResultIdentityFacts??,
 ) -> @representation.ResultFacts {
@@ -21406,7 +21486,7 @@ pub fn ffi_representation_ResultIdentityFacts_fresh() -> @representation.ResultI
 #doc(hidden)
 #export_name("ffi_representation_ResultIdentityFacts_same_as_global")
 pub fn ffi_representation_ResultIdentityFacts_same_as_global(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.ResultIdentityFacts {
   @representation.ResultIdentityFacts::same_as_global(value0)
 }
@@ -21415,7 +21495,7 @@ pub fn ffi_representation_ResultIdentityFacts_same_as_global(
 #doc(hidden)
 #export_name("ffi_representation_ResultIdentityFacts_same_as_parameter")
 pub fn ffi_representation_ResultIdentityFacts_same_as_parameter(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.ResultIdentityFacts {
   @representation.ResultIdentityFacts::same_as_parameter(value0)
 }
@@ -21436,7 +21516,7 @@ pub fn ffi_representation_ScopedRelationFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_SignatureFacts_new")
 pub fn ffi_representation_SignatureFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   parameters : Array[@representation.IndexedValueFacts]?,
   results : Array[@representation.IndexedValueFacts]?,
   call_sites_complete : Bool?,
@@ -21494,7 +21574,7 @@ pub fn ffi_representation_TableEntryFacts_new(
 #doc(hidden)
 #export_name("ffi_representation_TableFacts_new")
 pub fn ffi_representation_TableFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   mutation : @representation.MutationFacts??,
   may_grow : Bool??,
   default_value : @representation.ReferenceFacts??,
@@ -21536,7 +21616,7 @@ pub fn ffi_representation_TemperatureHint_normal() -> @representation.Temperatur
 #doc(hidden)
 #export_name("ffi_representation_TypeFacts_new")
 pub fn ffi_representation_TypeFacts_new(
-  value0 : UInt,
+  value0 : UInt32,
   population : @representation.TypePopulation??,
   fields : Array[@representation.FieldFacts]?,
   array_element : @representation.ArrayElementFacts??,
@@ -21564,7 +21644,7 @@ pub fn ffi_representation_TypePopulation_empty() -> @representation.TypePopulati
 #doc(hidden)
 #export_name("ffi_representation_TypeView_exact")
 pub fn ffi_representation_TypeView_exact(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.TypeView {
   @representation.TypeView::exact(value0)
 }
@@ -21573,7 +21653,7 @@ pub fn ffi_representation_TypeView_exact(
 #doc(hidden)
 #export_name("ffi_representation_TypeView_subtype_closure")
 pub fn ffi_representation_TypeView_subtype_closure(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.TypeView {
   @representation.TypeView::subtype_closure(value0)
 }
@@ -21602,7 +21682,7 @@ pub fn ffi_representation_V128Bits_new(
 #doc(hidden)
 #export_name("ffi_representation_ValueFacts_exact_ref_func")
 pub fn ffi_representation_ValueFacts_exact_ref_func(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.ValueFacts {
   @representation.ValueFacts::exact_ref_func(value0)
 }
@@ -21700,7 +21780,7 @@ pub fn ffi_representation_ValueRef_function_result(
 #doc(hidden)
 #export_name("ffi_representation_ValueRef_global")
 pub fn ffi_representation_ValueRef_global(
-  value0 : UInt,
+  value0 : UInt32,
 ) -> @representation.ValueRef {
   @representation.ValueRef::global(value0)
 }
@@ -21728,7 +21808,7 @@ pub fn ffi_representation_ValueRef_site(
 #export_name("ffi_representation_ValueSite_new")
 pub fn ffi_representation_ValueSite_new(
   value0 : @representation.CodeSite,
-  result : UInt?,
+  result : UInt32?,
 ) -> @representation.ValueSite {
   @representation.ValueSite::new(value0, result?)
 }
@@ -21893,7 +21973,7 @@ pub fn ffi_rume_rume_extract_functions(
 ///|
 #doc(hidden)
 #export_name("ffi_rume_rume_imported_global_count")
-pub fn ffi_rume_rume_imported_global_count(value0 : @lib.Module) -> Int {
+pub fn ffi_rume_rume_imported_global_count(value0 : @lib.Module) -> Int32 {
   @rume.rume_imported_global_count(value0)
 }
 
@@ -21909,17 +21989,27 @@ pub fn ffi_rume_rume_nonfunction_summary() -> String {
 #export_name("ffi_rume_rume_rewrite_instruction")
 pub fn ffi_rume_rume_rewrite_instruction(
   value0 : @lib.Instruction,
-  value1 : Array[Int],
-  value2 : Array[Int],
-  value3 : Array[Int],
-  value4 : Array[Int],
-  value5 : Array[Int],
-  value6 : Array[Int],
-  value7 : Array[Int],
+  value1 : Array[Int32],
+  value2 : Array[Int32],
+  value3 : Array[Int32],
+  value4 : Array[Int32],
+  value5 : Array[Int32],
+  value6 : Array[Int32],
+  value7 : Array[Int32],
 ) -> @lib.Instruction {
   @rume.rume_rewrite_instruction(
     value0, value1, value2, value3, value4, value5, value6, value7,
   )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_run_host_roots_module_pass")
+pub fn ffi_rume_rume_run_host_roots_module_pass(
+  value0 : @lib.Module,
+  value1 : Array[String],
+) -> Result[@lib.Module, String] {
+  @rume.rume_run_host_roots_module_pass(value0, value1)
 }
 
 ///|
@@ -22151,7 +22241,7 @@ pub fn ffi_validate_gen_invalid_small_gen_valid_config(
 #export_name("ffi_validate_gen_valid_case_seed")
 pub fn ffi_validate_gen_valid_case_seed(
   value0 : UInt64,
-  value1 : Int,
+  value1 : Int32,
 ) -> UInt64 {
   @validate.gen_valid_case_seed(value0, value1)
 }
@@ -22338,7 +22428,7 @@ pub fn ffi_validate_gen_valid_engine_state_profile() -> @validate.GenValidProfil
 #export_name("ffi_validate_gen_valid_engine_state_static_instruction_count")
 pub fn ffi_validate_gen_valid_engine_state_static_instruction_count(
   value0 : @lib.Module,
-) -> Int {
+) -> Int32 {
   @validate.gen_valid_engine_state_static_instruction_count(value0)
 }
 
@@ -22512,7 +22602,7 @@ pub fn ffi_validate_gen_valid_msf_profile_case_label(
 #export_name("ffi_validate_gen_valid_oi_trigger_profile_case_for_seed")
 pub fn ffi_validate_gen_valid_oi_trigger_profile_case_for_seed(
   value0 : UInt64,
-) -> Int {
+) -> Int32 {
   @validate.gen_valid_oi_trigger_profile_case_for_seed(value0)
 }
 
@@ -22550,7 +22640,7 @@ pub fn ffi_validate_gen_valid_profile_is_composite(
 pub fn ffi_validate_gen_valid_profile_leaf_for_case(
   value0 : @validate.GenValidProfile,
   value1 : UInt64,
-  value2 : Int,
+  value2 : Int32,
 ) -> @validate.GenValidProfile {
   @validate.gen_valid_profile_leaf_for_case(value0, value1, value2)
 }
@@ -22666,7 +22756,7 @@ pub fn ffi_validate_gen_valid_rume_profile_case_label(
 #doc(hidden)
 #export_name("ffi_validate_gen_valid_scan_func_ssa_facts")
 pub fn ffi_validate_gen_valid_scan_func_ssa_facts(
-  value0 : Int,
+  value0 : Int32,
   value1 : @lib.Locals,
   value2 : @lib.Expr,
 ) -> @validate.GenValidSsaFuncFacts {
@@ -23171,6 +23261,15 @@ pub fn ffi_validate_validate_module(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_validate_module_name_section")
+pub fn ffi_validate_validate_module_name_section(
+  value0 : @lib.Module,
+) -> Result[Unit, String] {
+  @validate.validate_module_name_section(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_validate_module_with_trace")
 pub fn ffi_validate_validate_module_with_trace(
   value0 : @lib.Module,
@@ -23232,7 +23331,7 @@ pub fn ffi_validate_validate_typesec(
 pub fn ffi_validate_validate_valid_feature_actual_count(
   value0 : @validate.GenValidFeatureStats,
   value1 : @validate.ValidateValidFeatureKey,
-) -> Int {
+) -> Int32 {
   @validate.validate_valid_feature_actual_count(value0, value1)
 }
 
@@ -23242,7 +23341,7 @@ pub fn ffi_validate_validate_valid_feature_actual_count(
 pub fn ffi_validate_validate_valid_feature_actual_count_by_label(
   value0 : @validate.GenValidFeatureStats,
   value1 : String,
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   @validate.validate_valid_feature_actual_count_by_label(value0, value1)
 }
 
@@ -23251,7 +23350,7 @@ pub fn ffi_validate_validate_valid_feature_actual_count_by_label(
 #export_name("ffi_validate_validate_valid_feature_floor")
 pub fn ffi_validate_validate_valid_feature_floor(
   value0 : @validate.ValidateValidFeatureKey,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.ValidateValidFeatureFloor {
   @validate.validate_valid_feature_floor(value0, value1)
 }
@@ -23261,7 +23360,7 @@ pub fn ffi_validate_validate_valid_feature_floor(
 #export_name("ffi_validate_validate_valid_feature_floor_by_label")
 pub fn ffi_validate_validate_valid_feature_floor_by_label(
   value0 : String,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[@validate.ValidateValidFeatureFloor, String] {
   @validate.validate_valid_feature_floor_by_label(value0, value1)
 }
@@ -23496,8 +23595,8 @@ pub fn ffi_validate_Env_has_func(
 #export_name("ffi_validate_Env_legacy_rethrow_catch_ordinal")
 pub fn ffi_validate_Env_legacy_rethrow_catch_ordinal(
   receiver : @validate.Env,
-  value1 : UInt,
-) -> Int? {
+  value1 : UInt32,
+) -> Int32? {
   @validate.Env::legacy_rethrow_catch_ordinal(receiver, value1)
 }
 
@@ -23796,7 +23895,7 @@ pub fn ffi_validate_Env_with_labels(
 #export_name("ffi_validate_Env_with_legacy_catch_depth")
 pub fn ffi_validate_Env_with_legacy_catch_depth(
   receiver : @validate.Env,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.Env {
   @validate.Env::with_legacy_catch_depth(receiver, value1)
 }
@@ -24111,7 +24210,7 @@ pub fn ffi_validate_GenValidFeatureToggles_natural_default() -> @validate.GenVal
 #export_name("ffi_validate_GenValidProfileMember_new")
 pub fn ffi_validate_GenValidProfileMember_new(
   value0 : @validate.GenValidProfile,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.GenValidProfileMember {
   @validate.GenValidProfileMember::new(value0, value1)
 }
@@ -24160,7 +24259,7 @@ pub fn ffi_validate_LabelStack_from_labels(
 #export_name("ffi_validate_LabelStack_get")
 pub fn ffi_validate_LabelStack_get(
   receiver : @validate.LabelStack,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@lib.ValType]? {
   @validate.LabelStack::get(receiver, value1)
 }
@@ -24168,7 +24267,7 @@ pub fn ffi_validate_LabelStack_get(
 ///|
 #doc(hidden)
 #export_name("ffi_validate_LabelStack_length")
-pub fn ffi_validate_LabelStack_length(receiver : @validate.LabelStack) -> Int {
+pub fn ffi_validate_LabelStack_length(receiver : @validate.LabelStack) -> Int32 {
   @validate.LabelStack::length(receiver)
 }
 
@@ -24202,7 +24301,10 @@ pub fn ffi_validate_ValidationDiagnostic_new(
 ///|
 #doc(hidden)
 #export_name("ffi_validate_proof_bounded_index")
-pub fn ffi_validate_proof_bounded_index(value0 : Int, value1 : Int) -> Int? {
+pub fn ffi_validate_proof_bounded_index(
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.bounded_index(value0, value1)
 }
 
@@ -24210,10 +24312,10 @@ pub fn ffi_validate_proof_bounded_index(value0 : Int, value1 : Int) -> Int? {
 #doc(hidden)
 #export_name("ffi_validate_proof_defined_body_func_index")
 pub fn ffi_validate_proof_defined_body_func_index(
-  value0 : Int,
-  value1 : Int,
-  value2 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32? {
   @validate_proof.defined_body_func_index(value0, value1, value2)
 }
 
@@ -24221,9 +24323,9 @@ pub fn ffi_validate_proof_defined_body_func_index(
 #doc(hidden)
 #export_name("ffi_validate_proof_defined_func_absolute_index")
 pub fn ffi_validate_proof_defined_func_absolute_index(
-  value0 : Int,
-  value1 : Int,
-) -> Int {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32 {
   @validate_proof.defined_func_absolute_index(value0, value1)
 }
 
@@ -24231,9 +24333,9 @@ pub fn ffi_validate_proof_defined_func_absolute_index(
 #doc(hidden)
 #export_name("ffi_validate_proof_defined_func_body_index")
 pub fn ffi_validate_proof_defined_func_body_index(
-  value0 : Int,
-  value1 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.defined_func_body_index(value0, value1)
 }
 
@@ -24241,10 +24343,10 @@ pub fn ffi_validate_proof_defined_func_body_index(
 #doc(hidden)
 #export_name("ffi_validate_proof_group_member_relative_index")
 pub fn ffi_validate_proof_group_member_relative_index(
-  value0 : Int,
-  value1 : Int,
-  value2 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32? {
   @validate_proof.group_member_relative_index(value0, value1, value2)
 }
 
@@ -24252,10 +24354,10 @@ pub fn ffi_validate_proof_group_member_relative_index(
 #doc(hidden)
 #export_name("ffi_validate_proof_group_relative_absolute_index")
 pub fn ffi_validate_proof_group_relative_absolute_index(
-  value0 : Int,
-  value1 : Int,
-  value2 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32? {
   @validate_proof.group_relative_absolute_index(value0, value1, value2)
 }
 
@@ -24263,16 +24365,16 @@ pub fn ffi_validate_proof_group_relative_absolute_index(
 #doc(hidden)
 #export_name("ffi_validate_proof_label_stack_storage_index")
 pub fn ffi_validate_proof_label_stack_storage_index(
-  value0 : Int,
-  value1 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.label_stack_storage_index(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_validate_proof_latest_stack_index")
-pub fn ffi_validate_proof_latest_stack_index(value0 : Int) -> Int? {
+pub fn ffi_validate_proof_latest_stack_index(value0 : Int32) -> Int32? {
   @validate_proof.latest_stack_index(value0)
 }
 
@@ -24280,17 +24382,17 @@ pub fn ffi_validate_proof_latest_stack_index(value0 : Int) -> Int? {
 #doc(hidden)
 #export_name("ffi_validate_proof_rectype_suffix_member_index")
 pub fn ffi_validate_proof_rectype_suffix_member_index(
-  value0 : Int,
-  value1 : Int,
-  value2 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+  value2 : Int32,
+) -> Int32? {
   @validate_proof.rectype_suffix_member_index(value0, value1, value2)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_validate_proof_stack_len_after_pop1")
-pub fn ffi_validate_proof_stack_len_after_pop1(value0 : Int) -> Int? {
+pub fn ffi_validate_proof_stack_len_after_pop1(value0 : Int32) -> Int32? {
   @validate_proof.stack_len_after_pop1(value0)
 }
 
@@ -24298,16 +24400,16 @@ pub fn ffi_validate_proof_stack_len_after_pop1(value0 : Int) -> Int? {
 #doc(hidden)
 #export_name("ffi_validate_proof_stack_len_after_pop_types")
 pub fn ffi_validate_proof_stack_len_after_pop_types(
-  value0 : Int,
-  value1 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.stack_len_after_pop_types(value0, value1)
 }
 
 ///|
 #doc(hidden)
 #export_name("ffi_validate_proof_stack_len_after_push1")
-pub fn ffi_validate_proof_stack_len_after_push1(value0 : Int) -> Int {
+pub fn ffi_validate_proof_stack_len_after_push1(value0 : Int32) -> Int32 {
   @validate_proof.stack_len_after_push1(value0)
 }
 
@@ -24315,9 +24417,9 @@ pub fn ffi_validate_proof_stack_len_after_push1(value0 : Int) -> Int {
 #doc(hidden)
 #export_name("ffi_validate_proof_stack_len_after_push_types")
 pub fn ffi_validate_proof_stack_len_after_push_types(
-  value0 : Int,
-  value1 : Int,
-) -> Int {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32 {
   @validate_proof.stack_len_after_push_types(value0, value1)
 }
 
@@ -24325,9 +24427,9 @@ pub fn ffi_validate_proof_stack_len_after_push_types(
 #doc(hidden)
 #export_name("ffi_validate_proof_stack_suffix_start_after_end_check")
 pub fn ffi_validate_proof_stack_suffix_start_after_end_check(
-  value0 : Int,
-  value1 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.stack_suffix_start_after_end_check(value0, value1)
 }
 
@@ -24335,9 +24437,9 @@ pub fn ffi_validate_proof_stack_suffix_start_after_end_check(
 #doc(hidden)
 #export_name("ffi_validate_proof_suffix_start_index")
 pub fn ffi_validate_proof_suffix_start_index(
-  value0 : Int,
-  value1 : Int,
-) -> Int? {
+  value0 : Int32,
+  value1 : Int32,
+) -> Int32? {
   @validate_proof.suffix_start_index(value0, value1)
 }
 
@@ -24750,8 +24852,8 @@ pub fn ffi_builtin_Show_binary_EncodeError_to_string(
 #export_name("ffi_binary_Decode_Bool_decode")
 pub fn ffi_binary_Decode_Bool_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Bool, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Bool, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24760,8 +24862,8 @@ pub fn ffi_binary_Decode_Bool_decode(
 #export_name("ffi_binary_Decode_Bytes_decode")
 pub fn ffi_binary_Decode_Bytes_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Bytes, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Bytes, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24770,8 +24872,8 @@ pub fn ffi_binary_Decode_Bytes_decode(
 #export_name("ffi_binary_Decode_lib_AbsHeapType_decode")
 pub fn ffi_binary_Decode_lib_AbsHeapType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.AbsHeapType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.AbsHeapType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24780,8 +24882,8 @@ pub fn ffi_binary_Decode_lib_AbsHeapType_decode(
 #export_name("ffi_binary_Decode_lib_AtomicOrder_decode")
 pub fn ffi_binary_Decode_lib_AtomicOrder_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.AtomicOrder, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.AtomicOrder, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24790,8 +24892,8 @@ pub fn ffi_binary_Decode_lib_AtomicOrder_decode(
 #export_name("ffi_binary_Decode_lib_BlockType_decode")
 pub fn ffi_binary_Decode_lib_BlockType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.BlockType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.BlockType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24800,8 +24902,8 @@ pub fn ffi_binary_Decode_lib_BlockType_decode(
 #export_name("ffi_binary_Decode_lib_CastOp_decode")
 pub fn ffi_binary_Decode_lib_CastOp_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CastOp, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CastOp, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24810,8 +24912,8 @@ pub fn ffi_binary_Decode_lib_CastOp_decode(
 #export_name("ffi_binary_Decode_lib_Catch_decode")
 pub fn ffi_binary_Decode_lib_Catch_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Catch, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Catch, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24820,8 +24922,8 @@ pub fn ffi_binary_Decode_lib_Catch_decode(
 #export_name("ffi_binary_Decode_lib_CodeSec_decode")
 pub fn ffi_binary_Decode_lib_CodeSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CodeSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CodeSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24830,8 +24932,8 @@ pub fn ffi_binary_Decode_lib_CodeSec_decode(
 #export_name("ffi_binary_Decode_lib_CompType_decode")
 pub fn ffi_binary_Decode_lib_CompType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CompType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CompType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24840,8 +24942,8 @@ pub fn ffi_binary_Decode_lib_CompType_decode(
 #export_name("ffi_binary_Decode_lib_CustomSec_decode")
 pub fn ffi_binary_Decode_lib_CustomSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CustomSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CustomSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24850,8 +24952,8 @@ pub fn ffi_binary_Decode_lib_CustomSec_decode(
 #export_name("ffi_binary_Decode_lib_Data_decode")
 pub fn ffi_binary_Decode_lib_Data_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Data, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Data, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24860,8 +24962,8 @@ pub fn ffi_binary_Decode_lib_Data_decode(
 #export_name("ffi_binary_Decode_lib_DataCntSec_decode")
 pub fn ffi_binary_Decode_lib_DataCntSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.DataCntSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.DataCntSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24870,8 +24972,8 @@ pub fn ffi_binary_Decode_lib_DataCntSec_decode(
 #export_name("ffi_binary_Decode_lib_DataIdx_decode")
 pub fn ffi_binary_Decode_lib_DataIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.DataIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.DataIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24880,8 +24982,8 @@ pub fn ffi_binary_Decode_lib_DataIdx_decode(
 #export_name("ffi_binary_Decode_lib_DataSec_decode")
 pub fn ffi_binary_Decode_lib_DataSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.DataSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.DataSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24890,8 +24992,8 @@ pub fn ffi_binary_Decode_lib_DataSec_decode(
 #export_name("ffi_binary_Decode_lib_Elem_decode")
 pub fn ffi_binary_Decode_lib_Elem_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Elem, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Elem, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24900,8 +25002,8 @@ pub fn ffi_binary_Decode_lib_Elem_decode(
 #export_name("ffi_binary_Decode_lib_ElemIdx_decode")
 pub fn ffi_binary_Decode_lib_ElemIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ElemIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ElemIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24910,8 +25012,8 @@ pub fn ffi_binary_Decode_lib_ElemIdx_decode(
 #export_name("ffi_binary_Decode_lib_ElemSec_decode")
 pub fn ffi_binary_Decode_lib_ElemSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ElemSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ElemSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24920,8 +25022,8 @@ pub fn ffi_binary_Decode_lib_ElemSec_decode(
 #export_name("ffi_binary_Decode_lib_Export_decode")
 pub fn ffi_binary_Decode_lib_Export_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Export, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Export, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24930,8 +25032,8 @@ pub fn ffi_binary_Decode_lib_Export_decode(
 #export_name("ffi_binary_Decode_lib_ExportSec_decode")
 pub fn ffi_binary_Decode_lib_ExportSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ExportSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ExportSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24940,8 +25042,8 @@ pub fn ffi_binary_Decode_lib_ExportSec_decode(
 #export_name("ffi_binary_Decode_lib_Expr_decode")
 pub fn ffi_binary_Decode_lib_Expr_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Expr, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Expr, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24950,8 +25052,8 @@ pub fn ffi_binary_Decode_lib_Expr_decode(
 #export_name("ffi_binary_Decode_lib_ExternIdx_decode")
 pub fn ffi_binary_Decode_lib_ExternIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ExternIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ExternIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24960,8 +25062,8 @@ pub fn ffi_binary_Decode_lib_ExternIdx_decode(
 #export_name("ffi_binary_Decode_lib_ExternType_decode")
 pub fn ffi_binary_Decode_lib_ExternType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ExternType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ExternType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24970,8 +25072,8 @@ pub fn ffi_binary_Decode_lib_ExternType_decode(
 #export_name("ffi_binary_Decode_lib_F32_decode")
 pub fn ffi_binary_Decode_lib_F32_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.F32, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.F32, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24980,8 +25082,8 @@ pub fn ffi_binary_Decode_lib_F32_decode(
 #export_name("ffi_binary_Decode_lib_F64_decode")
 pub fn ffi_binary_Decode_lib_F64_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.F64, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.F64, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -24990,8 +25092,8 @@ pub fn ffi_binary_Decode_lib_F64_decode(
 #export_name("ffi_binary_Decode_lib_FieldType_decode")
 pub fn ffi_binary_Decode_lib_FieldType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FieldType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FieldType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25000,8 +25102,8 @@ pub fn ffi_binary_Decode_lib_FieldType_decode(
 #export_name("ffi_binary_Decode_lib_Func_decode")
 pub fn ffi_binary_Decode_lib_Func_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Func, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Func, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25010,8 +25112,8 @@ pub fn ffi_binary_Decode_lib_Func_decode(
 #export_name("ffi_binary_Decode_lib_FuncIdx_decode")
 pub fn ffi_binary_Decode_lib_FuncIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FuncIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FuncIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25020,8 +25122,8 @@ pub fn ffi_binary_Decode_lib_FuncIdx_decode(
 #export_name("ffi_binary_Decode_lib_FuncSec_decode")
 pub fn ffi_binary_Decode_lib_FuncSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FuncSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FuncSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25030,8 +25132,8 @@ pub fn ffi_binary_Decode_lib_FuncSec_decode(
 #export_name("ffi_binary_Decode_lib_Global_decode")
 pub fn ffi_binary_Decode_lib_Global_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Global, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Global, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25040,8 +25142,8 @@ pub fn ffi_binary_Decode_lib_Global_decode(
 #export_name("ffi_binary_Decode_lib_GlobalIdx_decode")
 pub fn ffi_binary_Decode_lib_GlobalIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.GlobalIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.GlobalIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25050,8 +25152,8 @@ pub fn ffi_binary_Decode_lib_GlobalIdx_decode(
 #export_name("ffi_binary_Decode_lib_GlobalSec_decode")
 pub fn ffi_binary_Decode_lib_GlobalSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.GlobalSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.GlobalSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25060,8 +25162,8 @@ pub fn ffi_binary_Decode_lib_GlobalSec_decode(
 #export_name("ffi_binary_Decode_lib_GlobalType_decode")
 pub fn ffi_binary_Decode_lib_GlobalType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.GlobalType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.GlobalType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25070,8 +25172,8 @@ pub fn ffi_binary_Decode_lib_GlobalType_decode(
 #export_name("ffi_binary_Decode_lib_HeapType_decode")
 pub fn ffi_binary_Decode_lib_HeapType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.HeapType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.HeapType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25080,8 +25182,8 @@ pub fn ffi_binary_Decode_lib_HeapType_decode(
 #export_name("ffi_binary_Decode_lib_I32_decode")
 pub fn ffi_binary_Decode_lib_I32_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.I32, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.I32, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25090,8 +25192,8 @@ pub fn ffi_binary_Decode_lib_I32_decode(
 #export_name("ffi_binary_Decode_lib_I64_decode")
 pub fn ffi_binary_Decode_lib_I64_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.I64, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.I64, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25100,8 +25202,8 @@ pub fn ffi_binary_Decode_lib_I64_decode(
 #export_name("ffi_binary_Decode_lib_Import_decode")
 pub fn ffi_binary_Decode_lib_Import_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Import, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Import, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25110,8 +25212,8 @@ pub fn ffi_binary_Decode_lib_Import_decode(
 #export_name("ffi_binary_Decode_lib_ImportSec_decode")
 pub fn ffi_binary_Decode_lib_ImportSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ImportSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ImportSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25120,8 +25222,8 @@ pub fn ffi_binary_Decode_lib_ImportSec_decode(
 #export_name("ffi_binary_Decode_lib_IndirectNameAssoc_decode")
 pub fn ffi_binary_Decode_lib_IndirectNameAssoc_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.IndirectNameAssoc, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.IndirectNameAssoc, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25130,8 +25232,8 @@ pub fn ffi_binary_Decode_lib_IndirectNameAssoc_decode(
 #export_name("ffi_binary_Decode_lib_IndirectNameMap_decode")
 pub fn ffi_binary_Decode_lib_IndirectNameMap_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.IndirectNameMap, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.IndirectNameMap, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25140,8 +25242,8 @@ pub fn ffi_binary_Decode_lib_IndirectNameMap_decode(
 #export_name("ffi_binary_Decode_lib_Instruction_decode")
 pub fn ffi_binary_Decode_lib_Instruction_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Instruction, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Instruction, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25150,8 +25252,8 @@ pub fn ffi_binary_Decode_lib_Instruction_decode(
 #export_name("ffi_binary_Decode_lib_LabelIdx_decode")
 pub fn ffi_binary_Decode_lib_LabelIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LabelIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LabelIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25160,8 +25262,8 @@ pub fn ffi_binary_Decode_lib_LabelIdx_decode(
 #export_name("ffi_binary_Decode_lib_LaneIdx_decode")
 pub fn ffi_binary_Decode_lib_LaneIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LaneIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LaneIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25170,8 +25272,8 @@ pub fn ffi_binary_Decode_lib_LaneIdx_decode(
 #export_name("ffi_binary_Decode_lib_Limits_decode")
 pub fn ffi_binary_Decode_lib_Limits_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Limits, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Limits, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25180,8 +25282,8 @@ pub fn ffi_binary_Decode_lib_Limits_decode(
 #export_name("ffi_binary_Decode_lib_LocalIdx_decode")
 pub fn ffi_binary_Decode_lib_LocalIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LocalIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LocalIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25190,8 +25292,8 @@ pub fn ffi_binary_Decode_lib_LocalIdx_decode(
 #export_name("ffi_binary_Decode_lib_LocalRun_decode")
 pub fn ffi_binary_Decode_lib_LocalRun_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LocalRun, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LocalRun, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25200,8 +25302,8 @@ pub fn ffi_binary_Decode_lib_LocalRun_decode(
 #export_name("ffi_binary_Decode_lib_Locals_decode")
 pub fn ffi_binary_Decode_lib_Locals_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Locals, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Locals, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25210,8 +25312,8 @@ pub fn ffi_binary_Decode_lib_Locals_decode(
 #export_name("ffi_binary_Decode_lib_MemArg_decode")
 pub fn ffi_binary_Decode_lib_MemArg_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemArg, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemArg, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25220,8 +25322,8 @@ pub fn ffi_binary_Decode_lib_MemArg_decode(
 #export_name("ffi_binary_Decode_lib_MemIdx_decode")
 pub fn ffi_binary_Decode_lib_MemIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25230,8 +25332,8 @@ pub fn ffi_binary_Decode_lib_MemIdx_decode(
 #export_name("ffi_binary_Decode_lib_MemSec_decode")
 pub fn ffi_binary_Decode_lib_MemSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25240,8 +25342,8 @@ pub fn ffi_binary_Decode_lib_MemSec_decode(
 #export_name("ffi_binary_Decode_lib_MemType_decode")
 pub fn ffi_binary_Decode_lib_MemType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25250,8 +25352,8 @@ pub fn ffi_binary_Decode_lib_MemType_decode(
 #export_name("ffi_binary_Decode_lib_Module_decode")
 pub fn ffi_binary_Decode_lib_Module_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Module, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Module, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25260,8 +25362,8 @@ pub fn ffi_binary_Decode_lib_Module_decode(
 #export_name("ffi_binary_Decode_lib_Mut_decode")
 pub fn ffi_binary_Decode_lib_Mut_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Mut, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Mut, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25270,8 +25372,8 @@ pub fn ffi_binary_Decode_lib_Mut_decode(
 #export_name("ffi_binary_Decode_lib_Name_decode")
 pub fn ffi_binary_Decode_lib_Name_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Name, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Name, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25280,8 +25382,8 @@ pub fn ffi_binary_Decode_lib_Name_decode(
 #export_name("ffi_binary_Decode_lib_NameAssoc_decode")
 pub fn ffi_binary_Decode_lib_NameAssoc_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NameAssoc, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NameAssoc, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25290,8 +25392,8 @@ pub fn ffi_binary_Decode_lib_NameAssoc_decode(
 #export_name("ffi_binary_Decode_lib_NameMap_decode")
 pub fn ffi_binary_Decode_lib_NameMap_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NameMap, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NameMap, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25300,8 +25402,8 @@ pub fn ffi_binary_Decode_lib_NameMap_decode(
 #export_name("ffi_binary_Decode_lib_NameSec_decode")
 pub fn ffi_binary_Decode_lib_NameSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NameSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NameSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25310,8 +25412,8 @@ pub fn ffi_binary_Decode_lib_NameSec_decode(
 #export_name("ffi_binary_Decode_lib_NumType_decode")
 pub fn ffi_binary_Decode_lib_NumType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NumType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NumType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25320,8 +25422,8 @@ pub fn ffi_binary_Decode_lib_NumType_decode(
 #export_name("ffi_binary_Decode_lib_PackType_decode")
 pub fn ffi_binary_Decode_lib_PackType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.PackType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.PackType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25330,8 +25432,8 @@ pub fn ffi_binary_Decode_lib_PackType_decode(
 #export_name("ffi_binary_Decode_lib_RecType_decode")
 pub fn ffi_binary_Decode_lib_RecType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.RecType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.RecType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25340,8 +25442,8 @@ pub fn ffi_binary_Decode_lib_RecType_decode(
 #export_name("ffi_binary_Decode_lib_RefType_decode")
 pub fn ffi_binary_Decode_lib_RefType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.RefType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.RefType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25350,8 +25452,8 @@ pub fn ffi_binary_Decode_lib_RefType_decode(
 #export_name("ffi_binary_Decode_lib_ResumeHandler_decode")
 pub fn ffi_binary_Decode_lib_ResumeHandler_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ResumeHandler, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ResumeHandler, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25360,8 +25462,8 @@ pub fn ffi_binary_Decode_lib_ResumeHandler_decode(
 #export_name("ffi_binary_Decode_lib_S33_decode")
 pub fn ffi_binary_Decode_lib_S33_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.S33, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.S33, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25370,8 +25472,8 @@ pub fn ffi_binary_Decode_lib_S33_decode(
 #export_name("ffi_binary_Decode_lib_StartSec_decode")
 pub fn ffi_binary_Decode_lib_StartSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.StartSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.StartSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25380,8 +25482,8 @@ pub fn ffi_binary_Decode_lib_StartSec_decode(
 #export_name("ffi_binary_Decode_lib_StorageType_decode")
 pub fn ffi_binary_Decode_lib_StorageType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.StorageType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.StorageType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25390,8 +25492,8 @@ pub fn ffi_binary_Decode_lib_StorageType_decode(
 #export_name("ffi_binary_Decode_lib_StringRefsSec_decode")
 pub fn ffi_binary_Decode_lib_StringRefsSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.StringRefsSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.StringRefsSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25400,8 +25502,8 @@ pub fn ffi_binary_Decode_lib_StringRefsSec_decode(
 #export_name("ffi_binary_Decode_lib_SubType_decode")
 pub fn ffi_binary_Decode_lib_SubType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.SubType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.SubType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25410,8 +25512,8 @@ pub fn ffi_binary_Decode_lib_SubType_decode(
 #export_name("ffi_binary_Decode_lib_Table_decode")
 pub fn ffi_binary_Decode_lib_Table_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Table, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Table, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25420,8 +25522,8 @@ pub fn ffi_binary_Decode_lib_Table_decode(
 #export_name("ffi_binary_Decode_lib_TableIdx_decode")
 pub fn ffi_binary_Decode_lib_TableIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25430,8 +25532,8 @@ pub fn ffi_binary_Decode_lib_TableIdx_decode(
 #export_name("ffi_binary_Decode_lib_TableSec_decode")
 pub fn ffi_binary_Decode_lib_TableSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25440,8 +25542,8 @@ pub fn ffi_binary_Decode_lib_TableSec_decode(
 #export_name("ffi_binary_Decode_lib_TableType_decode")
 pub fn ffi_binary_Decode_lib_TableType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25450,8 +25552,8 @@ pub fn ffi_binary_Decode_lib_TableType_decode(
 #export_name("ffi_binary_Decode_lib_TagIdx_decode")
 pub fn ffi_binary_Decode_lib_TagIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TagIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TagIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25460,8 +25562,8 @@ pub fn ffi_binary_Decode_lib_TagIdx_decode(
 #export_name("ffi_binary_Decode_lib_TagSec_decode")
 pub fn ffi_binary_Decode_lib_TagSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TagSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TagSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25470,8 +25572,8 @@ pub fn ffi_binary_Decode_lib_TagSec_decode(
 #export_name("ffi_binary_Decode_lib_TagType_decode")
 pub fn ffi_binary_Decode_lib_TagType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TagType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TagType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25480,8 +25582,8 @@ pub fn ffi_binary_Decode_lib_TagType_decode(
 #export_name("ffi_binary_Decode_lib_TypeIdx_decode")
 pub fn ffi_binary_Decode_lib_TypeIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TypeIdx, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TypeIdx, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25490,8 +25592,8 @@ pub fn ffi_binary_Decode_lib_TypeIdx_decode(
 #export_name("ffi_binary_Decode_lib_TypeSec_decode")
 pub fn ffi_binary_Decode_lib_TypeSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TypeSec, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TypeSec, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25500,8 +25602,8 @@ pub fn ffi_binary_Decode_lib_TypeSec_decode(
 #export_name("ffi_binary_Decode_lib_U32_decode")
 pub fn ffi_binary_Decode_lib_U32_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.U32, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.U32, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25510,8 +25612,8 @@ pub fn ffi_binary_Decode_lib_U32_decode(
 #export_name("ffi_binary_Decode_lib_U64_decode")
 pub fn ffi_binary_Decode_lib_U64_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.U64, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.U64, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25520,8 +25622,8 @@ pub fn ffi_binary_Decode_lib_U64_decode(
 #export_name("ffi_binary_Decode_lib_ValType_decode")
 pub fn ffi_binary_Decode_lib_ValType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ValType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ValType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25530,8 +25632,8 @@ pub fn ffi_binary_Decode_lib_ValType_decode(
 #export_name("ffi_binary_Decode_representation_AccessFacts_decode")
 pub fn ffi_binary_Decode_representation_AccessFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AccessFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.AccessFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25540,8 +25642,8 @@ pub fn ffi_binary_Decode_representation_AccessFacts_decode(
 #export_name("ffi_binary_Decode_representation_AccessSiteFacts_decode")
 pub fn ffi_binary_Decode_representation_AccessSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AccessSiteFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.AccessSiteFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25550,8 +25652,8 @@ pub fn ffi_binary_Decode_representation_AccessSiteFacts_decode(
 #export_name("ffi_binary_Decode_representation_AliasSource_decode")
 pub fn ffi_binary_Decode_representation_AliasSource_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AliasSource, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.AliasSource, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25560,8 +25662,8 @@ pub fn ffi_binary_Decode_representation_AliasSource_decode(
 #export_name("ffi_binary_Decode_representation_AllocationFacts_decode")
 pub fn ffi_binary_Decode_representation_AllocationFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AllocationFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.AllocationFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25570,9 +25672,9 @@ pub fn ffi_binary_Decode_representation_AllocationFacts_decode(
 #export_name("ffi_binary_Decode_representation_AllocationFieldFacts_decode")
 pub fn ffi_binary_Decode_representation_AllocationFieldFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.AllocationFieldFacts, Int),
+  (@representation.AllocationFieldFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -25583,8 +25685,8 @@ pub fn ffi_binary_Decode_representation_AllocationFieldFacts_decode(
 #export_name("ffi_binary_Decode_representation_AllocationKind_decode")
 pub fn ffi_binary_Decode_representation_AllocationKind_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AllocationKind, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.AllocationKind, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25593,9 +25695,9 @@ pub fn ffi_binary_Decode_representation_AllocationKind_decode(
 #export_name("ffi_binary_Decode_representation_AllocationSiteFacts_decode")
 pub fn ffi_binary_Decode_representation_AllocationSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.AllocationSiteFacts, Int),
+  (@representation.AllocationSiteFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -25606,8 +25708,11 @@ pub fn ffi_binary_Decode_representation_AllocationSiteFacts_decode(
 #export_name("ffi_binary_Decode_representation_ArrayElementFacts_decode")
 pub fn ffi_binary_Decode_representation_ArrayElementFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ArrayElementFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ArrayElementFacts, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25616,8 +25721,8 @@ pub fn ffi_binary_Decode_representation_ArrayElementFacts_decode(
 #export_name("ffi_binary_Decode_representation_BranchFacts_decode")
 pub fn ffi_binary_Decode_representation_BranchFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.BranchFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.BranchFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25626,8 +25731,8 @@ pub fn ffi_binary_Decode_representation_BranchFacts_decode(
 #export_name("ffi_binary_Decode_representation_BranchProfile_decode")
 pub fn ffi_binary_Decode_representation_BranchProfile_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.BranchProfile, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.BranchProfile, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25636,8 +25741,8 @@ pub fn ffi_binary_Decode_representation_BranchProfile_decode(
 #export_name("ffi_binary_Decode_representation_CallProfile_decode")
 pub fn ffi_binary_Decode_representation_CallProfile_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.CallProfile, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.CallProfile, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25646,8 +25751,8 @@ pub fn ffi_binary_Decode_representation_CallProfile_decode(
 #export_name("ffi_binary_Decode_representation_CallSiteFacts_decode")
 pub fn ffi_binary_Decode_representation_CallSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.CallSiteFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.CallSiteFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25656,8 +25761,8 @@ pub fn ffi_binary_Decode_representation_CallSiteFacts_decode(
 #export_name("ffi_binary_Decode_representation_ClosedAliasSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedAliasSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedAliasSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedAliasSet, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25666,8 +25771,11 @@ pub fn ffi_binary_Decode_representation_ClosedAliasSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedFunctionSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedFunctionSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedFunctionSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ClosedFunctionSet, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25676,8 +25784,8 @@ pub fn ffi_binary_Decode_representation_ClosedFunctionSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedGlobalSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedGlobalSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedGlobalSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedGlobalSet, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25686,8 +25794,11 @@ pub fn ffi_binary_Decode_representation_ClosedGlobalSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedHeapTypeSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedHeapTypeSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedHeapTypeSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ClosedHeapTypeSet, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25696,8 +25807,8 @@ pub fn ffi_binary_Decode_representation_ClosedHeapTypeSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedMemorySet_decode")
 pub fn ffi_binary_Decode_representation_ClosedMemorySet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedMemorySet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedMemorySet, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25706,8 +25817,8 @@ pub fn ffi_binary_Decode_representation_ClosedMemorySet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedTableSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedTableSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedTableSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedTableSet, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25716,8 +25827,11 @@ pub fn ffi_binary_Decode_representation_ClosedTableSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedTypeViewSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedTypeViewSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedTypeViewSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ClosedTypeViewSet, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25726,8 +25840,8 @@ pub fn ffi_binary_Decode_representation_ClosedTypeViewSet_decode(
 #export_name("ffi_binary_Decode_representation_ClosedValueSet_decode")
 pub fn ffi_binary_Decode_representation_ClosedValueSet_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedValueSet, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedValueSet, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25736,8 +25850,8 @@ pub fn ffi_binary_Decode_representation_ClosedValueSet_decode(
 #export_name("ffi_binary_Decode_representation_CodeSite_decode")
 pub fn ffi_binary_Decode_representation_CodeSite_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.CodeSite, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.CodeSite, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25746,9 +25860,9 @@ pub fn ffi_binary_Decode_representation_CodeSite_decode(
 #export_name("ffi_binary_Decode_representation_CompilerFactCustomSection_decode")
 pub fn ffi_binary_Decode_representation_CompilerFactCustomSection_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.CompilerFactCustomSection, Int),
+  (@representation.CompilerFactCustomSection, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -25759,8 +25873,8 @@ pub fn ffi_binary_Decode_representation_CompilerFactCustomSection_decode(
 #export_name("ffi_binary_Decode_representation_EffectFacts_decode")
 pub fn ffi_binary_Decode_representation_EffectFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.EffectFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.EffectFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25769,8 +25883,8 @@ pub fn ffi_binary_Decode_representation_EffectFacts_decode(
 #export_name("ffi_binary_Decode_representation_EffectMask_decode")
 pub fn ffi_binary_Decode_representation_EffectMask_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.EffectMask, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.EffectMask, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25779,8 +25893,8 @@ pub fn ffi_binary_Decode_representation_EffectMask_decode(
 #export_name("ffi_binary_Decode_representation_EscapeSinkMask_decode")
 pub fn ffi_binary_Decode_representation_EscapeSinkMask_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.EscapeSinkMask, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.EscapeSinkMask, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25789,8 +25903,8 @@ pub fn ffi_binary_Decode_representation_EscapeSinkMask_decode(
 #export_name("ffi_binary_Decode_representation_ExpressionFact_decode")
 pub fn ffi_binary_Decode_representation_ExpressionFact_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ExpressionFact, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ExpressionFact, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25799,8 +25913,8 @@ pub fn ffi_binary_Decode_representation_ExpressionFact_decode(
 #export_name("ffi_binary_Decode_representation_FactHeapType_decode")
 pub fn ffi_binary_Decode_representation_FactHeapType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FactHeapType, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FactHeapType, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25809,8 +25923,8 @@ pub fn ffi_binary_Decode_representation_FactHeapType_decode(
 #export_name("ffi_binary_Decode_representation_FactOperand_decode")
 pub fn ffi_binary_Decode_representation_FactOperand_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FactOperand, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FactOperand, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25819,8 +25933,8 @@ pub fn ffi_binary_Decode_representation_FactOperand_decode(
 #export_name("ffi_binary_Decode_representation_FactValue_decode")
 pub fn ffi_binary_Decode_representation_FactValue_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FactValue, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FactValue, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25829,8 +25943,8 @@ pub fn ffi_binary_Decode_representation_FactValue_decode(
 #export_name("ffi_binary_Decode_representation_FieldFacts_decode")
 pub fn ffi_binary_Decode_representation_FieldFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FieldFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FieldFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25839,8 +25953,8 @@ pub fn ffi_binary_Decode_representation_FieldFacts_decode(
 #export_name("ffi_binary_Decode_representation_FieldUsageFacts_decode")
 pub fn ffi_binary_Decode_representation_FieldUsageFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FieldUsageFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FieldUsageFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25849,8 +25963,8 @@ pub fn ffi_binary_Decode_representation_FieldUsageFacts_decode(
 #export_name("ffi_binary_Decode_representation_FloatClassMask_decode")
 pub fn ffi_binary_Decode_representation_FloatClassMask_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FloatClassMask, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FloatClassMask, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25859,8 +25973,8 @@ pub fn ffi_binary_Decode_representation_FloatClassMask_decode(
 #export_name("ffi_binary_Decode_representation_FloatFacts_decode")
 pub fn ffi_binary_Decode_representation_FloatFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FloatFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FloatFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25869,8 +25983,8 @@ pub fn ffi_binary_Decode_representation_FloatFacts_decode(
 #export_name("ffi_binary_Decode_representation_FloatWidth_decode")
 pub fn ffi_binary_Decode_representation_FloatWidth_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FloatWidth, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FloatWidth, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25879,8 +25993,11 @@ pub fn ffi_binary_Decode_representation_FloatWidth_decode(
 #export_name("ffi_binary_Decode_representation_FunctionBodyFacts_decode")
 pub fn ffi_binary_Decode_representation_FunctionBodyFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionBodyFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.FunctionBodyFacts, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25889,9 +26006,9 @@ pub fn ffi_binary_Decode_representation_FunctionBodyFacts_decode(
 #export_name("ffi_binary_Decode_representation_FunctionBoundaryFacts_decode")
 pub fn ffi_binary_Decode_representation_FunctionBoundaryFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.FunctionBoundaryFacts, Int),
+  (@representation.FunctionBoundaryFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -25902,8 +26019,8 @@ pub fn ffi_binary_Decode_representation_FunctionBoundaryFacts_decode(
 #export_name("ffi_binary_Decode_representation_FunctionFacts_decode")
 pub fn ffi_binary_Decode_representation_FunctionFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FunctionFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25912,8 +26029,8 @@ pub fn ffi_binary_Decode_representation_FunctionFacts_decode(
 #export_name("ffi_binary_Decode_representation_FunctionProfile_decode")
 pub fn ffi_binary_Decode_representation_FunctionProfile_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionProfile, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FunctionProfile, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25922,8 +26039,11 @@ pub fn ffi_binary_Decode_representation_FunctionProfile_decode(
 #export_name("ffi_binary_Decode_representation_FunctionResultRef_decode")
 pub fn ffi_binary_Decode_representation_FunctionResultRef_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionResultRef, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.FunctionResultRef, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25932,8 +26052,8 @@ pub fn ffi_binary_Decode_representation_FunctionResultRef_decode(
 #export_name("ffi_binary_Decode_representation_GlobalFacts_decode")
 pub fn ffi_binary_Decode_representation_GlobalFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.GlobalFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.GlobalFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25942,8 +26062,8 @@ pub fn ffi_binary_Decode_representation_GlobalFacts_decode(
 #export_name("ffi_binary_Decode_representation_HeapDomain_decode")
 pub fn ffi_binary_Decode_representation_HeapDomain_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.HeapDomain, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.HeapDomain, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25952,8 +26072,8 @@ pub fn ffi_binary_Decode_representation_HeapDomain_decode(
 #export_name("ffi_binary_Decode_representation_HintTarget_decode")
 pub fn ffi_binary_Decode_representation_HintTarget_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.HintTarget, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.HintTarget, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25962,8 +26082,11 @@ pub fn ffi_binary_Decode_representation_HintTarget_decode(
 #export_name("ffi_binary_Decode_representation_IndexedValueFacts_decode")
 pub fn ffi_binary_Decode_representation_IndexedValueFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.IndexedValueFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.IndexedValueFacts, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25972,8 +26095,8 @@ pub fn ffi_binary_Decode_representation_IndexedValueFacts_decode(
 #export_name("ffi_binary_Decode_representation_InlinePolicy_decode")
 pub fn ffi_binary_Decode_representation_InlinePolicy_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.InlinePolicy, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.InlinePolicy, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25982,8 +26105,8 @@ pub fn ffi_binary_Decode_representation_InlinePolicy_decode(
 #export_name("ffi_binary_Decode_representation_IntConstant_decode")
 pub fn ffi_binary_Decode_representation_IntConstant_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.IntConstant, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.IntConstant, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -25992,8 +26115,8 @@ pub fn ffi_binary_Decode_representation_IntConstant_decode(
 #export_name("ffi_binary_Decode_representation_IntWidth_decode")
 pub fn ffi_binary_Decode_representation_IntWidth_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.IntWidth, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.IntWidth, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26002,8 +26125,8 @@ pub fn ffi_binary_Decode_representation_IntWidth_decode(
 #export_name("ffi_binary_Decode_representation_IntegerFacts_decode")
 pub fn ffi_binary_Decode_representation_IntegerFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.IntegerFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.IntegerFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26012,8 +26135,8 @@ pub fn ffi_binary_Decode_representation_IntegerFacts_decode(
 #export_name("ffi_binary_Decode_representation_KnownBits_decode")
 pub fn ffi_binary_Decode_representation_KnownBits_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.KnownBits, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.KnownBits, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26022,8 +26145,8 @@ pub fn ffi_binary_Decode_representation_KnownBits_decode(
 #export_name("ffi_binary_Decode_representation_KnownV128Bits_decode")
 pub fn ffi_binary_Decode_representation_KnownV128Bits_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.KnownV128Bits, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.KnownV128Bits, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26032,8 +26155,8 @@ pub fn ffi_binary_Decode_representation_KnownV128Bits_decode(
 #export_name("ffi_binary_Decode_representation_LoopFacts_decode")
 pub fn ffi_binary_Decode_representation_LoopFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.LoopFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.LoopFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26042,8 +26165,8 @@ pub fn ffi_binary_Decode_representation_LoopFacts_decode(
 #export_name("ffi_binary_Decode_representation_LoopProfile_decode")
 pub fn ffi_binary_Decode_representation_LoopProfile_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.LoopProfile, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.LoopProfile, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26052,8 +26175,8 @@ pub fn ffi_binary_Decode_representation_LoopProfile_decode(
 #export_name("ffi_binary_Decode_representation_MutationFacts_decode")
 pub fn ffi_binary_Decode_representation_MutationFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.MutationFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.MutationFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26062,8 +26185,8 @@ pub fn ffi_binary_Decode_representation_MutationFacts_decode(
 #export_name("ffi_binary_Decode_representation_MutationPhase_decode")
 pub fn ffi_binary_Decode_representation_MutationPhase_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.MutationPhase, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.MutationPhase, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26072,8 +26195,11 @@ pub fn ffi_binary_Decode_representation_MutationPhase_decode(
 #export_name("ffi_binary_Decode_representation_NullabilityFacts_decode")
 pub fn ffi_binary_Decode_representation_NullabilityFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.NullabilityFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.NullabilityFacts, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26082,9 +26208,9 @@ pub fn ffi_binary_Decode_representation_NullabilityFacts_decode(
 #export_name("ffi_binary_Decode_representation_NumericOperationFacts_decode")
 pub fn ffi_binary_Decode_representation_NumericOperationFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.NumericOperationFacts, Int),
+  (@representation.NumericOperationFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -26095,9 +26221,9 @@ pub fn ffi_binary_Decode_representation_NumericOperationFacts_decode(
 #export_name("ffi_binary_Decode_representation_NumericOperationSiteFacts_decode")
 pub fn ffi_binary_Decode_representation_NumericOperationSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.NumericOperationSiteFacts, Int),
+  (@representation.NumericOperationSiteFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -26108,9 +26234,9 @@ pub fn ffi_binary_Decode_representation_NumericOperationSiteFacts_decode(
 #export_name("ffi_binary_Decode_representation_OptimizationFactsSec_decode")
 pub fn ffi_binary_Decode_representation_OptimizationFactsSec_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.OptimizationFactsSec, Int),
+  (@representation.OptimizationFactsSec, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -26121,8 +26247,11 @@ pub fn ffi_binary_Decode_representation_OptimizationFactsSec_decode(
 #export_name("ffi_binary_Decode_representation_OptimizationGoal_decode")
 pub fn ffi_binary_Decode_representation_OptimizationGoal_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.OptimizationGoal, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.OptimizationGoal, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26131,8 +26260,11 @@ pub fn ffi_binary_Decode_representation_OptimizationGoal_decode(
 #export_name("ffi_binary_Decode_representation_OptimizationHint_decode")
 pub fn ffi_binary_Decode_representation_OptimizationHint_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.OptimizationHint, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.OptimizationHint, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26141,8 +26273,8 @@ pub fn ffi_binary_Decode_representation_OptimizationHint_decode(
 #export_name("ffi_binary_Decode_representation_ParameterFacts_decode")
 pub fn ffi_binary_Decode_representation_ParameterFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ParameterFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ParameterFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26151,8 +26283,8 @@ pub fn ffi_binary_Decode_representation_ParameterFacts_decode(
 #export_name("ffi_binary_Decode_representation_ParameterRef_decode")
 pub fn ffi_binary_Decode_representation_ParameterRef_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ParameterRef, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ParameterRef, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26161,8 +26293,11 @@ pub fn ffi_binary_Decode_representation_ParameterRef_decode(
 #export_name("ffi_binary_Decode_representation_ParameterUseMask_decode")
 pub fn ffi_binary_Decode_representation_ParameterUseMask_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ParameterUseMask, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ParameterUseMask, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26171,8 +26306,8 @@ pub fn ffi_binary_Decode_representation_ParameterUseMask_decode(
 #export_name("ffi_binary_Decode_representation_ProducerInfo_decode")
 pub fn ffi_binary_Decode_representation_ProducerInfo_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ProducerInfo, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ProducerInfo, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26181,8 +26316,8 @@ pub fn ffi_binary_Decode_representation_ProducerInfo_decode(
 #export_name("ffi_binary_Decode_representation_ReferenceFacts_decode")
 pub fn ffi_binary_Decode_representation_ReferenceFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ReferenceFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ReferenceFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26191,8 +26326,8 @@ pub fn ffi_binary_Decode_representation_ReferenceFacts_decode(
 #export_name("ffi_binary_Decode_representation_RelationKind_decode")
 pub fn ffi_binary_Decode_representation_RelationKind_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.RelationKind, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.RelationKind, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26201,8 +26336,8 @@ pub fn ffi_binary_Decode_representation_RelationKind_decode(
 #export_name("ffi_binary_Decode_representation_ResultFacts_decode")
 pub fn ffi_binary_Decode_representation_ResultFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ResultFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ResultFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26211,9 +26346,9 @@ pub fn ffi_binary_Decode_representation_ResultFacts_decode(
 #export_name("ffi_binary_Decode_representation_ResultIdentityFacts_decode")
 pub fn ffi_binary_Decode_representation_ResultIdentityFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ResultIdentityFacts, Int),
+  (@representation.ResultIdentityFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -26224,9 +26359,9 @@ pub fn ffi_binary_Decode_representation_ResultIdentityFacts_decode(
 #export_name("ffi_binary_Decode_representation_ScopedRelationFacts_decode")
 pub fn ffi_binary_Decode_representation_ScopedRelationFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ScopedRelationFacts, Int),
+  (@representation.ScopedRelationFacts, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -26237,8 +26372,8 @@ pub fn ffi_binary_Decode_representation_ScopedRelationFacts_decode(
 #export_name("ffi_binary_Decode_representation_SignatureFacts_decode")
 pub fn ffi_binary_Decode_representation_SignatureFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SignatureFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.SignatureFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26247,8 +26382,8 @@ pub fn ffi_binary_Decode_representation_SignatureFacts_decode(
 #export_name("ffi_binary_Decode_representation_SignedRange_decode")
 pub fn ffi_binary_Decode_representation_SignedRange_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SignedRange, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.SignedRange, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26257,8 +26392,11 @@ pub fn ffi_binary_Decode_representation_SignedRange_decode(
 #export_name("ffi_binary_Decode_representation_SourceProvenance_decode")
 pub fn ffi_binary_Decode_representation_SourceProvenance_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SourceProvenance, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.SourceProvenance, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26267,8 +26405,8 @@ pub fn ffi_binary_Decode_representation_SourceProvenance_decode(
 #export_name("ffi_binary_Decode_representation_TableEntryFacts_decode")
 pub fn ffi_binary_Decode_representation_TableEntryFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TableEntryFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TableEntryFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26277,8 +26415,8 @@ pub fn ffi_binary_Decode_representation_TableEntryFacts_decode(
 #export_name("ffi_binary_Decode_representation_TableFacts_decode")
 pub fn ffi_binary_Decode_representation_TableFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TableFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TableFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26287,8 +26425,8 @@ pub fn ffi_binary_Decode_representation_TableFacts_decode(
 #export_name("ffi_binary_Decode_representation_TemperatureHint_decode")
 pub fn ffi_binary_Decode_representation_TemperatureHint_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TemperatureHint, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TemperatureHint, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26297,8 +26435,8 @@ pub fn ffi_binary_Decode_representation_TemperatureHint_decode(
 #export_name("ffi_binary_Decode_representation_TypeFacts_decode")
 pub fn ffi_binary_Decode_representation_TypeFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TypeFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TypeFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26307,8 +26445,8 @@ pub fn ffi_binary_Decode_representation_TypeFacts_decode(
 #export_name("ffi_binary_Decode_representation_TypePopulation_decode")
 pub fn ffi_binary_Decode_representation_TypePopulation_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TypePopulation, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TypePopulation, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26317,8 +26455,8 @@ pub fn ffi_binary_Decode_representation_TypePopulation_decode(
 #export_name("ffi_binary_Decode_representation_TypeView_decode")
 pub fn ffi_binary_Decode_representation_TypeView_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TypeView, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TypeView, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26327,8 +26465,8 @@ pub fn ffi_binary_Decode_representation_TypeView_decode(
 #export_name("ffi_binary_Decode_representation_UnsignedRange_decode")
 pub fn ffi_binary_Decode_representation_UnsignedRange_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.UnsignedRange, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.UnsignedRange, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26337,8 +26475,8 @@ pub fn ffi_binary_Decode_representation_UnsignedRange_decode(
 #export_name("ffi_binary_Decode_representation_V128Bits_decode")
 pub fn ffi_binary_Decode_representation_V128Bits_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.V128Bits, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.V128Bits, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26347,8 +26485,8 @@ pub fn ffi_binary_Decode_representation_V128Bits_decode(
 #export_name("ffi_binary_Decode_representation_ValueFacts_decode")
 pub fn ffi_binary_Decode_representation_ValueFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ValueFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ValueFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26357,8 +26495,8 @@ pub fn ffi_binary_Decode_representation_ValueFacts_decode(
 #export_name("ffi_binary_Decode_representation_ValueRef_decode")
 pub fn ffi_binary_Decode_representation_ValueRef_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ValueRef, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ValueRef, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26367,8 +26505,8 @@ pub fn ffi_binary_Decode_representation_ValueRef_decode(
 #export_name("ffi_binary_Decode_representation_ValueSite_decode")
 pub fn ffi_binary_Decode_representation_ValueSite_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ValueSite, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ValueSite, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26377,8 +26515,8 @@ pub fn ffi_binary_Decode_representation_ValueSite_decode(
 #export_name("ffi_binary_Decode_representation_VectorFacts_decode")
 pub fn ffi_binary_Decode_representation_VectorFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.VectorFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.VectorFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26387,8 +26525,8 @@ pub fn ffi_binary_Decode_representation_VectorFacts_decode(
 #export_name("ffi_binary_Decode_representation_VectorLaneShape_decode")
 pub fn ffi_binary_Decode_representation_VectorLaneShape_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.VectorLaneShape, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.VectorLaneShape, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26397,8 +26535,8 @@ pub fn ffi_binary_Decode_representation_VectorLaneShape_decode(
 #export_name("ffi_binary_Decode_representation_WorldFacts_decode")
 pub fn ffi_binary_Decode_representation_WorldFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.WorldFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.WorldFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26407,8 +26545,8 @@ pub fn ffi_binary_Decode_representation_WorldFacts_decode(
 #export_name("ffi_binary_Decode_representation_WorldMode_decode")
 pub fn ffi_binary_Decode_representation_WorldMode_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.WorldMode, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.WorldMode, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -26417,8 +26555,8 @@ pub fn ffi_binary_Decode_representation_WorldMode_decode(
 #export_name("ffi_binary_Decode_representation_WriteFacts_decode")
 pub fn ffi_binary_Decode_representation_WriteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.WriteFacts, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.WriteFacts, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -29530,7 +29668,7 @@ pub fn ffi_builtin_Show_lib_CodeSec_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_CodeSec_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_CodeSec_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.CodeSec {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29569,7 +29707,7 @@ pub fn ffi_builtin_Show_lib_CompType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_CompType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_CompType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.CompType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29608,7 +29746,7 @@ pub fn ffi_builtin_Show_lib_CustomSec_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_CustomSec_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_CustomSec_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.CustomSec {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29645,7 +29783,7 @@ pub fn ffi_builtin_Show_lib_Data_to_string(receiver : @lib.Data) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Data_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Data_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Data {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29771,7 +29909,7 @@ pub fn ffi_builtin_Show_lib_DataSec_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_DataSec_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_DataSec_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.DataSec {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29810,7 +29948,7 @@ pub fn ffi_builtin_Show_lib_DefType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_DefType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_DefType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.DefType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29847,7 +29985,7 @@ pub fn ffi_builtin_Show_lib_Elem_to_string(receiver : @lib.Elem) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Elem_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Elem_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Elem {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -29973,7 +30111,7 @@ pub fn ffi_builtin_Show_lib_ElemSec_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_ElemSec_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_ElemSec_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.ElemSec {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30066,7 +30204,7 @@ pub fn ffi_builtin_Show_lib_Expr_to_string(receiver : @lib.Expr) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Expr_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Expr_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Expr {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30273,7 +30411,7 @@ pub fn ffi_builtin_Show_lib_Func_to_string(receiver : @lib.Func) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Func_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Func_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Func {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30570,7 +30708,7 @@ pub fn ffi_builtin_Show_lib_HeapType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_HeapType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_HeapType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.HeapType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30777,7 +30915,7 @@ pub fn ffi_builtin_Show_lib_Instruction_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Instruction_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Instruction_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Instruction {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30845,7 +30983,7 @@ pub fn ffi_builtin_Show_lib_LaneIdx_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_LaneIdx_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_LaneIdx_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.LaneIdx {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30901,7 +31039,7 @@ pub fn ffi_builtin_Show_lib_Limits_to_string(receiver : @lib.Limits) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Limits_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Limits_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Limits {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -30986,7 +31124,7 @@ pub fn ffi_builtin_Show_lib_LocalRun_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_LocalRun_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_LocalRun_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.LocalRun {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31025,7 +31163,7 @@ pub fn ffi_builtin_Eq_lib_Locals_not_equal(
 ///|
 #doc(hidden)
 #export_name("ffi_builtin_Hash_lib_Locals_hash")
-pub fn ffi_builtin_Hash_lib_Locals_hash(receiver : @lib.Locals) -> Int {
+pub fn ffi_builtin_Hash_lib_Locals_hash(receiver : @lib.Locals) -> Int32 {
   @builtin.Hash::hash(receiver)
 }
 
@@ -31060,7 +31198,7 @@ pub fn ffi_builtin_Show_lib_Locals_to_string(receiver : @lib.Locals) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Locals_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Locals_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Locals {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31117,7 +31255,7 @@ pub fn ffi_builtin_Show_lib_MemArg_to_string(receiver : @lib.MemArg) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_MemArg_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_MemArg_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.MemArg {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31257,7 +31395,7 @@ pub fn ffi_builtin_Show_lib_Module_to_string(receiver : @lib.Module) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Module_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Module_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Module {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31321,7 +31459,7 @@ pub fn ffi_builtin_Show_lib_Name_to_string(receiver : @lib.Name) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_Name_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_Name_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.Name {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31525,7 +31663,7 @@ pub fn ffi_builtin_Show_lib_RecType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_RecType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_RecType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.RecType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31584,7 +31722,7 @@ pub fn ffi_builtin_Show_lib_RefType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_RefType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_RefType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.RefType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -31804,7 +31942,7 @@ pub fn ffi_builtin_Show_lib_SubType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_SubType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_SubType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.SubType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -32040,7 +32178,7 @@ pub fn ffi_builtin_Show_lib_TypeIdx_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_TypeIdx_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_TypeIdx_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.TypeIdx {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -32307,7 +32445,7 @@ pub fn ffi_builtin_Show_lib_ValType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_lib_ValType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_lib_ValType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @lib.ValType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34169,7 +34307,7 @@ pub fn ffi_builtin_Show_wast_BlockType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_BlockType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_BlockType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.BlockType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34227,7 +34365,7 @@ pub fn ffi_builtin_Show_wast_DataSegment_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_DataSegment_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_DataSegment_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.DataSegment {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34285,7 +34423,7 @@ pub fn ffi_builtin_Show_wast_ElemSegment_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ElemSegment_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ElemSegment_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ElemSegment {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34353,7 +34491,7 @@ pub fn ffi_builtin_Show_wast_Export_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Export_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Export_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Export {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34392,7 +34530,7 @@ pub fn ffi_builtin_Show_wast_ExportDesc_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ExportDesc_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ExportDesc_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ExportDesc {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34448,7 +34586,7 @@ pub fn ffi_builtin_Show_wast_Func_to_string(receiver : @wast.Func) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Func_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Func_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Func {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34487,7 +34625,7 @@ pub fn ffi_builtin_Show_wast_FuncType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_FuncType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_FuncType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.FuncType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34526,7 +34664,7 @@ pub fn ffi_builtin_Show_wast_Global_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Global_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Global_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Global {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34565,7 +34703,7 @@ pub fn ffi_builtin_Show_wast_GlobalType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_GlobalType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_GlobalType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.GlobalType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34623,7 +34761,7 @@ pub fn ffi_builtin_Show_wast_Import_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Import_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Import_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Import {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34662,7 +34800,7 @@ pub fn ffi_builtin_Show_wast_ImportDesc_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ImportDesc_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ImportDesc_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ImportDesc {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34699,7 +34837,7 @@ pub fn ffi_builtin_Show_wast_Index_to_string(receiver : @wast.Index) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Index_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Index_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Index {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34738,7 +34876,7 @@ pub fn ffi_builtin_Show_wast_InlineExport_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_InlineExport_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_InlineExport_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.InlineExport {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34777,7 +34915,7 @@ pub fn ffi_builtin_Show_wast_Instruction_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Instruction_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Instruction_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Instruction {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34864,7 +35002,7 @@ pub fn ffi_builtin_Show_wast_Limits_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Limits_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Limits_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Limits {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -34959,7 +35097,7 @@ pub fn ffi_builtin_Show_wast_Local_to_string(receiver : @wast.Local) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Local_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Local_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Local {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35027,7 +35165,7 @@ pub fn ffi_builtin_Show_wast_MemArg_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_MemArg_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_MemArg_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.MemArg {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35066,7 +35204,7 @@ pub fn ffi_builtin_Show_wast_Memory_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Memory_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Memory_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Memory {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35105,7 +35243,7 @@ pub fn ffi_builtin_Show_wast_MemoryType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_MemoryType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_MemoryType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.MemoryType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35144,7 +35282,7 @@ pub fn ffi_builtin_Show_wast_Module_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Module_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Module_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Module {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35183,7 +35321,7 @@ pub fn ffi_builtin_Show_wast_ModuleField_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ModuleField_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ModuleField_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ModuleField {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35222,7 +35360,7 @@ pub fn ffi_builtin_Show_wast_Opcode_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Opcode_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Opcode_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Opcode {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35290,7 +35428,7 @@ pub fn ffi_builtin_Show_wast_ShuffleLanes_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ShuffleLanes_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ShuffleLanes_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ShuffleLanes {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35329,7 +35467,7 @@ pub fn ffi_builtin_Show_wast_SimdShape_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_SimdShape_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_SimdShape_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.SimdShape {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35366,7 +35504,7 @@ pub fn ffi_builtin_Show_wast_Start_to_string(receiver : @wast.Start) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Start_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Start_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Start {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35422,7 +35560,7 @@ pub fn ffi_builtin_Show_wast_Table_to_string(receiver : @wast.Table) -> String {
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_Table_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_Table_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.Table {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35461,7 +35599,7 @@ pub fn ffi_builtin_Show_wast_TableType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_TableType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_TableType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.TableType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35602,7 +35740,7 @@ pub fn ffi_builtin_Show_wast_TypeDef_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_TypeDef_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_TypeDef_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.TypeDef {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35679,7 +35817,7 @@ pub fn ffi_builtin_Show_wast_TypeUse_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_TypeUse_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_TypeUse_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.TypeUse {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35718,7 +35856,7 @@ pub fn ffi_builtin_Show_wast_V128Const_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_V128Const_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_V128Const_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.V128Const {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35757,7 +35895,7 @@ pub fn ffi_builtin_Show_wast_ValueType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_ValueType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_ValueType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.ValueType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35796,7 +35934,7 @@ pub fn ffi_builtin_Show_wast_WastAction_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastAction_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastAction_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastAction {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35835,7 +35973,7 @@ pub fn ffi_builtin_Show_wast_WastActionType_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastActionType_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastActionType_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastActionType {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35874,7 +36012,7 @@ pub fn ffi_builtin_Show_wast_WastCommand_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastCommand_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastCommand_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastCommand {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35913,7 +36051,7 @@ pub fn ffi_builtin_Show_wast_WastModuleDef_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastModuleDef_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastModuleDef_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastModuleDef {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35952,7 +36090,7 @@ pub fn ffi_builtin_Show_wast_WastResult_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastResult_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastResult_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastResult {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -35991,7 +36129,7 @@ pub fn ffi_builtin_Show_wast_WastScript_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastScript_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastScript_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastScript {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -36030,7 +36168,7 @@ pub fn ffi_builtin_Show_wast_WastValue_to_string(
 #doc(hidden)
 #export_name("ffi_quickcheck_Arbitrary_wast_WastValue_arbitrary")
 pub fn ffi_quickcheck_Arbitrary_wast_WastValue_arbitrary(
-  value0 : Int,
+  value0 : Int32,
   value1 : @splitmix.RandomState,
 ) -> @wast.WastValue {
   @quickcheck.Arbitrary::arbitrary(value0, value1)
@@ -36041,8 +36179,8 @@ pub fn ffi_quickcheck_Arbitrary_wast_WastValue_arbitrary(
 #export_name("ffi_binary_Decode_Bool_option_decode")
 pub fn ffi_binary_Decode_Bool_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Bool?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Bool?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36051,8 +36189,8 @@ pub fn ffi_binary_Decode_Bool_option_decode(
 #export_name("ffi_binary_Decode_Bytes_option_decode")
 pub fn ffi_binary_Decode_Bytes_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Bytes?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Bytes?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36061,8 +36199,8 @@ pub fn ffi_binary_Decode_Bytes_option_decode(
 #export_name("ffi_binary_Decode_lib_ValType_option_decode")
 pub fn ffi_binary_Decode_lib_ValType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ValType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ValType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36071,8 +36209,8 @@ pub fn ffi_binary_Decode_lib_ValType_option_decode(
 #export_name("ffi_binary_Decode_lib_FieldType_option_decode")
 pub fn ffi_binary_Decode_lib_FieldType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FieldType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FieldType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36081,8 +36219,8 @@ pub fn ffi_binary_Decode_lib_FieldType_option_decode(
 #export_name("ffi_binary_Decode_lib_TypeIdx_option_decode")
 pub fn ffi_binary_Decode_lib_TypeIdx_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TypeIdx?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TypeIdx?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36091,8 +36229,8 @@ pub fn ffi_binary_Decode_lib_TypeIdx_option_decode(
 #export_name("ffi_binary_Decode_lib_Expr_option_decode")
 pub fn ffi_binary_Decode_lib_Expr_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Expr?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Expr?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36101,8 +36239,8 @@ pub fn ffi_binary_Decode_lib_Expr_option_decode(
 #export_name("ffi_binary_Decode_lib_GlobalType_option_decode")
 pub fn ffi_binary_Decode_lib_GlobalType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.GlobalType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.GlobalType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36111,8 +36249,8 @@ pub fn ffi_binary_Decode_lib_GlobalType_option_decode(
 #export_name("ffi_binary_Decode_lib_MemType_option_decode")
 pub fn ffi_binary_Decode_lib_MemType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36121,8 +36259,8 @@ pub fn ffi_binary_Decode_lib_MemType_option_decode(
 #export_name("ffi_binary_Decode_lib_SubType_option_decode")
 pub fn ffi_binary_Decode_lib_SubType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.SubType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.SubType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36131,8 +36269,8 @@ pub fn ffi_binary_Decode_lib_SubType_option_decode(
 #export_name("ffi_binary_Decode_lib_TableType_option_decode")
 pub fn ffi_binary_Decode_lib_TableType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36141,8 +36279,8 @@ pub fn ffi_binary_Decode_lib_TableType_option_decode(
 #export_name("ffi_binary_Decode_lib_TagType_option_decode")
 pub fn ffi_binary_Decode_lib_TagType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TagType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TagType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36151,8 +36289,8 @@ pub fn ffi_binary_Decode_lib_TagType_option_decode(
 #export_name("ffi_binary_Decode_lib_Instruction_option_decode")
 pub fn ffi_binary_Decode_lib_Instruction_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Instruction?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Instruction?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36161,8 +36299,8 @@ pub fn ffi_binary_Decode_lib_Instruction_option_decode(
 #export_name("ffi_binary_Decode_lib_TableIdx_option_decode")
 pub fn ffi_binary_Decode_lib_TableIdx_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableIdx?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableIdx?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36171,8 +36309,8 @@ pub fn ffi_binary_Decode_lib_TableIdx_option_decode(
 #export_name("ffi_binary_Decode_lib_LabelIdx_option_decode")
 pub fn ffi_binary_Decode_lib_LabelIdx_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LabelIdx?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LabelIdx?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36181,8 +36319,8 @@ pub fn ffi_binary_Decode_lib_LabelIdx_option_decode(
 #export_name("ffi_binary_Decode_lib_LocalRun_option_decode")
 pub fn ffi_binary_Decode_lib_LocalRun_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.LocalRun?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.LocalRun?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36191,8 +36329,8 @@ pub fn ffi_binary_Decode_lib_LocalRun_option_decode(
 #export_name("ffi_binary_Decode_lib_MemIdx_option_decode")
 pub fn ffi_binary_Decode_lib_MemIdx_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemIdx?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemIdx?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36201,8 +36339,8 @@ pub fn ffi_binary_Decode_lib_MemIdx_option_decode(
 #export_name("ffi_binary_Decode_lib_TypeSec_option_decode")
 pub fn ffi_binary_Decode_lib_TypeSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TypeSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TypeSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36211,8 +36349,8 @@ pub fn ffi_binary_Decode_lib_TypeSec_option_decode(
 #export_name("ffi_binary_Decode_lib_ImportSec_option_decode")
 pub fn ffi_binary_Decode_lib_ImportSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ImportSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ImportSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36221,8 +36359,8 @@ pub fn ffi_binary_Decode_lib_ImportSec_option_decode(
 #export_name("ffi_binary_Decode_lib_FuncSec_option_decode")
 pub fn ffi_binary_Decode_lib_FuncSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FuncSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FuncSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36231,8 +36369,8 @@ pub fn ffi_binary_Decode_lib_FuncSec_option_decode(
 #export_name("ffi_binary_Decode_lib_TableSec_option_decode")
 pub fn ffi_binary_Decode_lib_TableSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TableSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TableSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36241,8 +36379,8 @@ pub fn ffi_binary_Decode_lib_TableSec_option_decode(
 #export_name("ffi_binary_Decode_lib_MemSec_option_decode")
 pub fn ffi_binary_Decode_lib_MemSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.MemSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.MemSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36251,8 +36389,8 @@ pub fn ffi_binary_Decode_lib_MemSec_option_decode(
 #export_name("ffi_binary_Decode_lib_TagSec_option_decode")
 pub fn ffi_binary_Decode_lib_TagSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.TagSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.TagSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36261,8 +36399,8 @@ pub fn ffi_binary_Decode_lib_TagSec_option_decode(
 #export_name("ffi_binary_Decode_lib_StringRefsSec_option_decode")
 pub fn ffi_binary_Decode_lib_StringRefsSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.StringRefsSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.StringRefsSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36271,8 +36409,8 @@ pub fn ffi_binary_Decode_lib_StringRefsSec_option_decode(
 #export_name("ffi_binary_Decode_lib_GlobalSec_option_decode")
 pub fn ffi_binary_Decode_lib_GlobalSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.GlobalSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.GlobalSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36281,8 +36419,8 @@ pub fn ffi_binary_Decode_lib_GlobalSec_option_decode(
 #export_name("ffi_binary_Decode_lib_ExportSec_option_decode")
 pub fn ffi_binary_Decode_lib_ExportSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ExportSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ExportSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36291,8 +36429,8 @@ pub fn ffi_binary_Decode_lib_ExportSec_option_decode(
 #export_name("ffi_binary_Decode_lib_StartSec_option_decode")
 pub fn ffi_binary_Decode_lib_StartSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.StartSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.StartSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36301,8 +36439,8 @@ pub fn ffi_binary_Decode_lib_StartSec_option_decode(
 #export_name("ffi_binary_Decode_lib_ElemSec_option_decode")
 pub fn ffi_binary_Decode_lib_ElemSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.ElemSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.ElemSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36311,8 +36449,8 @@ pub fn ffi_binary_Decode_lib_ElemSec_option_decode(
 #export_name("ffi_binary_Decode_lib_DataCntSec_option_decode")
 pub fn ffi_binary_Decode_lib_DataCntSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.DataCntSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.DataCntSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36321,8 +36459,8 @@ pub fn ffi_binary_Decode_lib_DataCntSec_option_decode(
 #export_name("ffi_binary_Decode_lib_CodeSec_option_decode")
 pub fn ffi_binary_Decode_lib_CodeSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CodeSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CodeSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36331,8 +36469,8 @@ pub fn ffi_binary_Decode_lib_CodeSec_option_decode(
 #export_name("ffi_binary_Decode_lib_DataSec_option_decode")
 pub fn ffi_binary_Decode_lib_DataSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.DataSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.DataSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36341,8 +36479,8 @@ pub fn ffi_binary_Decode_lib_DataSec_option_decode(
 #export_name("ffi_binary_Decode_lib_NameSec_option_decode")
 pub fn ffi_binary_Decode_lib_NameSec_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NameSec?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NameSec?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36351,9 +36489,9 @@ pub fn ffi_binary_Decode_lib_NameSec_option_decode(
 #export_name("ffi_binary_Decode_representation_CompilerFactCustomSection_option_decode")
 pub fn ffi_binary_Decode_representation_CompilerFactCustomSection_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.CompilerFactCustomSection?, Int),
+  (@representation.CompilerFactCustomSection?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36364,8 +36502,8 @@ pub fn ffi_binary_Decode_representation_CompilerFactCustomSection_option_decode(
 #export_name("ffi_binary_Decode_lib_Name_option_decode")
 pub fn ffi_binary_Decode_lib_Name_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Name?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Name?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36374,8 +36512,8 @@ pub fn ffi_binary_Decode_lib_Name_option_decode(
 #export_name("ffi_binary_Decode_lib_NameMap_option_decode")
 pub fn ffi_binary_Decode_lib_NameMap_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.NameMap?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.NameMap?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36384,8 +36522,8 @@ pub fn ffi_binary_Decode_lib_NameMap_option_decode(
 #export_name("ffi_binary_Decode_lib_IndirectNameMap_option_decode")
 pub fn ffi_binary_Decode_lib_IndirectNameMap_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.IndirectNameMap?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.IndirectNameMap?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36394,8 +36532,11 @@ pub fn ffi_binary_Decode_lib_IndirectNameMap_option_decode(
 #export_name("ffi_binary_Decode_representation_AllocationFacts_option_decode")
 pub fn ffi_binary_Decode_representation_AllocationFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.AllocationFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.AllocationFacts?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36404,9 +36545,9 @@ pub fn ffi_binary_Decode_representation_AllocationFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_FunctionBodyFacts_option_decode")
 pub fn ffi_binary_Decode_representation_FunctionBodyFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.FunctionBodyFacts?, Int),
+  (@representation.FunctionBodyFacts?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36417,8 +36558,8 @@ pub fn ffi_binary_Decode_representation_FunctionBodyFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_CallSiteFacts_option_decode")
 pub fn ffi_binary_Decode_representation_CallSiteFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.CallSiteFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.CallSiteFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36427,8 +36568,8 @@ pub fn ffi_binary_Decode_representation_CallSiteFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_ValueSite_option_decode")
 pub fn ffi_binary_Decode_representation_ValueSite_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ValueSite?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ValueSite?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36437,8 +36578,8 @@ pub fn ffi_binary_Decode_representation_ValueSite_option_decode(
 #export_name("ffi_binary_Decode_representation_FunctionFacts_option_decode")
 pub fn ffi_binary_Decode_representation_FunctionFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FunctionFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36447,8 +36588,8 @@ pub fn ffi_binary_Decode_representation_FunctionFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_GlobalFacts_option_decode")
 pub fn ffi_binary_Decode_representation_GlobalFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.GlobalFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.GlobalFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36457,8 +36598,8 @@ pub fn ffi_binary_Decode_representation_GlobalFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_SignatureFacts_option_decode")
 pub fn ffi_binary_Decode_representation_SignatureFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SignatureFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.SignatureFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36467,8 +36608,8 @@ pub fn ffi_binary_Decode_representation_SignatureFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_TableFacts_option_decode")
 pub fn ffi_binary_Decode_representation_TableFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TableFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TableFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36477,8 +36618,8 @@ pub fn ffi_binary_Decode_representation_TableFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_TypeFacts_option_decode")
 pub fn ffi_binary_Decode_representation_TypeFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TypeFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TypeFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36487,8 +36628,8 @@ pub fn ffi_binary_Decode_representation_TypeFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_ValueFacts_option_decode")
 pub fn ffi_binary_Decode_representation_ValueFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ValueFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ValueFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36497,8 +36638,11 @@ pub fn ffi_binary_Decode_representation_ValueFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_SourceProvenance_option_decode")
 pub fn ffi_binary_Decode_representation_SourceProvenance_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SourceProvenance?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.SourceProvenance?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36507,8 +36651,8 @@ pub fn ffi_binary_Decode_representation_SourceProvenance_option_decode(
 #export_name("ffi_binary_Decode_representation_EscapeSinkMask_option_decode")
 pub fn ffi_binary_Decode_representation_EscapeSinkMask_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.EscapeSinkMask?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.EscapeSinkMask?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36517,8 +36661,8 @@ pub fn ffi_binary_Decode_representation_EscapeSinkMask_option_decode(
 #export_name("ffi_binary_Decode_representation_IntegerFacts_option_decode")
 pub fn ffi_binary_Decode_representation_IntegerFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.IntegerFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.IntegerFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36527,8 +36671,8 @@ pub fn ffi_binary_Decode_representation_IntegerFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_WriteFacts_option_decode")
 pub fn ffi_binary_Decode_representation_WriteFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.WriteFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.WriteFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36537,8 +36681,8 @@ pub fn ffi_binary_Decode_representation_WriteFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_BranchProfile_option_decode")
 pub fn ffi_binary_Decode_representation_BranchProfile_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.BranchProfile?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.BranchProfile?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36547,8 +36691,11 @@ pub fn ffi_binary_Decode_representation_BranchProfile_option_decode(
 #export_name("ffi_binary_Decode_representation_TemperatureHint_option_decode")
 pub fn ffi_binary_Decode_representation_TemperatureHint_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TemperatureHint?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.TemperatureHint?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36557,8 +36704,8 @@ pub fn ffi_binary_Decode_representation_TemperatureHint_option_decode(
 #export_name("ffi_binary_Decode_representation_CallProfile_option_decode")
 pub fn ffi_binary_Decode_representation_CallProfile_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.CallProfile?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.CallProfile?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36567,8 +36714,8 @@ pub fn ffi_binary_Decode_representation_CallProfile_option_decode(
 #export_name("ffi_binary_Decode_representation_InlinePolicy_option_decode")
 pub fn ffi_binary_Decode_representation_InlinePolicy_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.InlinePolicy?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.InlinePolicy?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36577,8 +36724,11 @@ pub fn ffi_binary_Decode_representation_InlinePolicy_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedGlobalSet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedGlobalSet_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedGlobalSet?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ClosedGlobalSet?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36587,8 +36737,11 @@ pub fn ffi_binary_Decode_representation_ClosedGlobalSet_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedMemorySet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedMemorySet_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedMemorySet?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ClosedMemorySet?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36597,8 +36750,8 @@ pub fn ffi_binary_Decode_representation_ClosedMemorySet_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedTableSet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedTableSet_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedTableSet?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedTableSet?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36607,9 +36760,9 @@ pub fn ffi_binary_Decode_representation_ClosedTableSet_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedTypeViewSet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedTypeViewSet_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ClosedTypeViewSet?, Int),
+  (@representation.ClosedTypeViewSet?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36620,9 +36773,9 @@ pub fn ffi_binary_Decode_representation_ClosedTypeViewSet_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedFunctionSet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedFunctionSet_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ClosedFunctionSet?, Int),
+  (@representation.ClosedFunctionSet?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36633,8 +36786,11 @@ pub fn ffi_binary_Decode_representation_ClosedFunctionSet_option_decode(
 #export_name("ffi_binary_Decode_representation_FieldUsageFacts_option_decode")
 pub fn ffi_binary_Decode_representation_FieldUsageFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FieldUsageFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.FieldUsageFacts?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36643,8 +36799,8 @@ pub fn ffi_binary_Decode_representation_FieldUsageFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_EffectFacts_option_decode")
 pub fn ffi_binary_Decode_representation_EffectFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.EffectFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.EffectFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36653,9 +36809,9 @@ pub fn ffi_binary_Decode_representation_EffectFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_FunctionBoundaryFacts_option_decode")
 pub fn ffi_binary_Decode_representation_FunctionBoundaryFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.FunctionBoundaryFacts?, Int),
+  (@representation.FunctionBoundaryFacts?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36666,8 +36822,11 @@ pub fn ffi_binary_Decode_representation_FunctionBoundaryFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_FunctionProfile_option_decode")
 pub fn ffi_binary_Decode_representation_FunctionProfile_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FunctionProfile?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.FunctionProfile?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36676,8 +36835,8 @@ pub fn ffi_binary_Decode_representation_FunctionProfile_option_decode(
 #export_name("ffi_binary_Decode_representation_MutationFacts_option_decode")
 pub fn ffi_binary_Decode_representation_MutationFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.MutationFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.MutationFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36686,8 +36845,8 @@ pub fn ffi_binary_Decode_representation_MutationFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_UnsignedRange_option_decode")
 pub fn ffi_binary_Decode_representation_UnsignedRange_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.UnsignedRange?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.UnsignedRange?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36696,8 +36855,8 @@ pub fn ffi_binary_Decode_representation_UnsignedRange_option_decode(
 #export_name("ffi_binary_Decode_representation_SignedRange_option_decode")
 pub fn ffi_binary_Decode_representation_SignedRange_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.SignedRange?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.SignedRange?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36706,8 +36865,8 @@ pub fn ffi_binary_Decode_representation_SignedRange_option_decode(
 #export_name("ffi_binary_Decode_representation_KnownBits_option_decode")
 pub fn ffi_binary_Decode_representation_KnownBits_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.KnownBits?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.KnownBits?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36716,8 +36875,8 @@ pub fn ffi_binary_Decode_representation_KnownBits_option_decode(
 #export_name("ffi_binary_Decode_representation_LoopProfile_option_decode")
 pub fn ffi_binary_Decode_representation_LoopProfile_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.LoopProfile?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.LoopProfile?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36726,8 +36885,8 @@ pub fn ffi_binary_Decode_representation_LoopProfile_option_decode(
 #export_name("ffi_binary_Decode_representation_ProducerInfo_option_decode")
 pub fn ffi_binary_Decode_representation_ProducerInfo_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ProducerInfo?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ProducerInfo?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36736,8 +36895,8 @@ pub fn ffi_binary_Decode_representation_ProducerInfo_option_decode(
 #export_name("ffi_binary_Decode_representation_WorldFacts_option_decode")
 pub fn ffi_binary_Decode_representation_WorldFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.WorldFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.WorldFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36746,8 +36905,11 @@ pub fn ffi_binary_Decode_representation_WorldFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_ParameterUseMask_option_decode")
 pub fn ffi_binary_Decode_representation_ParameterUseMask_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ParameterUseMask?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.ParameterUseMask?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36756,8 +36918,11 @@ pub fn ffi_binary_Decode_representation_ParameterUseMask_option_decode(
 #export_name("ffi_binary_Decode_representation_NullabilityFacts_option_decode")
 pub fn ffi_binary_Decode_representation_NullabilityFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.NullabilityFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.NullabilityFacts?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36766,8 +36931,8 @@ pub fn ffi_binary_Decode_representation_NullabilityFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_HeapDomain_option_decode")
 pub fn ffi_binary_Decode_representation_HeapDomain_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.HeapDomain?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.HeapDomain?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36776,9 +36941,9 @@ pub fn ffi_binary_Decode_representation_HeapDomain_option_decode(
 #export_name("ffi_binary_Decode_representation_ResultIdentityFacts_option_decode")
 pub fn ffi_binary_Decode_representation_ResultIdentityFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ResultIdentityFacts?, Int),
+  (@representation.ResultIdentityFacts?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36789,8 +36954,8 @@ pub fn ffi_binary_Decode_representation_ResultIdentityFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_ReferenceFacts_option_decode")
 pub fn ffi_binary_Decode_representation_ReferenceFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ReferenceFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ReferenceFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36799,8 +36964,8 @@ pub fn ffi_binary_Decode_representation_ReferenceFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_TypePopulation_option_decode")
 pub fn ffi_binary_Decode_representation_TypePopulation_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.TypePopulation?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.TypePopulation?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36809,9 +36974,9 @@ pub fn ffi_binary_Decode_representation_TypePopulation_option_decode(
 #export_name("ffi_binary_Decode_representation_ArrayElementFacts_option_decode")
 pub fn ffi_binary_Decode_representation_ArrayElementFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (@representation.ArrayElementFacts?, Int),
+  (@representation.ArrayElementFacts?, Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -36822,8 +36987,8 @@ pub fn ffi_binary_Decode_representation_ArrayElementFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_ClosedValueSet_option_decode")
 pub fn ffi_binary_Decode_representation_ClosedValueSet_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.ClosedValueSet?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.ClosedValueSet?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36832,8 +36997,8 @@ pub fn ffi_binary_Decode_representation_ClosedValueSet_option_decode(
 #export_name("ffi_binary_Decode_representation_FloatFacts_option_decode")
 pub fn ffi_binary_Decode_representation_FloatFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FloatFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FloatFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36842,8 +37007,8 @@ pub fn ffi_binary_Decode_representation_FloatFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_VectorFacts_option_decode")
 pub fn ffi_binary_Decode_representation_VectorFacts_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.VectorFacts?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.VectorFacts?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36852,8 +37017,8 @@ pub fn ffi_binary_Decode_representation_VectorFacts_option_decode(
 #export_name("ffi_binary_Decode_representation_KnownV128Bits_option_decode")
 pub fn ffi_binary_Decode_representation_KnownV128Bits_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.KnownV128Bits?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.KnownV128Bits?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36862,8 +37027,8 @@ pub fn ffi_binary_Decode_representation_KnownV128Bits_option_decode(
 #export_name("ffi_binary_Decode_representation_FactValue_option_decode")
 pub fn ffi_binary_Decode_representation_FactValue_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.FactValue?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@representation.FactValue?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36872,8 +37037,11 @@ pub fn ffi_binary_Decode_representation_FactValue_option_decode(
 #export_name("ffi_binary_Decode_representation_VectorLaneShape_option_decode")
 pub fn ffi_binary_Decode_representation_VectorLaneShape_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@representation.VectorLaneShape?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (@representation.VectorLaneShape?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36882,8 +37050,8 @@ pub fn ffi_binary_Decode_representation_VectorLaneShape_option_decode(
 #export_name("ffi_binary_Decode_lib_FuncIdx_option_decode")
 pub fn ffi_binary_Decode_lib_FuncIdx_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.FuncIdx?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.FuncIdx?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36892,8 +37060,8 @@ pub fn ffi_binary_Decode_lib_FuncIdx_option_decode(
 #export_name("ffi_binary_Decode_lib_RefType_option_decode")
 pub fn ffi_binary_Decode_lib_RefType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.RefType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.RefType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36902,8 +37070,8 @@ pub fn ffi_binary_Decode_lib_RefType_option_decode(
 #export_name("ffi_binary_Decode_lib_Elem_option_decode")
 pub fn ffi_binary_Decode_lib_Elem_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Elem?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.Elem?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36912,8 +37080,8 @@ pub fn ffi_binary_Decode_lib_Elem_option_decode(
 #export_name("ffi_binary_Decode_lib_CompType_option_decode")
 pub fn ffi_binary_Decode_lib_CompType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.CompType?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(@lib.CompType?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36922,8 +37090,8 @@ pub fn ffi_binary_Decode_lib_CompType_option_decode(
 #export_name("ffi_binary_Decode_Array_ValType_decode")
 pub fn ffi_binary_Decode_Array_ValType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.ValType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.ValType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36932,8 +37100,8 @@ pub fn ffi_binary_Decode_Array_ValType_decode(
 #export_name("ffi_binary_Decode_Array_Bytes_decode")
 pub fn ffi_binary_Decode_Array_Bytes_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[Bytes], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[Bytes], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36942,8 +37110,8 @@ pub fn ffi_binary_Decode_Array_Bytes_decode(
 #export_name("ffi_binary_Decode_Array_FieldType_decode")
 pub fn ffi_binary_Decode_Array_FieldType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.FieldType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.FieldType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36952,8 +37120,8 @@ pub fn ffi_binary_Decode_Array_FieldType_decode(
 #export_name("ffi_binary_Decode_Array_Func_decode")
 pub fn ffi_binary_Decode_Array_Func_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Func], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Func], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36962,8 +37130,8 @@ pub fn ffi_binary_Decode_Array_Func_decode(
 #export_name("ffi_binary_Decode_Array_Import_decode")
 pub fn ffi_binary_Decode_Array_Import_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Import], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Import], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36972,8 +37140,8 @@ pub fn ffi_binary_Decode_Array_Import_decode(
 #export_name("ffi_binary_Decode_Array_Instruction_decode")
 pub fn ffi_binary_Decode_Array_Instruction_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Instruction], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Instruction], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36982,8 +37150,8 @@ pub fn ffi_binary_Decode_Array_Instruction_decode(
 #export_name("ffi_binary_Decode_Array_RecType_decode")
 pub fn ffi_binary_Decode_Array_RecType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.RecType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.RecType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36992,8 +37160,8 @@ pub fn ffi_binary_Decode_Array_RecType_decode(
 #export_name("ffi_binary_Decode_Array_TypeIdx_decode")
 pub fn ffi_binary_Decode_Array_TypeIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.TypeIdx], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.TypeIdx], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37002,8 +37170,8 @@ pub fn ffi_binary_Decode_Array_TypeIdx_decode(
 #export_name("ffi_binary_Decode_Array_SubType_decode")
 pub fn ffi_binary_Decode_Array_SubType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.SubType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.SubType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37012,8 +37180,8 @@ pub fn ffi_binary_Decode_Array_SubType_decode(
 #export_name("ffi_binary_Decode_Array_Data_decode")
 pub fn ffi_binary_Decode_Array_Data_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Data], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Data], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37022,8 +37190,8 @@ pub fn ffi_binary_Decode_Array_Data_decode(
 #export_name("ffi_binary_Decode_Array_Expr_decode")
 pub fn ffi_binary_Decode_Array_Expr_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Expr], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Expr], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37032,8 +37200,8 @@ pub fn ffi_binary_Decode_Array_Expr_decode(
 #export_name("ffi_binary_Decode_Array_FuncIdx_decode")
 pub fn ffi_binary_Decode_Array_FuncIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.FuncIdx], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.FuncIdx], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37042,8 +37210,8 @@ pub fn ffi_binary_Decode_Array_FuncIdx_decode(
 #export_name("ffi_binary_Decode_Array_Elem_decode")
 pub fn ffi_binary_Decode_Array_Elem_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Elem], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Elem], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37052,8 +37220,8 @@ pub fn ffi_binary_Decode_Array_Elem_decode(
 #export_name("ffi_binary_Decode_Array_Export_decode")
 pub fn ffi_binary_Decode_Array_Export_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Export], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Export], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37062,8 +37230,8 @@ pub fn ffi_binary_Decode_Array_Export_decode(
 #export_name("ffi_binary_Decode_Array_Global_decode")
 pub fn ffi_binary_Decode_Array_Global_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Global], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Global], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37072,8 +37240,8 @@ pub fn ffi_binary_Decode_Array_Global_decode(
 #export_name("ffi_binary_Decode_Array_IndirectNameAssoc_decode")
 pub fn ffi_binary_Decode_Array_IndirectNameAssoc_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.IndirectNameAssoc], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.IndirectNameAssoc], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37082,8 +37250,8 @@ pub fn ffi_binary_Decode_Array_IndirectNameAssoc_decode(
 #export_name("ffi_binary_Decode_Array_LabelIdx_decode")
 pub fn ffi_binary_Decode_Array_LabelIdx_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.LabelIdx], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.LabelIdx], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37092,8 +37260,8 @@ pub fn ffi_binary_Decode_Array_LabelIdx_decode(
 #export_name("ffi_binary_Decode_Array_ResumeHandler_decode")
 pub fn ffi_binary_Decode_Array_ResumeHandler_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.ResumeHandler], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.ResumeHandler], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37102,8 +37270,8 @@ pub fn ffi_binary_Decode_Array_ResumeHandler_decode(
 #export_name("ffi_binary_Decode_Array_Catch_decode")
 pub fn ffi_binary_Decode_Array_Catch_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Catch], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Catch], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37112,8 +37280,8 @@ pub fn ffi_binary_Decode_Array_Catch_decode(
 #export_name("ffi_binary_Decode_Array_LocalRun_decode")
 pub fn ffi_binary_Decode_Array_LocalRun_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.LocalRun], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.LocalRun], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37122,8 +37290,8 @@ pub fn ffi_binary_Decode_Array_LocalRun_decode(
 #export_name("ffi_binary_Decode_Array_MemType_decode")
 pub fn ffi_binary_Decode_Array_MemType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.MemType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.MemType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37132,8 +37300,8 @@ pub fn ffi_binary_Decode_Array_MemType_decode(
 #export_name("ffi_binary_Decode_Array_CustomSec_decode")
 pub fn ffi_binary_Decode_Array_CustomSec_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.CustomSec], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.CustomSec], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37142,8 +37310,8 @@ pub fn ffi_binary_Decode_Array_CustomSec_decode(
 #export_name("ffi_binary_Decode_Array_NameAssoc_decode")
 pub fn ffi_binary_Decode_Array_NameAssoc_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.NameAssoc], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.NameAssoc], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37152,8 +37320,8 @@ pub fn ffi_binary_Decode_Array_NameAssoc_decode(
 #export_name("ffi_binary_Decode_Array_Table_decode")
 pub fn ffi_binary_Decode_Array_Table_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Table], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Table], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37162,8 +37330,8 @@ pub fn ffi_binary_Decode_Array_Table_decode(
 #export_name("ffi_binary_Decode_Array_TagType_decode")
 pub fn ffi_binary_Decode_Array_TagType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.TagType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.TagType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37172,9 +37340,9 @@ pub fn ffi_binary_Decode_Array_TagType_decode(
 #export_name("ffi_binary_Decode_Array_OptimizationHint_decode")
 pub fn ffi_binary_Decode_Array_OptimizationHint_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.OptimizationHint], Int),
+  (Array[@representation.OptimizationHint], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37185,9 +37353,9 @@ pub fn ffi_binary_Decode_Array_OptimizationHint_decode(
 #export_name("ffi_binary_Decode_Array_AllocationFieldFacts_decode")
 pub fn ffi_binary_Decode_Array_AllocationFieldFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.AllocationFieldFacts], Int),
+  (Array[@representation.AllocationFieldFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37198,9 +37366,9 @@ pub fn ffi_binary_Decode_Array_AllocationFieldFacts_decode(
 #export_name("ffi_binary_Decode_Array_AliasSource_decode")
 pub fn ffi_binary_Decode_Array_AliasSource_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.AliasSource], Int),
+  (Array[@representation.AliasSource], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37211,9 +37379,9 @@ pub fn ffi_binary_Decode_Array_AliasSource_decode(
 #export_name("ffi_binary_Decode_Array_FactHeapType_decode")
 pub fn ffi_binary_Decode_Array_FactHeapType_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.FactHeapType], Int),
+  (Array[@representation.FactHeapType], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37224,8 +37392,11 @@ pub fn ffi_binary_Decode_Array_FactHeapType_decode(
 #export_name("ffi_binary_Decode_Array_FactValue_decode")
 pub fn ffi_binary_Decode_Array_FactValue_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.FactValue], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.FactValue], Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37234,9 +37405,9 @@ pub fn ffi_binary_Decode_Array_FactValue_decode(
 #export_name("ffi_binary_Decode_Array_ExpressionFact_decode")
 pub fn ffi_binary_Decode_Array_ExpressionFact_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.ExpressionFact], Int),
+  (Array[@representation.ExpressionFact], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37247,9 +37418,9 @@ pub fn ffi_binary_Decode_Array_ExpressionFact_decode(
 #export_name("ffi_binary_Decode_Array_ScopedRelationFacts_decode")
 pub fn ffi_binary_Decode_Array_ScopedRelationFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.ScopedRelationFacts], Int),
+  (Array[@representation.ScopedRelationFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37260,9 +37431,9 @@ pub fn ffi_binary_Decode_Array_ScopedRelationFacts_decode(
 #export_name("ffi_binary_Decode_Array_CallSiteFacts_decode")
 pub fn ffi_binary_Decode_Array_CallSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.CallSiteFacts], Int),
+  (Array[@representation.CallSiteFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37273,9 +37444,9 @@ pub fn ffi_binary_Decode_Array_CallSiteFacts_decode(
 #export_name("ffi_binary_Decode_Array_BranchFacts_decode")
 pub fn ffi_binary_Decode_Array_BranchFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.BranchFacts], Int),
+  (Array[@representation.BranchFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37286,8 +37457,11 @@ pub fn ffi_binary_Decode_Array_BranchFacts_decode(
 #export_name("ffi_binary_Decode_Array_LoopFacts_decode")
 pub fn ffi_binary_Decode_Array_LoopFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.LoopFacts], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.LoopFacts], Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37296,9 +37470,9 @@ pub fn ffi_binary_Decode_Array_LoopFacts_decode(
 #export_name("ffi_binary_Decode_Array_AllocationSiteFacts_decode")
 pub fn ffi_binary_Decode_Array_AllocationSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.AllocationSiteFacts], Int),
+  (Array[@representation.AllocationSiteFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37309,9 +37483,9 @@ pub fn ffi_binary_Decode_Array_AllocationSiteFacts_decode(
 #export_name("ffi_binary_Decode_Array_AccessSiteFacts_decode")
 pub fn ffi_binary_Decode_Array_AccessSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.AccessSiteFacts], Int),
+  (Array[@representation.AccessSiteFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37322,9 +37496,9 @@ pub fn ffi_binary_Decode_Array_AccessSiteFacts_decode(
 #export_name("ffi_binary_Decode_Array_NumericOperationSiteFacts_decode")
 pub fn ffi_binary_Decode_Array_NumericOperationSiteFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.NumericOperationSiteFacts], Int),
+  (Array[@representation.NumericOperationSiteFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37335,9 +37509,9 @@ pub fn ffi_binary_Decode_Array_NumericOperationSiteFacts_decode(
 #export_name("ffi_binary_Decode_Array_ParameterFacts_decode")
 pub fn ffi_binary_Decode_Array_ParameterFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.ParameterFacts], Int),
+  (Array[@representation.ParameterFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37348,9 +37522,9 @@ pub fn ffi_binary_Decode_Array_ParameterFacts_decode(
 #export_name("ffi_binary_Decode_Array_ResultFacts_decode")
 pub fn ffi_binary_Decode_Array_ResultFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.ResultFacts], Int),
+  (Array[@representation.ResultFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37361,9 +37535,9 @@ pub fn ffi_binary_Decode_Array_ResultFacts_decode(
 #export_name("ffi_binary_Decode_Array_FunctionFacts_decode")
 pub fn ffi_binary_Decode_Array_FunctionFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.FunctionFacts], Int),
+  (Array[@representation.FunctionFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37374,9 +37548,9 @@ pub fn ffi_binary_Decode_Array_FunctionFacts_decode(
 #export_name("ffi_binary_Decode_Array_SignatureFacts_decode")
 pub fn ffi_binary_Decode_Array_SignatureFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.SignatureFacts], Int),
+  (Array[@representation.SignatureFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37387,8 +37561,11 @@ pub fn ffi_binary_Decode_Array_SignatureFacts_decode(
 #export_name("ffi_binary_Decode_Array_TypeFacts_decode")
 pub fn ffi_binary_Decode_Array_TypeFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.TypeFacts], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.TypeFacts], Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37397,9 +37574,9 @@ pub fn ffi_binary_Decode_Array_TypeFacts_decode(
 #export_name("ffi_binary_Decode_Array_GlobalFacts_decode")
 pub fn ffi_binary_Decode_Array_GlobalFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.GlobalFacts], Int),
+  (Array[@representation.GlobalFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37410,8 +37587,11 @@ pub fn ffi_binary_Decode_Array_GlobalFacts_decode(
 #export_name("ffi_binary_Decode_Array_TableFacts_decode")
 pub fn ffi_binary_Decode_Array_TableFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.TableFacts], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.TableFacts], Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37420,9 +37600,9 @@ pub fn ffi_binary_Decode_Array_TableFacts_decode(
 #export_name("ffi_binary_Decode_Array_FunctionBodyFacts_decode")
 pub fn ffi_binary_Decode_Array_FunctionBodyFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.FunctionBodyFacts], Int),
+  (Array[@representation.FunctionBodyFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37433,9 +37613,9 @@ pub fn ffi_binary_Decode_Array_FunctionBodyFacts_decode(
 #export_name("ffi_binary_Decode_Array_IndexedValueFacts_decode")
 pub fn ffi_binary_Decode_Array_IndexedValueFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.IndexedValueFacts], Int),
+  (Array[@representation.IndexedValueFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37446,9 +37626,9 @@ pub fn ffi_binary_Decode_Array_IndexedValueFacts_decode(
 #export_name("ffi_binary_Decode_Array_TableEntryFacts_decode")
 pub fn ffi_binary_Decode_Array_TableEntryFacts_decode(
   value0 : Bytes,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[
-  (Array[@representation.TableEntryFacts], Int),
+  (Array[@representation.TableEntryFacts], Int32),
   @binary.BinaryDecodeError,
 ] {
   @binary.Decode::decode(value0, value1)
@@ -37459,8 +37639,11 @@ pub fn ffi_binary_Decode_Array_TableEntryFacts_decode(
 #export_name("ffi_binary_Decode_Array_FieldFacts_decode")
 pub fn ffi_binary_Decode_Array_FieldFacts_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.FieldFacts], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.FieldFacts], Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37469,8 +37652,8 @@ pub fn ffi_binary_Decode_Array_FieldFacts_decode(
 #export_name("ffi_binary_Decode_Array_CodeSite_decode")
 pub fn ffi_binary_Decode_Array_CodeSite_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.CodeSite], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@representation.CodeSite], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37479,8 +37662,8 @@ pub fn ffi_binary_Decode_Array_CodeSite_decode(
 #export_name("ffi_binary_Decode_Array_Module_decode")
 pub fn ffi_binary_Decode_Array_Module_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Module], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.Module], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37489,8 +37672,8 @@ pub fn ffi_binary_Decode_Array_Module_decode(
 #export_name("ffi_binary_Decode_Array_GlobalType_decode")
 pub fn ffi_binary_Decode_Array_GlobalType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.GlobalType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.GlobalType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37499,8 +37682,8 @@ pub fn ffi_binary_Decode_Array_GlobalType_decode(
 #export_name("ffi_binary_Decode_Array_Array_ValType_decode")
 pub fn ffi_binary_Decode_Array_Array_ValType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[Array[@lib.ValType]], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[Array[@lib.ValType]], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37509,8 +37692,8 @@ pub fn ffi_binary_Decode_Array_Array_ValType_decode(
 #export_name("ffi_binary_Decode_Array_TableType_decode")
 pub fn ffi_binary_Decode_Array_TableType_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.TableType], Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.TableType], Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -39426,8 +39609,8 @@ pub fn ffi_validate_Validate_Array_TableType_validate(
 #export_name("ffi_binary_Decode_Array_Bytes_option_decode")
 pub fn ffi_binary_Decode_Array_Bytes_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[Bytes]?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[Bytes]?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -39436,8 +39619,8 @@ pub fn ffi_binary_Decode_Array_Bytes_option_decode(
 #export_name("ffi_binary_Decode_Array_ValType_option_decode")
 pub fn ffi_binary_Decode_Array_ValType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.ValType]?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.ValType]?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -39446,8 +39629,8 @@ pub fn ffi_binary_Decode_Array_ValType_option_decode(
 #export_name("ffi_binary_Decode_Array_FieldType_option_decode")
 pub fn ffi_binary_Decode_Array_FieldType_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.FieldType]?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[(Array[@lib.FieldType]?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -39456,8 +39639,11 @@ pub fn ffi_binary_Decode_Array_FieldType_option_decode(
 #export_name("ffi_binary_Decode_Array_CodeSite_option_decode")
 pub fn ffi_binary_Decode_Array_CodeSite_option_decode(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@representation.CodeSite]?, Int), @binary.BinaryDecodeError] {
+  value1 : Int32,
+) -> Result[
+  (Array[@representation.CodeSite]?, Int32),
+  @binary.BinaryDecodeError,
+] {
   @binary.Decode::decode(value0, value1)
 }
 

@@ -34,6 +34,10 @@ export function encodedModuleSizes(arg0, arg1) {
   return liftValue({ kind: "result", helper: {"isOk":"__js_result_8_is_ok","unwrapOk":"__js_result_8_unwrap_ok","unwrapErr":"__js_result_8_unwrap_err"}, ok: { kind: "tuple", helper: {"make":"__js_tuple_3_new","getters":["__js_tuple_3_get_0","__js_tuple_3_get_1"]}, items: [{ kind: "number", moonType: "Int" }, { kind: "number", moonType: "Int" }] }, err: { kind: "named", brand: "binary.EncodeError", showExport: "__js_show_binary_EncodeError" } }, wasm["binary__encoded_module_sizes"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg1, wasm)), wasm);
 }
 
+export function encodedTypeCompactionIsStrictlySmaller(arg0, arg1) {
+  return liftValue({ kind: "bool", moonType: "Bool" }, wasm["binary__encoded_type_compaction_is_strictly_smaller"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg1, wasm)), wasm);
+}
+
 export function sizeSigned(arg0, arg1) {
   return liftValue({ kind: "result", helper: {"isOk":"__js_result_9_is_ok","unwrapOk":"__js_result_9_unwrap_ok","unwrapErr":"__js_result_9_unwrap_err"}, ok: { kind: "number", moonType: "Int" }, err: { kind: "named", brand: "binary.BinaryEncodeError", showExport: "__js_show_binary_BinaryEncodeError" } }, wasm["binary__size_signed"](lowerValue({ kind: "bigint", moonType: "Int64" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
 }

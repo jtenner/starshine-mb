@@ -514,6 +514,10 @@ export function validateModule(arg0, disabledFeatures) {
   return liftValue({ kind: "result", helper: {"isOk":"__js_result_35_is_ok","unwrapOk":"__js_result_35_unwrap_ok","unwrapErr":"__js_result_35_unwrap_err"}, ok: { kind: "unit", moonType: "Unit" }, err: { kind: "named", brand: "validate.ValidationError", showExport: "__js_show_validate_ValidationError" } }, wasm["validate__validate_module"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_87_none","some":"__js_option_87_some","isSome":"__js_option_87_is_some","unwrap":"__js_option_87_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_45_new","push":"__js_array_45_push","length":"__js_array_45_length","get":"__js_array_45_get"}, item: { kind: "named", brand: "validate.ProposalFeature", showExport: null } } }, disabledFeatures, wasm)), wasm);
 }
 
+export function validateModuleNameSection(arg0) {
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_18_is_ok","unwrapOk":"__js_result_18_unwrap_ok","unwrapErr":"__js_result_18_unwrap_err"}, ok: { kind: "unit", moonType: "Unit" }, err: { kind: "string", moonType: "String" } }, wasm["validate__validate_module_name_section"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm)), wasm);
+}
+
 export const validateModuleWithTrace = unsupportedExport("validate.validateModuleWithTrace", "Higher-order MoonBit callbacks require an explicit JavaScript adapter.");
 
 export function validateStartsec(arg0, arg1) {

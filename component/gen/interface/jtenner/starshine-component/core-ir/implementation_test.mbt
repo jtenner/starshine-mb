@@ -29,7 +29,7 @@ test "core IR resources construct and encode a module from scratch" {
     Err(err) => fail("constructed module did not validate: \{err.message}")
   }
   match encode_module(module_) {
-    Ok(wasm) => {
+    Ok(wasm) =>
       if wasm.length() <= 8 ||
         wasm[0] != b'\x00' ||
         wasm[1] != b'a' ||
@@ -37,7 +37,6 @@ test "core IR resources construct and encode a module from scratch" {
         wasm[3] != b'm' {
         fail("constructed module did not encode as wasm")
       }
-    }
     Err(err) => fail("constructed module did not encode: \{err.message}")
   }
 }

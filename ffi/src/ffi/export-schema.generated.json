@@ -166,6 +166,29 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_binary_encoded_type_compaction_is_strictly_smaller",
+    "exportName": "binary::encoded_type_compaction_is_strictly_smaller",
+    "packageAlias": "binary",
+    "owner": null,
+    "name": "encoded_type_compaction_is_strictly_smaller",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Bool",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_binary_size_signed",
     "exportName": "binary::size_signed",
     "packageAlias": "binary",
@@ -9958,6 +9981,12 @@
         "type": "Bool",
         "optional": true,
         "labelOnly": false
+      },
+      {
+        "name": "record_capture_sources",
+        "type": "Bool",
+        "optional": true,
+        "labelOnly": false
       }
     ],
     "returnType": "Result[@ir.HotFunc, @ir.HotLiftError]",
@@ -10007,6 +10036,23 @@
       }
     ],
     "returnType": "@ir.HotLiftLocalAccesses",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_ir_hot_lift_release_local_accesses",
+    "exportName": "ir::hot_lift_release_local_accesses",
+    "packageAlias": "ir",
+    "owner": null,
+    "name": "hot_lift_release_local_accesses",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@ir.HotFunc",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Unit",
     "effect": ""
   },
   {
@@ -37683,6 +37729,29 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_passes_rume_run_host_roots_module_pass",
+    "exportName": "passes::rume_run_host_roots_module_pass",
+    "packageAlias": "passes",
+    "owner": null,
+    "name": "rume_run_host_roots_module_pass",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Array[String]",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Result[@lib.Module, String]",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_passes_rume_run_module_pass",
     "exportName": "passes::rume_run_module_pass",
     "packageAlias": "passes",
@@ -43652,6 +43721,29 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_rume_rume_run_host_roots_module_pass",
+    "exportName": "rume::rume_run_host_roots_module_pass",
+    "packageAlias": "rume",
+    "owner": null,
+    "name": "rume_run_host_roots_module_pass",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Array[String]",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Result[@lib.Module, String]",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_rume_rume_run_module_pass",
     "exportName": "rume::rume_run_module_pass",
     "packageAlias": "rume",
@@ -46301,6 +46393,23 @@
       }
     ],
     "returnType": "Result[Unit, @validate.ValidationError]",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_validate_validate_module_name_section",
+    "exportName": "validate::validate_module_name_section",
+    "packageAlias": "validate",
+    "owner": null,
+    "name": "validate_module_name_section",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Result[Unit, String]",
     "effect": ""
   },
   {

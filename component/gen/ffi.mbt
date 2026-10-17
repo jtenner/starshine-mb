@@ -2,4933 +2,6238 @@
 
 ///|
 pub fn mbt_ffi_cabi_realloc(
-src_offset : Int,
-src_size : Int,
-_dst_alignment : Int,
-dst_size : Int,
-) -> Int {
-      // malloc
-      if src_offset == 0 && src_size == 0 {
-            return mbt_ffi_malloc(dst_size)
-      }
-      // free
-      if dst_size == 0 {
-            mbt_ffi_free(src_offset)
-            return 0
-      }
-      // realloc
-      let dst = mbt_ffi_malloc(dst_size)
-      mbt_ffi_copy(dst, src_offset, if src_size < dst_size { src_size } else { dst_size })
-      mbt_ffi_free(src_offset)
-      dst
+  src_offset : Int32,
+  src_size : Int32,
+  _dst_alignment : Int32,
+  dst_size : Int32,
+) -> Int32 {
+  // malloc
+  if src_offset == 0 && src_size == 0 {
+    return mbt_ffi_malloc(dst_size)
+  }
+  // free
+  if dst_size == 0 {
+    mbt_ffi_free(src_offset)
+    return 0
+  }
+  // realloc
+  let dst = mbt_ffi_malloc(dst_size)
+  mbt_ffi_copy(
+    dst,
+    src_offset,
+    if src_size < dst_size {
+      src_size
+    } else {
+      dst_size
+    },
+  )
+  mbt_ffi_free(src_offset)
+  dst
 }
 
 ///|
-extern "wasm" fn mbt_ffi_copy(dest : Int, src : Int, len : Int) =
-#|(func (param i32) (param i32) (param i32) local.get 0 local.get 1 local.get 2 memory.copy)
+extern "wasm" fn mbt_ffi_copy(dest : Int32, src : Int32, len : Int32) =
+  #|(func (param i32) (param i32) (param i32) local.get 0 local.get 1 local.get 2 memory.copy)
 
 ///|
-extern "wasm" fn mbt_ffi_free(position : Int) =
-#|(func (param i32) local.get 0 call $moonbit.decref)
+extern "wasm" fn mbt_ffi_free(position : Int32) =
+  #|(func (param i32) local.get 0 call $moonbit.decref)
 
 ///|
-extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
-#|(func (param i32) (result i32) (local i32)
-#| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
-#| local.tee 1 i32.const 0 call $moonbit.init_array8
-#| local.get 1)
+extern "wasm" fn mbt_ffi_malloc(size : Int32) -> Int32 =
+  #|(func (param i32) (result i32) (local i32)
+  #| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
+  #| local.tee 1 i32.const 0 call $moonbit.init_array8
+  #| local.get 1)
 
+///|
 #doc(hidden)
-pub fn wasmExportAbsHeapTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportAbsHeapTypeDtor(handle)
+pub fn wasmExportAbsHeapTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportAbsHeapTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAggregateAtomicRmwOpDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportAggregateAtomicRmwOpDtor(handle)
+pub fn wasmExportAggregateAtomicRmwOpDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportAggregateAtomicRmwOpDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAtomicCmpxchgOpDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportAtomicCmpxchgOpDtor(handle)
+pub fn wasmExportAtomicCmpxchgOpDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportAtomicCmpxchgOpDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAtomicOrderDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportAtomicOrderDtor(handle)
+pub fn wasmExportAtomicOrderDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportAtomicOrderDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAtomicRmwOpDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportAtomicRmwOpDtor(handle)
+pub fn wasmExportAtomicRmwOpDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportAtomicRmwOpDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAvailableGeneratorProfiles() -> Int {
-      @modules.wasmExportAvailableGeneratorProfiles()
+pub fn wasmExportAvailableGeneratorProfiles() -> Int32 {
+  @modules.wasmExportAvailableGeneratorProfiles()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAvailableGeneratorProfilesPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportAvailableGeneratorProfilesPostReturn(p0)
+pub fn wasmExportAvailableGeneratorProfilesPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportAvailableGeneratorProfilesPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAvailablePasses() -> Int {
-      @modules.wasmExportAvailablePasses()
+pub fn wasmExportAvailablePasses() -> Int32 {
+  @modules.wasmExportAvailablePasses()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportAvailablePassesPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportAvailablePassesPostReturn(p0)
+pub fn wasmExportAvailablePassesPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportAvailablePassesPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportBlockTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportBlockTypeDtor(handle)
+pub fn wasmExportBlockTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportBlockTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCapabilities() -> Int {
-      @metadata.wasmExportCapabilities()
+pub fn wasmExportCapabilities() -> Int32 {
+  @metadata.wasmExportCapabilities()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCapabilitiesPostReturn(p0 : Int) -> Unit {
-      @metadata.wasmExportCapabilitiesPostReturn(p0)
+pub fn wasmExportCapabilitiesPostReturn(p0 : Int32) -> Unit {
+  @metadata.wasmExportCapabilitiesPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCatchDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportCatchDtor(handle)
+pub fn wasmExportCatchDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportCatchDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCodeSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportCodeSecDtor(handle)
+pub fn wasmExportCodeSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportCodeSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCompTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportCompTypeDtor(handle)
+pub fn wasmExportCompTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportCompTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportCustomSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportCustomSecDtor(handle)
+pub fn wasmExportCustomSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportCustomSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDataCntSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDataCntSecDtor(handle)
+pub fn wasmExportDataCntSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDataCntSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDataDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDataDtor(handle)
+pub fn wasmExportDataDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDataDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDataIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDataIdxDtor(handle)
+pub fn wasmExportDataIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDataIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDataModeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDataModeDtor(handle)
+pub fn wasmExportDataModeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDataModeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDataSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDataSecDtor(handle)
+pub fn wasmExportDataSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDataSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDecodeModule(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportDecodeModule(p0, p1)
+pub fn wasmExportDecodeModule(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportDecodeModule(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDecodeModulePostReturn(p0 : Int) -> Unit {
-      @core-ir.wasmExportDecodeModulePostReturn(p0)
+pub fn wasmExportDecodeModulePostReturn(p0 : Int32) -> Unit {
+  @core-ir.wasmExportDecodeModulePostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportDefTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportDefTypeDtor(handle)
+pub fn wasmExportDefTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportDefTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportElemDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportElemDtor(handle)
+pub fn wasmExportElemDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportElemDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportElemIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportElemIdxDtor(handle)
+pub fn wasmExportElemIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportElemIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportElemKindDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportElemKindDtor(handle)
+pub fn wasmExportElemKindDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportElemKindDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportElemModeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportElemModeDtor(handle)
+pub fn wasmExportElemModeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportElemModeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportElemSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportElemSecDtor(handle)
+pub fn wasmExportElemSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportElemSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportEmptyModule() -> Int {
-      @core-ir.wasmExportEmptyModule()
+pub fn wasmExportEmptyModule() -> Int32 {
+  @core-ir.wasmExportEmptyModule()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportEncodeModule(p0 : Int) -> Int {
-      @core-ir.wasmExportEncodeModule(p0)
+pub fn wasmExportEncodeModule(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportEncodeModule(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportEncodeModulePostReturn(p0 : Int) -> Unit {
-      @core-ir.wasmExportEncodeModulePostReturn(p0)
+pub fn wasmExportEncodeModulePostReturn(p0 : Int32) -> Unit {
+  @core-ir.wasmExportEncodeModulePostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportExportIrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportExportIrDtor(handle)
+pub fn wasmExportExportIrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportExportIrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportExportSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportExportSecDtor(handle)
+pub fn wasmExportExportSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportExportSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportExprDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportExprDtor(handle)
+pub fn wasmExportExprDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportExprDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportExternIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportExternIdxDtor(handle)
+pub fn wasmExportExternIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportExternIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportExternTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportExternTypeDtor(handle)
+pub fn wasmExportExternTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportExternTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportF32IrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportF32IrDtor(handle)
+pub fn wasmExportF32IrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportF32IrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportF64IrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportF64IrDtor(handle)
+pub fn wasmExportF64IrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportF64IrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFieldTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFieldTypeDtor(handle)
+pub fn wasmExportFieldTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFieldTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncAnnotationAssocDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncAnnotationAssocDtor(handle)
+pub fn wasmExportFuncAnnotationAssocDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncAnnotationAssocDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncAnnotationDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncAnnotationDtor(handle)
+pub fn wasmExportFuncAnnotationDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncAnnotationDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncAnnotationSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncAnnotationSecDtor(handle)
+pub fn wasmExportFuncAnnotationSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncAnnotationSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncIdxDtor(handle)
+pub fn wasmExportFuncIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncIrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncIrDtor(handle)
+pub fn wasmExportFuncIrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncIrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportFuncSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportFuncSecDtor(handle)
+pub fn wasmExportFuncSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportFuncSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGenerateValidWasm(p0 : Int64, p1 : Int, p2 : Int) -> Int {
-      @modules.wasmExportGenerateValidWasm(p0, p1, p2)
+pub fn wasmExportGenerateValidWasm(p0 : Int64, p1 : Int32, p2 : Int32) -> Int32 {
+  @modules.wasmExportGenerateValidWasm(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGenerateValidWasmPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportGenerateValidWasmPostReturn(p0)
+pub fn wasmExportGenerateValidWasmPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportGenerateValidWasmPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGlobalDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportGlobalDtor(handle)
+pub fn wasmExportGlobalDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportGlobalDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGlobalIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportGlobalIdxDtor(handle)
+pub fn wasmExportGlobalIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportGlobalIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGlobalSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportGlobalSecDtor(handle)
+pub fn wasmExportGlobalSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportGlobalSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportGlobalTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportGlobalTypeDtor(handle)
+pub fn wasmExportGlobalTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportGlobalTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportHeapTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportHeapTypeDtor(handle)
+pub fn wasmExportHeapTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportHeapTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportI32Dtor(handle : Int) -> Unit {
-      @core-ir.wasmExportI32Dtor(handle)
+pub fn wasmExportI32Dtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportI32Dtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportI64Dtor(handle : Int) -> Unit {
-      @core-ir.wasmExportI64Dtor(handle)
+pub fn wasmExportI64Dtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportI64Dtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportImplementationTarget() -> Int {
-      @metadata.wasmExportImplementationTarget()
+pub fn wasmExportImplementationTarget() -> Int32 {
+  @metadata.wasmExportImplementationTarget()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportImplementationTargetPostReturn(p0 : Int) -> Unit {
-      @metadata.wasmExportImplementationTargetPostReturn(p0)
+pub fn wasmExportImplementationTargetPostReturn(p0 : Int32) -> Unit {
+  @metadata.wasmExportImplementationTargetPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportImportIrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportImportIrDtor(handle)
+pub fn wasmExportImportIrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportImportIrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportImportSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportImportSecDtor(handle)
+pub fn wasmExportImportSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportImportSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportIndirectNameAssocDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportIndirectNameAssocDtor(handle)
+pub fn wasmExportIndirectNameAssocDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportIndirectNameAssocDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportIndirectNameMapDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportIndirectNameMapDtor(handle)
+pub fn wasmExportIndirectNameMapDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportIndirectNameMapDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportInstructionDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportInstructionDtor(handle)
+pub fn wasmExportInstructionDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportInstructionDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLabelIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLabelIdxDtor(handle)
+pub fn wasmExportLabelIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLabelIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLaneIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLaneIdxDtor(handle)
+pub fn wasmExportLaneIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLaneIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLegacyCatchDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLegacyCatchDtor(handle)
+pub fn wasmExportLegacyCatchDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLegacyCatchDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLimitsDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLimitsDtor(handle)
+pub fn wasmExportLimitsDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLimitsDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLoadOpDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLoadOpDtor(handle)
+pub fn wasmExportLoadOpDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLoadOpDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLocalIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLocalIdxDtor(handle)
+pub fn wasmExportLocalIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLocalIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLocalRunDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLocalRunDtor(handle)
+pub fn wasmExportLocalRunDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLocalRunDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportLocalsDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportLocalsDtor(handle)
+pub fn wasmExportLocalsDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportLocalsDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportMemArgDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportMemArgDtor(handle)
+pub fn wasmExportMemArgDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportMemArgDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportMemIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportMemIdxDtor(handle)
+pub fn wasmExportMemIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportMemIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportMemSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportMemSecDtor(handle)
+pub fn wasmExportMemSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportMemSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportMemTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportMemTypeDtor(handle)
+pub fn wasmExportMemTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportMemTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportModuleDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportModuleDtor(handle)
+pub fn wasmExportModuleDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportModuleDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportMutDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportMutDtor(handle)
+pub fn wasmExportMutDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportMutDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportNameAssocDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportNameAssocDtor(handle)
+pub fn wasmExportNameAssocDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportNameAssocDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportNameDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportNameDtor(handle)
+pub fn wasmExportNameDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportNameDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportNameMapDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportNameMapDtor(handle)
+pub fn wasmExportNameMapDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportNameMapDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportNameSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportNameSecDtor(handle)
+pub fn wasmExportNameSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportNameSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportNumTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportNumTypeDtor(handle)
+pub fn wasmExportNumTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportNumTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportOptimizeWasm(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int, p6 : Int, p7 : Int, p8 : Int, p9 : Int, p10 : Int) -> Int {
-      @modules.wasmExportOptimizeWasm(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)
+pub fn wasmExportOptimizeWasm(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+  p6 : Int32,
+  p7 : Int32,
+  p8 : Int32,
+  p9 : Int32,
+  p10 : Int32,
+) -> Int32 {
+  @modules.wasmExportOptimizeWasm(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportOptimizeWasmPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportOptimizeWasmPostReturn(p0)
+pub fn wasmExportOptimizeWasmPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportOptimizeWasmPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportPackTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportPackTypeDtor(handle)
+pub fn wasmExportPackTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportPackTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportParseModule(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportParseModule(p0, p1)
+pub fn wasmExportParseModule(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportParseModule(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportParseModulePostReturn(p0 : Int) -> Unit {
-      @core-ir.wasmExportParseModulePostReturn(p0)
+pub fn wasmExportParseModulePostReturn(p0 : Int32) -> Unit {
+  @core-ir.wasmExportParseModulePostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportRecTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportRecTypeDtor(handle)
+pub fn wasmExportRecTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportRecTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportRefTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportRefTypeDtor(handle)
+pub fn wasmExportRefTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportRefTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportResumeHandlerDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportResumeHandlerDtor(handle)
+pub fn wasmExportResumeHandlerDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportResumeHandlerDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportRoundtripWasm(p0 : Int, p1 : Int) -> Int {
-      @modules.wasmExportRoundtripWasm(p0, p1)
+pub fn wasmExportRoundtripWasm(p0 : Int32, p1 : Int32) -> Int32 {
+  @modules.wasmExportRoundtripWasm(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportRoundtripWasmPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportRoundtripWasmPostReturn(p0)
+pub fn wasmExportRoundtripWasmPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportRoundtripWasmPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStartSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportStartSecDtor(handle)
+pub fn wasmExportStartSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportStartSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeAny() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeAny()
+pub fn wasmExportStaticAbsHeapTypeAny() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeAny()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeArray() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeArray()
+pub fn wasmExportStaticAbsHeapTypeArray() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeArray()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeCont() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeCont()
+pub fn wasmExportStaticAbsHeapTypeCont() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeCont()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeEq() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeEq()
+pub fn wasmExportStaticAbsHeapTypeEq() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeEq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeExn() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeExn()
+pub fn wasmExportStaticAbsHeapTypeExn() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeExn()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeExtern() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeExtern()
+pub fn wasmExportStaticAbsHeapTypeExtern() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeExtern()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeFuncValue() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeFuncValue()
+pub fn wasmExportStaticAbsHeapTypeFuncValue() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeFuncValue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeI31() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeI31()
+pub fn wasmExportStaticAbsHeapTypeI31() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeI31()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNoCont() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNoCont()
+pub fn wasmExportStaticAbsHeapTypeNoCont() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNoCont()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNoExn() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNoExn()
+pub fn wasmExportStaticAbsHeapTypeNoExn() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNoExn()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNoExtern() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNoExtern()
+pub fn wasmExportStaticAbsHeapTypeNoExtern() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNoExtern()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNoFunc() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNoFunc()
+pub fn wasmExportStaticAbsHeapTypeNoFunc() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNoFunc()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNoWaitqueue() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNoWaitqueue()
+pub fn wasmExportStaticAbsHeapTypeNoWaitqueue() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNoWaitqueue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeNone() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeNone()
+pub fn wasmExportStaticAbsHeapTypeNone() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeNone()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeStringValue() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeStringValue()
+pub fn wasmExportStaticAbsHeapTypeStringValue() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeStringValue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeStruct() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeStruct()
+pub fn wasmExportStaticAbsHeapTypeStruct() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeStruct()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAbsHeapTypeWaitqueue() -> Int {
-      @core-ir.wasmExportStaticAbsHeapTypeWaitqueue()
+pub fn wasmExportStaticAbsHeapTypeWaitqueue() -> Int32 {
+  @core-ir.wasmExportStaticAbsHeapTypeWaitqueue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpAdd() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpAdd()
+pub fn wasmExportStaticAggregateAtomicRmwOpAdd() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpAdd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpAnd() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpAnd()
+pub fn wasmExportStaticAggregateAtomicRmwOpAnd() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpAnd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpOr() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpOr()
+pub fn wasmExportStaticAggregateAtomicRmwOpOr() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpOr()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpSub() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpSub()
+pub fn wasmExportStaticAggregateAtomicRmwOpSub() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpSub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpXchg() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpXchg()
+pub fn wasmExportStaticAggregateAtomicRmwOpXchg() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpXchg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAggregateAtomicRmwOpXor() -> Int {
-      @core-ir.wasmExportStaticAggregateAtomicRmwOpXor()
+pub fn wasmExportStaticAggregateAtomicRmwOpXor() -> Int32 {
+  @core-ir.wasmExportStaticAggregateAtomicRmwOpXor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI32() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI32()
+pub fn wasmExportStaticAtomicCmpxchgOpI32() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI3216U() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI3216U()
+pub fn wasmExportStaticAtomicCmpxchgOpI3216U() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI3216U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI328U() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI328U()
+pub fn wasmExportStaticAtomicCmpxchgOpI328U() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI328U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI64() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI64()
+pub fn wasmExportStaticAtomicCmpxchgOpI64() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI6416U() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI6416U()
+pub fn wasmExportStaticAtomicCmpxchgOpI6416U() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI6416U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI6432U() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI6432U()
+pub fn wasmExportStaticAtomicCmpxchgOpI6432U() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI6432U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicCmpxchgOpI648U() -> Int {
-      @core-ir.wasmExportStaticAtomicCmpxchgOpI648U()
+pub fn wasmExportStaticAtomicCmpxchgOpI648U() -> Int32 {
+  @core-ir.wasmExportStaticAtomicCmpxchgOpI648U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicOrderAcqRel() -> Int {
-      @core-ir.wasmExportStaticAtomicOrderAcqRel()
+pub fn wasmExportStaticAtomicOrderAcqRel() -> Int32 {
+  @core-ir.wasmExportStaticAtomicOrderAcqRel()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicOrderRelaxed() -> Int {
-      @core-ir.wasmExportStaticAtomicOrderRelaxed()
+pub fn wasmExportStaticAtomicOrderRelaxed() -> Int32 {
+  @core-ir.wasmExportStaticAtomicOrderRelaxed()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicOrderSeqCst() -> Int {
-      @core-ir.wasmExportStaticAtomicOrderSeqCst()
+pub fn wasmExportStaticAtomicOrderSeqCst() -> Int32 {
+  @core-ir.wasmExportStaticAtomicOrderSeqCst()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216AddU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216AddU()
+pub fn wasmExportStaticAtomicRmwOpI3216AddU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216AddU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216AndU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216AndU()
+pub fn wasmExportStaticAtomicRmwOpI3216AndU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216AndU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216OrU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216OrU()
+pub fn wasmExportStaticAtomicRmwOpI3216OrU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216OrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216SubU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216SubU()
+pub fn wasmExportStaticAtomicRmwOpI3216SubU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216SubU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216XchgU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216XchgU()
+pub fn wasmExportStaticAtomicRmwOpI3216XchgU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216XchgU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI3216XorU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI3216XorU()
+pub fn wasmExportStaticAtomicRmwOpI3216XorU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI3216XorU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328AddU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328AddU()
+pub fn wasmExportStaticAtomicRmwOpI328AddU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328AddU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328AndU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328AndU()
+pub fn wasmExportStaticAtomicRmwOpI328AndU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328AndU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328OrU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328OrU()
+pub fn wasmExportStaticAtomicRmwOpI328OrU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328OrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328SubU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328SubU()
+pub fn wasmExportStaticAtomicRmwOpI328SubU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328SubU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328XchgU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328XchgU()
+pub fn wasmExportStaticAtomicRmwOpI328XchgU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328XchgU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI328XorU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI328XorU()
+pub fn wasmExportStaticAtomicRmwOpI328XorU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI328XorU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32Add() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32Add()
+pub fn wasmExportStaticAtomicRmwOpI32Add() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32And() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32And()
+pub fn wasmExportStaticAtomicRmwOpI32And() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32And()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32Or() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32Or()
+pub fn wasmExportStaticAtomicRmwOpI32Or() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32Or()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32Sub() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32Sub()
+pub fn wasmExportStaticAtomicRmwOpI32Sub() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32Xchg() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32Xchg()
+pub fn wasmExportStaticAtomicRmwOpI32Xchg() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32Xchg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI32Xor() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI32Xor()
+pub fn wasmExportStaticAtomicRmwOpI32Xor() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI32Xor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416AddU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416AddU()
+pub fn wasmExportStaticAtomicRmwOpI6416AddU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416AddU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416AndU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416AndU()
+pub fn wasmExportStaticAtomicRmwOpI6416AndU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416AndU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416OrU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416OrU()
+pub fn wasmExportStaticAtomicRmwOpI6416OrU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416OrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416SubU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416SubU()
+pub fn wasmExportStaticAtomicRmwOpI6416SubU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416SubU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416XchgU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416XchgU()
+pub fn wasmExportStaticAtomicRmwOpI6416XchgU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416XchgU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6416XorU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6416XorU()
+pub fn wasmExportStaticAtomicRmwOpI6416XorU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6416XorU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432AddU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432AddU()
+pub fn wasmExportStaticAtomicRmwOpI6432AddU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432AddU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432AndU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432AndU()
+pub fn wasmExportStaticAtomicRmwOpI6432AndU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432AndU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432OrU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432OrU()
+pub fn wasmExportStaticAtomicRmwOpI6432OrU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432OrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432SubU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432SubU()
+pub fn wasmExportStaticAtomicRmwOpI6432SubU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432SubU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432XchgU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432XchgU()
+pub fn wasmExportStaticAtomicRmwOpI6432XchgU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432XchgU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI6432XorU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI6432XorU()
+pub fn wasmExportStaticAtomicRmwOpI6432XorU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI6432XorU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648AddU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648AddU()
+pub fn wasmExportStaticAtomicRmwOpI648AddU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648AddU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648AndU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648AndU()
+pub fn wasmExportStaticAtomicRmwOpI648AndU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648AndU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648OrU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648OrU()
+pub fn wasmExportStaticAtomicRmwOpI648OrU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648OrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648SubU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648SubU()
+pub fn wasmExportStaticAtomicRmwOpI648SubU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648SubU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648XchgU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648XchgU()
+pub fn wasmExportStaticAtomicRmwOpI648XchgU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648XchgU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI648XorU() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI648XorU()
+pub fn wasmExportStaticAtomicRmwOpI648XorU() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI648XorU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64Add() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64Add()
+pub fn wasmExportStaticAtomicRmwOpI64Add() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64And() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64And()
+pub fn wasmExportStaticAtomicRmwOpI64And() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64And()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64Or() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64Or()
+pub fn wasmExportStaticAtomicRmwOpI64Or() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64Or()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64Sub() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64Sub()
+pub fn wasmExportStaticAtomicRmwOpI64Sub() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64Xchg() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64Xchg()
+pub fn wasmExportStaticAtomicRmwOpI64Xchg() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64Xchg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticAtomicRmwOpI64Xor() -> Int {
-      @core-ir.wasmExportStaticAtomicRmwOpI64Xor()
+pub fn wasmExportStaticAtomicRmwOpI64Xor() -> Int32 {
+  @core-ir.wasmExportStaticAtomicRmwOpI64Xor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticBlockTypeTypeIdx(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticBlockTypeTypeIdx(p0)
+pub fn wasmExportStaticBlockTypeTypeIdx(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticBlockTypeTypeIdx(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticBlockTypeValType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticBlockTypeValType(p0)
+pub fn wasmExportStaticBlockTypeValType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticBlockTypeValType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticBlockTypeVoid() -> Int {
-      @core-ir.wasmExportStaticBlockTypeVoid()
+pub fn wasmExportStaticBlockTypeVoid() -> Int32 {
+  @core-ir.wasmExportStaticBlockTypeVoid()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCatchAll(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticCatchAll(p0)
+pub fn wasmExportStaticCatchAll(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCatchAll(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCatchAllRef(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticCatchAllRef(p0)
+pub fn wasmExportStaticCatchAllRef(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCatchAllRef(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCatchCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticCatchCreate(p0, p1)
+pub fn wasmExportStaticCatchCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCatchCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCatchRef(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticCatchRef(p0, p1)
+pub fn wasmExportStaticCatchRef(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCatchRef(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCodeSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticCodeSecCreate(p0, p1)
+pub fn wasmExportStaticCodeSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCodeSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCompTypeArray(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticCompTypeArray(p0)
+pub fn wasmExportStaticCompTypeArray(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCompTypeArray(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCompTypeCont(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticCompTypeCont(p0)
+pub fn wasmExportStaticCompTypeCont(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCompTypeCont(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCompTypeFuncValue(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticCompTypeFuncValue(p0, p1, p2, p3)
+pub fn wasmExportStaticCompTypeFuncValue(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticCompTypeFuncValue(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCompTypeStruct(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticCompTypeStruct(p0, p1)
+pub fn wasmExportStaticCompTypeStruct(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticCompTypeStruct(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticCustomSecCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticCustomSecCreate(p0, p1, p2)
+pub fn wasmExportStaticCustomSecCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticCustomSecCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataCntSecCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticDataCntSecCreate(p0)
+pub fn wasmExportStaticDataCntSecCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDataCntSecCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticDataCreate(p0, p1, p2)
+pub fn wasmExportStaticDataCreate(p0 : Int32, p1 : Int32, p2 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDataCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticDataIdxCreate(p0)
+pub fn wasmExportStaticDataIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDataIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataModeActive(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticDataModeActive(p0, p1)
+pub fn wasmExportStaticDataModeActive(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDataModeActive(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataModePassive() -> Int {
-      @core-ir.wasmExportStaticDataModePassive()
+pub fn wasmExportStaticDataModePassive() -> Int32 {
+  @core-ir.wasmExportStaticDataModePassive()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDataSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticDataSecCreate(p0, p1)
+pub fn wasmExportStaticDataSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDataSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticDefTypeCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticDefTypeCreate(p0, p1)
+pub fn wasmExportStaticDefTypeCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticDefTypeCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticElemCreate(p0, p1)
+pub fn wasmExportStaticElemCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticElemIdxCreate(p0)
+pub fn wasmExportStaticElemIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemKindFuncExprs(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticElemKindFuncExprs(p0, p1)
+pub fn wasmExportStaticElemKindFuncExprs(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemKindFuncExprs(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemKindFuncs(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticElemKindFuncs(p0, p1)
+pub fn wasmExportStaticElemKindFuncs(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemKindFuncs(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemKindTypedExprs(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticElemKindTypedExprs(p0, p1, p2)
+pub fn wasmExportStaticElemKindTypedExprs(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticElemKindTypedExprs(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemModeActive(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticElemModeActive(p0, p1)
+pub fn wasmExportStaticElemModeActive(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemModeActive(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemModeDeclarative() -> Int {
-      @core-ir.wasmExportStaticElemModeDeclarative()
+pub fn wasmExportStaticElemModeDeclarative() -> Int32 {
+  @core-ir.wasmExportStaticElemModeDeclarative()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemModePassive() -> Int {
-      @core-ir.wasmExportStaticElemModePassive()
+pub fn wasmExportStaticElemModePassive() -> Int32 {
+  @core-ir.wasmExportStaticElemModePassive()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticElemSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticElemSecCreate(p0, p1)
+pub fn wasmExportStaticElemSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticElemSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExportIrCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticExportIrCreate(p0, p1)
+pub fn wasmExportStaticExportIrCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExportIrCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExportSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticExportSecCreate(p0, p1)
+pub fn wasmExportStaticExportSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExportSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExprCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticExprCreate(p0, p1)
+pub fn wasmExportStaticExprCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExprCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternIdxFuncValue(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternIdxFuncValue(p0)
+pub fn wasmExportStaticExternIdxFuncValue(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternIdxFuncValue(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternIdxGlobal(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternIdxGlobal(p0)
+pub fn wasmExportStaticExternIdxGlobal(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternIdxGlobal(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternIdxMem(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternIdxMem(p0)
+pub fn wasmExportStaticExternIdxMem(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternIdxMem(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternIdxTable(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternIdxTable(p0)
+pub fn wasmExportStaticExternIdxTable(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternIdxTable(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternIdxTag(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternIdxTag(p0)
+pub fn wasmExportStaticExternIdxTag(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternIdxTag(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternTypeFuncValue(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternTypeFuncValue(p0)
+pub fn wasmExportStaticExternTypeFuncValue(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternTypeFuncValue(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternTypeGlobal(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternTypeGlobal(p0)
+pub fn wasmExportStaticExternTypeGlobal(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternTypeGlobal(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternTypeMem(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternTypeMem(p0)
+pub fn wasmExportStaticExternTypeMem(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternTypeMem(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternTypeTable(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternTypeTable(p0)
+pub fn wasmExportStaticExternTypeTable(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternTypeTable(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticExternTypeTag(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticExternTypeTag(p0)
+pub fn wasmExportStaticExternTypeTag(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticExternTypeTag(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticF32IrCreate(p0 : Float) -> Int {
-      @core-ir.wasmExportStaticF32IrCreate(p0)
+pub fn wasmExportStaticF32IrCreate(p0 : Float) -> Int32 {
+  @core-ir.wasmExportStaticF32IrCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticF64IrCreate(p0 : Double) -> Int {
-      @core-ir.wasmExportStaticF64IrCreate(p0)
+pub fn wasmExportStaticF64IrCreate(p0 : Double) -> Int32 {
+  @core-ir.wasmExportStaticF64IrCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFieldTypeCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticFieldTypeCreate(p0, p1)
+pub fn wasmExportStaticFieldTypeCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticFieldTypeCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncAnnotationAssocCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncAnnotationAssocCreate(p0, p1, p2)
+pub fn wasmExportStaticFuncAnnotationAssocCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticFuncAnnotationAssocCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncAnnotationCreate(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncAnnotationCreate(p0, p1, p2, p3)
+pub fn wasmExportStaticFuncAnnotationCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticFuncAnnotationCreate(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncAnnotationSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncAnnotationSecCreate(p0, p1)
+pub fn wasmExportStaticFuncAnnotationSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticFuncAnnotationSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncIdxCreate(p0)
+pub fn wasmExportStaticFuncIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticFuncIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncIrCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncIrCreate(p0, p1)
+pub fn wasmExportStaticFuncIrCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticFuncIrCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticFuncSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticFuncSecCreate(p0, p1)
+pub fn wasmExportStaticFuncSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticFuncSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticGlobalCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticGlobalCreate(p0, p1)
+pub fn wasmExportStaticGlobalCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticGlobalCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticGlobalIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticGlobalIdxCreate(p0)
+pub fn wasmExportStaticGlobalIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticGlobalIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticGlobalSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticGlobalSecCreate(p0, p1)
+pub fn wasmExportStaticGlobalSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticGlobalSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticGlobalTypeCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticGlobalTypeCreate(p0, p1)
+pub fn wasmExportStaticGlobalTypeCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticGlobalTypeCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeAbs(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticHeapTypeAbs(p0)
+pub fn wasmExportStaticHeapTypeAbs(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticHeapTypeAbs(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeBottom() -> Int {
-      @core-ir.wasmExportStaticHeapTypeBottom()
+pub fn wasmExportStaticHeapTypeBottom() -> Int32 {
+  @core-ir.wasmExportStaticHeapTypeBottom()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticHeapTypeCreate(p0)
+pub fn wasmExportStaticHeapTypeCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticHeapTypeCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeDefType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticHeapTypeDefType(p0)
+pub fn wasmExportStaticHeapTypeDefType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticHeapTypeDefType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeSharedAbs(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticHeapTypeSharedAbs(p0)
+pub fn wasmExportStaticHeapTypeSharedAbs(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticHeapTypeSharedAbs(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticI32Create(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticI32Create(p0)
+pub fn wasmExportStaticI32Create(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticI32Create(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticI64Create(p0 : Int64) -> Int {
-      @core-ir.wasmExportStaticI64Create(p0)
+pub fn wasmExportStaticI64Create(p0 : Int64) -> Int32 {
+  @core-ir.wasmExportStaticI64Create(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticImportIrCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticImportIrCreate(p0, p1, p2)
+pub fn wasmExportStaticImportIrCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticImportIrCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticImportSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticImportSecCreate(p0, p1)
+pub fn wasmExportStaticImportSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticImportSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticIndirectNameAssocCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticIndirectNameAssocCreate(p0, p1)
+pub fn wasmExportStaticIndirectNameAssocCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticIndirectNameAssocCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticIndirectNameMapCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticIndirectNameMapCreate(p0, p1)
+pub fn wasmExportStaticIndirectNameMapCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticIndirectNameMapCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionAnyConvertExtern() -> Int {
-      @core-ir.wasmExportStaticInstructionAnyConvertExtern()
+pub fn wasmExportStaticInstructionAnyConvertExtern() -> Int32 {
+  @core-ir.wasmExportStaticInstructionAnyConvertExtern()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicCmpxchg(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicCmpxchg(p0, p1)
+pub fn wasmExportStaticInstructionArrayAtomicCmpxchg(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicCmpxchg(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicGet(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicGet(p0, p1)
+pub fn wasmExportStaticInstructionArrayAtomicGet(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicGet(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicGetS(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicGetS(p0, p1)
+pub fn wasmExportStaticInstructionArrayAtomicGetS(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicGetS(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicGetU(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicGetU(p0, p1)
+pub fn wasmExportStaticInstructionArrayAtomicGetU(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicGetU(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicRmw(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicRmw(p0, p1, p2)
+pub fn wasmExportStaticInstructionArrayAtomicRmw(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicRmw(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayAtomicSet(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayAtomicSet(p0, p1)
+pub fn wasmExportStaticInstructionArrayAtomicSet(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayAtomicSet(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayCopy(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayCopy(p0, p1)
+pub fn wasmExportStaticInstructionArrayCopy(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayCopy(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayFill(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayFill(p0)
+pub fn wasmExportStaticInstructionArrayFill(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayFill(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayGet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayGet(p0)
+pub fn wasmExportStaticInstructionArrayGet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayGet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayGetS(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayGetS(p0)
+pub fn wasmExportStaticInstructionArrayGetS(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayGetS(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayGetU(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayGetU(p0)
+pub fn wasmExportStaticInstructionArrayGetU(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayGetU(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayInitData(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayInitData(p0, p1)
+pub fn wasmExportStaticInstructionArrayInitData(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayInitData(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayInitElem(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayInitElem(p0, p1)
+pub fn wasmExportStaticInstructionArrayInitElem(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayInitElem(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayLen() -> Int {
-      @core-ir.wasmExportStaticInstructionArrayLen()
+pub fn wasmExportStaticInstructionArrayLen() -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayLen()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayLoad(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayLoad(p0, p1, p2)
+pub fn wasmExportStaticInstructionArrayLoad(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayLoad(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayNew(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayNew(p0)
+pub fn wasmExportStaticInstructionArrayNew(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayNew(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayNewData(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayNewData(p0, p1)
+pub fn wasmExportStaticInstructionArrayNewData(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayNewData(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayNewDefault(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayNewDefault(p0)
+pub fn wasmExportStaticInstructionArrayNewDefault(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayNewDefault(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayNewElem(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayNewElem(p0, p1)
+pub fn wasmExportStaticInstructionArrayNewElem(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayNewElem(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayNewFixed(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayNewFixed(p0, p1)
+pub fn wasmExportStaticInstructionArrayNewFixed(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayNewFixed(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArraySet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArraySet(p0)
+pub fn wasmExportStaticInstructionArraySet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArraySet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayStore(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionArrayStore(p0, p1, p2)
+pub fn wasmExportStaticInstructionArrayStore(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionArrayStore(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionAtomicCmpxchg(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionAtomicCmpxchg(p0, p1, p2)
+pub fn wasmExportStaticInstructionAtomicCmpxchg(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionAtomicCmpxchg(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionAtomicFence(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionAtomicFence(p0)
+pub fn wasmExportStaticInstructionAtomicFence(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionAtomicFence(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionAtomicRmw(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionAtomicRmw(p0, p1, p2)
+pub fn wasmExportStaticInstructionAtomicRmw(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionAtomicRmw(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBlock(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBlock(p0, p1)
+pub fn wasmExportStaticInstructionBlock(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBlock(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBr(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBr(p0)
+pub fn wasmExportStaticInstructionBr(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBr(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrIf(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrIf(p0)
+pub fn wasmExportStaticInstructionBrIf(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrIf(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnCast(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int, p6 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnCast(p0, p1, p2, p3, p4, p5, p6)
+pub fn wasmExportStaticInstructionBrOnCast(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+  p6 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnCast(p0, p1, p2, p3, p4, p5, p6)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnCastDescEq(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnCastDescEq(p0, p1, p2)
+pub fn wasmExportStaticInstructionBrOnCastDescEq(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnCastDescEq(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnCastDescEqFail(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnCastDescEqFail(p0, p1, p2)
+pub fn wasmExportStaticInstructionBrOnCastDescEqFail(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnCastDescEqFail(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnCastFail(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int, p6 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnCastFail(p0, p1, p2, p3, p4, p5, p6)
+pub fn wasmExportStaticInstructionBrOnCastFail(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+  p6 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnCastFail(p0, p1, p2, p3, p4, p5, p6)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnNonNull(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnNonNull(p0)
+pub fn wasmExportStaticInstructionBrOnNonNull(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnNonNull(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrOnNull(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrOnNull(p0)
+pub fn wasmExportStaticInstructionBrOnNull(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrOnNull(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionBrTable(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionBrTable(p0, p1, p2)
+pub fn wasmExportStaticInstructionBrTable(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionBrTable(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionCall(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionCall(p0)
+pub fn wasmExportStaticInstructionCall(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionCall(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionCallIndirect(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionCallIndirect(p0, p1)
+pub fn wasmExportStaticInstructionCallIndirect(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionCallIndirect(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionCallRef(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionCallRef(p0)
+pub fn wasmExportStaticInstructionCallRef(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionCallRef(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionContBind(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionContBind(p0, p1)
+pub fn wasmExportStaticInstructionContBind(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionContBind(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionContNew(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionContNew(p0)
+pub fn wasmExportStaticInstructionContNew(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionContNew(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionDataDrop(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionDataDrop(p0)
+pub fn wasmExportStaticInstructionDataDrop(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionDataDrop(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionDropOp() -> Int {
-      @core-ir.wasmExportStaticInstructionDropOp()
+pub fn wasmExportStaticInstructionDropOp() -> Int32 {
+  @core-ir.wasmExportStaticInstructionDropOp()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionElemDrop(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionElemDrop(p0)
+pub fn wasmExportStaticInstructionElemDrop(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionElemDrop(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionExternConvertAny() -> Int {
-      @core-ir.wasmExportStaticInstructionExternConvertAny()
+pub fn wasmExportStaticInstructionExternConvertAny() -> Int32 {
+  @core-ir.wasmExportStaticInstructionExternConvertAny()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Abs()
+pub fn wasmExportStaticInstructionF32Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Add() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Add()
+pub fn wasmExportStaticInstructionF32Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Ceil() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Ceil()
+pub fn wasmExportStaticInstructionF32Ceil() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Ceil()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Const(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF32Const(p0)
+pub fn wasmExportStaticInstructionF32Const(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Const(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32ConvertI32s() -> Int {
-      @core-ir.wasmExportStaticInstructionF32ConvertI32s()
+pub fn wasmExportStaticInstructionF32ConvertI32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32ConvertI32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32ConvertI32u() -> Int {
-      @core-ir.wasmExportStaticInstructionF32ConvertI32u()
+pub fn wasmExportStaticInstructionF32ConvertI32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32ConvertI32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32ConvertI64s() -> Int {
-      @core-ir.wasmExportStaticInstructionF32ConvertI64s()
+pub fn wasmExportStaticInstructionF32ConvertI64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32ConvertI64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32ConvertI64u() -> Int {
-      @core-ir.wasmExportStaticInstructionF32ConvertI64u()
+pub fn wasmExportStaticInstructionF32ConvertI64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32ConvertI64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Copysign() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Copysign()
+pub fn wasmExportStaticInstructionF32Copysign() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Copysign()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32DemoteF64() -> Int {
-      @core-ir.wasmExportStaticInstructionF32DemoteF64()
+pub fn wasmExportStaticInstructionF32DemoteF64() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32DemoteF64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Div() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Div()
+pub fn wasmExportStaticInstructionF32Div() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Div()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Eq()
+pub fn wasmExportStaticInstructionF32Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Floor() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Floor()
+pub fn wasmExportStaticInstructionF32Floor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Floor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Ge() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Ge()
+pub fn wasmExportStaticInstructionF32Ge() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Ge()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Gt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Gt()
+pub fn wasmExportStaticInstructionF32Gt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Gt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Le() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Le()
+pub fn wasmExportStaticInstructionF32Le() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Le()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Load(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF32Load(p0)
+pub fn wasmExportStaticInstructionF32Load(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Load(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Lt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Lt()
+pub fn wasmExportStaticInstructionF32Lt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Lt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Max() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Max()
+pub fn wasmExportStaticInstructionF32Max() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Max()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Min() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Min()
+pub fn wasmExportStaticInstructionF32Min() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Min()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Mul()
+pub fn wasmExportStaticInstructionF32Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Ne()
+pub fn wasmExportStaticInstructionF32Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Nearest() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Nearest()
+pub fn wasmExportStaticInstructionF32Nearest() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Nearest()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Neg()
+pub fn wasmExportStaticInstructionF32Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32ReinterpretI32() -> Int {
-      @core-ir.wasmExportStaticInstructionF32ReinterpretI32()
+pub fn wasmExportStaticInstructionF32ReinterpretI32() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32ReinterpretI32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Sqrt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Sqrt()
+pub fn wasmExportStaticInstructionF32Sqrt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Sqrt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Store(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF32Store(p0)
+pub fn wasmExportStaticInstructionF32Store(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Store(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Sub()
+pub fn wasmExportStaticInstructionF32Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32Trunc() -> Int {
-      @core-ir.wasmExportStaticInstructionF32Trunc()
+pub fn wasmExportStaticInstructionF32Trunc() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32Trunc()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Abs()
+pub fn wasmExportStaticInstructionF32x4Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Add() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Add()
+pub fn wasmExportStaticInstructionF32x4Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Ceil() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Ceil()
+pub fn wasmExportStaticInstructionF32x4Ceil() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Ceil()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4ConvertI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4ConvertI32x4s()
+pub fn wasmExportStaticInstructionF32x4ConvertI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4ConvertI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4ConvertI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4ConvertI32x4u()
+pub fn wasmExportStaticInstructionF32x4ConvertI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4ConvertI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4DemoteF64x2Zero() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4DemoteF64x2Zero()
+pub fn wasmExportStaticInstructionF32x4DemoteF64x2Zero() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4DemoteF64x2Zero()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Div() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Div()
+pub fn wasmExportStaticInstructionF32x4Div() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Div()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Eq()
+pub fn wasmExportStaticInstructionF32x4Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4ExtractLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4ExtractLane(p0)
+pub fn wasmExportStaticInstructionF32x4ExtractLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4ExtractLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Floor() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Floor()
+pub fn wasmExportStaticInstructionF32x4Floor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Floor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Ge() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Ge()
+pub fn wasmExportStaticInstructionF32x4Ge() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Ge()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Gt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Gt()
+pub fn wasmExportStaticInstructionF32x4Gt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Gt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Le() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Le()
+pub fn wasmExportStaticInstructionF32x4Le() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Le()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Lt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Lt()
+pub fn wasmExportStaticInstructionF32x4Lt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Lt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Max() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Max()
+pub fn wasmExportStaticInstructionF32x4Max() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Max()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Min() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Min()
+pub fn wasmExportStaticInstructionF32x4Min() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Min()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Mul()
+pub fn wasmExportStaticInstructionF32x4Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Ne()
+pub fn wasmExportStaticInstructionF32x4Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Nearest() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Nearest()
+pub fn wasmExportStaticInstructionF32x4Nearest() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Nearest()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Neg()
+pub fn wasmExportStaticInstructionF32x4Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Pmax() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Pmax()
+pub fn wasmExportStaticInstructionF32x4Pmax() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Pmax()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Pmin() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Pmin()
+pub fn wasmExportStaticInstructionF32x4Pmin() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Pmin()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4RelaxedMadd() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4RelaxedMadd()
+pub fn wasmExportStaticInstructionF32x4RelaxedMadd() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4RelaxedMadd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4RelaxedMax() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4RelaxedMax()
+pub fn wasmExportStaticInstructionF32x4RelaxedMax() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4RelaxedMax()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4RelaxedMin() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4RelaxedMin()
+pub fn wasmExportStaticInstructionF32x4RelaxedMin() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4RelaxedMin()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4RelaxedNmadd() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4RelaxedNmadd()
+pub fn wasmExportStaticInstructionF32x4RelaxedNmadd() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4RelaxedNmadd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4ReplaceLane(p0)
+pub fn wasmExportStaticInstructionF32x4ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Splat()
+pub fn wasmExportStaticInstructionF32x4Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Sqrt() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Sqrt()
+pub fn wasmExportStaticInstructionF32x4Sqrt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Sqrt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Sub()
+pub fn wasmExportStaticInstructionF32x4Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF32x4Trunc() -> Int {
-      @core-ir.wasmExportStaticInstructionF32x4Trunc()
+pub fn wasmExportStaticInstructionF32x4Trunc() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF32x4Trunc()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Abs()
+pub fn wasmExportStaticInstructionF64Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Add() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Add()
+pub fn wasmExportStaticInstructionF64Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Ceil() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Ceil()
+pub fn wasmExportStaticInstructionF64Ceil() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Ceil()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Const(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF64Const(p0)
+pub fn wasmExportStaticInstructionF64Const(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Const(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64ConvertI32s() -> Int {
-      @core-ir.wasmExportStaticInstructionF64ConvertI32s()
+pub fn wasmExportStaticInstructionF64ConvertI32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64ConvertI32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64ConvertI32u() -> Int {
-      @core-ir.wasmExportStaticInstructionF64ConvertI32u()
+pub fn wasmExportStaticInstructionF64ConvertI32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64ConvertI32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64ConvertI64s() -> Int {
-      @core-ir.wasmExportStaticInstructionF64ConvertI64s()
+pub fn wasmExportStaticInstructionF64ConvertI64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64ConvertI64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64ConvertI64u() -> Int {
-      @core-ir.wasmExportStaticInstructionF64ConvertI64u()
+pub fn wasmExportStaticInstructionF64ConvertI64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64ConvertI64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Copysign() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Copysign()
+pub fn wasmExportStaticInstructionF64Copysign() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Copysign()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Div() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Div()
+pub fn wasmExportStaticInstructionF64Div() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Div()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Eq()
+pub fn wasmExportStaticInstructionF64Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Floor() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Floor()
+pub fn wasmExportStaticInstructionF64Floor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Floor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Ge() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Ge()
+pub fn wasmExportStaticInstructionF64Ge() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Ge()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Gt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Gt()
+pub fn wasmExportStaticInstructionF64Gt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Gt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Le() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Le()
+pub fn wasmExportStaticInstructionF64Le() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Le()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Load(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF64Load(p0)
+pub fn wasmExportStaticInstructionF64Load(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Load(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Lt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Lt()
+pub fn wasmExportStaticInstructionF64Lt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Lt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Max() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Max()
+pub fn wasmExportStaticInstructionF64Max() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Max()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Min() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Min()
+pub fn wasmExportStaticInstructionF64Min() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Min()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Mul()
+pub fn wasmExportStaticInstructionF64Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Ne()
+pub fn wasmExportStaticInstructionF64Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Nearest() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Nearest()
+pub fn wasmExportStaticInstructionF64Nearest() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Nearest()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Neg()
+pub fn wasmExportStaticInstructionF64Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64PromoteF32() -> Int {
-      @core-ir.wasmExportStaticInstructionF64PromoteF32()
+pub fn wasmExportStaticInstructionF64PromoteF32() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64PromoteF32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64ReinterpretI64() -> Int {
-      @core-ir.wasmExportStaticInstructionF64ReinterpretI64()
+pub fn wasmExportStaticInstructionF64ReinterpretI64() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64ReinterpretI64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Sqrt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Sqrt()
+pub fn wasmExportStaticInstructionF64Sqrt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Sqrt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Store(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF64Store(p0)
+pub fn wasmExportStaticInstructionF64Store(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Store(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Sub()
+pub fn wasmExportStaticInstructionF64Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64Trunc() -> Int {
-      @core-ir.wasmExportStaticInstructionF64Trunc()
+pub fn wasmExportStaticInstructionF64Trunc() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64Trunc()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Abs()
+pub fn wasmExportStaticInstructionF64x2Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Add() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Add()
+pub fn wasmExportStaticInstructionF64x2Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Ceil() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Ceil()
+pub fn wasmExportStaticInstructionF64x2Ceil() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Ceil()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2ConvertLowI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2ConvertLowI32x4s()
+pub fn wasmExportStaticInstructionF64x2ConvertLowI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2ConvertLowI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2ConvertLowI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2ConvertLowI32x4u()
+pub fn wasmExportStaticInstructionF64x2ConvertLowI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2ConvertLowI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Div() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Div()
+pub fn wasmExportStaticInstructionF64x2Div() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Div()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Eq()
+pub fn wasmExportStaticInstructionF64x2Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2ExtractLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2ExtractLane(p0)
+pub fn wasmExportStaticInstructionF64x2ExtractLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2ExtractLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Floor() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Floor()
+pub fn wasmExportStaticInstructionF64x2Floor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Floor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Ge() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Ge()
+pub fn wasmExportStaticInstructionF64x2Ge() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Ge()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Gt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Gt()
+pub fn wasmExportStaticInstructionF64x2Gt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Gt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Le() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Le()
+pub fn wasmExportStaticInstructionF64x2Le() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Le()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Lt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Lt()
+pub fn wasmExportStaticInstructionF64x2Lt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Lt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Max() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Max()
+pub fn wasmExportStaticInstructionF64x2Max() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Max()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Min() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Min()
+pub fn wasmExportStaticInstructionF64x2Min() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Min()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Mul()
+pub fn wasmExportStaticInstructionF64x2Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Ne()
+pub fn wasmExportStaticInstructionF64x2Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Nearest() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Nearest()
+pub fn wasmExportStaticInstructionF64x2Nearest() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Nearest()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Neg()
+pub fn wasmExportStaticInstructionF64x2Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Pmax() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Pmax()
+pub fn wasmExportStaticInstructionF64x2Pmax() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Pmax()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Pmin() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Pmin()
+pub fn wasmExportStaticInstructionF64x2Pmin() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Pmin()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2PromoteLowF32x4() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2PromoteLowF32x4()
+pub fn wasmExportStaticInstructionF64x2PromoteLowF32x4() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2PromoteLowF32x4()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2RelaxedMadd() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2RelaxedMadd()
+pub fn wasmExportStaticInstructionF64x2RelaxedMadd() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2RelaxedMadd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2RelaxedMax() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2RelaxedMax()
+pub fn wasmExportStaticInstructionF64x2RelaxedMax() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2RelaxedMax()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2RelaxedMin() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2RelaxedMin()
+pub fn wasmExportStaticInstructionF64x2RelaxedMin() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2RelaxedMin()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2RelaxedNmadd() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2RelaxedNmadd()
+pub fn wasmExportStaticInstructionF64x2RelaxedNmadd() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2RelaxedNmadd()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2ReplaceLane(p0)
+pub fn wasmExportStaticInstructionF64x2ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Splat()
+pub fn wasmExportStaticInstructionF64x2Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Sqrt() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Sqrt()
+pub fn wasmExportStaticInstructionF64x2Sqrt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Sqrt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Sub()
+pub fn wasmExportStaticInstructionF64x2Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionF64x2Trunc() -> Int {
-      @core-ir.wasmExportStaticInstructionF64x2Trunc()
+pub fn wasmExportStaticInstructionF64x2Trunc() -> Int32 {
+  @core-ir.wasmExportStaticInstructionF64x2Trunc()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionGlobalGet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionGlobalGet(p0)
+pub fn wasmExportStaticInstructionGlobalGet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionGlobalGet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionGlobalSet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionGlobalSet(p0)
+pub fn wasmExportStaticInstructionGlobalSet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionGlobalSet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Abs()
+pub fn wasmExportStaticInstructionI16x8Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Add()
+pub fn wasmExportStaticInstructionI16x8Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8AddSatS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8AddSatS()
+pub fn wasmExportStaticInstructionI16x8AddSatS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8AddSatS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8AddSatU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8AddSatU()
+pub fn wasmExportStaticInstructionI16x8AddSatU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8AddSatU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8AllTrue() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8AllTrue()
+pub fn wasmExportStaticInstructionI16x8AllTrue() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8AllTrue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8AvgrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8AvgrU()
+pub fn wasmExportStaticInstructionI16x8AvgrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8AvgrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Bitmask() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Bitmask()
+pub fn wasmExportStaticInstructionI16x8Bitmask() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Bitmask()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Eq()
+pub fn wasmExportStaticInstructionI16x8Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16s()
+pub fn wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16u()
+pub fn wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtaddPairwiseI8x16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtendHighI8x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtendHighI8x16s()
+pub fn wasmExportStaticInstructionI16x8ExtendHighI8x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtendHighI8x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtendHighI8x16u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtendHighI8x16u()
+pub fn wasmExportStaticInstructionI16x8ExtendHighI8x16u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtendHighI8x16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtendLowI8x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtendLowI8x16s()
+pub fn wasmExportStaticInstructionI16x8ExtendLowI8x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtendLowI8x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtendLowI8x16u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtendLowI8x16u()
+pub fn wasmExportStaticInstructionI16x8ExtendLowI8x16u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtendLowI8x16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtmulHighI8x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtmulHighI8x16s()
+pub fn wasmExportStaticInstructionI16x8ExtmulHighI8x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtmulHighI8x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtmulHighI8x16u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtmulHighI8x16u()
+pub fn wasmExportStaticInstructionI16x8ExtmulHighI8x16u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtmulHighI8x16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtmulLowI8x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtmulLowI8x16s()
+pub fn wasmExportStaticInstructionI16x8ExtmulLowI8x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtmulLowI8x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtmulLowI8x16u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtmulLowI8x16u()
+pub fn wasmExportStaticInstructionI16x8ExtmulLowI8x16u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtmulLowI8x16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtractLaneS(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtractLaneS(p0)
+pub fn wasmExportStaticInstructionI16x8ExtractLaneS(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtractLaneS(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ExtractLaneU(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ExtractLaneU(p0)
+pub fn wasmExportStaticInstructionI16x8ExtractLaneU(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ExtractLaneU(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8GeS()
+pub fn wasmExportStaticInstructionI16x8GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8GeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8GeU()
+pub fn wasmExportStaticInstructionI16x8GeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8GeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8GtS()
+pub fn wasmExportStaticInstructionI16x8GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8GtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8GtU()
+pub fn wasmExportStaticInstructionI16x8GtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8GtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8LeS()
+pub fn wasmExportStaticInstructionI16x8LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8LeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8LeU()
+pub fn wasmExportStaticInstructionI16x8LeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8LeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8LtS()
+pub fn wasmExportStaticInstructionI16x8LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8LtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8LtU()
+pub fn wasmExportStaticInstructionI16x8LtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8LtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8MaxS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8MaxS()
+pub fn wasmExportStaticInstructionI16x8MaxS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8MaxS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8MaxU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8MaxU()
+pub fn wasmExportStaticInstructionI16x8MaxU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8MaxU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8MinS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8MinS()
+pub fn wasmExportStaticInstructionI16x8MinS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8MinS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8MinU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8MinU()
+pub fn wasmExportStaticInstructionI16x8MinU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8MinU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Mul()
+pub fn wasmExportStaticInstructionI16x8Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8NarrowI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8NarrowI32x4s()
+pub fn wasmExportStaticInstructionI16x8NarrowI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8NarrowI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8NarrowI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8NarrowI32x4u()
+pub fn wasmExportStaticInstructionI16x8NarrowI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8NarrowI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Ne()
+pub fn wasmExportStaticInstructionI16x8Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Neg()
+pub fn wasmExportStaticInstructionI16x8Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8RelaxedDotI8x16i7x16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8RelaxedDotI8x16i7x16s()
+pub fn wasmExportStaticInstructionI16x8RelaxedDotI8x16i7x16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8RelaxedDotI8x16i7x16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8RelaxedLaneselect() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8RelaxedLaneselect()
+pub fn wasmExportStaticInstructionI16x8RelaxedLaneselect() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8RelaxedLaneselect()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8RelaxedQ15mulrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8RelaxedQ15mulrS()
+pub fn wasmExportStaticInstructionI16x8RelaxedQ15mulrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8RelaxedQ15mulrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ReplaceLane(p0)
+pub fn wasmExportStaticInstructionI16x8ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Shl()
+pub fn wasmExportStaticInstructionI16x8Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ShrS()
+pub fn wasmExportStaticInstructionI16x8ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8ShrU()
+pub fn wasmExportStaticInstructionI16x8ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Splat()
+pub fn wasmExportStaticInstructionI16x8Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8Sub()
+pub fn wasmExportStaticInstructionI16x8Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8SubSatS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8SubSatS()
+pub fn wasmExportStaticInstructionI16x8SubSatS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8SubSatS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8SubSatU() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8SubSatU()
+pub fn wasmExportStaticInstructionI16x8SubSatU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8SubSatU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI16x8q15mulrSatS() -> Int {
-      @core-ir.wasmExportStaticInstructionI16x8q15mulrSatS()
+pub fn wasmExportStaticInstructionI16x8q15mulrSatS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI16x8q15mulrSatS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI31GetS() -> Int {
-      @core-ir.wasmExportStaticInstructionI31GetS()
+pub fn wasmExportStaticInstructionI31GetS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI31GetS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI31GetU() -> Int {
-      @core-ir.wasmExportStaticInstructionI31GetU()
+pub fn wasmExportStaticInstructionI31GetU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI31GetU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Add()
+pub fn wasmExportStaticInstructionI32Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32And() -> Int {
-      @core-ir.wasmExportStaticInstructionI32And()
+pub fn wasmExportStaticInstructionI32And() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32And()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicLoad(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicLoad(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicLoad(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicLoad(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicLoad16U(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicLoad16U(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicLoad16U(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicLoad16U(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicLoad8U(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicLoad8U(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicLoad8U(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicLoad8U(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicStore(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicStore(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicStore(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicStore(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicStore16(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicStore16(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicStore16(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicStore16(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32AtomicStore8(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32AtomicStore8(p0, p1)
+pub fn wasmExportStaticInstructionI32AtomicStore8(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32AtomicStore8(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Clz() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Clz()
+pub fn wasmExportStaticInstructionI32Clz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Clz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Const(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Const(p0)
+pub fn wasmExportStaticInstructionI32Const(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Const(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Ctz() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Ctz()
+pub fn wasmExportStaticInstructionI32Ctz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Ctz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32DivS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32DivS()
+pub fn wasmExportStaticInstructionI32DivS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32DivS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32DivU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32DivU()
+pub fn wasmExportStaticInstructionI32DivU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32DivU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Eq()
+pub fn wasmExportStaticInstructionI32Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Eqz() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Eqz()
+pub fn wasmExportStaticInstructionI32Eqz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Eqz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Extend16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Extend16s()
+pub fn wasmExportStaticInstructionI32Extend16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Extend16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Extend8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Extend8s()
+pub fn wasmExportStaticInstructionI32Extend8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Extend8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32GeS()
+pub fn wasmExportStaticInstructionI32GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32GeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32GeU()
+pub fn wasmExportStaticInstructionI32GeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32GeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32GtS()
+pub fn wasmExportStaticInstructionI32GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32GtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32GtU()
+pub fn wasmExportStaticInstructionI32GtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32GtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32LeS()
+pub fn wasmExportStaticInstructionI32LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32LeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32LeU()
+pub fn wasmExportStaticInstructionI32LeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32LeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Load(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Load(p0)
+pub fn wasmExportStaticInstructionI32Load(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Load(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Load16s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Load16s(p0)
+pub fn wasmExportStaticInstructionI32Load16s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Load16s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Load16u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Load16u(p0)
+pub fn wasmExportStaticInstructionI32Load16u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Load16u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Load8s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Load8s(p0)
+pub fn wasmExportStaticInstructionI32Load8s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Load8s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Load8u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Load8u(p0)
+pub fn wasmExportStaticInstructionI32Load8u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Load8u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32LtS()
+pub fn wasmExportStaticInstructionI32LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32LtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32LtU()
+pub fn wasmExportStaticInstructionI32LtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32LtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Mul()
+pub fn wasmExportStaticInstructionI32Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Ne()
+pub fn wasmExportStaticInstructionI32Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Or() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Or()
+pub fn wasmExportStaticInstructionI32Or() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Or()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Popcnt() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Popcnt()
+pub fn wasmExportStaticInstructionI32Popcnt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Popcnt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32ReinterpretF32() -> Int {
-      @core-ir.wasmExportStaticInstructionI32ReinterpretF32()
+pub fn wasmExportStaticInstructionI32ReinterpretF32() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32ReinterpretF32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32RemS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32RemS()
+pub fn wasmExportStaticInstructionI32RemS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32RemS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32RemU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32RemU()
+pub fn wasmExportStaticInstructionI32RemU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32RemU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Rotl() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Rotl()
+pub fn wasmExportStaticInstructionI32Rotl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Rotl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Rotr() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Rotr()
+pub fn wasmExportStaticInstructionI32Rotr() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Rotr()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Shl()
+pub fn wasmExportStaticInstructionI32Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32ShrS()
+pub fn wasmExportStaticInstructionI32ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32ShrU()
+pub fn wasmExportStaticInstructionI32ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Store(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Store(p0)
+pub fn wasmExportStaticInstructionI32Store(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Store(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Store16(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Store16(p0)
+pub fn wasmExportStaticInstructionI32Store16(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Store16(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Store8(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32Store8(p0)
+pub fn wasmExportStaticInstructionI32Store8(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Store8(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Sub()
+pub fn wasmExportStaticInstructionI32Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncF32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncF32s()
+pub fn wasmExportStaticInstructionI32TruncF32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncF32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncF32u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncF32u()
+pub fn wasmExportStaticInstructionI32TruncF32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncF32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncF64s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncF64s()
+pub fn wasmExportStaticInstructionI32TruncF64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncF64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncF64u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncF64u()
+pub fn wasmExportStaticInstructionI32TruncF64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncF64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncSatF32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncSatF32s()
+pub fn wasmExportStaticInstructionI32TruncSatF32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncSatF32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncSatF32u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncSatF32u()
+pub fn wasmExportStaticInstructionI32TruncSatF32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncSatF32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncSatF64s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncSatF64s()
+pub fn wasmExportStaticInstructionI32TruncSatF64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncSatF64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32TruncSatF64u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32TruncSatF64u()
+pub fn wasmExportStaticInstructionI32TruncSatF64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32TruncSatF64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32WrapI64() -> Int {
-      @core-ir.wasmExportStaticInstructionI32WrapI64()
+pub fn wasmExportStaticInstructionI32WrapI64() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32WrapI64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32Xor() -> Int {
-      @core-ir.wasmExportStaticInstructionI32Xor()
+pub fn wasmExportStaticInstructionI32Xor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32Xor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Abs()
+pub fn wasmExportStaticInstructionI32x4Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Add()
+pub fn wasmExportStaticInstructionI32x4Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4AllTrue() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4AllTrue()
+pub fn wasmExportStaticInstructionI32x4AllTrue() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4AllTrue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Bitmask() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Bitmask()
+pub fn wasmExportStaticInstructionI32x4Bitmask() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Bitmask()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4DotI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4DotI16x8s()
+pub fn wasmExportStaticInstructionI32x4DotI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4DotI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Eq()
+pub fn wasmExportStaticInstructionI32x4Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8s()
+pub fn wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8u()
+pub fn wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtaddPairwiseI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtendHighI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtendHighI16x8s()
+pub fn wasmExportStaticInstructionI32x4ExtendHighI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtendHighI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtendHighI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtendHighI16x8u()
+pub fn wasmExportStaticInstructionI32x4ExtendHighI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtendHighI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtendLowI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtendLowI16x8s()
+pub fn wasmExportStaticInstructionI32x4ExtendLowI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtendLowI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtendLowI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtendLowI16x8u()
+pub fn wasmExportStaticInstructionI32x4ExtendLowI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtendLowI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtmulHighI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtmulHighI16x8s()
+pub fn wasmExportStaticInstructionI32x4ExtmulHighI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtmulHighI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtmulHighI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtmulHighI16x8u()
+pub fn wasmExportStaticInstructionI32x4ExtmulHighI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtmulHighI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtmulLowI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtmulLowI16x8s()
+pub fn wasmExportStaticInstructionI32x4ExtmulLowI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtmulLowI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtmulLowI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtmulLowI16x8u()
+pub fn wasmExportStaticInstructionI32x4ExtmulLowI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtmulLowI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ExtractLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ExtractLane(p0)
+pub fn wasmExportStaticInstructionI32x4ExtractLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ExtractLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4GeS()
+pub fn wasmExportStaticInstructionI32x4GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4GeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4GeU()
+pub fn wasmExportStaticInstructionI32x4GeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4GeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4GtS()
+pub fn wasmExportStaticInstructionI32x4GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4GtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4GtU()
+pub fn wasmExportStaticInstructionI32x4GtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4GtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4LeS()
+pub fn wasmExportStaticInstructionI32x4LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4LeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4LeU()
+pub fn wasmExportStaticInstructionI32x4LeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4LeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4LtS()
+pub fn wasmExportStaticInstructionI32x4LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4LtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4LtU()
+pub fn wasmExportStaticInstructionI32x4LtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4LtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4MaxS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4MaxS()
+pub fn wasmExportStaticInstructionI32x4MaxS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4MaxS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4MaxU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4MaxU()
+pub fn wasmExportStaticInstructionI32x4MaxU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4MaxU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4MinS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4MinS()
+pub fn wasmExportStaticInstructionI32x4MinS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4MinS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4MinU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4MinU()
+pub fn wasmExportStaticInstructionI32x4MinU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4MinU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Mul()
+pub fn wasmExportStaticInstructionI32x4Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Ne()
+pub fn wasmExportStaticInstructionI32x4Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Neg()
+pub fn wasmExportStaticInstructionI32x4Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedDotI8x16i7x16AddS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedDotI8x16i7x16AddS()
+pub fn wasmExportStaticInstructionI32x4RelaxedDotI8x16i7x16AddS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedDotI8x16i7x16AddS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedLaneselect() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedLaneselect()
+pub fn wasmExportStaticInstructionI32x4RelaxedLaneselect() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedLaneselect()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedTruncF32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncF32x4s()
+pub fn wasmExportStaticInstructionI32x4RelaxedTruncF32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncF32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedTruncF32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncF32x4u()
+pub fn wasmExportStaticInstructionI32x4RelaxedTruncF32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncF32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2s()
+pub fn wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2u()
+pub fn wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4RelaxedTruncZeroF64x2u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ReplaceLane(p0)
+pub fn wasmExportStaticInstructionI32x4ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Shl()
+pub fn wasmExportStaticInstructionI32x4Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ShrS()
+pub fn wasmExportStaticInstructionI32x4ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4ShrU()
+pub fn wasmExportStaticInstructionI32x4ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Splat()
+pub fn wasmExportStaticInstructionI32x4Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4Sub()
+pub fn wasmExportStaticInstructionI32x4Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4TruncSatF32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4TruncSatF32x4s()
+pub fn wasmExportStaticInstructionI32x4TruncSatF32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4TruncSatF32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4TruncSatF32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4TruncSatF32x4u()
+pub fn wasmExportStaticInstructionI32x4TruncSatF32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4TruncSatF32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4TruncSatF64x2sZero() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4TruncSatF64x2sZero()
+pub fn wasmExportStaticInstructionI32x4TruncSatF64x2sZero() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4TruncSatF64x2sZero()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI32x4TruncSatF64x2uZero() -> Int {
-      @core-ir.wasmExportStaticInstructionI32x4TruncSatF64x2uZero()
+pub fn wasmExportStaticInstructionI32x4TruncSatF64x2uZero() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI32x4TruncSatF64x2uZero()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Add()
+pub fn wasmExportStaticInstructionI64Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64And() -> Int {
-      @core-ir.wasmExportStaticInstructionI64And()
+pub fn wasmExportStaticInstructionI64And() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64And()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicLoad(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicLoad(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicLoad(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicLoad(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicLoad16U(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicLoad16U(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicLoad16U(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicLoad16U(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicLoad32U(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicLoad32U(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicLoad32U(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicLoad32U(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicLoad8U(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicLoad8U(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicLoad8U(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicLoad8U(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicStore(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicStore(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicStore(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicStore(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicStore16(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicStore16(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicStore16(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicStore16(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicStore32(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicStore32(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicStore32(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicStore32(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64AtomicStore8(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64AtomicStore8(p0, p1)
+pub fn wasmExportStaticInstructionI64AtomicStore8(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64AtomicStore8(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Clz() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Clz()
+pub fn wasmExportStaticInstructionI64Clz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Clz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Const(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Const(p0)
+pub fn wasmExportStaticInstructionI64Const(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Const(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Ctz() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Ctz()
+pub fn wasmExportStaticInstructionI64Ctz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Ctz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64DivS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64DivS()
+pub fn wasmExportStaticInstructionI64DivS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64DivS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64DivU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64DivU()
+pub fn wasmExportStaticInstructionI64DivU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64DivU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Eq()
+pub fn wasmExportStaticInstructionI64Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Eqz() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Eqz()
+pub fn wasmExportStaticInstructionI64Eqz() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Eqz()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Extend16s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Extend16s()
+pub fn wasmExportStaticInstructionI64Extend16s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Extend16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Extend32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Extend32s()
+pub fn wasmExportStaticInstructionI64Extend32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Extend32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Extend8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Extend8s()
+pub fn wasmExportStaticInstructionI64Extend8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Extend8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64ExtendI32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64ExtendI32s()
+pub fn wasmExportStaticInstructionI64ExtendI32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64ExtendI32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64ExtendI32u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64ExtendI32u()
+pub fn wasmExportStaticInstructionI64ExtendI32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64ExtendI32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64GeS()
+pub fn wasmExportStaticInstructionI64GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64GeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64GeU()
+pub fn wasmExportStaticInstructionI64GeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64GeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64GtS()
+pub fn wasmExportStaticInstructionI64GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64GtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64GtU()
+pub fn wasmExportStaticInstructionI64GtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64GtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64LeS()
+pub fn wasmExportStaticInstructionI64LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64LeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64LeU()
+pub fn wasmExportStaticInstructionI64LeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64LeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load(p0)
+pub fn wasmExportStaticInstructionI64Load(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load16s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load16s(p0)
+pub fn wasmExportStaticInstructionI64Load16s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load16s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load16u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load16u(p0)
+pub fn wasmExportStaticInstructionI64Load16u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load16u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load32s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load32s(p0)
+pub fn wasmExportStaticInstructionI64Load32s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load32s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load32u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load32u(p0)
+pub fn wasmExportStaticInstructionI64Load32u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load32u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load8s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load8s(p0)
+pub fn wasmExportStaticInstructionI64Load8s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load8s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Load8u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Load8u(p0)
+pub fn wasmExportStaticInstructionI64Load8u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Load8u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64LtS()
+pub fn wasmExportStaticInstructionI64LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64LtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64LtU()
+pub fn wasmExportStaticInstructionI64LtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64LtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Mul()
+pub fn wasmExportStaticInstructionI64Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Ne()
+pub fn wasmExportStaticInstructionI64Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Or() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Or()
+pub fn wasmExportStaticInstructionI64Or() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Or()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Popcnt() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Popcnt()
+pub fn wasmExportStaticInstructionI64Popcnt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Popcnt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64ReinterpretF64() -> Int {
-      @core-ir.wasmExportStaticInstructionI64ReinterpretF64()
+pub fn wasmExportStaticInstructionI64ReinterpretF64() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64ReinterpretF64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64RemS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64RemS()
+pub fn wasmExportStaticInstructionI64RemS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64RemS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64RemU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64RemU()
+pub fn wasmExportStaticInstructionI64RemU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64RemU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Rotl() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Rotl()
+pub fn wasmExportStaticInstructionI64Rotl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Rotl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Rotr() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Rotr()
+pub fn wasmExportStaticInstructionI64Rotr() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Rotr()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Shl()
+pub fn wasmExportStaticInstructionI64Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64ShrS()
+pub fn wasmExportStaticInstructionI64ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64ShrU()
+pub fn wasmExportStaticInstructionI64ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Store(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Store(p0)
+pub fn wasmExportStaticInstructionI64Store(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Store(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Store16(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Store16(p0)
+pub fn wasmExportStaticInstructionI64Store16(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Store16(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Store32(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Store32(p0)
+pub fn wasmExportStaticInstructionI64Store32(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Store32(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Store8(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64Store8(p0)
+pub fn wasmExportStaticInstructionI64Store8(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Store8(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Sub()
+pub fn wasmExportStaticInstructionI64Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncF32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncF32s()
+pub fn wasmExportStaticInstructionI64TruncF32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncF32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncF32u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncF32u()
+pub fn wasmExportStaticInstructionI64TruncF32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncF32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncF64s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncF64s()
+pub fn wasmExportStaticInstructionI64TruncF64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncF64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncF64u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncF64u()
+pub fn wasmExportStaticInstructionI64TruncF64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncF64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncSatF32s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncSatF32s()
+pub fn wasmExportStaticInstructionI64TruncSatF32s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncSatF32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncSatF32u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncSatF32u()
+pub fn wasmExportStaticInstructionI64TruncSatF32u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncSatF32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncSatF64s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncSatF64s()
+pub fn wasmExportStaticInstructionI64TruncSatF64s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncSatF64s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64TruncSatF64u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64TruncSatF64u()
+pub fn wasmExportStaticInstructionI64TruncSatF64u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64TruncSatF64u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64Xor() -> Int {
-      @core-ir.wasmExportStaticInstructionI64Xor()
+pub fn wasmExportStaticInstructionI64Xor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64Xor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Abs()
+pub fn wasmExportStaticInstructionI64x2Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Add()
+pub fn wasmExportStaticInstructionI64x2Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2AllTrue() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2AllTrue()
+pub fn wasmExportStaticInstructionI64x2AllTrue() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2AllTrue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Bitmask() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Bitmask()
+pub fn wasmExportStaticInstructionI64x2Bitmask() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Bitmask()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Eq()
+pub fn wasmExportStaticInstructionI64x2Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtendHighI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtendHighI32x4s()
+pub fn wasmExportStaticInstructionI64x2ExtendHighI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtendHighI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtendHighI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtendHighI32x4u()
+pub fn wasmExportStaticInstructionI64x2ExtendHighI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtendHighI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtendLowI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtendLowI32x4s()
+pub fn wasmExportStaticInstructionI64x2ExtendLowI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtendLowI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtendLowI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtendLowI32x4u()
+pub fn wasmExportStaticInstructionI64x2ExtendLowI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtendLowI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtmulHighI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtmulHighI32x4s()
+pub fn wasmExportStaticInstructionI64x2ExtmulHighI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtmulHighI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtmulHighI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtmulHighI32x4u()
+pub fn wasmExportStaticInstructionI64x2ExtmulHighI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtmulHighI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtmulLowI32x4s() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtmulLowI32x4s()
+pub fn wasmExportStaticInstructionI64x2ExtmulLowI32x4s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtmulLowI32x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtmulLowI32x4u() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtmulLowI32x4u()
+pub fn wasmExportStaticInstructionI64x2ExtmulLowI32x4u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtmulLowI32x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ExtractLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ExtractLane(p0)
+pub fn wasmExportStaticInstructionI64x2ExtractLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ExtractLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2GeS()
+pub fn wasmExportStaticInstructionI64x2GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2GtS()
+pub fn wasmExportStaticInstructionI64x2GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2LeS()
+pub fn wasmExportStaticInstructionI64x2LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2LtS()
+pub fn wasmExportStaticInstructionI64x2LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Mul() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Mul()
+pub fn wasmExportStaticInstructionI64x2Mul() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Mul()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Ne()
+pub fn wasmExportStaticInstructionI64x2Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Neg()
+pub fn wasmExportStaticInstructionI64x2Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2RelaxedLaneselect() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2RelaxedLaneselect()
+pub fn wasmExportStaticInstructionI64x2RelaxedLaneselect() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2RelaxedLaneselect()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ReplaceLane(p0)
+pub fn wasmExportStaticInstructionI64x2ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Shl()
+pub fn wasmExportStaticInstructionI64x2Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ShrS()
+pub fn wasmExportStaticInstructionI64x2ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2ShrU()
+pub fn wasmExportStaticInstructionI64x2ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Splat()
+pub fn wasmExportStaticInstructionI64x2Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI64x2Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI64x2Sub()
+pub fn wasmExportStaticInstructionI64x2Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI64x2Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Abs() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Abs()
+pub fn wasmExportStaticInstructionI8x16Abs() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Abs()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Add() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Add()
+pub fn wasmExportStaticInstructionI8x16Add() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Add()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16AddSatS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16AddSatS()
+pub fn wasmExportStaticInstructionI8x16AddSatS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16AddSatS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16AddSatU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16AddSatU()
+pub fn wasmExportStaticInstructionI8x16AddSatU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16AddSatU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16AllTrue() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16AllTrue()
+pub fn wasmExportStaticInstructionI8x16AllTrue() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16AllTrue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16AvgrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16AvgrU()
+pub fn wasmExportStaticInstructionI8x16AvgrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16AvgrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Bitmask() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Bitmask()
+pub fn wasmExportStaticInstructionI8x16Bitmask() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Bitmask()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Eq() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Eq()
+pub fn wasmExportStaticInstructionI8x16Eq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Eq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16ExtractLaneS(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16ExtractLaneS(p0)
+pub fn wasmExportStaticInstructionI8x16ExtractLaneS(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16ExtractLaneS(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16ExtractLaneU(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16ExtractLaneU(p0)
+pub fn wasmExportStaticInstructionI8x16ExtractLaneU(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16ExtractLaneU(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16GeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16GeS()
+pub fn wasmExportStaticInstructionI8x16GeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16GeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16GeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16GeU()
+pub fn wasmExportStaticInstructionI8x16GeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16GeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16GtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16GtS()
+pub fn wasmExportStaticInstructionI8x16GtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16GtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16GtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16GtU()
+pub fn wasmExportStaticInstructionI8x16GtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16GtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16LeS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16LeS()
+pub fn wasmExportStaticInstructionI8x16LeS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16LeS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16LeU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16LeU()
+pub fn wasmExportStaticInstructionI8x16LeU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16LeU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16LtS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16LtS()
+pub fn wasmExportStaticInstructionI8x16LtS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16LtS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16LtU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16LtU()
+pub fn wasmExportStaticInstructionI8x16LtU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16LtU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16MaxS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16MaxS()
+pub fn wasmExportStaticInstructionI8x16MaxS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16MaxS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16MaxU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16MaxU()
+pub fn wasmExportStaticInstructionI8x16MaxU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16MaxU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16MinS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16MinS()
+pub fn wasmExportStaticInstructionI8x16MinS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16MinS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16MinU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16MinU()
+pub fn wasmExportStaticInstructionI8x16MinU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16MinU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16NarrowI16x8s() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16NarrowI16x8s()
+pub fn wasmExportStaticInstructionI8x16NarrowI16x8s() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16NarrowI16x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16NarrowI16x8u() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16NarrowI16x8u()
+pub fn wasmExportStaticInstructionI8x16NarrowI16x8u() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16NarrowI16x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Ne() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Ne()
+pub fn wasmExportStaticInstructionI8x16Ne() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Ne()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Neg() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Neg()
+pub fn wasmExportStaticInstructionI8x16Neg() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Neg()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Popcnt() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Popcnt()
+pub fn wasmExportStaticInstructionI8x16Popcnt() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Popcnt()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16RelaxedLaneselect() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16RelaxedLaneselect()
+pub fn wasmExportStaticInstructionI8x16RelaxedLaneselect() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16RelaxedLaneselect()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16RelaxedSwizzle() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16RelaxedSwizzle()
+pub fn wasmExportStaticInstructionI8x16RelaxedSwizzle() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16RelaxedSwizzle()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16ReplaceLane(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16ReplaceLane(p0)
+pub fn wasmExportStaticInstructionI8x16ReplaceLane(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16ReplaceLane(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Shl() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Shl()
+pub fn wasmExportStaticInstructionI8x16Shl() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Shl()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16ShrS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16ShrS()
+pub fn wasmExportStaticInstructionI8x16ShrS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16ShrS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16ShrU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16ShrU()
+pub fn wasmExportStaticInstructionI8x16ShrU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16ShrU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Shuffle(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int, p6 : Int, p7 : Int, p8 : Int, p9 : Int, p10 : Int, p11 : Int, p12 : Int, p13 : Int, p14 : Int, p15 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Shuffle(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
+pub fn wasmExportStaticInstructionI8x16Shuffle(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+  p6 : Int32,
+  p7 : Int32,
+  p8 : Int32,
+  p9 : Int32,
+  p10 : Int32,
+  p11 : Int32,
+  p12 : Int32,
+  p13 : Int32,
+  p14 : Int32,
+  p15 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Shuffle(
+    p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15,
+  )
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Splat() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Splat()
+pub fn wasmExportStaticInstructionI8x16Splat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Sub() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Sub()
+pub fn wasmExportStaticInstructionI8x16Sub() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Sub()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16SubSatS() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16SubSatS()
+pub fn wasmExportStaticInstructionI8x16SubSatS() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16SubSatS()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16SubSatU() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16SubSatU()
+pub fn wasmExportStaticInstructionI8x16SubSatU() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16SubSatU()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionI8x16Swizzle() -> Int {
-      @core-ir.wasmExportStaticInstructionI8x16Swizzle()
+pub fn wasmExportStaticInstructionI8x16Swizzle() -> Int32 {
+  @core-ir.wasmExportStaticInstructionI8x16Swizzle()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionIf(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionIf(p0, p1, p2, p3, p4, p5)
+pub fn wasmExportStaticInstructionIf(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionIf(p0, p1, p2, p3, p4, p5)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionLocalGet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionLocalGet(p0)
+pub fn wasmExportStaticInstructionLocalGet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionLocalGet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionLocalSet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionLocalSet(p0)
+pub fn wasmExportStaticInstructionLocalSet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionLocalSet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionLocalTee(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionLocalTee(p0)
+pub fn wasmExportStaticInstructionLocalTee(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionLocalTee(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionLoop(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionLoop(p0, p1)
+pub fn wasmExportStaticInstructionLoop(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionLoop(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryAtomicNotify(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryAtomicNotify(p0)
+pub fn wasmExportStaticInstructionMemoryAtomicNotify(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryAtomicNotify(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryAtomicWait32(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryAtomicWait32(p0)
+pub fn wasmExportStaticInstructionMemoryAtomicWait32(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryAtomicWait32(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryAtomicWait64(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryAtomicWait64(p0)
+pub fn wasmExportStaticInstructionMemoryAtomicWait64(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryAtomicWait64(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryCopy(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryCopy(p0, p1)
+pub fn wasmExportStaticInstructionMemoryCopy(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryCopy(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryFill(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryFill(p0)
+pub fn wasmExportStaticInstructionMemoryFill(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryFill(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryGrow(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryGrow(p0)
+pub fn wasmExportStaticInstructionMemoryGrow(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryGrow(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemoryInit(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemoryInit(p0, p1)
+pub fn wasmExportStaticInstructionMemoryInit(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemoryInit(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionMemorySize(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionMemorySize(p0)
+pub fn wasmExportStaticInstructionMemorySize(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionMemorySize(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionNop() -> Int {
-      @core-ir.wasmExportStaticInstructionNop()
+pub fn wasmExportStaticInstructionNop() -> Int32 {
+  @core-ir.wasmExportStaticInstructionNop()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionPublish() -> Int {
-      @core-ir.wasmExportStaticInstructionPublish()
+pub fn wasmExportStaticInstructionPublish() -> Int32 {
+  @core-ir.wasmExportStaticInstructionPublish()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefAsNonNull() -> Int {
-      @core-ir.wasmExportStaticInstructionRefAsNonNull()
+pub fn wasmExportStaticInstructionRefAsNonNull() -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefAsNonNull()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefCast(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefCast(p0, p1)
+pub fn wasmExportStaticInstructionRefCast(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefCast(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefCastDescEq(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefCastDescEq(p0, p1)
+pub fn wasmExportStaticInstructionRefCastDescEq(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefCastDescEq(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefCastDescEqType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefCastDescEqType(p0)
+pub fn wasmExportStaticInstructionRefCastDescEqType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefCastDescEqType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefCastExact(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefCastExact(p0, p1)
+pub fn wasmExportStaticInstructionRefCastExact(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefCastExact(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefCastType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefCastType(p0)
+pub fn wasmExportStaticInstructionRefCastType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefCastType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefEq() -> Int {
-      @core-ir.wasmExportStaticInstructionRefEq()
+pub fn wasmExportStaticInstructionRefEq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefEq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefFunc(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefFunc(p0)
+pub fn wasmExportStaticInstructionRefFunc(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefFunc(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefGetDesc(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefGetDesc(p0)
+pub fn wasmExportStaticInstructionRefGetDesc(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefGetDesc(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefI31() -> Int {
-      @core-ir.wasmExportStaticInstructionRefI31()
+pub fn wasmExportStaticInstructionRefI31() -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefI31()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefI31Shared() -> Int {
-      @core-ir.wasmExportStaticInstructionRefI31Shared()
+pub fn wasmExportStaticInstructionRefI31Shared() -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefI31Shared()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefIsNull() -> Int {
-      @core-ir.wasmExportStaticInstructionRefIsNull()
+pub fn wasmExportStaticInstructionRefIsNull() -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefIsNull()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefNull(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefNull(p0)
+pub fn wasmExportStaticInstructionRefNull(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefNull(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefNullType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefNullType(p0)
+pub fn wasmExportStaticInstructionRefNullType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefNullType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefTest(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefTest(p0, p1)
+pub fn wasmExportStaticInstructionRefTest(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefTest(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefTestDesc(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefTestDesc(p0, p1)
+pub fn wasmExportStaticInstructionRefTestDesc(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefTestDesc(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefTestExact(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefTestExact(p0, p1)
+pub fn wasmExportStaticInstructionRefTestExact(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefTestExact(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRefTestType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRefTestType(p0)
+pub fn wasmExportStaticInstructionRefTestType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRefTestType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionResume(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionResume(p0, p1, p2)
+pub fn wasmExportStaticInstructionResume(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionResume(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionResumeThrow(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionResumeThrow(p0, p1, p2, p3)
+pub fn wasmExportStaticInstructionResumeThrow(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionResumeThrow(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionResumeThrowRef(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionResumeThrowRef(p0, p1, p2)
+pub fn wasmExportStaticInstructionResumeThrowRef(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionResumeThrowRef(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionRethrow(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionRethrow(p0)
+pub fn wasmExportStaticInstructionRethrow(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionRethrow(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionReturn() -> Int {
-      @core-ir.wasmExportStaticInstructionReturn()
+pub fn wasmExportStaticInstructionReturn() -> Int32 {
+  @core-ir.wasmExportStaticInstructionReturn()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionReturnCall(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionReturnCall(p0)
+pub fn wasmExportStaticInstructionReturnCall(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionReturnCall(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionReturnCallIndirect(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionReturnCallIndirect(p0, p1)
+pub fn wasmExportStaticInstructionReturnCallIndirect(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionReturnCallIndirect(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionReturnCallRef(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionReturnCallRef(p0)
+pub fn wasmExportStaticInstructionReturnCallRef(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionReturnCallRef(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionSelect(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionSelect(p0, p1, p2)
+pub fn wasmExportStaticInstructionSelect(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionSelect(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStackSwitch(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStackSwitch(p0, p1)
+pub fn wasmExportStaticInstructionStackSwitch(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStackSwitch(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringAsWtf16() -> Int {
-      @core-ir.wasmExportStaticInstructionStringAsWtf16()
+pub fn wasmExportStaticInstructionStringAsWtf16() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringAsWtf16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringConcat() -> Int {
-      @core-ir.wasmExportStaticInstructionStringConcat()
+pub fn wasmExportStaticInstructionStringConcat() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringConcat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringConst(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStringConst(p0, p1)
+pub fn wasmExportStaticInstructionStringConst(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringConst(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringEncodeLossyUtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringEncodeLossyUtf8Array()
+pub fn wasmExportStaticInstructionStringEncodeLossyUtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringEncodeLossyUtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringEncodeUtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringEncodeUtf8Array()
+pub fn wasmExportStaticInstructionStringEncodeUtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringEncodeUtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringEncodeWtf16Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringEncodeWtf16Array()
+pub fn wasmExportStaticInstructionStringEncodeWtf16Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringEncodeWtf16Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringEncodeWtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringEncodeWtf8Array()
+pub fn wasmExportStaticInstructionStringEncodeWtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringEncodeWtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringEq() -> Int {
-      @core-ir.wasmExportStaticInstructionStringEq()
+pub fn wasmExportStaticInstructionStringEq() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringEq()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringMeasureWtf16() -> Int {
-      @core-ir.wasmExportStaticInstructionStringMeasureWtf16()
+pub fn wasmExportStaticInstructionStringMeasureWtf16() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringMeasureWtf16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringNewLossyUtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringNewLossyUtf8Array()
+pub fn wasmExportStaticInstructionStringNewLossyUtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringNewLossyUtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringNewUtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringNewUtf8Array()
+pub fn wasmExportStaticInstructionStringNewUtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringNewUtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringNewWtf16Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringNewWtf16Array()
+pub fn wasmExportStaticInstructionStringNewWtf16Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringNewWtf16Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringNewWtf8Array() -> Int {
-      @core-ir.wasmExportStaticInstructionStringNewWtf8Array()
+pub fn wasmExportStaticInstructionStringNewWtf8Array() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringNewWtf8Array()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringviewWtf16GetCodeunit() -> Int {
-      @core-ir.wasmExportStaticInstructionStringviewWtf16GetCodeunit()
+pub fn wasmExportStaticInstructionStringviewWtf16GetCodeunit() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringviewWtf16GetCodeunit()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStringviewWtf16Slice() -> Int {
-      @core-ir.wasmExportStaticInstructionStringviewWtf16Slice()
+pub fn wasmExportStaticInstructionStringviewWtf16Slice() -> Int32 {
+  @core-ir.wasmExportStaticInstructionStringviewWtf16Slice()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicCmpxchg(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicCmpxchg(p0, p1, p2)
+pub fn wasmExportStaticInstructionStructAtomicCmpxchg(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicCmpxchg(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicGet(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicGet(p0, p1, p2)
+pub fn wasmExportStaticInstructionStructAtomicGet(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicGet(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicGetS(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicGetS(p0, p1, p2)
+pub fn wasmExportStaticInstructionStructAtomicGetS(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicGetS(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicGetU(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicGetU(p0, p1, p2)
+pub fn wasmExportStaticInstructionStructAtomicGetU(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicGetU(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicRmw(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicRmw(p0, p1, p2, p3)
+pub fn wasmExportStaticInstructionStructAtomicRmw(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicRmw(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructAtomicSet(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructAtomicSet(p0, p1, p2)
+pub fn wasmExportStaticInstructionStructAtomicSet(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructAtomicSet(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructGet(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructGet(p0, p1)
+pub fn wasmExportStaticInstructionStructGet(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructGet(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructGetS(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructGetS(p0, p1)
+pub fn wasmExportStaticInstructionStructGetS(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructGetS(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructGetU(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructGetU(p0, p1)
+pub fn wasmExportStaticInstructionStructGetU(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructGetU(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructNew(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructNew(p0)
+pub fn wasmExportStaticInstructionStructNew(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructNew(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructNewDefault(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructNewDefault(p0)
+pub fn wasmExportStaticInstructionStructNewDefault(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructNewDefault(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructNewDefaultDesc(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructNewDefaultDesc(p0)
+pub fn wasmExportStaticInstructionStructNewDefaultDesc(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructNewDefaultDesc(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructNewDesc(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructNewDesc(p0)
+pub fn wasmExportStaticInstructionStructNewDesc(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructNewDesc(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructSet(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructSet(p0, p1)
+pub fn wasmExportStaticInstructionStructSet(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructSet(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionStructWait(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionStructWait(p0, p1)
+pub fn wasmExportStaticInstructionStructWait(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionStructWait(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionSuspend(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionSuspend(p0)
+pub fn wasmExportStaticInstructionSuspend(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionSuspend(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableCopy(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableCopy(p0, p1)
+pub fn wasmExportStaticInstructionTableCopy(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableCopy(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableFill(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableFill(p0)
+pub fn wasmExportStaticInstructionTableFill(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableFill(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableGet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableGet(p0)
+pub fn wasmExportStaticInstructionTableGet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableGet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableGrow(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableGrow(p0)
+pub fn wasmExportStaticInstructionTableGrow(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableGrow(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableInit(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableInit(p0, p1)
+pub fn wasmExportStaticInstructionTableInit(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableInit(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableSet(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableSet(p0)
+pub fn wasmExportStaticInstructionTableSet(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableSet(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTableSize(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTableSize(p0)
+pub fn wasmExportStaticInstructionTableSize(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTableSize(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionThrow(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionThrow(p0)
+pub fn wasmExportStaticInstructionThrow(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionThrow(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionThrowRef() -> Int {
-      @core-ir.wasmExportStaticInstructionThrowRef()
+pub fn wasmExportStaticInstructionThrowRef() -> Int32 {
+  @core-ir.wasmExportStaticInstructionThrowRef()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTry(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTry(p0, p1, p2, p3, p4, p5)
+pub fn wasmExportStaticInstructionTry(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTry(p0, p1, p2, p3, p4, p5)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionTryTable(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionTryTable(p0, p1, p2, p3)
+pub fn wasmExportStaticInstructionTryTable(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionTryTable(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionUnreachable() -> Int {
-      @core-ir.wasmExportStaticInstructionUnreachable()
+pub fn wasmExportStaticInstructionUnreachable() -> Int32 {
+  @core-ir.wasmExportStaticInstructionUnreachable()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128And() -> Int {
-      @core-ir.wasmExportStaticInstructionV128And()
+pub fn wasmExportStaticInstructionV128And() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128And()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Andnot() -> Int {
-      @core-ir.wasmExportStaticInstructionV128Andnot()
+pub fn wasmExportStaticInstructionV128Andnot() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Andnot()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128AnyTrue() -> Int {
-      @core-ir.wasmExportStaticInstructionV128AnyTrue()
+pub fn wasmExportStaticInstructionV128AnyTrue() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128AnyTrue()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Bitselect() -> Int {
-      @core-ir.wasmExportStaticInstructionV128Bitselect()
+pub fn wasmExportStaticInstructionV128Bitselect() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Bitselect()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Const(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int, p5 : Int, p6 : Int, p7 : Int, p8 : Int, p9 : Int, p10 : Int, p11 : Int, p12 : Int, p13 : Int, p14 : Int, p15 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Const(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
+pub fn wasmExportStaticInstructionV128Const(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+  p5 : Int32,
+  p6 : Int32,
+  p7 : Int32,
+  p8 : Int32,
+  p9 : Int32,
+  p10 : Int32,
+  p11 : Int32,
+  p12 : Int32,
+  p13 : Int32,
+  p14 : Int32,
+  p15 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Const(
+    p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15,
+  )
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load(p0)
+pub fn wasmExportStaticInstructionV128Load(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load16Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load16Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Load16Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load16Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load16Splat(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load16Splat(p0)
+pub fn wasmExportStaticInstructionV128Load16Splat(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load16Splat(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load16x4s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load16x4s(p0)
+pub fn wasmExportStaticInstructionV128Load16x4s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load16x4s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load16x4u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load16x4u(p0)
+pub fn wasmExportStaticInstructionV128Load16x4u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load16x4u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load32Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load32Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Load32Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load32Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load32Splat(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load32Splat(p0)
+pub fn wasmExportStaticInstructionV128Load32Splat(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load32Splat(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load32Zero(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load32Zero(p0)
+pub fn wasmExportStaticInstructionV128Load32Zero(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load32Zero(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load32x2s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load32x2s(p0)
+pub fn wasmExportStaticInstructionV128Load32x2s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load32x2s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load32x2u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load32x2u(p0)
+pub fn wasmExportStaticInstructionV128Load32x2u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load32x2u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load64Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load64Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Load64Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load64Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load64Splat(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load64Splat(p0)
+pub fn wasmExportStaticInstructionV128Load64Splat(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load64Splat(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load64Zero(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load64Zero(p0)
+pub fn wasmExportStaticInstructionV128Load64Zero(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load64Zero(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load8Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load8Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Load8Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load8Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load8Splat(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load8Splat(p0)
+pub fn wasmExportStaticInstructionV128Load8Splat(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load8Splat(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load8x8s(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load8x8s(p0)
+pub fn wasmExportStaticInstructionV128Load8x8s(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load8x8s(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Load8x8u(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Load8x8u(p0)
+pub fn wasmExportStaticInstructionV128Load8x8u(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Load8x8u(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Not() -> Int {
-      @core-ir.wasmExportStaticInstructionV128Not()
+pub fn wasmExportStaticInstructionV128Not() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Not()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Or() -> Int {
-      @core-ir.wasmExportStaticInstructionV128Or()
+pub fn wasmExportStaticInstructionV128Or() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Or()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Store(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Store(p0)
+pub fn wasmExportStaticInstructionV128Store(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Store(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Store16Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Store16Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Store16Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Store16Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Store32Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Store32Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Store32Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Store32Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Store64Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Store64Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Store64Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Store64Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Store8Lane(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticInstructionV128Store8Lane(p0, p1)
+pub fn wasmExportStaticInstructionV128Store8Lane(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Store8Lane(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionV128Xor() -> Int {
-      @core-ir.wasmExportStaticInstructionV128Xor()
+pub fn wasmExportStaticInstructionV128Xor() -> Int32 {
+  @core-ir.wasmExportStaticInstructionV128Xor()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionWaitqueueNew() -> Int {
-      @core-ir.wasmExportStaticInstructionWaitqueueNew()
+pub fn wasmExportStaticInstructionWaitqueueNew() -> Int32 {
+  @core-ir.wasmExportStaticInstructionWaitqueueNew()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticInstructionWaitqueueNotify() -> Int {
-      @core-ir.wasmExportStaticInstructionWaitqueueNotify()
+pub fn wasmExportStaticInstructionWaitqueueNotify() -> Int32 {
+  @core-ir.wasmExportStaticInstructionWaitqueueNotify()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLabelIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticLabelIdxCreate(p0)
+pub fn wasmExportStaticLabelIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLabelIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLaneIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticLaneIdxCreate(p0)
+pub fn wasmExportStaticLaneIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLaneIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLegacyCatchAll(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticLegacyCatchAll(p0)
+pub fn wasmExportStaticLegacyCatchAll(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLegacyCatchAll(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLegacyCatchTagged(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLegacyCatchTagged(p0, p1)
+pub fn wasmExportStaticLegacyCatchTagged(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLegacyCatchTagged(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLimitsI32(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticLimitsI32(p0, p1, p2)
+pub fn wasmExportStaticLimitsI32(p0 : Int32, p1 : Int32, p2 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLimitsI32(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLimitsI64(p0 : Int64, p1 : Int, p2 : Int64) -> Int {
-      @core-ir.wasmExportStaticLimitsI64(p0, p1, p2)
+pub fn wasmExportStaticLimitsI64(p0 : Int64, p1 : Int32, p2 : Int64) -> Int32 {
+  @core-ir.wasmExportStaticLimitsI64(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpF32Load() -> Int {
-      @core-ir.wasmExportStaticLoadOpF32Load()
+pub fn wasmExportStaticLoadOpF32Load() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpF32Load()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpF64Load() -> Int {
-      @core-ir.wasmExportStaticLoadOpF64Load()
+pub fn wasmExportStaticLoadOpF64Load() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpF64Load()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32AtomicLoad() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32AtomicLoad()
+pub fn wasmExportStaticLoadOpI32AtomicLoad() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32AtomicLoad()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32AtomicLoad16U() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32AtomicLoad16U()
+pub fn wasmExportStaticLoadOpI32AtomicLoad16U() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32AtomicLoad16U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32AtomicLoad8U() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32AtomicLoad8U()
+pub fn wasmExportStaticLoadOpI32AtomicLoad8U() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32AtomicLoad8U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32Load() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32Load()
+pub fn wasmExportStaticLoadOpI32Load() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32Load()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32Load16s() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32Load16s()
+pub fn wasmExportStaticLoadOpI32Load16s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32Load16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32Load16u() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32Load16u()
+pub fn wasmExportStaticLoadOpI32Load16u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32Load16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32Load8s() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32Load8s()
+pub fn wasmExportStaticLoadOpI32Load8s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32Load8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI32Load8u() -> Int {
-      @core-ir.wasmExportStaticLoadOpI32Load8u()
+pub fn wasmExportStaticLoadOpI32Load8u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI32Load8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64AtomicLoad() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64AtomicLoad()
+pub fn wasmExportStaticLoadOpI64AtomicLoad() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64AtomicLoad()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64AtomicLoad16U() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64AtomicLoad16U()
+pub fn wasmExportStaticLoadOpI64AtomicLoad16U() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64AtomicLoad16U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64AtomicLoad32U() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64AtomicLoad32U()
+pub fn wasmExportStaticLoadOpI64AtomicLoad32U() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64AtomicLoad32U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64AtomicLoad8U() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64AtomicLoad8U()
+pub fn wasmExportStaticLoadOpI64AtomicLoad8U() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64AtomicLoad8U()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load()
+pub fn wasmExportStaticLoadOpI64Load() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load16s() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load16s()
+pub fn wasmExportStaticLoadOpI64Load16s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load16s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load16u() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load16u()
+pub fn wasmExportStaticLoadOpI64Load16u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load16u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load32s() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load32s()
+pub fn wasmExportStaticLoadOpI64Load32s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load32s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load32u() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load32u()
+pub fn wasmExportStaticLoadOpI64Load32u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load32u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load8s() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load8s()
+pub fn wasmExportStaticLoadOpI64Load8s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpI64Load8u() -> Int {
-      @core-ir.wasmExportStaticLoadOpI64Load8u()
+pub fn wasmExportStaticLoadOpI64Load8u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpI64Load8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load()
+pub fn wasmExportStaticLoadOpV128Load() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load16Splat() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load16Splat()
+pub fn wasmExportStaticLoadOpV128Load16Splat() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load16Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load16x4s() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load16x4s()
+pub fn wasmExportStaticLoadOpV128Load16x4s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load16x4s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load16x4u() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load16x4u()
+pub fn wasmExportStaticLoadOpV128Load16x4u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load16x4u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load32Splat() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load32Splat()
+pub fn wasmExportStaticLoadOpV128Load32Splat() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load32Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load32Zero() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load32Zero()
+pub fn wasmExportStaticLoadOpV128Load32Zero() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load32Zero()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load32x2s() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load32x2s()
+pub fn wasmExportStaticLoadOpV128Load32x2s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load32x2s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load32x2u() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load32x2u()
+pub fn wasmExportStaticLoadOpV128Load32x2u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load32x2u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load64Splat() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load64Splat()
+pub fn wasmExportStaticLoadOpV128Load64Splat() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load64Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load64Zero() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load64Zero()
+pub fn wasmExportStaticLoadOpV128Load64Zero() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load64Zero()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load8Splat() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load8Splat()
+pub fn wasmExportStaticLoadOpV128Load8Splat() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load8Splat()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load8x8s() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load8x8s()
+pub fn wasmExportStaticLoadOpV128Load8x8s() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load8x8s()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLoadOpV128Load8x8u() -> Int {
-      @core-ir.wasmExportStaticLoadOpV128Load8x8u()
+pub fn wasmExportStaticLoadOpV128Load8x8u() -> Int32 {
+  @core-ir.wasmExportStaticLoadOpV128Load8x8u()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalIdxCreate(p0)
+pub fn wasmExportStaticLocalIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalRunCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalRunCreate(p0, p1)
+pub fn wasmExportStaticLocalRunCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalRunCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsCopy(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsCopy(p0)
+pub fn wasmExportStaticLocalsCopy(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalsCopy(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsCreate(p0, p1)
+pub fn wasmExportStaticLocalsCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalsCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsEmpty() -> Int {
-      @core-ir.wasmExportStaticLocalsEmpty()
+pub fn wasmExportStaticLocalsEmpty() -> Int32 {
+  @core-ir.wasmExportStaticLocalsEmpty()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsFromDeclRunsPreservingGroups(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsFromDeclRunsPreservingGroups(p0, p1)
+pub fn wasmExportStaticLocalsFromDeclRunsPreservingGroups(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticLocalsFromDeclRunsPreservingGroups(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsFromTypes(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsFromTypes(p0, p1)
+pub fn wasmExportStaticLocalsFromTypes(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalsFromTypes(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsSingle(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsSingle(p0, p1)
+pub fn wasmExportStaticLocalsSingle(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalsSingle(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticLocalsWithoutPrefix(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticLocalsWithoutPrefix(p0, p1)
+pub fn wasmExportStaticLocalsWithoutPrefix(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticLocalsWithoutPrefix(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMemArgCreate(p0 : Int, p1 : Int, p2 : Int, p3 : Int) -> Int {
-      @core-ir.wasmExportStaticMemArgCreate(p0, p1, p2, p3)
+pub fn wasmExportStaticMemArgCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticMemArgCreate(p0, p1, p2, p3)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMemIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticMemIdxCreate(p0)
+pub fn wasmExportStaticMemIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticMemIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMemSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticMemSecCreate(p0, p1)
+pub fn wasmExportStaticMemSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticMemSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMemTypeCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticMemTypeCreate(p0, p1)
+pub fn wasmExportStaticMemTypeCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticMemTypeCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleCreate(p0)
+pub fn wasmExportStaticModuleCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithCodeSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithCodeSec(p0, p1)
+pub fn wasmExportStaticModuleWithCodeSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithCodeSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithCustomSecs(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithCustomSecs(p0, p1, p2)
+pub fn wasmExportStaticModuleWithCustomSecs(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithCustomSecs(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithDataCntSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithDataCntSec(p0, p1)
+pub fn wasmExportStaticModuleWithDataCntSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithDataCntSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithDataSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithDataSec(p0, p1)
+pub fn wasmExportStaticModuleWithDataSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithDataSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithElemSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithElemSec(p0, p1)
+pub fn wasmExportStaticModuleWithElemSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithElemSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithExportSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithExportSec(p0, p1)
+pub fn wasmExportStaticModuleWithExportSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithExportSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithFuncAnnotationSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithFuncAnnotationSec(p0, p1)
+pub fn wasmExportStaticModuleWithFuncAnnotationSec(
+  p0 : Int32,
+  p1 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithFuncAnnotationSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithFuncSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithFuncSec(p0, p1)
+pub fn wasmExportStaticModuleWithFuncSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithFuncSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithGlobalSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithGlobalSec(p0, p1)
+pub fn wasmExportStaticModuleWithGlobalSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithGlobalSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithImportSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithImportSec(p0, p1)
+pub fn wasmExportStaticModuleWithImportSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithImportSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithMemSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithMemSec(p0, p1)
+pub fn wasmExportStaticModuleWithMemSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithMemSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithNameSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithNameSec(p0, p1)
+pub fn wasmExportStaticModuleWithNameSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithNameSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithRawNameSecPayload(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithRawNameSecPayload(p0, p1, p2)
+pub fn wasmExportStaticModuleWithRawNameSecPayload(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithRawNameSecPayload(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithStartSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithStartSec(p0, p1)
+pub fn wasmExportStaticModuleWithStartSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithStartSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithStringrefsSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithStringrefsSec(p0, p1)
+pub fn wasmExportStaticModuleWithStringrefsSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithStringrefsSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithTableSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithTableSec(p0, p1)
+pub fn wasmExportStaticModuleWithTableSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithTableSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithTagSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithTagSec(p0, p1)
+pub fn wasmExportStaticModuleWithTagSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithTagSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithTypeSec(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithTypeSec(p0, p1)
+pub fn wasmExportStaticModuleWithTypeSec(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithTypeSec(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithoutCompilerFactCustomSection(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithoutCompilerFactCustomSection(p0)
+pub fn wasmExportStaticModuleWithoutCompilerFactCustomSection(
+  p0 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithoutCompilerFactCustomSection(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticModuleWithoutNameSec(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticModuleWithoutNameSec(p0)
+pub fn wasmExportStaticModuleWithoutNameSec(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticModuleWithoutNameSec(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMutConst() -> Int {
-      @core-ir.wasmExportStaticMutConst()
+pub fn wasmExportStaticMutConst() -> Int32 {
+  @core-ir.wasmExportStaticMutConst()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticMutVar() -> Int {
-      @core-ir.wasmExportStaticMutVar()
+pub fn wasmExportStaticMutVar() -> Int32 {
+  @core-ir.wasmExportStaticMutVar()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNameAssocCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticNameAssocCreate(p0, p1)
+pub fn wasmExportStaticNameAssocCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticNameAssocCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNameFromString(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticNameFromString(p0, p1)
+pub fn wasmExportStaticNameFromString(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticNameFromString(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNameMapCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticNameMapCreate(p0, p1)
+pub fn wasmExportStaticNameMapCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticNameMapCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNameSecCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticNameSecCreate(p0)
+pub fn wasmExportStaticNameSecCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticNameSecCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNumTypeF32Value() -> Int {
-      @core-ir.wasmExportStaticNumTypeF32Value()
+pub fn wasmExportStaticNumTypeF32Value() -> Int32 {
+  @core-ir.wasmExportStaticNumTypeF32Value()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNumTypeF64Value() -> Int {
-      @core-ir.wasmExportStaticNumTypeF64Value()
+pub fn wasmExportStaticNumTypeF64Value() -> Int32 {
+  @core-ir.wasmExportStaticNumTypeF64Value()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNumTypeI32() -> Int {
-      @core-ir.wasmExportStaticNumTypeI32()
+pub fn wasmExportStaticNumTypeI32() -> Int32 {
+  @core-ir.wasmExportStaticNumTypeI32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticNumTypeI64() -> Int {
-      @core-ir.wasmExportStaticNumTypeI64()
+pub fn wasmExportStaticNumTypeI64() -> Int32 {
+  @core-ir.wasmExportStaticNumTypeI64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticPackTypeI16() -> Int {
-      @core-ir.wasmExportStaticPackTypeI16()
+pub fn wasmExportStaticPackTypeI16() -> Int32 {
+  @core-ir.wasmExportStaticPackTypeI16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticPackTypeI8() -> Int {
-      @core-ir.wasmExportStaticPackTypeI8()
+pub fn wasmExportStaticPackTypeI8() -> Int32 {
+  @core-ir.wasmExportStaticPackTypeI8()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticRecTypeCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticRecTypeCreate(p0)
+pub fn wasmExportStaticRecTypeCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticRecTypeCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticRecTypeGroup(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticRecTypeGroup(p0, p1)
+pub fn wasmExportStaticRecTypeGroup(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticRecTypeGroup(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticRefTypeAbs(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticRefTypeAbs(p0)
+pub fn wasmExportStaticRefTypeAbs(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticRefTypeAbs(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticRefTypeCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticRefTypeCreate(p0, p1, p2)
+pub fn wasmExportStaticRefTypeCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticRefTypeCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticRefTypeMakeNullable(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticRefTypeMakeNullable(p0)
+pub fn wasmExportStaticRefTypeMakeNullable(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticRefTypeMakeNullable(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticResumeHandlerOnLabel(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticResumeHandlerOnLabel(p0, p1)
+pub fn wasmExportStaticResumeHandlerOnLabel(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticResumeHandlerOnLabel(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticResumeHandlerOnSwitch(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticResumeHandlerOnSwitch(p0)
+pub fn wasmExportStaticResumeHandlerOnSwitch(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticResumeHandlerOnSwitch(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStartSecCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticStartSecCreate(p0)
+pub fn wasmExportStaticStartSecCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticStartSecCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStorageTypePackType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticStorageTypePackType(p0)
+pub fn wasmExportStaticStorageTypePackType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticStorageTypePackType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStorageTypeValType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticStorageTypeValType(p0)
+pub fn wasmExportStaticStorageTypeValType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticStorageTypeValType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpF32Store() -> Int {
-      @core-ir.wasmExportStaticStoreOpF32Store()
+pub fn wasmExportStaticStoreOpF32Store() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpF32Store()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpF64Store() -> Int {
-      @core-ir.wasmExportStaticStoreOpF64Store()
+pub fn wasmExportStaticStoreOpF64Store() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpF64Store()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32AtomicStore() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32AtomicStore()
+pub fn wasmExportStaticStoreOpI32AtomicStore() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32AtomicStore()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32AtomicStore16() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32AtomicStore16()
+pub fn wasmExportStaticStoreOpI32AtomicStore16() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32AtomicStore16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32AtomicStore8() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32AtomicStore8()
+pub fn wasmExportStaticStoreOpI32AtomicStore8() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32AtomicStore8()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32Store() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32Store()
+pub fn wasmExportStaticStoreOpI32Store() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32Store()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32Store16() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32Store16()
+pub fn wasmExportStaticStoreOpI32Store16() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32Store16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI32Store8() -> Int {
-      @core-ir.wasmExportStaticStoreOpI32Store8()
+pub fn wasmExportStaticStoreOpI32Store8() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI32Store8()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64AtomicStore() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64AtomicStore()
+pub fn wasmExportStaticStoreOpI64AtomicStore() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64AtomicStore()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64AtomicStore16() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64AtomicStore16()
+pub fn wasmExportStaticStoreOpI64AtomicStore16() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64AtomicStore16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64AtomicStore32() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64AtomicStore32()
+pub fn wasmExportStaticStoreOpI64AtomicStore32() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64AtomicStore32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64AtomicStore8() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64AtomicStore8()
+pub fn wasmExportStaticStoreOpI64AtomicStore8() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64AtomicStore8()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64Store() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64Store()
+pub fn wasmExportStaticStoreOpI64Store() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64Store()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64Store16() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64Store16()
+pub fn wasmExportStaticStoreOpI64Store16() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64Store16()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64Store32() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64Store32()
+pub fn wasmExportStaticStoreOpI64Store32() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64Store32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpI64Store8() -> Int {
-      @core-ir.wasmExportStaticStoreOpI64Store8()
+pub fn wasmExportStaticStoreOpI64Store8() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpI64Store8()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStoreOpV128Store() -> Int {
-      @core-ir.wasmExportStaticStoreOpV128Store()
+pub fn wasmExportStaticStoreOpV128Store() -> Int32 {
+  @core-ir.wasmExportStaticStoreOpV128Store()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticStringRefsSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticStringRefsSecCreate(p0, p1)
+pub fn wasmExportStaticStringRefsSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticStringRefsSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticSubTypeCompType(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticSubTypeCompType(p0, p1)
+pub fn wasmExportStaticSubTypeCompType(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticSubTypeCompType(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticSubTypeCreate(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int) -> Int {
-      @core-ir.wasmExportStaticSubTypeCreate(p0, p1, p2, p3, p4)
+pub fn wasmExportStaticSubTypeCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticSubTypeCreate(p0, p1, p2, p3, p4)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTableCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-      @core-ir.wasmExportStaticTableCreate(p0, p1, p2)
+pub fn wasmExportStaticTableCreate(p0 : Int32, p1 : Int32, p2 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTableCreate(p0, p1, p2)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTableIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticTableIdxCreate(p0)
+pub fn wasmExportStaticTableIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTableIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTableSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticTableSecCreate(p0, p1)
+pub fn wasmExportStaticTableSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTableSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTableTypeCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticTableTypeCreate(p0, p1)
+pub fn wasmExportStaticTableTypeCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTableTypeCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTagIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticTagIdxCreate(p0)
+pub fn wasmExportStaticTagIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTagIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTagSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticTagSecCreate(p0, p1)
+pub fn wasmExportStaticTagSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTagSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTagTypeCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticTagTypeCreate(p0)
+pub fn wasmExportStaticTagTypeCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTagTypeCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTypeIdxCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticTypeIdxCreate(p0)
+pub fn wasmExportStaticTypeIdxCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTypeIdxCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTypeIdxRec(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticTypeIdxRec(p0)
+pub fn wasmExportStaticTypeIdxRec(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTypeIdxRec(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTypeMetadataCreate(p0 : Int, p1 : Int, p2 : Int, p3 : Int, p4 : Int) -> Int {
-      @core-ir.wasmExportStaticTypeMetadataCreate(p0, p1, p2, p3, p4)
+pub fn wasmExportStaticTypeMetadataCreate(
+  p0 : Int32,
+  p1 : Int32,
+  p2 : Int32,
+  p3 : Int32,
+  p4 : Int32,
+) -> Int32 {
+  @core-ir.wasmExportStaticTypeMetadataCreate(p0, p1, p2, p3, p4)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTypeMetadataWithShared(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticTypeMetadataWithShared(p0, p1)
+pub fn wasmExportStaticTypeMetadataWithShared(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTypeMetadataWithShared(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticTypeSecCreate(p0 : Int, p1 : Int) -> Int {
-      @core-ir.wasmExportStaticTypeSecCreate(p0, p1)
+pub fn wasmExportStaticTypeSecCreate(p0 : Int32, p1 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticTypeSecCreate(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticU32IrCreate(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticU32IrCreate(p0)
+pub fn wasmExportStaticU32IrCreate(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticU32IrCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticU64IrCreate(p0 : Int64) -> Int {
-      @core-ir.wasmExportStaticU64IrCreate(p0)
+pub fn wasmExportStaticU64IrCreate(p0 : Int64) -> Int32 {
+  @core-ir.wasmExportStaticU64IrCreate(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeAnyref() -> Int {
-      @core-ir.wasmExportStaticValTypeAnyref()
+pub fn wasmExportStaticValTypeAnyref() -> Int32 {
+  @core-ir.wasmExportStaticValTypeAnyref()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeBottom() -> Int {
-      @core-ir.wasmExportStaticValTypeBottom()
+pub fn wasmExportStaticValTypeBottom() -> Int32 {
+  @core-ir.wasmExportStaticValTypeBottom()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeEqrefNull() -> Int {
-      @core-ir.wasmExportStaticValTypeEqrefNull()
+pub fn wasmExportStaticValTypeEqrefNull() -> Int32 {
+  @core-ir.wasmExportStaticValTypeEqrefNull()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeExternref() -> Int {
-      @core-ir.wasmExportStaticValTypeExternref()
+pub fn wasmExportStaticValTypeExternref() -> Int32 {
+  @core-ir.wasmExportStaticValTypeExternref()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeF32Value() -> Int {
-      @core-ir.wasmExportStaticValTypeF32Value()
+pub fn wasmExportStaticValTypeF32Value() -> Int32 {
+  @core-ir.wasmExportStaticValTypeF32Value()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeF64Value() -> Int {
-      @core-ir.wasmExportStaticValTypeF64Value()
+pub fn wasmExportStaticValTypeF64Value() -> Int32 {
+  @core-ir.wasmExportStaticValTypeF64Value()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeFuncref() -> Int {
-      @core-ir.wasmExportStaticValTypeFuncref()
+pub fn wasmExportStaticValTypeFuncref() -> Int32 {
+  @core-ir.wasmExportStaticValTypeFuncref()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeI31ref() -> Int {
-      @core-ir.wasmExportStaticValTypeI31ref()
+pub fn wasmExportStaticValTypeI31ref() -> Int32 {
+  @core-ir.wasmExportStaticValTypeI31ref()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeI31refNullable() -> Int {
-      @core-ir.wasmExportStaticValTypeI31refNullable()
+pub fn wasmExportStaticValTypeI31refNullable() -> Int32 {
+  @core-ir.wasmExportStaticValTypeI31refNullable()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeI32() -> Int {
-      @core-ir.wasmExportStaticValTypeI32()
+pub fn wasmExportStaticValTypeI32() -> Int32 {
+  @core-ir.wasmExportStaticValTypeI32()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeI64() -> Int {
-      @core-ir.wasmExportStaticValTypeI64()
+pub fn wasmExportStaticValTypeI64() -> Int32 {
+  @core-ir.wasmExportStaticValTypeI64()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeNumType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeNumType(p0)
+pub fn wasmExportStaticValTypeNumType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeNumType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefArrayNonnull(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefArrayNonnull(p0)
+pub fn wasmExportStaticValTypeRefArrayNonnull(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefArrayNonnull(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefArrayNullable(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefArrayNullable(p0)
+pub fn wasmExportStaticValTypeRefArrayNullable(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefArrayNullable(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefNull(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefNull(p0)
+pub fn wasmExportStaticValTypeRefNull(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefNull(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefNullArrayOf(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefNullArrayOf(p0)
+pub fn wasmExportStaticValTypeRefNullArrayOf(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefNullArrayOf(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefNullExn() -> Int {
-      @core-ir.wasmExportStaticValTypeRefNullExn()
+pub fn wasmExportStaticValTypeRefNullExn() -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefNullExn()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefNullType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefNullType(p0)
+pub fn wasmExportStaticValTypeRefNullType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefNullType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeRefType(p0 : Int) -> Int {
-      @core-ir.wasmExportStaticValTypeRefType(p0)
+pub fn wasmExportStaticValTypeRefType(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportStaticValTypeRefType(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeStringref() -> Int {
-      @core-ir.wasmExportStaticValTypeStringref()
+pub fn wasmExportStaticValTypeStringref() -> Int32 {
+  @core-ir.wasmExportStaticValTypeStringref()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStaticValTypeV128() -> Int {
-      @core-ir.wasmExportStaticValTypeV128()
+pub fn wasmExportStaticValTypeV128() -> Int32 {
+  @core-ir.wasmExportStaticValTypeV128()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStorageTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportStorageTypeDtor(handle)
+pub fn wasmExportStorageTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportStorageTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStoreOpDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportStoreOpDtor(handle)
+pub fn wasmExportStoreOpDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportStoreOpDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportStringRefsSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportStringRefsSecDtor(handle)
+pub fn wasmExportStringRefsSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportStringRefsSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportSubTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportSubTypeDtor(handle)
+pub fn wasmExportSubTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportSubTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTableDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTableDtor(handle)
+pub fn wasmExportTableDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTableDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTableIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTableIdxDtor(handle)
+pub fn wasmExportTableIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTableIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTableSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTableSecDtor(handle)
+pub fn wasmExportTableSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTableSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTableTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTableTypeDtor(handle)
+pub fn wasmExportTableTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTableTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTagIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTagIdxDtor(handle)
+pub fn wasmExportTagIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTagIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTagSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTagSecDtor(handle)
+pub fn wasmExportTagSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTagSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTagTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTagTypeDtor(handle)
+pub fn wasmExportTagTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTagTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTypeIdxDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTypeIdxDtor(handle)
+pub fn wasmExportTypeIdxDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTypeIdxDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTypeMetadataDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTypeMetadataDtor(handle)
+pub fn wasmExportTypeMetadataDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTypeMetadataDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportTypeSecDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportTypeSecDtor(handle)
+pub fn wasmExportTypeSecDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportTypeSecDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportU32IrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportU32IrDtor(handle)
+pub fn wasmExportU32IrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportU32IrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportU64IrDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportU64IrDtor(handle)
+pub fn wasmExportU64IrDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportU64IrDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportValTypeDtor(handle : Int) -> Unit {
-      @core-ir.wasmExportValTypeDtor(handle)
+pub fn wasmExportValTypeDtor(handle : Int32) -> Unit {
+  @core-ir.wasmExportValTypeDtor(handle)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportValidateModule(p0 : Int) -> Int {
-      @core-ir.wasmExportValidateModule(p0)
+pub fn wasmExportValidateModule(p0 : Int32) -> Int32 {
+  @core-ir.wasmExportValidateModule(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportValidateModulePostReturn(p0 : Int) -> Unit {
-      @core-ir.wasmExportValidateModulePostReturn(p0)
+pub fn wasmExportValidateModulePostReturn(p0 : Int32) -> Unit {
+  @core-ir.wasmExportValidateModulePostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportValidateWasm(p0 : Int, p1 : Int) -> Int {
-      @modules.wasmExportValidateWasm(p0, p1)
+pub fn wasmExportValidateWasm(p0 : Int32, p1 : Int32) -> Int32 {
+  @modules.wasmExportValidateWasm(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportValidateWasmPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportValidateWasmPostReturn(p0)
+pub fn wasmExportValidateWasmPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportValidateWasmPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportVersion() -> Int {
-      @metadata.wasmExportVersion()
+pub fn wasmExportVersion() -> Int32 {
+  @metadata.wasmExportVersion()
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportVersionPostReturn(p0 : Int) -> Unit {
-      @metadata.wasmExportVersionPostReturn(p0)
+pub fn wasmExportVersionPostReturn(p0 : Int32) -> Unit {
+  @metadata.wasmExportVersionPostReturn(p0)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportWatToWasm(p0 : Int, p1 : Int) -> Int {
-      @modules.wasmExportWatToWasm(p0, p1)
+pub fn wasmExportWatToWasm(p0 : Int32, p1 : Int32) -> Int32 {
+  @modules.wasmExportWatToWasm(p0, p1)
 }
 
+///|
 #doc(hidden)
-pub fn wasmExportWatToWasmPostReturn(p0 : Int) -> Unit {
-      @modules.wasmExportWatToWasmPostReturn(p0)
+pub fn wasmExportWatToWasmPostReturn(p0 : Int32) -> Unit {
+  @modules.wasmExportWatToWasmPostReturn(p0)
 }

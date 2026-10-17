@@ -77,17 +77,17 @@ export function internalizeMoonBitRuntimeImports(
     const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const escapedModule = spec.module.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(
-      `^  \\(import "${escapedModule}" "${escapedName}" \\(func (\\$\\S+) \\(;(\\d+);\\) \\(type (\\$\\S+)\\)\\)\\)$`,
+      `^  \\(import "${escapedModule}" "${escapedName}" \\(func (\\$\\S+) \\(;(\\d+);\\) \\(type (\\$\\S+)\\)((?: \\((?:param|result) [^()\\r\\n]+\\))*)\\)\\)$`,
       "m",
     );
     const match = output.match(pattern);
     if (!match) {
       fail(`expected exactly one generated MoonBit runtime import: ${spec.module}::${name}`);
     }
-    const [, functionName, functionIndex, typeName] = match;
+    const [, functionName, functionIndex, typeName, inlineSignature] = match;
     const body = spec.body.length > 0 ? ` ${spec.body}` : "";
     definitions.push(
-      `  (func ${functionName} (;${functionIndex};) (type ${typeName})${body})`,
+      `  (func ${functionName} (;${functionIndex};) (type ${typeName})${inlineSignature}${body})`,
     );
     output = output.replace(pattern, "");
   }
@@ -221,6 +221,20 @@ export function buildComponentCommandPlan(options: ComponentPlanOptions): Compon
     },
     {
       command: options.moonBin,
+      args: [
+        "-C",
+        componentRoot,
+        "fmt",
+        "gen",
+        "gen/interface/jtenner/starshine-component/core-ir",
+        "gen/interface/jtenner/starshine-component/metadata",
+        "gen/interface/jtenner/starshine-component/modules",
+        "world/starshine",
+      ],
+      cwd: options.repoRoot,
+    },
+    {
+      command: options.moonBin,
       args: ["-C", componentRoot, "update"],
       cwd: options.repoRoot,
     },
@@ -245,7 +259,6 @@ export function buildComponentCommandPlan(options: ComponentPlanOptions): Compon
         "check",
         "--target",
         "wasm",
-        "--package-path",
         "gen/interface/jtenner/starshine-component/core-ir",
       ],
       cwd: options.repoRoot,
@@ -389,11 +402,19 @@ function syncGeneratedBindings(repoRoot: string): void {
 
   copyDirectory(path.join(stagingRoot, "gen"), path.join(componentRoot, "gen"));
   copyDirectory(path.join(stagingRoot, "world"), path.join(componentRoot, "world"));
-  fs.writeFileSync(path.join(componentRoot, "moon.mod.json"), `${JSON.stringify({
-    name: patched.name,
-    "preferred-target": patched.preferredTarget,
-    deps: patched.deps,
-  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(componentRoot, "moon.mod"), [
+    `name = ${JSON.stringify(patched.name)}`,
+    "",
+    `preferred_target = ${JSON.stringify(patched.preferredTarget)}`,
+    "",
+    "import {",
+    ...Object.entries(patched.deps).map(([name, version]) =>
+      `  ${JSON.stringify(`${name}@${version}`)},`,
+    ),
+    "}",
+    "",
+  ].join("\n"));
+  fs.rmSync(path.join(componentRoot, "moon.mod.json"), { force: true });
 
   const implementationRoot = path.join(componentRoot, "implementation");
   const interfaceRoot = path.join(componentRoot, "gen", "interface", "jtenner", "starshine-component");
@@ -492,13 +513,14 @@ export function runComponent(argv: string[]): void {
   fs.mkdirSync(outDir, { recursive: true });
   runGenerationStep(plan[0]);
   syncGeneratedBindings(repoRoot);
+  runGenerationStep(plan[1]);
 
   if (parsed.command === "generate") {
     process.stdout.write("Generated MoonBit component bindings in component/gen.\n");
     return;
   }
 
-  for (const step of plan.slice(1)) {
+  for (const step of plan.slice(2)) {
     const result = runOrThrow(step.command, step.args, {
       cwd: step.cwd,
       stdio: step.capturePath ? "pipe" : "inherit",

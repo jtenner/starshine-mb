@@ -1,14 +1,7 @@
 ///|
 fn component_test_minimal_wasm() -> FixedArray[Byte] {
   FixedArray::from_array([
-    b'\x00',
-    b'a',
-    b's',
-    b'm',
-    b'\x01',
-    b'\x00',
-    b'\x00',
-    b'\x00',
+    b'\x00', b'a', b's', b'm', b'\x01', b'\x00', b'\x00', b'\x00',
   ])
 }
 
@@ -37,7 +30,7 @@ test "component validates and roundtrips a minimal module" {
 ///|
 test "component parses WAT and rejects malformed wasm with staged diagnostics" {
   match wat_to_wasm("(module (func (export \"run\")))") {
-    Ok(output) => {
+    Ok(output) =>
       if output.length() < 8 ||
         output[0] != b'\x00' ||
         output[1] != b'a' ||
@@ -45,15 +38,11 @@ test "component parses WAT and rejects malformed wasm with staged diagnostics" {
         output[3] != b'm' {
         fail("WAT conversion did not emit a wasm module")
       }
-    }
     Err(err) => fail("unexpected WAT conversion failure: \{err.message}")
   }
 
   match validate_wasm(FixedArray::from_array([b'\xff'])) {
-    Err(err) =>
-      if err.stage != DECODE {
-        fail("expected decode diagnostic")
-      }
+    Err(err) => if err.stage != DECODE { fail("expected decode diagnostic") }
     Ok(_) => fail("expected malformed wasm to fail decoding")
   }
 }
@@ -87,7 +76,7 @@ test "component exposes deterministic valid module generation" {
   }
 
   match
-    generate_valid_wasm({ seed: 1UL, profile: "not-a-generator-profile" }) {
+    generate_valid_wasm({ seed: 1UL, profile: "not-a-generator-profile", }) {
     Err(err) =>
       if err.stage != GENERATE {
         fail("expected generate diagnostic")

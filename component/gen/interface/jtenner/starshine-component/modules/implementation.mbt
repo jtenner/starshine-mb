@@ -8,11 +8,13 @@ fn component_diagnostic(
   stage : DiagnosticStage,
   message : String,
 ) -> Diagnostic {
-  { stage, message }
+  { stage, message, }
 }
 
 ///|
-fn component_decode(input : FixedArray[Byte]) -> Result[@lib.Module, Diagnostic] {
+fn component_decode(
+  input : FixedArray[Byte],
+) -> Result[@lib.Module, Diagnostic] {
   match @binary.decode_module(component_bytes(input)) {
     Ok(mod) => Ok(mod)
     Err(err) => Err(component_diagnostic(DECODE, "\{err}"))
@@ -49,7 +51,7 @@ pub fn generate_valid_wasm(
     Ok(profile) => profile
     Err(err) => return Err(component_diagnostic(GENERATE, err))
   }
-  let case_index = ((options.seed % 2147483646UL) + 1UL).to_int()
+  let case_index = (options.seed % 2147483646UL + 1UL).to_int()
   let resolved_profile = @validate.gen_valid_profile_leaf_for_case(
     requested_profile,
     options.seed,
@@ -87,11 +89,12 @@ pub fn available_passes() -> Array[PassInfo] {
       @passes.HotPassRegistryCategory::HotPass => Some(FUNCTION_PASS)
       @passes.HotPassRegistryCategory::ModulePass => Some(MODULE_PASS)
       @passes.HotPassRegistryCategory::Preset => Some(PRESET)
-      @passes.HotPassRegistryCategory::BoundaryOnly |
-      @passes.HotPassRegistryCategory::Removed => None
+      @passes.HotPassRegistryCategory::BoundaryOnly
+      | @passes.HotPassRegistryCategory::Removed => None
     }
     match kind {
-      Some(kind) => result.push({ name: entry.name, summary: entry.summary, kind })
+      Some(kind) =>
+        result.push({ name: entry.name, summary: entry.summary, kind, })
       None => ()
     }
   }
@@ -123,10 +126,8 @@ pub fn roundtrip_wasm(
 
 ///|
 pub fn wat_to_wasm(source : String) -> Result[FixedArray[Byte], Diagnostic] {
-  let mod = match @wast.wast_to_binary_module(
-    source,
-    filename="component-input.wat",
-  ) {
+  let mod = match
+    @wast.wast_to_binary_module(source, filename="component-input.wat") {
     Ok(mod) => mod
     Err(err) => return Err(component_diagnostic(PARSE, err))
   }
@@ -168,11 +169,8 @@ pub fn optimize_wasm(
     pass_names.push(pass_name)
   }
 
-  let optimized = match @passes.run_hot_pipeline(
-    mod,
-    pipeline_options,
-    pass_names,
-  ) {
+  let optimized = match
+    @passes.run_hot_pipeline(mod, pipeline_options, pass_names) {
     Ok(mod) => mod
     Err(err) => return Err(component_diagnostic(OPTIMIZE, err))
   }

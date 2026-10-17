@@ -5,8 +5,9 @@ A library supplies functions that your program can call.
 A module contains WebAssembly functions, data, and exports.
 An export is a function or value that a host program can use.
 
-Use this guide with `jtenner/starshine@0.2.2`.
-This release supplies a MoonBit library tutorial. The library API is unchanged from `0.2.0`.
+Use this guide with `jtenner/starshine@0.3.0`.
+This minor release adds optimizer repairs, diagnostics, and public helper functions.
+See the [0.3.0 release notes](https://github.com/jtenner/starshine-mb/releases/tag/v0.3.0) for the full change list.
 
 ## Terms
 
@@ -68,7 +69,7 @@ It does not require Node.js. The native procedure was tested on Linux.
 3. Add the library dependency:
 
    ```sh
-   moon add jtenner/starshine@0.2.2
+   moon add jtenner/starshine@0.3.0
    ```
 
 4. Replace `cmd/main/moon.pkg` with this configuration:
@@ -232,7 +233,7 @@ The output file contains the encoded module. It is not a text file.
 Your program can also read binary input with `@fs.read_file_bytes`.
 Use `@binary.decode_module` to convert those bytes to a module value.
 Check its result before you validate or optimize the module.
-The [binary API](https://mooncakes.io/docs/jtenner/starshine@0.2.2/binary) lists these functions.
+The [binary API](https://mooncakes.io/docs/jtenner/starshine@0.3.0/binary) lists these functions.
 
 ## Handle errors
 
@@ -254,7 +255,7 @@ Validation checks types and structure. It does not guarantee successful executio
 
 ## More information
 
-Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.2.2) for function signatures.
+Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.3.0) for function signatures.
 Use the [source API reference](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md) for the full package map.
 Use the [JavaScript guide](https://www.npmjs.com/package/starshine) for npm library calls.
 Use the [component guide](https://github.com/jtenner/starshine-mb/blob/master/component/README.md) for the separate Component Model interface.

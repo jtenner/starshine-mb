@@ -1,8 +1,8 @@
 # Starshine Node Package
 
-`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. The published npm version is `0.2.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
+`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. This guide uses version `0.3.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
 
-The source metadata uses `0.2.2` for the Mooncakes README correction and the synchronized npm build candidate. npm `0.2.2` is unpublished. The install procedure below uses the published npm release.
+Version `0.3.0` is a minor release with optimizer correctness repairs, lower analysis costs, and new diagnostic tools. See the [full release notes](https://github.com/jtenner/starshine-mb/releases/tag/v0.3.0).
 
 ## Start here
 
@@ -15,7 +15,7 @@ With Node.js 25 or newer, start an ESM project:
 ```sh
 npm init -y
 npm pkg set type=module
-npm install starshine@0.2.0
+npm install starshine@0.3.0
 ```
 
 Installing the package needs no MoonBit, C compiler or optimizer build tools.
@@ -135,7 +135,7 @@ needs no compiler checkout or build-time optimizer dependency.
 
 ## MoonBit source users
 
-In a MoonBit project, run `moon add jtenner/starshine@0.2.0`, then import the
+In a MoonBit project, run `moon add jtenner/starshine@0.3.0`, then import the
 `wast`, `binary`, `validate` and `passes` packages under `jtenner/starshine` in
 `moon.pkg`. The [Mooncakes README](https://github.com/jtenner/starshine-mb/blob/master/README.mooncakes.md)
 and [source package map](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md)
@@ -154,7 +154,7 @@ Unsupported callback, raising or generic signatures remain explicit throwing pla
 
 ## Tested build, pack and install
 
-Build tools: Moon `0.1.20260920 (914d7da 2026-09-20)`, compiler `v0.10.14+7d59c7ec9`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.251.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`. The MoonBit installer currently serves `latest`; the tested snapshot's archive URL returned HTTP 403 during preparation. Preserve or provision the tested snapshot, or qualify a newer compiler using the drift and consumer gates. CI installs the available compiler and requires deterministic generated-file and packed-consumer checks.
+Build tools: Moon `0.1.20261012 (748b63c 2026-10-12)`, compiler `v0.10.15+943464bfa`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.262.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`. Preserve or provision the tested toolchain, or qualify a newer compiler using the drift and consumer gates. CI installs the available compiler and requires deterministic generated-file and packed-consumer checks.
 
 From the repository root with those tools installed:
 
@@ -184,7 +184,7 @@ A standalone consumer needs only Node and the tarball:
 ```sh
 mkdir consumer && cd consumer
 npm init -y
-npm install /absolute/path/starshine-0.2.0.tgz
+npm install /absolute/path/starshine-0.3.0.tgz
 node --input-type=module -e 'const s = await import("starshine"); console.log(Object.keys(s))'
 npx --no-install starshine --help
 ```
@@ -203,6 +203,6 @@ The tarball allowlist includes public JS/declarations, shared runtime, required 
 
 Joshua Tenner’s original portions are offered under MIT; the compiled bundle also contains third-party material under Apache-2.0 and the terms retained in MoonBit Core’s NOTICE. Package metadata uses `SEE LICENSE IN LICENSE`, with scoped `LICENSE`, `NOTICE`, `licenses/Apache-2.0.txt`, the full `licenses/Binaryen-LICENSE.txt`, and the complete `licenses/moonbit-core-NOTICE.txt` included. Binaryen notice retention follows the owner’s conservative choice; unknown pass provenance remains unknown and the existing MoonBit module Apache-2.0 declaration remains; this is not an MIT-only bundle or a dual-license choice. See [the source provenance audit](https://github.com/jtenner/starshine-mb/blob/master/docs/wiki/tooling/license-provenance.md).
 
-Build generation checks notice drift; the build verifies reviewed installed Core 0.10.14+7d59c7ec9 license/NOTICE bytes and x 0.5.1 metadata before compilation. A dependency upgrade requires a notice/provenance review.
+Build generation checks notice drift; the build verifies reviewed installed Core 0.10.15+943464bfa license/NOTICE bytes and x 0.5.1 metadata before compilation. A dependency upgrade requires a notice/provenance review.
 
-The release uses version 0.2.0 with the explicitly authorized latest/default npm tag. Optimizer parity and resource limits remain recorded in the repository. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.
+The release uses version 0.3.0 with the explicitly authorized latest/default npm tag. Optimizer parity and resource limits remain recorded in the repository. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.

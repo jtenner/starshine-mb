@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 13, 2026. Follow
+Active unreleased work only, reviewed October 17, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -31,14 +31,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   bytes. Registry-only tutorial/API consumers pass. The root module overview
   renders the archived MoonBit tutorial, including at the unversioned latest URL.
   GitHub default master still has the `0.2.0` guide until protected advancement.
-- [ ] Complete the owner-authorized Mooncakes `0.2.2` MoonBit tutorial revision.
-  Use the bundled `moonrun` for WasmGC, document `moon update`, and give a visible
-  header success check. Run actual archived MoonBit examples with Node absent
-  from the MoonGC process PATH, native file I/O and checked errors; independently
-  execute the encoded answer. Obtain candidate review before publication, then
-  verify literal registry installation and the rendered default/latest overview.
-  Synchronized npm `0.2.2` metadata is only a private build candidate; published
-  npm remains `0.2.0`. No npm publication is authorized by this correction.
+- Mooncakes `0.2.2` is published. The downloaded registry ZIP has 2,157
+  members, all byte-identical to source checkpoint `0f9460d32`. Its tutorial
+  is the baseline for the [0.3.0 release notes](docs/releases/0.3.0.md).
+- The owner authorized `0.3.0` for both registries, a full local test, and an
+  annotated tag with a detailed GitHub changelog. This supersedes the old
+  restriction that treated synchronized npm `0.2.2` as a private candidate.
 - The automatic FFI-backed declarations, six-pass self-build and packed runtime
   boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
   Unsupported ABI mappings fail generation; root/subpaths share async ESM
@@ -56,8 +54,9 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   7,747 structural differences and raw total growth 25,882 remain open parity
   gaps. Preserve saved aggregate's zero-tee coverage limit and targeted profile
   evidence in [Vacuum signoff](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
-- No tags/releases, deployment, credential or protection changes are authorized.
-  Preserve other worktrees and held optimizer refs. Do not revive DAE2/O work.
+- The `0.3.0` registry release, tag and GitHub release are authorized. Preserve
+  other worktrees, held optimizer refs, and the open memory/parity follow-ups.
+  Account permissions and branch protections are unchanged.
 
 ### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
 

@@ -7,7 +7,7 @@ See LICENSE for the scoped MIT grant. No third-party rights are relicensed.
 MoonBit Core
 ------------
 The compiled WasmGC API and WASI CLI incorporate moonbitlang/core
-0.10.14+7d59c7ec9 from the reviewed MoonBit installation.
+0.10.15+943464bfa from the reviewed MoonBit installation.
 Copyright 2025 International Digital Economy Academy.
 https://github.com/moonbitlang/core
 License: Apache-2.0; full installed license in licenses/Apache-2.0.txt.

@@ -114,6 +114,18 @@ describe("component task", () => {
     expect(output.indexOf("[resource-rep]module")).toBeLessThan(output.indexOf("(func $#func0"));
   });
 
+  test("internalizes runtime imports with printed parameter names and result types", () => {
+    const input = [
+      "(module",
+      "  (type $bytes (func (param externref) (result externref)))",
+      '  (import "__moonbit_fs_unstable" "finish_create_byte_array" (func $finish (;0;) (type $bytes) (param $value externref) (result externref)))',
+      ")",
+    ].join("\n");
+    const output = internalizeMoonBitRuntimeImports(input, ["finish_create_byte_array"]);
+    expect(output).not.toContain('(import "__moonbit_fs_unstable"');
+    expect(output).toContain("(func $finish (;0;) (type $bytes) (param $value externref) (result externref) local.get 0)");
+  });
+
   test("build plan generates bindings, builds linear wasm, internalizes runtime imports, embeds WIT, creates the component, and validates it", () => {
     const plan = buildComponentCommandPlan({
       repoRoot: "/repo",
@@ -136,6 +148,7 @@ describe("component task", () => {
           "--derive-eq",
         ],
       ],
+      ["moon", ["-C", "/repo/component", "fmt", "gen", "gen/interface/jtenner/starshine-component/core-ir", "gen/interface/jtenner/starshine-component/metadata", "gen/interface/jtenner/starshine-component/modules", "world/starshine"]],
       ["moon", ["-C", "/repo/component", "update"]],
       [
         "moon",
@@ -157,7 +170,6 @@ describe("component task", () => {
           "check",
           "--target",
           "wasm",
-          "--package-path",
           "gen/interface/jtenner/starshine-component/core-ir",
         ],
       ],

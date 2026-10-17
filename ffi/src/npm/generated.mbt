@@ -4,7 +4,7 @@
 #doc(hidden)
 pub fn ffi_binary_compiler_fact_module_opcode_offsets(
   value0 : @lib.Module,
-) -> Result[Array[Array[UInt]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[UInt32]], @binary.BinaryEncodeError] {
   @binary.compiler_fact_module_opcode_offsets(value0)
 }
 
@@ -12,7 +12,7 @@ pub fn ffi_binary_compiler_fact_module_opcode_offsets(
 #doc(hidden)
 pub fn ffi_binary_compiler_fact_module_opcode_sites(
   value0 : @lib.Module,
-) -> Result[Array[Array[(UInt, @lib.Instruction)]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[(UInt32, @lib.Instruction)]], @binary.BinaryEncodeError] {
   @binary.compiler_fact_module_opcode_sites(value0)
 }
 
@@ -21,7 +21,7 @@ pub fn ffi_binary_compiler_fact_module_opcode_sites(
 pub fn ffi_binary_compiler_fact_opcode_offsets(
   value0 : @lib.Expr,
   stringrefs : Array[Bytes]??,
-) -> Result[Array[UInt], @binary.BinaryEncodeError] {
+) -> Result[Array[UInt32], @binary.BinaryEncodeError] {
   @binary.compiler_fact_opcode_offsets(value0, stringrefs?)
 }
 
@@ -30,7 +30,7 @@ pub fn ffi_binary_compiler_fact_opcode_offsets(
 pub fn ffi_binary_compiler_fact_opcode_sites(
   value0 : @lib.Expr,
   stringrefs : Array[Bytes]??,
-) -> Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError] {
+) -> Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError] {
   @binary.compiler_fact_opcode_sites(value0, stringrefs?)
 }
 
@@ -46,8 +46,8 @@ pub fn ffi_binary_decode_module(
 #doc(hidden)
 pub fn ffi_binary_decode_module_with_detail(
   value0 : Bytes,
-  value1 : Int,
-) -> Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail] {
+  value1 : Int32,
+) -> Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail] {
   @binary.decode_module_with_detail(value0, value1)
 }
 
@@ -65,16 +65,25 @@ pub fn ffi_binary_encode_module(
 pub fn ffi_binary_encoded_module_sizes(
   value0 : @lib.Module,
   value1 : @lib.Module,
-) -> Result[(Int, Int), @binary.EncodeError] {
+) -> Result[(Int32, Int32), @binary.EncodeError] {
   @binary.encoded_module_sizes(value0, value1)
+}
+
+///|
+#doc(hidden)
+pub fn ffi_binary_encoded_type_compaction_is_strictly_smaller(
+  value0 : @lib.Module,
+  value1 : @lib.Module,
+) -> Bool {
+  @binary.encoded_type_compaction_is_strictly_smaller(value0, value1)
 }
 
 ///|
 #doc(hidden)
 pub fn ffi_binary_size_signed(
   value0 : Int64,
-  value1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  value1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   @binary.size_signed(value0, value1)
 }
 
@@ -82,8 +91,8 @@ pub fn ffi_binary_size_signed(
 #doc(hidden)
 pub fn ffi_binary_size_unsigned(
   value0 : UInt64,
-  value1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  value1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   @binary.size_unsigned(value0, value1)
 }
 
@@ -190,7 +199,7 @@ pub fn ffi_cli_CliInputFormat_wat() -> @cli.CliInputFormat {
 ///|
 #doc(hidden)
 pub fn ffi_cli_CliOptimizationFlag_olevel(
-  value0 : Int,
+  value0 : Int32,
   value1 : Bool,
 ) -> @cli.CliOptimizationFlag {
   @cli.CliOptimizationFlag::olevel(value0, value1)
@@ -334,13 +343,13 @@ pub fn ffi_cli_CliParseResult_new(
   optimize_flags : Array[@cli.CliOptimizationFlag]?,
   trap_mode : @cli.TrapMode??,
   ignore_implicit_traps : Bool?,
-  monomorphize_min_benefit : Int??,
-  inlining_always_inline_max_size : Int??,
-  inlining_one_caller_inline_max_size : Int??,
-  inlining_flexible_inline_max_size : Int??,
-  inlining_max_combined_binary_size : Int??,
+  monomorphize_min_benefit : Int32??,
+  inlining_always_inline_max_size : Int32??,
+  inlining_one_caller_inline_max_size : Int32??,
+  inlining_flexible_inline_max_size : Int32??,
+  inlining_max_combined_binary_size : Int32??,
   inlining_allow_functions_with_loops : Bool??,
-  inlining_partial_inlining_ifs : Int??,
+  inlining_partial_inlining_ifs : Int32??,
   low_memory_unused : Bool??,
   low_memory_bound : UInt64??,
   closed_world : Bool??,
@@ -593,7 +602,7 @@ pub fn ffi_cmd_persist_text_differential_artifacts(
   value4 : @cmd.FuzzFailurePersistIO,
   repro_dir : String?,
   seed : UInt64?,
-  attempt : Int?,
+  attempt : Int32?,
 ) -> Result[@cmd.TextDifferentialArtifactPaths, String] {
   @cmd.persist_text_differential_artifacts(
     value0,
@@ -634,7 +643,7 @@ pub fn ffi_cmd_run_cmd(
 
 ///|
 #doc(hidden)
-pub fn ffi_cmd_run_cmd_exit_code(value0 : Array[String]) -> Int {
+pub fn ffi_cmd_run_cmd_exit_code(value0 : Array[String]) -> Int32 {
   @cmd.run_cmd_exit_code(value0)
 }
 
@@ -644,7 +653,7 @@ pub fn ffi_cmd_run_cmd_exit_code_with_adapter(
   value0 : Array[String],
   value1 : @cmd.CmdIO,
   config_json : String??,
-) -> Int {
+) -> Int32 {
   @cmd.run_cmd_exit_code_with_adapter(value0, value1, config_json?)
 }
 
@@ -922,16 +931,16 @@ pub fn ffi_cmd_CmdError_unknown_pass_flag(value0 : String) -> @cmd.CmdError {
 ///|
 #doc(hidden)
 pub fn ffi_cmd_CmdFuzzStats_new(
-  attempts : Int?,
-  generated_valid : Int?,
-  generated_invalid : Int?,
-  pipeline_validated : Int?,
-  optimized : Int?,
-  roundtripped : Int?,
-  differential_checked : Int?,
-  optimize_idempotence_checked : Int?,
-  encode_decode_idempotence_checked : Int?,
-  optimizer_determinism_checked : Int?,
+  attempts : Int32?,
+  generated_valid : Int32?,
+  generated_invalid : Int32?,
+  pipeline_validated : Int32?,
+  optimized : Int32?,
+  roundtripped : Int32?,
+  differential_checked : Int32?,
+  optimize_idempotence_checked : Int32?,
+  encode_decode_idempotence_checked : Int32?,
+  optimizer_determinism_checked : Int32?,
   generator_profile : String?,
   pass_profile : String?,
 ) -> @cmd.CmdFuzzStats {
@@ -957,11 +966,11 @@ pub fn ffi_cmd_CmdRunSummary_new(
   input_files : Array[String]?,
   output_files : Array[String]?,
   resolved_passes : Array[String]?,
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
   traps_never_happen : Bool?,
   ignore_implicit_traps : Bool?,
-  monomorphize_min_benefit : Int?,
+  monomorphize_min_benefit : Int32?,
   closed_world : Bool?,
   low_memory_unused : Bool?,
   low_memory_bound : UInt64?,
@@ -1109,7 +1118,7 @@ pub fn ffi_cmd_FuzzCorpusDedupIndex_to_text(
 #doc(hidden)
 pub fn ffi_cmd_FuzzCorpusSource_new(
   value0 : UInt64,
-  value1 : Int,
+  value1 : Int32,
   value2 : String,
   value3 : String,
   value4 : String,
@@ -1121,8 +1130,8 @@ pub fn ffi_cmd_FuzzCorpusSource_new(
 #doc(hidden)
 pub fn ffi_cmd_FuzzFailureReport_new(
   value0 : UInt64,
-  value1 : Int,
-  value2 : Int,
+  value1 : Int32,
+  value2 : Int32,
   value3 : String,
   value4 : String,
   optimize_passes : Array[String]?,
@@ -1130,13 +1139,13 @@ pub fn ffi_cmd_FuzzFailureReport_new(
   generator_profile : String?,
   pass_profile : String?,
   generator_config_label : String?,
-  generated_attempts : Int?,
+  generated_attempts : Int32?,
   feature_facts : String?,
   wasm : Bytes??,
   reduced_wasm : Bytes??,
-  reduction_original_size : Int??,
-  reduction_final_size : Int??,
-  reduction_predicate_evaluations : Int??,
+  reduction_original_size : Int32??,
+  reduction_final_size : Int32??,
+  reduction_predicate_evaluations : Int32??,
   reduction_steps : Array[@cmd.FuzzReductionStep]?,
 ) -> @cmd.FuzzFailureReport {
   @cmd.FuzzFailureReport::new(
@@ -1164,12 +1173,12 @@ pub fn ffi_cmd_FuzzFailureReport_new(
 ///|
 #doc(hidden)
 pub fn ffi_cmd_InliningOptions_new(
-  always_inline_max_size : Int?,
-  one_caller_inline_max_size : Int?,
-  flexible_inline_max_size : Int?,
-  max_combined_binary_size : Int?,
+  always_inline_max_size : Int32?,
+  one_caller_inline_max_size : Int32?,
+  flexible_inline_max_size : Int32?,
+  max_combined_binary_size : Int32?,
   allow_functions_with_loops : Bool?,
-  partial_inlining_ifs : Int?,
+  partial_inlining_ifs : Int32?,
 ) -> @cmd.InliningOptions {
   @cmd.InliningOptions::new(
     always_inline_max_size?,
@@ -1184,10 +1193,10 @@ pub fn ffi_cmd_InliningOptions_new(
 ///|
 #doc(hidden)
 pub fn ffi_cmd_OptimizeOptions_new(
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
   inlining : @cmd.InliningOptions?,
-  monomorphize_min_benefit : Int?,
+  monomorphize_min_benefit : Int32?,
   closed_world : Bool?,
   zero_filled_memory : Bool?,
   fast_math : Bool?,
@@ -1330,8 +1339,8 @@ pub fn ffi_cmd_TextAggregateClassification_unsupported_syntax() -> @cmd.TextAggr
 pub fn ffi_ffi_bridge_optimize_module(
   value0 : @lib.Module,
   value1 : Array[String],
-  optimize_level : Int?,
-  shrink_level : Int?,
+  optimize_level : Int32?,
+  shrink_level : Int32?,
 ) -> Result[@lib.Module, String] {
   @ffi_bridge.optimize_module(value0, value1, optimize_level?, shrink_level?)
 }
@@ -1383,7 +1392,7 @@ pub fn ffi_lib_func_extern_type(value0 : @lib.TypeIdx) -> @lib.ExternType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_func_idx(value0 : UInt) -> @lib.FuncIdx {
+pub fn ffi_lib_func_idx(value0 : UInt32) -> @lib.FuncIdx {
   @lib.func_idx(value0)
 }
 
@@ -1410,7 +1419,7 @@ pub fn ffi_lib_global_extern_type(value0 : @lib.GlobalType) -> @lib.ExternType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_global_idx(value0 : UInt) -> @lib.GlobalIdx {
+pub fn ffi_lib_global_idx(value0 : UInt32) -> @lib.GlobalIdx {
   @lib.global_idx(value0)
 }
 
@@ -1479,7 +1488,7 @@ pub fn ffi_lib_module_uses_custom_descriptors(value0 : @lib.Module) -> Bool {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_rec_idx(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_rec_idx(value0 : UInt32) -> @lib.TypeIdx {
   @lib.rec_idx(value0)
 }
 
@@ -1528,7 +1537,7 @@ pub fn ffi_lib_table_extern_type(value0 : @lib.TableType) -> @lib.ExternType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_table_idx(value0 : UInt) -> @lib.TableIdx {
+pub fn ffi_lib_table_idx(value0 : UInt32) -> @lib.TableIdx {
   @lib.table_idx(value0)
 }
 
@@ -3377,7 +3386,7 @@ pub fn ffi_lib_DataCntSec_new(value0 : @lib.U32) -> @lib.DataCntSec {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_DataIdx_new(value0 : UInt) -> @lib.DataIdx {
+pub fn ffi_lib_DataIdx_new(value0 : UInt32) -> @lib.DataIdx {
   @lib.DataIdx::new(value0)
 }
 
@@ -3406,7 +3415,7 @@ pub fn ffi_lib_DataSec_new(value0 : Array[@lib.Data]) -> @lib.DataSec {
 #doc(hidden)
 pub fn ffi_lib_DefType_new(
   value0 : @lib.RecType,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> @lib.DefType {
   @lib.DefType::new(value0, value1)
 }
@@ -3434,7 +3443,7 @@ pub fn ffi_lib_Elem_reftype(receiver : @lib.Elem) -> @lib.RefType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_ElemIdx_new(value0 : UInt) -> @lib.ElemIdx {
+pub fn ffi_lib_ElemIdx_new(value0 : UInt32) -> @lib.ElemIdx {
   @lib.ElemIdx::new(value0)
 }
 
@@ -3674,7 +3683,7 @@ pub fn ffi_lib_FuncAnnotation_new(
 ///|
 #doc(hidden)
 pub fn ffi_lib_FuncAnnotationAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : Array[@lib.FuncAnnotation],
 ) -> @lib.FuncAnnotationAssoc {
   @lib.FuncAnnotationAssoc::new(value0, value1)
@@ -3690,7 +3699,7 @@ pub fn ffi_lib_FuncAnnotationSec_new(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_FuncIdx_new(value0 : UInt) -> @lib.FuncIdx {
+pub fn ffi_lib_FuncIdx_new(value0 : UInt32) -> @lib.FuncIdx {
   @lib.FuncIdx::new(value0)
 }
 
@@ -3776,7 +3785,7 @@ pub fn ffi_lib_FunctionLocals_new(
 #doc(hidden)
 pub fn ffi_lib_FunctionLocals_param_count(
   receiver : @lib.FunctionLocals,
-) -> Int {
+) -> Int32 {
   @lib.FunctionLocals::param_count(receiver)
 }
 
@@ -3799,7 +3808,7 @@ pub fn ffi_lib_Global_new(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_GlobalIdx_new(value0 : UInt) -> @lib.GlobalIdx {
+pub fn ffi_lib_GlobalIdx_new(value0 : UInt32) -> @lib.GlobalIdx {
   @lib.GlobalIdx::new(value0)
 }
 
@@ -3874,7 +3883,7 @@ pub fn ffi_lib_HeapType_shared_abs(value0 : @lib.AbsHeapType) -> @lib.HeapType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_I32_new(value0 : Int) -> @lib.I32 {
+pub fn ffi_lib_I32_new(value0 : Int32) -> @lib.I32 {
   @lib.I32::new(value0)
 }
 
@@ -3903,7 +3912,7 @@ pub fn ffi_lib_ImportSec_new(value0 : Array[@lib.Import]) -> @lib.ImportSec {
 ///|
 #doc(hidden)
 pub fn ffi_lib_IndirectNameAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.NameMap,
 ) -> @lib.IndirectNameAssoc {
   @lib.IndirectNameAssoc::new(value0, value1)
@@ -7792,7 +7801,7 @@ pub fn ffi_lib_Instruction_waitqueue_notify() -> @lib.Instruction {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_LabelIdx_new(value0 : UInt) -> @lib.LabelIdx {
+pub fn ffi_lib_LabelIdx_new(value0 : UInt32) -> @lib.LabelIdx {
   @lib.LabelIdx::new(value0)
 }
 
@@ -7825,7 +7834,7 @@ pub fn ffi_lib_Limits_addr_valtype(receiver : @lib.Limits) -> @lib.ValType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Limits_i32(value0 : UInt, value1 : UInt?) -> @lib.Limits {
+pub fn ffi_lib_Limits_i32(value0 : UInt32, value1 : UInt32?) -> @lib.Limits {
   @lib.Limits::i32(value0, value1)
 }
 
@@ -7837,7 +7846,7 @@ pub fn ffi_lib_Limits_i64(value0 : UInt64, value1 : UInt64?) -> @lib.Limits {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Limits_mem_addr_bits(receiver : @lib.Limits) -> Int {
+pub fn ffi_lib_Limits_mem_addr_bits(receiver : @lib.Limits) -> Int32 {
   @lib.Limits::mem_addr_bits(receiver)
 }
 
@@ -8047,20 +8056,20 @@ pub fn ffi_lib_LoadOp_v128_load8x8u() -> @lib.LoadOp {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_LocalIdx_new(value0 : UInt) -> @lib.LocalIdx {
+pub fn ffi_lib_LocalIdx_new(value0 : UInt32) -> @lib.LocalIdx {
   @lib.LocalIdx::new(value0)
 }
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_LocalRun_count(receiver : @lib.LocalRun) -> UInt {
+pub fn ffi_lib_LocalRun_count(receiver : @lib.LocalRun) -> UInt32 {
   @lib.LocalRun::count(receiver)
 }
 
 ///|
 #doc(hidden)
 pub fn ffi_lib_LocalRun_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.ValType,
 ) -> @lib.LocalRun {
   @lib.LocalRun::new(value0, value1)
@@ -8092,7 +8101,10 @@ pub fn ffi_lib_Locals_append_types(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Locals_at(receiver : @lib.Locals, value1 : Int) -> @lib.ValType? {
+pub fn ffi_lib_Locals_at(
+  receiver : @lib.Locals,
+  value1 : Int32,
+) -> @lib.ValType? {
   @lib.Locals::at(receiver, value1)
 }
 
@@ -8110,7 +8122,7 @@ pub fn ffi_lib_Locals_empty() -> @lib.Locals {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Locals_ensure_index(receiver : @lib.Locals) -> Array[Int] {
+pub fn ffi_lib_Locals_ensure_index(receiver : @lib.Locals) -> Array[Int32] {
   @lib.Locals::ensure_index(receiver)
 }
 
@@ -8130,7 +8142,10 @@ pub fn ffi_lib_Locals_from_types(value0 : Array[@lib.ValType]) -> @lib.Locals {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Locals_get(receiver : @lib.Locals, value1 : Int) -> @lib.ValType {
+pub fn ffi_lib_Locals_get(
+  receiver : @lib.Locals,
+  value1 : Int32,
+) -> @lib.ValType {
   @lib.Locals::get(receiver, value1)
 }
 
@@ -8138,7 +8153,7 @@ pub fn ffi_lib_Locals_get(receiver : @lib.Locals, value1 : Int) -> @lib.ValType 
 #doc(hidden)
 pub fn ffi_lib_Locals_insert_run(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.LocalRun,
 ) -> Unit {
   @lib.Locals::insert_run(receiver, value1, value2)
@@ -8164,7 +8179,7 @@ pub fn ffi_lib_Locals_iter(receiver : @lib.Locals) -> Iter[@lib.ValType] {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Locals_length(receiver : @lib.Locals) -> Int {
+pub fn ffi_lib_Locals_length(receiver : @lib.Locals) -> Int32 {
   @lib.Locals::length(receiver)
 }
 
@@ -8202,14 +8217,14 @@ pub fn ffi_lib_Locals_push_run(
 #doc(hidden)
 pub fn ffi_lib_Locals_remove_run(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.LocalRun? {
   @lib.Locals::remove_run(receiver, value1)
 }
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_Locals_run_count(receiver : @lib.Locals) -> Int {
+pub fn ffi_lib_Locals_run_count(receiver : @lib.Locals) -> Int32 {
   @lib.Locals::run_count(receiver)
 }
 
@@ -8223,7 +8238,7 @@ pub fn ffi_lib_Locals_runs(receiver : @lib.Locals) -> Array[@lib.LocalRun] {
 #doc(hidden)
 pub fn ffi_lib_Locals_set(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
   value2 : @lib.ValType,
 ) -> Bool {
   @lib.Locals::set(receiver, value1, value2)
@@ -8233,8 +8248,8 @@ pub fn ffi_lib_Locals_set(
 #doc(hidden)
 pub fn ffi_lib_Locals_set_run_count(
   receiver : @lib.Locals,
-  value1 : Int,
-  value2 : UInt,
+  value1 : Int32,
+  value2 : UInt32,
 ) -> Bool {
   @lib.Locals::set_run_count(receiver, value1, value2)
 }
@@ -8242,7 +8257,7 @@ pub fn ffi_lib_Locals_set_run_count(
 ///|
 #doc(hidden)
 pub fn ffi_lib_Locals_single(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.ValType,
 ) -> @lib.Locals {
   @lib.Locals::single(value0, value1)
@@ -8252,7 +8267,7 @@ pub fn ffi_lib_Locals_single(
 #doc(hidden)
 pub fn ffi_lib_Locals_unsafe_get(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.ValType {
   @lib.Locals::unsafe_get(receiver, value1)
 }
@@ -8261,7 +8276,7 @@ pub fn ffi_lib_Locals_unsafe_get(
 #doc(hidden)
 pub fn ffi_lib_Locals_without_prefix(
   receiver : @lib.Locals,
-  value1 : Int,
+  value1 : Int32,
 ) -> @lib.Locals {
   @lib.Locals::without_prefix(receiver, value1)
 }
@@ -8278,7 +8293,7 @@ pub fn ffi_lib_MemArg_new(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_MemIdx_new(value0 : UInt) -> @lib.MemIdx {
+pub fn ffi_lib_MemIdx_new(value0 : UInt32) -> @lib.MemIdx {
   @lib.MemIdx::new(value0)
 }
 
@@ -8347,7 +8362,7 @@ pub fn ffi_lib_Module_new(
 #doc(hidden)
 pub fn ffi_lib_Module_pretty_print_defined_func(
   receiver : @lib.Module,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> String {
   @lib.Module::pretty_print_defined_func(receiver, value1)
 }
@@ -8567,7 +8582,7 @@ pub fn ffi_lib_Name_from_string(value0 : String) -> @lib.Name {
 ///|
 #doc(hidden)
 pub fn ffi_lib_NameAssoc_new(
-  value0 : UInt,
+  value0 : UInt32,
   value1 : @lib.Name,
 ) -> @lib.NameAssoc {
   @lib.NameAssoc::new(value0, value1)
@@ -8651,7 +8666,7 @@ pub fn ffi_lib_PackType_i8() -> @lib.PackType {
 #doc(hidden)
 pub fn ffi_lib_PrettyPrintContext_indent(
   receiver : @lib.PrettyPrintContext,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> String {
   @lib.PrettyPrintContext::indent(receiver, value1)
 }
@@ -8667,11 +8682,11 @@ pub fn ffi_lib_PrettyPrintContext_indent_unit(
 ///|
 #doc(hidden)
 pub fn ffi_lib_PrettyPrintContext_new(
-  max_line_width : UInt?,
+  max_line_width : UInt32?,
   tabs_or_spaces : @lib.TabsOrSpaces?,
-  tab_width : UInt?,
-  continuation_indent : UInt?,
-  source_indent_width : UInt?,
+  tab_width : UInt32?,
+  continuation_indent : UInt32?,
+  source_indent_width : UInt32?,
 ) -> @lib.PrettyPrintContext {
   @lib.PrettyPrintContext::new(
     max_line_width?,
@@ -8686,7 +8701,7 @@ pub fn ffi_lib_PrettyPrintContext_new(
 #doc(hidden)
 pub fn ffi_lib_RecType_get_subtype(
   receiver : @lib.RecType,
-  value1 : UInt,
+  value1 : UInt32,
 ) -> @lib.SubType? {
   @lib.RecType::get_subtype(receiver, value1)
 }
@@ -8810,7 +8825,7 @@ pub fn ffi_lib_ResumeHandler_on_switch(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_S33_new(value0 : UInt) -> @lib.S33 {
+pub fn ffi_lib_S33_new(value0 : UInt32) -> @lib.S33 {
   @lib.S33::new(value0)
 }
 
@@ -9019,7 +9034,7 @@ pub fn ffi_lib_Table_new(
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_TableIdx_new(value0 : UInt) -> @lib.TableIdx {
+pub fn ffi_lib_TableIdx_new(value0 : UInt32) -> @lib.TableIdx {
   @lib.TableIdx::new(value0)
 }
 
@@ -9052,7 +9067,7 @@ pub fn ffi_lib_TabsOrSpaces_tabs() -> @lib.TabsOrSpaces {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_TagIdx_new(value0 : UInt) -> @lib.TagIdx {
+pub fn ffi_lib_TagIdx_new(value0 : UInt32) -> @lib.TagIdx {
   @lib.TagIdx::new(value0)
 }
 
@@ -9070,13 +9085,13 @@ pub fn ffi_lib_TagType_new(value0 : @lib.TypeIdx) -> @lib.TagType {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_TypeIdx_new(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_TypeIdx_new(value0 : UInt32) -> @lib.TypeIdx {
   @lib.TypeIdx::new(value0)
 }
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_TypeIdx_rec(value0 : UInt) -> @lib.TypeIdx {
+pub fn ffi_lib_TypeIdx_rec(value0 : UInt32) -> @lib.TypeIdx {
   @lib.TypeIdx::rec(value0)
 }
 
@@ -9113,7 +9128,7 @@ pub fn ffi_lib_TypeSec_new(value0 : Array[@lib.RecType]) -> @lib.TypeSec {
 
 ///|
 #doc(hidden)
-pub fn ffi_lib_U32_new(value0 : UInt) -> @lib.U32 {
+pub fn ffi_lib_U32_new(value0 : UInt32) -> @lib.U32 {
   @lib.U32::new(value0)
 }
 
@@ -10349,7 +10364,7 @@ pub fn ffi_validate_gen_invalid_small_gen_valid_config(
 #doc(hidden)
 pub fn ffi_validate_gen_valid_case_seed(
   value0 : UInt64,
-  value1 : Int,
+  value1 : Int32,
 ) -> UInt64 {
   @validate.gen_valid_case_seed(value0, value1)
 }
@@ -10516,7 +10531,7 @@ pub fn ffi_validate_gen_valid_engine_state_profile() -> @validate.GenValidProfil
 #doc(hidden)
 pub fn ffi_validate_gen_valid_engine_state_static_instruction_count(
   value0 : @lib.Module,
-) -> Int {
+) -> Int32 {
   @validate.gen_valid_engine_state_static_instruction_count(value0)
 }
 
@@ -10672,7 +10687,7 @@ pub fn ffi_validate_gen_valid_msf_profile_case_label(
 #doc(hidden)
 pub fn ffi_validate_gen_valid_oi_trigger_profile_case_for_seed(
   value0 : UInt64,
-) -> Int {
+) -> Int32 {
   @validate.gen_valid_oi_trigger_profile_case_for_seed(value0)
 }
 
@@ -10706,7 +10721,7 @@ pub fn ffi_validate_gen_valid_profile_is_composite(
 pub fn ffi_validate_gen_valid_profile_leaf_for_case(
   value0 : @validate.GenValidProfile,
   value1 : UInt64,
-  value2 : Int,
+  value2 : Int32,
 ) -> @validate.GenValidProfile {
   @validate.gen_valid_profile_leaf_for_case(value0, value1, value2)
 }
@@ -10809,7 +10824,7 @@ pub fn ffi_validate_gen_valid_rume_profile_case_label(
 ///|
 #doc(hidden)
 pub fn ffi_validate_gen_valid_scan_func_ssa_facts(
-  value0 : Int,
+  value0 : Int32,
   value1 : @lib.Locals,
   value2 : @lib.Expr,
 ) -> @validate.GenValidSsaFuncFacts {
@@ -11265,6 +11280,14 @@ pub fn ffi_validate_validate_module(
 
 ///|
 #doc(hidden)
+pub fn ffi_validate_validate_module_name_section(
+  value0 : @lib.Module,
+) -> Result[Unit, String] {
+  @validate.validate_module_name_section(value0)
+}
+
+///|
+#doc(hidden)
 pub fn ffi_validate_validate_startsec(
   value0 : @lib.StartSec?,
   value1 : @validate.Env,
@@ -11304,7 +11327,7 @@ pub fn ffi_validate_validate_typesec(
 pub fn ffi_validate_validate_valid_feature_actual_count(
   value0 : @validate.GenValidFeatureStats,
   value1 : @validate.ValidateValidFeatureKey,
-) -> Int {
+) -> Int32 {
   @validate.validate_valid_feature_actual_count(value0, value1)
 }
 
@@ -11313,7 +11336,7 @@ pub fn ffi_validate_validate_valid_feature_actual_count(
 pub fn ffi_validate_validate_valid_feature_actual_count_by_label(
   value0 : @validate.GenValidFeatureStats,
   value1 : String,
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   @validate.validate_valid_feature_actual_count_by_label(value0, value1)
 }
 
@@ -11321,7 +11344,7 @@ pub fn ffi_validate_validate_valid_feature_actual_count_by_label(
 #doc(hidden)
 pub fn ffi_validate_validate_valid_feature_floor(
   value0 : @validate.ValidateValidFeatureKey,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.ValidateValidFeatureFloor {
   @validate.validate_valid_feature_floor(value0, value1)
 }
@@ -11330,7 +11353,7 @@ pub fn ffi_validate_validate_valid_feature_floor(
 #doc(hidden)
 pub fn ffi_validate_validate_valid_feature_floor_by_label(
   value0 : String,
-  value1 : Int,
+  value1 : Int32,
 ) -> Result[@validate.ValidateValidFeatureFloor, String] {
   @validate.validate_valid_feature_floor_by_label(value0, value1)
 }
@@ -11541,8 +11564,8 @@ pub fn ffi_validate_Env_has_func(
 #doc(hidden)
 pub fn ffi_validate_Env_legacy_rethrow_catch_ordinal(
   receiver : @validate.Env,
-  value1 : UInt,
-) -> Int? {
+  value1 : UInt32,
+) -> Int32? {
   @validate.Env::legacy_rethrow_catch_ordinal(receiver, value1)
 }
 
@@ -11811,7 +11834,7 @@ pub fn ffi_validate_Env_with_labels(
 #doc(hidden)
 pub fn ffi_validate_Env_with_legacy_catch_depth(
   receiver : @validate.Env,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.Env {
   @validate.Env::with_legacy_catch_depth(receiver, value1)
 }
@@ -12096,7 +12119,7 @@ pub fn ffi_validate_GenValidFeatureToggles_natural_default() -> @validate.GenVal
 #doc(hidden)
 pub fn ffi_validate_GenValidProfileMember_new(
   value0 : @validate.GenValidProfile,
-  value1 : Int,
+  value1 : Int32,
 ) -> @validate.GenValidProfileMember {
   @validate.GenValidProfileMember::new(value0, value1)
 }
@@ -12139,14 +12162,14 @@ pub fn ffi_validate_LabelStack_from_labels(
 #doc(hidden)
 pub fn ffi_validate_LabelStack_get(
   receiver : @validate.LabelStack,
-  value1 : Int,
+  value1 : Int32,
 ) -> Array[@lib.ValType]? {
   @validate.LabelStack::get(receiver, value1)
 }
 
 ///|
 #doc(hidden)
-pub fn ffi_validate_LabelStack_length(receiver : @validate.LabelStack) -> Int {
+pub fn ffi_validate_LabelStack_length(receiver : @validate.LabelStack) -> Int32 {
   @validate.LabelStack::length(receiver)
 }
 
@@ -12456,109 +12479,112 @@ pub fn __js_bytes_from_array(value : Array[Byte]) -> Bytes {
 }
 
 ///|
-pub fn __js_bytes_length(value : Bytes) -> Int {
+pub fn __js_bytes_length(value : Bytes) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_bytes_get(value : Bytes, index : Int) -> Byte {
+pub fn __js_bytes_get(value : Bytes, index : Int32) -> Byte {
   value[index]
 }
 
 ///|
-pub fn __js_array_1_new() -> Array[Array[UInt]] {
+pub fn __js_array_1_new() -> Array[Array[UInt32]] {
   Array::new()
 }
 
 ///|
 pub fn __js_array_1_push(
-  value : Array[Array[UInt]],
-  item : Array[UInt],
+  value : Array[Array[UInt32]],
+  item : Array[UInt32],
 ) -> Unit {
   value.push(item)
 }
 
 ///|
-pub fn __js_array_1_length(value : Array[Array[UInt]]) -> Int {
+pub fn __js_array_1_length(value : Array[Array[UInt32]]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_1_get(value : Array[Array[UInt]], index : Int) -> Array[UInt] {
+pub fn __js_array_1_get(
+  value : Array[Array[UInt32]],
+  index : Int32,
+) -> Array[UInt32] {
   value[index]
 }
 
 ///|
-pub fn __js_array_2_new() -> Array[UInt] {
+pub fn __js_array_2_new() -> Array[UInt32] {
   Array::new()
 }
 
 ///|
-pub fn __js_array_2_push(value : Array[UInt], item : UInt) -> Unit {
+pub fn __js_array_2_push(value : Array[UInt32], item : UInt32) -> Unit {
   value.push(item)
 }
 
 ///|
-pub fn __js_array_2_length(value : Array[UInt]) -> Int {
+pub fn __js_array_2_length(value : Array[UInt32]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_2_get(value : Array[UInt], index : Int) -> UInt {
+pub fn __js_array_2_get(value : Array[UInt32], index : Int32) -> UInt32 {
   value[index]
 }
 
 ///|
-pub fn __js_array_3_new() -> Array[Array[(UInt, @lib.Instruction)]] {
+pub fn __js_array_3_new() -> Array[Array[(UInt32, @lib.Instruction)]] {
   Array::new()
 }
 
 ///|
 pub fn __js_array_3_push(
-  value : Array[Array[(UInt, @lib.Instruction)]],
-  item : Array[(UInt, @lib.Instruction)],
+  value : Array[Array[(UInt32, @lib.Instruction)]],
+  item : Array[(UInt32, @lib.Instruction)],
 ) -> Unit {
   value.push(item)
 }
 
 ///|
 pub fn __js_array_3_length(
-  value : Array[Array[(UInt, @lib.Instruction)]],
-) -> Int {
+  value : Array[Array[(UInt32, @lib.Instruction)]],
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_3_get(
-  value : Array[Array[(UInt, @lib.Instruction)]],
-  index : Int,
-) -> Array[(UInt, @lib.Instruction)] {
+  value : Array[Array[(UInt32, @lib.Instruction)]],
+  index : Int32,
+) -> Array[(UInt32, @lib.Instruction)] {
   value[index]
 }
 
 ///|
-pub fn __js_array_4_new() -> Array[(UInt, @lib.Instruction)] {
+pub fn __js_array_4_new() -> Array[(UInt32, @lib.Instruction)] {
   Array::new()
 }
 
 ///|
 pub fn __js_array_4_push(
-  value : Array[(UInt, @lib.Instruction)],
-  item : (UInt, @lib.Instruction),
+  value : Array[(UInt32, @lib.Instruction)],
+  item : (UInt32, @lib.Instruction),
 ) -> Unit {
   value.push(item)
 }
 
 ///|
-pub fn __js_array_4_length(value : Array[(UInt, @lib.Instruction)]) -> Int {
+pub fn __js_array_4_length(value : Array[(UInt32, @lib.Instruction)]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_4_get(
-  value : Array[(UInt, @lib.Instruction)],
-  index : Int,
-) -> (UInt, @lib.Instruction) {
+  value : Array[(UInt32, @lib.Instruction)],
+  index : Int32,
+) -> (UInt32, @lib.Instruction) {
   value[index]
 }
 
@@ -12573,12 +12599,12 @@ pub fn __js_array_5_push(value : Array[Bytes], item : Bytes) -> Unit {
 }
 
 ///|
-pub fn __js_array_5_length(value : Array[Bytes]) -> Int {
+pub fn __js_array_5_length(value : Array[Bytes]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_5_get(value : Array[Bytes], index : Int) -> Bytes {
+pub fn __js_array_5_get(value : Array[Bytes], index : Int32) -> Bytes {
   value[index]
 }
 
@@ -12593,12 +12619,12 @@ pub fn __js_array_6_push(value : Array[String], item : String) -> Unit {
 }
 
 ///|
-pub fn __js_array_6_length(value : Array[String]) -> Int {
+pub fn __js_array_6_length(value : Array[String]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_6_get(value : Array[String], index : Int) -> String {
+pub fn __js_array_6_get(value : Array[String], index : Int32) -> String {
   value[index]
 }
 
@@ -12616,14 +12642,14 @@ pub fn __js_array_7_push(
 }
 
 ///|
-pub fn __js_array_7_length(value : Array[@cli.CliOutputTarget]) -> Int {
+pub fn __js_array_7_length(value : Array[@cli.CliOutputTarget]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_7_get(
   value : Array[@cli.CliOutputTarget],
-  index : Int,
+  index : Int32,
 ) -> @cli.CliOutputTarget {
   value[index]
 }
@@ -12642,14 +12668,14 @@ pub fn __js_array_8_push(
 }
 
 ///|
-pub fn __js_array_8_length(value : Array[@cli.CliOptimizationFlag]) -> Int {
+pub fn __js_array_8_length(value : Array[@cli.CliOptimizationFlag]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_8_get(
   value : Array[@cli.CliOptimizationFlag],
-  index : Int,
+  index : Int32,
 ) -> @cli.CliOptimizationFlag {
   value[index]
 }
@@ -12668,14 +12694,14 @@ pub fn __js_array_9_push(
 }
 
 ///|
-pub fn __js_array_9_length(value : Array[@lib.ValType]) -> Int {
+pub fn __js_array_9_length(value : Array[@lib.ValType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_9_get(
   value : Array[@lib.ValType],
-  index : Int,
+  index : Int32,
 ) -> @lib.ValType {
   value[index]
 }
@@ -12696,14 +12722,14 @@ pub fn __js_array_10_push(
 ///|
 pub fn __js_array_10_length(
   value : Array[@cmd.BinaryDifferentialAdapterResult],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_10_get(
   value : Array[@cmd.BinaryDifferentialAdapterResult],
-  index : Int,
+  index : Int32,
 ) -> @cmd.BinaryDifferentialAdapterResult {
   value[index]
 }
@@ -12724,14 +12750,14 @@ pub fn __js_array_11_push(
 ///|
 pub fn __js_array_11_length(
   value : Array[@cmd.TextAggregateAdapterResult],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_11_get(
   value : Array[@cmd.TextAggregateAdapterResult],
-  index : Int,
+  index : Int32,
 ) -> @cmd.TextAggregateAdapterResult {
   value[index]
 }
@@ -12752,14 +12778,14 @@ pub fn __js_array_12_push(
 ///|
 pub fn __js_array_12_length(
   value : Array[@cmd.ExportInvocationComparisonReport],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_12_get(
   value : Array[@cmd.ExportInvocationComparisonReport],
-  index : Int,
+  index : Int32,
 ) -> @cmd.ExportInvocationComparisonReport {
   value[index]
 }
@@ -12780,14 +12806,14 @@ pub fn __js_array_13_push(
 ///|
 pub fn __js_array_13_length(
   value : Array[@cmd.BinaryDifferentialSmokeAdapter],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_13_get(
   value : Array[@cmd.BinaryDifferentialSmokeAdapter],
-  index : Int,
+  index : Int32,
 ) -> @cmd.BinaryDifferentialSmokeAdapter {
   value[index]
 }
@@ -12808,14 +12834,14 @@ pub fn __js_array_14_push(
 ///|
 pub fn __js_array_14_length(
   value : Array[@cmd.BinaryCanonicalityClassification],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_14_get(
   value : Array[@cmd.BinaryCanonicalityClassification],
-  index : Int,
+  index : Int32,
 ) -> @cmd.BinaryCanonicalityClassification {
   value[index]
 }
@@ -12834,14 +12860,14 @@ pub fn __js_array_15_push(
 }
 
 ///|
-pub fn __js_array_15_length(value : Array[(String, String)]) -> Int {
+pub fn __js_array_15_length(value : Array[(String, String)]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_15_get(
   value : Array[(String, String)],
-  index : Int,
+  index : Int32,
 ) -> (String, String) {
   value[index]
 }
@@ -12860,14 +12886,14 @@ pub fn __js_array_16_push(
 }
 
 ///|
-pub fn __js_array_16_length(value : Array[@cmd.FuzzReductionStep]) -> Int {
+pub fn __js_array_16_length(value : Array[@cmd.FuzzReductionStep]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_16_get(
   value : Array[@cmd.FuzzReductionStep],
-  index : Int,
+  index : Int32,
 ) -> @cmd.FuzzReductionStep {
   value[index]
 }
@@ -12886,14 +12912,14 @@ pub fn __js_array_17_push(
 }
 
 ///|
-pub fn __js_array_17_length(value : Array[@lib.FieldType]) -> Int {
+pub fn __js_array_17_length(value : Array[@lib.FieldType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_17_get(
   value : Array[@lib.FieldType],
-  index : Int,
+  index : Int32,
 ) -> @lib.FieldType {
   value[index]
 }
@@ -12912,14 +12938,14 @@ pub fn __js_array_18_push(
 }
 
 ///|
-pub fn __js_array_18_length(value : Array[@lib.SubType]) -> Int {
+pub fn __js_array_18_length(value : Array[@lib.SubType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_18_get(
   value : Array[@lib.SubType],
-  index : Int,
+  index : Int32,
 ) -> @lib.SubType {
   value[index]
 }
@@ -12938,14 +12964,14 @@ pub fn __js_array_19_push(
 }
 
 ///|
-pub fn __js_array_19_length(value : Array[@lib.TypeIdx]) -> Int {
+pub fn __js_array_19_length(value : Array[@lib.TypeIdx]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_19_get(
   value : Array[@lib.TypeIdx],
-  index : Int,
+  index : Int32,
 ) -> @lib.TypeIdx {
   value[index]
 }
@@ -12961,12 +12987,12 @@ pub fn __js_array_20_push(value : Array[@lib.Func], item : @lib.Func) -> Unit {
 }
 
 ///|
-pub fn __js_array_20_length(value : Array[@lib.Func]) -> Int {
+pub fn __js_array_20_length(value : Array[@lib.Func]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_20_get(value : Array[@lib.Func], index : Int) -> @lib.Func {
+pub fn __js_array_20_get(value : Array[@lib.Func], index : Int32) -> @lib.Func {
   value[index]
 }
 
@@ -12981,12 +13007,12 @@ pub fn __js_array_21_push(value : Array[@lib.Data], item : @lib.Data) -> Unit {
 }
 
 ///|
-pub fn __js_array_21_length(value : Array[@lib.Data]) -> Int {
+pub fn __js_array_21_length(value : Array[@lib.Data]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_21_get(value : Array[@lib.Data], index : Int) -> @lib.Data {
+pub fn __js_array_21_get(value : Array[@lib.Data], index : Int32) -> @lib.Data {
   value[index]
 }
 
@@ -13001,12 +13027,12 @@ pub fn __js_array_22_push(value : Array[@lib.Expr], item : @lib.Expr) -> Unit {
 }
 
 ///|
-pub fn __js_array_22_length(value : Array[@lib.Expr]) -> Int {
+pub fn __js_array_22_length(value : Array[@lib.Expr]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_22_get(value : Array[@lib.Expr], index : Int) -> @lib.Expr {
+pub fn __js_array_22_get(value : Array[@lib.Expr], index : Int32) -> @lib.Expr {
   value[index]
 }
 
@@ -13024,14 +13050,14 @@ pub fn __js_array_23_push(
 }
 
 ///|
-pub fn __js_array_23_length(value : Array[@lib.FuncIdx]) -> Int {
+pub fn __js_array_23_length(value : Array[@lib.FuncIdx]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_23_get(
   value : Array[@lib.FuncIdx],
-  index : Int,
+  index : Int32,
 ) -> @lib.FuncIdx {
   value[index]
 }
@@ -13047,12 +13073,12 @@ pub fn __js_array_24_push(value : Array[@lib.Elem], item : @lib.Elem) -> Unit {
 }
 
 ///|
-pub fn __js_array_24_length(value : Array[@lib.Elem]) -> Int {
+pub fn __js_array_24_length(value : Array[@lib.Elem]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_24_get(value : Array[@lib.Elem], index : Int) -> @lib.Elem {
+pub fn __js_array_24_get(value : Array[@lib.Elem], index : Int32) -> @lib.Elem {
   value[index]
 }
 
@@ -13070,14 +13096,14 @@ pub fn __js_array_25_push(
 }
 
 ///|
-pub fn __js_array_25_length(value : Array[@lib.Export]) -> Int {
+pub fn __js_array_25_length(value : Array[@lib.Export]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_25_get(
   value : Array[@lib.Export],
-  index : Int,
+  index : Int32,
 ) -> @lib.Export {
   value[index]
 }
@@ -13096,14 +13122,14 @@ pub fn __js_array_26_push(
 }
 
 ///|
-pub fn __js_array_26_length(value : Array[@lib.Instruction]) -> Int {
+pub fn __js_array_26_length(value : Array[@lib.Instruction]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_26_get(
   value : Array[@lib.Instruction],
-  index : Int,
+  index : Int32,
 ) -> @lib.Instruction {
   value[index]
 }
@@ -13122,14 +13148,14 @@ pub fn __js_array_27_push(
 }
 
 ///|
-pub fn __js_array_27_length(value : Array[@lib.FuncAnnotation]) -> Int {
+pub fn __js_array_27_length(value : Array[@lib.FuncAnnotation]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_27_get(
   value : Array[@lib.FuncAnnotation],
-  index : Int,
+  index : Int32,
 ) -> @lib.FuncAnnotation {
   value[index]
 }
@@ -13148,14 +13174,14 @@ pub fn __js_array_28_push(
 }
 
 ///|
-pub fn __js_array_28_length(value : Array[@lib.FuncAnnotationAssoc]) -> Int {
+pub fn __js_array_28_length(value : Array[@lib.FuncAnnotationAssoc]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_28_get(
   value : Array[@lib.FuncAnnotationAssoc],
-  index : Int,
+  index : Int32,
 ) -> @lib.FuncAnnotationAssoc {
   value[index]
 }
@@ -13174,14 +13200,14 @@ pub fn __js_array_29_push(
 }
 
 ///|
-pub fn __js_array_29_length(value : Array[@lib.Global]) -> Int {
+pub fn __js_array_29_length(value : Array[@lib.Global]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_29_get(
   value : Array[@lib.Global],
-  index : Int,
+  index : Int32,
 ) -> @lib.Global {
   value[index]
 }
@@ -13200,14 +13226,14 @@ pub fn __js_array_30_push(
 }
 
 ///|
-pub fn __js_array_30_length(value : Array[@lib.Import]) -> Int {
+pub fn __js_array_30_length(value : Array[@lib.Import]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_30_get(
   value : Array[@lib.Import],
-  index : Int,
+  index : Int32,
 ) -> @lib.Import {
   value[index]
 }
@@ -13226,14 +13252,14 @@ pub fn __js_array_31_push(
 }
 
 ///|
-pub fn __js_array_31_length(value : Array[@lib.IndirectNameAssoc]) -> Int {
+pub fn __js_array_31_length(value : Array[@lib.IndirectNameAssoc]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_31_get(
   value : Array[@lib.IndirectNameAssoc],
-  index : Int,
+  index : Int32,
 ) -> @lib.IndirectNameAssoc {
   value[index]
 }
@@ -13252,14 +13278,14 @@ pub fn __js_array_32_push(
 }
 
 ///|
-pub fn __js_array_32_length(value : Array[@lib.LabelIdx]) -> Int {
+pub fn __js_array_32_length(value : Array[@lib.LabelIdx]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_32_get(
   value : Array[@lib.LabelIdx],
-  index : Int,
+  index : Int32,
 ) -> @lib.LabelIdx {
   value[index]
 }
@@ -13278,14 +13304,14 @@ pub fn __js_array_33_push(
 }
 
 ///|
-pub fn __js_array_33_length(value : Array[@lib.ResumeHandler]) -> Int {
+pub fn __js_array_33_length(value : Array[@lib.ResumeHandler]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_33_get(
   value : Array[@lib.ResumeHandler],
-  index : Int,
+  index : Int32,
 ) -> @lib.ResumeHandler {
   value[index]
 }
@@ -13304,14 +13330,14 @@ pub fn __js_array_34_push(
 }
 
 ///|
-pub fn __js_array_34_length(value : Array[@lib.LegacyCatch]) -> Int {
+pub fn __js_array_34_length(value : Array[@lib.LegacyCatch]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_34_get(
   value : Array[@lib.LegacyCatch],
-  index : Int,
+  index : Int32,
 ) -> @lib.LegacyCatch {
   value[index]
 }
@@ -13327,12 +13353,15 @@ pub fn __js_array_35_push(value : Array[@lib.Catch], item : @lib.Catch) -> Unit 
 }
 
 ///|
-pub fn __js_array_35_length(value : Array[@lib.Catch]) -> Int {
+pub fn __js_array_35_length(value : Array[@lib.Catch]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_35_get(value : Array[@lib.Catch], index : Int) -> @lib.Catch {
+pub fn __js_array_35_get(
+  value : Array[@lib.Catch],
+  index : Int32,
+) -> @lib.Catch {
   value[index]
 }
 
@@ -13350,14 +13379,14 @@ pub fn __js_array_36_push(
 }
 
 ///|
-pub fn __js_array_36_length(value : Array[@lib.LocalRun]) -> Int {
+pub fn __js_array_36_length(value : Array[@lib.LocalRun]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_36_get(
   value : Array[@lib.LocalRun],
-  index : Int,
+  index : Int32,
 ) -> @lib.LocalRun {
   value[index]
 }
@@ -13376,14 +13405,14 @@ pub fn __js_array_37_push(
 }
 
 ///|
-pub fn __js_array_37_length(value : Array[@lib.MemType]) -> Int {
+pub fn __js_array_37_length(value : Array[@lib.MemType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_37_get(
   value : Array[@lib.MemType],
-  index : Int,
+  index : Int32,
 ) -> @lib.MemType {
   value[index]
 }
@@ -13402,14 +13431,14 @@ pub fn __js_array_38_push(
 }
 
 ///|
-pub fn __js_array_38_length(value : Array[@lib.CustomSec]) -> Int {
+pub fn __js_array_38_length(value : Array[@lib.CustomSec]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_38_get(
   value : Array[@lib.CustomSec],
-  index : Int,
+  index : Int32,
 ) -> @lib.CustomSec {
   value[index]
 }
@@ -13428,14 +13457,14 @@ pub fn __js_array_39_push(
 }
 
 ///|
-pub fn __js_array_39_length(value : Array[@lib.NameAssoc]) -> Int {
+pub fn __js_array_39_length(value : Array[@lib.NameAssoc]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_39_get(
   value : Array[@lib.NameAssoc],
-  index : Int,
+  index : Int32,
 ) -> @lib.NameAssoc {
   value[index]
 }
@@ -13451,12 +13480,15 @@ pub fn __js_array_40_push(value : Array[@lib.Table], item : @lib.Table) -> Unit 
 }
 
 ///|
-pub fn __js_array_40_length(value : Array[@lib.Table]) -> Int {
+pub fn __js_array_40_length(value : Array[@lib.Table]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_40_get(value : Array[@lib.Table], index : Int) -> @lib.Table {
+pub fn __js_array_40_get(
+  value : Array[@lib.Table],
+  index : Int32,
+) -> @lib.Table {
   value[index]
 }
 
@@ -13474,14 +13506,14 @@ pub fn __js_array_41_push(
 }
 
 ///|
-pub fn __js_array_41_length(value : Array[@lib.TagType]) -> Int {
+pub fn __js_array_41_length(value : Array[@lib.TagType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_41_get(
   value : Array[@lib.TagType],
-  index : Int,
+  index : Int32,
 ) -> @lib.TagType {
   value[index]
 }
@@ -13500,14 +13532,14 @@ pub fn __js_array_42_push(
 }
 
 ///|
-pub fn __js_array_42_length(value : Array[@lib.RecType]) -> Int {
+pub fn __js_array_42_length(value : Array[@lib.RecType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_42_get(
   value : Array[@lib.RecType],
-  index : Int,
+  index : Int32,
 ) -> @lib.RecType {
   value[index]
 }
@@ -13528,14 +13560,14 @@ pub fn __js_array_43_push(
 ///|
 pub fn __js_array_43_length(
   value : Array[@validate.ValidateValidFeatureFloor],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_43_get(
   value : Array[@validate.ValidateValidFeatureFloor],
-  index : Int,
+  index : Int32,
 ) -> @validate.ValidateValidFeatureFloor {
   value[index]
 }
@@ -13556,14 +13588,14 @@ pub fn __js_array_44_push(
 ///|
 pub fn __js_array_44_length(
   value : Array[@validate.ValidateValidFeatureFloorFailure],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_44_get(
   value : Array[@validate.ValidateValidFeatureFloorFailure],
-  index : Int,
+  index : Int32,
 ) -> @validate.ValidateValidFeatureFloorFailure {
   value[index]
 }
@@ -13582,14 +13614,14 @@ pub fn __js_array_45_push(
 }
 
 ///|
-pub fn __js_array_45_length(value : Array[@validate.ProposalFeature]) -> Int {
+pub fn __js_array_45_length(value : Array[@validate.ProposalFeature]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_45_get(
   value : Array[@validate.ProposalFeature],
-  index : Int,
+  index : Int32,
 ) -> @validate.ProposalFeature {
   value[index]
 }
@@ -13612,14 +13644,14 @@ pub fn __js_array_46_push(
 ///|
 pub fn __js_array_46_length(
   value : Array[@validate.ValidateInvalidAstSeedPrerequisite],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_46_get(
   value : Array[@validate.ValidateInvalidAstSeedPrerequisite],
-  index : Int,
+  index : Int32,
 ) -> @validate.ValidateInvalidAstSeedPrerequisite {
   value[index]
 }
@@ -13640,14 +13672,14 @@ pub fn __js_array_47_push(
 ///|
 pub fn __js_array_47_length(
   value : Array[@validate.GenValidConstExprAllowedOps],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_47_get(
   value : Array[@validate.GenValidConstExprAllowedOps],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidConstExprAllowedOps {
   value[index]
 }
@@ -13668,14 +13700,14 @@ pub fn __js_array_48_push(
 ///|
 pub fn __js_array_48_length(
   value : Array[@validate.GenValidConstExprObservedOps],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_48_get(
   value : Array[@validate.GenValidConstExprObservedOps],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidConstExprObservedOps {
   value[index]
 }
@@ -13694,14 +13726,14 @@ pub fn __js_array_49_push(
 }
 
 ///|
-pub fn __js_array_49_length(value : Array[@lib.Module]) -> Int {
+pub fn __js_array_49_length(value : Array[@lib.Module]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_49_get(
   value : Array[@lib.Module],
-  index : Int,
+  index : Int32,
 ) -> @lib.Module {
   value[index]
 }
@@ -13722,14 +13754,14 @@ pub fn __js_array_50_push(
 ///|
 pub fn __js_array_50_length(
   value : Array[@validate.GenValidProfileMember],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_50_get(
   value : Array[@validate.GenValidProfileMember],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidProfileMember {
   value[index]
 }
@@ -13748,14 +13780,14 @@ pub fn __js_array_51_push(
 }
 
 ///|
-pub fn __js_array_51_length(value : Array[@validate.GenValidProfile]) -> Int {
+pub fn __js_array_51_length(value : Array[@validate.GenValidProfile]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_51_get(
   value : Array[@validate.GenValidProfile],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidProfile {
   value[index]
 }
@@ -13776,14 +13808,14 @@ pub fn __js_array_52_push(
 ///|
 pub fn __js_array_52_length(
   value : Array[@validate.GenValidProposalFeatureGateRow],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_52_get(
   value : Array[@validate.GenValidProposalFeatureGateRow],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidProposalFeatureGateRow {
   value[index]
 }
@@ -13804,14 +13836,14 @@ pub fn __js_array_53_push(
 ///|
 pub fn __js_array_53_length(
   value : Array[@validate.GenValidProposalFeature],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_53_get(
   value : Array[@validate.GenValidProposalFeature],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidProposalFeature {
   value[index]
 }
@@ -13832,14 +13864,14 @@ pub fn __js_array_54_push(
 ///|
 pub fn __js_array_54_length(
   value : Array[@validate.GenValidRandomStreamLabel],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_54_get(
   value : Array[@validate.GenValidRandomStreamLabel],
-  index : Int,
+  index : Int32,
 ) -> @validate.GenValidRandomStreamLabel {
   value[index]
 }
@@ -13858,14 +13890,14 @@ pub fn __js_array_55_push(
 }
 
 ///|
-pub fn __js_array_55_length(value : Array[(@lib.FuncIdx, @lib.Func)]) -> Int {
+pub fn __js_array_55_length(value : Array[(@lib.FuncIdx, @lib.Func)]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_55_get(
   value : Array[(@lib.FuncIdx, @lib.Func)],
-  index : Int,
+  index : Int32,
 ) -> (@lib.FuncIdx, @lib.Func) {
   value[index]
 }
@@ -13884,14 +13916,14 @@ pub fn __js_array_56_push(
 }
 
 ///|
-pub fn __js_array_56_length(value : Array[(@lib.FuncIdx, String)]) -> Int {
+pub fn __js_array_56_length(value : Array[(@lib.FuncIdx, String)]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_56_get(
   value : Array[(@lib.FuncIdx, String)],
-  index : Int,
+  index : Int32,
 ) -> (@lib.FuncIdx, String) {
   value[index]
 }
@@ -13912,14 +13944,14 @@ pub fn __js_array_57_push(
 ///|
 pub fn __js_array_57_length(
   value : Array[@validate.ValidateInvalidAstStrategySpec],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_57_get(
   value : Array[@validate.ValidateInvalidAstStrategySpec],
-  index : Int,
+  index : Int32,
 ) -> @validate.ValidateInvalidAstStrategySpec {
   value[index]
 }
@@ -13940,14 +13972,14 @@ pub fn __js_array_58_push(
 ///|
 pub fn __js_array_58_length(
   value : Array[@validate.ValidateValidFeatureLedgerEntry],
-) -> Int {
+) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_58_get(
   value : Array[@validate.ValidateValidFeatureLedgerEntry],
-  index : Int,
+  index : Int32,
 ) -> @validate.ValidateValidFeatureLedgerEntry {
   value[index]
 }
@@ -13966,14 +13998,14 @@ pub fn __js_array_59_push(
 }
 
 ///|
-pub fn __js_array_59_length(value : Array[@lib.FuncType]) -> Int {
+pub fn __js_array_59_length(value : Array[@lib.FuncType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_59_get(
   value : Array[@lib.FuncType],
-  index : Int,
+  index : Int32,
 ) -> @lib.FuncType {
   value[index]
 }
@@ -13992,14 +14024,14 @@ pub fn __js_array_60_push(
 }
 
 ///|
-pub fn __js_array_60_length(value : Array[@lib.TypeIdx?]) -> Int {
+pub fn __js_array_60_length(value : Array[@lib.TypeIdx?]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_60_get(
   value : Array[@lib.TypeIdx?],
-  index : Int,
+  index : Int32,
 ) -> @lib.TypeIdx? {
   value[index]
 }
@@ -14018,14 +14050,14 @@ pub fn __js_array_61_push(
 }
 
 ///|
-pub fn __js_array_61_length(value : Array[@lib.GlobalType]) -> Int {
+pub fn __js_array_61_length(value : Array[@lib.GlobalType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_61_get(
   value : Array[@lib.GlobalType],
-  index : Int,
+  index : Int32,
 ) -> @lib.GlobalType {
   value[index]
 }
@@ -14044,14 +14076,14 @@ pub fn __js_array_62_push(
 }
 
 ///|
-pub fn __js_array_62_length(value : Array[Array[@lib.ValType]]) -> Int {
+pub fn __js_array_62_length(value : Array[Array[@lib.ValType]]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_62_get(
   value : Array[Array[@lib.ValType]],
-  index : Int,
+  index : Int32,
 ) -> Array[@lib.ValType] {
   value[index]
 }
@@ -14070,14 +14102,14 @@ pub fn __js_array_63_push(
 }
 
 ///|
-pub fn __js_array_63_length(value : Array[@lib.TableType]) -> Int {
+pub fn __js_array_63_length(value : Array[@lib.TableType]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_63_get(
   value : Array[@lib.TableType],
-  index : Int,
+  index : Int32,
 ) -> @lib.TableType {
   value[index]
 }
@@ -14096,14 +14128,14 @@ pub fn __js_array_64_push(
 }
 
 ///|
-pub fn __js_array_64_length(value : Array[@wast.ModuleField]) -> Int {
+pub fn __js_array_64_length(value : Array[@wast.ModuleField]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_64_get(
   value : Array[@wast.ModuleField],
-  index : Int,
+  index : Int32,
 ) -> @wast.ModuleField {
   value[index]
 }
@@ -14122,14 +14154,14 @@ pub fn __js_array_65_push(
 }
 
 ///|
-pub fn __js_array_65_length(value : Array[@wast.LexerError]) -> Int {
+pub fn __js_array_65_length(value : Array[@wast.LexerError]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_65_get(
   value : Array[@wast.LexerError],
-  index : Int,
+  index : Int32,
 ) -> @wast.LexerError {
   value[index]
 }
@@ -14148,14 +14180,14 @@ pub fn __js_array_66_push(
 }
 
 ///|
-pub fn __js_array_66_length(value : Array[@wast.ParseError]) -> Int {
+pub fn __js_array_66_length(value : Array[@wast.ParseError]) -> Int32 {
   value.length()
 }
 
 ///|
 pub fn __js_array_66_get(
   value : Array[@wast.ParseError],
-  index : Int,
+  index : Int32,
 ) -> @wast.ParseError {
   value[index]
 }
@@ -14171,12 +14203,12 @@ pub fn __js_array_67_push(value : Array[Byte], item : Byte) -> Unit {
 }
 
 ///|
-pub fn __js_array_67_length(value : Array[Byte]) -> Int {
+pub fn __js_array_67_length(value : Array[Byte]) -> Int32 {
   value.length()
 }
 
 ///|
-pub fn __js_array_67_get(value : Array[Byte], index : Int) -> Byte {
+pub fn __js_array_67_get(value : Array[Byte], index : Int32) -> Byte {
   value[index]
 }
 
@@ -14507,17 +14539,17 @@ pub fn __js_option_12_unwrap(value : @cli.TrapMode?) -> @cli.TrapMode {
 }
 
 ///|
-pub fn __js_option_13_none() -> Int?? {
+pub fn __js_option_13_none() -> Int32?? {
   None
 }
 
 ///|
-pub fn __js_option_13_some(value : Int?) -> Int?? {
+pub fn __js_option_13_some(value : Int32?) -> Int32?? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_13_is_some(value : Int??) -> Bool {
+pub fn __js_option_13_is_some(value : Int32??) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -14525,7 +14557,7 @@ pub fn __js_option_13_is_some(value : Int??) -> Bool {
 }
 
 ///|
-pub fn __js_option_13_unwrap(value : Int??) -> Int? {
+pub fn __js_option_13_unwrap(value : Int32??) -> Int32? {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -14533,17 +14565,17 @@ pub fn __js_option_13_unwrap(value : Int??) -> Int? {
 }
 
 ///|
-pub fn __js_option_14_none() -> Int? {
+pub fn __js_option_14_none() -> Int32? {
   None
 }
 
 ///|
-pub fn __js_option_14_some(value : Int) -> Int? {
+pub fn __js_option_14_some(value : Int32) -> Int32? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_14_is_some(value : Int?) -> Bool {
+pub fn __js_option_14_is_some(value : Int32?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -14551,7 +14583,7 @@ pub fn __js_option_14_is_some(value : Int?) -> Bool {
 }
 
 ///|
-pub fn __js_option_14_unwrap(value : Int?) -> Int {
+pub fn __js_option_14_unwrap(value : Int32?) -> Int32 {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16898,7 +16930,7 @@ pub fn __js_option_100_unwrap(value : @wast.TokenType?) -> @wast.TokenType {
 
 ///|
 pub fn __js_result_1_is_ok(
-  value : Result[Array[Array[UInt]], @binary.BinaryEncodeError],
+  value : Result[Array[Array[UInt32]], @binary.BinaryEncodeError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -16908,8 +16940,8 @@ pub fn __js_result_1_is_ok(
 
 ///|
 pub fn __js_result_1_unwrap_ok(
-  value : Result[Array[Array[UInt]], @binary.BinaryEncodeError],
-) -> Array[Array[UInt]] {
+  value : Result[Array[Array[UInt32]], @binary.BinaryEncodeError],
+) -> Array[Array[UInt32]] {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -16918,7 +16950,7 @@ pub fn __js_result_1_unwrap_ok(
 
 ///|
 pub fn __js_result_1_unwrap_err(
-  value : Result[Array[Array[UInt]], @binary.BinaryEncodeError],
+  value : Result[Array[Array[UInt32]], @binary.BinaryEncodeError],
 ) -> @binary.BinaryEncodeError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -16929,7 +16961,7 @@ pub fn __js_result_1_unwrap_err(
 ///|
 pub fn __js_result_2_is_ok(
   value : Result[
-    Array[Array[(UInt, @lib.Instruction)]],
+    Array[Array[(UInt32, @lib.Instruction)]],
     @binary.BinaryEncodeError,
   ],
 ) -> Bool {
@@ -16942,10 +16974,10 @@ pub fn __js_result_2_is_ok(
 ///|
 pub fn __js_result_2_unwrap_ok(
   value : Result[
-    Array[Array[(UInt, @lib.Instruction)]],
+    Array[Array[(UInt32, @lib.Instruction)]],
     @binary.BinaryEncodeError,
   ],
-) -> Array[Array[(UInt, @lib.Instruction)]] {
+) -> Array[Array[(UInt32, @lib.Instruction)]] {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -16955,7 +16987,7 @@ pub fn __js_result_2_unwrap_ok(
 ///|
 pub fn __js_result_2_unwrap_err(
   value : Result[
-    Array[Array[(UInt, @lib.Instruction)]],
+    Array[Array[(UInt32, @lib.Instruction)]],
     @binary.BinaryEncodeError,
   ],
 ) -> @binary.BinaryEncodeError {
@@ -16967,7 +16999,7 @@ pub fn __js_result_2_unwrap_err(
 
 ///|
 pub fn __js_result_3_is_ok(
-  value : Result[Array[UInt], @binary.BinaryEncodeError],
+  value : Result[Array[UInt32], @binary.BinaryEncodeError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -16977,8 +17009,8 @@ pub fn __js_result_3_is_ok(
 
 ///|
 pub fn __js_result_3_unwrap_ok(
-  value : Result[Array[UInt], @binary.BinaryEncodeError],
-) -> Array[UInt] {
+  value : Result[Array[UInt32], @binary.BinaryEncodeError],
+) -> Array[UInt32] {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -16987,7 +17019,7 @@ pub fn __js_result_3_unwrap_ok(
 
 ///|
 pub fn __js_result_3_unwrap_err(
-  value : Result[Array[UInt], @binary.BinaryEncodeError],
+  value : Result[Array[UInt32], @binary.BinaryEncodeError],
 ) -> @binary.BinaryEncodeError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -16997,7 +17029,7 @@ pub fn __js_result_3_unwrap_err(
 
 ///|
 pub fn __js_result_4_is_ok(
-  value : Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError],
+  value : Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -17007,8 +17039,8 @@ pub fn __js_result_4_is_ok(
 
 ///|
 pub fn __js_result_4_unwrap_ok(
-  value : Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError],
-) -> Array[(UInt, @lib.Instruction)] {
+  value : Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError],
+) -> Array[(UInt32, @lib.Instruction)] {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -17017,7 +17049,7 @@ pub fn __js_result_4_unwrap_ok(
 
 ///|
 pub fn __js_result_4_unwrap_err(
-  value : Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError],
+  value : Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError],
 ) -> @binary.BinaryEncodeError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -17057,7 +17089,7 @@ pub fn __js_result_5_unwrap_err(
 
 ///|
 pub fn __js_result_6_is_ok(
-  value : Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail],
+  value : Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -17067,8 +17099,8 @@ pub fn __js_result_6_is_ok(
 
 ///|
 pub fn __js_result_6_unwrap_ok(
-  value : Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail],
-) -> (@lib.Module, Int) {
+  value : Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail],
+) -> (@lib.Module, Int32) {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -17077,7 +17109,7 @@ pub fn __js_result_6_unwrap_ok(
 
 ///|
 pub fn __js_result_6_unwrap_err(
-  value : Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail],
+  value : Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail],
 ) -> @binary.ModuleDecodeErrorDetail {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -17115,7 +17147,7 @@ pub fn __js_result_7_unwrap_err(
 
 ///|
 pub fn __js_result_8_is_ok(
-  value : Result[(Int, Int), @binary.EncodeError],
+  value : Result[(Int32, Int32), @binary.EncodeError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -17125,8 +17157,8 @@ pub fn __js_result_8_is_ok(
 
 ///|
 pub fn __js_result_8_unwrap_ok(
-  value : Result[(Int, Int), @binary.EncodeError],
-) -> (Int, Int) {
+  value : Result[(Int32, Int32), @binary.EncodeError],
+) -> (Int32, Int32) {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -17135,7 +17167,7 @@ pub fn __js_result_8_unwrap_ok(
 
 ///|
 pub fn __js_result_8_unwrap_err(
-  value : Result[(Int, Int), @binary.EncodeError],
+  value : Result[(Int32, Int32), @binary.EncodeError],
 ) -> @binary.EncodeError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -17145,7 +17177,7 @@ pub fn __js_result_8_unwrap_err(
 
 ///|
 pub fn __js_result_9_is_ok(
-  value : Result[Int, @binary.BinaryEncodeError],
+  value : Result[Int32, @binary.BinaryEncodeError],
 ) -> Bool {
   match value {
     Ok(_) => true
@@ -17155,8 +17187,8 @@ pub fn __js_result_9_is_ok(
 
 ///|
 pub fn __js_result_9_unwrap_ok(
-  value : Result[Int, @binary.BinaryEncodeError],
-) -> Int {
+  value : Result[Int32, @binary.BinaryEncodeError],
+) -> Int32 {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -17165,7 +17197,7 @@ pub fn __js_result_9_unwrap_ok(
 
 ///|
 pub fn __js_result_9_unwrap_err(
-  value : Result[Int, @binary.BinaryEncodeError],
+  value : Result[Int32, @binary.BinaryEncodeError],
 ) -> @binary.BinaryEncodeError {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
@@ -17930,7 +17962,7 @@ pub fn __js_result_35_unwrap_err(
 }
 
 ///|
-pub fn __js_result_36_is_ok(value : Result[Int, String]) -> Bool {
+pub fn __js_result_36_is_ok(value : Result[Int32, String]) -> Bool {
   match value {
     Ok(_) => true
     Err(_) => false
@@ -17938,7 +17970,7 @@ pub fn __js_result_36_is_ok(value : Result[Int, String]) -> Bool {
 }
 
 ///|
-pub fn __js_result_36_unwrap_ok(value : Result[Int, String]) -> Int {
+pub fn __js_result_36_unwrap_ok(value : Result[Int32, String]) -> Int32 {
   match value {
     Ok(inner) => inner
     Err(_) => abort("Attempted to unwrap Err as Ok inside the Node adapter.")
@@ -17946,7 +17978,7 @@ pub fn __js_result_36_unwrap_ok(value : Result[Int, String]) -> Int {
 }
 
 ///|
-pub fn __js_result_36_unwrap_err(value : Result[Int, String]) -> String {
+pub fn __js_result_36_unwrap_err(value : Result[Int32, String]) -> String {
   match value {
     Ok(_) => abort("Attempted to unwrap Ok as Err inside the Node adapter.")
     Err(inner) => inner
@@ -18389,54 +18421,59 @@ pub fn __js_result_51_unwrap_err(
 
 ///|
 pub fn __js_tuple_1_new(
-  arg0 : UInt,
+  arg0 : UInt32,
   arg1 : @lib.Instruction,
-) -> (UInt, @lib.Instruction) {
+) -> (UInt32, @lib.Instruction) {
   (arg0, arg1)
 }
 
 ///|
-pub fn __js_tuple_1_get_0(value : (UInt, @lib.Instruction)) -> UInt {
+pub fn __js_tuple_1_get_0(value : (UInt32, @lib.Instruction)) -> UInt32 {
   let (item0, _) = value
   item0
 }
 
 ///|
-pub fn __js_tuple_1_get_1(value : (UInt, @lib.Instruction)) -> @lib.Instruction {
+pub fn __js_tuple_1_get_1(
+  value : (UInt32, @lib.Instruction),
+) -> @lib.Instruction {
   let (_, item1) = value
   item1
 }
 
 ///|
-pub fn __js_tuple_2_new(arg0 : @lib.Module, arg1 : Int) -> (@lib.Module, Int) {
+pub fn __js_tuple_2_new(
+  arg0 : @lib.Module,
+  arg1 : Int32,
+) -> (@lib.Module, Int32) {
   (arg0, arg1)
 }
 
 ///|
-pub fn __js_tuple_2_get_0(value : (@lib.Module, Int)) -> @lib.Module {
+pub fn __js_tuple_2_get_0(value : (@lib.Module, Int32)) -> @lib.Module {
   let (item0, _) = value
   item0
 }
 
 ///|
-pub fn __js_tuple_2_get_1(value : (@lib.Module, Int)) -> Int {
+pub fn __js_tuple_2_get_1(value : (@lib.Module, Int32)) -> Int32 {
   let (_, item1) = value
   item1
 }
 
 ///|
-pub fn __js_tuple_3_new(arg0 : Int, arg1 : Int) -> (Int, Int) {
+pub fn __js_tuple_3_new(arg0 : Int32, arg1 : Int32) -> (Int32, Int32) {
   (arg0, arg1)
 }
 
 ///|
-pub fn __js_tuple_3_get_0(value : (Int, Int)) -> Int {
+pub fn __js_tuple_3_get_0(value : (Int32, Int32)) -> Int32 {
   let (item0, _) = value
   item0
 }
 
 ///|
-pub fn __js_tuple_3_get_1(value : (Int, Int)) -> Int {
+pub fn __js_tuple_3_get_1(value : (Int32, Int32)) -> Int32 {
   let (_, item1) = value
   item1
 }
@@ -19642,14 +19679,14 @@ pub fn __js_show_wast_WastValue(value : @wast.WastValue) -> String {
 ///|
 pub fn binary__compiler_fact_module_opcode_offsets(
   arg0 : @lib.Module,
-) -> Result[Array[Array[UInt]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[UInt32]], @binary.BinaryEncodeError] {
   ffi_binary_compiler_fact_module_opcode_offsets(arg0)
 }
 
 ///|
 pub fn binary__compiler_fact_module_opcode_sites(
   arg0 : @lib.Module,
-) -> Result[Array[Array[(UInt, @lib.Instruction)]], @binary.BinaryEncodeError] {
+) -> Result[Array[Array[(UInt32, @lib.Instruction)]], @binary.BinaryEncodeError] {
   ffi_binary_compiler_fact_module_opcode_sites(arg0)
 }
 
@@ -19657,7 +19694,7 @@ pub fn binary__compiler_fact_module_opcode_sites(
 pub fn binary__compiler_fact_opcode_offsets(
   arg0 : @lib.Expr,
   arg1 : Array[Bytes]??,
-) -> Result[Array[UInt], @binary.BinaryEncodeError] {
+) -> Result[Array[UInt32], @binary.BinaryEncodeError] {
   ffi_binary_compiler_fact_opcode_offsets(arg0, arg1)
 }
 
@@ -19665,7 +19702,7 @@ pub fn binary__compiler_fact_opcode_offsets(
 pub fn binary__compiler_fact_opcode_sites(
   arg0 : @lib.Expr,
   arg1 : Array[Bytes]??,
-) -> Result[Array[(UInt, @lib.Instruction)], @binary.BinaryEncodeError] {
+) -> Result[Array[(UInt32, @lib.Instruction)], @binary.BinaryEncodeError] {
   ffi_binary_compiler_fact_opcode_sites(arg0, arg1)
 }
 
@@ -19679,8 +19716,8 @@ pub fn binary__decode_module(
 ///|
 pub fn binary__decode_module_with_detail(
   arg0 : Bytes,
-  arg1 : Int,
-) -> Result[(@lib.Module, Int), @binary.ModuleDecodeErrorDetail] {
+  arg1 : Int32,
+) -> Result[(@lib.Module, Int32), @binary.ModuleDecodeErrorDetail] {
   ffi_binary_decode_module_with_detail(arg0, arg1)
 }
 
@@ -19696,23 +19733,31 @@ pub fn binary__encode_module(
 pub fn binary__encoded_module_sizes(
   arg0 : @lib.Module,
   arg1 : @lib.Module,
-) -> Result[(Int, Int), @binary.EncodeError] {
+) -> Result[(Int32, Int32), @binary.EncodeError] {
   ffi_binary_encoded_module_sizes(arg0, arg1)
+}
+
+///|
+pub fn binary__encoded_type_compaction_is_strictly_smaller(
+  arg0 : @lib.Module,
+  arg1 : @lib.Module,
+) -> Bool {
+  ffi_binary_encoded_type_compaction_is_strictly_smaller(arg0, arg1)
 }
 
 ///|
 pub fn binary__size_signed(
   arg0 : Int64,
-  arg1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  arg1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   ffi_binary_size_signed(arg0, arg1)
 }
 
 ///|
 pub fn binary__size_unsigned(
   arg0 : UInt64,
-  arg1 : Int,
-) -> Result[Int, @binary.BinaryEncodeError] {
+  arg1 : Int32,
+) -> Result[Int32, @binary.BinaryEncodeError] {
   ffi_binary_size_unsigned(arg0, arg1)
 }
 
@@ -19800,7 +19845,7 @@ pub fn cli__CliInputFormat__wat() -> @cli.CliInputFormat {
 
 ///|
 pub fn cli__CliOptimizationFlag__olevel(
-  arg0 : Int,
+  arg0 : Int32,
   arg1 : Bool,
 ) -> @cli.CliOptimizationFlag {
   ffi_cli_CliOptimizationFlag_olevel(arg0, arg1)
@@ -19925,17 +19970,17 @@ pub fn cli__CliParseResult__new(
   arg9 : Array[String]?,
   arg10 : Array[@cli.CliOptimizationFlag]?,
   arg11 : @cli.TrapMode??,
-  arg13 : Int??,
+  arg13 : Int32??,
   arg20 : Bool??,
   arg21 : UInt64??,
   arg24 : @cli.CliTracingLevel??,
   arg12 : Bool?,
-  arg14 : Int??,
-  arg15 : Int??,
-  arg16 : Int??,
-  arg17 : Int??,
+  arg14 : Int32??,
+  arg15 : Int32??,
+  arg16 : Int32??,
+  arg17 : Int32??,
   arg18 : Bool??,
-  arg19 : Int??,
+  arg19 : Int32??,
   arg22 : Bool??,
   arg23 : String??,
 ) -> @cli.CliParseResult {
@@ -20136,7 +20181,7 @@ pub fn cmd__persist_text_differential_artifacts(
   arg4 : @cmd.FuzzFailurePersistIO,
   arg5 : String?,
   arg6 : UInt64?,
-  arg7 : Int?,
+  arg7 : Int32?,
 ) -> Result[@cmd.TextDifferentialArtifactPaths, String] {
   ffi_cmd_persist_text_differential_artifacts(
     arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7,
@@ -20166,7 +20211,7 @@ pub fn cmd__run_cmd(
 }
 
 ///|
-pub fn cmd__run_cmd_exit_code(arg0 : Array[String]) -> Int {
+pub fn cmd__run_cmd_exit_code(arg0 : Array[String]) -> Int32 {
   ffi_cmd_run_cmd_exit_code(arg0)
 }
 
@@ -20175,7 +20220,7 @@ pub fn cmd__run_cmd_exit_code_with_adapter(
   arg0 : Array[String],
   arg1 : @cmd.CmdIO,
   arg2 : String??,
-) -> Int {
+) -> Int32 {
   ffi_cmd_run_cmd_exit_code_with_adapter(arg0, arg1, arg2)
 }
 
@@ -20415,16 +20460,16 @@ pub fn cmd__CmdError__unknown_pass_flag(arg0 : String) -> @cmd.CmdError {
 
 ///|
 pub fn cmd__CmdFuzzStats__new(
-  arg0 : Int?,
-  arg1 : Int?,
-  arg2 : Int?,
-  arg3 : Int?,
-  arg4 : Int?,
-  arg5 : Int?,
-  arg6 : Int?,
-  arg7 : Int?,
-  arg8 : Int?,
-  arg9 : Int?,
+  arg0 : Int32?,
+  arg1 : Int32?,
+  arg2 : Int32?,
+  arg3 : Int32?,
+  arg4 : Int32?,
+  arg5 : Int32?,
+  arg6 : Int32?,
+  arg7 : Int32?,
+  arg8 : Int32?,
+  arg9 : Int32?,
   arg10 : String?,
   arg11 : String?,
 ) -> @cmd.CmdFuzzStats {
@@ -20438,11 +20483,11 @@ pub fn cmd__CmdRunSummary__new(
   arg0 : Array[String]?,
   arg1 : Array[String]?,
   arg2 : Array[String]?,
-  arg3 : Int?,
-  arg4 : Int?,
+  arg3 : Int32?,
+  arg4 : Int32?,
   arg5 : Bool?,
   arg6 : Bool?,
-  arg7 : Int?,
+  arg7 : Int32?,
   arg8 : Bool?,
   arg9 : Bool?,
   arg10 : UInt64?,
@@ -20561,7 +20606,7 @@ pub fn cmd__FuzzCorpusDedupIndex__to_text(
 ///|
 pub fn cmd__FuzzCorpusSource__new(
   arg0 : UInt64,
-  arg1 : Int,
+  arg1 : Int32,
   arg2 : String,
   arg3 : String,
   arg4 : String,
@@ -20572,8 +20617,8 @@ pub fn cmd__FuzzCorpusSource__new(
 ///|
 pub fn cmd__FuzzFailureReport__new(
   arg0 : UInt64,
-  arg1 : Int,
-  arg2 : Int,
+  arg1 : Int32,
+  arg2 : Int32,
   arg3 : String,
   arg4 : String,
   arg5 : Array[String]?,
@@ -20581,13 +20626,13 @@ pub fn cmd__FuzzFailureReport__new(
   arg7 : String?,
   arg8 : String?,
   arg9 : String?,
-  arg10 : Int?,
+  arg10 : Int32?,
   arg11 : String?,
   arg12 : Bytes??,
   arg13 : Bytes??,
-  arg14 : Int??,
-  arg15 : Int??,
-  arg16 : Int??,
+  arg14 : Int32??,
+  arg15 : Int32??,
+  arg16 : Int32??,
   arg17 : Array[@cmd.FuzzReductionStep]?,
 ) -> @cmd.FuzzFailureReport {
   ffi_cmd_FuzzFailureReport_new(
@@ -20598,22 +20643,22 @@ pub fn cmd__FuzzFailureReport__new(
 
 ///|
 pub fn cmd__InliningOptions__new(
-  arg0 : Int?,
-  arg1 : Int?,
-  arg2 : Int?,
-  arg3 : Int?,
+  arg0 : Int32?,
+  arg1 : Int32?,
+  arg2 : Int32?,
+  arg3 : Int32?,
   arg4 : Bool?,
-  arg5 : Int?,
+  arg5 : Int32?,
 ) -> @cmd.InliningOptions {
   ffi_cmd_InliningOptions_new(arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 ///|
 pub fn cmd__OptimizeOptions__new(
-  arg0 : Int?,
-  arg1 : Int?,
+  arg0 : Int32?,
+  arg1 : Int32?,
   arg2 : @cmd.InliningOptions?,
-  arg3 : Int?,
+  arg3 : Int32?,
   arg4 : Bool?,
   arg5 : Bool?,
   arg6 : Bool?,
@@ -20763,7 +20808,7 @@ pub fn lib__func_extern_type(arg0 : @lib.TypeIdx) -> @lib.ExternType {
 }
 
 ///|
-pub fn lib__func_idx(arg0 : UInt) -> @lib.FuncIdx {
+pub fn lib__func_idx(arg0 : UInt32) -> @lib.FuncIdx {
   ffi_lib_func_idx(arg0)
 }
 
@@ -20786,7 +20831,7 @@ pub fn lib__global_extern_type(arg0 : @lib.GlobalType) -> @lib.ExternType {
 }
 
 ///|
-pub fn lib__global_idx(arg0 : UInt) -> @lib.GlobalIdx {
+pub fn lib__global_idx(arg0 : UInt32) -> @lib.GlobalIdx {
   ffi_lib_global_idx(arg0)
 }
 
@@ -20839,7 +20884,7 @@ pub fn lib__module_uses_custom_descriptors(arg0 : @lib.Module) -> Bool {
 }
 
 ///|
-pub fn lib__rec_idx(arg0 : UInt) -> @lib.TypeIdx {
+pub fn lib__rec_idx(arg0 : UInt32) -> @lib.TypeIdx {
   ffi_lib_rec_idx(arg0)
 }
 
@@ -20879,7 +20924,7 @@ pub fn lib__table_extern_type(arg0 : @lib.TableType) -> @lib.ExternType {
 }
 
 ///|
-pub fn lib__table_idx(arg0 : UInt) -> @lib.TableIdx {
+pub fn lib__table_idx(arg0 : UInt32) -> @lib.TableIdx {
   ffi_lib_table_idx(arg0)
 }
 
@@ -22412,7 +22457,7 @@ pub fn lib__DataCntSec__new(arg0 : @lib.U32) -> @lib.DataCntSec {
 }
 
 ///|
-pub fn lib__DataIdx__new(arg0 : UInt) -> @lib.DataIdx {
+pub fn lib__DataIdx__new(arg0 : UInt32) -> @lib.DataIdx {
   ffi_lib_DataIdx_new(arg0)
 }
 
@@ -22435,7 +22480,7 @@ pub fn lib__DataSec__new(arg0 : Array[@lib.Data]) -> @lib.DataSec {
 }
 
 ///|
-pub fn lib__DefType__new(arg0 : @lib.RecType, arg1 : UInt) -> @lib.DefType {
+pub fn lib__DefType__new(arg0 : @lib.RecType, arg1 : UInt32) -> @lib.DefType {
   ffi_lib_DefType_new(arg0, arg1)
 }
 
@@ -22455,7 +22500,7 @@ pub fn lib__Elem__reftype(arg0 : @lib.Elem) -> @lib.RefType {
 }
 
 ///|
-pub fn lib__ElemIdx__new(arg0 : UInt) -> @lib.ElemIdx {
+pub fn lib__ElemIdx__new(arg0 : UInt32) -> @lib.ElemIdx {
   ffi_lib_ElemIdx_new(arg0)
 }
 
@@ -22655,7 +22700,7 @@ pub fn lib__FuncAnnotation__new(
 
 ///|
 pub fn lib__FuncAnnotationAssoc__new(
-  arg0 : UInt,
+  arg0 : UInt32,
   arg1 : Array[@lib.FuncAnnotation],
 ) -> @lib.FuncAnnotationAssoc {
   ffi_lib_FuncAnnotationAssoc_new(arg0, arg1)
@@ -22669,7 +22714,7 @@ pub fn lib__FuncAnnotationSec__new(
 }
 
 ///|
-pub fn lib__FuncIdx__new(arg0 : UInt) -> @lib.FuncIdx {
+pub fn lib__FuncIdx__new(arg0 : UInt32) -> @lib.FuncIdx {
   ffi_lib_FuncIdx_new(arg0)
 }
 
@@ -22743,7 +22788,7 @@ pub fn lib__FunctionLocals__new(
 }
 
 ///|
-pub fn lib__FunctionLocals__param_count(arg0 : @lib.FunctionLocals) -> Int {
+pub fn lib__FunctionLocals__param_count(arg0 : @lib.FunctionLocals) -> Int32 {
   ffi_lib_FunctionLocals_param_count(arg0)
 }
 
@@ -22763,7 +22808,7 @@ pub fn lib__Global__new(
 }
 
 ///|
-pub fn lib__GlobalIdx__new(arg0 : UInt) -> @lib.GlobalIdx {
+pub fn lib__GlobalIdx__new(arg0 : UInt32) -> @lib.GlobalIdx {
   ffi_lib_GlobalIdx_new(arg0)
 }
 
@@ -22826,7 +22871,7 @@ pub fn lib__HeapType__shared_abs(arg0 : @lib.AbsHeapType) -> @lib.HeapType {
 }
 
 ///|
-pub fn lib__I32__new(arg0 : Int) -> @lib.I32 {
+pub fn lib__I32__new(arg0 : Int32) -> @lib.I32 {
   ffi_lib_I32_new(arg0)
 }
 
@@ -22851,7 +22896,7 @@ pub fn lib__ImportSec__new(arg0 : Array[@lib.Import]) -> @lib.ImportSec {
 
 ///|
 pub fn lib__IndirectNameAssoc__new(
-  arg0 : UInt,
+  arg0 : UInt32,
   arg1 : @lib.NameMap,
 ) -> @lib.IndirectNameAssoc {
   ffi_lib_IndirectNameAssoc_new(arg0, arg1)
@@ -26076,7 +26121,7 @@ pub fn lib__Instruction__waitqueue_notify() -> @lib.Instruction {
 }
 
 ///|
-pub fn lib__LabelIdx__new(arg0 : UInt) -> @lib.LabelIdx {
+pub fn lib__LabelIdx__new(arg0 : UInt32) -> @lib.LabelIdx {
   ffi_lib_LabelIdx_new(arg0)
 }
 
@@ -26104,7 +26149,7 @@ pub fn lib__Limits__addr_valtype(arg0 : @lib.Limits) -> @lib.ValType {
 }
 
 ///|
-pub fn lib__Limits__i32(arg0 : UInt, arg1 : UInt?) -> @lib.Limits {
+pub fn lib__Limits__i32(arg0 : UInt32, arg1 : UInt32?) -> @lib.Limits {
   ffi_lib_Limits_i32(arg0, arg1)
 }
 
@@ -26114,7 +26159,7 @@ pub fn lib__Limits__i64(arg0 : UInt64, arg1 : UInt64?) -> @lib.Limits {
 }
 
 ///|
-pub fn lib__Limits__mem_addr_bits(arg0 : @lib.Limits) -> Int {
+pub fn lib__Limits__mem_addr_bits(arg0 : @lib.Limits) -> Int32 {
   ffi_lib_Limits_mem_addr_bits(arg0)
 }
 
@@ -26289,17 +26334,17 @@ pub fn lib__LoadOp__v128_load8x8u() -> @lib.LoadOp {
 }
 
 ///|
-pub fn lib__LocalIdx__new(arg0 : UInt) -> @lib.LocalIdx {
+pub fn lib__LocalIdx__new(arg0 : UInt32) -> @lib.LocalIdx {
   ffi_lib_LocalIdx_new(arg0)
 }
 
 ///|
-pub fn lib__LocalRun__count(arg0 : @lib.LocalRun) -> UInt {
+pub fn lib__LocalRun__count(arg0 : @lib.LocalRun) -> UInt32 {
   ffi_lib_LocalRun_count(arg0)
 }
 
 ///|
-pub fn lib__LocalRun__new(arg0 : UInt, arg1 : @lib.ValType) -> @lib.LocalRun {
+pub fn lib__LocalRun__new(arg0 : UInt32, arg1 : @lib.ValType) -> @lib.LocalRun {
   ffi_lib_LocalRun_new(arg0, arg1)
 }
 
@@ -26322,7 +26367,7 @@ pub fn lib__Locals__append_types(
 }
 
 ///|
-pub fn lib__Locals__at(arg0 : @lib.Locals, arg1 : Int) -> @lib.ValType? {
+pub fn lib__Locals__at(arg0 : @lib.Locals, arg1 : Int32) -> @lib.ValType? {
   ffi_lib_Locals_at(arg0, arg1)
 }
 
@@ -26337,7 +26382,7 @@ pub fn lib__Locals__empty() -> @lib.Locals {
 }
 
 ///|
-pub fn lib__Locals__ensure_index(arg0 : @lib.Locals) -> Array[Int] {
+pub fn lib__Locals__ensure_index(arg0 : @lib.Locals) -> Array[Int32] {
   ffi_lib_Locals_ensure_index(arg0)
 }
 
@@ -26354,14 +26399,14 @@ pub fn lib__Locals__from_types(arg0 : Array[@lib.ValType]) -> @lib.Locals {
 }
 
 ///|
-pub fn lib__Locals__get(arg0 : @lib.Locals, arg1 : Int) -> @lib.ValType {
+pub fn lib__Locals__get(arg0 : @lib.Locals, arg1 : Int32) -> @lib.ValType {
   ffi_lib_Locals_get(arg0, arg1)
 }
 
 ///|
 pub fn lib__Locals__insert_run(
   arg0 : @lib.Locals,
-  arg1 : Int,
+  arg1 : Int32,
   arg2 : @lib.LocalRun,
 ) -> Unit {
   ffi_lib_Locals_insert_run(arg0, arg1, arg2)
@@ -26383,7 +26428,7 @@ pub fn lib__Locals__iter(arg0 : @lib.Locals) -> Iter[@lib.ValType] {
 }
 
 ///|
-pub fn lib__Locals__length(arg0 : @lib.Locals) -> Int {
+pub fn lib__Locals__length(arg0 : @lib.Locals) -> Int32 {
   ffi_lib_Locals_length(arg0)
 }
 
@@ -26410,13 +26455,13 @@ pub fn lib__Locals__push_run(arg0 : @lib.Locals, arg1 : @lib.LocalRun) -> Unit {
 ///|
 pub fn lib__Locals__remove_run(
   arg0 : @lib.Locals,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> @lib.LocalRun? {
   ffi_lib_Locals_remove_run(arg0, arg1)
 }
 
 ///|
-pub fn lib__Locals__run_count(arg0 : @lib.Locals) -> Int {
+pub fn lib__Locals__run_count(arg0 : @lib.Locals) -> Int32 {
   ffi_lib_Locals_run_count(arg0)
 }
 
@@ -26428,7 +26473,7 @@ pub fn lib__Locals__runs(arg0 : @lib.Locals) -> Array[@lib.LocalRun] {
 ///|
 pub fn lib__Locals__set(
   arg0 : @lib.Locals,
-  arg1 : Int,
+  arg1 : Int32,
   arg2 : @lib.ValType,
 ) -> Bool {
   ffi_lib_Locals_set(arg0, arg1, arg2)
@@ -26437,26 +26482,29 @@ pub fn lib__Locals__set(
 ///|
 pub fn lib__Locals__set_run_count(
   arg0 : @lib.Locals,
-  arg1 : Int,
-  arg2 : UInt,
+  arg1 : Int32,
+  arg2 : UInt32,
 ) -> Bool {
   ffi_lib_Locals_set_run_count(arg0, arg1, arg2)
 }
 
 ///|
-pub fn lib__Locals__single(arg0 : UInt, arg1 : @lib.ValType) -> @lib.Locals {
+pub fn lib__Locals__single(arg0 : UInt32, arg1 : @lib.ValType) -> @lib.Locals {
   ffi_lib_Locals_single(arg0, arg1)
 }
 
 ///|
-pub fn lib__Locals__unsafe_get(arg0 : @lib.Locals, arg1 : Int) -> @lib.ValType {
+pub fn lib__Locals__unsafe_get(
+  arg0 : @lib.Locals,
+  arg1 : Int32,
+) -> @lib.ValType {
   ffi_lib_Locals_unsafe_get(arg0, arg1)
 }
 
 ///|
 pub fn lib__Locals__without_prefix(
   arg0 : @lib.Locals,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> @lib.Locals {
   ffi_lib_Locals_without_prefix(arg0, arg1)
 }
@@ -26471,7 +26519,7 @@ pub fn lib__MemArg__new(
 }
 
 ///|
-pub fn lib__MemIdx__new(arg0 : UInt) -> @lib.MemIdx {
+pub fn lib__MemIdx__new(arg0 : UInt32) -> @lib.MemIdx {
   ffi_lib_MemIdx_new(arg0)
 }
 
@@ -26516,7 +26564,7 @@ pub fn lib__Module__new(
 ///|
 pub fn lib__Module__pretty_print_defined_func(
   arg0 : @lib.Module,
-  arg1 : UInt,
+  arg1 : UInt32,
 ) -> String {
   ffi_lib_Module_pretty_print_defined_func(arg0, arg1)
 }
@@ -26709,7 +26757,7 @@ pub fn lib__Name__from_string(arg0 : String) -> @lib.Name {
 }
 
 ///|
-pub fn lib__NameAssoc__new(arg0 : UInt, arg1 : @lib.Name) -> @lib.NameAssoc {
+pub fn lib__NameAssoc__new(arg0 : UInt32, arg1 : @lib.Name) -> @lib.NameAssoc {
   ffi_lib_NameAssoc_new(arg0, arg1)
 }
 
@@ -26771,7 +26819,7 @@ pub fn lib__PackType__i8() -> @lib.PackType {
 ///|
 pub fn lib__PrettyPrintContext__indent(
   arg0 : @lib.PrettyPrintContext,
-  arg1 : UInt,
+  arg1 : UInt32,
 ) -> String {
   ffi_lib_PrettyPrintContext_indent(arg0, arg1)
 }
@@ -26785,11 +26833,11 @@ pub fn lib__PrettyPrintContext__indent_unit(
 
 ///|
 pub fn lib__PrettyPrintContext__new(
-  arg0 : UInt?,
+  arg0 : UInt32?,
   arg1 : @lib.TabsOrSpaces?,
-  arg2 : UInt?,
-  arg3 : UInt?,
-  arg4 : UInt?,
+  arg2 : UInt32?,
+  arg3 : UInt32?,
+  arg4 : UInt32?,
 ) -> @lib.PrettyPrintContext {
   ffi_lib_PrettyPrintContext_new(arg0, arg1, arg2, arg3, arg4)
 }
@@ -26797,7 +26845,7 @@ pub fn lib__PrettyPrintContext__new(
 ///|
 pub fn lib__RecType__get_subtype(
   arg0 : @lib.RecType,
-  arg1 : UInt,
+  arg1 : UInt32,
 ) -> @lib.SubType? {
   ffi_lib_RecType_get_subtype(arg0, arg1)
 }
@@ -26900,7 +26948,7 @@ pub fn lib__ResumeHandler__on_switch(arg0 : @lib.TagIdx) -> @lib.ResumeHandler {
 }
 
 ///|
-pub fn lib__S33__new(arg0 : UInt) -> @lib.S33 {
+pub fn lib__S33__new(arg0 : UInt32) -> @lib.S33 {
   ffi_lib_S33_new(arg0)
 }
 
@@ -27068,7 +27116,7 @@ pub fn lib__Table__new(arg0 : @lib.TableType, arg1 : @lib.Expr?) -> @lib.Table {
 }
 
 ///|
-pub fn lib__TableIdx__new(arg0 : UInt) -> @lib.TableIdx {
+pub fn lib__TableIdx__new(arg0 : UInt32) -> @lib.TableIdx {
   ffi_lib_TableIdx_new(arg0)
 }
 
@@ -27096,7 +27144,7 @@ pub fn lib__TabsOrSpaces__tabs() -> @lib.TabsOrSpaces {
 }
 
 ///|
-pub fn lib__TagIdx__new(arg0 : UInt) -> @lib.TagIdx {
+pub fn lib__TagIdx__new(arg0 : UInt32) -> @lib.TagIdx {
   ffi_lib_TagIdx_new(arg0)
 }
 
@@ -27111,12 +27159,12 @@ pub fn lib__TagType__new(arg0 : @lib.TypeIdx) -> @lib.TagType {
 }
 
 ///|
-pub fn lib__TypeIdx__new(arg0 : UInt) -> @lib.TypeIdx {
+pub fn lib__TypeIdx__new(arg0 : UInt32) -> @lib.TypeIdx {
   ffi_lib_TypeIdx_new(arg0)
 }
 
 ///|
-pub fn lib__TypeIdx__rec(arg0 : UInt) -> @lib.TypeIdx {
+pub fn lib__TypeIdx__rec(arg0 : UInt32) -> @lib.TypeIdx {
   ffi_lib_TypeIdx_rec(arg0)
 }
 
@@ -27148,7 +27196,7 @@ pub fn lib__TypeSec__new(arg0 : Array[@lib.RecType]) -> @lib.TypeSec {
 }
 
 ///|
-pub fn lib__U32__new(arg0 : UInt) -> @lib.U32 {
+pub fn lib__U32__new(arg0 : UInt32) -> @lib.U32 {
   ffi_lib_U32_new(arg0)
 }
 
@@ -28182,7 +28230,7 @@ pub fn validate__gen_invalid_small_gen_valid_config(
 }
 
 ///|
-pub fn validate__gen_valid_case_seed(arg0 : UInt64, arg1 : Int) -> UInt64 {
+pub fn validate__gen_valid_case_seed(arg0 : UInt64, arg1 : Int32) -> UInt64 {
   ffi_validate_gen_valid_case_seed(arg0, arg1)
 }
 
@@ -28328,7 +28376,7 @@ pub fn validate__gen_valid_engine_state_profile() -> @validate.GenValidProfile {
 ///|
 pub fn validate__gen_valid_engine_state_static_instruction_count(
   arg0 : @lib.Module,
-) -> Int {
+) -> Int32 {
   ffi_validate_gen_valid_engine_state_static_instruction_count(arg0)
 }
 
@@ -28462,7 +28510,7 @@ pub fn validate__gen_valid_msf_profile_case_label(
 ///|
 pub fn validate__gen_valid_oi_trigger_profile_case_for_seed(
   arg0 : UInt64,
-) -> Int {
+) -> Int32 {
   ffi_validate_gen_valid_oi_trigger_profile_case_for_seed(arg0)
 }
 
@@ -28492,7 +28540,7 @@ pub fn validate__gen_valid_profile_is_composite(
 pub fn validate__gen_valid_profile_leaf_for_case(
   arg0 : @validate.GenValidProfile,
   arg1 : UInt64,
-  arg2 : Int,
+  arg2 : Int32,
 ) -> @validate.GenValidProfile {
   ffi_validate_gen_valid_profile_leaf_for_case(arg0, arg1, arg2)
 }
@@ -28582,7 +28630,7 @@ pub fn validate__gen_valid_rume_profile_case_label(
 
 ///|
 pub fn validate__gen_valid_scan_func_ssa_facts(
-  arg0 : Int,
+  arg0 : Int32,
   arg1 : @lib.Locals,
   arg2 : @lib.Expr,
 ) -> @validate.GenValidSsaFuncFacts {
@@ -28984,6 +29032,13 @@ pub fn validate__validate_module(
 }
 
 ///|
+pub fn validate__validate_module_name_section(
+  arg0 : @lib.Module,
+) -> Result[Unit, String] {
+  ffi_validate_validate_module_name_section(arg0)
+}
+
+///|
 pub fn validate__validate_startsec(
   arg0 : @lib.StartSec?,
   arg1 : @validate.Env,
@@ -29019,7 +29074,7 @@ pub fn validate__validate_typesec(
 pub fn validate__validate_valid_feature_actual_count(
   arg0 : @validate.GenValidFeatureStats,
   arg1 : @validate.ValidateValidFeatureKey,
-) -> Int {
+) -> Int32 {
   ffi_validate_validate_valid_feature_actual_count(arg0, arg1)
 }
 
@@ -29027,14 +29082,14 @@ pub fn validate__validate_valid_feature_actual_count(
 pub fn validate__validate_valid_feature_actual_count_by_label(
   arg0 : @validate.GenValidFeatureStats,
   arg1 : String,
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   ffi_validate_validate_valid_feature_actual_count_by_label(arg0, arg1)
 }
 
 ///|
 pub fn validate__validate_valid_feature_floor(
   arg0 : @validate.ValidateValidFeatureKey,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> @validate.ValidateValidFeatureFloor {
   ffi_validate_validate_valid_feature_floor(arg0, arg1)
 }
@@ -29042,7 +29097,7 @@ pub fn validate__validate_valid_feature_floor(
 ///|
 pub fn validate__validate_valid_feature_floor_by_label(
   arg0 : String,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> Result[@validate.ValidateValidFeatureFloor, String] {
   ffi_validate_validate_valid_feature_floor_by_label(arg0, arg1)
 }
@@ -29229,8 +29284,8 @@ pub fn validate__Env__has_func(
 ///|
 pub fn validate__Env__legacy_rethrow_catch_ordinal(
   arg0 : @validate.Env,
-  arg1 : UInt,
-) -> Int? {
+  arg1 : UInt32,
+) -> Int32? {
   ffi_validate_Env_legacy_rethrow_catch_ordinal(arg0, arg1)
 }
 
@@ -29469,7 +29524,7 @@ pub fn validate__Env__with_labels(
 ///|
 pub fn validate__Env__with_legacy_catch_depth(
   arg0 : @validate.Env,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> @validate.Env {
   ffi_validate_Env_with_legacy_catch_depth(arg0, arg1)
 }
@@ -29691,7 +29746,7 @@ pub fn validate__GenValidFeatureToggles__natural_default() -> @validate.GenValid
 ///|
 pub fn validate__GenValidProfileMember__new(
   arg0 : @validate.GenValidProfile,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> @validate.GenValidProfileMember {
   ffi_validate_GenValidProfileMember_new(arg0, arg1)
 }
@@ -29728,13 +29783,13 @@ pub fn validate__LabelStack__from_labels(
 ///|
 pub fn validate__LabelStack__get(
   arg0 : @validate.LabelStack,
-  arg1 : Int,
+  arg1 : Int32,
 ) -> Array[@lib.ValType]? {
   ffi_validate_LabelStack_get(arg0, arg1)
 }
 
 ///|
-pub fn validate__LabelStack__length(arg0 : @validate.LabelStack) -> Int {
+pub fn validate__LabelStack__length(arg0 : @validate.LabelStack) -> Int32 {
   ffi_validate_LabelStack_length(arg0)
 }
 
@@ -29996,8 +30051,8 @@ pub fn wat__wat_to_script(
 pub fn ffi_bridge__optimize_module(
   arg0 : @lib.Module,
   arg1 : Array[String],
-  arg2 : Int?,
-  arg3 : Int?,
+  arg2 : Int32?,
+  arg3 : Int32?,
 ) -> Result[@lib.Module, String] {
   ffi_ffi_bridge_optimize_module(arg0, arg1, arg2, arg3)
 }

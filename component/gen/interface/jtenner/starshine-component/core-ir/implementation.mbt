@@ -31,7 +31,7 @@ fn core_ir_byte_array(value : FixedArray[Byte]) -> Array[Byte] {
 let core_ir_abs_heap_type_values : Array[@lib.AbsHeapType?] = []
 
 ///|
-let core_ir_abs_heap_type_free_reps : Array[Int] = []
+let core_ir_abs_heap_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_abs_heap_type_store(value : @lib.AbsHeapType) -> AbsHeapType {
@@ -70,7 +70,9 @@ fn core_ir_abs_heap_type_option(value : AbsHeapType?) -> @lib.AbsHeapType? {
 }
 
 ///|
-fn core_ir_abs_heap_type_array(values : Array[AbsHeapType]) -> Array[@lib.AbsHeapType] {
+fn core_ir_abs_heap_type_array(
+  values : Array[AbsHeapType],
+) -> Array[@lib.AbsHeapType] {
   values.map(fn(value) { core_ir_abs_heap_type_get(value) })
 }
 
@@ -87,10 +89,12 @@ pub fn AbsHeapType::dtor(self : AbsHeapType) -> Unit {
 let core_ir_aggregate_atomic_rmw_op_values : Array[@lib.AggregateAtomicRmwOp?] = []
 
 ///|
-let core_ir_aggregate_atomic_rmw_op_free_reps : Array[Int] = []
+let core_ir_aggregate_atomic_rmw_op_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_aggregate_atomic_rmw_op_store(value : @lib.AggregateAtomicRmwOp) -> AggregateAtomicRmwOp {
+fn core_ir_aggregate_atomic_rmw_op_store(
+  value : @lib.AggregateAtomicRmwOp,
+) -> AggregateAtomicRmwOp {
   let rep = match core_ir_aggregate_atomic_rmw_op_free_reps.pop() {
     Some(rep) => {
       core_ir_aggregate_atomic_rmw_op_values[rep] = Some(value)
@@ -106,7 +110,9 @@ fn core_ir_aggregate_atomic_rmw_op_store(value : @lib.AggregateAtomicRmwOp) -> A
 }
 
 ///|
-fn core_ir_aggregate_atomic_rmw_op_get(value : AggregateAtomicRmwOp) -> @lib.AggregateAtomicRmwOp {
+fn core_ir_aggregate_atomic_rmw_op_get(
+  value : AggregateAtomicRmwOp,
+) -> @lib.AggregateAtomicRmwOp {
   let AggregateAtomicRmwOp(rep) = value
   if rep < 0 || rep >= core_ir_aggregate_atomic_rmw_op_values.length() {
     abort("invalid core-ir aggregate-atomic-rmw-op handle")
@@ -118,7 +124,9 @@ fn core_ir_aggregate_atomic_rmw_op_get(value : AggregateAtomicRmwOp) -> @lib.Agg
 }
 
 ///|
-fn core_ir_aggregate_atomic_rmw_op_option(value : AggregateAtomicRmwOp?) -> @lib.AggregateAtomicRmwOp? {
+fn core_ir_aggregate_atomic_rmw_op_option(
+  value : AggregateAtomicRmwOp?,
+) -> @lib.AggregateAtomicRmwOp? {
   match value {
     Some(value) => Some(core_ir_aggregate_atomic_rmw_op_get(value))
     None => None
@@ -126,7 +134,9 @@ fn core_ir_aggregate_atomic_rmw_op_option(value : AggregateAtomicRmwOp?) -> @lib
 }
 
 ///|
-fn core_ir_aggregate_atomic_rmw_op_array(values : Array[AggregateAtomicRmwOp]) -> Array[@lib.AggregateAtomicRmwOp] {
+fn core_ir_aggregate_atomic_rmw_op_array(
+  values : Array[AggregateAtomicRmwOp],
+) -> Array[@lib.AggregateAtomicRmwOp] {
   values.map(fn(value) { core_ir_aggregate_atomic_rmw_op_get(value) })
 }
 
@@ -143,10 +153,12 @@ pub fn AggregateAtomicRmwOp::dtor(self : AggregateAtomicRmwOp) -> Unit {
 let core_ir_atomic_cmpxchg_op_values : Array[@lib.AtomicCmpxchgOp?] = []
 
 ///|
-let core_ir_atomic_cmpxchg_op_free_reps : Array[Int] = []
+let core_ir_atomic_cmpxchg_op_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_atomic_cmpxchg_op_store(value : @lib.AtomicCmpxchgOp) -> AtomicCmpxchgOp {
+fn core_ir_atomic_cmpxchg_op_store(
+  value : @lib.AtomicCmpxchgOp,
+) -> AtomicCmpxchgOp {
   let rep = match core_ir_atomic_cmpxchg_op_free_reps.pop() {
     Some(rep) => {
       core_ir_atomic_cmpxchg_op_values[rep] = Some(value)
@@ -162,7 +174,9 @@ fn core_ir_atomic_cmpxchg_op_store(value : @lib.AtomicCmpxchgOp) -> AtomicCmpxch
 }
 
 ///|
-fn core_ir_atomic_cmpxchg_op_get(value : AtomicCmpxchgOp) -> @lib.AtomicCmpxchgOp {
+fn core_ir_atomic_cmpxchg_op_get(
+  value : AtomicCmpxchgOp,
+) -> @lib.AtomicCmpxchgOp {
   let AtomicCmpxchgOp(rep) = value
   if rep < 0 || rep >= core_ir_atomic_cmpxchg_op_values.length() {
     abort("invalid core-ir atomic-cmpxchg-op handle")
@@ -174,7 +188,9 @@ fn core_ir_atomic_cmpxchg_op_get(value : AtomicCmpxchgOp) -> @lib.AtomicCmpxchgO
 }
 
 ///|
-fn core_ir_atomic_cmpxchg_op_option(value : AtomicCmpxchgOp?) -> @lib.AtomicCmpxchgOp? {
+fn core_ir_atomic_cmpxchg_op_option(
+  value : AtomicCmpxchgOp?,
+) -> @lib.AtomicCmpxchgOp? {
   match value {
     Some(value) => Some(core_ir_atomic_cmpxchg_op_get(value))
     None => None
@@ -182,7 +198,9 @@ fn core_ir_atomic_cmpxchg_op_option(value : AtomicCmpxchgOp?) -> @lib.AtomicCmpx
 }
 
 ///|
-fn core_ir_atomic_cmpxchg_op_array(values : Array[AtomicCmpxchgOp]) -> Array[@lib.AtomicCmpxchgOp] {
+fn core_ir_atomic_cmpxchg_op_array(
+  values : Array[AtomicCmpxchgOp],
+) -> Array[@lib.AtomicCmpxchgOp] {
   values.map(fn(value) { core_ir_atomic_cmpxchg_op_get(value) })
 }
 
@@ -199,7 +217,7 @@ pub fn AtomicCmpxchgOp::dtor(self : AtomicCmpxchgOp) -> Unit {
 let core_ir_atomic_order_values : Array[@lib.AtomicOrder?] = []
 
 ///|
-let core_ir_atomic_order_free_reps : Array[Int] = []
+let core_ir_atomic_order_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_atomic_order_store(value : @lib.AtomicOrder) -> AtomicOrder {
@@ -238,7 +256,9 @@ fn core_ir_atomic_order_option(value : AtomicOrder?) -> @lib.AtomicOrder? {
 }
 
 ///|
-fn core_ir_atomic_order_array(values : Array[AtomicOrder]) -> Array[@lib.AtomicOrder] {
+fn core_ir_atomic_order_array(
+  values : Array[AtomicOrder],
+) -> Array[@lib.AtomicOrder] {
   values.map(fn(value) { core_ir_atomic_order_get(value) })
 }
 
@@ -255,7 +275,7 @@ pub fn AtomicOrder::dtor(self : AtomicOrder) -> Unit {
 let core_ir_atomic_rmw_op_values : Array[@lib.AtomicRmwOp?] = []
 
 ///|
-let core_ir_atomic_rmw_op_free_reps : Array[Int] = []
+let core_ir_atomic_rmw_op_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_atomic_rmw_op_store(value : @lib.AtomicRmwOp) -> AtomicRmwOp {
@@ -294,7 +314,9 @@ fn core_ir_atomic_rmw_op_option(value : AtomicRmwOp?) -> @lib.AtomicRmwOp? {
 }
 
 ///|
-fn core_ir_atomic_rmw_op_array(values : Array[AtomicRmwOp]) -> Array[@lib.AtomicRmwOp] {
+fn core_ir_atomic_rmw_op_array(
+  values : Array[AtomicRmwOp],
+) -> Array[@lib.AtomicRmwOp] {
   values.map(fn(value) { core_ir_atomic_rmw_op_get(value) })
 }
 
@@ -311,7 +333,7 @@ pub fn AtomicRmwOp::dtor(self : AtomicRmwOp) -> Unit {
 let core_ir_block_type_values : Array[@lib.BlockType?] = []
 
 ///|
-let core_ir_block_type_free_reps : Array[Int] = []
+let core_ir_block_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_block_type_store(value : @lib.BlockType) -> BlockType {
@@ -367,7 +389,7 @@ pub fn BlockType::dtor(self : BlockType) -> Unit {
 let core_ir_catch_values : Array[@lib.Catch?] = []
 
 ///|
-let core_ir_catch_free_reps : Array[Int] = []
+let core_ir_catch_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_catch_store(value : @lib.Catch) -> Catch {
@@ -423,7 +445,7 @@ pub fn Catch::dtor(self : Catch) -> Unit {
 let core_ir_code_sec_values : Array[@lib.CodeSec?] = []
 
 ///|
-let core_ir_code_sec_free_reps : Array[Int] = []
+let core_ir_code_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_code_sec_store(value : @lib.CodeSec) -> CodeSec {
@@ -479,7 +501,7 @@ pub fn CodeSec::dtor(self : CodeSec) -> Unit {
 let core_ir_comp_type_values : Array[@lib.CompType?] = []
 
 ///|
-let core_ir_comp_type_free_reps : Array[Int] = []
+let core_ir_comp_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_comp_type_store(value : @lib.CompType) -> CompType {
@@ -535,7 +557,7 @@ pub fn CompType::dtor(self : CompType) -> Unit {
 let core_ir_custom_sec_values : Array[@lib.CustomSec?] = []
 
 ///|
-let core_ir_custom_sec_free_reps : Array[Int] = []
+let core_ir_custom_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_custom_sec_store(value : @lib.CustomSec) -> CustomSec {
@@ -591,7 +613,7 @@ pub fn CustomSec::dtor(self : CustomSec) -> Unit {
 let core_ir_data_values : Array[@lib.Data?] = []
 
 ///|
-let core_ir_data_free_reps : Array[Int] = []
+let core_ir_data_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_data_store(value : @lib.Data) -> Data {
@@ -647,7 +669,7 @@ pub fn Data::dtor(self : Data) -> Unit {
 let core_ir_data_cnt_sec_values : Array[@lib.DataCntSec?] = []
 
 ///|
-let core_ir_data_cnt_sec_free_reps : Array[Int] = []
+let core_ir_data_cnt_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_data_cnt_sec_store(value : @lib.DataCntSec) -> DataCntSec {
@@ -686,7 +708,9 @@ fn core_ir_data_cnt_sec_option(value : DataCntSec?) -> @lib.DataCntSec? {
 }
 
 ///|
-fn core_ir_data_cnt_sec_array(values : Array[DataCntSec]) -> Array[@lib.DataCntSec] {
+fn core_ir_data_cnt_sec_array(
+  values : Array[DataCntSec],
+) -> Array[@lib.DataCntSec] {
   values.map(fn(value) { core_ir_data_cnt_sec_get(value) })
 }
 
@@ -703,7 +727,7 @@ pub fn DataCntSec::dtor(self : DataCntSec) -> Unit {
 let core_ir_data_idx_values : Array[@lib.DataIdx?] = []
 
 ///|
-let core_ir_data_idx_free_reps : Array[Int] = []
+let core_ir_data_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_data_idx_store(value : @lib.DataIdx) -> DataIdx {
@@ -759,7 +783,7 @@ pub fn DataIdx::dtor(self : DataIdx) -> Unit {
 let core_ir_data_mode_values : Array[@lib.DataMode?] = []
 
 ///|
-let core_ir_data_mode_free_reps : Array[Int] = []
+let core_ir_data_mode_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_data_mode_store(value : @lib.DataMode) -> DataMode {
@@ -815,7 +839,7 @@ pub fn DataMode::dtor(self : DataMode) -> Unit {
 let core_ir_data_sec_values : Array[@lib.DataSec?] = []
 
 ///|
-let core_ir_data_sec_free_reps : Array[Int] = []
+let core_ir_data_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_data_sec_store(value : @lib.DataSec) -> DataSec {
@@ -871,7 +895,7 @@ pub fn DataSec::dtor(self : DataSec) -> Unit {
 let core_ir_def_type_values : Array[@lib.DefType?] = []
 
 ///|
-let core_ir_def_type_free_reps : Array[Int] = []
+let core_ir_def_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_def_type_store(value : @lib.DefType) -> DefType {
@@ -927,7 +951,7 @@ pub fn DefType::dtor(self : DefType) -> Unit {
 let core_ir_elem_values : Array[@lib.Elem?] = []
 
 ///|
-let core_ir_elem_free_reps : Array[Int] = []
+let core_ir_elem_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_elem_store(value : @lib.Elem) -> Elem {
@@ -983,7 +1007,7 @@ pub fn Elem::dtor(self : Elem) -> Unit {
 let core_ir_elem_idx_values : Array[@lib.ElemIdx?] = []
 
 ///|
-let core_ir_elem_idx_free_reps : Array[Int] = []
+let core_ir_elem_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_elem_idx_store(value : @lib.ElemIdx) -> ElemIdx {
@@ -1039,7 +1063,7 @@ pub fn ElemIdx::dtor(self : ElemIdx) -> Unit {
 let core_ir_elem_kind_values : Array[@lib.ElemKind?] = []
 
 ///|
-let core_ir_elem_kind_free_reps : Array[Int] = []
+let core_ir_elem_kind_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_elem_kind_store(value : @lib.ElemKind) -> ElemKind {
@@ -1095,7 +1119,7 @@ pub fn ElemKind::dtor(self : ElemKind) -> Unit {
 let core_ir_elem_mode_values : Array[@lib.ElemMode?] = []
 
 ///|
-let core_ir_elem_mode_free_reps : Array[Int] = []
+let core_ir_elem_mode_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_elem_mode_store(value : @lib.ElemMode) -> ElemMode {
@@ -1151,7 +1175,7 @@ pub fn ElemMode::dtor(self : ElemMode) -> Unit {
 let core_ir_elem_sec_values : Array[@lib.ElemSec?] = []
 
 ///|
-let core_ir_elem_sec_free_reps : Array[Int] = []
+let core_ir_elem_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_elem_sec_store(value : @lib.ElemSec) -> ElemSec {
@@ -1207,7 +1231,7 @@ pub fn ElemSec::dtor(self : ElemSec) -> Unit {
 let core_ir_export_values : Array[@lib.Export?] = []
 
 ///|
-let core_ir_export_free_reps : Array[Int] = []
+let core_ir_export_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_export_store(value : @lib.Export) -> ExportIr {
@@ -1263,7 +1287,7 @@ pub fn ExportIr::dtor(self : ExportIr) -> Unit {
 let core_ir_export_sec_values : Array[@lib.ExportSec?] = []
 
 ///|
-let core_ir_export_sec_free_reps : Array[Int] = []
+let core_ir_export_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_export_sec_store(value : @lib.ExportSec) -> ExportSec {
@@ -1319,7 +1343,7 @@ pub fn ExportSec::dtor(self : ExportSec) -> Unit {
 let core_ir_expr_values : Array[@lib.Expr?] = []
 
 ///|
-let core_ir_expr_free_reps : Array[Int] = []
+let core_ir_expr_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_expr_store(value : @lib.Expr) -> Expr {
@@ -1375,7 +1399,7 @@ pub fn Expr::dtor(self : Expr) -> Unit {
 let core_ir_extern_idx_values : Array[@lib.ExternIdx?] = []
 
 ///|
-let core_ir_extern_idx_free_reps : Array[Int] = []
+let core_ir_extern_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_extern_idx_store(value : @lib.ExternIdx) -> ExternIdx {
@@ -1431,7 +1455,7 @@ pub fn ExternIdx::dtor(self : ExternIdx) -> Unit {
 let core_ir_extern_type_values : Array[@lib.ExternType?] = []
 
 ///|
-let core_ir_extern_type_free_reps : Array[Int] = []
+let core_ir_extern_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_extern_type_store(value : @lib.ExternType) -> ExternType {
@@ -1470,7 +1494,9 @@ fn core_ir_extern_type_option(value : ExternType?) -> @lib.ExternType? {
 }
 
 ///|
-fn core_ir_extern_type_array(values : Array[ExternType]) -> Array[@lib.ExternType] {
+fn core_ir_extern_type_array(
+  values : Array[ExternType],
+) -> Array[@lib.ExternType] {
   values.map(fn(value) { core_ir_extern_type_get(value) })
 }
 
@@ -1487,7 +1513,7 @@ pub fn ExternType::dtor(self : ExternType) -> Unit {
 let core_ir_f32_values : Array[@lib.F32?] = []
 
 ///|
-let core_ir_f32_free_reps : Array[Int] = []
+let core_ir_f32_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_f32_store(value : @lib.F32) -> F32Ir {
@@ -1543,7 +1569,7 @@ pub fn F32Ir::dtor(self : F32Ir) -> Unit {
 let core_ir_f64_values : Array[@lib.F64?] = []
 
 ///|
-let core_ir_f64_free_reps : Array[Int] = []
+let core_ir_f64_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_f64_store(value : @lib.F64) -> F64Ir {
@@ -1599,7 +1625,7 @@ pub fn F64Ir::dtor(self : F64Ir) -> Unit {
 let core_ir_field_type_values : Array[@lib.FieldType?] = []
 
 ///|
-let core_ir_field_type_free_reps : Array[Int] = []
+let core_ir_field_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_field_type_store(value : @lib.FieldType) -> FieldType {
@@ -1655,7 +1681,7 @@ pub fn FieldType::dtor(self : FieldType) -> Unit {
 let core_ir_func_values : Array[@lib.Func?] = []
 
 ///|
-let core_ir_func_free_reps : Array[Int] = []
+let core_ir_func_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_func_store(value : @lib.Func) -> FuncIr {
@@ -1711,7 +1737,7 @@ pub fn FuncIr::dtor(self : FuncIr) -> Unit {
 let core_ir_func_annotation_values : Array[@lib.FuncAnnotation?] = []
 
 ///|
-let core_ir_func_annotation_free_reps : Array[Int] = []
+let core_ir_func_annotation_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_func_annotation_store(value : @lib.FuncAnnotation) -> FuncAnnotation {
@@ -1742,7 +1768,9 @@ fn core_ir_func_annotation_get(value : FuncAnnotation) -> @lib.FuncAnnotation {
 }
 
 ///|
-fn core_ir_func_annotation_option(value : FuncAnnotation?) -> @lib.FuncAnnotation? {
+fn core_ir_func_annotation_option(
+  value : FuncAnnotation?,
+) -> @lib.FuncAnnotation? {
   match value {
     Some(value) => Some(core_ir_func_annotation_get(value))
     None => None
@@ -1750,7 +1778,9 @@ fn core_ir_func_annotation_option(value : FuncAnnotation?) -> @lib.FuncAnnotatio
 }
 
 ///|
-fn core_ir_func_annotation_array(values : Array[FuncAnnotation]) -> Array[@lib.FuncAnnotation] {
+fn core_ir_func_annotation_array(
+  values : Array[FuncAnnotation],
+) -> Array[@lib.FuncAnnotation] {
   values.map(fn(value) { core_ir_func_annotation_get(value) })
 }
 
@@ -1767,10 +1797,12 @@ pub fn FuncAnnotation::dtor(self : FuncAnnotation) -> Unit {
 let core_ir_func_annotation_assoc_values : Array[@lib.FuncAnnotationAssoc?] = []
 
 ///|
-let core_ir_func_annotation_assoc_free_reps : Array[Int] = []
+let core_ir_func_annotation_assoc_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_func_annotation_assoc_store(value : @lib.FuncAnnotationAssoc) -> FuncAnnotationAssoc {
+fn core_ir_func_annotation_assoc_store(
+  value : @lib.FuncAnnotationAssoc,
+) -> FuncAnnotationAssoc {
   let rep = match core_ir_func_annotation_assoc_free_reps.pop() {
     Some(rep) => {
       core_ir_func_annotation_assoc_values[rep] = Some(value)
@@ -1786,7 +1818,9 @@ fn core_ir_func_annotation_assoc_store(value : @lib.FuncAnnotationAssoc) -> Func
 }
 
 ///|
-fn core_ir_func_annotation_assoc_get(value : FuncAnnotationAssoc) -> @lib.FuncAnnotationAssoc {
+fn core_ir_func_annotation_assoc_get(
+  value : FuncAnnotationAssoc,
+) -> @lib.FuncAnnotationAssoc {
   let FuncAnnotationAssoc(rep) = value
   if rep < 0 || rep >= core_ir_func_annotation_assoc_values.length() {
     abort("invalid core-ir func-annotation-assoc handle")
@@ -1798,7 +1832,9 @@ fn core_ir_func_annotation_assoc_get(value : FuncAnnotationAssoc) -> @lib.FuncAn
 }
 
 ///|
-fn core_ir_func_annotation_assoc_option(value : FuncAnnotationAssoc?) -> @lib.FuncAnnotationAssoc? {
+fn core_ir_func_annotation_assoc_option(
+  value : FuncAnnotationAssoc?,
+) -> @lib.FuncAnnotationAssoc? {
   match value {
     Some(value) => Some(core_ir_func_annotation_assoc_get(value))
     None => None
@@ -1806,7 +1842,9 @@ fn core_ir_func_annotation_assoc_option(value : FuncAnnotationAssoc?) -> @lib.Fu
 }
 
 ///|
-fn core_ir_func_annotation_assoc_array(values : Array[FuncAnnotationAssoc]) -> Array[@lib.FuncAnnotationAssoc] {
+fn core_ir_func_annotation_assoc_array(
+  values : Array[FuncAnnotationAssoc],
+) -> Array[@lib.FuncAnnotationAssoc] {
   values.map(fn(value) { core_ir_func_annotation_assoc_get(value) })
 }
 
@@ -1823,10 +1861,12 @@ pub fn FuncAnnotationAssoc::dtor(self : FuncAnnotationAssoc) -> Unit {
 let core_ir_func_annotation_sec_values : Array[@lib.FuncAnnotationSec?] = []
 
 ///|
-let core_ir_func_annotation_sec_free_reps : Array[Int] = []
+let core_ir_func_annotation_sec_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_func_annotation_sec_store(value : @lib.FuncAnnotationSec) -> FuncAnnotationSec {
+fn core_ir_func_annotation_sec_store(
+  value : @lib.FuncAnnotationSec,
+) -> FuncAnnotationSec {
   let rep = match core_ir_func_annotation_sec_free_reps.pop() {
     Some(rep) => {
       core_ir_func_annotation_sec_values[rep] = Some(value)
@@ -1842,7 +1882,9 @@ fn core_ir_func_annotation_sec_store(value : @lib.FuncAnnotationSec) -> FuncAnno
 }
 
 ///|
-fn core_ir_func_annotation_sec_get(value : FuncAnnotationSec) -> @lib.FuncAnnotationSec {
+fn core_ir_func_annotation_sec_get(
+  value : FuncAnnotationSec,
+) -> @lib.FuncAnnotationSec {
   let FuncAnnotationSec(rep) = value
   if rep < 0 || rep >= core_ir_func_annotation_sec_values.length() {
     abort("invalid core-ir func-annotation-sec handle")
@@ -1854,7 +1896,9 @@ fn core_ir_func_annotation_sec_get(value : FuncAnnotationSec) -> @lib.FuncAnnota
 }
 
 ///|
-fn core_ir_func_annotation_sec_option(value : FuncAnnotationSec?) -> @lib.FuncAnnotationSec? {
+fn core_ir_func_annotation_sec_option(
+  value : FuncAnnotationSec?,
+) -> @lib.FuncAnnotationSec? {
   match value {
     Some(value) => Some(core_ir_func_annotation_sec_get(value))
     None => None
@@ -1862,7 +1906,9 @@ fn core_ir_func_annotation_sec_option(value : FuncAnnotationSec?) -> @lib.FuncAn
 }
 
 ///|
-fn core_ir_func_annotation_sec_array(values : Array[FuncAnnotationSec]) -> Array[@lib.FuncAnnotationSec] {
+fn core_ir_func_annotation_sec_array(
+  values : Array[FuncAnnotationSec],
+) -> Array[@lib.FuncAnnotationSec] {
   values.map(fn(value) { core_ir_func_annotation_sec_get(value) })
 }
 
@@ -1879,7 +1925,7 @@ pub fn FuncAnnotationSec::dtor(self : FuncAnnotationSec) -> Unit {
 let core_ir_func_idx_values : Array[@lib.FuncIdx?] = []
 
 ///|
-let core_ir_func_idx_free_reps : Array[Int] = []
+let core_ir_func_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_func_idx_store(value : @lib.FuncIdx) -> FuncIdx {
@@ -1935,7 +1981,7 @@ pub fn FuncIdx::dtor(self : FuncIdx) -> Unit {
 let core_ir_func_sec_values : Array[@lib.FuncSec?] = []
 
 ///|
-let core_ir_func_sec_free_reps : Array[Int] = []
+let core_ir_func_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_func_sec_store(value : @lib.FuncSec) -> FuncSec {
@@ -1991,7 +2037,7 @@ pub fn FuncSec::dtor(self : FuncSec) -> Unit {
 let core_ir_global_values : Array[@lib.Global?] = []
 
 ///|
-let core_ir_global_free_reps : Array[Int] = []
+let core_ir_global_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_global_store(value : @lib.Global) -> Global {
@@ -2047,7 +2093,7 @@ pub fn Global::dtor(self : Global) -> Unit {
 let core_ir_global_idx_values : Array[@lib.GlobalIdx?] = []
 
 ///|
-let core_ir_global_idx_free_reps : Array[Int] = []
+let core_ir_global_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_global_idx_store(value : @lib.GlobalIdx) -> GlobalIdx {
@@ -2103,7 +2149,7 @@ pub fn GlobalIdx::dtor(self : GlobalIdx) -> Unit {
 let core_ir_global_sec_values : Array[@lib.GlobalSec?] = []
 
 ///|
-let core_ir_global_sec_free_reps : Array[Int] = []
+let core_ir_global_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_global_sec_store(value : @lib.GlobalSec) -> GlobalSec {
@@ -2159,7 +2205,7 @@ pub fn GlobalSec::dtor(self : GlobalSec) -> Unit {
 let core_ir_global_type_values : Array[@lib.GlobalType?] = []
 
 ///|
-let core_ir_global_type_free_reps : Array[Int] = []
+let core_ir_global_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_global_type_store(value : @lib.GlobalType) -> GlobalType {
@@ -2198,7 +2244,9 @@ fn core_ir_global_type_option(value : GlobalType?) -> @lib.GlobalType? {
 }
 
 ///|
-fn core_ir_global_type_array(values : Array[GlobalType]) -> Array[@lib.GlobalType] {
+fn core_ir_global_type_array(
+  values : Array[GlobalType],
+) -> Array[@lib.GlobalType] {
   values.map(fn(value) { core_ir_global_type_get(value) })
 }
 
@@ -2215,7 +2263,7 @@ pub fn GlobalType::dtor(self : GlobalType) -> Unit {
 let core_ir_heap_type_values : Array[@lib.HeapType?] = []
 
 ///|
-let core_ir_heap_type_free_reps : Array[Int] = []
+let core_ir_heap_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_heap_type_store(value : @lib.HeapType) -> HeapType {
@@ -2271,7 +2319,7 @@ pub fn HeapType::dtor(self : HeapType) -> Unit {
 let core_ir_i32_values : Array[@lib.I32?] = []
 
 ///|
-let core_ir_i32_free_reps : Array[Int] = []
+let core_ir_i32_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_i32_store(value : @lib.I32) -> I32 {
@@ -2327,7 +2375,7 @@ pub fn I32::dtor(self : I32) -> Unit {
 let core_ir_i64_values : Array[@lib.I64?] = []
 
 ///|
-let core_ir_i64_free_reps : Array[Int] = []
+let core_ir_i64_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_i64_store(value : @lib.I64) -> I64 {
@@ -2383,7 +2431,7 @@ pub fn I64::dtor(self : I64) -> Unit {
 let core_ir_import_values : Array[@lib.Import?] = []
 
 ///|
-let core_ir_import_free_reps : Array[Int] = []
+let core_ir_import_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_import_store(value : @lib.Import) -> ImportIr {
@@ -2439,7 +2487,7 @@ pub fn ImportIr::dtor(self : ImportIr) -> Unit {
 let core_ir_import_sec_values : Array[@lib.ImportSec?] = []
 
 ///|
-let core_ir_import_sec_free_reps : Array[Int] = []
+let core_ir_import_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_import_sec_store(value : @lib.ImportSec) -> ImportSec {
@@ -2495,10 +2543,12 @@ pub fn ImportSec::dtor(self : ImportSec) -> Unit {
 let core_ir_indirect_name_assoc_values : Array[@lib.IndirectNameAssoc?] = []
 
 ///|
-let core_ir_indirect_name_assoc_free_reps : Array[Int] = []
+let core_ir_indirect_name_assoc_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_indirect_name_assoc_store(value : @lib.IndirectNameAssoc) -> IndirectNameAssoc {
+fn core_ir_indirect_name_assoc_store(
+  value : @lib.IndirectNameAssoc,
+) -> IndirectNameAssoc {
   let rep = match core_ir_indirect_name_assoc_free_reps.pop() {
     Some(rep) => {
       core_ir_indirect_name_assoc_values[rep] = Some(value)
@@ -2514,7 +2564,9 @@ fn core_ir_indirect_name_assoc_store(value : @lib.IndirectNameAssoc) -> Indirect
 }
 
 ///|
-fn core_ir_indirect_name_assoc_get(value : IndirectNameAssoc) -> @lib.IndirectNameAssoc {
+fn core_ir_indirect_name_assoc_get(
+  value : IndirectNameAssoc,
+) -> @lib.IndirectNameAssoc {
   let IndirectNameAssoc(rep) = value
   if rep < 0 || rep >= core_ir_indirect_name_assoc_values.length() {
     abort("invalid core-ir indirect-name-assoc handle")
@@ -2526,7 +2578,9 @@ fn core_ir_indirect_name_assoc_get(value : IndirectNameAssoc) -> @lib.IndirectNa
 }
 
 ///|
-fn core_ir_indirect_name_assoc_option(value : IndirectNameAssoc?) -> @lib.IndirectNameAssoc? {
+fn core_ir_indirect_name_assoc_option(
+  value : IndirectNameAssoc?,
+) -> @lib.IndirectNameAssoc? {
   match value {
     Some(value) => Some(core_ir_indirect_name_assoc_get(value))
     None => None
@@ -2534,7 +2588,9 @@ fn core_ir_indirect_name_assoc_option(value : IndirectNameAssoc?) -> @lib.Indire
 }
 
 ///|
-fn core_ir_indirect_name_assoc_array(values : Array[IndirectNameAssoc]) -> Array[@lib.IndirectNameAssoc] {
+fn core_ir_indirect_name_assoc_array(
+  values : Array[IndirectNameAssoc],
+) -> Array[@lib.IndirectNameAssoc] {
   values.map(fn(value) { core_ir_indirect_name_assoc_get(value) })
 }
 
@@ -2551,10 +2607,12 @@ pub fn IndirectNameAssoc::dtor(self : IndirectNameAssoc) -> Unit {
 let core_ir_indirect_name_map_values : Array[@lib.IndirectNameMap?] = []
 
 ///|
-let core_ir_indirect_name_map_free_reps : Array[Int] = []
+let core_ir_indirect_name_map_free_reps : Array[Int32] = []
 
 ///|
-fn core_ir_indirect_name_map_store(value : @lib.IndirectNameMap) -> IndirectNameMap {
+fn core_ir_indirect_name_map_store(
+  value : @lib.IndirectNameMap,
+) -> IndirectNameMap {
   let rep = match core_ir_indirect_name_map_free_reps.pop() {
     Some(rep) => {
       core_ir_indirect_name_map_values[rep] = Some(value)
@@ -2570,7 +2628,9 @@ fn core_ir_indirect_name_map_store(value : @lib.IndirectNameMap) -> IndirectName
 }
 
 ///|
-fn core_ir_indirect_name_map_get(value : IndirectNameMap) -> @lib.IndirectNameMap {
+fn core_ir_indirect_name_map_get(
+  value : IndirectNameMap,
+) -> @lib.IndirectNameMap {
   let IndirectNameMap(rep) = value
   if rep < 0 || rep >= core_ir_indirect_name_map_values.length() {
     abort("invalid core-ir indirect-name-map handle")
@@ -2582,7 +2642,9 @@ fn core_ir_indirect_name_map_get(value : IndirectNameMap) -> @lib.IndirectNameMa
 }
 
 ///|
-fn core_ir_indirect_name_map_option(value : IndirectNameMap?) -> @lib.IndirectNameMap? {
+fn core_ir_indirect_name_map_option(
+  value : IndirectNameMap?,
+) -> @lib.IndirectNameMap? {
   match value {
     Some(value) => Some(core_ir_indirect_name_map_get(value))
     None => None
@@ -2590,7 +2652,9 @@ fn core_ir_indirect_name_map_option(value : IndirectNameMap?) -> @lib.IndirectNa
 }
 
 ///|
-fn core_ir_indirect_name_map_array(values : Array[IndirectNameMap]) -> Array[@lib.IndirectNameMap] {
+fn core_ir_indirect_name_map_array(
+  values : Array[IndirectNameMap],
+) -> Array[@lib.IndirectNameMap] {
   values.map(fn(value) { core_ir_indirect_name_map_get(value) })
 }
 
@@ -2607,7 +2671,7 @@ pub fn IndirectNameMap::dtor(self : IndirectNameMap) -> Unit {
 let core_ir_instruction_values : Array[@lib.Instruction?] = []
 
 ///|
-let core_ir_instruction_free_reps : Array[Int] = []
+let core_ir_instruction_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_instruction_store(value : @lib.Instruction) -> Instruction {
@@ -2646,7 +2710,9 @@ fn core_ir_instruction_option(value : Instruction?) -> @lib.Instruction? {
 }
 
 ///|
-fn core_ir_instruction_array(values : Array[Instruction]) -> Array[@lib.Instruction] {
+fn core_ir_instruction_array(
+  values : Array[Instruction],
+) -> Array[@lib.Instruction] {
   values.map(fn(value) { core_ir_instruction_get(value) })
 }
 
@@ -2663,7 +2729,7 @@ pub fn Instruction::dtor(self : Instruction) -> Unit {
 let core_ir_label_idx_values : Array[@lib.LabelIdx?] = []
 
 ///|
-let core_ir_label_idx_free_reps : Array[Int] = []
+let core_ir_label_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_label_idx_store(value : @lib.LabelIdx) -> LabelIdx {
@@ -2719,7 +2785,7 @@ pub fn LabelIdx::dtor(self : LabelIdx) -> Unit {
 let core_ir_lane_idx_values : Array[@lib.LaneIdx?] = []
 
 ///|
-let core_ir_lane_idx_free_reps : Array[Int] = []
+let core_ir_lane_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_lane_idx_store(value : @lib.LaneIdx) -> LaneIdx {
@@ -2775,7 +2841,7 @@ pub fn LaneIdx::dtor(self : LaneIdx) -> Unit {
 let core_ir_legacy_catch_values : Array[@lib.LegacyCatch?] = []
 
 ///|
-let core_ir_legacy_catch_free_reps : Array[Int] = []
+let core_ir_legacy_catch_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_legacy_catch_store(value : @lib.LegacyCatch) -> LegacyCatch {
@@ -2814,7 +2880,9 @@ fn core_ir_legacy_catch_option(value : LegacyCatch?) -> @lib.LegacyCatch? {
 }
 
 ///|
-fn core_ir_legacy_catch_array(values : Array[LegacyCatch]) -> Array[@lib.LegacyCatch] {
+fn core_ir_legacy_catch_array(
+  values : Array[LegacyCatch],
+) -> Array[@lib.LegacyCatch] {
   values.map(fn(value) { core_ir_legacy_catch_get(value) })
 }
 
@@ -2831,7 +2899,7 @@ pub fn LegacyCatch::dtor(self : LegacyCatch) -> Unit {
 let core_ir_limits_values : Array[@lib.Limits?] = []
 
 ///|
-let core_ir_limits_free_reps : Array[Int] = []
+let core_ir_limits_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_limits_store(value : @lib.Limits) -> Limits {
@@ -2887,7 +2955,7 @@ pub fn Limits::dtor(self : Limits) -> Unit {
 let core_ir_load_op_values : Array[@lib.LoadOp?] = []
 
 ///|
-let core_ir_load_op_free_reps : Array[Int] = []
+let core_ir_load_op_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_load_op_store(value : @lib.LoadOp) -> LoadOp {
@@ -2943,7 +3011,7 @@ pub fn LoadOp::dtor(self : LoadOp) -> Unit {
 let core_ir_local_idx_values : Array[@lib.LocalIdx?] = []
 
 ///|
-let core_ir_local_idx_free_reps : Array[Int] = []
+let core_ir_local_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_local_idx_store(value : @lib.LocalIdx) -> LocalIdx {
@@ -2999,7 +3067,7 @@ pub fn LocalIdx::dtor(self : LocalIdx) -> Unit {
 let core_ir_local_run_values : Array[@lib.LocalRun?] = []
 
 ///|
-let core_ir_local_run_free_reps : Array[Int] = []
+let core_ir_local_run_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_local_run_store(value : @lib.LocalRun) -> LocalRun {
@@ -3055,7 +3123,7 @@ pub fn LocalRun::dtor(self : LocalRun) -> Unit {
 let core_ir_locals_values : Array[@lib.Locals?] = []
 
 ///|
-let core_ir_locals_free_reps : Array[Int] = []
+let core_ir_locals_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_locals_store(value : @lib.Locals) -> Locals {
@@ -3111,7 +3179,7 @@ pub fn Locals::dtor(self : Locals) -> Unit {
 let core_ir_mem_arg_values : Array[@lib.MemArg?] = []
 
 ///|
-let core_ir_mem_arg_free_reps : Array[Int] = []
+let core_ir_mem_arg_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_mem_arg_store(value : @lib.MemArg) -> MemArg {
@@ -3167,7 +3235,7 @@ pub fn MemArg::dtor(self : MemArg) -> Unit {
 let core_ir_mem_idx_values : Array[@lib.MemIdx?] = []
 
 ///|
-let core_ir_mem_idx_free_reps : Array[Int] = []
+let core_ir_mem_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_mem_idx_store(value : @lib.MemIdx) -> MemIdx {
@@ -3223,7 +3291,7 @@ pub fn MemIdx::dtor(self : MemIdx) -> Unit {
 let core_ir_mem_sec_values : Array[@lib.MemSec?] = []
 
 ///|
-let core_ir_mem_sec_free_reps : Array[Int] = []
+let core_ir_mem_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_mem_sec_store(value : @lib.MemSec) -> MemSec {
@@ -3279,7 +3347,7 @@ pub fn MemSec::dtor(self : MemSec) -> Unit {
 let core_ir_mem_type_values : Array[@lib.MemType?] = []
 
 ///|
-let core_ir_mem_type_free_reps : Array[Int] = []
+let core_ir_mem_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_mem_type_store(value : @lib.MemType) -> MemType {
@@ -3335,7 +3403,7 @@ pub fn MemType::dtor(self : MemType) -> Unit {
 let core_ir_module_values : Array[@lib.Module?] = []
 
 ///|
-let core_ir_module_free_reps : Array[Int] = []
+let core_ir_module_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_module_store(value : @lib.Module) -> Module {
@@ -3391,7 +3459,7 @@ pub fn Module::dtor(self : Module) -> Unit {
 let core_ir_mut_values : Array[@lib.Mut?] = []
 
 ///|
-let core_ir_mut_free_reps : Array[Int] = []
+let core_ir_mut_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_mut_store(value : @lib.Mut) -> Mut {
@@ -3447,7 +3515,7 @@ pub fn Mut::dtor(self : Mut) -> Unit {
 let core_ir_name_values : Array[@lib.Name?] = []
 
 ///|
-let core_ir_name_free_reps : Array[Int] = []
+let core_ir_name_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_name_store(value : @lib.Name) -> Name {
@@ -3503,7 +3571,7 @@ pub fn Name::dtor(self : Name) -> Unit {
 let core_ir_name_assoc_values : Array[@lib.NameAssoc?] = []
 
 ///|
-let core_ir_name_assoc_free_reps : Array[Int] = []
+let core_ir_name_assoc_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_name_assoc_store(value : @lib.NameAssoc) -> NameAssoc {
@@ -3559,7 +3627,7 @@ pub fn NameAssoc::dtor(self : NameAssoc) -> Unit {
 let core_ir_name_map_values : Array[@lib.NameMap?] = []
 
 ///|
-let core_ir_name_map_free_reps : Array[Int] = []
+let core_ir_name_map_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_name_map_store(value : @lib.NameMap) -> NameMap {
@@ -3615,7 +3683,7 @@ pub fn NameMap::dtor(self : NameMap) -> Unit {
 let core_ir_name_sec_values : Array[@lib.NameSec?] = []
 
 ///|
-let core_ir_name_sec_free_reps : Array[Int] = []
+let core_ir_name_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_name_sec_store(value : @lib.NameSec) -> NameSec {
@@ -3671,7 +3739,7 @@ pub fn NameSec::dtor(self : NameSec) -> Unit {
 let core_ir_num_type_values : Array[@lib.NumType?] = []
 
 ///|
-let core_ir_num_type_free_reps : Array[Int] = []
+let core_ir_num_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_num_type_store(value : @lib.NumType) -> NumType {
@@ -3727,7 +3795,7 @@ pub fn NumType::dtor(self : NumType) -> Unit {
 let core_ir_pack_type_values : Array[@lib.PackType?] = []
 
 ///|
-let core_ir_pack_type_free_reps : Array[Int] = []
+let core_ir_pack_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_pack_type_store(value : @lib.PackType) -> PackType {
@@ -3783,7 +3851,7 @@ pub fn PackType::dtor(self : PackType) -> Unit {
 let core_ir_rec_type_values : Array[@lib.RecType?] = []
 
 ///|
-let core_ir_rec_type_free_reps : Array[Int] = []
+let core_ir_rec_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_rec_type_store(value : @lib.RecType) -> RecType {
@@ -3839,7 +3907,7 @@ pub fn RecType::dtor(self : RecType) -> Unit {
 let core_ir_ref_type_values : Array[@lib.RefType?] = []
 
 ///|
-let core_ir_ref_type_free_reps : Array[Int] = []
+let core_ir_ref_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_ref_type_store(value : @lib.RefType) -> RefType {
@@ -3895,7 +3963,7 @@ pub fn RefType::dtor(self : RefType) -> Unit {
 let core_ir_resume_handler_values : Array[@lib.ResumeHandler?] = []
 
 ///|
-let core_ir_resume_handler_free_reps : Array[Int] = []
+let core_ir_resume_handler_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_resume_handler_store(value : @lib.ResumeHandler) -> ResumeHandler {
@@ -3934,7 +4002,9 @@ fn core_ir_resume_handler_option(value : ResumeHandler?) -> @lib.ResumeHandler? 
 }
 
 ///|
-fn core_ir_resume_handler_array(values : Array[ResumeHandler]) -> Array[@lib.ResumeHandler] {
+fn core_ir_resume_handler_array(
+  values : Array[ResumeHandler],
+) -> Array[@lib.ResumeHandler] {
   values.map(fn(value) { core_ir_resume_handler_get(value) })
 }
 
@@ -3951,7 +4021,7 @@ pub fn ResumeHandler::dtor(self : ResumeHandler) -> Unit {
 let core_ir_start_sec_values : Array[@lib.StartSec?] = []
 
 ///|
-let core_ir_start_sec_free_reps : Array[Int] = []
+let core_ir_start_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_start_sec_store(value : @lib.StartSec) -> StartSec {
@@ -4007,7 +4077,7 @@ pub fn StartSec::dtor(self : StartSec) -> Unit {
 let core_ir_storage_type_values : Array[@lib.StorageType?] = []
 
 ///|
-let core_ir_storage_type_free_reps : Array[Int] = []
+let core_ir_storage_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_storage_type_store(value : @lib.StorageType) -> StorageType {
@@ -4046,7 +4116,9 @@ fn core_ir_storage_type_option(value : StorageType?) -> @lib.StorageType? {
 }
 
 ///|
-fn core_ir_storage_type_array(values : Array[StorageType]) -> Array[@lib.StorageType] {
+fn core_ir_storage_type_array(
+  values : Array[StorageType],
+) -> Array[@lib.StorageType] {
   values.map(fn(value) { core_ir_storage_type_get(value) })
 }
 
@@ -4063,7 +4135,7 @@ pub fn StorageType::dtor(self : StorageType) -> Unit {
 let core_ir_store_op_values : Array[@lib.StoreOp?] = []
 
 ///|
-let core_ir_store_op_free_reps : Array[Int] = []
+let core_ir_store_op_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_store_op_store(value : @lib.StoreOp) -> StoreOp {
@@ -4119,7 +4191,7 @@ pub fn StoreOp::dtor(self : StoreOp) -> Unit {
 let core_ir_string_refs_sec_values : Array[@lib.StringRefsSec?] = []
 
 ///|
-let core_ir_string_refs_sec_free_reps : Array[Int] = []
+let core_ir_string_refs_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_string_refs_sec_store(value : @lib.StringRefsSec) -> StringRefsSec {
@@ -4150,7 +4222,9 @@ fn core_ir_string_refs_sec_get(value : StringRefsSec) -> @lib.StringRefsSec {
 }
 
 ///|
-fn core_ir_string_refs_sec_option(value : StringRefsSec?) -> @lib.StringRefsSec? {
+fn core_ir_string_refs_sec_option(
+  value : StringRefsSec?,
+) -> @lib.StringRefsSec? {
   match value {
     Some(value) => Some(core_ir_string_refs_sec_get(value))
     None => None
@@ -4158,7 +4232,9 @@ fn core_ir_string_refs_sec_option(value : StringRefsSec?) -> @lib.StringRefsSec?
 }
 
 ///|
-fn core_ir_string_refs_sec_array(values : Array[StringRefsSec]) -> Array[@lib.StringRefsSec] {
+fn core_ir_string_refs_sec_array(
+  values : Array[StringRefsSec],
+) -> Array[@lib.StringRefsSec] {
   values.map(fn(value) { core_ir_string_refs_sec_get(value) })
 }
 
@@ -4175,7 +4251,7 @@ pub fn StringRefsSec::dtor(self : StringRefsSec) -> Unit {
 let core_ir_sub_type_values : Array[@lib.SubType?] = []
 
 ///|
-let core_ir_sub_type_free_reps : Array[Int] = []
+let core_ir_sub_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_sub_type_store(value : @lib.SubType) -> SubType {
@@ -4231,7 +4307,7 @@ pub fn SubType::dtor(self : SubType) -> Unit {
 let core_ir_table_values : Array[@lib.Table?] = []
 
 ///|
-let core_ir_table_free_reps : Array[Int] = []
+let core_ir_table_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_table_store(value : @lib.Table) -> Table {
@@ -4287,7 +4363,7 @@ pub fn Table::dtor(self : Table) -> Unit {
 let core_ir_table_idx_values : Array[@lib.TableIdx?] = []
 
 ///|
-let core_ir_table_idx_free_reps : Array[Int] = []
+let core_ir_table_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_table_idx_store(value : @lib.TableIdx) -> TableIdx {
@@ -4343,7 +4419,7 @@ pub fn TableIdx::dtor(self : TableIdx) -> Unit {
 let core_ir_table_sec_values : Array[@lib.TableSec?] = []
 
 ///|
-let core_ir_table_sec_free_reps : Array[Int] = []
+let core_ir_table_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_table_sec_store(value : @lib.TableSec) -> TableSec {
@@ -4399,7 +4475,7 @@ pub fn TableSec::dtor(self : TableSec) -> Unit {
 let core_ir_table_type_values : Array[@lib.TableType?] = []
 
 ///|
-let core_ir_table_type_free_reps : Array[Int] = []
+let core_ir_table_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_table_type_store(value : @lib.TableType) -> TableType {
@@ -4455,7 +4531,7 @@ pub fn TableType::dtor(self : TableType) -> Unit {
 let core_ir_tag_idx_values : Array[@lib.TagIdx?] = []
 
 ///|
-let core_ir_tag_idx_free_reps : Array[Int] = []
+let core_ir_tag_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_tag_idx_store(value : @lib.TagIdx) -> TagIdx {
@@ -4511,7 +4587,7 @@ pub fn TagIdx::dtor(self : TagIdx) -> Unit {
 let core_ir_tag_sec_values : Array[@lib.TagSec?] = []
 
 ///|
-let core_ir_tag_sec_free_reps : Array[Int] = []
+let core_ir_tag_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_tag_sec_store(value : @lib.TagSec) -> TagSec {
@@ -4567,7 +4643,7 @@ pub fn TagSec::dtor(self : TagSec) -> Unit {
 let core_ir_tag_type_values : Array[@lib.TagType?] = []
 
 ///|
-let core_ir_tag_type_free_reps : Array[Int] = []
+let core_ir_tag_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_tag_type_store(value : @lib.TagType) -> TagType {
@@ -4623,7 +4699,7 @@ pub fn TagType::dtor(self : TagType) -> Unit {
 let core_ir_type_idx_values : Array[@lib.TypeIdx?] = []
 
 ///|
-let core_ir_type_idx_free_reps : Array[Int] = []
+let core_ir_type_idx_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_type_idx_store(value : @lib.TypeIdx) -> TypeIdx {
@@ -4679,7 +4755,7 @@ pub fn TypeIdx::dtor(self : TypeIdx) -> Unit {
 let core_ir_type_metadata_values : Array[@lib.TypeMetadata?] = []
 
 ///|
-let core_ir_type_metadata_free_reps : Array[Int] = []
+let core_ir_type_metadata_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_type_metadata_store(value : @lib.TypeMetadata) -> TypeMetadata {
@@ -4718,7 +4794,9 @@ fn core_ir_type_metadata_option(value : TypeMetadata?) -> @lib.TypeMetadata? {
 }
 
 ///|
-fn core_ir_type_metadata_array(values : Array[TypeMetadata]) -> Array[@lib.TypeMetadata] {
+fn core_ir_type_metadata_array(
+  values : Array[TypeMetadata],
+) -> Array[@lib.TypeMetadata] {
   values.map(fn(value) { core_ir_type_metadata_get(value) })
 }
 
@@ -4735,7 +4813,7 @@ pub fn TypeMetadata::dtor(self : TypeMetadata) -> Unit {
 let core_ir_type_sec_values : Array[@lib.TypeSec?] = []
 
 ///|
-let core_ir_type_sec_free_reps : Array[Int] = []
+let core_ir_type_sec_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_type_sec_store(value : @lib.TypeSec) -> TypeSec {
@@ -4791,7 +4869,7 @@ pub fn TypeSec::dtor(self : TypeSec) -> Unit {
 let core_ir_u32_values : Array[@lib.U32?] = []
 
 ///|
-let core_ir_u32_free_reps : Array[Int] = []
+let core_ir_u32_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_u32_store(value : @lib.U32) -> U32Ir {
@@ -4847,7 +4925,7 @@ pub fn U32Ir::dtor(self : U32Ir) -> Unit {
 let core_ir_u64_values : Array[@lib.U64?] = []
 
 ///|
-let core_ir_u64_free_reps : Array[Int] = []
+let core_ir_u64_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_u64_store(value : @lib.U64) -> U64Ir {
@@ -4903,7 +4981,7 @@ pub fn U64Ir::dtor(self : U64Ir) -> Unit {
 let core_ir_val_type_values : Array[@lib.ValType?] = []
 
 ///|
-let core_ir_val_type_free_reps : Array[Int] = []
+let core_ir_val_type_free_reps : Array[Int32] = []
 
 ///|
 fn core_ir_val_type_store(value : @lib.ValType) -> ValType {
@@ -5331,16 +5409,12 @@ pub fn AtomicRmwOp::i64_xor() -> AtomicRmwOp {
 }
 
 ///|
-pub fn BlockType::type_idx(
-  p0 : TypeIdx
-) -> BlockType {
+pub fn BlockType::type_idx(p0 : TypeIdx) -> BlockType {
   core_ir_block_type_store(@lib.BlockType::type_idx(core_ir_type_idx_get(p0)))
 }
 
 ///|
-pub fn BlockType::val_type(
-  p0 : ValType
-) -> BlockType {
+pub fn BlockType::val_type(p0 : ValType) -> BlockType {
   core_ir_block_type_store(@lib.BlockType::val_type(core_ir_val_type_get(p0)))
 }
 
@@ -5350,107 +5424,88 @@ pub fn BlockType::void_() -> BlockType {
 }
 
 ///|
-pub fn Catch::all(
-  p0 : LabelIdx
-) -> Catch {
+pub fn Catch::all(p0 : LabelIdx) -> Catch {
   core_ir_catch_store(@lib.Catch::all(core_ir_label_idx_get(p0)))
 }
 
 ///|
-pub fn Catch::all_ref(
-  p0 : LabelIdx
-) -> Catch {
+pub fn Catch::all_ref(p0 : LabelIdx) -> Catch {
   core_ir_catch_store(@lib.Catch::all_ref(core_ir_label_idx_get(p0)))
 }
 
 ///|
-pub fn Catch::create(
-  p0 : TagIdx,
-  p1 : LabelIdx
-) -> Catch {
-  core_ir_catch_store(@lib.Catch::new(core_ir_tag_idx_get(p0), core_ir_label_idx_get(p1)))
+pub fn Catch::create(p0 : TagIdx, p1 : LabelIdx) -> Catch {
+  core_ir_catch_store(
+    @lib.Catch::new(core_ir_tag_idx_get(p0), core_ir_label_idx_get(p1)),
+  )
 }
 
 ///|
-pub fn Catch::ref_(
-  p0 : TagIdx,
-  p1 : LabelIdx
-) -> Catch {
-  core_ir_catch_store(@lib.Catch::ref_(core_ir_tag_idx_get(p0), core_ir_label_idx_get(p1)))
+pub fn Catch::ref_(p0 : TagIdx, p1 : LabelIdx) -> Catch {
+  core_ir_catch_store(
+    @lib.Catch::ref_(core_ir_tag_idx_get(p0), core_ir_label_idx_get(p1)),
+  )
 }
 
 ///|
-pub fn CodeSec::create(
-  p0 : Array[FuncIr]
-) -> CodeSec {
+pub fn CodeSec::create(p0 : Array[FuncIr]) -> CodeSec {
   core_ir_code_sec_store(@lib.CodeSec::new(core_ir_func_array(p0)))
 }
 
 ///|
-pub fn CompType::array(
-  p0 : FieldType
-) -> CompType {
+pub fn CompType::array(p0 : FieldType) -> CompType {
   core_ir_comp_type_store(@lib.CompType::array(core_ir_field_type_get(p0)))
 }
 
 ///|
-pub fn CompType::cont(
-  p0 : TypeIdx
-) -> CompType {
+pub fn CompType::cont(p0 : TypeIdx) -> CompType {
   core_ir_comp_type_store(@lib.CompType::cont(core_ir_type_idx_get(p0)))
 }
 
 ///|
 pub fn CompType::func_value(
   p0 : Array[ValType],
-  p1 : Array[ValType]
+  p1 : Array[ValType],
 ) -> CompType {
-  core_ir_comp_type_store(@lib.CompType::func(core_ir_val_type_array(p0), core_ir_val_type_array(p1)))
+  core_ir_comp_type_store(
+    @lib.CompType::func(core_ir_val_type_array(p0), core_ir_val_type_array(p1)),
+  )
 }
 
 ///|
-pub fn CompType::struct_(
-  p0 : Array[FieldType]
-) -> CompType {
+pub fn CompType::struct_(p0 : Array[FieldType]) -> CompType {
   core_ir_comp_type_store(@lib.CompType::struct_(core_ir_field_type_array(p0)))
 }
 
 ///|
-pub fn CustomSec::create(
-  p0 : Name,
-  p1 : FixedArray[Byte]
-) -> CustomSec {
-  core_ir_custom_sec_store(@lib.CustomSec::new(core_ir_name_get(p0), core_ir_bytes(p1)))
+pub fn CustomSec::create(p0 : Name, p1 : FixedArray[Byte]) -> CustomSec {
+  core_ir_custom_sec_store(
+    @lib.CustomSec::new(core_ir_name_get(p0), core_ir_bytes(p1)),
+  )
 }
 
 ///|
-pub fn Data::create(
-  p0 : DataMode,
-  p1 : FixedArray[Byte]
-) -> Data {
-  core_ir_data_store(@lib.Data::new(core_ir_data_mode_get(p0), core_ir_bytes(p1)))
+pub fn Data::create(p0 : DataMode, p1 : FixedArray[Byte]) -> Data {
+  core_ir_data_store(
+    @lib.Data::new(core_ir_data_mode_get(p0), core_ir_bytes(p1)),
+  )
 }
 
 ///|
-pub fn DataCntSec::create(
-  p0 : U32Ir
-) -> DataCntSec {
+pub fn DataCntSec::create(p0 : U32Ir) -> DataCntSec {
   core_ir_data_cnt_sec_store(@lib.DataCntSec::new(core_ir_u32_get(p0)))
 }
 
 ///|
-pub fn DataIdx::create(
-  p0 : UInt
-) -> DataIdx {
+pub fn DataIdx::create(p0 : UInt32) -> DataIdx {
   core_ir_data_idx_store(@lib.DataIdx::new(p0))
 }
 
 ///|
-pub fn DataMode::active(
-  p0 : MemIdx,
-  p1 : Expr
-) -> DataMode {
-  core_ir_data_mode_store(@lib.DataMode::active(core_ir_mem_idx_get(p0), core_ir_expr_get(p1)))
+pub fn DataMode::active(p0 : MemIdx, p1 : Expr) -> DataMode {
+  core_ir_data_mode_store(
+    @lib.DataMode::active(core_ir_mem_idx_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
@@ -5459,63 +5514,49 @@ pub fn DataMode::passive() -> DataMode {
 }
 
 ///|
-pub fn DataSec::create(
-  p0 : Array[Data]
-) -> DataSec {
+pub fn DataSec::create(p0 : Array[Data]) -> DataSec {
   core_ir_data_sec_store(@lib.DataSec::new(core_ir_data_array(p0)))
 }
 
 ///|
-pub fn DefType::create(
-  p0 : RecType,
-  p1 : UInt
-) -> DefType {
+pub fn DefType::create(p0 : RecType, p1 : UInt32) -> DefType {
   core_ir_def_type_store(@lib.DefType::new(core_ir_rec_type_get(p0), p1))
 }
 
 ///|
-pub fn Elem::create(
-  p0 : ElemMode,
-  p1 : ElemKind
-) -> Elem {
-  core_ir_elem_store(@lib.Elem::new(core_ir_elem_mode_get(p0), core_ir_elem_kind_get(p1)))
+pub fn Elem::create(p0 : ElemMode, p1 : ElemKind) -> Elem {
+  core_ir_elem_store(
+    @lib.Elem::new(core_ir_elem_mode_get(p0), core_ir_elem_kind_get(p1)),
+  )
 }
 
 ///|
-pub fn ElemIdx::create(
-  p0 : UInt
-) -> ElemIdx {
+pub fn ElemIdx::create(p0 : UInt32) -> ElemIdx {
   core_ir_elem_idx_store(@lib.ElemIdx::new(p0))
 }
 
 ///|
-pub fn ElemKind::func_exprs(
-  p0 : Array[Expr]
-) -> ElemKind {
+pub fn ElemKind::func_exprs(p0 : Array[Expr]) -> ElemKind {
   core_ir_elem_kind_store(@lib.ElemKind::func_exprs(core_ir_expr_array(p0)))
 }
 
 ///|
-pub fn ElemKind::funcs(
-  p0 : Array[FuncIdx]
-) -> ElemKind {
+pub fn ElemKind::funcs(p0 : Array[FuncIdx]) -> ElemKind {
   core_ir_elem_kind_store(@lib.ElemKind::funcs(core_ir_func_idx_array(p0)))
 }
 
 ///|
-pub fn ElemKind::typed_exprs(
-  p0 : RefType,
-  p1 : Array[Expr]
-) -> ElemKind {
-  core_ir_elem_kind_store(@lib.ElemKind::typed_exprs(core_ir_ref_type_get(p0), core_ir_expr_array(p1)))
+pub fn ElemKind::typed_exprs(p0 : RefType, p1 : Array[Expr]) -> ElemKind {
+  core_ir_elem_kind_store(
+    @lib.ElemKind::typed_exprs(core_ir_ref_type_get(p0), core_ir_expr_array(p1)),
+  )
 }
 
 ///|
-pub fn ElemMode::active(
-  p0 : TableIdx,
-  p1 : Expr
-) -> ElemMode {
-  core_ir_elem_mode_store(@lib.ElemMode::active(core_ir_table_idx_get(p0), core_ir_expr_get(p1)))
+pub fn ElemMode::active(p0 : TableIdx, p1 : Expr) -> ElemMode {
+  core_ir_elem_mode_store(
+    @lib.ElemMode::active(core_ir_table_idx_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
@@ -5529,205 +5570,164 @@ pub fn ElemMode::passive() -> ElemMode {
 }
 
 ///|
-pub fn ElemSec::create(
-  p0 : Array[Elem]
-) -> ElemSec {
+pub fn ElemSec::create(p0 : Array[Elem]) -> ElemSec {
   core_ir_elem_sec_store(@lib.ElemSec::new(core_ir_elem_array(p0)))
 }
 
 ///|
-pub fn ExportIr::create(
-  p0 : Name,
-  p1 : ExternIdx
-) -> ExportIr {
-  core_ir_export_store(@lib.Export::new(core_ir_name_get(p0), core_ir_extern_idx_get(p1)))
+pub fn ExportIr::create(p0 : Name, p1 : ExternIdx) -> ExportIr {
+  core_ir_export_store(
+    @lib.Export::new(core_ir_name_get(p0), core_ir_extern_idx_get(p1)),
+  )
 }
 
 ///|
-pub fn ExportSec::create(
-  p0 : Array[ExportIr]
-) -> ExportSec {
+pub fn ExportSec::create(p0 : Array[ExportIr]) -> ExportSec {
   core_ir_export_sec_store(@lib.ExportSec::new(core_ir_export_array(p0)))
 }
 
 ///|
-pub fn Expr::create(
-  p0 : Array[Instruction]
-) -> Expr {
+pub fn Expr::create(p0 : Array[Instruction]) -> Expr {
   core_ir_expr_store(@lib.Expr::new(core_ir_instruction_array(p0)))
 }
 
 ///|
-pub fn ExternIdx::func_value(
-  p0 : FuncIdx
-) -> ExternIdx {
+pub fn ExternIdx::func_value(p0 : FuncIdx) -> ExternIdx {
   core_ir_extern_idx_store(@lib.ExternIdx::func(core_ir_func_idx_get(p0)))
 }
 
 ///|
-pub fn ExternIdx::global(
-  p0 : GlobalIdx
-) -> ExternIdx {
+pub fn ExternIdx::global(p0 : GlobalIdx) -> ExternIdx {
   core_ir_extern_idx_store(@lib.ExternIdx::global(core_ir_global_idx_get(p0)))
 }
 
 ///|
-pub fn ExternIdx::mem(
-  p0 : MemIdx
-) -> ExternIdx {
+pub fn ExternIdx::mem(p0 : MemIdx) -> ExternIdx {
   core_ir_extern_idx_store(@lib.ExternIdx::mem(core_ir_mem_idx_get(p0)))
 }
 
 ///|
-pub fn ExternIdx::table(
-  p0 : TableIdx
-) -> ExternIdx {
+pub fn ExternIdx::table(p0 : TableIdx) -> ExternIdx {
   core_ir_extern_idx_store(@lib.ExternIdx::table(core_ir_table_idx_get(p0)))
 }
 
 ///|
-pub fn ExternIdx::tag(
-  p0 : TagIdx
-) -> ExternIdx {
+pub fn ExternIdx::tag(p0 : TagIdx) -> ExternIdx {
   core_ir_extern_idx_store(@lib.ExternIdx::tag(core_ir_tag_idx_get(p0)))
 }
 
 ///|
-pub fn ExternType::func_value(
-  p0 : TypeIdx
-) -> ExternType {
+pub fn ExternType::func_value(p0 : TypeIdx) -> ExternType {
   core_ir_extern_type_store(@lib.ExternType::func(core_ir_type_idx_get(p0)))
 }
 
 ///|
-pub fn ExternType::global(
-  p0 : GlobalType
-) -> ExternType {
-  core_ir_extern_type_store(@lib.ExternType::global(core_ir_global_type_get(p0)))
+pub fn ExternType::global(p0 : GlobalType) -> ExternType {
+  core_ir_extern_type_store(
+    @lib.ExternType::global(core_ir_global_type_get(p0)),
+  )
 }
 
 ///|
-pub fn ExternType::mem(
-  p0 : MemType
-) -> ExternType {
+pub fn ExternType::mem(p0 : MemType) -> ExternType {
   core_ir_extern_type_store(@lib.ExternType::mem(core_ir_mem_type_get(p0)))
 }
 
 ///|
-pub fn ExternType::table(
-  p0 : TableType
-) -> ExternType {
+pub fn ExternType::table(p0 : TableType) -> ExternType {
   core_ir_extern_type_store(@lib.ExternType::table(core_ir_table_type_get(p0)))
 }
 
 ///|
-pub fn ExternType::tag(
-  p0 : TagType
-) -> ExternType {
+pub fn ExternType::tag(p0 : TagType) -> ExternType {
   core_ir_extern_type_store(@lib.ExternType::tag(core_ir_tag_type_get(p0)))
 }
 
 ///|
-pub fn F32Ir::create(
-  p0 : Float
-) -> F32Ir {
+pub fn F32Ir::create(p0 : Float) -> F32Ir {
   core_ir_f32_store(@lib.F32::new(p0))
 }
 
 ///|
-pub fn F64Ir::create(
-  p0 : Double
-) -> F64Ir {
+pub fn F64Ir::create(p0 : Double) -> F64Ir {
   core_ir_f64_store(@lib.F64::new(p0))
 }
 
 ///|
-pub fn FieldType::create(
-  p0 : StorageType,
-  p1 : Mut
-) -> FieldType {
-  core_ir_field_type_store(@lib.FieldType::new(core_ir_storage_type_get(p0), core_ir_mut_get(p1)))
+pub fn FieldType::create(p0 : StorageType, p1 : Mut) -> FieldType {
+  core_ir_field_type_store(
+    @lib.FieldType::new(core_ir_storage_type_get(p0), core_ir_mut_get(p1)),
+  )
 }
 
 ///|
-pub fn FuncIr::create(
-  p0 : Locals,
-  p1 : Expr
-) -> FuncIr {
-  core_ir_func_store(@lib.Func::new(core_ir_locals_get(p0), core_ir_expr_get(p1)))
+pub fn FuncIr::create(p0 : Locals, p1 : Expr) -> FuncIr {
+  core_ir_func_store(
+    @lib.Func::new(core_ir_locals_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
 pub fn FuncAnnotation::create(
   p0 : String,
-  args : Array[String]
+  args : Array[String],
 ) -> FuncAnnotation {
-  core_ir_func_annotation_store(@lib.FuncAnnotation::new(p0, args=args))
+  core_ir_func_annotation_store(@lib.FuncAnnotation::new(p0, args~))
 }
 
 ///|
 pub fn FuncAnnotationAssoc::create(
-  p0 : UInt,
-  p1 : Array[FuncAnnotation]
+  p0 : UInt32,
+  p1 : Array[FuncAnnotation],
 ) -> FuncAnnotationAssoc {
-  core_ir_func_annotation_assoc_store(@lib.FuncAnnotationAssoc::new(p0, core_ir_func_annotation_array(p1)))
+  core_ir_func_annotation_assoc_store(
+    @lib.FuncAnnotationAssoc::new(p0, core_ir_func_annotation_array(p1)),
+  )
 }
 
 ///|
 pub fn FuncAnnotationSec::create(
-  p0 : Array[FuncAnnotationAssoc]
+  p0 : Array[FuncAnnotationAssoc],
 ) -> FuncAnnotationSec {
-  core_ir_func_annotation_sec_store(@lib.FuncAnnotationSec::new(core_ir_func_annotation_assoc_array(p0)))
+  core_ir_func_annotation_sec_store(
+    @lib.FuncAnnotationSec::new(core_ir_func_annotation_assoc_array(p0)),
+  )
 }
 
 ///|
-pub fn FuncIdx::create(
-  p0 : UInt
-) -> FuncIdx {
+pub fn FuncIdx::create(p0 : UInt32) -> FuncIdx {
   core_ir_func_idx_store(@lib.FuncIdx::new(p0))
 }
 
 ///|
-pub fn FuncSec::create(
-  p0 : Array[TypeIdx]
-) -> FuncSec {
+pub fn FuncSec::create(p0 : Array[TypeIdx]) -> FuncSec {
   core_ir_func_sec_store(@lib.FuncSec::new(core_ir_type_idx_array(p0)))
 }
 
 ///|
-pub fn Global::create(
-  p0 : GlobalType,
-  p1 : Expr
-) -> Global {
-  core_ir_global_store(@lib.Global::new(core_ir_global_type_get(p0), core_ir_expr_get(p1)))
+pub fn Global::create(p0 : GlobalType, p1 : Expr) -> Global {
+  core_ir_global_store(
+    @lib.Global::new(core_ir_global_type_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
-pub fn GlobalIdx::create(
-  p0 : UInt
-) -> GlobalIdx {
+pub fn GlobalIdx::create(p0 : UInt32) -> GlobalIdx {
   core_ir_global_idx_store(@lib.GlobalIdx::new(p0))
 }
 
 ///|
-pub fn GlobalSec::create(
-  p0 : Array[Global]
-) -> GlobalSec {
+pub fn GlobalSec::create(p0 : Array[Global]) -> GlobalSec {
   core_ir_global_sec_store(@lib.GlobalSec::new(core_ir_global_array(p0)))
 }
 
 ///|
-pub fn GlobalType::create(
-  p0 : ValType,
-  p1 : Bool
-) -> GlobalType {
+pub fn GlobalType::create(p0 : ValType, p1 : Bool) -> GlobalType {
   core_ir_global_type_store(@lib.GlobalType::new(core_ir_val_type_get(p0), p1))
 }
 
 ///|
-pub fn HeapType::abs(
-  p0 : AbsHeapType
-) -> HeapType {
+pub fn HeapType::abs(p0 : AbsHeapType) -> HeapType {
   core_ir_heap_type_store(@lib.HeapType::abs(core_ir_abs_heap_type_get(p0)))
 }
 
@@ -5737,69 +5737,65 @@ pub fn HeapType::bottom() -> HeapType {
 }
 
 ///|
-pub fn HeapType::def_type(
-  p0 : DefType
-) -> HeapType {
+pub fn HeapType::def_type(p0 : DefType) -> HeapType {
   core_ir_heap_type_store(@lib.HeapType::def_type(core_ir_def_type_get(p0)))
 }
 
 ///|
-pub fn HeapType::create(
-  p0 : TypeIdx
-) -> HeapType {
+pub fn HeapType::create(p0 : TypeIdx) -> HeapType {
   core_ir_heap_type_store(@lib.HeapType::new(core_ir_type_idx_get(p0)))
 }
 
 ///|
-pub fn HeapType::shared_abs(
-  p0 : AbsHeapType
-) -> HeapType {
-  core_ir_heap_type_store(@lib.HeapType::shared_abs(core_ir_abs_heap_type_get(p0)))
+pub fn HeapType::shared_abs(p0 : AbsHeapType) -> HeapType {
+  core_ir_heap_type_store(
+    @lib.HeapType::shared_abs(core_ir_abs_heap_type_get(p0)),
+  )
 }
 
 ///|
-pub fn I32::create(
-  p0 : Int
-) -> I32 {
+pub fn I32::create(p0 : Int32) -> I32 {
   core_ir_i32_store(@lib.I32::new(p0))
 }
 
 ///|
-pub fn I64::create(
-  p0 : Int64
-) -> I64 {
+pub fn I64::create(p0 : Int64) -> I64 {
   core_ir_i64_store(@lib.I64::new(p0))
 }
 
 ///|
-pub fn ImportIr::create(
-  p0 : Name,
-  p1 : Name,
-  p2 : ExternType
-) -> ImportIr {
-  core_ir_import_store(@lib.Import::new(core_ir_name_get(p0), core_ir_name_get(p1), core_ir_extern_type_get(p2)))
+pub fn ImportIr::create(p0 : Name, p1 : Name, p2 : ExternType) -> ImportIr {
+  core_ir_import_store(
+    @lib.Import::new(
+      core_ir_name_get(p0),
+      core_ir_name_get(p1),
+      core_ir_extern_type_get(p2),
+    ),
+  )
 }
 
 ///|
-pub fn ImportSec::create(
-  p0 : Array[ImportIr]
-) -> ImportSec {
+pub fn ImportSec::create(p0 : Array[ImportIr]) -> ImportSec {
   core_ir_import_sec_store(@lib.ImportSec::new(core_ir_import_array(p0)))
 }
 
 ///|
 pub fn IndirectNameAssoc::create(
-  p0 : UInt,
-  p1 : NameMap
+  p0 : UInt32,
+  p1 : NameMap,
 ) -> IndirectNameAssoc {
-  core_ir_indirect_name_assoc_store(@lib.IndirectNameAssoc::new(p0, core_ir_name_map_get(p1)))
+  core_ir_indirect_name_assoc_store(
+    @lib.IndirectNameAssoc::new(p0, core_ir_name_map_get(p1)),
+  )
 }
 
 ///|
 pub fn IndirectNameMap::create(
-  p0 : Array[IndirectNameAssoc]
+  p0 : Array[IndirectNameAssoc],
 ) -> IndirectNameMap {
-  core_ir_indirect_name_map_store(@lib.IndirectNameMap::new(core_ir_indirect_name_assoc_array(p0)))
+  core_ir_indirect_name_map_store(
+    @lib.IndirectNameMap::new(core_ir_indirect_name_assoc_array(p0)),
+  )
 }
 
 ///|
@@ -5810,102 +5806,139 @@ pub fn Instruction::any_convert_extern() -> Instruction {
 ///|
 pub fn Instruction::array_atomic_cmpxchg(
   p0 : TypeIdx,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_cmpxchg(core_ir_type_idx_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_cmpxchg(
+      core_ir_type_idx_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::array_atomic_get(
   p0 : AtomicOrder,
-  p1 : TypeIdx
+  p1 : TypeIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_get(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_get(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::array_atomic_get_s(
   p0 : AtomicOrder,
-  p1 : TypeIdx
+  p1 : TypeIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_get_s(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_get_s(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::array_atomic_get_u(
   p0 : AtomicOrder,
-  p1 : TypeIdx
+  p1 : TypeIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_get_u(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_get_u(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::array_atomic_rmw(
   p0 : AggregateAtomicRmwOp,
   p1 : TypeIdx,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_rmw(core_ir_aggregate_atomic_rmw_op_get(p0), core_ir_type_idx_get(p1), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_rmw(
+      core_ir_aggregate_atomic_rmw_op_get(p0),
+      core_ir_type_idx_get(p1),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::array_atomic_set(
   p0 : AtomicOrder,
-  p1 : TypeIdx
+  p1 : TypeIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_atomic_set(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_atomic_set(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_copy(
-  p0 : TypeIdx,
-  p1 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_copy(core_ir_type_idx_get(p0), core_ir_type_idx_get(p1)))
+pub fn Instruction::array_copy(p0 : TypeIdx, p1 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_copy(
+      core_ir_type_idx_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_fill(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_fill(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_fill(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_fill(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_get(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_get(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_get(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_get(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_get_s(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_get_s(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_get_s(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_get_s(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_get_u(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_get_u(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_get_u(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_get_u(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_init_data(
-  p0 : TypeIdx,
-  p1 : DataIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_init_data(core_ir_type_idx_get(p0), core_ir_data_idx_get(p1)))
+pub fn Instruction::array_init_data(p0 : TypeIdx, p1 : DataIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_init_data(
+      core_ir_type_idx_get(p0),
+      core_ir_data_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_init_elem(
-  p0 : TypeIdx,
-  p1 : ElemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_init_elem(core_ir_type_idx_get(p0), core_ir_elem_idx_get(p1)))
+pub fn Instruction::array_init_elem(p0 : TypeIdx, p1 : ElemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_init_elem(
+      core_ir_type_idx_get(p0),
+      core_ir_elem_idx_get(p1),
+    ),
+  )
 }
 
 ///|
@@ -5917,109 +5950,134 @@ pub fn Instruction::array_len() -> Instruction {
 pub fn Instruction::array_load(
   p0 : LoadOp,
   p1 : TypeIdx,
-  memarg : MemArg
+  memarg : MemArg,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_load(core_ir_load_op_get(p0), core_ir_type_idx_get(p1), memarg=core_ir_mem_arg_get(memarg)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_load(
+      core_ir_load_op_get(p0),
+      core_ir_type_idx_get(p1),
+      memarg=core_ir_mem_arg_get(memarg),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_new(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_new(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_new(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_new(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_new_data(
-  p0 : TypeIdx,
-  p1 : DataIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_new_data(core_ir_type_idx_get(p0), core_ir_data_idx_get(p1)))
+pub fn Instruction::array_new_data(p0 : TypeIdx, p1 : DataIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_new_data(
+      core_ir_type_idx_get(p0),
+      core_ir_data_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_new_default(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_new_default(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_new_default(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_new_default(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::array_new_elem(
-  p0 : TypeIdx,
-  p1 : ElemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_new_elem(core_ir_type_idx_get(p0), core_ir_elem_idx_get(p1)))
+pub fn Instruction::array_new_elem(p0 : TypeIdx, p1 : ElemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_new_elem(
+      core_ir_type_idx_get(p0),
+      core_ir_elem_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_new_fixed(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_new_fixed(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::array_new_fixed(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_new_fixed(
+      core_ir_type_idx_get(p0),
+      core_ir_u32_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::array_set(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_set(core_ir_type_idx_get(p0)))
+pub fn Instruction::array_set(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::array_set(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
 pub fn Instruction::array_store(
   p0 : StoreOp,
   p1 : TypeIdx,
-  memarg : MemArg
+  memarg : MemArg,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_store(core_ir_store_op_get(p0), core_ir_type_idx_get(p1), memarg=core_ir_mem_arg_get(memarg)))
+  core_ir_instruction_store(
+    @lib.Instruction::array_store(
+      core_ir_store_op_get(p0),
+      core_ir_type_idx_get(p1),
+      memarg=core_ir_mem_arg_get(memarg),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::atomic_cmpxchg(
   p0 : AtomicCmpxchgOp,
   p1 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::atomic_cmpxchg(core_ir_atomic_cmpxchg_op_get(p0), core_ir_mem_arg_get(p1), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::atomic_cmpxchg(
+      core_ir_atomic_cmpxchg_op_get(p0),
+      core_ir_mem_arg_get(p1),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::atomic_fence(
-  order : AtomicOrder
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::atomic_fence(order=core_ir_atomic_order_get(order)))
+pub fn Instruction::atomic_fence(order : AtomicOrder) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::atomic_fence(order=core_ir_atomic_order_get(order)),
+  )
 }
 
 ///|
 pub fn Instruction::atomic_rmw(
   p0 : AtomicRmwOp,
   p1 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::atomic_rmw(core_ir_atomic_rmw_op_get(p0), core_ir_mem_arg_get(p1), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::atomic_rmw(
+      core_ir_atomic_rmw_op_get(p0),
+      core_ir_mem_arg_get(p1),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::block(
-  p0 : BlockType,
-  p1 : Expr
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::block(core_ir_block_type_get(p0), core_ir_expr_get(p1)))
+pub fn Instruction::block(p0 : BlockType, p1 : Expr) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::block(core_ir_block_type_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::br(
-  p0 : LabelIdx
-) -> Instruction {
+pub fn Instruction::br(p0 : LabelIdx) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::br(core_ir_label_idx_get(p0)))
 }
 
 ///|
-pub fn Instruction::br_if(
-  p0 : LabelIdx
-) -> Instruction {
+pub fn Instruction::br_if(p0 : LabelIdx) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::br_if(core_ir_label_idx_get(p0)))
 }
 
@@ -6031,27 +6089,49 @@ pub fn Instruction::br_on_cast(
   p3 : Bool,
   p4 : HeapType,
   source_exact : Bool,
-  target_exact : Bool
+  target_exact : Bool,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_cast(core_ir_label_idx_get(p0), p1, core_ir_heap_type_get(p2), p3, core_ir_heap_type_get(p4), source_exact=source_exact, target_exact=target_exact))
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_cast(
+      core_ir_label_idx_get(p0),
+      p1,
+      core_ir_heap_type_get(p2),
+      p3,
+      core_ir_heap_type_get(p4),
+      source_exact~,
+      target_exact~,
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::br_on_cast_desc_eq(
   p0 : LabelIdx,
   p1 : RefType,
-  p2 : RefType
+  p2 : RefType,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_cast_desc_eq(core_ir_label_idx_get(p0), core_ir_ref_type_get(p1), core_ir_ref_type_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_cast_desc_eq(
+      core_ir_label_idx_get(p0),
+      core_ir_ref_type_get(p1),
+      core_ir_ref_type_get(p2),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::br_on_cast_desc_eq_fail(
   p0 : LabelIdx,
   p1 : RefType,
-  p2 : RefType
+  p2 : RefType,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_cast_desc_eq_fail(core_ir_label_idx_get(p0), core_ir_ref_type_get(p1), core_ir_ref_type_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_cast_desc_eq_fail(
+      core_ir_label_idx_get(p0),
+      core_ir_ref_type_get(p1),
+      core_ir_ref_type_get(p2),
+    ),
+  )
 }
 
 ///|
@@ -6062,75 +6142,92 @@ pub fn Instruction::br_on_cast_fail(
   p3 : Bool,
   p4 : HeapType,
   source_exact : Bool,
-  target_exact : Bool
+  target_exact : Bool,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_cast_fail(core_ir_label_idx_get(p0), p1, core_ir_heap_type_get(p2), p3, core_ir_heap_type_get(p4), source_exact=source_exact, target_exact=target_exact))
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_cast_fail(
+      core_ir_label_idx_get(p0),
+      p1,
+      core_ir_heap_type_get(p2),
+      p3,
+      core_ir_heap_type_get(p4),
+      source_exact~,
+      target_exact~,
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::br_on_non_null(
-  p0 : LabelIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_non_null(core_ir_label_idx_get(p0)))
+pub fn Instruction::br_on_non_null(p0 : LabelIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_non_null(core_ir_label_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::br_on_null(
-  p0 : LabelIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_on_null(core_ir_label_idx_get(p0)))
+pub fn Instruction::br_on_null(p0 : LabelIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::br_on_null(core_ir_label_idx_get(p0)),
+  )
 }
 
 ///|
 pub fn Instruction::br_table(
   p0 : Array[LabelIdx],
-  p1 : LabelIdx
+  p1 : LabelIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::br_table(core_ir_label_idx_array(p0), core_ir_label_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::br_table(
+      core_ir_label_idx_array(p0),
+      core_ir_label_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::call(
-  p0 : FuncIdx
-) -> Instruction {
+pub fn Instruction::call(p0 : FuncIdx) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::call(core_ir_func_idx_get(p0)))
 }
 
 ///|
-pub fn Instruction::call_indirect(
-  p0 : TypeIdx,
-  p1 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::call_indirect(core_ir_type_idx_get(p0), core_ir_table_idx_get(p1)))
+pub fn Instruction::call_indirect(p0 : TypeIdx, p1 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::call_indirect(
+      core_ir_type_idx_get(p0),
+      core_ir_table_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::call_ref(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::call_ref(core_ir_type_idx_get(p0)))
+pub fn Instruction::call_ref(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::call_ref(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::cont_bind(
-  p0 : TypeIdx,
-  p1 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::cont_bind(core_ir_type_idx_get(p0), core_ir_type_idx_get(p1)))
+pub fn Instruction::cont_bind(p0 : TypeIdx, p1 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::cont_bind(
+      core_ir_type_idx_get(p0),
+      core_ir_type_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::cont_new(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::cont_new(core_ir_type_idx_get(p0)))
+pub fn Instruction::cont_new(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::cont_new(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::data_drop(
-  p0 : DataIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::data_drop(core_ir_data_idx_get(p0)))
+pub fn Instruction::data_drop(p0 : DataIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::data_drop(core_ir_data_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6139,10 +6236,10 @@ pub fn Instruction::drop_op() -> Instruction {
 }
 
 ///|
-pub fn Instruction::elem_drop(
-  p0 : ElemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::elem_drop(core_ir_elem_idx_get(p0)))
+pub fn Instruction::elem_drop(p0 : ElemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::elem_drop(core_ir_elem_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6166,9 +6263,7 @@ pub fn Instruction::f32_ceil() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f32_const(
-  p0 : F32Ir
-) -> Instruction {
+pub fn Instruction::f32_const(p0 : F32Ir) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::f32_const(core_ir_f32_get(p0)))
 }
 
@@ -6233,9 +6328,7 @@ pub fn Instruction::f32_le() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f32_load(
-  p0 : MemArg
-) -> Instruction {
+pub fn Instruction::f32_load(p0 : MemArg) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::f32_load(core_ir_mem_arg_get(p0)))
 }
 
@@ -6285,10 +6378,10 @@ pub fn Instruction::f32_sqrt() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f32_store(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f32_store(core_ir_mem_arg_get(p0)))
+pub fn Instruction::f32_store(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f32_store(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -6342,10 +6435,10 @@ pub fn Instruction::f32x4_eq() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f32x4_extract_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f32x4_extract_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::f32x4_extract_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f32x4_extract_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6434,10 +6527,10 @@ pub fn Instruction::f32x4_relaxed_nmadd() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f32x4_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f32x4_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::f32x4_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f32x4_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6476,9 +6569,7 @@ pub fn Instruction::f64_ceil() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f64_const(
-  p0 : F64Ir
-) -> Instruction {
+pub fn Instruction::f64_const(p0 : F64Ir) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::f64_const(core_ir_f64_get(p0)))
 }
 
@@ -6538,9 +6629,7 @@ pub fn Instruction::f64_le() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f64_load(
-  p0 : MemArg
-) -> Instruction {
+pub fn Instruction::f64_load(p0 : MemArg) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::f64_load(core_ir_mem_arg_get(p0)))
 }
 
@@ -6595,10 +6684,10 @@ pub fn Instruction::f64_sqrt() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f64_store(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f64_store(core_ir_mem_arg_get(p0)))
+pub fn Instruction::f64_store(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f64_store(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -6647,10 +6736,10 @@ pub fn Instruction::f64x2_eq() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f64x2_extract_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f64x2_extract_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::f64x2_extract_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f64x2_extract_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6744,10 +6833,10 @@ pub fn Instruction::f64x2_relaxed_nmadd() -> Instruction {
 }
 
 ///|
-pub fn Instruction::f64x2_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::f64x2_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::f64x2_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::f64x2_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6771,17 +6860,17 @@ pub fn Instruction::f64x2_trunc() -> Instruction {
 }
 
 ///|
-pub fn Instruction::global_get(
-  p0 : GlobalIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::global_get(core_ir_global_idx_get(p0)))
+pub fn Instruction::global_get(p0 : GlobalIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::global_get(core_ir_global_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::global_set(
-  p0 : GlobalIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::global_set(core_ir_global_idx_get(p0)))
+pub fn Instruction::global_set(p0 : GlobalIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::global_set(core_ir_global_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6875,17 +6964,17 @@ pub fn Instruction::i16x8_extmul_low_i8x16u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i16x8_extract_lane_s(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i16x8_extract_lane_s(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i16x8_extract_lane_s(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i16x8_extract_lane_s(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i16x8_extract_lane_u(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i16x8_extract_lane_u(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i16x8_extract_lane_u(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i16x8_extract_lane_u(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -6989,10 +7078,10 @@ pub fn Instruction::i16x8_relaxed_q15mulr_s() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i16x8_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i16x8_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i16x8_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i16x8_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -7058,49 +7147,79 @@ pub fn Instruction::i32_and() -> Instruction {
 ///|
 pub fn Instruction::i32_atomic_load(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_load(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_load(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i32_atomic_load16_u(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_load16_u(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_load16_u(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i32_atomic_load8_u(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_load8_u(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_load8_u(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i32_atomic_store(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_store(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_store(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i32_atomic_store16(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_store16(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_store16(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i32_atomic_store8(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_atomic_store8(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i32_atomic_store8(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
@@ -7109,9 +7228,7 @@ pub fn Instruction::i32_clz() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i32_const(
-  p0 : I32
-) -> Instruction {
+pub fn Instruction::i32_const(p0 : I32) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::i32_const(core_ir_i32_get(p0)))
 }
 
@@ -7181,38 +7298,36 @@ pub fn Instruction::i32_le_u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i32_load(
-  p0 : MemArg
-) -> Instruction {
+pub fn Instruction::i32_load(p0 : MemArg) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::i32_load(core_ir_mem_arg_get(p0)))
 }
 
 ///|
-pub fn Instruction::i32_load16s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_load16s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_load16s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_load16s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i32_load16u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_load16u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_load16u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_load16u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i32_load8s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_load8s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_load8s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_load8s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i32_load8u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_load8u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_load8u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_load8u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -7286,24 +7401,24 @@ pub fn Instruction::i32_shr_u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i32_store(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_store(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_store(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_store(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i32_store16(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_store16(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_store16(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_store16(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i32_store8(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32_store8(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i32_store8(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32_store8(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -7442,10 +7557,10 @@ pub fn Instruction::i32x4_extmul_low_i16x8u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i32x4_extract_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32x4_extract_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i32x4_extract_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32x4_extract_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -7525,7 +7640,9 @@ pub fn Instruction::i32x4_neg() -> Instruction {
 
 ///|
 pub fn Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s() -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s())
+  core_ir_instruction_store(
+    @lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
+  )
 }
 
 ///|
@@ -7554,10 +7671,10 @@ pub fn Instruction::i32x4_relaxed_trunc_zero_f64x2u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i32x4_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i32x4_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i32x4_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i32x4_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -7618,65 +7735,105 @@ pub fn Instruction::i64_and() -> Instruction {
 ///|
 pub fn Instruction::i64_atomic_load(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_load(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_load(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_load16_u(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_load16_u(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_load16_u(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_load32_u(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_load32_u(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_load32_u(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_load8_u(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_load8_u(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_load8_u(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_store(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_store(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_store(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_store16(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_store16(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_store16(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_store32(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_store32(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_store32(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::i64_atomic_store8(
   p0 : MemArg,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_atomic_store8(core_ir_mem_arg_get(p0), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::i64_atomic_store8(
+      core_ir_mem_arg_get(p0),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
@@ -7685,9 +7842,7 @@ pub fn Instruction::i64_clz() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i64_const(
-  p0 : I64
-) -> Instruction {
+pub fn Instruction::i64_const(p0 : I64) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::i64_const(core_ir_i64_get(p0)))
 }
 
@@ -7772,52 +7927,50 @@ pub fn Instruction::i64_le_u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i64_load(
-  p0 : MemArg
-) -> Instruction {
+pub fn Instruction::i64_load(p0 : MemArg) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::i64_load(core_ir_mem_arg_get(p0)))
 }
 
 ///|
-pub fn Instruction::i64_load16s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load16s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load16s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load16s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_load16u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load16u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load16u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load16u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_load32s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load32s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load32s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load32s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_load32u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load32u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load32u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load32u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_load8s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load8s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load8s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load8s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_load8u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_load8u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_load8u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_load8u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -7891,31 +8044,31 @@ pub fn Instruction::i64_shr_u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i64_store(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_store(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_store(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_store(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_store16(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_store16(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_store16(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_store16(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_store32(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_store32(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_store32(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_store32(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i64_store8(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64_store8(core_ir_mem_arg_get(p0)))
+pub fn Instruction::i64_store8(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64_store8(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -8034,10 +8187,10 @@ pub fn Instruction::i64x2_extmul_low_i32x4u() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i64x2_extract_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64x2_extract_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i64x2_extract_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64x2_extract_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8081,10 +8234,10 @@ pub fn Instruction::i64x2_relaxed_laneselect() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i64x2_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i64x2_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i64x2_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i64x2_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8153,17 +8306,17 @@ pub fn Instruction::i8x16_eq() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i8x16_extract_lane_s(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i8x16_extract_lane_s(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i8x16_extract_lane_s(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i8x16_extract_lane_s(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::i8x16_extract_lane_u(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i8x16_extract_lane_u(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i8x16_extract_lane_u(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i8x16_extract_lane_u(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8262,10 +8415,10 @@ pub fn Instruction::i8x16_relaxed_swizzle() -> Instruction {
 }
 
 ///|
-pub fn Instruction::i8x16_replace_lane(
-  p0 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i8x16_replace_lane(core_ir_lane_idx_get(p0)))
+pub fn Instruction::i8x16_replace_lane(p0 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::i8x16_replace_lane(core_ir_lane_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8300,9 +8453,28 @@ pub fn Instruction::i8x16_shuffle(
   p12 : LaneIdx,
   p13 : LaneIdx,
   p14 : LaneIdx,
-  p15 : LaneIdx
+  p15 : LaneIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::i8x16_shuffle(core_ir_lane_idx_get(p0), core_ir_lane_idx_get(p1), core_ir_lane_idx_get(p2), core_ir_lane_idx_get(p3), core_ir_lane_idx_get(p4), core_ir_lane_idx_get(p5), core_ir_lane_idx_get(p6), core_ir_lane_idx_get(p7), core_ir_lane_idx_get(p8), core_ir_lane_idx_get(p9), core_ir_lane_idx_get(p10), core_ir_lane_idx_get(p11), core_ir_lane_idx_get(p12), core_ir_lane_idx_get(p13), core_ir_lane_idx_get(p14), core_ir_lane_idx_get(p15)))
+  core_ir_instruction_store(
+    @lib.Instruction::i8x16_shuffle(
+      core_ir_lane_idx_get(p0),
+      core_ir_lane_idx_get(p1),
+      core_ir_lane_idx_get(p2),
+      core_ir_lane_idx_get(p3),
+      core_ir_lane_idx_get(p4),
+      core_ir_lane_idx_get(p5),
+      core_ir_lane_idx_get(p6),
+      core_ir_lane_idx_get(p7),
+      core_ir_lane_idx_get(p8),
+      core_ir_lane_idx_get(p9),
+      core_ir_lane_idx_get(p10),
+      core_ir_lane_idx_get(p11),
+      core_ir_lane_idx_get(p12),
+      core_ir_lane_idx_get(p13),
+      core_ir_lane_idx_get(p14),
+      core_ir_lane_idx_get(p15),
+    ),
+  )
 }
 
 ///|
@@ -8334,99 +8506,108 @@ pub fn Instruction::i8x16_swizzle() -> Instruction {
 pub fn Instruction::if_(
   p0 : BlockType,
   p1 : Array[Instruction],
-  p2 : Array[Instruction]?
+  p2 : Array[Instruction]?,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::if_(core_ir_block_type_get(p0), core_ir_instruction_array(p1), match p2 {
-    Some(value) => Some(core_ir_instruction_array(value))
-    None => None
-  }))
+  core_ir_instruction_store(
+    @lib.Instruction::if_(
+      core_ir_block_type_get(p0),
+      core_ir_instruction_array(p1),
+      match p2 {
+        Some(value) => Some(core_ir_instruction_array(value))
+        None => None
+      },
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::local_get(
-  p0 : LocalIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::local_get(core_ir_local_idx_get(p0)))
+pub fn Instruction::local_get(p0 : LocalIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::local_get(core_ir_local_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::local_set(
-  p0 : LocalIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::local_set(core_ir_local_idx_get(p0)))
+pub fn Instruction::local_set(p0 : LocalIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::local_set(core_ir_local_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::local_tee(
-  p0 : LocalIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::local_tee(core_ir_local_idx_get(p0)))
+pub fn Instruction::local_tee(p0 : LocalIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::local_tee(core_ir_local_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::loop_(
-  p0 : BlockType,
-  p1 : Expr
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::loop_(core_ir_block_type_get(p0), core_ir_expr_get(p1)))
+pub fn Instruction::loop_(p0 : BlockType, p1 : Expr) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::loop_(core_ir_block_type_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_atomic_notify(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_atomic_notify(core_ir_mem_arg_get(p0)))
+pub fn Instruction::memory_atomic_notify(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_atomic_notify(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_atomic_wait32(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_atomic_wait32(core_ir_mem_arg_get(p0)))
+pub fn Instruction::memory_atomic_wait32(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_atomic_wait32(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_atomic_wait64(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_atomic_wait64(core_ir_mem_arg_get(p0)))
+pub fn Instruction::memory_atomic_wait64(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_atomic_wait64(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_copy(
-  p0 : MemIdx,
-  p1 : MemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_copy(core_ir_mem_idx_get(p0), core_ir_mem_idx_get(p1)))
+pub fn Instruction::memory_copy(p0 : MemIdx, p1 : MemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_copy(
+      core_ir_mem_idx_get(p0),
+      core_ir_mem_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::memory_fill(
-  p0 : MemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_fill(core_ir_mem_idx_get(p0)))
+pub fn Instruction::memory_fill(p0 : MemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_fill(core_ir_mem_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_grow(
-  p0 : MemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_grow(core_ir_mem_idx_get(p0)))
+pub fn Instruction::memory_grow(p0 : MemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_grow(core_ir_mem_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::memory_init(
-  p0 : DataIdx,
-  p1 : MemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_init(core_ir_data_idx_get(p0), core_ir_mem_idx_get(p1)))
+pub fn Instruction::memory_init(p0 : DataIdx, p1 : MemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_init(
+      core_ir_data_idx_get(p0),
+      core_ir_mem_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::memory_size(
-  p0 : MemIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::memory_size(core_ir_mem_idx_get(p0)))
+pub fn Instruction::memory_size(p0 : MemIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::memory_size(core_ir_mem_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8445,41 +8626,38 @@ pub fn Instruction::ref_as_non_null() -> Instruction {
 }
 
 ///|
-pub fn Instruction::ref_cast(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_cast(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_cast(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_cast(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_cast_desc_eq(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_cast_desc_eq(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_cast_desc_eq(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_cast_desc_eq(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_cast_desc_eq_type(
-  p0 : RefType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_cast_desc_eq_type(core_ir_ref_type_get(p0)))
+pub fn Instruction::ref_cast_desc_eq_type(p0 : RefType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_cast_desc_eq_type(core_ir_ref_type_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_cast_exact(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_cast_exact(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_cast_exact(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_cast_exact(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_cast_type(
-  p0 : RefType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_cast_type(core_ir_ref_type_get(p0)))
+pub fn Instruction::ref_cast_type(p0 : RefType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_cast_type(core_ir_ref_type_get(p0)),
+  )
 }
 
 ///|
@@ -8488,17 +8666,17 @@ pub fn Instruction::ref_eq() -> Instruction {
 }
 
 ///|
-pub fn Instruction::ref_func(
-  p0 : FuncIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_func(core_ir_func_idx_get(p0)))
+pub fn Instruction::ref_func(p0 : FuncIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_func(core_ir_func_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_get_desc(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_get_desc(core_ir_type_idx_get(p0)))
+pub fn Instruction::ref_get_desc(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_get_desc(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8517,80 +8695,93 @@ pub fn Instruction::ref_is_null() -> Instruction {
 }
 
 ///|
-pub fn Instruction::ref_null(
-  p0 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_null(core_ir_heap_type_get(p0)))
+pub fn Instruction::ref_null(p0 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_null(core_ir_heap_type_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_null_type(
-  p0 : RefType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_null_type(core_ir_ref_type_get(p0)))
+pub fn Instruction::ref_null_type(p0 : RefType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_null_type(core_ir_ref_type_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_test(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_test(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_test(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_test(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_test_desc(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_test_desc(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_test_desc(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_test_desc(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_test_exact(
-  p0 : Bool,
-  p1 : HeapType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_test_exact(p0, core_ir_heap_type_get(p1)))
+pub fn Instruction::ref_test_exact(p0 : Bool, p1 : HeapType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_test_exact(p0, core_ir_heap_type_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::ref_test_type(
-  p0 : RefType
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::ref_test_type(core_ir_ref_type_get(p0)))
+pub fn Instruction::ref_test_type(p0 : RefType) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::ref_test_type(core_ir_ref_type_get(p0)),
+  )
 }
 
 ///|
 pub fn Instruction::resume_(
   p0 : TypeIdx,
-  p1 : Array[ResumeHandler]
+  p1 : Array[ResumeHandler],
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::resume_(core_ir_type_idx_get(p0), core_ir_resume_handler_array(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::resume_(
+      core_ir_type_idx_get(p0),
+      core_ir_resume_handler_array(p1),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::resume_throw(
   p0 : TypeIdx,
   p1 : TagIdx,
-  p2 : Array[ResumeHandler]
+  p2 : Array[ResumeHandler],
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::resume_throw(core_ir_type_idx_get(p0), core_ir_tag_idx_get(p1), core_ir_resume_handler_array(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::resume_throw(
+      core_ir_type_idx_get(p0),
+      core_ir_tag_idx_get(p1),
+      core_ir_resume_handler_array(p2),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::resume_throw_ref(
   p0 : TypeIdx,
-  p1 : Array[ResumeHandler]
+  p1 : Array[ResumeHandler],
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::resume_throw_ref(core_ir_type_idx_get(p0), core_ir_resume_handler_array(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::resume_throw_ref(
+      core_ir_type_idx_get(p0),
+      core_ir_resume_handler_array(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::rethrow(
-  p0 : LabelIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::rethrow(core_ir_label_idx_get(p0)))
+pub fn Instruction::rethrow(p0 : LabelIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::rethrow(core_ir_label_idx_get(p0)),
+  )
 }
 
 ///|
@@ -8599,43 +8790,52 @@ pub fn Instruction::return_() -> Instruction {
 }
 
 ///|
-pub fn Instruction::return_call(
-  p0 : FuncIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::return_call(core_ir_func_idx_get(p0)))
+pub fn Instruction::return_call(p0 : FuncIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::return_call(core_ir_func_idx_get(p0)),
+  )
 }
 
 ///|
 pub fn Instruction::return_call_indirect(
   p0 : TypeIdx,
-  p1 : TableIdx
+  p1 : TableIdx,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::return_call_indirect(core_ir_type_idx_get(p0), core_ir_table_idx_get(p1)))
+  core_ir_instruction_store(
+    @lib.Instruction::return_call_indirect(
+      core_ir_type_idx_get(p0),
+      core_ir_table_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::return_call_ref(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::return_call_ref(core_ir_type_idx_get(p0)))
+pub fn Instruction::return_call_ref(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::return_call_ref(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::select(
-  types : Array[ValType]?
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::select(types=match types {
-    Some(value) => Some(core_ir_val_type_array(value))
-    None => None
-  }))
+pub fn Instruction::select(types : Array[ValType]?) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::select(
+      types=match types {
+        Some(value) => Some(core_ir_val_type_array(value))
+        None => None
+      },
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::stack_switch(
-  p0 : TypeIdx,
-  p1 : TagIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::stack_switch(core_ir_type_idx_get(p0), core_ir_tag_idx_get(p1)))
+pub fn Instruction::stack_switch(p0 : TypeIdx, p1 : TagIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::stack_switch(
+      core_ir_type_idx_get(p0),
+      core_ir_tag_idx_get(p1),
+    ),
+  )
 }
 
 ///|
@@ -8649,9 +8849,7 @@ pub fn Instruction::string_concat() -> Instruction {
 }
 
 ///|
-pub fn Instruction::string_const(
-  p0 : FixedArray[Byte]
-) -> Instruction {
+pub fn Instruction::string_const(p0 : FixedArray[Byte]) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::string_const(core_ir_bytes(p0)))
 }
 
@@ -8719,36 +8917,60 @@ pub fn Instruction::stringview_wtf16_slice() -> Instruction {
 pub fn Instruction::struct_atomic_cmpxchg(
   p0 : TypeIdx,
   p1 : U32Ir,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_cmpxchg(core_ir_type_idx_get(p0), core_ir_u32_get(p1), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_cmpxchg(
+      core_ir_type_idx_get(p0),
+      core_ir_u32_get(p1),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::struct_atomic_get(
   p0 : AtomicOrder,
   p1 : TypeIdx,
-  p2 : U32Ir
+  p2 : U32Ir,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_get(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_get(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+      core_ir_u32_get(p2),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::struct_atomic_get_s(
   p0 : AtomicOrder,
   p1 : TypeIdx,
-  p2 : U32Ir
+  p2 : U32Ir,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_get_s(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_get_s(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+      core_ir_u32_get(p2),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::struct_atomic_get_u(
   p0 : AtomicOrder,
   p1 : TypeIdx,
-  p2 : U32Ir
+  p2 : U32Ir,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_get_u(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_get_u(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+      core_ir_u32_get(p2),
+    ),
+  )
 }
 
 ///|
@@ -8756,150 +8978,164 @@ pub fn Instruction::struct_atomic_rmw(
   p0 : AggregateAtomicRmwOp,
   p1 : TypeIdx,
   p2 : U32Ir,
-  order : AtomicOrder
+  order : AtomicOrder,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_rmw(core_ir_aggregate_atomic_rmw_op_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2), order=core_ir_atomic_order_get(order)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_rmw(
+      core_ir_aggregate_atomic_rmw_op_get(p0),
+      core_ir_type_idx_get(p1),
+      core_ir_u32_get(p2),
+      order=core_ir_atomic_order_get(order),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::struct_atomic_set(
   p0 : AtomicOrder,
   p1 : TypeIdx,
-  p2 : U32Ir
+  p2 : U32Ir,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_atomic_set(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::struct_atomic_set(
+      core_ir_atomic_order_get(p0),
+      core_ir_type_idx_get(p1),
+      core_ir_u32_get(p2),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::struct_get(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_get(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::struct_get(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_get(core_ir_type_idx_get(p0), core_ir_u32_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_get_s(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_get_s(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::struct_get_s(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_get_s(
+      core_ir_type_idx_get(p0),
+      core_ir_u32_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::struct_get_u(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_get_u(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::struct_get_u(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_get_u(
+      core_ir_type_idx_get(p0),
+      core_ir_u32_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::struct_new(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_new(core_ir_type_idx_get(p0)))
+pub fn Instruction::struct_new(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_new(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_new_default(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_new_default(core_ir_type_idx_get(p0)))
+pub fn Instruction::struct_new_default(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_new_default(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_new_default_desc(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_new_default_desc(core_ir_type_idx_get(p0)))
+pub fn Instruction::struct_new_default_desc(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_new_default_desc(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_new_desc(
-  p0 : TypeIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_new_desc(core_ir_type_idx_get(p0)))
+pub fn Instruction::struct_new_desc(p0 : TypeIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_new_desc(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_set(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_set(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::struct_set(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_set(core_ir_type_idx_get(p0), core_ir_u32_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::struct_wait(
-  p0 : TypeIdx,
-  p1 : U32Ir
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::struct_wait(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+pub fn Instruction::struct_wait(p0 : TypeIdx, p1 : U32Ir) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::struct_wait(core_ir_type_idx_get(p0), core_ir_u32_get(p1)),
+  )
 }
 
 ///|
-pub fn Instruction::suspend(
-  p0 : TagIdx
-) -> Instruction {
+pub fn Instruction::suspend(p0 : TagIdx) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::suspend(core_ir_tag_idx_get(p0)))
 }
 
 ///|
-pub fn Instruction::table_copy(
-  p0 : TableIdx,
-  p1 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_copy(core_ir_table_idx_get(p0), core_ir_table_idx_get(p1)))
+pub fn Instruction::table_copy(p0 : TableIdx, p1 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_copy(
+      core_ir_table_idx_get(p0),
+      core_ir_table_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::table_fill(
-  p0 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_fill(core_ir_table_idx_get(p0)))
+pub fn Instruction::table_fill(p0 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_fill(core_ir_table_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::table_get(
-  p0 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_get(core_ir_table_idx_get(p0)))
+pub fn Instruction::table_get(p0 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_get(core_ir_table_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::table_grow(
-  p0 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_grow(core_ir_table_idx_get(p0)))
+pub fn Instruction::table_grow(p0 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_grow(core_ir_table_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::table_init(
-  p0 : ElemIdx,
-  p1 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_init(core_ir_elem_idx_get(p0), core_ir_table_idx_get(p1)))
+pub fn Instruction::table_init(p0 : ElemIdx, p1 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_init(
+      core_ir_elem_idx_get(p0),
+      core_ir_table_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::table_set(
-  p0 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_set(core_ir_table_idx_get(p0)))
+pub fn Instruction::table_set(p0 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_set(core_ir_table_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::table_size(
-  p0 : TableIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::table_size(core_ir_table_idx_get(p0)))
+pub fn Instruction::table_size(p0 : TableIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::table_size(core_ir_table_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::throw_(
-  p0 : TagIdx
-) -> Instruction {
+pub fn Instruction::throw_(p0 : TagIdx) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::throw_(core_ir_tag_idx_get(p0)))
 }
 
@@ -8913,18 +9149,31 @@ pub fn Instruction::try_(
   p0 : BlockType,
   p1 : Expr,
   p2 : Array[LegacyCatch],
-  delegate : LabelIdx?
+  delegate : LabelIdx?,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::try_(core_ir_block_type_get(p0), core_ir_expr_get(p1), core_ir_legacy_catch_array(p2), delegate=core_ir_label_idx_option(delegate)))
+  core_ir_instruction_store(
+    @lib.Instruction::try_(
+      core_ir_block_type_get(p0),
+      core_ir_expr_get(p1),
+      core_ir_legacy_catch_array(p2),
+      delegate=core_ir_label_idx_option(delegate),
+    ),
+  )
 }
 
 ///|
 pub fn Instruction::try_table(
   p0 : BlockType,
   p1 : Array[Catch],
-  p2 : Expr
+  p2 : Expr,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::try_table(core_ir_block_type_get(p0), core_ir_catch_array(p1), core_ir_expr_get(p2)))
+  core_ir_instruction_store(
+    @lib.Instruction::try_table(
+      core_ir_block_type_get(p0),
+      core_ir_catch_array(p1),
+      core_ir_expr_get(p2),
+    ),
+  )
 }
 
 ///|
@@ -8969,132 +9218,144 @@ pub fn Instruction::v128_const(
   p12 : Byte,
   p13 : Byte,
   p14 : Byte,
-  p15 : Byte
+  p15 : Byte,
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_const(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15))
+  core_ir_instruction_store(
+    @lib.Instruction::v128_const(
+      p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15,
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load16_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load16_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_load16_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load16_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load16_splat(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load16_splat(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load16_splat(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load16_splat(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load16x4s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load16x4s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load16x4s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load16x4s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load16x4u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load16x4u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load16x4u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load16x4u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load32_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load32_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_load32_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load32_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load32_splat(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load32_splat(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load32_splat(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load32_splat(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load32_zero(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load32_zero(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load32_zero(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load32_zero(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load32x2s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load32x2s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load32x2s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load32x2s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load32x2u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load32x2u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load32x2u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load32x2u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load64_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load64_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_load64_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load64_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load64_splat(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load64_splat(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load64_splat(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load64_splat(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load64_zero(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load64_zero(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load64_zero(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load64_zero(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load8_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load8_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_load8_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load8_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load8_splat(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load8_splat(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load8_splat(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load8_splat(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load8x8s(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load8x8s(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load8x8s(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load8x8s(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_load8x8u(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_load8x8u(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_load8x8u(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_load8x8u(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
@@ -9108,42 +9369,50 @@ pub fn Instruction::v128_or() -> Instruction {
 }
 
 ///|
-pub fn Instruction::v128_store(
-  p0 : MemArg
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_store(core_ir_mem_arg_get(p0)))
+pub fn Instruction::v128_store(p0 : MemArg) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_store(core_ir_mem_arg_get(p0)),
+  )
 }
 
 ///|
-pub fn Instruction::v128_store16_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_store16_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_store16_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_store16_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_store32_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_store32_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_store32_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_store32_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_store64_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_store64_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_store64_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_store64_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Instruction::v128_store8_lane(
-  p0 : MemArg,
-  p1 : LaneIdx
-) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::v128_store8_lane(core_ir_mem_arg_get(p0), core_ir_lane_idx_get(p1)))
+pub fn Instruction::v128_store8_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction {
+  core_ir_instruction_store(
+    @lib.Instruction::v128_store8_lane(
+      core_ir_mem_arg_get(p0),
+      core_ir_lane_idx_get(p1),
+    ),
+  )
 }
 
 ///|
@@ -9162,47 +9431,34 @@ pub fn Instruction::waitqueue_notify() -> Instruction {
 }
 
 ///|
-pub fn LabelIdx::create(
-  p0 : UInt
-) -> LabelIdx {
+pub fn LabelIdx::create(p0 : UInt32) -> LabelIdx {
   core_ir_label_idx_store(@lib.LabelIdx::new(p0))
 }
 
 ///|
-pub fn LaneIdx::create(
-  p0 : Byte
-) -> LaneIdx {
+pub fn LaneIdx::create(p0 : Byte) -> LaneIdx {
   core_ir_lane_idx_store(@lib.LaneIdx::new(p0))
 }
 
 ///|
-pub fn LegacyCatch::all(
-  p0 : Expr
-) -> LegacyCatch {
+pub fn LegacyCatch::all(p0 : Expr) -> LegacyCatch {
   core_ir_legacy_catch_store(@lib.LegacyCatch::all(core_ir_expr_get(p0)))
 }
 
 ///|
-pub fn LegacyCatch::tagged(
-  p0 : TagIdx,
-  p1 : Expr
-) -> LegacyCatch {
-  core_ir_legacy_catch_store(@lib.LegacyCatch::tagged(core_ir_tag_idx_get(p0), core_ir_expr_get(p1)))
+pub fn LegacyCatch::tagged(p0 : TagIdx, p1 : Expr) -> LegacyCatch {
+  core_ir_legacy_catch_store(
+    @lib.LegacyCatch::tagged(core_ir_tag_idx_get(p0), core_ir_expr_get(p1)),
+  )
 }
 
 ///|
-pub fn Limits::i32(
-  p0 : UInt,
-  p1 : UInt?
-) -> Limits {
+pub fn Limits::i32(p0 : UInt32, p1 : UInt32?) -> Limits {
   core_ir_limits_store(@lib.Limits::i32(p0, p1))
 }
 
 ///|
-pub fn Limits::i64(
-  p0 : UInt64,
-  p1 : UInt64?
-) -> Limits {
+pub fn Limits::i64(p0 : UInt64, p1 : UInt64?) -> Limits {
   core_ir_limits_store(@lib.Limits::i64(p0, p1))
 }
 
@@ -9377,24 +9633,17 @@ pub fn LoadOp::v128_load8x8u() -> LoadOp {
 }
 
 ///|
-pub fn LocalIdx::create(
-  p0 : UInt
-) -> LocalIdx {
+pub fn LocalIdx::create(p0 : UInt32) -> LocalIdx {
   core_ir_local_idx_store(@lib.LocalIdx::new(p0))
 }
 
 ///|
-pub fn LocalRun::create(
-  p0 : UInt,
-  p1 : ValType
-) -> LocalRun {
+pub fn LocalRun::create(p0 : UInt32, p1 : ValType) -> LocalRun {
   core_ir_local_run_store(@lib.LocalRun::new(p0, core_ir_val_type_get(p1)))
 }
 
 ///|
-pub fn Locals::copy(
-  p0 : Locals
-) -> Locals {
+pub fn Locals::copy(p0 : Locals) -> Locals {
   core_ir_locals_store(@lib.Locals::copy(core_ir_locals_get(p0)))
 }
 
@@ -9404,71 +9653,56 @@ pub fn Locals::empty() -> Locals {
 }
 
 ///|
-pub fn Locals::from_decl_runs_preserving_groups(
-  p0 : Array[LocalRun]
-) -> Locals {
-  core_ir_locals_store(@lib.Locals::from_decl_runs_preserving_groups(core_ir_local_run_array(p0)))
+pub fn Locals::from_decl_runs_preserving_groups(p0 : Array[LocalRun]) -> Locals {
+  core_ir_locals_store(
+    @lib.Locals::from_decl_runs_preserving_groups(core_ir_local_run_array(p0)),
+  )
 }
 
 ///|
-pub fn Locals::from_types(
-  p0 : Array[ValType]
-) -> Locals {
+pub fn Locals::from_types(p0 : Array[ValType]) -> Locals {
   core_ir_locals_store(@lib.Locals::from_types(core_ir_val_type_array(p0)))
 }
 
 ///|
-pub fn Locals::create(
-  p0 : Array[LocalRun]
-) -> Locals {
+pub fn Locals::create(p0 : Array[LocalRun]) -> Locals {
   core_ir_locals_store(@lib.Locals::new(core_ir_local_run_array(p0)))
 }
 
 ///|
-pub fn Locals::single(
-  p0 : UInt,
-  p1 : ValType
-) -> Locals {
+pub fn Locals::single(p0 : UInt32, p1 : ValType) -> Locals {
   core_ir_locals_store(@lib.Locals::single(p0, core_ir_val_type_get(p1)))
 }
 
 ///|
-pub fn Locals::without_prefix(
-  p0 : Locals,
-  p1 : Int
-) -> Locals {
+pub fn Locals::without_prefix(p0 : Locals, p1 : Int32) -> Locals {
   core_ir_locals_store(@lib.Locals::without_prefix(core_ir_locals_get(p0), p1))
 }
 
 ///|
-pub fn MemArg::create(
-  p0 : U32Ir,
-  p1 : MemIdx?,
-  p2 : U64Ir
-) -> MemArg {
-  core_ir_mem_arg_store(@lib.MemArg::new(core_ir_u32_get(p0), core_ir_mem_idx_option(p1), core_ir_u64_get(p2)))
+pub fn MemArg::create(p0 : U32Ir, p1 : MemIdx?, p2 : U64Ir) -> MemArg {
+  core_ir_mem_arg_store(
+    @lib.MemArg::new(
+      core_ir_u32_get(p0),
+      core_ir_mem_idx_option(p1),
+      core_ir_u64_get(p2),
+    ),
+  )
 }
 
 ///|
-pub fn MemIdx::create(
-  p0 : UInt
-) -> MemIdx {
+pub fn MemIdx::create(p0 : UInt32) -> MemIdx {
   core_ir_mem_idx_store(@lib.MemIdx::new(p0))
 }
 
 ///|
-pub fn MemSec::create(
-  p0 : Array[MemType]
-) -> MemSec {
+pub fn MemSec::create(p0 : Array[MemType]) -> MemSec {
   core_ir_mem_sec_store(@lib.MemSec::new(core_ir_mem_type_array(p0)))
 }
 
 ///|
-pub fn MemType::create(
-  p0 : Limits,
-  shared : Bool
-) -> MemType {
-  core_ir_mem_type_store(@lib.MemType::new(core_ir_limits_get(p0), shared=shared))
+pub fn MemType::create(p0 : Limits, shared : Bool) -> MemType {
+  core_ir_mem_type_store(@lib.MemType::new(core_ir_limits_get(p0), shared~))
 }
 
 ///|
@@ -9490,166 +9724,205 @@ pub fn Module::create(
   code_sec : CodeSec?,
   data_sec : DataSec?,
   name_sec : NameSec?,
-  raw_name_sec_payload : FixedArray[Byte]?
+  raw_name_sec_payload : FixedArray[Byte]?,
 ) -> Module {
-  core_ir_module_store(@lib.Module::new(custom_secs=core_ir_custom_sec_array(custom_secs), type_sec=core_ir_type_sec_option(type_sec), import_sec=core_ir_import_sec_option(import_sec), func_annotation_sec=core_ir_func_annotation_sec_option(func_annotation_sec), func_sec=core_ir_func_sec_option(func_sec), table_sec=core_ir_table_sec_option(table_sec), mem_sec=core_ir_mem_sec_option(mem_sec), tag_sec=core_ir_tag_sec_option(tag_sec), stringrefs_sec=core_ir_string_refs_sec_option(stringrefs_sec), global_sec=core_ir_global_sec_option(global_sec), export_sec=core_ir_export_sec_option(export_sec), start_sec=core_ir_start_sec_option(start_sec), elem_sec=core_ir_elem_sec_option(elem_sec), data_cnt_sec=core_ir_data_cnt_sec_option(data_cnt_sec), code_sec=core_ir_code_sec_option(code_sec), data_sec=core_ir_data_sec_option(data_sec), name_sec=core_ir_name_sec_option(name_sec), raw_name_sec_payload=core_ir_bytes_option(raw_name_sec_payload)))
+  core_ir_module_store(
+    @lib.Module::new(
+      custom_secs=core_ir_custom_sec_array(custom_secs),
+      type_sec=core_ir_type_sec_option(type_sec),
+      import_sec=core_ir_import_sec_option(import_sec),
+      func_annotation_sec=core_ir_func_annotation_sec_option(
+        func_annotation_sec,
+      ),
+      func_sec=core_ir_func_sec_option(func_sec),
+      table_sec=core_ir_table_sec_option(table_sec),
+      mem_sec=core_ir_mem_sec_option(mem_sec),
+      tag_sec=core_ir_tag_sec_option(tag_sec),
+      stringrefs_sec=core_ir_string_refs_sec_option(stringrefs_sec),
+      global_sec=core_ir_global_sec_option(global_sec),
+      export_sec=core_ir_export_sec_option(export_sec),
+      start_sec=core_ir_start_sec_option(start_sec),
+      elem_sec=core_ir_elem_sec_option(elem_sec),
+      data_cnt_sec=core_ir_data_cnt_sec_option(data_cnt_sec),
+      code_sec=core_ir_code_sec_option(code_sec),
+      data_sec=core_ir_data_sec_option(data_sec),
+      name_sec=core_ir_name_sec_option(name_sec),
+      raw_name_sec_payload=core_ir_bytes_option(raw_name_sec_payload),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_code_sec(
-  p0 : Module,
-  p1 : CodeSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_code_sec(core_ir_module_get(p0), core_ir_code_sec_get(p1)))
+pub fn Module::with_code_sec(p0 : Module, p1 : CodeSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_code_sec(core_ir_module_get(p0), core_ir_code_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_custom_secs(
-  p0 : Module,
-  p1 : Array[CustomSec]
-) -> Module {
-  core_ir_module_store(@lib.Module::with_custom_secs(core_ir_module_get(p0), core_ir_custom_sec_array(p1)))
+pub fn Module::with_custom_secs(p0 : Module, p1 : Array[CustomSec]) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_custom_secs(
+      core_ir_module_get(p0),
+      core_ir_custom_sec_array(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_data_cnt_sec(
-  p0 : Module,
-  p1 : DataCntSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_data_cnt_sec(core_ir_module_get(p0), core_ir_data_cnt_sec_get(p1)))
+pub fn Module::with_data_cnt_sec(p0 : Module, p1 : DataCntSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_data_cnt_sec(
+      core_ir_module_get(p0),
+      core_ir_data_cnt_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_data_sec(
-  p0 : Module,
-  p1 : DataSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_data_sec(core_ir_module_get(p0), core_ir_data_sec_get(p1)))
+pub fn Module::with_data_sec(p0 : Module, p1 : DataSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_data_sec(core_ir_module_get(p0), core_ir_data_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_elem_sec(
-  p0 : Module,
-  p1 : ElemSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_elem_sec(core_ir_module_get(p0), core_ir_elem_sec_get(p1)))
+pub fn Module::with_elem_sec(p0 : Module, p1 : ElemSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_elem_sec(core_ir_module_get(p0), core_ir_elem_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_export_sec(
-  p0 : Module,
-  p1 : ExportSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_export_sec(core_ir_module_get(p0), core_ir_export_sec_get(p1)))
+pub fn Module::with_export_sec(p0 : Module, p1 : ExportSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_export_sec(
+      core_ir_module_get(p0),
+      core_ir_export_sec_get(p1),
+    ),
+  )
 }
 
 ///|
 pub fn Module::with_func_annotation_sec(
   p0 : Module,
-  p1 : FuncAnnotationSec
+  p1 : FuncAnnotationSec,
 ) -> Module {
-  core_ir_module_store(@lib.Module::with_func_annotation_sec(core_ir_module_get(p0), core_ir_func_annotation_sec_get(p1)))
+  core_ir_module_store(
+    @lib.Module::with_func_annotation_sec(
+      core_ir_module_get(p0),
+      core_ir_func_annotation_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_func_sec(
-  p0 : Module,
-  p1 : FuncSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_func_sec(core_ir_module_get(p0), core_ir_func_sec_get(p1)))
+pub fn Module::with_func_sec(p0 : Module, p1 : FuncSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_func_sec(core_ir_module_get(p0), core_ir_func_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_global_sec(
-  p0 : Module,
-  p1 : GlobalSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_global_sec(core_ir_module_get(p0), core_ir_global_sec_get(p1)))
+pub fn Module::with_global_sec(p0 : Module, p1 : GlobalSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_global_sec(
+      core_ir_module_get(p0),
+      core_ir_global_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_import_sec(
-  p0 : Module,
-  p1 : ImportSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_import_sec(core_ir_module_get(p0), core_ir_import_sec_get(p1)))
+pub fn Module::with_import_sec(p0 : Module, p1 : ImportSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_import_sec(
+      core_ir_module_get(p0),
+      core_ir_import_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_mem_sec(
-  p0 : Module,
-  p1 : MemSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_mem_sec(core_ir_module_get(p0), core_ir_mem_sec_get(p1)))
+pub fn Module::with_mem_sec(p0 : Module, p1 : MemSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_mem_sec(core_ir_module_get(p0), core_ir_mem_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_name_sec(
-  p0 : Module,
-  p1 : NameSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_name_sec(core_ir_module_get(p0), core_ir_name_sec_get(p1)))
+pub fn Module::with_name_sec(p0 : Module, p1 : NameSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_name_sec(core_ir_module_get(p0), core_ir_name_sec_get(p1)),
+  )
 }
 
 ///|
 pub fn Module::with_raw_name_sec_payload(
   p0 : Module,
-  p1 : FixedArray[Byte]
+  p1 : FixedArray[Byte],
 ) -> Module {
-  core_ir_module_store(@lib.Module::with_raw_name_sec_payload(core_ir_module_get(p0), core_ir_bytes(p1)))
+  core_ir_module_store(
+    @lib.Module::with_raw_name_sec_payload(
+      core_ir_module_get(p0),
+      core_ir_bytes(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_start_sec(
-  p0 : Module,
-  p1 : StartSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_start_sec(core_ir_module_get(p0), core_ir_start_sec_get(p1)))
+pub fn Module::with_start_sec(p0 : Module, p1 : StartSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_start_sec(
+      core_ir_module_get(p0),
+      core_ir_start_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_stringrefs_sec(
-  p0 : Module,
-  p1 : StringRefsSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_stringrefs_sec(core_ir_module_get(p0), core_ir_string_refs_sec_get(p1)))
+pub fn Module::with_stringrefs_sec(p0 : Module, p1 : StringRefsSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_stringrefs_sec(
+      core_ir_module_get(p0),
+      core_ir_string_refs_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_table_sec(
-  p0 : Module,
-  p1 : TableSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_table_sec(core_ir_module_get(p0), core_ir_table_sec_get(p1)))
+pub fn Module::with_table_sec(p0 : Module, p1 : TableSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_table_sec(
+      core_ir_module_get(p0),
+      core_ir_table_sec_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn Module::with_tag_sec(
-  p0 : Module,
-  p1 : TagSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_tag_sec(core_ir_module_get(p0), core_ir_tag_sec_get(p1)))
+pub fn Module::with_tag_sec(p0 : Module, p1 : TagSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_tag_sec(core_ir_module_get(p0), core_ir_tag_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::with_type_sec(
-  p0 : Module,
-  p1 : TypeSec
-) -> Module {
-  core_ir_module_store(@lib.Module::with_type_sec(core_ir_module_get(p0), core_ir_type_sec_get(p1)))
+pub fn Module::with_type_sec(p0 : Module, p1 : TypeSec) -> Module {
+  core_ir_module_store(
+    @lib.Module::with_type_sec(core_ir_module_get(p0), core_ir_type_sec_get(p1)),
+  )
 }
 
 ///|
-pub fn Module::without_compiler_fact_custom_section(
-  p0 : Module
-) -> Module {
-  core_ir_module_store(@lib.Module::without_compiler_fact_custom_section(core_ir_module_get(p0)))
+pub fn Module::without_compiler_fact_custom_section(p0 : Module) -> Module {
+  core_ir_module_store(
+    @lib.Module::without_compiler_fact_custom_section(core_ir_module_get(p0)),
+  )
 }
 
 ///|
-pub fn Module::without_name_sec(
-  p0 : Module
-) -> Module {
+pub fn Module::without_name_sec(p0 : Module) -> Module {
   core_ir_module_store(@lib.Module::without_name_sec(core_ir_module_get(p0)))
 }
 
@@ -9664,24 +9937,17 @@ pub fn Mut::var_() -> Mut {
 }
 
 ///|
-pub fn Name::from_string(
-  p0 : String
-) -> Name {
+pub fn Name::from_string(p0 : String) -> Name {
   core_ir_name_store(@lib.Name::from_string(p0))
 }
 
 ///|
-pub fn NameAssoc::create(
-  p0 : UInt,
-  p1 : Name
-) -> NameAssoc {
+pub fn NameAssoc::create(p0 : UInt32, p1 : Name) -> NameAssoc {
   core_ir_name_assoc_store(@lib.NameAssoc::new(p0, core_ir_name_get(p1)))
 }
 
 ///|
-pub fn NameMap::create(
-  p0 : Array[NameAssoc]
-) -> NameMap {
+pub fn NameMap::create(p0 : Array[NameAssoc]) -> NameMap {
   core_ir_name_map_store(@lib.NameMap::new(core_ir_name_assoc_array(p0)))
 }
 
@@ -9698,9 +9964,24 @@ pub fn NameSec::create(
   elem_names : NameMap?,
   data_names : NameMap?,
   field_names : IndirectNameMap?,
-  tag_names : NameMap?
+  tag_names : NameMap?,
 ) -> NameSec {
-  core_ir_name_sec_store(@lib.NameSec::new(module_name=core_ir_name_option(module_name), func_names=core_ir_name_map_option(func_names), local_names=core_ir_indirect_name_map_option(local_names), label_names=core_ir_indirect_name_map_option(label_names), type_names=core_ir_name_map_option(type_names), table_names=core_ir_name_map_option(table_names), memory_names=core_ir_name_map_option(memory_names), global_names=core_ir_name_map_option(global_names), elem_names=core_ir_name_map_option(elem_names), data_names=core_ir_name_map_option(data_names), field_names=core_ir_indirect_name_map_option(field_names), tag_names=core_ir_name_map_option(tag_names)))
+  core_ir_name_sec_store(
+    @lib.NameSec::new(
+      module_name=core_ir_name_option(module_name),
+      func_names=core_ir_name_map_option(func_names),
+      local_names=core_ir_indirect_name_map_option(local_names),
+      label_names=core_ir_indirect_name_map_option(label_names),
+      type_names=core_ir_name_map_option(type_names),
+      table_names=core_ir_name_map_option(table_names),
+      memory_names=core_ir_name_map_option(memory_names),
+      global_names=core_ir_name_map_option(global_names),
+      elem_names=core_ir_name_map_option(elem_names),
+      data_names=core_ir_name_map_option(data_names),
+      field_names=core_ir_indirect_name_map_option(field_names),
+      tag_names=core_ir_name_map_option(tag_names),
+    ),
+  )
 }
 
 ///|
@@ -9734,76 +10015,66 @@ pub fn PackType::i8() -> PackType {
 }
 
 ///|
-pub fn RecType::group(
-  p0 : Array[SubType]
-) -> RecType {
+pub fn RecType::group(p0 : Array[SubType]) -> RecType {
   core_ir_rec_type_store(@lib.RecType::group(core_ir_sub_type_array(p0)))
 }
 
 ///|
-pub fn RecType::create(
-  p0 : SubType
-) -> RecType {
+pub fn RecType::create(p0 : SubType) -> RecType {
   core_ir_rec_type_store(@lib.RecType::new(core_ir_sub_type_get(p0)))
 }
 
 ///|
-pub fn RefType::abs(
-  p0 : AbsHeapType
-) -> RefType {
+pub fn RefType::abs(p0 : AbsHeapType) -> RefType {
   core_ir_ref_type_store(@lib.RefType::abs(core_ir_abs_heap_type_get(p0)))
 }
 
 ///|
-pub fn RefType::make_nullable(
-  p0 : RefType
-) -> RefType {
+pub fn RefType::make_nullable(p0 : RefType) -> RefType {
   core_ir_ref_type_store(@lib.RefType::make_nullable(core_ir_ref_type_get(p0)))
 }
 
 ///|
-pub fn RefType::create(
-  p0 : Bool,
-  p1 : HeapType,
-  exact : Bool
-) -> RefType {
-  core_ir_ref_type_store(@lib.RefType::new(p0, core_ir_heap_type_get(p1), exact=exact))
+pub fn RefType::create(p0 : Bool, p1 : HeapType, exact : Bool) -> RefType {
+  core_ir_ref_type_store(
+    @lib.RefType::new(p0, core_ir_heap_type_get(p1), exact~),
+  )
 }
 
 ///|
-pub fn ResumeHandler::on_label(
-  p0 : TagIdx,
-  p1 : LabelIdx
-) -> ResumeHandler {
-  core_ir_resume_handler_store(@lib.ResumeHandler::on_label(core_ir_tag_idx_get(p0), core_ir_label_idx_get(p1)))
+pub fn ResumeHandler::on_label(p0 : TagIdx, p1 : LabelIdx) -> ResumeHandler {
+  core_ir_resume_handler_store(
+    @lib.ResumeHandler::on_label(
+      core_ir_tag_idx_get(p0),
+      core_ir_label_idx_get(p1),
+    ),
+  )
 }
 
 ///|
-pub fn ResumeHandler::on_switch(
-  p0 : TagIdx
-) -> ResumeHandler {
-  core_ir_resume_handler_store(@lib.ResumeHandler::on_switch(core_ir_tag_idx_get(p0)))
+pub fn ResumeHandler::on_switch(p0 : TagIdx) -> ResumeHandler {
+  core_ir_resume_handler_store(
+    @lib.ResumeHandler::on_switch(core_ir_tag_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn StartSec::create(
-  p0 : FuncIdx
-) -> StartSec {
+pub fn StartSec::create(p0 : FuncIdx) -> StartSec {
   core_ir_start_sec_store(@lib.StartSec::new(core_ir_func_idx_get(p0)))
 }
 
 ///|
-pub fn StorageType::pack_type(
-  p0 : PackType
-) -> StorageType {
-  core_ir_storage_type_store(@lib.StorageType::pack_type(core_ir_pack_type_get(p0)))
+pub fn StorageType::pack_type(p0 : PackType) -> StorageType {
+  core_ir_storage_type_store(
+    @lib.StorageType::pack_type(core_ir_pack_type_get(p0)),
+  )
 }
 
 ///|
-pub fn StorageType::val_type(
-  p0 : ValType
-) -> StorageType {
-  core_ir_storage_type_store(@lib.StorageType::val_type(core_ir_val_type_get(p0)))
+pub fn StorageType::val_type(p0 : ValType) -> StorageType {
+  core_ir_storage_type_store(
+    @lib.StorageType::val_type(core_ir_val_type_get(p0)),
+  )
 }
 
 ///|
@@ -9892,18 +10163,20 @@ pub fn StoreOp::v128_store() -> StoreOp {
 }
 
 ///|
-pub fn StringRefsSec::create(
-  p0 : Array[FixedArray[Byte]]
-) -> StringRefsSec {
-  core_ir_string_refs_sec_store(@lib.StringRefsSec::new(core_ir_bytes_array(p0)))
+pub fn StringRefsSec::create(p0 : Array[FixedArray[Byte]]) -> StringRefsSec {
+  core_ir_string_refs_sec_store(
+    @lib.StringRefsSec::new(core_ir_bytes_array(p0)),
+  )
 }
 
 ///|
-pub fn SubType::comp_type(
-  p0 : CompType,
-  metadata : TypeMetadata
-) -> SubType {
-  core_ir_sub_type_store(@lib.SubType::comp_type(core_ir_comp_type_get(p0), metadata=core_ir_type_metadata_get(metadata)))
+pub fn SubType::comp_type(p0 : CompType, metadata : TypeMetadata) -> SubType {
+  core_ir_sub_type_store(
+    @lib.SubType::comp_type(
+      core_ir_comp_type_get(p0),
+      metadata=core_ir_type_metadata_get(metadata),
+    ),
+  )
 }
 
 ///|
@@ -9911,73 +10184,64 @@ pub fn SubType::create(
   p0 : Bool,
   p1 : Array[TypeIdx],
   p2 : CompType,
-  metadata : TypeMetadata
+  metadata : TypeMetadata,
 ) -> SubType {
-  core_ir_sub_type_store(@lib.SubType::new(p0, core_ir_type_idx_array(p1), core_ir_comp_type_get(p2), metadata=core_ir_type_metadata_get(metadata)))
+  core_ir_sub_type_store(
+    @lib.SubType::new(
+      p0,
+      core_ir_type_idx_array(p1),
+      core_ir_comp_type_get(p2),
+      metadata=core_ir_type_metadata_get(metadata),
+    ),
+  )
 }
 
 ///|
-pub fn Table::create(
-  p0 : TableType,
-  p1 : Expr?
-) -> Table {
-  core_ir_table_store(@lib.Table::new(core_ir_table_type_get(p0), core_ir_expr_option(p1)))
+pub fn Table::create(p0 : TableType, p1 : Expr?) -> Table {
+  core_ir_table_store(
+    @lib.Table::new(core_ir_table_type_get(p0), core_ir_expr_option(p1)),
+  )
 }
 
 ///|
-pub fn TableIdx::create(
-  p0 : UInt
-) -> TableIdx {
+pub fn TableIdx::create(p0 : UInt32) -> TableIdx {
   core_ir_table_idx_store(@lib.TableIdx::new(p0))
 }
 
 ///|
-pub fn TableSec::create(
-  p0 : Array[Table]
-) -> TableSec {
+pub fn TableSec::create(p0 : Array[Table]) -> TableSec {
   core_ir_table_sec_store(@lib.TableSec::new(core_ir_table_array(p0)))
 }
 
 ///|
-pub fn TableType::create(
-  p0 : RefType,
-  p1 : Limits
-) -> TableType {
-  core_ir_table_type_store(@lib.TableType::new(core_ir_ref_type_get(p0), core_ir_limits_get(p1)))
+pub fn TableType::create(p0 : RefType, p1 : Limits) -> TableType {
+  core_ir_table_type_store(
+    @lib.TableType::new(core_ir_ref_type_get(p0), core_ir_limits_get(p1)),
+  )
 }
 
 ///|
-pub fn TagIdx::create(
-  p0 : UInt
-) -> TagIdx {
+pub fn TagIdx::create(p0 : UInt32) -> TagIdx {
   core_ir_tag_idx_store(@lib.TagIdx::new(p0))
 }
 
 ///|
-pub fn TagSec::create(
-  p0 : Array[TagType]
-) -> TagSec {
+pub fn TagSec::create(p0 : Array[TagType]) -> TagSec {
   core_ir_tag_sec_store(@lib.TagSec::new(core_ir_tag_type_array(p0)))
 }
 
 ///|
-pub fn TagType::create(
-  p0 : TypeIdx
-) -> TagType {
+pub fn TagType::create(p0 : TypeIdx) -> TagType {
   core_ir_tag_type_store(@lib.TagType::new(core_ir_type_idx_get(p0)))
 }
 
 ///|
-pub fn TypeIdx::create(
-  p0 : UInt
-) -> TypeIdx {
+pub fn TypeIdx::create(p0 : UInt32) -> TypeIdx {
   core_ir_type_idx_store(@lib.TypeIdx::new(p0))
 }
 
 ///|
-pub fn TypeIdx::rec(
-  p0 : UInt
-) -> TypeIdx {
+pub fn TypeIdx::rec(p0 : UInt32) -> TypeIdx {
   core_ir_type_idx_store(@lib.TypeIdx::rec(p0))
 }
 
@@ -9985,37 +10249,36 @@ pub fn TypeIdx::rec(
 pub fn TypeMetadata::create(
   describes : TypeIdx?,
   descriptor : TypeIdx?,
-  shared : Bool
+  shared : Bool,
 ) -> TypeMetadata {
-  core_ir_type_metadata_store(@lib.TypeMetadata::new(describes=core_ir_type_idx_option(describes), descriptor=core_ir_type_idx_option(descriptor), shared=shared))
+  core_ir_type_metadata_store(
+    @lib.TypeMetadata::new(
+      describes=core_ir_type_idx_option(describes),
+      descriptor=core_ir_type_idx_option(descriptor),
+      shared~,
+    ),
+  )
 }
 
 ///|
-pub fn TypeMetadata::with_shared(
-  p0 : TypeMetadata,
-  p1 : Bool
-) -> TypeMetadata {
-  core_ir_type_metadata_store(@lib.TypeMetadata::with_shared(core_ir_type_metadata_get(p0), p1))
+pub fn TypeMetadata::with_shared(p0 : TypeMetadata, p1 : Bool) -> TypeMetadata {
+  core_ir_type_metadata_store(
+    @lib.TypeMetadata::with_shared(core_ir_type_metadata_get(p0), p1),
+  )
 }
 
 ///|
-pub fn TypeSec::create(
-  p0 : Array[RecType]
-) -> TypeSec {
+pub fn TypeSec::create(p0 : Array[RecType]) -> TypeSec {
   core_ir_type_sec_store(@lib.TypeSec::new(core_ir_rec_type_array(p0)))
 }
 
 ///|
-pub fn U32Ir::create(
-  p0 : UInt
-) -> U32Ir {
+pub fn U32Ir::create(p0 : UInt32) -> U32Ir {
   core_ir_u32_store(@lib.U32::new(p0))
 }
 
 ///|
-pub fn U64Ir::create(
-  p0 : UInt64
-) -> U64Ir {
+pub fn U64Ir::create(p0 : UInt64) -> U64Ir {
   core_ir_u64_store(@lib.U64::new(p0))
 }
 
@@ -10075,38 +10338,34 @@ pub fn ValType::i64() -> ValType {
 }
 
 ///|
-pub fn ValType::num_type(
-  p0 : NumType
-) -> ValType {
+pub fn ValType::num_type(p0 : NumType) -> ValType {
   core_ir_val_type_store(@lib.ValType::num_type(core_ir_num_type_get(p0)))
 }
 
 ///|
-pub fn ValType::ref_array_nonnull(
-  p0 : TypeIdx
-) -> ValType {
-  core_ir_val_type_store(@lib.ValType::ref_array_nonnull(core_ir_type_idx_get(p0)))
+pub fn ValType::ref_array_nonnull(p0 : TypeIdx) -> ValType {
+  core_ir_val_type_store(
+    @lib.ValType::ref_array_nonnull(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn ValType::ref_array_nullable(
-  p0 : TypeIdx
-) -> ValType {
-  core_ir_val_type_store(@lib.ValType::ref_array_nullable(core_ir_type_idx_get(p0)))
+pub fn ValType::ref_array_nullable(p0 : TypeIdx) -> ValType {
+  core_ir_val_type_store(
+    @lib.ValType::ref_array_nullable(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
-pub fn ValType::ref_null(
-  p0 : HeapType
-) -> ValType {
+pub fn ValType::ref_null(p0 : HeapType) -> ValType {
   core_ir_val_type_store(@lib.ValType::ref_null(core_ir_heap_type_get(p0)))
 }
 
 ///|
-pub fn ValType::ref_null_array_of(
-  p0 : TypeIdx
-) -> ValType {
-  core_ir_val_type_store(@lib.ValType::ref_null_array_of(core_ir_type_idx_get(p0)))
+pub fn ValType::ref_null_array_of(p0 : TypeIdx) -> ValType {
+  core_ir_val_type_store(
+    @lib.ValType::ref_null_array_of(core_ir_type_idx_get(p0)),
+  )
 }
 
 ///|
@@ -10115,16 +10374,12 @@ pub fn ValType::ref_null_exn() -> ValType {
 }
 
 ///|
-pub fn ValType::ref_null_type(
-  p0 : RefType
-) -> ValType {
+pub fn ValType::ref_null_type(p0 : RefType) -> ValType {
   core_ir_val_type_store(@lib.ValType::ref_null_type(core_ir_ref_type_get(p0)))
 }
 
 ///|
-pub fn ValType::ref_type(
-  p0 : RefType
-) -> ValType {
+pub fn ValType::ref_type(p0 : RefType) -> ValType {
   core_ir_val_type_store(@lib.ValType::ref_type(core_ir_ref_type_get(p0)))
 }
 
@@ -10147,7 +10402,7 @@ pub fn empty_module() -> Module {
 pub fn decode_module(wasm : FixedArray[Byte]) -> Result[Module, Diagnostic] {
   match @binary.decode_module(core_ir_bytes(wasm)) {
     Ok(value) => Ok(core_ir_module_store(value))
-    Err(err) => Err({ stage: "decode", message: "\{err}" })
+    Err(err) => Err({ stage: "decode", message: "\{err}", })
   }
 }
 
@@ -10155,7 +10410,7 @@ pub fn decode_module(wasm : FixedArray[Byte]) -> Result[Module, Diagnostic] {
 pub fn parse_module(wat : String) -> Result[Module, Diagnostic] {
   match @wast.wast_to_binary_module(wat, filename="component-core-ir.wat") {
     Ok(value) => Ok(core_ir_module_store(value))
-    Err(err) => Err({ stage: "parse", message: err })
+    Err(err) => Err({ stage: "parse", message: err, })
   }
 }
 
@@ -10163,7 +10418,7 @@ pub fn parse_module(wat : String) -> Result[Module, Diagnostic] {
 pub fn encode_module(value : Module) -> Result[FixedArray[Byte], Diagnostic] {
   match @binary.encode_module(core_ir_module_get(value)) {
     Ok(bytes) => Ok(bytes.to_fixedarray())
-    Err(err) => Err({ stage: "encode", message: "\{err}" })
+    Err(err) => Err({ stage: "encode", message: "\{err}", })
   }
 }
 
@@ -10171,6 +10426,6 @@ pub fn encode_module(value : Module) -> Result[FixedArray[Byte], Diagnostic] {
 pub fn validate_module(value : Module) -> Result[Unit, Diagnostic] {
   match @validate.validate_module(core_ir_module_get(value)) {
     Ok(_) => Ok(())
-    Err(err) => Err({ stage: "validate", message: "\{err}" })
+    Err(err) => Err({ stage: "validate", message: "\{err}", })
   }
 }

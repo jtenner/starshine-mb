@@ -183,6 +183,7 @@ export function validateInvalidAstStrategyByStableId(arg0: string): (ValidateInv
 export function validateInvalidAstStrategySpecById(arg0: ValidateInvalidAstStrategyId): (ValidateInvalidAstStrategySpec) | null;
 export function validateMemsec(arg0: (lib_MemSec) | null, arg1: Env): StarshineResult<Env, string>;
 export function validateModule(arg0: lib_Module, disabledFeatures?: Array<ProposalFeature>): StarshineResult<void, ValidationError>;
+export function validateModuleNameSection(arg0: lib_Module): StarshineResult<void, string>;
 export function validateModuleWithTrace(...args: never[]): never;
 export function validateStartsec(arg0: (lib_StartSec) | null, arg1: Env): StarshineResult<void, string>;
 export function validateTablesec(arg0: (lib_TableSec) | null, arg1: Env): StarshineResult<Env, string>;

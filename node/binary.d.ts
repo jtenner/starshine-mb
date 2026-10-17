@@ -15,6 +15,7 @@ export function decodeModule(arg0: Uint8Array): StarshineResult<lib_Module, Deco
 export function decodeModuleWithDetail(arg0: Uint8Array, arg1: number): StarshineResult<[lib_Module, number], ModuleDecodeErrorDetail>;
 export function encodeModule(arg0: lib_Module, compactImports?: boolean): StarshineResult<Uint8Array, EncodeError>;
 export function encodedModuleSizes(arg0: lib_Module, arg1: lib_Module): StarshineResult<[number, number], EncodeError>;
+export function encodedTypeCompactionIsStrictlySmaller(arg0: lib_Module, arg1: lib_Module): boolean;
 export function sizeSigned(arg0: bigint, arg1: number): StarshineResult<number, BinaryEncodeError>;
 export function sizeUnsigned(arg0: bigint, arg1: number): StarshineResult<number, BinaryEncodeError>;
 

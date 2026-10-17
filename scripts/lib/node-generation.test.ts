@@ -47,7 +47,7 @@ test('an updated compiler dependency cannot build with stale reviewed notices', 
     fs.mkdirSync(core);
     fs.copyFileSync('licenses/Apache-2.0.txt', path.join(core, 'LICENSE'));
     fs.copyFileSync('licenses/moonbit-core-NOTICE.txt', path.join(core, 'NOTICE'));
-    fs.writeFileSync(path.join(core, 'moon.mod'), 'name = "moonbitlang/core"\nversion = "0.10.14+7d59c7ec9"\nlicense = "Apache-2.0"\n');
+    fs.writeFileSync(path.join(core, 'moon.mod'), 'name = "moonbitlang/core"\nversion = "0.10.15+943464bfa"\nlicense = "Apache-2.0"\n');
     for (const prefix of ['', 'ffi/']) {
       const x = path.join(root, prefix, '.mooncakes/moonbitlang/x');
       fs.mkdirSync(x, { recursive: true });
@@ -76,7 +76,7 @@ test('a clean FFI dependency tree is resolved before its license guard', async (
     fs.mkdirSync(core);
     fs.copyFileSync('licenses/Apache-2.0.txt', path.join(core, 'LICENSE'));
     fs.copyFileSync('licenses/moonbit-core-NOTICE.txt', path.join(core, 'NOTICE'));
-    fs.writeFileSync(path.join(core, 'moon.mod'), 'version = "0.10.14+7d59c7ec9"\nlicense = "Apache-2.0"\n');
+    fs.writeFileSync(path.join(core, 'moon.mod'), 'version = "0.10.15+943464bfa"\nlicense = "Apache-2.0"\n');
     fs.cpSync('licenses', path.join(root, 'licenses'), { recursive: true });
     const manifest = 'version = "0.5.1"\nlicense = "Apache-2.0"\n';
     const rootX = path.join(root, '.mooncakes/moonbitlang/x');

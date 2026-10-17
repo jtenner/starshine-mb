@@ -1,3 +1,23 @@
+### 2026-10-17 — Qualify the 0.3.0 minor release
+
+- [The detailed 0.2.2–0.3.0 release notes](../releases/0.3.0.md) cover 78
+  implementation commits after the verified 0.2.2 source checkpoint, API
+  additions, optimizer repairs, diagnostic tools, and measured limits.
+- The local gate passes all 15,150 discovered default tests in bounded groups
+  and all 14 CI fuzz suites (100,802 attempts, seed 196608). Script tests pass
+  410/410 with one separate opt-in Chromium skip. Node 25.8.1 and 26.11.1 each
+  pass 45 API tests and isolated JavaScript/strict TypeScript tarball consumers.
+  The optimized CLI selects 284 spec files: 113 pass, 171 skip, none fail.
+- The exact Mooncakes archive and actual README consumers pass. Component
+  manifests migrate to the current Moon format, scoped generation is stable,
+  all 980 export mappings match the baseline, and the Jco consumer passes.
+  Interface version 0.1.1 stays independent of product version 0.3.0.
+- The installed Core 0.10.15 legal files match the reviewed bytes; version
+  guards and notices identify the qualified compiler. The source-check and
+  server dry run pass, with the Moon CLI's nonzero HTTP-202 handling recorded
+  explicitly. Existing memory, parity and unsupported-runtime limits remain
+  open; this release does not claim universal performance or semantic parity.
+
 ### 2026-10-17 — Repair 32 optimization-pass correctness gaps
 
 - [The red/green audit checkpoint](tooling/validation-gates.md#october-17-2026--optimization-pass-audit-redgreen-checkpoint)

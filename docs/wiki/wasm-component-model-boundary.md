@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-30
+last_reviewed: 2026-10-17
 sources:
   - https://nodejs.org/api/wasi.html
   - https://github.com/WebAssembly/WASI
@@ -190,3 +190,16 @@ The focused export facade answers these questions only for its declared world. K
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Core module map: [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md)
 - Local implementation anchors: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
+
+## October 17, 2026 — Current compiler build compatibility
+
+Product release 0.3.0 retains component interface 0.1.1. The build consumes
+pinned wit-bindgen 0.60 JSON staging output, writes `component/moon.mod`, and
+runs the selected Moon formatter on the five generated packages after patching. Live generated
+packages use `moon.pkg`. The current Moon CLI receives a positional package
+path for the Core IR check. Runtime import conversion preserves the optional
+flat parameter/result declarations printed by wasm-tools 1.262.0. Unsupported
+runtime imports remain errors. See the [component task](../../scripts/lib/component-task.ts),
+[regressions](../../scripts/lib/component-task.test.ts), and
+[release notes](../releases/0.3.0.md). The public constructor graph remains
+88 resources and 862 constructors; this maintenance does not rename WIT exports.

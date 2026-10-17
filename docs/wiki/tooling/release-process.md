@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-17
 sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.npmjs.com/cli/v11/configuring-npm/package-json
@@ -44,8 +44,8 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at tutorial candidate version `0.2.2`.
-2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at candidate version `0.2.2`; published npm remains `0.2.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at version `0.3.0`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at version `0.3.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
@@ -56,6 +56,23 @@ Starshine now has repository metadata, an explicit publication dist-tag and a te
 
 For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
 
+
+## Minor release 0.3.0
+
+The owner authorized version `0.3.0` for Mooncakes and npm, a full local test,
+and an annotated tag with a detailed GitHub release changelog. This supersedes
+the npm publication restriction in the historical 0.2.2 tutorial record below.
+The [release notes](../../releases/0.3.0.md) use source checkpoint
+`0f9460d3200e1ed679b4f8405368cc707a518959` as the 0.2.2 baseline. All 2,157
+members of the downloaded 0.2.2 Mooncakes archive match that checkpoint.
+The component interface retains its independent `0.1.1` version.
+
+Publication requires the current candidate's local test, generated-file,
+source archive, optimized-artifact and exact npm tarball consumer checks.
+Registry writes follow those checks; registry verification follows publication.
+The standard full test invocation exceeds this host's argument limit. A local
+runner selects every test from `moon test --outline` in bounded file groups,
+then continues the ordinary full gate's fuzz suites. It excludes no selected test.
 
 ## Registry release 0.2.0
 

@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Starshine 0.3.0 release notes](../releases/0.3.0.md) — Detailed changes from the verified 0.2.2 source checkpoint, with API additions, optimizer repairs, performance limits, diagnostics, and the complete commit list.
+
 - [October 17 optimization-pass audit repairs](tooling/validation-gates.md#october-17-2026--optimization-pass-audit-redgreen-checkpoint) — Thirty-two red-first correctness repairs, all 1,854 source test files green in bounded shards, 240,000 complete current-tree v133 comparisons across 24 lanes, and an additional baseline-controlled MakeSharedObjects diagnostic with explicit external-tool limits.
 - [Further DAE scan and lowering reductions](binaryen/passes/dae2/starshine-strategy.md#october-17-2026--further-scan-and-lowering-reductions) — Four further changes, 15,119 passing default tests, 60,000 fresh comparisons and normal large-case elapsed reductions of 2.3–7.5%. All 1,366 retained outputs match the before CLI. Allocation traffic falls for DAE2 and tracked peak storage stays unchanged. Speed, parity, size and runtime-coverage gaps remain open; the map trial is rejected and seed precision loss is recorded.
 - [DAE analysis fact reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-reuse-of-existing-dae-analysis-facts) — Four bounded reuse fixes, 15,102 passing default tests, normal native samples and controls, 60,000 generated comparisons with open parity/size/runtime limits, current activation counts and explicit worker isolation gates.

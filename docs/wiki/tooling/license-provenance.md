@@ -1,7 +1,7 @@
 ---
 kind: investigation
 status: working
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-17
 sources:
   - ../../../LICENSE
   - ../../../NOTICE
@@ -222,3 +222,17 @@ Normal master pushes reported administrative required-check bypass warnings;
 no protection or credential changed. Candidate version, publishing/provenance
 configuration and npm approval remain separate;
 existing memory P1 and optimizer/raw-serialization gaps stay open.
+
+## October 17, 2026 — Core version reviewed for 0.3.0
+
+The release build uses installed `moonbitlang/core` version
+`0.10.15+943464bfa` with `Apache-2.0` metadata. Its LICENSE is byte-identical
+to `licenses/Apache-2.0.txt` (SHA-256
+`86460c45017ffacb9aa9e18850fa9fdb036339dc8851125465f4a3f3442fc894`).
+Its NOTICE is byte-identical to `licenses/moonbit-core-NOTICE.txt` (SHA-256
+`047a7cd5e93c10a8a753b7f152c371ef309b523c4d9b945ec5776321e7e602fb`).
+The version pin in `scripts/lib/npm-licenses.mjs` and the root/npm NOTICE now
+identify that reviewed installation. Tests failed with the old pin, then all
+nine Node generation/legal tests passed after the update. Changed legal bytes,
+unexpected Core versions, and a new x NOTICE still reject the build. This
+updates dependency identity; it does not change the licensing scope above.

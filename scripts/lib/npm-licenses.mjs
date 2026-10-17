@@ -29,7 +29,7 @@ function assertModule(root, name, version) {
 // Dependency upgrades must not silently ship yesterday's notices. Check the
 // installed build inputs, rather than fetching a mutable upstream main branch.
 export function assertNpmDependencyLicenses(root, coreRoot) {
-  assertModule(coreRoot, 'MoonBit Core', '0.10.14+7d59c7ec9');
+  assertModule(coreRoot, 'MoonBit Core', '0.10.15+943464bfa');
   for (const prefix of ['', 'ffi']) {
     const xRoot = path.join(root, prefix, '.mooncakes/moonbitlang/x');
     assertModule(xRoot, 'moonbitlang/x', '0.5.1');
@@ -45,7 +45,7 @@ export function assertNpmDependencyLicenses(root, coreRoot) {
     }
     hashes[name] = createHash('sha256').update(actual).digest('hex');
   }
-  return { core: '0.10.14+7d59c7ec9', x: '0.5.1', hashes };
+  return { core: '0.10.15+943464bfa', x: '0.5.1', hashes };
 }
 
 // The dry-run resolves a clean workspace's registry tree without compiling.
