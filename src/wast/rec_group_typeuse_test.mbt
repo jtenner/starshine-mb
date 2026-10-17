@@ -1,7 +1,7 @@
 ///|
 fn assert_implicit_functype_is_distinct_from_grouped_match(
   src : String,
-  expected_grouped_type : UInt,
+  expected_grouped_type : UInt32,
 ) -> Unit raise {
   let lowered = match wast_to_binary_module(src) {
     Ok(m) => m

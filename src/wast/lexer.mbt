@@ -1,5 +1,5 @@
 ///|
-let eof : Int = -1
+let eof : Int32 = -1
 
 // ============================================================================
 // Constructor
@@ -23,24 +23,24 @@ pub fn WastLexer::new(buffer : Bytes, filename : String) -> WastLexer {
 // ============================================================================
 
 ///|
-fn is_digit(c : Int) -> Bool {
+fn is_digit(c : Int32) -> Bool {
   c >= 0x30 && c <= 0x39 // '0' to '9'
 }
 
 ///|
-fn is_hex_digit(c : Int) -> Bool {
+fn is_hex_digit(c : Int32) -> Bool {
   is_digit(c) ||
   (c >= 0x41 && c <= 0x46) || // 'A' to 'F'
   (c >= 0x61 && c <= 0x66) // 'a' to 'f'
 }
 
 ///|
-fn is_keyword(c : Int) -> Bool {
+fn is_keyword(c : Int32) -> Bool {
   c >= 0x61 && c <= 0x7A // 'a' to 'z'
 }
 
 ///|
-fn is_id_char(c : Int) -> Bool {
+fn is_id_char(c : Int32) -> Bool {
   if c < 0x21 || c > 0x7E {
     return false
   }
@@ -52,7 +52,7 @@ fn is_id_char(c : Int) -> Bool {
 }
 
 ///|
-fn parse_hex_digit(c : Int) -> Int {
+fn parse_hex_digit(c : Int32) -> Int32 {
   if c >= 0x30 && c <= 0x39 {
     c - 0x30
   } else if c >= 0x41 && c <= 0x46 {
@@ -69,7 +69,7 @@ fn parse_hex_digit(c : Int) -> Int {
 // ============================================================================
 
 ///|
-fn WastLexer::peek_char(self : WastLexer) -> Int {
+fn WastLexer::peek_char(self : WastLexer) -> Int32 {
   if self.cursor < self.buffer.length() {
     self.buffer[self.cursor].to_int()
   } else {
@@ -78,7 +78,7 @@ fn WastLexer::peek_char(self : WastLexer) -> Int {
 }
 
 ///|
-fn WastLexer::read_char(self : WastLexer) -> Int {
+fn WastLexer::read_char(self : WastLexer) -> Int32 {
   if self.cursor < self.buffer.length() {
     let c = self.buffer[self.cursor].to_int()
     self.cursor += 1
@@ -89,7 +89,7 @@ fn WastLexer::read_char(self : WastLexer) -> Int {
 }
 
 ///|
-fn WastLexer::match_char(self : WastLexer, c : Int) -> Bool {
+fn WastLexer::match_char(self : WastLexer, c : Int32) -> Bool {
   if self.peek_char() == c {
     let _ = self.read_char()
     true
@@ -141,7 +141,7 @@ fn WastLexer::get_location(self : WastLexer) -> Location {
 }
 
 ///|
-fn WastLexer::get_text(self : WastLexer, offset : Int) -> String {
+fn WastLexer::get_text(self : WastLexer, offset : Int32) -> String {
   let start = self.token_start + offset
   if start >= self.buffer.length() || self.cursor <= start {
     return ""
@@ -177,7 +177,7 @@ fn WastLexer::literal_token(
 fn WastLexer::text_token(
   self : WastLexer,
   token_type : TokenType,
-  offset : Int,
+  offset : Int32,
 ) -> Token {
   {
     location: self.get_location(),

@@ -35,9 +35,9 @@ pub impl Show for ErrorLevel with fn output(_self, logger) {
 ///|
 pub struct Location {
   filename : String
-  line : Int
-  first_column : Int
-  last_column : Int
+  line : Int32
+  first_column : Int32
+  last_column : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -107,9 +107,9 @@ priv enum ReservedChars {
 
 ///|
 pub enum HeapTypeRef {
-  TypeNum(UInt)
+  TypeNum(UInt32)
   TypeId(String)
-  ExactTypeNum(UInt)
+  ExactTypeNum(UInt32)
   ExactTypeId(String)
   Any
   String
@@ -1541,9 +1541,9 @@ pub impl Show for TokenValue with fn output(self, logger) {
 pub struct WastLexer {
   buffer : Bytes
   filename : String
-  mut line : Int
-  mut cursor : Int
-  mut line_start : Int
-  mut token_start : Int
+  mut line : Int32
+  mut cursor : Int32
+  mut line_start : Int32
+  mut token_start : Int32
   errors : Array[LexerError]
 }

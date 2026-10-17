@@ -6,7 +6,7 @@ pub fn lookup_keyword(text : String) -> TokenType? {
 ///|
 pub fn wat_to_module(
   source : String,
-  filename? : String = "<input>",
+  filename~ : String = "<input>",
 ) -> Result[Module, String] {
   @wast.wast_to_module(source, filename~)
 }
@@ -158,7 +158,7 @@ fn lib_module_has_unsupported_sections(mod : @lib.Module) -> Bool {
 }
 
 ///|
-fn lib_type_idx_to_uint(idx : @lib.TypeIdx) -> Result[UInt, String] {
+fn lib_type_idx_to_uint(idx : @lib.TypeIdx) -> Result[UInt32, String] {
   match idx {
     @lib.TypeIdx(raw) => Ok(raw)
     @lib.RecIdx(_) =>
@@ -167,19 +167,19 @@ fn lib_type_idx_to_uint(idx : @lib.TypeIdx) -> Result[UInt, String] {
 }
 
 ///|
-fn lib_func_idx_to_uint(idx : @lib.FuncIdx) -> UInt {
+fn lib_func_idx_to_uint(idx : @lib.FuncIdx) -> UInt32 {
   let @lib.FuncIdx(raw) = idx
   raw
 }
 
 ///|
-fn lib_local_idx_to_uint(idx : @lib.LocalIdx) -> UInt {
+fn lib_local_idx_to_uint(idx : @lib.LocalIdx) -> UInt32 {
   let @lib.LocalIdx(raw) = idx
   raw
 }
 
 ///|
-fn lib_label_idx_to_uint(idx : @lib.LabelIdx) -> UInt {
+fn lib_label_idx_to_uint(idx : @lib.LabelIdx) -> UInt32 {
   let @lib.LabelIdx(raw) = idx
   raw
 }
@@ -622,7 +622,7 @@ pub fn module_to_wat_with_context(
 ///|
 pub fn wat_to_script(
   source : String,
-  filename? : String = "<input>",
+  filename~ : String = "<input>",
 ) -> Result[WastScript, String] {
   @wast.wast_to_script(source, filename~)
 }

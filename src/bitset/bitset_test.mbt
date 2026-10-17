@@ -8,7 +8,7 @@ fn bitset_test_collect(values : BitSet) -> Array[Bool] {
 }
 
 ///|
-fn bitset_test_mark(values : BitSet, index : Int, value : Bool) -> Unit {
+fn bitset_test_mark(values : BitSet, index : Int32, value : Bool) -> Unit {
   values[index] = value
 }
 

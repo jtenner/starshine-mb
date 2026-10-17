@@ -27,18 +27,18 @@ fn wat_ascii_lower(input : String) -> String {
 pub struct WatRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  successes : Int
-  stable : Int
-  module_print_failures : Int
-  parse_failures : Int
-  roundtrip_print_failures : Int
-  unstable_text : Int
-  script_iterations : Int
-  module_commands : Int
-  rendered_scripts : Int
-  script_render_failures : Int
-  script_no_module_commands : Int
+  attempts : Int32
+  successes : Int32
+  stable : Int32
+  module_print_failures : Int32
+  parse_failures : Int32
+  roundtrip_print_failures : Int32
+  unstable_text : Int32
+  script_iterations : Int32
+  module_commands : Int32
+  rendered_scripts : Int32
+  script_render_failures : Int32
+  script_no_module_commands : Int32
 } derive(Eq, Debug)
 
 ///|

@@ -2,25 +2,25 @@
 priv struct WTLowerCtx {
   type_recs : Array[@lib.RecType]
   flat_types : Array[@lib.SubType]
-  mut indexed_type_recs : Int
+  mut indexed_type_recs : Int32
   mut type_match_env : @validate.Env?
-  mut scoped_type_recs : Int
-  type_ids : Map[String, UInt]
-  func_ids : Map[String, UInt]
-  table_ids : Map[String, UInt]
-  mem_ids : Map[String, UInt]
-  global_ids : Map[String, UInt]
-  tag_ids : Map[String, UInt]
-  tag_type_idxs : Array[UInt]
-  elem_ids : Map[String, UInt]
-  data_ids : Map[String, UInt]
-  mut next_func_idx : UInt
-  mut next_table_idx : UInt
-  mut next_mem_idx : UInt
-  mut next_global_idx : UInt
-  mut next_tag_idx : UInt
-  mut next_elem_idx : UInt
-  mut next_data_idx : UInt
+  mut scoped_type_recs : Int32
+  type_ids : Map[String, UInt32]
+  func_ids : Map[String, UInt32]
+  table_ids : Map[String, UInt32]
+  mem_ids : Map[String, UInt32]
+  global_ids : Map[String, UInt32]
+  tag_ids : Map[String, UInt32]
+  tag_type_idxs : Array[UInt32]
+  elem_ids : Map[String, UInt32]
+  data_ids : Map[String, UInt32]
+  mut next_func_idx : UInt32
+  mut next_table_idx : UInt32
+  mut next_mem_idx : UInt32
+  mut next_global_idx : UInt32
+  mut next_tag_idx : UInt32
+  mut next_elem_idx : UInt32
+  mut next_data_idx : UInt32
 }
 
 ///|
@@ -236,7 +236,7 @@ fn wt_name_from_id(id : String) -> @lib.Name {
 ///|
 fn wt_push_func_name(
   entries : Array[@lib.NameAssoc],
-  idx : UInt,
+  idx : UInt32,
   id : String?,
 ) -> Unit {
   match id {
@@ -246,7 +246,7 @@ fn wt_push_func_name(
 }
 
 ///|
-fn wt_align_pow_from_text_align(align : UInt64) -> Result[UInt, String] {
+fn wt_align_pow_from_text_align(align : UInt64) -> Result[UInt32, String] {
   if align == 0UL {
     return Err("alignment must be a positive power of two")
   }
@@ -296,7 +296,7 @@ fn wt_func_sig(
 }
 
 ///|
-fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> Result[UInt, String] {
+fn wt_append_type(ctx : WTLowerCtx, ft : FuncType) -> Result[UInt32, String] {
   let (params, results) = match wt_func_sig(ctx, ft) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -488,7 +488,7 @@ fn wt_index_types(ctx : WTLowerCtx) -> Unit {
 }
 
 ///|
-fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
+fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt32 {
   wt_index_types(ctx)
   ctx.flat_types.length().reinterpret_as_uint()
 }
@@ -550,7 +550,7 @@ fn wt_find_matching_func_type_index(
   ctx : WTLowerCtx,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
-) -> UInt? {
+) -> UInt32? {
   let mut flat = 0U
   for rec in ctx.type_recs {
     match rec {
@@ -573,10 +573,10 @@ fn wt_find_matching_func_type_index(
 ///|
 fn wt_resolve_named_or_num_index(
   idx : Index,
-  ids : Map[String, UInt],
-  upper_bound : UInt,
+  ids : Map[String, UInt32],
+  upper_bound : UInt32,
   kind : String,
-) -> Result[UInt, String] {
+) -> Result[UInt32, String] {
   ignore(upper_bound)
   match idx {
     Num(n) => Ok(n)
@@ -589,7 +589,10 @@ fn wt_resolve_named_or_num_index(
 }
 
 ///|
-fn wt_resolve_type_use(ctx : WTLowerCtx, tu : TypeUse) -> Result[UInt, String] {
+fn wt_resolve_type_use(
+  ctx : WTLowerCtx,
+  tu : TypeUse,
+) -> Result[UInt32, String] {
   match tu.type_index {
     Some(idx) => {
       let resolved = match
@@ -647,8 +650,8 @@ fn wt_resolve_type_use(ctx : WTLowerCtx, tu : TypeUse) -> Result[UInt, String] {
 ///|
 fn wt_type_param_count(
   ctx : WTLowerCtx,
-  type_idx : UInt,
-) -> Result[UInt, String] {
+  type_idx : UInt32,
+) -> Result[UInt32, String] {
   wt_index_types(ctx)
   match ctx.flat_types.get(type_idx.reinterpret_as_int()) {
     Some(st) =>
@@ -664,7 +667,7 @@ fn wt_type_param_count(
 fn wt_resolve_label(
   idx : Index,
   labels : Array[String?],
-) -> Result[UInt, String] {
+) -> Result[UInt32, String] {
   match idx {
     Num(n) =>
       if n < labels.length().reinterpret_as_uint() {
@@ -704,7 +707,7 @@ fn wt_parse_i64(text : String) -> Result[@lib.I64, String] {
 }
 
 ///|
-fn wt_hex_digit_value(c : Int) -> Int {
+fn wt_hex_digit_value(c : Int32) -> Int32 {
   if c >= 0x30 && c <= 0x39 {
     c - 0x30
   } else if c >= 0x61 && c <= 0x66 {
@@ -880,7 +883,7 @@ fn wt_parse_nan_payload_bits(
 }
 
 ///|
-fn wt_push_le_bytes(out : Array[Byte], bits : UInt64, count : Int) -> Unit {
+fn wt_push_le_bytes(out : Array[Byte], bits : UInt64, count : Int32) -> Unit {
   for i = 0; i < count; i = i + 1 {
     out.push(((bits >> (i * 8)) & 0xffUL).to_byte())
   }
@@ -1013,7 +1016,7 @@ fn wt_v128_const_instr(v : V128Const) -> Result[@lib.Instruction, String] {
 }
 
 ///|
-fn wt_shuffle_lane(lane : UInt) -> Result[@lib.LaneIdx, String] {
+fn wt_shuffle_lane(lane : UInt32) -> Result[@lib.LaneIdx, String] {
   if lane <= 31U {
     Ok(@lib.LaneIdx::new(lane.to_byte()))
   } else {
@@ -1024,8 +1027,8 @@ fn wt_shuffle_lane(lane : UInt) -> Result[@lib.LaneIdx, String] {
 ///|
 fn wt_lane_idx(
   op : String,
-  lane : UInt,
-  max_lane : UInt,
+  lane : UInt32,
+  max_lane : UInt32,
 ) -> Result[@lib.LaneIdx, String] {
   if lane <= max_lane {
     Ok(@lib.LaneIdx::new(lane.to_byte()))
@@ -1517,13 +1520,13 @@ fn wt_load_store(op : Opcode, ma : MemArg) -> Result[@lib.Instruction, String] {
 
 ///|
 priv enum WTLegacyCatchScope {
-  CatchLabel(Int, WTLegacyCatchScope?)
+  CatchLabel(Int32, WTLegacyCatchScope?)
 }
 
 ///|
 priv struct WTLegacyCtx {
   catch_scope : WTLegacyCatchScope?
-  enclosing_try_count : UInt
+  enclosing_try_count : UInt32
   try_labels : Array[String]
 }
 
@@ -1544,7 +1547,7 @@ fn wt_default_legacy_ctx() -> WTLegacyCtx {
 fn wt_legacy_rethrow_valid(
   idx : Index,
   legacy : WTLegacyCtx,
-  label_count : Int,
+  label_count : Int32,
 ) -> Bool {
   let raw = match idx {
     Num(raw) => raw
@@ -1583,7 +1586,7 @@ fn wt_legacy_delegate_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
 fn wt_instrs_to_lib(
   ctx : WTLowerCtx,
   instrs : Array[Instruction],
-  local_ids : Map[String, UInt],
+  local_ids : Map[String, UInt32],
   labels : Array[String?],
   legacy : WTLegacyCtx,
 ) -> Result[Array[@lib.Instruction], String] {
@@ -1607,7 +1610,7 @@ fn wt_legacy_try_to_lib(
   body : Array[Instruction],
   catches : Array[LegacyCatchClause],
   delegate_target : Index?,
-  local_ids : Map[String, UInt],
+  local_ids : Map[String, UInt32],
   labels : Array[String?],
   legacy : WTLegacyCtx,
 ) -> Result[@lib.Instruction, String] {
@@ -1703,8 +1706,8 @@ fn wt_legacy_try_to_lib(
 ///|
 fn wt_local_idx(
   idx : Index,
-  local_ids : Map[String, UInt],
-) -> Result[UInt, String] {
+  local_ids : Map[String, UInt32],
+) -> Result[UInt32, String] {
   match idx {
     Num(n) => Ok(n)
     Id(name) =>
@@ -1719,7 +1722,7 @@ fn wt_local_idx(
 fn wt_instr_to_lib(
   ctx : WTLowerCtx,
   instr : Instruction,
-  local_ids : Map[String, UInt],
+  local_ids : Map[String, UInt32],
   labels : Array[String?],
   legacy : WTLegacyCtx,
 ) -> Result[@lib.Instruction, String] {
@@ -3137,11 +3140,11 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   let imports : Array[@lib.Import] = []
   let func_annotation_entries : Array[@lib.FuncAnnotationAssoc] = []
   let func_name_entries : Array[@lib.NameAssoc] = []
-  let func_defs : Array[(Func, UInt)] = []
+  let func_defs : Array[(Func, UInt32)] = []
   let table_defs_raw : Array[Table] = []
   let mem_defs_raw : Array[Memory] = []
   let global_defs_raw : Array[Global] = []
-  let tag_defs_raw : Array[(Tag, UInt)] = []
+  let tag_defs_raw : Array[(Tag, UInt32)] = []
   let export_defs : Array[Export] = []
   let start_defs : Array[Start] = []
   let elem_defs_raw : Array[ElemSegment] = []
@@ -3419,7 +3422,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   for entry in func_defs {
     let (f, type_idx) = entry
     func_type_idxs.push(@lib.TypeIdx::new(type_idx))
-    let local_ids : Map[String, UInt] = Map([])
+    let local_ids : Map[String, UInt32] = Map([])
     let mut param_idx = 0U
     for param_id in f.type_use.param_ids {
       match param_id {
@@ -3817,7 +3820,7 @@ pub fn wast_ast_to_binary_module(mod : Module) -> Result[@lib.Module, String] {
 ///|
 pub fn wast_to_binary_module(
   source : String,
-  filename? : String = "<memory>",
+  filename~ : String = "<memory>",
 ) -> Result[@lib.Module, String] {
   match wast_to_module(source, filename~) {
     Ok(mod) => wast_ast_to_binary_module(mod)
@@ -3828,7 +3831,7 @@ pub fn wast_to_binary_module(
 ///|
 pub fn wast_text_binary_roundtrip(
   source : String,
-  filename? : String = "<memory>",
+  filename~ : String = "<memory>",
 ) -> Result[(String, @lib.Module), String] {
   let parsed = match wast_to_module(source, filename~) {
     Ok(m) => m

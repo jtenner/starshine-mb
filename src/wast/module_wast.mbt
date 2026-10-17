@@ -4,7 +4,7 @@ pub suberror WastTextError {
 }
 
 ///|
-fn hex_digit(v : Int) -> Char {
+fn hex_digit(v : Int32) -> Char {
   if v < 10 {
     (v + '0').unsafe_to_char()
   } else {
@@ -589,7 +589,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
 fn write_legacy_catch_clause(
   out : StringBuilder,
   clause : LegacyCatchClause,
-  indent : Int,
+  indent : Int32,
 ) -> Unit raise WastTextError {
   let pad = " ".repeat(indent)
   match clause {
@@ -610,7 +610,7 @@ fn write_legacy_catch_clause(
 fn write_instruction(
   out : StringBuilder,
   instr : Instruction,
-  indent : Int,
+  indent : Int32,
 ) -> Unit raise WastTextError {
   let pad = " ".repeat(indent)
   match instr {
@@ -668,7 +668,7 @@ fn write_instruction(
 fn write_instructions(
   out : StringBuilder,
   instrs : Array[Instruction],
-  indent : Int,
+  indent : Int32,
 ) -> Unit raise WastTextError {
   for instr in instrs {
     write_instruction(out, instr, indent)
@@ -789,7 +789,7 @@ fn write_type_field(out : StringBuilder, td : TypeDef, pad : String) -> Unit {
 fn write_module_field(
   out : StringBuilder,
   field : ModuleField,
-  indent : Int,
+  indent : Int32,
 ) -> Unit raise WastTextError {
   let pad = " ".repeat(indent)
   match field {
@@ -1301,7 +1301,7 @@ pub impl Show for WastScript with fn output(self, logger) {
 ///|
 pub fn wast_to_module(
   source : String,
-  filename? : String = "<memory>",
+  filename~ : String = "<memory>",
 ) -> Result[Module, String] {
   let lexer = WastLexer::new(string_to_bytes_for_parser(source), filename)
   let parser = WastParser::new(lexer)
@@ -1327,7 +1327,7 @@ pub fn wast_to_module(
 ///|
 pub fn wast_to_script(
   source : String,
-  filename? : String = "<memory>",
+  filename~ : String = "<memory>",
 ) -> Result[WastScript, String] {
   let lexer = WastLexer::new(string_to_bytes_for_parser(source), filename)
   let parser = WastParser::new(lexer)

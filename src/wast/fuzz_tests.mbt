@@ -27,22 +27,22 @@ fn wast_ascii_lower(input : String) -> String {
 pub struct WastRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  successes : Int
-  stable : Int
-  script_iterations : Int
-  module_commands : Int
-  rendered_scripts : Int
+  attempts : Int32
+  successes : Int32
+  stable : Int32
+  script_iterations : Int32
+  module_commands : Int32
+  rendered_scripts : Int32
   generation_mode : String
-  valid_lowered_modules : Int
-  static_assertions : Int
+  valid_lowered_modules : Int32
+  static_assertions : Int32
   feature_stats : WastArbitraryFeatureStats
 } derive(Eq, Debug)
 
 ///|
 fn wast_roundtrip_parse_profile(
   profile : String,
-) -> Result[(String, String, Int, Int, Int, Int, Int), String] {
+) -> Result[(String, String, Int32, Int32, Int32, Int32, Int32), String] {
   let parts : Array[String] = []
   for raw_part in profile.trim().to_owned().split("+") {
     let part = wast_ascii_lower(raw_part.trim().to_owned())
@@ -130,7 +130,7 @@ fn wast_roundtrip_static_assertion_script(st : RandomState) -> WastScript {
 }
 
 ///|
-fn wast_roundtrip_count_static_assertions(script : WastScript) -> Int {
+fn wast_roundtrip_count_static_assertions(script : WastScript) -> Int32 {
   let mut count = 0
   for cmd in script.commands {
     match cmd {

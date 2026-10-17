@@ -205,7 +205,7 @@ test "Binaryen 132 linear atomic opcode matrix retains binary opcode and order b
     ("i64", "16", 2),
     ("i64", "32", 4),
   ]
-  let cases : Array[(String, Int, Int, Bool)] = []
+  let cases : Array[(String, Int32, Int32, Bool)] = []
   for lane_idx, lane in lanes {
     let (ty, width, align) = lane
     let extension = if width == "" { "" } else { "_u" }

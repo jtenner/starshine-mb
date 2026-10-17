@@ -15,7 +15,7 @@ pub enum WastSpecCommandStatus {
 
 ///|
 pub struct WastSpecCommandReport {
-  command_index : Int
+  command_index : Int32
   status : WastSpecCommandStatus
 } derive(Eq, Debug)
 
@@ -24,19 +24,19 @@ pub struct WastSpecFileReport {
   path : String
   status : WastSpecFileStatus
   command_reports : Array[WastSpecCommandReport]
-  total_commands : Int
-  checked_commands : Int
-  skipped_commands : Int
-  blocked_commands : Int
+  total_commands : Int32
+  checked_commands : Int32
+  skipped_commands : Int32
+  blocked_commands : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct WastSpecRunSummary {
   files : Array[WastSpecFileReport]
-  total_files : Int
-  passed_files : Int
-  skipped_files : Int
-  failed_files : Int
+  total_files : Int32
+  passed_files : Int32
+  skipped_files : Int32
+  failed_files : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -222,7 +222,7 @@ pub fn evaluate_wast_static_assertion(
 fn spec_check_command(
   cmd : WastCommand,
   path : String,
-) -> Result[(Int, Int), String] {
+) -> Result[(Int32, Int32), String] {
   if spec_is_runtime_only_command(cmd) {
     return Ok((0, 1))
   }
@@ -285,7 +285,7 @@ fn spec_is_known_unsupported_error(msg : String) -> Bool {
 /// numbers shown in spec-runner diagnostics.
 fn spec_is_known_specsuite_mismatch(
   path : String,
-  command_index : Int?,
+  command_index : Int32?,
   msg : String,
 ) -> Bool {
   if !path.has_prefix("tests/spec/") {
@@ -796,7 +796,7 @@ test "wast spec harness blocks state-dependent commands until a new module succe
 
 ///|
 test "wast spec harness known mismatch allowlist requires exact assertion identity" {
-  let cases : Array[(String, Int, String)] = [
+  let cases : Array[(String, Int32, String)] = [
     ("tests/spec/if.wast", 178, "validation failed: stack underflow"),
     ("tests/spec/loop.wast", 83, "validation failed: stack underflow"),
     ("tests/spec/block.wast", 135, "validation failed: stack underflow"),
@@ -959,7 +959,7 @@ extern "c" fn spec_native_popen(command : Bytes, mode : Bytes) -> UInt64 = "pope
 
 ///|
 #cfg(target="native")
-extern "c" fn spec_native_pclose(pipe : UInt64) -> Int = "pclose"
+extern "c" fn spec_native_pclose(pipe : UInt64) -> Int32 = "pclose"
 
 ///|
 #cfg(target="native")
@@ -978,15 +978,15 @@ extern "c" fn spec_native_fopen(path : Bytes, mode : Bytes) -> UInt64 = "fopen"
 
 ///|
 #cfg(target="native")
-extern "c" fn spec_native_fclose(stream : UInt64) -> Int = "fclose"
+extern "c" fn spec_native_fclose(stream : UInt64) -> Int32 = "fclose"
 
 ///|
 #cfg(target="native")
 extern "c" fn spec_native_fseek(
   stream : UInt64,
-  offset : Int,
-  whence : Int,
-) -> Int = "fseek"
+  offset : Int32,
+  whence : Int32,
+) -> Int32 = "fseek"
 
 ///|
 #cfg(target="native")
@@ -1092,7 +1092,7 @@ fn spec_collect_failed_paths(summary : WastSpecRunSummary) -> Array[String] {
 
 ///|
 #cfg(target="native")
-fn spec_failed_preview(failed : Array[String], limit : Int) -> String {
+fn spec_failed_preview(failed : Array[String], limit : Int32) -> String {
   let out = StringBuilder::new()
   let mut i = 0
   while i < failed.length() && i < limit {

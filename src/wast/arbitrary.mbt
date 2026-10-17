@@ -1,6 +1,6 @@
 ///|
 /// WAST arbitrary generation keeps local text-shape opcode pickers instead of calling typed `gen_valid`; keep duplicated coverage aligned with `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`.
-fn rand_bounded(max_exclusive : UInt, st : RandomState) -> UInt {
+fn rand_bounded(max_exclusive : UInt32, st : RandomState) -> UInt32 {
   if max_exclusive == 0 {
     0
   } else {
@@ -22,22 +22,22 @@ fn bytes_of(s : String) -> Bytes {
 
 ///|
 pub struct WastArbitraryFeatureStats {
-  gc_type_fields : Int
-  exported_tags : Int
-  descriptor_ref_ops : Int
-  bulk_memory_ops : Int
-  bulk_table_ops : Int
-  tail_call_ops : Int
-  exception_ops : Int
-  simd_const_ops : Int
-  control_ops : Int
-  parametric_ops : Int
-  variable_ops : Int
-  table_ops : Int
-  memory_ops : Int
-  numeric_ops : Int
-  reference_ops : Int
-  simd_ops : Int
+  gc_type_fields : Int32
+  exported_tags : Int32
+  descriptor_ref_ops : Int32
+  bulk_memory_ops : Int32
+  bulk_table_ops : Int32
+  tail_call_ops : Int32
+  exception_ops : Int32
+  simd_const_ops : Int32
+  control_ops : Int32
+  parametric_ops : Int32
+  variable_ops : Int32
+  table_ops : Int32
+  memory_ops : Int32
+  numeric_ops : Int32
+  reference_ops : Int32
+  simd_ops : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -323,8 +323,8 @@ pub fn wast_arbitrary_feature_stats(mod : Module) -> WastArbitraryFeatureStats {
 }
 
 ///|
-fn rand_len(size : Int, st : RandomState, max_len : UInt) -> Int {
-  let base : UInt = if size <= 0 { 1 } else { size.reinterpret_as_uint() + 1 }
+fn rand_len(size : Int32, st : RandomState, max_len : UInt32) -> Int32 {
+  let base : UInt32 = if size <= 0 { 1 } else { size.reinterpret_as_uint() + 1 }
   let cap = if max_len < base { max_len } else { base }
   rand_bounded(cap + 1, st).reinterpret_as_int()
 }
@@ -335,7 +335,7 @@ fn rand_ident(st : RandomState, prefix : String) -> String {
 }
 
 ///|
-fn rand_index(st : RandomState, bound : UInt) -> Index {
+fn rand_index(st : RandomState, bound : UInt32) -> Index {
   Num(rand_bounded(bound, st))
 }
 
@@ -503,9 +503,9 @@ fn gen_memarg(st : RandomState, natural_align : UInt64) -> MemArg {
 
 ///|
 fn gen_instruction(
-  size : Int,
+  size : Int32,
   st : RandomState,
-  func_bound : UInt,
+  func_bound : UInt32,
 ) -> Instruction {
   if size <= 0 {
     match st.next_uint() % 12 {
@@ -599,7 +599,7 @@ fn gen_func_type(st : RandomState) -> FuncType {
 }
 
 ///|
-fn gen_type_use(st : RandomState, type_count : UInt) -> TypeUse {
+fn gen_type_use(st : RandomState, type_count : UInt32) -> TypeUse {
   if type_count > 0 && (st.next_uint() & 1) == 1 {
     {
       type_index: Some(Num(st.next_uint() % type_count)),
@@ -712,12 +712,12 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
 }
 
 ///|
-fn gen_module(size : Int, st : RandomState) -> Module {
+fn gen_module(size : Int32, st : RandomState) -> Module {
   let fields : Array[ModuleField] = []
   append_wide_wast_surface(fields)
 
   // Always provide at least one func type for call_indirect / signature references.
-  let type_count : UInt = st.next_uint() % 2 + 1
+  let type_count : UInt32 = st.next_uint() % 2 + 1
   for _ in 0..<type_count.reinterpret_as_int() {
     fields.push(
       TypeField({
@@ -730,7 +730,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
       }),
     )
   }
-  let mut func_count : UInt = 0
+  let mut func_count : UInt32 = 0
 
   // Optional imported function.
   if (st.next_uint() & 1) == 1 {
@@ -777,7 +777,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
       }),
     )
   }
-  let func_defs : UInt = st.next_uint() % 3 + 1
+  let func_defs : UInt32 = st.next_uint() % 3 + 1
   for i in 0..<func_defs.reinterpret_as_int() {
     let locals : Array[Local] = []
     let local_n = rand_len(size, st, 3)
@@ -912,7 +912,7 @@ pub impl Arbitrary for Index with fn arbitrary(size, st) {
 ///|
 pub impl Arbitrary for Limits with fn arbitrary(_, st) {
   let min = st.next_uint() % 5
-  let max : UInt? = if (st.next_uint() & 1) == 1 {
+  let max : UInt32? = if (st.next_uint() & 1) == 1 {
     Some(min + st.next_uint() % 3)
   } else {
     None
@@ -1074,7 +1074,7 @@ pub impl Arbitrary for V128Const with fn arbitrary(_, st) {
 
 ///|
 pub impl Arbitrary for ShuffleLanes with fn arbitrary(_, st) {
-  let lanes : FixedArray[UInt] = FixedArray::make(16, 0)
+  let lanes : FixedArray[UInt32] = FixedArray::make(16, 0)
   for i = 0; i < 16; i = i + 1 {
     lanes[i] = st.next_uint() % 32
   }

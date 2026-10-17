@@ -30,41 +30,44 @@ pub struct DiffOptions {
 
 ///|
 pub fn DiffOptions::new(
-  compare? : DiffCompareMode = DiffCompareMode::lines(),
-  ignore_whitespace? : Bool = false,
-  ignore_case? : Bool = false,
-  ignore_accents? : Bool = false,
+  compare~ : DiffCompareMode = DiffCompareMode::lines(),
+  ignore_whitespace~ : Bool = false,
+  ignore_case~ : Bool = false,
+  ignore_accents~ : Bool = false,
 ) -> DiffOptions {
   { compare, ignore_whitespace, ignore_case, ignore_accents, }
 }
 
 ///|
 pub struct DiffChange {
-  lhs_at : Int
-  lhs_del : Int
-  rhs_at : Int
-  rhs_add : Int
+  lhs_at : Int32
+  lhs_del : Int32
+  rhs_at : Int32
+  rhs_add : Int32
 } derive(Eq, Debug)
 
 ///|
 pub fn DiffChange::new(
-  lhs_at : Int,
-  lhs_del : Int,
-  rhs_at : Int,
-  rhs_add : Int,
+  lhs_at : Int32,
+  lhs_del : Int32,
+  rhs_at : Int32,
+  rhs_add : Int32,
 ) -> DiffChange {
   { lhs_at, lhs_del, rhs_at, rhs_add, }
 }
 
 ///|
 priv struct MyersContext {
-  codes : Array[Int]
+  codes : Array[Int32]
   modified : @bitset.BitSet
   parts : Array[String]
 }
 
 ///|
-fn MyersContext::new(codes : Array[Int], parts : Array[String]) -> MyersContext {
+fn MyersContext::new(
+  codes : Array[Int32],
+  parts : Array[String],
+) -> MyersContext {
   let modified = @bitset.BitSet::new(codes.length())
   { codes, modified, parts, }
 }
@@ -192,8 +195,8 @@ fn myers_split_text(text : String, compare : DiffCompareMode) -> Array[String] {
 }
 
 ///|
-fn myers_make_int_array(size : Int, value : Int) -> Array[Int] {
-  let out : Array[Int] = []
+fn myers_make_int_array(size : Int32, value : Int32) -> Array[Int32] {
+  let out : Array[Int32] = []
   for _ in 0..<size {
     out.push(value)
   }
@@ -209,10 +212,10 @@ fn myers_build_contexts(
   let lhs_parts = myers_split_text(lhs, options.compare)
   let rhs_parts = myers_split_text(rhs, options.compare)
 
-  let code_by_text : Map[String, Int] = Map([])
+  let code_by_text : Map[String, Int32] = Map([])
   let mut next_code = 0
 
-  let lhs_codes : Array[Int] = []
+  let lhs_codes : Array[Int32] = []
   for part in lhs_parts {
     let key = myers_normalize_token(part, options)
     match code_by_text.get(key) {
@@ -225,7 +228,7 @@ fn myers_build_contexts(
     }
   }
 
-  let rhs_codes : Array[Int] = []
+  let rhs_codes : Array[Int32] = []
   for part in rhs_parts {
     let key = myers_normalize_token(part, options)
     match code_by_text.get(key) {
@@ -247,15 +250,15 @@ fn myers_build_contexts(
 ///|
 fn myers_get_shortest_middle_snake(
   lhs_ctx : MyersContext,
-  lhs_lower : Int,
-  lhs_upper : Int,
+  lhs_lower : Int32,
+  lhs_upper : Int32,
   rhs_ctx : MyersContext,
-  rhs_lower : Int,
-  rhs_upper : Int,
-  vector_u : Array[Int],
-  vector_d : Array[Int],
-  max : Int,
-) -> (Int, Int) {
+  rhs_lower : Int32,
+  rhs_upper : Int32,
+  vector_u : Array[Int32],
+  vector_d : Array[Int32],
+  max : Int32,
+) -> (Int32, Int32) {
   let kdown = lhs_lower - rhs_lower
   let kup = lhs_upper - rhs_upper
   let delta = lhs_upper - lhs_lower - (rhs_upper - rhs_lower)
@@ -333,14 +336,14 @@ fn myers_get_shortest_middle_snake(
 ///|
 fn myers_mark_lcs(
   lhs_ctx : MyersContext,
-  lhs_lower : Int,
-  lhs_upper : Int,
+  lhs_lower : Int32,
+  lhs_upper : Int32,
   rhs_ctx : MyersContext,
-  rhs_lower : Int,
-  rhs_upper : Int,
-  vector_u : Array[Int],
-  vector_d : Array[Int],
-  max : Int,
+  rhs_lower : Int32,
+  rhs_upper : Int32,
+  vector_u : Array[Int32],
+  vector_d : Array[Int32],
+  max : Int32,
 ) -> Unit {
   let mut lhs_lower = lhs_lower
   let mut lhs_upper = lhs_upper
@@ -452,7 +455,7 @@ fn myers_diff_internal(
 pub fn myers_diff(
   lhs : String,
   rhs : String,
-  options? : DiffOptions = DiffOptions::new(),
+  options~ : DiffOptions = DiffOptions::new(),
 ) -> Array[DiffChange] {
   let (changes, _, _) = myers_diff_internal(lhs, rhs, options)
   changes
@@ -462,7 +465,7 @@ pub fn myers_diff(
 pub fn render_line_diff(
   lhs : String,
   rhs : String,
-  options? : DiffOptions = DiffOptions::new(),
+  options~ : DiffOptions = DiffOptions::new(),
 ) -> String {
   let context_lines = 2
   let (changes, lhs_parts, rhs_parts) = myers_diff_internal(lhs, rhs, options)

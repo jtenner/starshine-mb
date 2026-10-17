@@ -1,21 +1,21 @@
 ///|
 pub struct BitSet {
-  mut size : Int
+  mut size : Int32
   mut words : FixedArray[UInt64]
 } derive(Eq, Debug)
 
 ///|
-const BITSET_WORD_BITS : Int = 64
+const BITSET_WORD_BITS : Int32 = 64
 
 ///|
-fn bitset_require_size(size : Int) -> Unit {
+fn bitset_require_size(size : Int32) -> Unit {
   if size < 0 {
     abort("bitset size must be non-negative")
   }
 }
 
 ///|
-fn bitset_word_count(size : Int) -> Int {
+fn bitset_word_count(size : Int32) -> Int32 {
   if size == 0 {
     return 0
   }
@@ -23,7 +23,7 @@ fn bitset_word_count(size : Int) -> Int {
 }
 
 ///|
-fn bitset_last_word_mask(size : Int) -> UInt64 {
+fn bitset_last_word_mask(size : Int32) -> UInt64 {
   let rem = size % BITSET_WORD_BITS
   if rem == 0 {
     return UInt64::lnot(0UL)
@@ -41,32 +41,32 @@ fn bitset_mask_unused_high_bits(values : BitSet) -> Unit {
 }
 
 ///|
-fn bitset_require_index(values : BitSet, index : Int) -> Unit {
+fn bitset_require_index(values : BitSet, index : Int32) -> Unit {
   if index < 0 || index >= values.size {
     abort("bitset index out of bounds")
   }
 }
 
 ///|
-fn bitset_word_index(index : Int) -> Int {
+fn bitset_word_index(index : Int32) -> Int32 {
   index / BITSET_WORD_BITS
 }
 
 ///|
-fn bitset_word_bit_mask(index : Int) -> UInt64 {
+fn bitset_word_bit_mask(index : Int32) -> UInt64 {
   1UL << (index % BITSET_WORD_BITS)
 }
 
 ///|
 #as_free_fn
-pub fn BitSet::new(size : Int) -> BitSet {
+pub fn BitSet::new(size : Int32) -> BitSet {
   bitset_require_size(size)
   { size, words: FixedArray::make(bitset_word_count(size), 0UL), }
 }
 
 ///|
 #as_free_fn
-pub fn BitSet::make(size : Int, value : Bool) -> BitSet {
+pub fn BitSet::make(size : Int32, value : Bool) -> BitSet {
   bitset_require_size(size)
   let fill = if value { UInt64::lnot(0UL) } else { 0UL }
   let values = { size, words: FixedArray::make(bitset_word_count(size), fill), }
@@ -75,7 +75,7 @@ pub fn BitSet::make(size : Int, value : Bool) -> BitSet {
 }
 
 ///|
-pub fn BitSet::length(self : BitSet) -> Int {
+pub fn BitSet::length(self : BitSet) -> Int32 {
   self.size
 }
 
@@ -85,7 +85,7 @@ pub fn BitSet::copy(self : BitSet) -> BitSet {
 }
 
 ///|
-pub fn BitSet::grow(self : BitSet, size : Int, fill? : Bool = false) -> Unit {
+pub fn BitSet::grow(self : BitSet, size : Int32, fill~ : Bool = false) -> Unit {
   bitset_require_size(size)
   if size <= self.size {
     return
@@ -111,7 +111,7 @@ pub fn BitSet::grow(self : BitSet, size : Int, fill? : Bool = false) -> Unit {
 
 ///|
 #alias("_[_]")
-pub fn BitSet::at(self : BitSet, index : Int) -> Bool {
+pub fn BitSet::at(self : BitSet, index : Int32) -> Bool {
   bitset_require_index(self, index)
   let word_idx = bitset_word_index(index)
   (self.words[word_idx] & bitset_word_bit_mask(index)) != 0UL
@@ -119,7 +119,7 @@ pub fn BitSet::at(self : BitSet, index : Int) -> Bool {
 
 ///|
 #alias("_[_]=_")
-pub fn BitSet::set(self : BitSet, index : Int, value : Bool) -> Unit {
+pub fn BitSet::set(self : BitSet, index : Int32, value : Bool) -> Unit {
   bitset_require_index(self, index)
   let word_idx = bitset_word_index(index)
   let mask = bitset_word_bit_mask(index)

@@ -4,7 +4,7 @@
 
 ///|
 pub enum Index {
-  Num(UInt)
+  Num(UInt32)
   Id(String)
 } derive(Eq, Debug)
 
@@ -26,8 +26,8 @@ pub impl Show for Index with fn output(self, logger) {
 
 ///|
 pub struct Limits {
-  min : UInt
-  max : UInt?
+  min : UInt32
+  max : UInt32?
 } derive(Eq, Debug)
 
 ///|
@@ -113,9 +113,9 @@ pub struct MemoryType {
 ///|
 pub fn MemoryType::new(
   min : UInt64,
-  max? : UInt64? = None,
-  shared? : Bool = false,
-  memory64? : Bool = false,
+  max~ : UInt64? = None,
+  shared~ : Bool = false,
+  memory64~ : Bool = false,
 ) -> MemoryType {
   { min, max, shared, memory64, }
 }
@@ -272,7 +272,7 @@ pub struct Module {
 } derive(Eq, Debug)
 
 ///|
-pub fn Module::new(fields : Array[ModuleField], id? : String? = None) -> Module {
+pub fn Module::new(fields : Array[ModuleField], id~ : String? = None) -> Module {
   { id, fields, }
 }
 
@@ -326,7 +326,7 @@ pub impl Show for SimdShape with fn output(self, logger) {
 
 ///|
 pub struct ShuffleLanes {
-  lanes : FixedArray[UInt] // 16 lane indices
+  lanes : FixedArray[UInt32] // 16 lane indices
 } derive(Eq, Debug)
 
 ///|
@@ -474,23 +474,23 @@ pub enum Instruction {
   StructNewDefault(Index)
   ArrayNew(Index)
   ArrayNewDefault(Index)
-  ArrayNewFixed(Index, UInt)
+  ArrayNewFixed(Index, UInt32)
   ArrayNewData(Index, Index)
   ArrayNewElem(Index, Index)
-  StructGet(Index, UInt)
-  StructGetS(Index, UInt)
-  StructGetU(Index, UInt)
+  StructGet(Index, UInt32)
+  StructGetS(Index, UInt32)
+  StructGetU(Index, UInt32)
   WaitqueueNew
   WaitqueueNotify
-  StructWait(Index, UInt)
+  StructWait(Index, UInt32)
   Publish
-  StructAtomicSet(AtomicOrder, Index, UInt)
+  StructAtomicSet(AtomicOrder, Index, UInt32)
   ArrayAtomicSet(AtomicOrder, Index)
-  StructAtomicGet(AtomicOrder, Index, UInt)
-  StructAtomicGetS(AtomicOrder, Index, UInt)
-  StructAtomicGetU(AtomicOrder, Index, UInt)
-  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt)
-  StructAtomicCmpxchg(AtomicOrder, Index, UInt)
+  StructAtomicGet(AtomicOrder, Index, UInt32)
+  StructAtomicGetS(AtomicOrder, Index, UInt32)
+  StructAtomicGetU(AtomicOrder, Index, UInt32)
+  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt32)
+  StructAtomicCmpxchg(AtomicOrder, Index, UInt32)
   ArrayAtomicGet(AtomicOrder, Index)
   ArrayAtomicGetS(AtomicOrder, Index)
   ArrayAtomicGetU(AtomicOrder, Index)
@@ -522,14 +522,14 @@ pub enum Instruction {
   V128Load32Zero(MemArg)
   V128Load64Zero(MemArg)
   V128Store(MemArg)
-  V128Load8Lane(MemArg, UInt) // memarg, lane
-  V128Load16Lane(MemArg, UInt)
-  V128Load32Lane(MemArg, UInt)
-  V128Load64Lane(MemArg, UInt)
-  V128Store8Lane(MemArg, UInt)
-  V128Store16Lane(MemArg, UInt)
-  V128Store32Lane(MemArg, UInt)
-  V128Store64Lane(MemArg, UInt)
+  V128Load8Lane(MemArg, UInt32) // memarg, lane
+  V128Load16Lane(MemArg, UInt32)
+  V128Load32Lane(MemArg, UInt32)
+  V128Load64Lane(MemArg, UInt32)
+  V128Store8Lane(MemArg, UInt32)
+  V128Store16Lane(MemArg, UInt32)
+  V128Store32Lane(MemArg, UInt32)
+  V128Store64Lane(MemArg, UInt32)
 
   // V128 Shuffle/Swizzle
   I8x16Shuffle(ShuffleLanes)
@@ -544,20 +544,20 @@ pub enum Instruction {
   F64x2Splat
 
   // V128 Extract/Replace Lane
-  I8x16ExtractLaneS(UInt)
-  I8x16ExtractLaneU(UInt)
-  I8x16ReplaceLane(UInt)
-  I16x8ExtractLaneS(UInt)
-  I16x8ExtractLaneU(UInt)
-  I16x8ReplaceLane(UInt)
-  I32x4ExtractLane(UInt)
-  I32x4ReplaceLane(UInt)
-  I64x2ExtractLane(UInt)
-  I64x2ReplaceLane(UInt)
-  F32x4ExtractLane(UInt)
-  F32x4ReplaceLane(UInt)
-  F64x2ExtractLane(UInt)
-  F64x2ReplaceLane(UInt)
+  I8x16ExtractLaneS(UInt32)
+  I8x16ExtractLaneU(UInt32)
+  I8x16ReplaceLane(UInt32)
+  I16x8ExtractLaneS(UInt32)
+  I16x8ExtractLaneU(UInt32)
+  I16x8ReplaceLane(UInt32)
+  I32x4ExtractLane(UInt32)
+  I32x4ReplaceLane(UInt32)
+  I64x2ExtractLane(UInt32)
+  I64x2ReplaceLane(UInt32)
+  F32x4ExtractLane(UInt32)
+  F32x4ReplaceLane(UInt32)
+  F64x2ExtractLane(UInt32)
+  F64x2ReplaceLane(UInt32)
 
   // V128 Unary operations (no operands beyond the v128)
   SimdUnary(Opcode)
@@ -692,9 +692,9 @@ pub impl Show for ParserError with fn output(self, logger) {
 
 ///|
 pub struct LexerState {
-  cursor : Int
-  line : Int
-  line_start : Int
+  cursor : Int32
+  line : Int32
+  line_start : Int32
 }
 
 // ============================================================================
@@ -965,7 +965,7 @@ fn parse_unsigned_literal(
 }
 
 ///|
-fn parse_uint(s : String) -> UInt raise ParserError {
+fn parse_uint(s : String) -> UInt32 raise ParserError {
   parse_unsigned_literal(s, 4294967295UL).to_uint()
 }
 
@@ -973,7 +973,7 @@ fn parse_uint(s : String) -> UInt raise ParserError {
 fn WastParser::parse_nat(
   self : WastParser,
   what : String,
-) -> UInt raise ParserError {
+) -> UInt32 raise ParserError {
   let token = self.expect(Nat, what)
   parse_uint(self.get_literal_text(token))
 }
@@ -1298,7 +1298,7 @@ fn WastParser::parse_value_type(
 fn WastParser::parse_limits(self : WastParser) -> Limits raise ParserError {
   let min_token = self.expect(Nat, "expected minimum limit")
   let min = parse_uint(self.get_literal_text(min_token))
-  let max : UInt? = if self.check(Nat) {
+  let max : UInt32? = if self.check(Nat) {
     let max_token = self.advance()
     Some(parse_uint(self.get_literal_text(max_token)))
   } else {
@@ -3950,7 +3950,7 @@ fn WastParser::parse_simd_shape(
 }
 
 ///|
-fn WastParser::parse_lane_index(self : WastParser) -> UInt raise ParserError {
+fn WastParser::parse_lane_index(self : WastParser) -> UInt32 raise ParserError {
   let token = self.expect(Nat, "expected lane index")
   parse_uint(self.get_literal_text(token))
 }
@@ -3959,7 +3959,7 @@ fn WastParser::parse_lane_index(self : WastParser) -> UInt raise ParserError {
 fn WastParser::parse_shuffle_lanes(
   self : WastParser,
 ) -> ShuffleLanes raise ParserError {
-  let lanes : FixedArray[UInt] = FixedArray::make(16, 0U)
+  let lanes : FixedArray[UInt32] = FixedArray::make(16, 0U)
   for i = 0; i < 16; i = i + 1 {
     let token = self.expect(Nat, "expected shuffle lane index")
     lanes[i] = parse_uint(self.get_literal_text(token))
@@ -4460,7 +4460,7 @@ fn WastParser::check_lexer_errors(self : WastParser) -> Unit raise ParserError {
 }
 
 ///|
-fn hex_val(c : Char) -> Int {
+fn hex_val(c : Char) -> Int32 {
   if c >= '0' && c <= '9' {
     c.to_int() - 0x30
   } else if c >= 'a' && c <= 'f' {
