@@ -607,7 +607,7 @@ test "ssa destruction keeps canonical locals when unreachable reads stay behind 
 }
 
 ///|
-fn ssa_destroy_test_count_substring(text : String, needle : String) -> Int {
+fn ssa_destroy_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }

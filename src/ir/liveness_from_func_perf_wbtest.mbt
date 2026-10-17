@@ -1,7 +1,7 @@
 ///|
 fn block_liveness_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit raise {
   let func = HotFunc::new(

@@ -1,7 +1,7 @@
 ///|
 fn lift_provenance_demand_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   record : Bool,
 ) -> Unit {
   let body = StringBuilder::new()

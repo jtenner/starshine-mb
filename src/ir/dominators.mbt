@@ -5,8 +5,8 @@ pub struct HotDominators {
   idoms : Array[BlockId]
   children : Array[Array[BlockId]]
   frontiers : Array[Array[BlockId]]
-  dom_preorder : Array[Int]
-  dom_postorder : Array[Int]
+  dom_preorder : Array[Int32]
+  dom_postorder : Array[Int32]
 } derive(Eq, Debug)
 
 ///|
@@ -37,7 +37,7 @@ fn dom_normal_preds(
 ///|
 fn dom_intersect(
   idoms : Array[BlockId],
-  rpo_index : Array[Int],
+  rpo_index : Array[Int32],
   lhs : BlockId,
   rhs : BlockId,
 ) -> BlockId {
@@ -56,7 +56,7 @@ fn dom_intersect(
 
 ///|
 fn dom_build_children(
-  block_count : Int,
+  block_count : Int32,
   reachable_rpo : Array[BlockId],
   idoms : Array[BlockId],
 ) -> Array[Array[BlockId]] {
@@ -75,7 +75,7 @@ fn dom_build_children(
 fn dom_build_tree_intervals(
   entry_block : BlockId,
   children : Array[Array[BlockId]],
-) -> (Array[Int], Array[Int]) {
+) -> (Array[Int32], Array[Int32]) {
   let dom_preorder = Array::make(children.length(), -1)
   let dom_postorder = Array::make(children.length(), -1)
   let stack : Array[(BlockId, Bool)] = [(entry_block, false)]

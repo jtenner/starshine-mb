@@ -3,9 +3,9 @@ fn hot_make_node_with_children(
   func : HotFunc,
   op : HotOp,
   ty : TypeId,
-  canonicalized_flags : UInt,
-  imm0 : Int,
-  imm1 : Int,
+  canonicalized_flags : UInt32,
+  imm0 : Int32,
+  imm1 : Int32,
   children : Array[NodeId],
 ) -> NodeId {
   // Flags are intentionally canonicalized from the opcode, matching
@@ -45,7 +45,7 @@ fn hot_pop_value(values : Array[NodeId]) -> NodeId {
 }
 
 ///|
-fn hot_pop_values(values : Array[NodeId], count : Int) -> Array[NodeId] {
+fn hot_pop_values(values : Array[NodeId], count : Int32) -> Array[NodeId] {
   let out = Array::make(count, HOT_NONE_NODE)
   for slot = count - 1; slot >= 0; slot = slot - 1 {
     out[slot] = hot_pop_value(values)
@@ -58,7 +58,7 @@ fn hot_region_body(
   func : HotFunc,
   expr : Expr,
   label_stack : Array[LabelId],
-  result_arity : Int,
+  result_arity : Int32,
 ) -> Array[NodeId] {
   let Expr(instrs) = expr
   let roots : Array[NodeId] = []
@@ -88,7 +88,7 @@ fn hot_wrap_region(
   func : HotFunc,
   expr : Expr,
   label_stack : Array[LabelId],
-  result_arity : Int,
+  result_arity : Int32,
 ) -> NodeId {
   let id = hot_make_node_with_children(
     func,
@@ -426,7 +426,7 @@ fn hot_lift_instruction(
 pub fn hot_lift_body(
   body : Expr,
   locals : HotLocals,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type~ : BlockType = BlockType::void_(),
 ) -> HotFunc {
   match hot_lift_body_result(body, locals, body_result_type~) {
     Ok(func) => func

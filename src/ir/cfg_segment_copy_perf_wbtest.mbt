@@ -1,8 +1,8 @@
 ///|
 fn cfg_segment_copy_push_reference(
   nodes : Array[NodeId],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[NodeId] {
   let out : Array[NodeId] = []
   for index = start; index < end; index = index + 1 {
@@ -12,7 +12,11 @@ fn cfg_segment_copy_push_reference(
 }
 
 ///|
-fn cfg_segment_copy_bench(it : @bench.T, width : Int, reference : Bool) -> Unit {
+fn cfg_segment_copy_bench(
+  it : @bench.T,
+  width : Int32,
+  reference : Bool,
+) -> Unit {
   let nodes = Array::makei(width + 2, fn(index) { index })
   let expected = cfg_segment_copy_push_reference(nodes, 1, width + 1)
   if cfg_copy_segment_nodes(nodes, 1, width + 1) != expected {

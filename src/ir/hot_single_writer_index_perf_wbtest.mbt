@@ -1,8 +1,8 @@
 ///|
 fn single_writer_index_bench(
   it : @bench.T,
-  width : Int,
-  queries : Int,
+  width : Int32,
+  queries : Int32,
   warm : Bool,
   reference : Bool,
 ) -> Unit {

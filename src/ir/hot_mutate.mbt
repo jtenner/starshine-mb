@@ -51,8 +51,8 @@ fn hot_mutate_require_child_ref(func : HotFunc, child_id : NodeId) -> Unit {
 ///|
 fn hot_mutate_require_root_index(
   func : HotFunc,
-  idx : Int,
-  allow_end? : Bool = false,
+  idx : Int32,
+  allow_end~ : Bool = false,
 ) -> Unit {
   let upper = if allow_end {
     func.roots.length()
@@ -66,9 +66,9 @@ fn hot_mutate_require_root_index(
 
 ///|
 fn hot_mutate_require_remove_count(
-  length : Int,
-  idx : Int,
-  remove_count : Int,
+  length : Int32,
+  idx : Int32,
+  remove_count : Int32,
 ) -> Unit {
   if remove_count < 0 || idx + remove_count > length {
     abort("hot splice remove_count out of bounds")
@@ -76,7 +76,7 @@ fn hot_mutate_require_remove_count(
 }
 
 ///|
-fn hot_mutate_require_child_index(node : HotNode, idx : Int) -> Unit {
+fn hot_mutate_require_child_index(node : HotNode, idx : Int32) -> Unit {
   if idx < 0 || idx >= node.child_count {
     abort("hot child index out of bounds")
   }
@@ -99,7 +99,7 @@ fn hot_mutate_require_node_shape(
 ///|
 fn hot_mutate_write_child_span(
   func : HotFunc,
-  base : Int,
+  base : Int32,
   children : Array[NodeId],
 ) -> Unit {
   for i = 0; i < children.length(); i = i + 1 {
@@ -204,7 +204,7 @@ pub fn hot_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
 priv struct HotCatchPayloadLaneRepair {
   payload_id : NodeId
   parent_id : NodeId
-  parent_slot : Int
+  parent_slot : Int32
   val_type : ValType
 }
 
@@ -218,7 +218,7 @@ priv struct HotCatchPayloadRepair {
 fn hot_catch_payload_site_matches(
   site : HotUseSite,
   user : NodeId,
-  slot : Int,
+  slot : Int32,
   kind : HotUseSlotKind,
 ) -> Bool {
   site.user == user && site.slot == slot && site.kind == kind
@@ -229,11 +229,11 @@ fn hot_catch_payload_lane_repair(
   func : HotFunc,
   use_def : HotUseDef,
   catch_ref : HotRegionRef,
-  entry_slot : Int,
+  entry_slot : Int32,
   payload_id : NodeId,
   root_id : NodeId,
   root_user : NodeId,
-  root_slot : Int,
+  root_slot : Int32,
 ) -> HotCatchPayloadLaneRepair? {
   let payload = hot_node_get(func, payload_id)
   let payload_types = hot_type_results(func, payload.ty)
@@ -358,10 +358,10 @@ fn hot_grouped_catch_payload_repairs(
   use_def : HotUseDef,
   catch_ref : HotRegionRef,
   payloads : Array[NodeId],
-  payload_start : Int,
+  payload_start : Int32,
   root_id : NodeId,
   root_user : NodeId,
-  root_slot : Int,
+  root_slot : Int32,
 ) -> Array[HotCatchPayloadLaneRepair]? {
   let mut current = root_id
   let mut expected_user = root_user
@@ -565,8 +565,8 @@ fn hot_ordered_catch_payload_repair(
 ///|
 fn hot_catch_payload_repair_plan(
   func : HotFunc,
-  max_lanes : Int,
-  use_def_builds? : Array[Int]? = None,
+  max_lanes : Int32,
+  use_def_builds~ : Array[Int32]? = None,
 ) -> Array[HotCatchPayloadRepair]? {
   let plans : Array[HotCatchPayloadRepair] = []
   let mut payload_count = 0
@@ -644,7 +644,7 @@ fn hot_catch_payload_repair_plan(
 }
 
 ///|
-fn hot_repair_catch_payloads(func : HotFunc, max_lanes : Int) -> Bool {
+fn hot_repair_catch_payloads(func : HotFunc, max_lanes : Int32) -> Bool {
   let plans = match hot_catch_payload_repair_plan(func, max_lanes) {
     Some(plans) => plans
     None => return false
@@ -749,18 +749,18 @@ pub fn hot_weaken_body_local_to_nullable_ref(
 }
 
 ///|
-pub fn hot_root_count(func : HotFunc) -> Int {
+pub fn hot_root_count(func : HotFunc) -> Int32 {
   func.roots.length()
 }
 
 ///|
-pub fn hot_root_get(func : HotFunc, idx : Int) -> NodeId {
+pub fn hot_root_get(func : HotFunc, idx : Int32) -> NodeId {
   hot_mutate_require_root_index(func, idx)
   func.roots[idx]
 }
 
 ///|
-pub fn hot_root_set(func : HotFunc, idx : Int, id : NodeId) -> Unit {
+pub fn hot_root_set(func : HotFunc, idx : Int32, id : NodeId) -> Unit {
   hot_mutate_require_root_index(func, idx)
   hot_mutate_require_live_node(func, id, "hot root slots")
   func.roots[idx] = id
@@ -782,7 +782,7 @@ pub fn hot_append_root(func : HotFunc, id : NodeId) -> Unit {
 ///|
 fn hot_mutate_root_insert_no_bump(
   func : HotFunc,
-  idx : Int,
+  idx : Int32,
   id : NodeId,
 ) -> Unit {
   func.roots.push(id)
@@ -795,7 +795,7 @@ fn hot_mutate_root_insert_no_bump(
 }
 
 ///|
-pub fn hot_root_insert(func : HotFunc, idx : Int, id : NodeId) -> Unit {
+pub fn hot_root_insert(func : HotFunc, idx : Int32, id : NodeId) -> Unit {
   hot_mutate_require_root_index(func, idx, allow_end=true)
   hot_mutate_require_live_node(func, id, "hot root slots")
   hot_mutate_root_insert_no_bump(func, idx, id)
@@ -803,7 +803,7 @@ pub fn hot_root_insert(func : HotFunc, idx : Int, id : NodeId) -> Unit {
 }
 
 ///|
-fn hot_mutate_root_remove_no_bump(func : HotFunc, idx : Int) -> NodeId {
+fn hot_mutate_root_remove_no_bump(func : HotFunc, idx : Int32) -> NodeId {
   let removed = func.roots[idx]
   let last = func.roots.length() - 1
   for i = idx; i < last; i = i + 1 {
@@ -814,7 +814,7 @@ fn hot_mutate_root_remove_no_bump(func : HotFunc, idx : Int) -> NodeId {
 }
 
 ///|
-pub fn hot_root_remove(func : HotFunc, idx : Int) -> NodeId {
+pub fn hot_root_remove(func : HotFunc, idx : Int32) -> NodeId {
   hot_mutate_require_root_index(func, idx)
   let removed = hot_mutate_root_remove_no_bump(func, idx)
   hot_revision_bump(func)
@@ -824,8 +824,8 @@ pub fn hot_root_remove(func : HotFunc, idx : Int) -> NodeId {
 ///|
 pub fn hot_root_splice(
   func : HotFunc,
-  idx : Int,
-  remove_count : Int,
+  idx : Int32,
+  remove_count : Int32,
   new_roots : Array[NodeId],
 ) -> Array[NodeId] {
   hot_mutate_require_root_index(func, idx, allow_end=true)
@@ -869,7 +869,7 @@ pub fn hot_root_splice(
 }
 
 ///|
-pub fn hot_child_count(func : HotFunc, id : NodeId) -> Int {
+pub fn hot_child_count(func : HotFunc, id : NodeId) -> Int32 {
   if !hot_node_read_is_proven_live(func, id) {
     hot_mutate_require_live_node(func, id, "hot child_count")
   }
@@ -877,7 +877,7 @@ pub fn hot_child_count(func : HotFunc, id : NodeId) -> Int {
 }
 
 ///|
-pub fn hot_child_get(func : HotFunc, id : NodeId, idx : Int) -> NodeId {
+pub fn hot_child_get(func : HotFunc, id : NodeId, idx : Int32) -> NodeId {
   hot_node_require_live_read(func, id)
   if idx < 0 || idx >= func.nodes[id].child_count {
     abort("hot child index out of bounds")
@@ -889,7 +889,7 @@ pub fn hot_child_get(func : HotFunc, id : NodeId, idx : Int) -> NodeId {
 pub fn hot_child_set(
   func : HotFunc,
   id : NodeId,
-  idx : Int,
+  idx : Int32,
   child : NodeId,
 ) -> Unit {
   let node = hot_node_get(func, id)
@@ -900,7 +900,7 @@ pub fn hot_child_set(
 }
 
 ///|
-pub fn hot_alloc_child_span(func : HotFunc, count : Int) -> Int {
+pub fn hot_alloc_child_span(func : HotFunc, count : Int32) -> Int32 {
   if count < 0 {
     abort("hot child span count must be non-negative")
   }
@@ -912,7 +912,7 @@ pub fn hot_alloc_child_span(func : HotFunc, count : Int) -> Int {
 }
 
 ///|
-pub fn hot_alloc_children(func : HotFunc, count : Int) -> Int {
+pub fn hot_alloc_children(func : HotFunc, count : Int32) -> Int32 {
   hot_alloc_child_span(func, count)
 }
 
@@ -1341,7 +1341,7 @@ pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
 fn hot_node_get_impl(
   func : HotFunc,
   id : NodeId,
-  fallback_checks : Array[Int]?,
+  fallback_checks : Array[Int32]?,
 ) -> HotNode {
   if !hot_node_read_is_proven_live(func, id) {
     match fallback_checks {
@@ -1621,7 +1621,7 @@ pub fn hot_replace_node(
   func : HotFunc,
   id : NodeId,
   new_node : HotNode,
-  preserve_value_order? : Bool = false,
+  preserve_value_order~ : Bool = false,
 ) -> Unit {
   if preserve_value_order && new_node.order < 0 {
     abort("hot_replace_node requires an existing value order when forwarding")

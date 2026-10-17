@@ -47,8 +47,8 @@ fn cfg_presence_reference_new(
 ///|
 fn cfg_presence_reference_build(
   func : HotFunc,
-  conservative_exception_entries? : Bool = true,
-  expand_operand_control? : Bool = false,
+  conservative_exception_entries~ : Bool = true,
+  expand_operand_control~ : Bool = false,
 ) -> HotCfg {
   hot_verify_all_or_abort(func)
   let builder = cfg_presence_reference_new(

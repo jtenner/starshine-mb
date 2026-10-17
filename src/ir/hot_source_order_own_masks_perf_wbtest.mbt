@@ -21,7 +21,7 @@ fn source_order_own_masks_reference_facts(
 ///|
 fn source_order_own_masks_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = cfg_root_snapshot_fixture(width, 16)
@@ -76,7 +76,7 @@ test "bench source-order own masks roots=128 reused" (it : @bench.T) {
 ///|
 fn source_order_own_masks_default_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = cfg_root_snapshot_fixture(width, 16)

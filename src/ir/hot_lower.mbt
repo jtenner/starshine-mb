@@ -26,14 +26,14 @@ pub struct HotLowerOptions {
 
 ///|
 pub fn HotLowerOptions::new(
-  preserve_if_arm_single_nops? : Bool = false,
-  preserve_dead_local_tee_drops? : Bool = false,
-  preserve_nontrailing_nops? : Bool = false,
-  preserve_trailing_nops? : Bool = false,
-  preserve_typed_loop_const_prefix_spills? : Bool = false,
-  preserve_flat_ir_spills? : Bool = false,
-  flatten_unused_result_blocks? : Bool = false,
-  preserve_struct_set_value_blocks? : Bool = false,
+  preserve_if_arm_single_nops~ : Bool = false,
+  preserve_dead_local_tee_drops~ : Bool = false,
+  preserve_nontrailing_nops~ : Bool = false,
+  preserve_trailing_nops~ : Bool = false,
+  preserve_typed_loop_const_prefix_spills~ : Bool = false,
+  preserve_flat_ir_spills~ : Bool = false,
+  flatten_unused_result_blocks~ : Bool = false,
+  preserve_struct_set_value_blocks~ : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
@@ -55,18 +55,44 @@ priv struct HotLowerLegacyCatchFrame {
 }
 
 ///|
+priv struct HotLowerTupleLanePairs {
+  extra_locals : Array[ValType]
+  pairs : Array[(ValType, ValType, LocalIdx, LocalIdx)]
+}
+
+///|
+priv struct HotLowerScopeQuery {
+  mut target : NodeId
+  answers : @hashmap.HashMap[NodeId, Bool]
+  nodes : Array[NodeId]
+  slots : Array[Int32]
+}
+
+///|
+fn HotLowerScopeQuery::new(target : NodeId) -> HotLowerScopeQuery {
+  { target, answers: @hashmap.new(), nodes: [], slots: [], }
+}
+
+///|
 priv struct HotLowerLabelFrames {
   active : Array[LabelId]
-  depths : Array[Int]
+  depths : Array[Int32]
   legacy_rethrow_frames : Array[HotLowerLegacyCatchFrame]
   used_labels : @bitset.BitSet
   mut source_order : HotSourceOrderFacts?
   mut node_effects : Array[EffectMask]?
-  mut operand_minima : Array[Int]?
+  mut operand_minima : Array[Int32]?
+  mut requested_nodes : @bitset.BitSet?
+  mut tuple_lane_pairs : HotLowerTupleLanePairs?
+  scope_query_work : Array[Int32]?
+  mut scope_query : HotLowerScopeQuery?
 }
 
 ///|
-fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
+fn hot_lower_impl_new_label_frames(
+  func : HotFunc,
+  scope_query_work~ : Array[Int32]? = None,
+) -> HotLowerLabelFrames {
   {
     active: [],
     depths: [],
@@ -75,7 +101,41 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     source_order: None,
     node_effects: None,
     operand_minima: None,
+    requested_nodes: None,
+    tuple_lane_pairs: None,
+    scope_query_work,
+    scope_query: None,
   }
+}
+
+///|
+// Initialize before any nested emission can suspend this stack. Requests are
+// an over-approximation: a value never requested or introduced as a control
+// input cannot already be buried. Repeated requests retain the existing search.
+fn hot_lower_impl_root_was_requested(
+  func : HotFunc,
+  frames : HotLowerLabelFrames,
+  id : NodeId,
+  stack : Array[HotLowerStackValue],
+) -> Bool {
+  let requested = match frames.requested_nodes {
+    Some(requested) => requested
+    None => {
+      let requested = @bitset.BitSet::new(hot_node_count(func))
+      for value in stack {
+        // Bookkeeping must not add a new diagnostic for an unknown stack
+        // sentinel; normal node admission owns errors for requested nodes.
+        if value.node_id >= 0 && value.node_id < requested.length() {
+          requested[value.node_id] = true
+        }
+      }
+      frames.requested_nodes = Some(requested)
+      requested
+    }
+  }
+  let was_requested = requested[id]
+  requested[id] = true
+  was_requested
 }
 
 ///|
@@ -129,7 +189,7 @@ priv struct HotLowerFutureDependencies {
 ///|
 fn HotLowerFutureDependencies::new(
   required : Bool,
-  suffix_minima? : HotSourceOrderRootIndex? = None,
+  suffix_minima~ : HotSourceOrderRootIndex? = None,
 ) -> HotLowerFutureDependencies {
   { required, suffix_minima, }
 }
@@ -137,9 +197,9 @@ fn HotLowerFutureDependencies::new(
 ///|
 fn hot_lower_impl_push_label(
   frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   label_id : LabelId,
-) -> Int {
+) -> Int32 {
   ignore(label_stack_head)
   while frames.depths.length() <= label_id {
     frames.depths.push(-1)
@@ -153,7 +213,7 @@ fn hot_lower_impl_push_label(
 ///|
 fn hot_lower_impl_pop_label(
   frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
 ) -> Unit {
   ignore(label_stack_head)
   match frames.active.pop() {
@@ -165,7 +225,7 @@ fn hot_lower_impl_pop_label(
 ///|
 fn hot_lower_impl_label_depth(
   frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   label_id : LabelId,
 ) -> LabelIdx {
   if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
@@ -301,12 +361,12 @@ fn hot_lower_impl_call_sig(func : HotFunc, id : SideTableId) -> HotCallSig {
 }
 
 ///|
-fn hot_lower_impl_table_idx(raw : Int) -> TableIdx {
+fn hot_lower_impl_table_idx(raw : Int32) -> TableIdx {
   TableIdx::new(raw.reinterpret_as_uint())
 }
 
 ///|
-fn hot_lower_impl_mem_idx(raw : Int) -> MemIdx {
+fn hot_lower_impl_mem_idx(raw : Int32) -> MemIdx {
   MemIdx::new(raw.reinterpret_as_uint())
 }
 
@@ -314,14 +374,14 @@ fn hot_lower_impl_mem_idx(raw : Int) -> MemIdx {
 #valtype
 priv struct HotLowerInputs {
   nodes : ArrayView[NodeId]
-  pop_count : Int
+  pop_count : Int32
 }
 
 ///|
 fn hot_lower_impl_input_info(
   func : HotFunc,
   id : NodeId,
-  copied_slots? : Array[Int]? = None,
+  copied_slots~ : Array[Int32]? = None,
 ) -> HotLowerInputs {
   // Keep the same checked admission without returning a complete header
   // across a function boundary before reading its fields here.
@@ -461,8 +521,8 @@ fn hot_lower_impl_push_results(
 fn hot_lower_impl_matching_input_prefix(
   stack : Array[HotLowerStackValue],
   inputs : ArrayView[NodeId],
-  comparisons? : Array[Int]? = None,
-) -> Int {
+  comparisons~ : Array[Int32]? = None,
+) -> Int32 {
   let max_count = if stack.length() < inputs.length() {
     stack.length()
   } else {
@@ -494,7 +554,7 @@ fn hot_lower_impl_matching_input_prefix(
 fn hot_lower_impl_update_stack(
   func : HotFunc,
   id : NodeId,
-  pop_count : Int,
+  pop_count : Int32,
   stack : Array[HotLowerStackValue],
 ) -> Unit {
   let node = hot_node_get(func, id)
@@ -519,7 +579,7 @@ fn hot_lower_impl_lower_br_on_cast(
   func : HotFunc,
   id : NodeId,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
 ) -> Instruction {
   let node = hot_node_get(func, id)
   let label_idx = hot_lower_impl_label_depth(
@@ -574,7 +634,7 @@ fn hot_lower_impl_try_catches(
   func : HotFunc,
   id : NodeId,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
 ) -> Array[Catch] {
   let node = hot_node_get(func, id)
   let info = hot_catch_info_get(func, node.imm1)
@@ -648,14 +708,14 @@ fn hot_lower_impl_catch_payload_prefix(
 ///|
 priv struct HotLowerCatchVisits {
   mut rows : Array[UInt64]
-  mut size : Int
+  mut size : Int32
 }
 
 ///|
 fn hot_lower_impl_catch_visit_slot(
   rows : Array[UInt64],
   encoded : UInt64,
-) -> Int {
+) -> Int32 {
   let key = encoded - 1UL
   let mut hash = (key ^ (key >> 33)) * 0xff51afd7ed558ccdUL
   hash = (hash ^ (hash >> 33)) * 0xc4ceb9fe1a85ec53UL
@@ -696,8 +756,8 @@ fn HotLowerCatchVisits::add(self : HotLowerCatchVisits, key : UInt64) -> Bool {
 fn hot_lower_impl_catch_rethrow_count(
   func : HotFunc,
   region_ref : HotRegionRef,
-  target_depth : Int,
-) -> Int {
+  target_depth : Int32,
+) -> Int32 {
   // Shared operands are visited once at each catch depth. Pack the node and
   // depth into primitive rows and worklist keys. Unlike the linked set, this
   // allocates no entry object for each node. Scratch follows the reached
@@ -844,10 +904,10 @@ fn hot_lower_impl_has_external_effects(mask : EffectMask) -> Bool {
 }
 
 ///|
-fn hot_lower_impl_build_first_effect_orders(func : HotFunc) -> Array[Int] {
+fn hot_lower_impl_build_first_effect_orders(func : HotFunc) -> Array[Int32] {
   let none = hot_node_count(func)
   let orders = Array::make(none, -1)
-  fn visit(node_id : NodeId) -> Int {
+  fn visit(node_id : NodeId) -> Int32 {
     if node_id < 0 || !hot_node_is_live(func, node_id) {
       return none
     }
@@ -878,7 +938,7 @@ fn hot_lower_impl_build_first_effect_orders(func : HotFunc) -> Array[Int] {
 ///|
 /// First source-ordered external effect in each node's operand tree.
 /// Region bodies are separate scopes. The node count denotes no effect.
-pub fn hot_source_first_effect_orders(func : HotFunc) -> Array[Int] {
+pub fn hot_source_first_effect_orders(func : HotFunc) -> Array[Int32] {
   hot_lower_impl_build_first_effect_orders(func)
 }
 
@@ -888,10 +948,10 @@ fn hot_lower_impl_collect_preceding_dependency(
   node_id : NodeId,
   before_node_id : NodeId,
   consumer_id : NodeId,
-  value_orders : Array[Int],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-  seen_consumer : Array[Int],
-  consumer_bounds : Array[Int],
+  seen_consumer : Array[Int32],
+  consumer_bounds : Array[Int32],
   touched : Array[NodeId],
   out : Array[NodeId],
 ) -> Unit {
@@ -917,14 +977,14 @@ fn hot_lower_impl_collect_preceding_dependency_indexed(
   node_id : NodeId,
   before_node_id : NodeId,
   consumer_id : NodeId,
-  value_orders : Array[Int],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-  seen_consumer : Array[Int],
-  consumer_bounds : Array[Int],
+  seen_consumer : Array[Int32],
+  consumer_bounds : Array[Int32],
   touched : Array[NodeId],
   out : Array[NodeId],
-  minimum_cache : Array[Int]?,
-  input_queries : Array[Int]?,
+  minimum_cache : Array[Int32]?,
+  input_queries : Array[Int32]?,
 ) -> Unit {
   if node_id < 0 ||
     node_id >= seen_consumer.length() ||
@@ -981,7 +1041,7 @@ fn hot_lower_impl_collect_preceding_dependency_indexed(
 fn hot_lower_impl_local_state_child_count(
   func : HotFunc,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   let count = hot_child_count(func, node_id)
   match hot_node_op(func, node_id) {
     HotOp::Block | HotOp::Loop => {
@@ -1004,10 +1064,10 @@ fn hot_lower_impl_local_state_child_count(
 fn hot_lower_impl_preceding_dependency_min_node(
   func : HotFunc,
   node_id : NodeId,
-  cache : Array[Int],
-  value_orders : Array[Int],
+  cache : Array[Int32],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-) -> Int {
+) -> Int32 {
   let none = hot_node_count(func)
   if node_id < 0 ||
     node_id >= cache.length() ||
@@ -1046,10 +1106,10 @@ fn hot_lower_impl_preceding_dependency_min_node(
 fn hot_lower_impl_build_preceding_dependency_suffix_minima(
   func : HotFunc,
   roots : Array[NodeId],
-  cache : Array[Int],
-  value_orders : Array[Int],
+  cache : Array[Int32],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-) -> Array[Int] {
+) -> Array[Int32] {
   let none = hot_node_count(func)
   let suffix_minima = Array::make(roots.length() + 1, none)
   let mut idx = roots.length() - 1
@@ -1075,7 +1135,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
 fn hot_lower_impl_node_accesses_local(
   func : HotFunc,
   node_id : NodeId,
-  cache : Array[Int],
+  cache : Array[Int32],
 ) -> Bool {
   if node_id < 0 ||
     node_id >= cache.length() ||
@@ -1108,7 +1168,7 @@ fn hot_lower_impl_node_accesses_local(
 fn hot_lower_impl_roots_may_need_future_dependencies(
   func : HotFunc,
   roots : Array[NodeId],
-  local_access_cache : Array[Int],
+  local_access_cache : Array[Int32],
   node_effects : Array[EffectMask],
 ) -> Bool {
   for root_id in roots {
@@ -1169,18 +1229,18 @@ fn hot_lower_impl_carried_local_write_conflicts(
   carried_id : NodeId,
   current_root : NodeId,
   facts : HotSourceOrderFacts,
-  after_order? : Int = -1,
-  before_access_order? : Int = -1,
-  access_before_order? : Int? = None,
-  access_visits? : Array[Int]? = None,
-  preserve_before_escape? : Bool = false,
+  after_order~ : Int32 = -1,
+  before_access_order~ : Int32 = -1,
+  access_before_order~ : Int32? = None,
+  access_visits~ : Array[Int32]? = None,
+  preserve_before_escape~ : Bool = false,
 ) -> Bool {
   // Reuse sparse local-access summaries. Allocating function-sized visited
   // and local arrays for every candidate pair makes wide constructors cubic.
   let writes = hot_source_order_local_access_nodes(func, carried_id, facts)
   let mut first_access = hot_node_count(func)
-  let mut indexed_orders : @hashmap.HashMap[Int, Int]? = None
-  let mut bounded_orders : @hashmap.HashMap[Int, Int]? = None
+  let mut indexed_orders : @hashmap.HashMap[Int32, Int32]? = None
+  let mut bounded_orders : @hashmap.HashMap[Int32, Int32]? = None
   for write_id in writes {
     let write = hot_node_get(func, write_id)
     if (write.op is HotOp::LocalSet || write.op is HotOp::LocalTee) &&
@@ -1235,7 +1295,7 @@ fn hot_lower_impl_carried_local_write_conflicts(
           let later = match bounded_orders {
             Some(later) => later
             None => {
-              let later : @hashmap.HashMap[Int, Int] = @hashmap.HashMap::new()
+              let later : @hashmap.HashMap[Int32, Int32] = @hashmap.HashMap::new()
               for access_id in accesses {
                 match access_visits {
                   Some(count) => count[0] += 1
@@ -1277,19 +1337,120 @@ fn hot_lower_impl_carried_local_write_conflicts(
 }
 
 ///|
+// An exact store run consumes an already computed tuple one lane at a time.
+// The source query can select only that available producer when all later
+// roots have no older dependency. Cache both success and scanned rejection.
+fn hot_lower_impl_available_tuple_store_run(
+  func : HotFunc,
+  current_root : NodeId,
+  roots : Array[NodeId],
+  future_start : Int32,
+  index : HotSourceOrderRootIndex?,
+  facts : HotSourceOrderFacts,
+  stack : Array[HotLowerStackValue],
+  ordering_work~ : Array[Int32]? = None,
+) -> Bool {
+  let index = match index {
+    Some(index) => index
+    None => return false
+  }
+  let position = future_start - 1
+  if position < 0 ||
+    position >= roots.length() ||
+    index.length != roots.length() ||
+    roots[position] != current_root {
+    return false
+  }
+  if position == index.lower_store_next && position < index.lower_store_end {
+    match ordering_work {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    index.lower_store_next = position + 1
+    return index.lower_store_admitted &&
+      stack.length() > 0 &&
+      stack[stack.length() - 1].node_id == index.lower_store_producer
+  }
+  match ordering_work {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let current = hot_node_get(func, current_root)
+  if current.op != HotOp::LocalSet ||
+    current.child_count != 1 ||
+    hot_node_result_arity(func, current_root) != 0 ||
+    stack.is_empty() {
+    return false
+  }
+  let producer = hot_child_get(func, current_root, 0)
+  if stack[stack.length() - 1].node_id != producer ||
+    !hot_node_is_live(func, producer) ||
+    effects_is_pure(facts.node_effects[producer]) ||
+    facts.preceding_dependency_min_cache[producer] < 0 ||
+    hot_node_result_arity(func, producer) < 2 {
+    return false
+  }
+  let mut end = position
+  let mut minimum = hot_node_count(func)
+  let mut maximum = -1
+  while end < roots.length() {
+    match ordering_work {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let store = hot_node_get(func, roots[end])
+    if store.op != HotOp::LocalSet ||
+      store.child_count != 1 ||
+      hot_child_get(func, roots[end], 0) != producer ||
+      hot_node_result_arity(func, roots[end]) != 0 {
+      break
+    }
+    let order = store.order.min(roots[end])
+    minimum = minimum.min(order)
+    maximum = maximum.max(order)
+    end += 1
+  }
+  let run_length = end - position
+  let mut admitted = run_length > 0 &&
+    run_length <= stack.length() &&
+    facts.value_orders[producer] < minimum &&
+    index.suffix_minima[end] >= maximum
+  if admitted {
+    // Count only the lanes this run consumes. Scanning every remaining lane
+    // for separated short runs would add another quadratic fallback cost.
+    for offset in 0..<run_length {
+      match ordering_work {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      if stack[stack.length() - 1 - offset].node_id != producer {
+        admitted = false
+        break
+      }
+    }
+  }
+  index.lower_store_next = position + 1
+  index.lower_store_end = end
+  index.lower_store_producer = producer
+  index.lower_store_admitted = admitted
+  admitted
+}
+
+///|
 fn hot_lower_impl_emit_preceding_future_dependencies(
   func : HotFunc,
   current_root : NodeId,
   future_roots : Array[NodeId],
-  future_start : Int,
+  future_start : Int32,
   future_dependency_suffix_minima : HotLowerFutureDependencies,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
+  ordering_work~ : Array[Int32]? = None,
 ) -> Unit {
   if !future_dependency_suffix_minima.required ||
     future_start >= future_roots.length() {
@@ -1300,6 +1461,19 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   guard label_frames.source_order is Some(facts) else {
     abort("required future dependency plan must own complete ordering facts")
   }
+  if future_dependency_suffix_minima.suffix_minima is Some(_) &&
+    hot_lower_impl_available_tuple_store_run(
+      func,
+      current_root,
+      future_roots,
+      future_start,
+      future_dependency_suffix_minima.suffix_minima,
+      facts,
+      stack,
+      ordering_work~,
+    ) {
+    return
+  }
   for
     node_id in hot_source_order_preceding_dependencies(
       func,
@@ -1308,6 +1482,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
       future_start,
       future_dependency_suffix_minima.suffix_minima,
       facts,
+      root_visits=ordering_work,
     ) {
     if !hot_lower_impl_stack_has_node(stack, node_id) {
       hot_lower_impl_emit_value(
@@ -1322,8 +1497,9 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
 fn hot_lower_impl_push_control_prefix(
   func : HotFunc,
   id : NodeId,
-  count : Int,
+  count : Int32,
   value_stack : Array[HotLowerStackValue],
+  label_frames : HotLowerLabelFrames,
 ) -> Unit {
   let node = hot_node_get(func, id)
   let mut slot = 0
@@ -1336,7 +1512,14 @@ fn hot_lower_impl_push_control_prefix(
     // The verifier and input emitter group consecutive producers. Partial
     // tuples use the suffix of their result row; a later run starts afresh.
     // Borrow interned rows instead of copying one row for each entry lane.
-    match hot_type_get(func, hot_node_type(func, input_id)) {
+    let input_type = hot_type_get(func, hot_node_type(func, input_id))
+    // Check the original node/type boundary before bitmap bookkeeping.
+    // Catch and control inputs can lack an emit_root request of their own.
+    match label_frames.requested_nodes {
+      Some(requested) => requested[input_id] = true
+      None => ()
+    }
+    match input_type {
       VoidType | BlockResult(VoidBlockType) => ()
       Value(val_type) | BlockResult(ValTypeBlockType(val_type)) =>
         for _ in slot..<end {
@@ -1374,10 +1557,10 @@ fn hot_lower_impl_body_items(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  entry_stack? : Array[HotLowerStackValue]? = None,
+  entry_stack~ : Array[HotLowerStackValue]? = None,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut next_stack = label_stack_head
@@ -1409,7 +1592,9 @@ fn hot_lower_impl_body_items(
     Some(values) => values.copy()
     None => []
   }
-  hot_lower_impl_push_control_prefix(func, id, body_base, value_stack)
+  hot_lower_impl_push_control_prefix(
+    func, id, body_base, value_stack, label_frames,
+  )
   let root_ids : Array[NodeId] = []
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
@@ -1497,10 +1682,10 @@ fn hot_lower_impl_region_body(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  entry_stack? : Array[HotLowerStackValue]? = None,
+  entry_stack~ : Array[HotLowerStackValue]? = None,
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
     return []
@@ -1845,7 +2030,7 @@ fn hot_lower_impl_tail_proves_terminal(body : Array[Instruction]) -> Bool {
 ///|
 fn hot_lower_impl_finalize_region_stack(
   func : HotFunc,
-  keep_count : Int,
+  keep_count : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -1901,7 +2086,7 @@ fn hot_lower_impl_preserve_region_result_roots(
   func : HotFunc,
   use_def : HotNodeUseCounts,
   root_ids : Array[NodeId],
-  region_result_arity : Int,
+  region_result_arity : Int32,
 ) -> @bitset.BitSet {
   let preserve = @bitset.BitSet::new(root_ids.length())
   let mut remaining = region_result_arity
@@ -1937,7 +2122,7 @@ fn hot_lower_impl_emit_instruction(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -2107,9 +2292,17 @@ fn hot_lower_impl_emit_instruction(
       out.push(
         Instruction::ref_func(FuncIdx::new(node.imm0.reinterpret_as_uint())),
       )
+    HotOp::Select => {
+      let instr = hot_lower_impl_exact_instr(func, id)
+      out.push(
+        match instr {
+          Select(Some(types)) => Instruction::select(types=Some(types.copy()))
+          _ => instr
+        },
+      )
+    }
     HotOp::Load
     | HotOp::Store
-    | HotOp::Select
     | HotOp::RefTest
     | HotOp::RefCast
     | HotOp::RefTestDesc
@@ -2588,12 +2781,12 @@ fn hot_lower_impl_emit_value(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  force_emit? : Bool = false,
+  force_emit~ : Bool = false,
 ) -> Unit {
   hot_lower_impl_emit_root(
     func,
@@ -2615,7 +2808,7 @@ fn hot_lower_impl_emit_inputs(
   inputs : ArrayView[NodeId],
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -2656,7 +2849,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -2850,7 +3043,7 @@ fn hot_lower_impl_emit_transparent_param_block(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
@@ -2983,6 +3176,260 @@ fn hot_lower_impl_emit_transparent_param_block(
 }
 
 ///|
+fn hot_lower_impl_scope_parent_witness(
+  func : HotFunc,
+  id : NodeId,
+  stack : Array[HotLowerStackValue],
+  work : Array[Int32]?,
+) -> NodeId {
+  let marks : @hashmap.HashMap[NodeId, Int32] = @hashmap.new()
+  for value in stack {
+    if value.node_id >= 0 {
+      marks.set(value.node_id, 1)
+    }
+  }
+  let pending : Array[NodeId] = []
+  for slot in 0..<hot_child_count(func, id) {
+    pending.push(hot_child_get(func, id, slot))
+  }
+  while !pending.is_empty() {
+    match work {
+      Some(work) => work[0] += 1
+      None => ()
+    }
+    let value = pending.pop().unwrap()
+    if value < 0 {
+      continue
+    }
+    match marks.get(value) {
+      Some(1) => return value
+      Some(_) => continue
+      None => ()
+    }
+    marks.set(value, 2)
+    for slot in 0..<hot_child_count(func, value) {
+      pending.push(hot_child_get(func, value, slot))
+    }
+  }
+  HOT_NONE_NODE
+}
+
+///|
+// A lower owns an immutable, verified child DAG. Keep facts for one exact
+// target only; each reachable node/edge is visited once for a stable target.
+// Reuse depth rows instead of allocating a pending map at every nested scope.
+fn HotLowerScopeQuery::reaches(
+  self : HotLowerScopeQuery,
+  func : HotFunc,
+  root : NodeId,
+  work : Array[Int32]?,
+) -> Bool {
+  match work {
+    Some(work) => work[0] += 1
+    None => ()
+  }
+  if root < 0 {
+    return false
+  }
+  if root == self.target {
+    return true
+  }
+  match self.answers.get(root) {
+    Some(answer) => return answer
+    None => ()
+  }
+  self.nodes.push(root)
+  self.slots.push(0)
+  while !self.nodes.is_empty() {
+    let top = self.nodes.length() - 1
+    let node = self.nodes[top]
+    let slot = self.slots[top]
+    if slot == hot_child_count(func, node) {
+      self.answers.set(node, false)
+      ignore(self.nodes.pop())
+      ignore(self.slots.pop())
+      continue
+    }
+    self.slots[top] = slot + 1
+    let child = hot_child_get(func, node, slot)
+    match work {
+      Some(work) => work[0] += 1
+      None => ()
+    }
+    if child < 0 {
+      continue
+    }
+    if child != self.target {
+      match self.answers.get(child) {
+        Some(true) => ()
+        Some(false) => continue
+        None => {
+          self.nodes.push(child)
+          self.slots.push(0)
+          continue
+        }
+      }
+    }
+    // Every active ancestor reaches this same target. Publish those exact
+    // facts so the following inner-scope queries need only cache lookups.
+    for ancestor in self.nodes {
+      self.answers.set(ancestor, true)
+    }
+    self.nodes.clear()
+    self.slots.clear()
+    return true
+  }
+  false
+}
+
+///|
+// A cached answer is useful only for a producer still on this actual stack.
+// Different local.get nodes never share an answer merely by local index.
+fn hot_lower_impl_scope_uses_parent(
+  func : HotFunc,
+  id : NodeId,
+  frames : HotLowerLabelFrames,
+  stack : Array[HotLowerStackValue],
+) -> Bool {
+  let mut target = HOT_NONE_NODE
+  let previous = match frames.scope_query {
+    Some(query) => query.target
+    None => HOT_NONE_NODE
+  }
+  for value in stack {
+    if value.node_id >= 0 {
+      if value.node_id == previous {
+        target = previous
+        break
+      }
+      if target < 0 {
+        target = value.node_id
+      }
+    }
+  }
+  if target < 0 {
+    return false
+  }
+  let query = match frames.scope_query {
+    Some(query) => {
+      if query.target != target {
+        query.target = target
+        query.answers.clear()
+      }
+      query
+    }
+    None => {
+      let query = HotLowerScopeQuery::new(target)
+      frames.scope_query = Some(query)
+      query
+    }
+  }
+  for slot in 0..<hot_child_count(func, id) {
+    if query.reaches(
+        func,
+        hot_child_get(func, id, slot),
+        frames.scope_query_work,
+      ) {
+      return true
+    }
+  }
+  if !stack.any(fn(value) { value.node_id >= 0 && value.node_id != target }) {
+    return false
+  }
+  // A second held producer can still be used even when the cached target is
+  // absent. Retain the exact all-stack proof and cache its actual witness next.
+  let witness = hot_lower_impl_scope_parent_witness(
+    func,
+    id,
+    stack,
+    frames.scope_query_work,
+  )
+  if witness < 0 {
+    return false
+  }
+  query.target = witness
+  query.answers.clear()
+  true
+}
+
+///|
+// An inserted ordered expression scope can refer to an already evaluated
+// operand in its parent stack. A fresh region stack would evaluate that
+// producer again; a typed loop entry then reads its initializer instead of the
+// value carried by the backedge. An unused, parameter-free label can be omitted
+// when every prefix root is void and the final root supplies the exact result.
+fn hot_lower_impl_emit_ordered_stack_scope(
+  func : HotFunc,
+  id : NodeId,
+  use_def : HotNodeUseCounts,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int32,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> Bool {
+  let node = hot_node_get(func, id)
+  let result_arity = hot_node_result_arity(func, id)
+  if node.child_count == 0 || result_arity > 1 {
+    return false
+  }
+  let children = func.children[node.child_base:node.child_base +
+    node.child_count]
+  for index in 0..<children.length() {
+    let child = children[index]
+    if child == HOT_NONE_NODE ||
+      hot_node_result_arity(func, child) !=
+      (if index + 1 == children.length() { result_arity } else { 0 }) {
+      return false
+    }
+  }
+  if !hot_lower_impl_scope_uses_parent(func, id, label_frames, stack) {
+    return false
+  }
+  let roots : Array[NodeId] = []
+  for child in children {
+    roots.push(child)
+  }
+  let suffix = hot_lower_impl_future_dependencies(func, roots, label_frames)
+  for index in 0..<roots.length() {
+    hot_lower_impl_emit_preceding_future_dependencies(
+      func,
+      roots[index],
+      roots,
+      index + 1,
+      suffix,
+      use_def,
+      label_frames,
+      label_stack_head,
+      stack,
+      out,
+      extra_locals,
+      options,
+    )
+    hot_lower_impl_emit_root(
+      func,
+      roots[index],
+      use_def,
+      label_frames,
+      label_stack_head,
+      stack,
+      out,
+      extra_locals,
+      options,
+    )
+  }
+  if result_arity > 0 {
+    if stack.is_empty() {
+      abort("ordered expression scope did not emit its scalar result")
+    }
+    let result = stack[stack.length() - 1]
+    stack[stack.length() - 1] = { node_id: id, val_type: result.val_type, }
+  }
+  true
+}
+
+///|
 fn hot_lower_impl_transparent_unused_result_block_roots(
   func : HotFunc,
   block_id : NodeId,
@@ -3042,8 +3489,13 @@ fn hot_lower_impl_reuse_buried_scalar(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  single_tuple_lane~ : Bool = false,
+  label_frames~ : HotLowerLabelFrames? = None,
 ) -> Bool {
-  if hot_node_result_arity(func, id) != 1 || stack.length() < 2 {
+  // Only the sole-input LocalSet path can request one physical tuple lane.
+  // General value/root requests must still require a scalar producer.
+  if (!single_tuple_lane && hot_node_result_arity(func, id) != 1) ||
+    stack.length() < 2 {
     return false
   }
   let mut position = stack.length() - 2
@@ -3052,6 +3504,58 @@ fn hot_lower_impl_reuse_buried_scalar(
   }
   if position < 0 {
     return false
+  }
+  if single_tuple_lane && position + 2 == stack.length() {
+    match label_frames {
+      Some(frames) => {
+        let lane = stack[position]
+        let cover = stack[position + 1]
+        let pairs = match frames.tuple_lane_pairs {
+          Some(cache) if physical_equal(cache.extra_locals, extra_locals) =>
+            cache.pairs
+          _ => {
+            let pairs = []
+            frames.tuple_lane_pairs = Some({ extra_locals, pairs, })
+            pairs
+          }
+        }
+        let pair = pairs.find_index(fn(pair) {
+          pair.0 == lane.val_type && pair.1 == cover.val_type
+        })
+        let (lane_local, cover_local) = match pair {
+          Some(index) => (pairs[index].2, pairs[index].3)
+          None => {
+            let lane_local = hot_lower_impl_alloc_scratch_local(
+              func,
+              extra_locals,
+              lane.val_type,
+            )
+            let cover_local = hot_lower_impl_alloc_scratch_local(
+              func,
+              extra_locals,
+              cover.val_type,
+            )
+            // This pair is live only within the four flat instructions below.
+            // No recursive emission, branch, or trap can overlap a later use.
+            // Bound lookup and retained metadata for uncommon type mixtures.
+            if pairs.length() < 8 {
+              pairs.push(
+                (lane.val_type, cover.val_type, lane_local, cover_local),
+              )
+            }
+            (lane_local, cover_local)
+          }
+        }
+        out.push(Instruction::local_set(cover_local))
+        out.push(Instruction::local_set(lane_local))
+        out.push(Instruction::local_get(cover_local))
+        out.push(Instruction::local_get(lane_local))
+        stack[position] = cover
+        stack[position + 1] = lane
+        return true
+      }
+      None => ()
+    }
   }
   let above : Array[(HotLowerStackValue, LocalIdx)] = []
   while stack.length() > position + 1 {
@@ -3087,32 +3591,36 @@ fn hot_lower_impl_emit_root(
   id : NodeId,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  allow_stack_top_reuse? : Bool = true,
+  allow_stack_top_reuse~ : Bool = true,
 ) -> Unit {
+  let node = hot_node_get(func, id)
   let result_arity = if allow_stack_top_reuse {
     hot_node_result_arity(func, id)
   } else {
     0
   }
+  let was_requested = hot_lower_impl_root_was_requested(
+    func, label_frames, id, stack,
+  )
   if result_arity > 0 {
     if stack.length() > 0 && stack[stack.length() - 1].node_id == id {
       return
     }
     // Pure values can be rematerialized cheaply. A saved effectful value
     // must be reused even when a later operand has covered it on the stack.
-    if stack.length() >= 2 &&
+    if was_requested &&
+      stack.length() >= 2 &&
       result_arity == 1 &&
       !effects_is_pure(hot_lower_impl_node_effects(func, label_frames)[id]) &&
       hot_lower_impl_reuse_buried_scalar(func, id, stack, out, extra_locals) {
       return
     }
   }
-  let node = hot_node_get(func, id)
   if node.op == HotOp::Block &&
     node.imm1 == 0 &&
     hot_lower_impl_label_is_used(label_frames, node.imm0) &&
@@ -3127,6 +3635,14 @@ fn hot_lower_impl_emit_root(
     node.imm1 == 0 &&
     !hot_lower_impl_label_is_used(label_frames, node.imm0) {
     let param_types = hot_lower_impl_control_param_types(func, id)
+    if !stack.is_empty() &&
+      param_types.length() == 0 &&
+      hot_lower_impl_emit_ordered_stack_scope(
+        func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+        options,
+      ) {
+      return
+    }
     if options.flatten_unused_result_blocks && param_types.length() == 0 {
       match
         hot_lower_impl_transparent_unused_result_block_roots(
@@ -3170,6 +3686,28 @@ fn hot_lower_impl_emit_root(
     }
   }
   let inputs = hot_lower_impl_input_info(func, id)
+  if node.op == HotOp::LocalSet &&
+    inputs.pop_count == 1 &&
+    inputs.nodes.length() == 1 &&
+    stack.length() >= 2 &&
+    stack[stack.length() - 1].node_id != inputs.nodes[0] &&
+    hot_node_result_arity(func, id) == 0 &&
+    hot_node_result_arity(func, inputs.nodes[0]) > 1 {
+    // A carried old read can cover the next lane of an evaluated tuple.
+    // This consumer needs exactly one lane, with no earlier input prefix to
+    // protect. Move that row instead of replaying the whole producer.
+    ignore(
+      hot_lower_impl_reuse_buried_scalar(
+        func,
+        inputs.nodes[0],
+        stack,
+        out,
+        extra_locals,
+        single_tuple_lane=true,
+        label_frames=Some(label_frames),
+      ),
+    )
+  }
   hot_lower_impl_emit_inputs(
     func,
     inputs.nodes,
@@ -3203,7 +3741,7 @@ fn hot_lower_impl_declared_locals(
 }
 
 ///|
-fn hot_lower_impl_decoded_label_depth(li : LabelIdx) -> Int {
+fn hot_lower_impl_decoded_label_depth(li : LabelIdx) -> Int32 {
   let @lib.LabelIdx(depth) = li
   depth.reinterpret_as_int()
 }
@@ -3211,7 +3749,7 @@ fn hot_lower_impl_decoded_label_depth(li : LabelIdx) -> Int {
 ///|
 fn hot_lower_impl_rebased_label_depth(
   li : LabelIdx,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> LabelIdx {
   let depth = hot_lower_impl_decoded_label_depth(li)
   if depth > owner_depth {
@@ -3224,7 +3762,7 @@ fn hot_lower_impl_rebased_label_depth(
 ///|
 fn hot_lower_impl_catch_targets_removed_label(
   catch_ : Catch,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   match catch_ {
     Catch(_, li) | CatchRef(_, li) | CatchAll(li) | CatchAllRef(li) =>
@@ -3233,7 +3771,7 @@ fn hot_lower_impl_catch_targets_removed_label(
 }
 
 ///|
-fn hot_lower_impl_rebase_catch(catch_ : Catch, owner_depth : Int) -> Catch {
+fn hot_lower_impl_rebase_catch(catch_ : Catch, owner_depth : Int32) -> Catch {
   match catch_ {
     Catch(tag, li) =>
       Catch::new(tag, hot_lower_impl_rebased_label_depth(li, owner_depth))
@@ -3249,7 +3787,7 @@ fn hot_lower_impl_rebase_catch(catch_ : Catch, owner_depth : Int) -> Catch {
 ///|
 fn hot_lower_impl_instr_targets_removed_label(
   instr : Instruction,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   match instr {
     Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) | Rethrow(li) =>
@@ -3313,7 +3851,7 @@ fn hot_lower_impl_instr_targets_removed_label(
 ///|
 fn hot_lower_impl_body_targets_removed_label(
   body : Array[Instruction],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Bool {
   for instr in body {
     if hot_lower_impl_instr_targets_removed_label(instr, owner_depth) {
@@ -3326,7 +3864,7 @@ fn hot_lower_impl_body_targets_removed_label(
 ///|
 fn hot_lower_impl_rebase_instr(
   instr : Instruction,
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Instruction {
   match instr {
     Rethrow(li) =>
@@ -3416,7 +3954,7 @@ fn hot_lower_impl_rebase_instr(
 ///|
 fn hot_lower_impl_rebase_body(
   body : Array[Instruction],
-  owner_depth : Int,
+  owner_depth : Int32,
 ) -> Array[Instruction] {
   let rebased : Array[Instruction] = []
   for instr in body {
@@ -3519,7 +4057,7 @@ fn hot_lower_impl_shift_positive_branch_depths(
 ///|
 fn hot_lower_impl_expand_branch_depth_above(
   li : LabelIdx,
-  min_depth : Int,
+  min_depth : Int32,
 ) -> LabelIdx {
   let depth = hot_lower_impl_decoded_label_depth(li)
   if depth > min_depth {
@@ -3532,7 +4070,7 @@ fn hot_lower_impl_expand_branch_depth_above(
 ///|
 fn hot_lower_impl_expand_catch_depth_above(
   catch_ : Catch,
-  min_depth : Int,
+  min_depth : Int32,
 ) -> Catch {
   match catch_ {
     Catch(tag, li) =>
@@ -3549,7 +4087,7 @@ fn hot_lower_impl_expand_catch_depth_above(
 ///|
 fn hot_lower_impl_expand_branch_depths_above_instr(
   instr : Instruction,
-  min_depth : Int,
+  min_depth : Int32,
 ) -> Instruction {
   match instr {
     Rethrow(li) =>
@@ -3706,7 +4244,7 @@ fn hot_lower_impl_expand_branch_depths_above_instr(
 ///|
 fn hot_lower_impl_expand_branch_depths_above(
   body : Array[Instruction],
-  min_depth : Int,
+  min_depth : Int32,
 ) -> Array[Instruction] {
   let shifted : Array[Instruction] = []
   for instr in body {
@@ -3742,7 +4280,7 @@ fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
 ///|
 fn hot_lower_impl_is_simple_parent_exit_body(
   body : Array[Instruction],
-  parent_depth : Int,
+  parent_depth : Int32,
 ) -> Bool {
   if body.length() == 0 {
     return false
@@ -3762,7 +4300,7 @@ fn hot_lower_impl_is_simple_parent_exit_body(
 fn hot_lower_impl_is_parent_exit_payload_body(
   bt : BlockType,
   body : Array[Instruction],
-  parent_depth : Int,
+  parent_depth : Int32,
 ) -> Bool {
   if body.length() != 2 || hot_lower_impl_body_targets_removed_label(body, 0) {
     return false
@@ -3856,7 +4394,9 @@ fn hot_lower_impl_body_has_terminal_exit(body : Array[Instruction]) -> Bool {
 }
 
 ///|
-fn hot_lower_impl_body_terminal_branch_depth(body : Array[Instruction]) -> Int? {
+fn hot_lower_impl_body_terminal_branch_depth(
+  body : Array[Instruction],
+) -> Int32? {
   if body.length() == 0 {
     return None
   }
@@ -5086,7 +5626,7 @@ fn hot_lower_impl_canonicalize_body(
 ///|
 fn hot_lower_impl_count_local_gets_in_instr(
   instr : Instruction,
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Unit {
   match instr {
     LocalGet(li) => {
@@ -5113,7 +5653,7 @@ fn hot_lower_impl_count_local_gets_in_instr(
 ///|
 fn hot_lower_impl_count_local_gets_in_body(
   body : Array[Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> Unit {
   // The emitted dead tail still participates in validation. Its reads keep
   // non-defaultable local initialization writes alive even after a trap.
@@ -5125,7 +5665,7 @@ fn hot_lower_impl_count_local_gets_in_body(
 ///|
 fn hot_lower_impl_prune_dead_local_tees_in_instr(
   instr : Instruction,
-  counts : Array[Int],
+  counts : Array[Int32],
   options : HotLowerOptions,
 ) -> Instruction? {
   match instr {
@@ -5180,7 +5720,7 @@ fn hot_lower_impl_prune_dead_local_tees_in_instr(
 ///|
 fn hot_lower_impl_prune_dead_local_tees_in_body(
   body : Array[Instruction],
-  counts : Array[Int],
+  counts : Array[Int32],
   options : HotLowerOptions,
 ) -> Array[Instruction] {
   let pruned : Array[Instruction] = []
@@ -5230,7 +5770,7 @@ fn hot_lower_impl_prune_dead_local_tees(
 ///|
 fn hot_lower_impl_stackify_struct_set_value_tail_start(
   body : Array[Instruction],
-) -> Int? {
+) -> Int32? {
   if body.length() < 2 || hot_lower_impl_body_targets_removed_label(body, 0) {
     return None
   }
@@ -5271,7 +5811,7 @@ fn hot_lower_impl_instr_has_later_local_get(
 ///|
 fn hot_lower_impl_body_has_later_local_get(
   body : Array[Instruction],
-  start_idx : Int,
+  start_idx : Int32,
   local_ : LocalIdx,
 ) -> Bool {
   for idx = start_idx; idx < body.length(); idx = idx + 1 {
@@ -5316,8 +5856,8 @@ fn hot_lower_impl_body_writes_local(
 ///|
 fn hot_lower_impl_catch_targets_enclosing_label_from_min_depth(
   catch_ : Catch,
-  owner_depth : Int,
-  min_owner_depth : Int,
+  owner_depth : Int32,
+  min_owner_depth : Int32,
 ) -> Bool {
   match catch_ {
     Catch(_, li) | CatchRef(_, li) | CatchAll(li) | CatchAllRef(li) => {
@@ -5330,8 +5870,8 @@ fn hot_lower_impl_catch_targets_enclosing_label_from_min_depth(
 ///|
 fn hot_lower_impl_instr_targets_enclosing_label_from_min_depth(
   instr : Instruction,
-  owner_depth : Int,
-  min_owner_depth : Int,
+  owner_depth : Int32,
+  min_owner_depth : Int32,
 ) -> Bool {
   match instr {
     Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) => {
@@ -5395,8 +5935,8 @@ fn hot_lower_impl_instr_targets_enclosing_label_from_min_depth(
 ///|
 fn hot_lower_impl_body_targets_enclosing_label_from_min_depth(
   body : Array[Instruction],
-  owner_depth : Int,
-  min_owner_depth : Int,
+  owner_depth : Int32,
+  min_owner_depth : Int32,
 ) -> Bool {
   for instr in body {
     if hot_lower_impl_instr_targets_enclosing_label_from_min_depth(
@@ -5411,7 +5951,7 @@ fn hot_lower_impl_body_targets_enclosing_label_from_min_depth(
 ///|
 fn hot_lower_impl_body_targets_own_label_from_min_depth(
   body : Array[Instruction],
-  min_owner_depth : Int,
+  min_owner_depth : Int32,
 ) -> Bool {
   hot_lower_impl_body_targets_enclosing_label_from_min_depth(
     body, 0, min_owner_depth,

@@ -1,7 +1,7 @@
 ///|
 fn cfg_continuation_guard_query_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()
@@ -27,7 +27,7 @@ fn cfg_continuation_guard_query_bench(
 ///|
 fn cfg_continuation_guard_region_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let func = cfg_segment_storage_fixture(count)

@@ -1,5 +1,5 @@
 ///|
-fn entry_read_perf_run(it : @bench.T, count : Int, original : Bool) -> Unit {
+fn entry_read_perf_run(it : @bench.T, count : Int32, original : Bool) -> Unit {
   let (func, cfg, _, _) = entry_read_fixture(count)
   it.bench(fn() {
     let graph = if original {

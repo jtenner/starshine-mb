@@ -1,7 +1,7 @@
 ///|
 fn trivial_sort_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   cold : Bool,
   reference : Bool,
 ) -> Unit raise {

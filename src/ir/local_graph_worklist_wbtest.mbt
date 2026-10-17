@@ -3,11 +3,11 @@ fn local_graph_rounds_reference(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  block_transfers? : Array[Int]? = None,
-) -> Array[Array[Array[Int]]] {
+  block_transfers~ : Array[Int32]? = None,
+) -> Array[Array[Array[Int32]]] {
   let local_count = hot_local_count(func)
-  let in_states : Array[Array[Array[Int]]] = []
-  let out_states : Array[Array[Array[Int]]] = []
+  let in_states : Array[Array[Array[Int32]]] = []
+  let out_states : Array[Array[Array[Int32]]] = []
   for _ in 0..<cfg_block_count(cfg) {
     in_states.push(local_graph_empty_state(local_count))
     out_states.push(local_graph_empty_state(local_count))

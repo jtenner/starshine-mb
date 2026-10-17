@@ -1,9 +1,9 @@
 ///|
 fn region_fields_bench(
   it : @bench.T,
-  width : Int,
-  deleted : Int,
-  query : Int,
+  width : Int32,
+  deleted : Int32,
+  query : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()

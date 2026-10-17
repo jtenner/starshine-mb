@@ -1,15 +1,15 @@
 ///|
 // Frozen V28 scratch layout: no unused new carried buffer in cold controls.
 priv struct SourceOrderCarriedReferenceScratch {
-  seen_consumer : Array[Int]
-  consumer_bounds : Array[Int]
+  seen_consumer : Array[Int32]
+  consumer_bounds : Array[Int32]
   anti_dependencies : @bitset.BitSet
   touched : Array[NodeId]
 }
 
 ///|
 fn SourceOrderCarriedReferenceScratch::new(
-  count : Int,
+  count : Int32,
 ) -> SourceOrderCarriedReferenceScratch {
   {
     seen_consumer: Array::make(count, count),
@@ -25,7 +25,7 @@ fn source_order_carried_reference_query(
   func : HotFunc,
   current_root : NodeId,
   future_roots : Array[NodeId],
-  future_start : Int,
+  future_start : Int32,
   future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   facts : HotSourceOrderFacts,
   scratch : SourceOrderCarriedReferenceScratch,

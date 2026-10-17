@@ -82,7 +82,7 @@ pub fn HotCatchInfo::new(catches : Array[HotCatchArm]) -> HotCatchInfo {
 ///|
 pub fn HotCallSig::new(
   type_idx : TypeIdx,
-  table_idx? : TableIdx? = None,
+  table_idx~ : TableIdx? = None,
 ) -> HotCallSig {
   { type_idx, table_idx, }
 }

@@ -1,5 +1,5 @@
 ///|
-fn mass_audit_ir_count_local_tees(body : Array[@lib.Instruction]) -> Int {
+fn mass_audit_ir_count_local_tees(body : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {

@@ -63,7 +63,7 @@ fn cfg_membership_reference(cfg : HotCfg) -> Unit {
 }
 
 ///|
-fn cfg_membership_bench(it : @bench.T, count : Int, reference : Bool) -> Unit {
+fn cfg_membership_bench(it : @bench.T, count : Int32, reference : Bool) -> Unit {
   let func = HotFunc::new()
   for _ in 0..<count {
     hot_root_append(func, hot_build_nop(func))

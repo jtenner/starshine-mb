@@ -16,7 +16,13 @@ test "control prefix stack retains mixed tuple suffixes and separate scalar runs
     void_id, scalar, tuple, tuple, scalar,
   ])
   let stack : Array[HotLowerStackValue] = []
-  hot_lower_impl_push_control_prefix(func, block, 5, stack)
+  hot_lower_impl_push_control_prefix(
+    func,
+    block,
+    5,
+    stack,
+    hot_lower_impl_new_label_frames(func),
+  )
   assert_eq(stack.map(fn(value) { value.node_id }), [
     scalar, tuple, tuple, scalar,
   ])
@@ -30,7 +36,13 @@ test "control prefix stack retains mixed tuple suffixes and separate scalar runs
     tuple, tuple, tuple,
   ])
   let full_stack : Array[HotLowerStackValue] = []
-  hot_lower_impl_push_control_prefix(func, full, 3, full_stack)
+  hot_lower_impl_push_control_prefix(
+    func,
+    full,
+    3,
+    full_stack,
+    hot_lower_impl_new_label_frames(func),
+  )
   assert_eq(full_stack.map(fn(value) { value.val_type }), [
     @lib.ValType::i32(),
     @lib.ValType::i64(),
@@ -65,7 +77,7 @@ test "mixed typed entry suffix retains a tuple call once in both capture modes" 
 }
 
 ///|
-fn hot_prefix_tuple_call_count(body : Array[@lib.Instruction]) -> Int {
+fn hot_prefix_tuple_call_count(body : Array[@lib.Instruction]) -> Int32 {
   let mut count = 0
   for instr in body {
     match instr {

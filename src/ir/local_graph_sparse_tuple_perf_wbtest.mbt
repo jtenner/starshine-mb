@@ -1,7 +1,7 @@
 ///|
 fn local_graph_sparse_tuple_benchmark(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))

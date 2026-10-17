@@ -1,10 +1,10 @@
 ///|
 fn local_graph_ssa_union_reference(
   func : HotFunc,
-  local_count : Int,
-  get_sources : Array[Array[Int]],
+  local_count : Int32,
+  get_sources : Array[Array[Int32]],
 ) -> Array[Bool] {
-  let index_sources : Array[Array[Int]] = []
+  let index_sources : Array[Array[Int32]] = []
   for _ in 0..<local_count {
     index_sources.push([])
   }
@@ -47,7 +47,7 @@ fn local_graph_ssa_union_reference(
 ///|
 fn local_graph_ssa_summary_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let (func, sources) = local_graph_ssa_summary_fixture(count)

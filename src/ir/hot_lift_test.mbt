@@ -379,7 +379,7 @@ fn hot_lift_test_triple_result_tee_consumer_module() -> @lib.Module {
 }
 
 ///|
-fn hot_lift_test_deep_branch_body(depth : Int) -> @lib.Expr {
+fn hot_lift_test_deep_branch_body(depth : Int32) -> @lib.Expr {
   let mut current = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::br(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint())),
@@ -468,6 +468,264 @@ test "hot lift resolves deep branch labels without copying full label stacks" {
 
   @debug.assert_eq(hot_node_get(func, br_id).op.to_string(), "Br")
   @debug.assert_eq(hot_node_get(func, br_id).imm0, outer_label)
+}
+
+///|
+test "hot lift handles nested void blocks across the iterative threshold" {
+  for depth in [31, 32, 33, 128] {
+    let mut body = @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::drop(),
+    ])
+    for _ in 0..<depth {
+      body = @lib.Expr::new([
+        @lib.Instruction::block(@lib.BlockType::void_(), body),
+      ])
+    }
+
+    let func = match
+      hot_lift_body_with_context_result(
+        body,
+        HotLocals::new(),
+        hot_module_context_from_module(@lib.Module::new()),
+      ) {
+      Ok(func) => func
+      Err(err) => fail("depth-\{depth} lift failed: \{err}")
+    }
+    match hot_verify_all(func, cache=Some(())) {
+      Ok(_) => ()
+      Err(err) => fail("depth-\{depth} verification failed: \{err}")
+    }
+    let mut current = hot_root_get(func, 0)
+    for _ in 1..<depth {
+      let region = hot_region_body_ref(func, current)
+      current = hot_region_get(func, region, 0)
+    }
+    let leaf = hot_region_body_ref(func, current)
+
+    @debug.assert_eq(hot_region_root_count(func, leaf), 1)
+    assert_true(hot_node_op(func, hot_region_get(func, leaf, 0)) is HotOp::Drop)
+
+    let @lib.Func(_, @lib.Expr(lowered)) = hot_lower_func(func)
+    let mut lowered_body = lowered
+    for _ in 0..<depth {
+      lowered_body = match lowered_body {
+        [@lib.Block(@lib.VoidBlockType, @lib.Expr(nested))] => nested
+        other =>
+          fail("expected depth-\{depth} lowered void block, got \{other}")
+      }
+    }
+    @debug.assert_eq(lowered_body, [
+      @lib.Instruction::i32_const(7),
+      @lib.Instruction::drop(),
+    ])
+  }
+}
+
+///|
+test "hot lift resolves a branch across 128 nested void blocks" {
+  let depth = 128
+  let mut body = @lib.Expr::new([
+    @lib.Instruction::br(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint())),
+  ])
+  for _ in 0..<depth {
+    body = @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), body),
+    ])
+  }
+
+  let func = hot_lift_body(body, HotLocals::new())
+  let outer = hot_root_get(func, 0)
+  let outer_label = hot_control_node_label(func, outer)
+  let mut current = outer
+  for _ in 1..<depth {
+    current = hot_region_get(func, hot_region_body_ref(func, current), 0)
+  }
+  let branch = hot_region_get(func, hot_region_body_ref(func, current), 0)
+
+  assert_true(hot_node_op(func, branch) is HotOp::Br)
+  @debug.assert_eq(hot_node_get(func, branch).imm0, outer_label)
+}
+
+///|
+test "hot lift resolves block and function labels across iterative void blocks" {
+  let depth = 32
+  for target_depth in [0, 15, 31, 32] {
+    let mut body = @lib.Expr::new([
+      @lib.Instruction::br(
+        @lib.LabelIdx::new(target_depth.reinterpret_as_uint()),
+      ),
+    ])
+    for _ in 0..<depth {
+      body = @lib.Expr::new([
+        @lib.Instruction::block(@lib.BlockType::void_(), body),
+      ])
+    }
+    let func = hot_lift_body(body, HotLocals::new())
+    let labels : Array[LabelId] = []
+    let mut current = hot_root_get(func, 0)
+    labels.push(hot_control_node_label(func, current))
+    for _ in 1..<depth {
+      current = hot_region_get(func, hot_region_body_ref(func, current), 0)
+      labels.push(hot_control_node_label(func, current))
+    }
+    let branch = hot_region_get(func, hot_region_body_ref(func, current), 0)
+    let expected = if target_depth == depth {
+      HOT_IMPLICIT_FUNCTION_LABEL
+    } else {
+      labels[depth - target_depth - 1]
+    }
+
+    assert_true(hot_node_op(func, branch) is HotOp::Br)
+    @debug.assert_eq(hot_node_get(func, branch).imm0, expected)
+    match hot_verify_all(func, cache=Some(())) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("depth-\{target_depth} branch verification failed: \{err}")
+    }
+  }
+}
+
+///|
+test "hot lift rejects a label beyond an iterative void block chain" {
+  let depth = 32
+  let invalid_depth = depth + 1
+  let mut body = @lib.Expr::new([
+    @lib.Instruction::br(
+      @lib.LabelIdx::new(invalid_depth.reinterpret_as_uint()),
+    ),
+  ])
+  for _ in 0..<depth {
+    body = @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), body),
+    ])
+  }
+
+  match hot_lift_body_result(body, HotLocals::new()) {
+    Err(HotLiftError::TypecheckFailure(instr, reason)) => {
+      assert_true(instr.contains("33"))
+      @debug.assert_eq(reason, "invalid label index")
+    }
+    Err(other) => fail("expected invalid label typecheck failure, got \{other}")
+    Ok(_) => fail("expected label depth beyond deep chain to be rejected")
+  }
+}
+
+///|
+test "hot lift preserves a live stack prefix across iterative void blocks" {
+  let depth = 32
+  let mut nested = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::drop(),
+  ])
+  for _ in 0..<depth {
+    nested = @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), nested),
+    ])
+  }
+  let outer_block = match nested {
+    @lib.Expr([outer_block]) => outer_block
+    other => fail("expected one outer deep block, got \{other}")
+  }
+  let original = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    outer_block,
+    @lib.Instruction::drop(),
+  ])
+  let func = hot_lift_body(original, HotLocals::new())
+
+  match hot_verify_all(func, cache=Some(())) {
+    Ok(_) => ()
+    Err(err) => fail("deep live-prefix verification failed: \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(lowered)) = hot_lower_func(func)
+  let mut lowered_body = match lowered {
+    [
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(nested)),
+      @lib.I32Const(@lib.I32(9)),
+      @lib.Drop,
+    ] => nested
+    other =>
+      fail("expected deep block followed by preserved prefix, got \{other}")
+  }
+  for _ in 1..<depth {
+    lowered_body = match lowered_body {
+      [@lib.Block(@lib.VoidBlockType, @lib.Expr(nested))] => nested
+      other => fail("expected nested live-prefix block, got \{other}")
+    }
+  }
+  @debug.assert_eq(lowered_body, [
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "hot lift restores sibling labels after a deep void block chain" {
+  let depth = 32
+  let mut deep_body = @lib.Expr::new([@lib.Instruction::nop()])
+  for _ in 0..<depth {
+    deep_body = @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), deep_body),
+    ])
+  }
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), deep_body),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  match hot_verify_all(func, cache=Some(())) {
+    Ok(_) => ()
+    Err(err) => fail("deep sibling verification failed: \{err}")
+  }
+  let sibling = hot_root_get(func, 1)
+  let branch = hot_region_get(func, hot_region_body_ref(func, sibling), 0)
+  @debug.assert_eq(
+    hot_node_get(func, branch).imm0,
+    hot_control_node_label(func, sibling),
+  )
+}
+
+///|
+test "hot lift preserves a conditional exit from a deep void block chain" {
+  let depth = 32
+  let mut body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::br(@lib.LabelIdx::new(depth.reinterpret_as_uint()))],
+      Some([@lib.Instruction::nop()]),
+    ),
+  ])
+  for _ in 0..<depth {
+    body = @lib.Expr::new([
+      @lib.Instruction::block(@lib.BlockType::void_(), body),
+    ])
+  }
+  let func = hot_lift_body(body, HotLocals::new())
+  match hot_verify_all(func, cache=Some(())) {
+    Ok(_) => ()
+    Err(err) => fail("deep conditional verification failed: \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(lowered)) = hot_lower_func(func)
+  @debug.assert_eq(lowered, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
+          Some([]),
+        ),
+      ]),
+    ),
+  ])
 }
 
 ///|

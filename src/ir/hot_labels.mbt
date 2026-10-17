@@ -9,7 +9,7 @@ pub enum HotControlRegionRole {
 
 ///|
 pub struct HotControlRegionSlotInfo {
-  slot : Int
+  slot : Int32
   role : HotControlRegionRole
   required : Bool
 } derive(Eq, Debug)
@@ -20,7 +20,7 @@ pub fn hot_label_alloc(
   kind : HotLabelKind,
   result_type : TypeId,
   owner : NodeId,
-  branch_arity : Int,
+  branch_arity : Int32,
 ) -> LabelId {
   let id = func.labels.length()
   func.labels.push({ kind, result_type, owner, branch_arity, })
@@ -55,7 +55,7 @@ pub fn hot_label_result_type(func : HotFunc, label_id : LabelId) -> TypeId {
 }
 
 ///|
-pub fn hot_label_branch_arity(func : HotFunc, label_id : LabelId) -> Int {
+pub fn hot_label_branch_arity(func : HotFunc, label_id : LabelId) -> Int32 {
   hot_label_get(func, label_id).branch_arity
 }
 
@@ -71,7 +71,7 @@ pub fn hot_control_node_label(func : HotFunc, node_id : NodeId) -> LabelId {
 
 ///|
 fn hot_control_slot(
-  slot : Int,
+  slot : Int32,
   role : HotControlRegionRole,
   required : Bool,
 ) -> HotControlRegionSlotInfo {

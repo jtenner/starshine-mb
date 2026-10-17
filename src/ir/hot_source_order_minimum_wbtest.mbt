@@ -1,11 +1,11 @@
 ///|
 fn source_order_minimum_fixture(
-  count : Int,
+  count : Int32,
 ) -> (HotFunc, NodeId, NodeId, NodeId) {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let old = hot_build_call(func, 0, [@lib.ValType::i32()], [])
   let barrier = hot_build_call(func, 1, [], [])
-  fn build(length : Int) -> NodeId {
+  fn build(length : Int32) -> NodeId {
     if length == 1 {
       return hot_build_local_get(func, 0)
     }

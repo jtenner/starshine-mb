@@ -12,7 +12,7 @@ pub impl Show for HotUseSlotKind with fn output(self, logger) {
 ///|
 pub struct HotUseSite {
   user : NodeId
-  slot : Int
+  slot : Int32
   kind : HotUseSlotKind
 } derive(Eq, Debug)
 
@@ -34,7 +34,7 @@ pub struct HotUseDef {
 ///|
 /// Lightweight exact node-use counts without use-site or local-use allocation.
 pub struct HotNodeUseCounts {
-  counts : Array[Int]
+  counts : Array[Int32]
 } derive(Eq, Debug)
 
 ///|
@@ -68,8 +68,8 @@ fn use_def_require_local_range(use_def : HotUseDef, local_id : LocalId) -> Unit 
 ///|
 fn use_def_region_slot(
   node : HotNode,
-  slot : Int,
-  func? : HotFunc? = None,
+  slot : Int32,
+  func~ : HotFunc? = None,
 ) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
@@ -197,7 +197,7 @@ fn use_def_visit_node(
 
 ///|
 fn use_def_block_mark_use(
-  local_count : Int,
+  local_count : Int32,
   defs : Bitset,
   uses : Bitset,
   local_id : LocalId,
@@ -214,7 +214,7 @@ fn use_def_block_mark_use(
 
 ///|
 fn use_def_block_mark_def(
-  local_count : Int,
+  local_count : Int32,
   defs : Bitset,
   block_id : BlockId,
   local_id : LocalId,
@@ -239,11 +239,11 @@ fn use_def_scan_block_node(
   cfg : HotCfg,
   node_id : NodeId,
   block_id : BlockId,
-  local_count : Int,
+  local_count : Int32,
   defs : Bitset,
   uses : Bitset,
   local_write_blocks : Array[Array[BlockId]],
-  seen_stamps : Array[Int],
+  seen_stamps : Array[Int32],
 ) -> Unit {
   // Expanded CFGs give control operands their own blocks. A consumer uses the
   // produced value; it must not re-execute the producer's local accesses.
@@ -372,7 +372,9 @@ fn use_def_build_node_and_local_uses(
 }
 
 ///|
-fn use_def_empty_local_write_blocks(local_count : Int) -> Array[Array[BlockId]] {
+fn use_def_empty_local_write_blocks(
+  local_count : Int32,
+) -> Array[Array[BlockId]] {
   let local_write_blocks : Array[Array[BlockId]] = []
   for _ in 0..<local_count {
     local_write_blocks.push([])
@@ -399,7 +401,7 @@ pub fn use_def_build_node_uses(func : HotFunc) -> HotUseDef {
 fn hot_node_use_counts_visit(
   func : HotFunc,
   node_id : NodeId,
-  counts : Array[Int],
+  counts : Array[Int32],
   seen : @bitset.BitSet,
 ) -> Unit {
   if seen[node_id] {
@@ -434,7 +436,7 @@ pub fn hot_node_use_counts_build(func : HotFunc) -> HotNodeUseCounts {
 }
 
 ///|
-pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
+pub fn use_def_build(func : HotFunc, cfg~ : HotCfg? = None) -> HotUseDef {
   let (node_uses, local_reads, local_writes) = use_def_build_node_and_local_uses(
     func,
   )
@@ -479,7 +481,7 @@ pub fn node_use_sites_borrowed(
 }
 
 ///|
-pub fn node_use_count(use_def : HotUseDef, node_id : NodeId) -> Int {
+pub fn node_use_count(use_def : HotUseDef, node_id : NodeId) -> Int32 {
   use_def_require_node_range(use_def, node_id)
   use_def.node_uses[node_id].length()
 }
@@ -488,7 +490,7 @@ pub fn node_use_count(use_def : HotUseDef, node_id : NodeId) -> Int {
 pub fn hot_node_use_count(
   use_counts : HotNodeUseCounts,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   if node_id < 0 || node_id >= use_counts.counts.length() {
     abort("HOT node-use count query requires a valid node id")
   }

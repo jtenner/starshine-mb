@@ -15,12 +15,12 @@ fn flow_tag_bench_rows(
 ///|
 fn flow_tag_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   immutable : Bool,
   full : Bool,
   reference : Bool,
-  extra? : Bool = false,
-  cold? : Bool = false,
+  extra~ : Bool = false,
+  cold~ : Bool = false,
 ) -> Unit raise {
   let (func, cfg, _, _) = flow_tag_fixture(count, immutable, extra~)
   flow_tag_assert_rows(func, cfg)

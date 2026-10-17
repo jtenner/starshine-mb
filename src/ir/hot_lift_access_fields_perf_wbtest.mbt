@@ -1,7 +1,7 @@
 ///|
 fn lift_access_fields_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   original : Bool,
 ) -> Unit raise {
   let (func, value) = hot_lift_local_mask_fixture(

@@ -1,7 +1,7 @@
 ///|
 fn hot_lift_local_mask_benchmark(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   cached : Bool,
 ) -> Unit {
   let (func, value) = hot_lift_local_mask_fixture(depth)

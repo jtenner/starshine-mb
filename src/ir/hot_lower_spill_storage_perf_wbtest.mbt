@@ -1,7 +1,7 @@
 ///|
 fn hot_lower_spill_storage_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   original : Bool,
 ) -> Unit raise {
   let mut body : Array[Instruction] = []

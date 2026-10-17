@@ -1,7 +1,7 @@
 ///|
 fn local_graph_query_fixture(
-  count : Int,
-  declared : Int,
+  count : Int32,
+  declared : Int32,
 ) -> (HotFunc, Array[NodeId], Array[NodeId]) {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(declared, @lib.ValType::i32())),

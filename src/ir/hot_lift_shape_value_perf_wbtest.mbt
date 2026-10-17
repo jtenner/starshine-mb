@@ -5,7 +5,7 @@ fn lift_shape_reference_direct(
   op : HotOp,
   instr : Instruction,
   result_types : Array[ValType],
-) -> (HotOp, TypeId, Int, Int) {
+) -> (HotOp, TypeId, Int32, Int32) {
   let ty = hot_lift_impl_result_type(func, result_types)
   match instr {
     Instruction::LocalGet(LocalIdx(raw))
@@ -86,7 +86,7 @@ fn lift_shape_reference_exact(
   op : HotOp,
   instr : Instruction,
   result_types : Array[ValType],
-) -> (HotOp, TypeId, Int, Int) {
+) -> (HotOp, TypeId, Int32, Int32) {
   let ty = hot_lift_impl_result_type(func, result_types)
   let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
   match instr {
@@ -168,7 +168,7 @@ fn lift_shape_reference_exact(
 ///|
 fn lift_shape_value_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let func = HotFunc::new()

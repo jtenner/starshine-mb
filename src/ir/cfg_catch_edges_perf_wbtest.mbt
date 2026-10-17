@@ -1,5 +1,9 @@
 ///|
-fn cfg_catch_edges_bench(it : @bench.T, count : Int, reference : Bool) -> Unit {
+fn cfg_catch_edges_bench(
+  it : @bench.T,
+  count : Int32,
+  reference : Bool,
+) -> Unit {
   let builder = cfg_builder_new(HotFunc::new(), false, false)
   let handler = cfg_builder_add_block(builder, [], true)
   for _ in 0..<count {

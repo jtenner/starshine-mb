@@ -1,7 +1,7 @@
 ///|
 pub struct IrTestHotFixture {
   mod_ : @lib.Module
-  code_idx : Int
+  code_idx : Int32
   hot_func : HotFunc
 }
 
@@ -18,7 +18,7 @@ fn ir_test_module_from_wat(text : String) -> @lib.Module {
 }
 
 ///|
-fn ir_test_imported_func_count(mod_ : @lib.Module) -> Int {
+fn ir_test_imported_func_count(mod_ : @lib.Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -36,7 +36,7 @@ fn ir_test_imported_func_count(mod_ : @lib.Module) -> Int {
 ///|
 pub fn ir_test_build_hot_from_wat(
   text : String,
-  code_idx? : Int = 0,
+  code_idx~ : Int32 = 0,
 ) -> IrTestHotFixture {
   let mod_ = ir_test_module_from_wat(text)
   match mod_.code_sec {

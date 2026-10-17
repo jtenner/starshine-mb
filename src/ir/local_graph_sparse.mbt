@@ -4,20 +4,20 @@
 // Resolve entry sources on demand instead of retaining locals × blocks states.
 fn local_graph_sparse_entry_sources(
   cfg : HotCfg,
-  summaries : Array[@hashmap.HashMap[Int, Array[Int]]],
+  summaries : Array[@hashmap.HashMap[Int32, Array[Int32]]],
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-) -> Array[Int] {
+) -> Array[Int32] {
   match cache[block_id].get(local_id) {
     Some(sources) => return sources
     None => ()
   }
-  let sources : Array[Int] = []
+  let sources : Array[Int32] = []
   work.push(block_id)
   seen[block_id] = true
   visited.push(block_id)
@@ -72,7 +72,7 @@ fn local_graph_build_sparse_flow(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  query_builds? : Array[Int]? = None,
+  query_builds~ : Array[Int32]? = None,
 ) -> HotLocalGraph {
   local_graph_finish_full_flow(
     func,
@@ -91,15 +91,15 @@ fn local_graph_build_sparse_rows(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  query_builds? : Array[Int]? = None,
+  query_builds~ : Array[Int32]? = None,
   full_metadata~ : Bool,
 ) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
-  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
+  let get_sources : Array[Array[Int32]] = Array::make(node_count, [])
   let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
-  let summaries : Array[@hashmap.HashMap[Int, Array[Int]]] = []
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]] = []
+  let summaries : Array[@hashmap.HashMap[Int32, Array[Int32]]] = []
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]] = []
   for block = 0; block < cfg_block_count(cfg); block = block + 1 {
     let entry_source = -block - 1
     let state = Array::make(local_count, [entry_source])
@@ -113,7 +113,7 @@ fn local_graph_build_sparse_rows(
       Some(recorded_sources),
       None,
     )
-    let summary : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new()
+    let summary : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new()
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
       let sources = exit_state[local_id]
       if sources.length() != 1 || sources[0] != entry_source {

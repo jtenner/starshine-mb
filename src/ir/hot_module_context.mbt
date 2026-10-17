@@ -15,7 +15,7 @@ pub struct HotModuleContext {
   elems : Array[Elem]
   datas : Array[Data]
   tags : Array[TagType]
-  imported_tag_count : Int
+  imported_tag_count : Int32
   uses_custom_descriptors : Bool
 } derive(Eq, Debug)
 
@@ -106,7 +106,7 @@ fn hot_module_context_func_type_slots(
 ///|
 fn hot_module_context_func_annotations(
   sec : @lib.FuncAnnotationSec?,
-  total_funcs : Int,
+  total_funcs : Int32,
 ) -> Array[Array[@lib.FuncAnnotation]] {
   let by_func : Array[Array[@lib.FuncAnnotation]] = []
   let mut idx = 0
@@ -314,7 +314,7 @@ pub fn hot_module_resolve_subtype(
 }
 
 ///|
-pub fn hot_module_subtype_count(ctx : HotModuleContext) -> Int {
+pub fn hot_module_subtype_count(ctx : HotModuleContext) -> Int32 {
   ctx.subtypes.length()
 }
 

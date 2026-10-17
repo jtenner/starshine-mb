@@ -1,5 +1,5 @@
 ///|
-fn node0_fixture(kind : Int) -> (HotFunc, HotOp, TypeId, Int, Int) {
+fn node0_fixture(kind : Int32) -> (HotFunc, HotOp, TypeId, Int32, Int32) {
   let func = HotFunc::new()
   match kind {
     0 => (func, HotOp::Nop, hot_type_void(func), 0, 0)

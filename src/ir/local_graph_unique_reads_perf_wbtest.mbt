@@ -1,5 +1,5 @@
 ///|
-fn local_graph_unique_reads_bench(it : @bench.T, count : Int) -> Unit {
+fn local_graph_unique_reads_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, write, reads) = local_graph_unique_reads_fixture(count)
   let cfg = cfg_build(func, expand_operand_control=true)
   let graph = local_graph_build_full_flow(func, cfg)

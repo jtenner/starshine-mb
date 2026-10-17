@@ -2,12 +2,12 @@
 fn hot_prefix_results_reference(
   func : HotFunc,
   id : NodeId,
-  count : Int,
+  count : Int32,
   value_stack : Array[HotLowerStackValue],
 ) -> Unit {
   let node = hot_node_get(func, id)
   let input_ids : Array[NodeId] = []
-  let input_occurrences : Array[Int] = []
+  let input_occurrences : Array[Int32] = []
   for i = 0; i < count; i = i + 1 {
     let input_id = func.children[node.child_base + i]
     let input_types = hot_type_results(func, hot_node_type(func, input_id))
@@ -40,12 +40,19 @@ fn hot_prefix_results_bench(it : @bench.T, before : Bool) -> Unit {
     inputs.push(hot_build_const_i32(func, @lib.I32(index)))
   }
   let block = hot_build_block(func, @lib.BlockType::void_(), inputs)
+  let frames = hot_lower_impl_new_label_frames(func)
   it.bench(fn() {
     let stack : Array[HotLowerStackValue] = []
     if before {
       hot_prefix_results_reference(func, block, inputs.length(), stack)
     } else {
-      hot_lower_impl_push_control_prefix(func, block, inputs.length(), stack)
+      hot_lower_impl_push_control_prefix(
+        func,
+        block,
+        inputs.length(),
+        stack,
+        frames,
+      )
     }
     it.keep(stack)
   })

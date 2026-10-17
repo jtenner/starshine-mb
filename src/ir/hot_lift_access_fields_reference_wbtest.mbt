@@ -17,7 +17,7 @@ fn lift_access_fields_original_collect_local_access_masks(
   func : HotFunc,
   node_id : NodeId,
   masks : HotLiftLocalAccessReferenceMasks,
-  node_visits : Array[Int]?,
+  node_visits : Array[Int32]?,
 ) -> Unit {
   while masks.ready.length() <= node_id {
     masks.reads.push(0UL)
@@ -58,10 +58,10 @@ fn lift_access_fields_original_collect_local_access_masks(
 fn lift_access_fields_original_value_conflicts_with_local_access(
   func : HotFunc,
   node_id : NodeId,
-  local_id : Int,
+  local_id : Int32,
   is_write : Bool,
-  masks? : HotLiftLocalAccessReferenceMasks? = None,
-  node_visits? : Array[Int]? = None,
+  masks~ : HotLiftLocalAccessReferenceMasks? = None,
+  node_visits~ : Array[Int32]? = None,
 ) -> Bool {
   if node_id < 0 || !hot_node_is_live(func, node_id) {
     return false

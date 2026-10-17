@@ -1,7 +1,7 @@
 ///|
 fn carried_vector_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   cold : Bool,
   reference : Bool,
 ) -> Unit {

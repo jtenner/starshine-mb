@@ -1,5 +1,5 @@
 ///|
-fn catch_layout_perf_fixture(roots : Int, with_catch : Bool) -> HotFunc {
+fn catch_layout_perf_fixture(roots : Int32, with_catch : Bool) -> HotFunc {
   let func = HotFunc::new()
   for _ in 0..<roots {
     hot_root_append(func, hot_build_nop(func))
@@ -24,7 +24,7 @@ fn catch_layout_perf_fixture(roots : Int, with_catch : Bool) -> HotFunc {
 ///|
 fn catch_layout_perf_run(
   it : @bench.T,
-  roots : Int,
+  roots : Int32,
   with_catch : Bool,
   original : Bool,
 ) -> Unit {

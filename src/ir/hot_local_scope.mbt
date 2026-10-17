@@ -1,17 +1,17 @@
 ///|
 priv struct HotLocalScopeScan {
   initialized : Array[Bool]
-  writes : Array[Int]
+  writes : Array[Int32]
   needs_default : Array[Bool]
-  visited_frame : Array[Int]
-  mut next_frame : Int
+  visited_frame : Array[Int32]
+  mut next_frame : Int32
 }
 
 ///|
 fn hot_local_scope_visit(
   func : HotFunc,
   node_id : NodeId,
-  frame : Int,
+  frame : Int32,
   scan : HotLocalScopeScan,
 ) -> Unit {
   if node_id < 0 ||

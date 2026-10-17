@@ -18,7 +18,7 @@ test "hot lower keeps a carried read before an overwrite" {
   // the check protects the carried value rather than an incidental layout.
   let @lib.Func(locals, @lib.Expr(body)) = output
   let values = Array::make(locals.length(), 0)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for instr in body {
     match instr {
       @lib.I32Const(@lib.I32(value)) => stack.push(value)
@@ -174,7 +174,7 @@ test "lift preserves a pending throwing call before a conflicting local write" {
     @debug.assert_eq(accesses.writes.length(), 1)
     @debug.assert_eq(accesses.local_count, 1)
     let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(hot)
-    let events : Array[Int] = []
+    let events : Array[Int32] = []
     fn visit(body : Array[@lib.Instruction]) -> Unit {
       for instruction in body {
         match instruction {

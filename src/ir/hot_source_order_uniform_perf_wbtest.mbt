@@ -1,7 +1,7 @@
 ///|
 fn source_order_uniform_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let (func, roots, write) = source_order_uniform_fixture(count, 1)

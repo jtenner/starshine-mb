@@ -1,5 +1,5 @@
 ///|
-fn lift_conflict_dag_bench(it : @bench.T, kind : Int) -> Unit raise {
+fn lift_conflict_dag_bench(it : @bench.T, kind : Int32) -> Unit raise {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(129, @lib.ValType::i32())),
   )

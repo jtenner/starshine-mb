@@ -1,21 +1,21 @@
 ///|
 pub struct Bitset {
-  size : Int
+  size : Int32
   words : Array[UInt64]
 } derive(Eq, Debug)
 
 ///|
-const BITSET_WORD_BITS : Int = 64
+const BITSET_WORD_BITS : Int32 = 64
 
 ///|
-fn bitset_require_size(size : Int) -> Unit {
+fn bitset_require_size(size : Int32) -> Unit {
   if size < 0 {
     abort("bitset size must be non-negative")
   }
 }
 
 ///|
-fn bitset_word_count(size : Int) -> Int {
+fn bitset_word_count(size : Int32) -> Int32 {
   if size == 0 {
     return 0
   }
@@ -23,7 +23,7 @@ fn bitset_word_count(size : Int) -> Int {
 }
 
 ///|
-fn bitset_last_word_mask(size : Int) -> UInt64 {
+fn bitset_last_word_mask(size : Int32) -> UInt64 {
   let rem = size % BITSET_WORD_BITS
   if rem == 0 {
     return UInt64::lnot(0UL)
@@ -32,7 +32,7 @@ fn bitset_last_word_mask(size : Int) -> UInt64 {
 }
 
 ///|
-fn bitset_word_mask(bitset : Bitset, word_idx : Int) -> UInt64 {
+fn bitset_word_mask(bitset : Bitset, word_idx : Int32) -> UInt64 {
   if bitset.words.length() == 0 ||
     word_idx < 0 ||
     word_idx >= bitset.words.length() {
@@ -54,7 +54,7 @@ fn bitset_mask_unused_high_bits(bitset : Bitset) -> Unit {
 }
 
 ///|
-fn bitset_require_index(bitset : Bitset, idx : Int) -> Unit {
+fn bitset_require_index(bitset : Bitset, idx : Int32) -> Unit {
   if idx < 0 || idx >= bitset.size {
     abort("bitset index out of bounds")
   }
@@ -68,23 +68,23 @@ fn bitset_require_compatible(lhs : Bitset, rhs : Bitset) -> Unit {
 }
 
 ///|
-fn bitset_word_index(idx : Int) -> Int {
+fn bitset_word_index(idx : Int32) -> Int32 {
   idx / BITSET_WORD_BITS
 }
 
 ///|
-fn bitset_word_bit_mask(idx : Int) -> UInt64 {
+fn bitset_word_bit_mask(idx : Int32) -> UInt64 {
   1UL << (idx % BITSET_WORD_BITS)
 }
 
 ///|
-pub fn bitset_new(size : Int) -> Bitset {
+pub fn bitset_new(size : Int32) -> Bitset {
   bitset_require_size(size)
   { size, words: Array::make(bitset_word_count(size), 0UL), }
 }
 
 ///|
-pub fn bitset_set(bitset : Bitset, idx : Int) -> Bool {
+pub fn bitset_set(bitset : Bitset, idx : Int32) -> Bool {
   bitset_require_index(bitset, idx)
   let word_idx = bitset_word_index(idx)
   let mask = bitset_word_bit_mask(idx)
@@ -95,7 +95,7 @@ pub fn bitset_set(bitset : Bitset, idx : Int) -> Bool {
 }
 
 ///|
-pub fn bitset_clear(bitset : Bitset, idx : Int) -> Bool {
+pub fn bitset_clear(bitset : Bitset, idx : Int32) -> Bool {
   bitset_require_index(bitset, idx)
   let word_idx = bitset_word_index(idx)
   let mask = bitset_word_bit_mask(idx)
@@ -106,7 +106,7 @@ pub fn bitset_clear(bitset : Bitset, idx : Int) -> Bool {
 }
 
 ///|
-pub fn bitset_contains(bitset : Bitset, idx : Int) -> Bool {
+pub fn bitset_contains(bitset : Bitset, idx : Int32) -> Bool {
   bitset_require_index(bitset, idx)
   let word_idx = bitset_word_index(idx)
   (bitset.words[word_idx] & bitset_word_bit_mask(idx)) != 0UL
@@ -167,7 +167,10 @@ pub fn bitset_equals(lhs : Bitset, rhs : Bitset) -> Bool {
 }
 
 ///|
-pub fn bitset_for_each_set_bit(bitset : Bitset, visit : (Int) -> Unit) -> Unit {
+pub fn bitset_for_each_set_bit(
+  bitset : Bitset,
+  visit : (Int32) -> Unit,
+) -> Unit {
   for word_idx = 0; word_idx < bitset.words.length(); word_idx = word_idx + 1 {
     let word = bitset.words[word_idx] & bitset_word_mask(bitset, word_idx)
     if word == 0UL {

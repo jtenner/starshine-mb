@@ -23,8 +23,8 @@ pub struct HotSsaConcreteLocals {
 
 ///|
 pub fn HotSsaConcreteLocals::new(
-  value_locals? : Array[LocalId] = [],
-  extra_local_types? : Array[ValType] = [],
+  value_locals~ : Array[LocalId] = [],
+  extra_local_types~ : Array[ValType] = [],
 ) -> HotSsaConcreteLocals {
   { value_locals, extra_local_types, }
 }
@@ -36,9 +36,9 @@ pub enum HotSsaDestroyPolicy {
 
 ///|
 struct HotSsaPendingInsert {
-  insert_idx : Int
+  insert_idx : Int32
   nodes : Array[NodeId]
-  order : Int
+  order : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -64,7 +64,7 @@ fn ssa_destroy_block_region_ref(block : HotBlockInfo) -> HotRegionRef {
 }
 
 ///|
-fn ssa_destroy_insert_index(func : HotFunc, block : HotBlockInfo) -> Int {
+fn ssa_destroy_insert_index(func : HotFunc, block : HotBlockInfo) -> Int32 {
   if block.nodes.length() == 0 {
     return block.end_slot
   }
@@ -76,7 +76,10 @@ fn ssa_destroy_insert_index(func : HotFunc, block : HotBlockInfo) -> Int {
 }
 
 ///|
-fn ssa_destroy_remove_copy(copies : Array[HotSsaCopy], idx : Int) -> HotSsaCopy {
+fn ssa_destroy_remove_copy(
+  copies : Array[HotSsaCopy],
+  idx : Int32,
+) -> HotSsaCopy {
   let removed = copies[idx]
   let last = copies.length() - 1
   for slot = idx; slot < last; slot = slot + 1 {
@@ -88,7 +91,7 @@ fn ssa_destroy_remove_copy(copies : Array[HotSsaCopy], idx : Int) -> HotSsaCopy 
 
 ///|
 fn ssa_destroy_ensure_source_count(
-  source_counts : Array[Int],
+  source_counts : Array[Int32],
   local_id : LocalId,
 ) -> Unit {
   while source_counts.length() <= local_id {
@@ -108,7 +111,7 @@ fn ssa_destroy_schedule_copies(
     }
     pending.push(copy)
   }
-  let source_counts : Array[Int] = []
+  let source_counts : Array[Int32] = []
   for copy in pending {
     ssa_destroy_ensure_source_count(source_counts, copy.source_local)
     source_counts[copy.source_local] = source_counts[copy.source_local] + 1
@@ -183,9 +186,9 @@ fn ssa_destroy_pending_insert_before(
 fn ssa_destroy_push_pending_insert(
   groups : Array[HotSsaRegionInsertGroup],
   region_ref : HotRegionRef,
-  insert_idx : Int,
+  insert_idx : Int32,
   nodes : Array[NodeId],
-  order : Int,
+  order : Int32,
 ) -> Unit {
   let mut group_idx = -1
   for idx = 0; idx < groups.length(); idx = idx + 1 {
@@ -252,7 +255,7 @@ fn ssa_destroy_apply_pending_inserts(
 pub fn ssa_assign_concrete_locals(
   func : HotFunc,
   ssa : HotLocalSsa,
-  preserve_write_nodes? : @bitset.BitSet = @bitset.BitSet::new(0),
+  preserve_write_nodes~ : @bitset.BitSet = @bitset.BitSet::new(0),
 ) -> HotSsaConcreteLocals {
   let value_locals = Array::make(ssa.value_types.length(), -1)
   let extra_local_types : Array[ValType] = []
@@ -298,7 +301,7 @@ pub fn ssa_rewrite_local_use(
 }
 
 ///|
-fn ssa_destroy_is_region_slot(node : HotNode, slot : Int) -> Bool {
+fn ssa_destroy_is_region_slot(node : HotNode, slot : Int32) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
     HotOp::Loop => true
@@ -312,9 +315,9 @@ fn ssa_destroy_is_region_slot(node : HotNode, slot : Int) -> Bool {
 fn ssa_destroy_assign_node_order_region(
   func : HotFunc,
   region_ref : HotRegionRef,
-  node_order : Array[Int],
-  next_order : Int,
-) -> Int {
+  node_order : Array[Int32],
+  next_order : Int32,
+) -> Int32 {
   let mut cursor = next_order
   for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
     let root_id = hot_region_get(func, region_ref, idx)
@@ -329,9 +332,9 @@ fn ssa_destroy_assign_node_order_region(
 fn ssa_destroy_assign_node_order_node(
   func : HotFunc,
   node_id : NodeId,
-  node_order : Array[Int],
-  next_order : Int,
-) -> Int {
+  node_order : Array[Int32],
+  next_order : Int32,
+) -> Int32 {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return next_order
   }
@@ -535,8 +538,8 @@ fn ssa_destroy_reachable_nodes(func : HotFunc) -> Array[Bool] {
 fn ssa_destroy_mark_block_region(
   func : HotFunc,
   region_ref : HotRegionRef,
-  block_id : Int,
-  node_blocks : Array[Int],
+  block_id : Int32,
+  node_blocks : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
     ssa_destroy_mark_block_node(
@@ -552,8 +555,8 @@ fn ssa_destroy_mark_block_region(
 fn ssa_destroy_mark_block_node(
   func : HotFunc,
   node_id : NodeId,
-  block_id : Int,
-  node_blocks : Array[Int],
+  block_id : Int32,
+  node_blocks : Array[Int32],
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
@@ -627,7 +630,7 @@ fn ssa_destroy_mark_block_node(
 }
 
 ///|
-fn ssa_destroy_node_blocks(func : HotFunc) -> Array[Int] {
+fn ssa_destroy_node_blocks(func : HotFunc) -> Array[Int32] {
   let cfg = cfg_build(func)
   let node_blocks = Array::make(hot_node_count(func), -1)
   for block in cfg.blocks {
@@ -753,8 +756,8 @@ fn ssa_destroy_node_contains_terminator(
 fn ssa_destroy_mark_root_slot_node(
   func : HotFunc,
   node_id : NodeId,
-  root_slot : Int,
-  node_root_slots : Array[Int],
+  root_slot : Int32,
+  node_root_slots : Array[Int32],
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
@@ -836,8 +839,8 @@ fn ssa_destroy_mark_root_slot_node(
 fn ssa_destroy_mark_root_slot_region(
   func : HotFunc,
   region_ref : HotRegionRef,
-  root_slot : Int,
-  node_root_slots : Array[Int],
+  root_slot : Int32,
+  node_root_slots : Array[Int32],
 ) -> Unit {
   for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
     ssa_destroy_mark_root_slot_node(
@@ -850,7 +853,7 @@ fn ssa_destroy_mark_root_slot_region(
 }
 
 ///|
-fn ssa_destroy_node_root_slots(func : HotFunc) -> Array[Int] {
+fn ssa_destroy_node_root_slots(func : HotFunc) -> Array[Int32] {
   let node_root_slots = Array::make(hot_node_count(func), -1)
   for root_slot = 0; root_slot < hot_root_count(func); root_slot = root_slot + 1 {
     ssa_destroy_mark_root_slot_node(
@@ -865,10 +868,10 @@ fn ssa_destroy_node_root_slots(func : HotFunc) -> Array[Int] {
 
 ///|
 fn ssa_destroy_root_slot_range(
-  node_root_slots : Array[Int],
+  node_root_slots : Array[Int32],
   start_node_id : NodeId,
   end_node_id : NodeId,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   if start_node_id < 0 ||
     start_node_id >= node_root_slots.length() ||
     end_node_id < 0 ||
@@ -888,7 +891,7 @@ fn ssa_destroy_root_slot_range(
 ///|
 fn ssa_destroy_has_branchy_root_between(
   func : HotFunc,
-  node_root_slots : Array[Int],
+  node_root_slots : Array[Int32],
   start_node_id : NodeId,
   end_node_id : NodeId,
 ) -> Bool {
@@ -913,7 +916,7 @@ fn ssa_destroy_has_branchy_root_between(
 ///|
 fn ssa_destroy_has_value_block_root_between(
   func : HotFunc,
-  node_root_slots : Array[Int],
+  node_root_slots : Array[Int32],
   start_node_id : NodeId,
   end_node_id : NodeId,
 ) -> Bool {
@@ -960,9 +963,9 @@ fn ssa_destroy_should_preserve_dead_write_local(
   func : HotFunc,
   node_id : NodeId,
   local_id : LocalId,
-  node_order : Array[Int],
-  node_blocks : Array[Int],
-  node_root_slots : Array[Int],
+  node_order : Array[Int32],
+  node_blocks : Array[Int32],
+  node_root_slots : Array[Int32],
   reachable_nodes : Array[Bool],
 ) -> Bool {
   let write_order = node_order[node_id]
@@ -1000,8 +1003,8 @@ fn ssa_destroy_should_keep_dead_tee_temp(
   func : HotFunc,
   node_id : NodeId,
   original_local_id : LocalId,
-  node_order : Array[Int],
-  node_root_slots : Array[Int],
+  node_order : Array[Int32],
+  node_root_slots : Array[Int32],
   reachable_nodes : Array[Bool],
 ) -> Bool {
   let write_order = node_order[node_id]
@@ -1035,7 +1038,7 @@ fn ssa_destroy_should_keep_dead_tee_temp(
 ///|
 fn ssa_destroy_has_value_if_order_between(
   func : HotFunc,
-  node_order : Array[Int],
+  node_order : Array[Int32],
   start_node_id : NodeId,
   end_node_id : NodeId,
 ) -> Bool {
@@ -1064,7 +1067,7 @@ fn ssa_destroy_has_value_if_order_between(
 ///|
 fn ssa_destroy_has_branchy_root_after(
   func : HotFunc,
-  node_root_slots : Array[Int],
+  node_root_slots : Array[Int32],
   node_id : NodeId,
 ) -> Bool {
   if node_id < 0 || node_id >= node_root_slots.length() {
@@ -1091,8 +1094,8 @@ fn ssa_destroy_should_reuse_original_dead_tee_local(
   func : HotFunc,
   node_id : NodeId,
   original_local_id : LocalId,
-  node_order : Array[Int],
-  node_root_slots : Array[Int],
+  node_order : Array[Int32],
+  node_root_slots : Array[Int32],
   reachable_nodes : Array[Bool],
 ) -> Bool {
   let write_order = node_order[node_id]
@@ -1134,7 +1137,7 @@ fn ssa_destroy_rewrite_unreachable_local_gets_after(
   node_id : NodeId,
   from_local_id : LocalId,
   to_local_id : LocalId,
-  node_root_slots : Array[Int],
+  node_root_slots : Array[Int32],
   reachable_nodes : Array[Bool],
 ) -> Unit {
   if node_id < 0 ||
@@ -1163,7 +1166,7 @@ fn ssa_destroy_rewrite_unreachable_local_gets_after(
 ///|
 fn ssa_destroy_last_local_get_orders(
   func : HotFunc,
-) -> (Array[Int], Array[Int]) {
+) -> (Array[Int32], Array[Int32]) {
   let node_order = Array::make(hot_node_count(func), -1)
   ignore(
     ssa_destroy_assign_node_order_region(
@@ -1222,7 +1225,7 @@ pub fn ssa_insert_predecessor_copies(
 ///|
 fn ssa_trim_unused_trailing_temp_locals(
   func : HotFunc,
-  original_local_count : Int,
+  original_local_count : Int32,
 ) -> Unit {
   let mut max_used_local = hot_param_count(func) - 1
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
@@ -1297,8 +1300,8 @@ pub fn ssa_destroy_into_hot(
   func : HotFunc,
   cfg : HotCfg,
   ssa : HotLocalSsa,
-  policy? : HotSsaDestroyPolicy = HotSsaDestroyPolicy::ReusePhiLocals,
-  preserve_write_nodes? : @bitset.BitSet = @bitset.BitSet::new(0),
+  policy~ : HotSsaDestroyPolicy = HotSsaDestroyPolicy::ReusePhiLocals,
+  preserve_write_nodes~ : @bitset.BitSet = @bitset.BitSet::new(0),
 ) -> HotSsaConcreteLocals {
   ignore(policy)
   let original_local_count = hot_local_count(func)

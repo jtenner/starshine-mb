@@ -1,7 +1,7 @@
 ///|
 fn source_order_subtree_reuse_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   overlapping : Bool,
 ) -> Unit raise {
   let (func, roots, write) = source_order_uniform_fixture(count, 0)

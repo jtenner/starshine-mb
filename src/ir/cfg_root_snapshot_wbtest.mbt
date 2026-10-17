@@ -1,5 +1,5 @@
 ///|
-fn cfg_root_snapshot_fixture(width : Int, depth : Int) -> HotFunc {
+fn cfg_root_snapshot_fixture(width : Int32, depth : Int32) -> HotFunc {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let roots : Array[NodeId] = []
   for _ in 0..<width {

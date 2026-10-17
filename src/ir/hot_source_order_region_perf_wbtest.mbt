@@ -1,7 +1,7 @@
 ///|
 fn source_order_region_lifetime_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   dense : Bool,
   indexed : Bool,
 ) -> Unit {

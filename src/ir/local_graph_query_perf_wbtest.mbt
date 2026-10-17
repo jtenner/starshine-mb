@@ -1,5 +1,5 @@
 ///|
-fn local_graph_query_bench(it : @bench.T, count : Int) -> Unit {
+fn local_graph_query_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, writes, reads) = local_graph_query_fixture(count, count * 4)
   let cfg = cfg_build(func)
   let graph = local_graph_build_full_flow(func, cfg)

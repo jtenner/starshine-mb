@@ -1,10 +1,10 @@
 ///|
 fn cfg_lazy_source_order_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   multi : Bool,
   eager : Bool,
-  carried? : Bool = false,
+  carried~ : Bool = false,
 ) -> Unit {
   let func = if carried {
     let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))

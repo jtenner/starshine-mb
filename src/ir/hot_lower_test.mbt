@@ -74,7 +74,7 @@ fn hot_lower_test_struct_module() -> @lib.Module {
 }
 
 ///|
-fn hot_lower_test_count_substring(text : String, needle : String) -> Int {
+fn hot_lower_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
   }
@@ -1404,7 +1404,7 @@ test "hot lower keeps terminal unreachable after self-looping loop bodies" {
 }
 
 ///|
-fn hot_lower_test_deep_branch_body(depth : Int) -> @lib.Expr {
+fn hot_lower_test_deep_branch_body(depth : Int32) -> @lib.Expr {
   let mut current = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::br(@lib.LabelIdx::new((depth - 1).reinterpret_as_uint())),
@@ -2886,7 +2886,7 @@ test "hot lower preserves stack-carried local tee before later local read" {
   let storage = Array::make(locals.length() + 1, 0)
   storage[0] = 4
   let memory = [17, 42, 90]
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut loads = 0
   for instr in body {
     match instr {

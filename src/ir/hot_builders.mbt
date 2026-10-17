@@ -19,7 +19,7 @@ fn hot_builder_local_value_type(func : HotFunc, local_id : LocalId) -> ValType {
 }
 
 ///|
-fn hot_builder_tag_idx_raw(tag_idx : TagIdx) -> Int {
+fn hot_builder_tag_idx_raw(tag_idx : TagIdx) -> Int32 {
   let TagIdx(raw) = tag_idx
   raw.reinterpret_as_int()
 }
@@ -31,7 +31,7 @@ fn hot_builder_tag_idx_raw(tag_idx : TagIdx) -> Int {
 pub fn hot_build_region(
   func : HotFunc,
   body : Array[NodeId],
-  result_arity : Int,
+  result_arity : Int32,
 ) -> NodeId {
   let region_id = hot_build_node(
     func,
@@ -58,9 +58,9 @@ pub fn hot_build_node(
   func : HotFunc,
   op : HotOp,
   ty : TypeId,
-  imm0? : Int = 0,
-  imm1? : Int = 0,
-  children? : Array[NodeId] = [],
+  imm0~ : Int32 = 0,
+  imm1~ : Int32 = 0,
+  children~ : Array[NodeId] = [],
 ) -> NodeId {
   let node = {
     op,
@@ -95,8 +95,8 @@ fn hot_build_node0(
   func : HotFunc,
   op : HotOp,
   ty : TypeId,
-  imm0? : Int = 0,
-  imm1? : Int = 0,
+  imm0~ : Int32 = 0,
+  imm1~ : Int32 = 0,
 ) -> NodeId {
   hot_alloc_node(func, {
     op,
@@ -116,8 +116,8 @@ fn hot_build_node1(
   op : HotOp,
   ty : TypeId,
   child0 : NodeId,
-  imm0? : Int = 0,
-  imm1? : Int = 0,
+  imm0~ : Int32 = 0,
+  imm1~ : Int32 = 0,
 ) -> NodeId {
   hot_alloc_node_with_child1(
     func,
@@ -142,8 +142,8 @@ fn hot_build_node2(
   ty : TypeId,
   child0 : NodeId,
   child1 : NodeId,
-  imm0? : Int = 0,
-  imm1? : Int = 0,
+  imm0~ : Int32 = 0,
+  imm1~ : Int32 = 0,
 ) -> NodeId {
   hot_alloc_node_with_child2(
     func,
@@ -170,8 +170,8 @@ fn hot_build_node3(
   child0 : NodeId,
   child1 : NodeId,
   child2 : NodeId,
-  imm0? : Int = 0,
-  imm1? : Int = 0,
+  imm0~ : Int32 = 0,
+  imm1~ : Int32 = 0,
 ) -> NodeId {
   hot_alloc_node_with_child3(
     func,
@@ -434,7 +434,7 @@ pub fn hot_build_local_tee_from_set(func : HotFunc, set_id : NodeId) -> NodeId {
 ///|
 pub fn hot_build_global_get(
   func : HotFunc,
-  global_idx : Int,
+  global_idx : Int32,
   result_type : ValType,
 ) -> NodeId {
   hot_build_node(
@@ -448,7 +448,7 @@ pub fn hot_build_global_get(
 ///|
 pub fn hot_build_global_set(
   func : HotFunc,
-  global_idx : Int,
+  global_idx : Int32,
   value : NodeId,
 ) -> NodeId {
   hot_build_node1(
@@ -464,7 +464,7 @@ pub fn hot_build_global_set(
 pub fn hot_build_br(
   func : HotFunc,
   target : LabelId,
-  values? : Array[NodeId] = [],
+  values~ : Array[NodeId] = [],
 ) -> NodeId {
   hot_build_node(
     func,
@@ -480,7 +480,7 @@ pub fn hot_build_br_if(
   func : HotFunc,
   target : LabelId,
   condition : NodeId,
-  values? : Array[NodeId] = [],
+  values~ : Array[NodeId] = [],
 ) -> NodeId {
   let children = values.copy()
   children.push(condition)
@@ -493,7 +493,7 @@ pub fn hot_build_br_table(
   targets : Array[LabelId],
   default_target : LabelId,
   selector : NodeId,
-  values? : Array[NodeId] = [],
+  values~ : Array[NodeId] = [],
 ) -> NodeId {
   let table_id = hot_alloc_branch_table(
     func,
@@ -513,7 +513,7 @@ pub fn hot_build_br_table(
 ///|
 pub fn hot_build_call(
   func : HotFunc,
-  func_idx : Int,
+  func_idx : Int32,
   result_types : Array[ValType],
   args : Array[NodeId],
 ) -> NodeId {
@@ -573,7 +573,7 @@ pub fn hot_build_call_ref(
 ///|
 pub fn hot_build_return_call(
   func : HotFunc,
-  func_idx : Int,
+  func_idx : Int32,
   args : Array[NodeId],
 ) -> NodeId {
   hot_build_node(
@@ -660,7 +660,7 @@ pub fn hot_build_store(
 ///|
 pub fn hot_build_table_get(
   func : HotFunc,
-  table_idx : Int,
+  table_idx : Int32,
   result_type : ValType,
   index : NodeId,
 ) -> NodeId {
@@ -676,7 +676,7 @@ pub fn hot_build_table_get(
 ///|
 pub fn hot_build_table_set(
   func : HotFunc,
-  table_idx : Int,
+  table_idx : Int32,
   index : NodeId,
   value : NodeId,
 ) -> NodeId {
@@ -810,7 +810,7 @@ pub fn hot_build_tuple_extract(
   func : HotFunc,
   result_type : ValType,
   tuple : NodeId,
-  index : Int,
+  index : Int32,
 ) -> NodeId {
   hot_build_node1(
     func,
@@ -929,7 +929,7 @@ pub fn hot_build_if(
   block_type : BlockType,
   condition : NodeId,
   then_body : Array[NodeId],
-  else_body? : Array[NodeId]? = None,
+  else_body~ : Array[NodeId]? = None,
 ) -> NodeId {
   let ty = hot_type_intern_block_result(func, block_type)
   let result_arity = hot_type_result_arity(func, ty)
@@ -962,7 +962,7 @@ pub fn hot_build_try(
   func : HotFunc,
   block_type : BlockType,
   body : Array[NodeId],
-  catch_body? : Array[NodeId]? = None,
+  catch_body~ : Array[NodeId]? = None,
 ) -> NodeId {
   let ty = hot_type_intern_block_result(func, block_type)
   let result_arity = hot_type_result_arity(func, ty)
@@ -989,7 +989,7 @@ pub fn hot_build_try_table(
   block_type : BlockType,
   catches : Array[HotCatchArm],
   body : Array[NodeId],
-  catch_list_body? : Array[NodeId] = [],
+  catch_list_body~ : Array[NodeId] = [],
 ) -> NodeId {
   let ty = hot_type_intern_block_result(func, block_type)
   let result_arity = hot_type_result_arity(func, ty)

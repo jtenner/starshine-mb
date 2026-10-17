@@ -2,10 +2,10 @@
 // Keep source encounter order in the output, using membership hashing only for
 // large joins. Published source arrays remain immutable, including subset joins.
 fn local_graph_join_indexed_sources(
-  lhs : Array[Int],
-  rhs : Array[Int],
-  membership_builds? : Array[Int]? = None,
-) -> Array[Int] {
+  lhs : Array[Int32],
+  rhs : Array[Int32],
+  membership_builds~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if rhs.is_empty() {
     return lhs
   }
@@ -33,11 +33,11 @@ fn local_graph_join_indexed_sources(
     Some(count) => count[0] += 1
     None => ()
   }
-  let present : @set.Set[Int] = @set.Set([])
+  let present : @set.Set[Int32] = @set.Set([])
   for source in lhs {
     present.add(source)
   }
-  let mut merged : Array[Int]? = None
+  let mut merged : Array[Int32]? = None
   for source in rhs {
     if !present.contains(source) {
       present.add(source)

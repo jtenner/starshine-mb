@@ -169,7 +169,7 @@ test "effect summaries aggregate across blocks and regions conservatively" {
 }
 
 ///|
-fn effects_shared_dag_fixture(depth : Int) -> (HotFunc, NodeId) {
+fn effects_shared_dag_fixture(depth : Int32) -> (HotFunc, NodeId) {
   let func = HotFunc::new()
   let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
   let addr = hot_build_const_i32(func, @lib.I32(0))

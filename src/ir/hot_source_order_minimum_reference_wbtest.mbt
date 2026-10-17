@@ -5,10 +5,10 @@ fn source_order_minimum_reference_collect(
   node_id : NodeId,
   before_node_id : NodeId,
   consumer_id : NodeId,
-  value_orders : Array[Int],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-  seen_consumer : Array[Int],
-  consumer_bounds : Array[Int],
+  seen_consumer : Array[Int32],
+  consumer_bounds : Array[Int32],
   touched : Array[NodeId],
   out : Array[NodeId],
 ) -> Unit {
@@ -50,11 +50,11 @@ fn source_order_minimum_reference_query(
   func : HotFunc,
   current_root : NodeId,
   future_roots : Array[NodeId],
-  future_start : Int,
+  future_start : Int32,
   future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   facts : HotSourceOrderFacts,
-  scratch_builds? : Array[Int]? = None,
-  root_visits? : Array[Int]? = None,
+  scratch_builds~ : Array[Int32]? = None,
+  root_visits~ : Array[Int32]? = None,
 ) -> Array[NodeId] {
   // Extracting an existing value into a new statement preserves its execution
   // order. Its allocation ID can be newer than the consumer of an older read.

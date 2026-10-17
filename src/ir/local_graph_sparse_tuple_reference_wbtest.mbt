@@ -1,9 +1,9 @@
 ///|
 fn local_graph_tuple_reference_nested_region(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
   region : HotRegionRef,
-  state : Array[Array[Int]],
+  state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   evaluated_tuples : Array[Bool],
@@ -25,9 +25,9 @@ fn local_graph_tuple_reference_nested_region(
 ///|
 fn local_graph_tuple_reference_node(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
   node_id : NodeId,
-  state : Array[Array[Int]],
+  state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
@@ -156,11 +156,11 @@ fn local_graph_tuple_reference_block(
   func : HotFunc,
   cfg : HotCfg,
   block_id : BlockId,
-  in_state : Array[Array[Int]],
+  in_state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
-  tuple_slots? : Array[Int]? = None,
-) -> Array[Array[Int]] {
+  tuple_slots~ : Array[Int32]? = None,
+) -> Array[Array[Int32]] {
   let state = local_graph_state_clone(in_state)
   // Expanded CFGs already visit each tuple producer at its execution position.
   // Only recursive, unexpanded traversal needs per-producer bookkeeping.

@@ -38,7 +38,7 @@ fn hot_node_get_reference(func : HotFunc, node_id : NodeId) -> HotNode {
 }
 
 ///|
-fn hot_indexed_liveness_fixture(width : Int, deleted : Int) -> HotFunc {
+fn hot_indexed_liveness_fixture(width : Int32, deleted : Int32) -> HotFunc {
   let func = HotFunc::new()
   for _ in 0..<width {
     ignore(hot_build_nop(func))
@@ -58,8 +58,8 @@ fn hot_indexed_liveness_fixture(width : Int, deleted : Int) -> HotFunc {
 ///|
 fn hot_indexed_liveness_bench(
   it : @bench.T,
-  width : Int,
-  deleted : Int,
+  width : Int32,
+  deleted : Int32,
   reference : Bool,
   getter : Bool,
 ) -> Unit {

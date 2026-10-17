@@ -1,7 +1,7 @@
 ///|
 fn local_graph_borrow_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let (_, cfg) = local_graph_borrow_fixture()

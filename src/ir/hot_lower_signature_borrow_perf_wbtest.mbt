@@ -1,7 +1,7 @@
 ///|
 fn hot_lower_signature_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()

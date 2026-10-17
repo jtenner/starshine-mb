@@ -1,7 +1,7 @@
 ///|
 fn hot_lift_stack_reuse_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let types = Array::make(width + 2, @lib.ValType::i32())

@@ -3,10 +3,10 @@ fn local_graph_build_in_states_reference(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-) -> Array[Array[Array[Int]]] {
+) -> Array[Array[Array[Int32]]] {
   let local_count = hot_local_count(func)
-  let in_states : Array[Array[Array[Int]]] = []
-  let out_states : Array[Array[Array[Int]]] = []
+  let in_states : Array[Array[Array[Int32]]] = []
+  let out_states : Array[Array[Array[Int32]]] = []
   for _ in 0..<cfg_block_count(cfg) {
     in_states.push(local_graph_empty_state(local_count))
     out_states.push(local_graph_empty_state(local_count))
@@ -48,7 +48,7 @@ fn local_graph_build_in_states_reference(
 ///|
 fn local_graph_stable_transfer_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   expanded : Bool,
   reference : Bool,
 ) -> Unit {

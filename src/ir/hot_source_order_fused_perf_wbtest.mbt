@@ -18,7 +18,7 @@ fn source_order_facts_reference(func : HotFunc) -> HotSourceOrderFacts {
 ///|
 fn source_order_fused_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = cfg_root_snapshot_fixture(width, 16)

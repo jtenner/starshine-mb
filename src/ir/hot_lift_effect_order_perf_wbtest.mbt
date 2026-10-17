@@ -1,7 +1,7 @@
 ///|
 fn hot_lift_effect_order_bench(
   it : @bench.T,
-  regions : Int,
+  regions : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()
@@ -13,7 +13,7 @@ fn hot_lift_effect_order_bench(
     roots.push(hot_build_call(func, i, [], []))
   }
   let expected = hot_lower_impl_build_first_effect_orders(func)
-  let checked : Array[Int] = []
+  let checked : Array[Int32] = []
   for root in roots {
     if hot_lift_impl_first_effect_order(func, root, checked) != expected[root] {
       abort("effect-order benchmark mismatch")
@@ -21,7 +21,7 @@ fn hot_lift_effect_order_bench(
   }
   // Queries never mutate the function. A fresh per-function cache is timed.
   it.bench(fn() {
-    let cache : Array[Int] = []
+    let cache : Array[Int32] = []
     let mut checksum = 0
     for root in roots {
       checksum += if reference {

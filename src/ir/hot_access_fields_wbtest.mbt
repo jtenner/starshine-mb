@@ -1,5 +1,5 @@
 ///|
-fn access_fields_fixture(depth : Int) -> (HotFunc, NodeId) {
+fn access_fields_fixture(depth : Int32) -> (HotFunc, NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )

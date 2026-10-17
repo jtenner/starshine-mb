@@ -1,5 +1,5 @@
 ///|
-fn local_join_reference(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
+fn local_join_reference(lhs : Array[Int32], rhs : Array[Int32]) -> Array[Int32] {
   if physical_equal(lhs, rhs) || rhs.is_empty() {
     return lhs
   }
@@ -17,7 +17,7 @@ fn local_join_reference(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
 ///|
 fn local_join_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   subset : Bool,
   reference : Bool,
 ) -> Unit {

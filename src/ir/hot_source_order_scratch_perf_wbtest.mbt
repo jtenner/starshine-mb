@@ -1,5 +1,5 @@
 ///|
-fn source_order_scratch_bench(it : @bench.T, count : Int) -> Unit {
+fn source_order_scratch_bench(it : @bench.T, count : Int32) -> Unit {
   let func = HotFunc::new()
   let first = hot_build_call(func, 0, [@lib.ValType::i32()], [])
   let barrier = hot_build_call(func, 1, [], [])

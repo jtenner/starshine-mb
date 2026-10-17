@@ -1,7 +1,7 @@
 ///|
 fn source_order_write_free_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   write : Bool,
   reference : Bool,
 ) -> Unit {
@@ -66,16 +66,16 @@ fn source_order_write_scan_reference(
   carried_id : NodeId,
   current_root : NodeId,
   facts : HotSourceOrderFacts,
-  after_order? : Int = -1,
-  before_access_order? : Int = -1,
-  access_before_order? : Int? = None,
-  access_visits? : Array[Int]? = None,
+  after_order~ : Int32 = -1,
+  before_access_order~ : Int32 = -1,
+  access_before_order~ : Int32? = None,
+  access_visits~ : Array[Int32]? = None,
 ) -> Bool {
   // Reuse sparse local-access summaries. Allocating function-sized visited
   // and local arrays for every candidate pair makes wide constructors cubic.
   let writes = hot_source_order_local_access_nodes(func, carried_id, facts)
   let mut first_access = hot_node_count(func)
-  let mut indexed_orders : @hashmap.HashMap[Int, Int]? = None
+  let mut indexed_orders : @hashmap.HashMap[Int32, Int32]? = None
   for write_id in writes {
     let write = hot_node_get(func, write_id)
     if (write.op is HotOp::LocalSet || write.op is HotOp::LocalTee) &&

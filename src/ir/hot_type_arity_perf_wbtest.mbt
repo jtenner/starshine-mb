@@ -1,7 +1,7 @@
 ///|
 fn hot_type_arity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   resolved : Bool,
   reference : Bool,
 ) -> Unit {

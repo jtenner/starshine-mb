@@ -1,5 +1,5 @@
 ///|
-pub type BlockId = Int
+pub type BlockId = Int32
 
 ///|
 pub enum CfgEdgeKind {

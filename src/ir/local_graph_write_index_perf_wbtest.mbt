@@ -2,7 +2,7 @@
 fn local_graph_write_scan_reference(
   func : HotFunc,
   actions : Array[NodeId],
-  end : Int,
+  end : Int32,
   local_id : LocalId,
 ) -> NodeId? {
   let mut idx = if end < actions.length() { end } else { actions.length() }

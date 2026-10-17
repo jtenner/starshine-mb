@@ -1,6 +1,6 @@
 ///|
 fn trivial_sort_fixture(
-  count : Int,
+  count : Int32,
 ) -> (HotFunc, NodeId, Array[NodeId], Array[NodeId]) {
   let func = HotFunc::new()
   let values : Array[NodeId] = []

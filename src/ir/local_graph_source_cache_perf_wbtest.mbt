@@ -1,5 +1,5 @@
 ///|
-fn local_graph_source_cache_bench(it : @bench.T, count : Int) -> Unit {
+fn local_graph_source_cache_bench(it : @bench.T, count : Int32) -> Unit {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let reads : Array[NodeId] = []
   for _ in 0..<count {

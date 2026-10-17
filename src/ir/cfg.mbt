@@ -23,8 +23,8 @@ pub struct HotBlockInfo {
   succs : Array[CfgEdge]
   is_synthetic : Bool
   region_holder : NodeId
-  start_slot : Int
-  end_slot : Int
+  start_slot : Int32
+  end_slot : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -36,7 +36,7 @@ pub impl Show for HotBlockInfo with fn output(self, logger) {
 #valtype
 pub struct CfgRegionRootBlock {
   region_holder : NodeId
-  slot : Int
+  slot : Int32
   block : BlockId
 } derive(Eq, Debug)
 
@@ -63,7 +63,7 @@ priv struct CfgBuilder {
   conservative_exception_entries : Bool
   operand_seen : Array[Bool]?
   mut source_order : HotSourceOrderFacts?
-  mut operand_minima : Array[Int]?
+  mut operand_minima : Array[Int32]?
   continuation_targets : Array[Array[LabelId]?]
 }
 
@@ -77,7 +77,7 @@ priv struct CfgRegionBuild {
 #valtype
 priv struct CfgRegionSegment {
   block_id : BlockId
-  end_slot : Int
+  end_slot : Int32
   last_node : NodeId
 }
 
@@ -86,7 +86,7 @@ priv struct CfgRegionSegment {
 // public CFG block and root mappings unchanged; this arena is builder-local.
 #valtype
 priv struct CfgRegionSegments {
-  rows : Array[Int]
+  rows : Array[Int32]
 }
 
 ///|
@@ -99,7 +99,7 @@ fn CfgRegionSegments::new() -> CfgRegionSegments {
 fn CfgRegionSegments::push(
   self : CfgRegionSegments,
   block_id : BlockId,
-  end_slot : Int,
+  end_slot : Int32,
   last_node : NodeId,
 ) -> Unit {
   self.rows.push(block_id)
@@ -109,7 +109,7 @@ fn CfgRegionSegments::push(
 
 ///|
 #inline
-fn CfgRegionSegments::length(self : CfgRegionSegments) -> Int {
+fn CfgRegionSegments::length(self : CfgRegionSegments) -> Int32 {
   self.rows.length() / 3
 }
 
@@ -117,7 +117,7 @@ fn CfgRegionSegments::length(self : CfgRegionSegments) -> Int {
 #inline
 fn CfgRegionSegments::block_id(
   self : CfgRegionSegments,
-  index : Int,
+  index : Int32,
 ) -> BlockId {
   self.rows[index * 3]
 }
@@ -126,7 +126,7 @@ fn CfgRegionSegments::block_id(
 #inline
 fn CfgRegionSegments::get(
   self : CfgRegionSegments,
-  index : Int,
+  index : Int32,
 ) -> CfgRegionSegment {
   let offset = index * 3
   {
@@ -197,9 +197,9 @@ fn cfg_builder_add_block(
   builder : CfgBuilder,
   nodes : Array[NodeId],
   is_synthetic : Bool,
-  region_holder? : NodeId = HOT_NONE_NODE,
-  start_slot? : Int = -1,
-  end_slot? : Int = -1,
+  region_holder~ : NodeId = HOT_NONE_NODE,
+  start_slot~ : Int32 = -1,
+  end_slot~ : Int32 = -1,
 ) -> BlockId {
   let id = builder.cfg.blocks.length()
   builder.cfg.blocks.push({
@@ -343,9 +343,9 @@ fn cfg_dropped_branch_operand(func : HotFunc, node_id : NodeId) -> NodeId? {
 fn cfg_operand_minimum_order(
   func : HotFunc,
   node_id : NodeId,
-  minima : Array[Int],
-  visits? : Array[Int]? = None,
-) -> Int {
+  minima : Array[Int32],
+  visits~ : Array[Int32]? = None,
+) -> Int32 {
   if node_id == HOT_NONE_NODE {
     return hot_node_count(func)
   }
@@ -359,7 +359,19 @@ fn cfg_operand_minimum_order(
   if visits is Some(count) {
     count[0] += 1
   }
-  let mut minimum = hot_node_get(func, node_id).order
+  let node = hot_node_get(func, node_id)
+  // The collector carries only nonpure results. Pure leaves and void nodes
+  // cannot contribute their own order; every operand is still visited below.
+  let pure_leaf = match node.op {
+    HotOp::Const | HotOp::RefNull | HotOp::RefFunc =>
+      effects_mask_for_flags(node.flags) == 0U
+    _ => false
+  }
+  let mut minimum = if pure_leaf || hot_node_result_arity(func, node_id) == 0 {
+    hot_node_count(func)
+  } else {
+    node.order
+  }
   for child in hot_lower_impl_input_info(func, node_id).nodes {
     minimum = minimum.min(
       cfg_operand_minimum_order(func, child, minima, visits~),
@@ -373,7 +385,7 @@ fn cfg_operand_minimum_order(
 fn cfg_region_may_need_source_order(
   func : HotFunc,
   roots : Array[NodeId],
-  minima : Array[Int],
+  minima : Array[Int32],
 ) -> Bool {
   let mut previous_order = 0
   for root in roots {
@@ -392,8 +404,8 @@ fn cfg_region_may_need_source_order(
 // primitive row instead of growing an empty array one node at a time.
 fn cfg_copy_segment_nodes(
   nodes : Array[NodeId],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[NodeId] {
   if end == start + 1 {
     [nodes[start]]
@@ -407,14 +419,14 @@ fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
   region_ref : HotRegionRef,
-  handler_target? : BlockId? = None,
+  handler_target~ : BlockId? = None,
 ) -> CfgRegionSegments {
   let segments = CfgRegionSegments::new()
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)
   let expanded = builder.operand_seen is Some(_)
   let ordered_nodes : Array[NodeId] = []
-  let root_slots : Array[Int] = []
+  let root_slots : Array[Int32] = []
   let roots : Array[NodeId] = []
   if expanded {
     for slot = 0; slot < root_count; slot = slot + 1 {
@@ -422,25 +434,27 @@ fn cfg_builder_region_segments(
     }
   }
   let facts = if expanded && root_count > 1 {
-    match builder.source_order {
-      Some(facts) => Some(facts)
+    let minima = match builder.operand_minima {
+      Some(minima) => minima
       None => {
-        let minima = match builder.operand_minima {
-          Some(minima) => minima
-          None => {
-            let minima = Array::make(hot_node_count(func), -1)
-            builder.operand_minima = Some(minima)
-            minima
-          }
-        }
-        if cfg_region_may_need_source_order(func, roots, minima) {
+        let minima = Array::make(hot_node_count(func), -1)
+        builder.operand_minima = Some(minima)
+        minima
+      }
+    }
+    // Facts from an earlier region do not establish a dependency here.
+    // Reuse the immutable operand minima to prove each region separately.
+    if cfg_region_may_need_source_order(func, roots, minima) {
+      match builder.source_order {
+        Some(facts) => Some(facts)
+        None => {
           let facts = HotSourceOrderFacts::new(func)
           builder.source_order = Some(facts)
           Some(facts)
-        } else {
-          None
         }
       }
+    } else {
+      None
     }
   } else {
     None
@@ -581,10 +595,10 @@ fn cfg_builder_collect_inline_entry(
   builder : CfgBuilder,
   func : HotFunc,
   node_id : NodeId,
-  root_slot : Int,
+  root_slot : Int32,
   occurrence_seen : @set.Set[NodeId],
   nodes : Array[NodeId],
-  root_slots : Array[Int],
+  root_slots : Array[Int32],
 ) -> Unit {
   if node_id < 0 || occurrence_seen.contains(node_id) {
     return
@@ -674,10 +688,10 @@ fn cfg_builder_collect_loop_entries(
   builder : CfgBuilder,
   func : HotFunc,
   node : HotNode,
-  root_slot : Int,
+  root_slot : Int32,
   seen : Array[Bool],
   nodes : Array[NodeId],
-  root_slots : Array[Int],
+  root_slots : Array[Int32],
 ) -> Unit {
   let count = hot_label_branch_arity(func, node.imm0)
   let mut slot = 0
@@ -718,10 +732,10 @@ fn cfg_builder_collect_operand_nodes(
   builder : CfgBuilder,
   func : HotFunc,
   node_id : NodeId,
-  root_slot : Int,
+  root_slot : Int32,
   seen : Array[Bool],
   nodes : Array[NodeId],
-  root_slots : Array[Int],
+  root_slots : Array[Int32],
 ) -> Unit {
   if node_id < 0 || !hot_node_is_live(func, node_id) || seen[node_id] {
     return
@@ -777,7 +791,7 @@ fn cfg_builder_region_build_empty(
 fn cfg_builder_maybe_continuation(
   builder : CfgBuilder,
   region_ref : HotRegionRef,
-  slot : Int,
+  slot : Int32,
   next_block : BlockId?,
 ) -> (BlockId?, Bool) {
   match next_block {
@@ -915,7 +929,7 @@ fn cfg_builder_process_block(
   func : HotFunc,
   region_ref : HotRegionRef,
   segments : CfgRegionSegments,
-  segment_idx : Int,
+  segment_idx : Int32,
   handler_target : BlockId?,
   exits : Array[BlockId],
 ) -> Unit {
@@ -1333,7 +1347,7 @@ fn cfg_builder_build_region(
   func : HotFunc,
   region_ref : HotRegionRef,
   handler_target : BlockId?,
-  force_entry? : Bool = false,
+  force_entry~ : Bool = false,
 ) -> CfgRegionBuild {
   if hot_region_root_count(func, region_ref) == 0 {
     return cfg_builder_region_build_empty(builder, region_ref, force_entry)
@@ -1357,7 +1371,7 @@ fn cfg_builder_build_region(
 }
 
 ///|
-fn cfg_edge_kind_bit(kind : CfgEdgeKind) -> UInt {
+fn cfg_edge_kind_bit(kind : CfgEdgeKind) -> UInt32 {
   match kind {
     FallthroughEdge => 1U
     BranchEdge => 2U
@@ -1462,7 +1476,7 @@ fn cfg_indexed_edge_symmetry_error(cfg : HotCfg) -> String? {
 ///|
 fn cfg_verify(
   cfg : HotCfg,
-  node_membership_visits? : Array[Int]? = None,
+  node_membership_visits~ : Array[Int32]? = None,
 ) -> Unit {
   let listed = if cfg.blocks.any(fn(block) { block.nodes.length() > 8 }) {
     let seen = Array::make(cfg.node_to_block.length(), false)
@@ -1570,8 +1584,8 @@ fn cfg_verify(
 ///|
 pub fn cfg_build(
   func : HotFunc,
-  conservative_exception_entries? : Bool = true,
-  expand_operand_control? : Bool = false,
+  conservative_exception_entries~ : Bool = true,
+  expand_operand_control~ : Bool = false,
 ) -> HotCfg {
   hot_verify_all_or_abort(func)
   let builder = cfg_builder_new(
@@ -1611,7 +1625,7 @@ pub fn cfg_build(
 }
 
 ///|
-pub fn cfg_block_count(cfg : HotCfg) -> Int {
+pub fn cfg_block_count(cfg : HotCfg) -> Int32 {
   cfg.blocks.length()
 }
 
@@ -1647,7 +1661,7 @@ pub fn cfg_block_for_node(cfg : HotCfg, node_id : NodeId) -> BlockId? {
 pub fn cfg_block_for_region_root(
   cfg : HotCfg,
   region_ref : HotRegionRef,
-  slot : Int,
+  slot : Int32,
 ) -> BlockId? {
   let region_holder = cfg_builder_region_holder(region_ref)
   for entry in cfg.region_roots {
@@ -1672,7 +1686,7 @@ pub fn cfg_region_root_can_reach_next(
   func : HotFunc,
   cfg : HotCfg,
   region_ref : HotRegionRef,
-  slot : Int,
+  slot : Int32,
 ) -> Bool {
   let fallback = fn() {
     if slot < 0 || slot + 1 >= hot_region_root_count(func, region_ref) {

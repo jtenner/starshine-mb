@@ -84,7 +84,7 @@ fn liveness_require_block_sets_shape(
   cfg : HotCfg,
   block_defs : Array[Bitset],
   block_uses : Array[Bitset],
-) -> Int {
+) -> Int32 {
   if block_defs.length() != cfg_block_count(cfg) ||
     block_uses.length() != cfg_block_count(cfg) {
     abort(
@@ -164,7 +164,7 @@ fn liveness_build_from_block_sets(
 pub fn liveness_build(
   cfg : HotCfg,
   use_def : HotUseDef,
-  include_exceptional_edges? : Bool = false,
+  include_exceptional_edges~ : Bool = false,
 ) -> HotLiveness {
   liveness_build_from_block_sets(
     cfg,
@@ -181,7 +181,7 @@ pub fn liveness_build(
 pub fn liveness_build_from_func(
   func : HotFunc,
   cfg : HotCfg,
-  include_exceptional_edges? : Bool = false,
+  include_exceptional_edges~ : Bool = false,
 ) -> HotLiveness {
   let (block_defs, block_uses, _) = use_def_build_block_sets(func, cfg)
   liveness_build_from_block_sets(

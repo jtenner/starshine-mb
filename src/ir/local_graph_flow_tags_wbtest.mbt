@@ -1,8 +1,8 @@
 ///|
 fn flow_tag_fixture(
-  count : Int,
+  count : Int32,
   immutable : Bool,
-  extra? : Bool = false,
+  extra~ : Bool = false,
 ) -> (HotFunc, HotCfg, Array[NodeId], NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),

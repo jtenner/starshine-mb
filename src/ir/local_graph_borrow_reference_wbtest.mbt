@@ -2,10 +2,10 @@
 fn local_graph_borrow_reference_merge(
   cfg : HotCfg,
   block_id : BlockId,
-  local_count : Int,
-  out_states : Array[Array[Array[Int]]],
+  local_count : Int32,
+  out_states : Array[Array[Array[Int32]]],
   include_exceptional : Bool,
-) -> Array[Array[Int]] {
+) -> Array[Array[Int32]] {
   let merged = local_graph_empty_state(local_count)
   for pred in cfg_predecessor_edges(cfg, block_id) {
     if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
@@ -24,9 +24,9 @@ fn local_graph_borrow_reference_merge(
 
 ///|
 fn local_graph_borrow_reference_join(
-  lhs : Array[Int],
-  rhs : Array[Int],
-) -> Array[Int] {
+  lhs : Array[Int32],
+  rhs : Array[Int32],
+) -> Array[Int32] {
   if lhs.is_empty() {
     return rhs
   }

@@ -2,7 +2,7 @@
 fn hot_intern_type(
   func : HotFunc,
   info : HotTypeInfo,
-  key_formats? : Array[Int]? = None,
+  key_formats~ : Array[Int32]? = None,
 ) -> TypeId {
   // Common functions have only a few result shapes. Structural comparison
   // avoids allocating a rendered key on repeated tuple/control queries.
@@ -125,7 +125,7 @@ fn hot_type_block_result_values(block_type : BlockType) -> Array[ValType] {
 }
 
 ///|
-pub fn hot_type_result_arity(func : HotFunc, type_id : TypeId) -> Int {
+pub fn hot_type_result_arity(func : HotFunc, type_id : TypeId) -> Int32 {
   hot_type_result_arity_impl(func, type_id, None)
 }
 
@@ -134,8 +134,8 @@ pub fn hot_type_result_arity(func : HotFunc, type_id : TypeId) -> Int {
 fn hot_type_result_arity_impl(
   func : HotFunc,
   type_id : TypeId,
-  copied_values : Array[Int]?,
-) -> Int {
+  copied_values : Array[Int32]?,
+) -> Int32 {
   // Counting results does not require the owned arrays returned by
   // hot_type_results. Keep its unresolved-block error behavior unchanged.
   ignore(copied_values)
@@ -175,17 +175,17 @@ pub fn hot_type_results(func : HotFunc, type_id : TypeId) -> Array[ValType] {
 }
 
 ///|
-pub fn hot_param_count(func : HotFunc) -> Int {
+pub fn hot_param_count(func : HotFunc) -> Int32 {
   func.locals.param_count
 }
 
 ///|
-pub fn hot_local_count(func : HotFunc) -> Int {
+pub fn hot_local_count(func : HotFunc) -> Int32 {
   hot_param_count(func) + func.locals.locals.length()
 }
 
 ///|
-pub fn hot_local_type(func : HotFunc, local_id : Int) -> ValType? {
+pub fn hot_local_type(func : HotFunc, local_id : Int32) -> ValType? {
   if local_id < 0 {
     return None
   }

@@ -1,7 +1,7 @@
 ///|
 fn lower_stack_value_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
   read : Bool,
 ) -> Unit {

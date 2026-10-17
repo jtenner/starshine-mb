@@ -1,8 +1,8 @@
 ///|
 fn local_graph_worklist_benchmark(
   it : @bench.T,
-  reads : Int,
-  locals : Int,
+  reads : Int32,
+  locals : Int32,
   expanded : Bool,
   reference : Bool,
 ) -> Unit {

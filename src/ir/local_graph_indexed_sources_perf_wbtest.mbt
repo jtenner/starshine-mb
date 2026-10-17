@@ -1,8 +1,8 @@
 ///|
 fn local_graph_indexed_sources_bench(
   it : @bench.T,
-  writes : Int,
-  reads : Int,
+  writes : Int32,
+  reads : Int32,
   indexed : Bool,
 ) -> Unit {
   let wat = ["(module (func (param i32) (local i32)"]

@@ -245,7 +245,7 @@ fn cfg_test_block_reaches(cfg : HotCfg, from : BlockId, to : BlockId) -> Bool {
 ///|
 fn cfg_test_try_table_unmatched_fixture(
   inner_catches : Array[HotCatchArm],
-  thrown_tag : UInt,
+  thrown_tag : UInt32,
 ) -> (HotFunc, NodeId, NodeId, NodeId) {
   let func = HotFunc::new()
   let enclosing = hot_build_block(func, @lib.BlockType::void_(), [])

@@ -2,7 +2,7 @@
 // Frozen boxed v13 metadata for field and allocation controls.
 priv struct CfgSegmentBoxedReference {
   block_id : BlockId
-  end_slot : Int
+  end_slot : Int32
   last_node : NodeId
 }
 
@@ -21,7 +21,7 @@ fn cfg_segment_storage_reference(
   let root_count = hot_region_root_count(func, region_ref)
   let expanded = builder.operand_seen is Some(_)
   let ordered_nodes : Array[NodeId] = []
-  let root_slots : Array[Int] = []
+  let root_slots : Array[Int32] = []
   let roots : Array[NodeId] = []
   let suffix_minima = match builder.source_order {
     Some(facts) => {
@@ -152,7 +152,7 @@ test "CFG segment arena growth preserves earlier entries and empty regions" {
 }
 
 ///|
-fn cfg_segment_storage_fixture(count : Int) -> HotFunc {
+fn cfg_segment_storage_fixture(count : Int32) -> HotFunc {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   for i in 0..<count {
     let write = hot_build_local_set(

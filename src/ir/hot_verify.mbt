@@ -3,21 +3,21 @@ pub enum HotVerifyError {
   InvalidBodyResultType(TypeId)
   MissingTypeKey(TypeId, String)
   MismatchedTypeKey(TypeId, String, TypeId)
-  InvalidRoot(Int, NodeId)
+  InvalidRoot(Int32, NodeId)
   InvalidNodeType(NodeId, TypeId)
-  InvalidNodeFlags(NodeId, UInt, UInt)
-  InvalidChildSpan(NodeId, Int, Int)
-  InvalidChildRef(NodeId, Int, NodeId)
+  InvalidNodeFlags(NodeId, UInt32, UInt32)
+  InvalidChildSpan(NodeId, Int32, Int32)
+  InvalidChildRef(NodeId, Int32, NodeId)
   InvalidLabelResultType(LabelId, TypeId)
   InvalidLabelOwner(LabelId, NodeId)
   InvalidLabelOwnerKind(LabelId, HotLabelKind, HotOp)
   InvalidControlLabel(NodeId, LabelId)
   InvalidSideTableRef(NodeId, HotSideTableKind, SideTableId)
-  InvalidControlChildCount(NodeId, Int, Int)
-  InvalidControlChild(NodeId, Int, NodeId)
+  InvalidControlChildCount(NodeId, Int32, Int32)
+  InvalidControlChild(NodeId, Int32, NodeId)
   InvalidCatchPayload(NodeId, String)
   InvalidBranchTarget(NodeId, LabelId)
-  InvalidBranchArity(NodeId, LabelId, Int, Int)
+  InvalidBranchArity(NodeId, LabelId, Int32, Int32)
   InvalidCfgEntry(BlockId)
   InvalidCfgExit(BlockId)
   InvalidCfgBlockId(BlockId, BlockId)
@@ -25,28 +25,28 @@ pub enum HotVerifyError {
   InvalidCfgEdgeSymmetry(BlockId, CfgEdge)
   InvalidCfgNodeMapping(NodeId, BlockId)
   InvalidCfgBlockNode(BlockId, NodeId)
-  InvalidCfgRegionRoot(NodeId, Int, BlockId)
-  InvalidCfgShape(String, Int, Int)
+  InvalidCfgRegionRoot(NodeId, Int32, BlockId)
+  InvalidCfgShape(String, Int32, Int32)
   InvalidDomEntry(BlockId, BlockId)
-  InvalidDomShape(String, Int, Int)
+  InvalidDomShape(String, Int32, Int32)
   InvalidDomReachable(BlockId)
   InvalidDomIdom(BlockId, BlockId)
   InvalidDomChild(BlockId, BlockId)
   InvalidDomFrontier(BlockId, BlockId)
-  InvalidSsaRevision(Int, Int)
-  InvalidSsaShape(String, Int, Int)
+  InvalidSsaRevision(Int32, Int32)
+  InvalidSsaShape(String, Int32, Int32)
   InvalidSsaValue(SsaValueId)
   InvalidSsaPhi(PhiId)
   InvalidSsaLocal(LocalId)
   InvalidSsaNode(NodeId)
   InvalidSsaValueOrigin(SsaValueId, HotSsaValueOrigin)
   InvalidSsaPhiInput(PhiId, BlockId, SsaValueId)
-  InvalidSsaPhiAlignment(PhiId, BlockId, Int, Int)
+  InvalidSsaPhiAlignment(PhiId, BlockId, Int32, Int32)
   InvalidSsaType(SsaValueId, ValType, ValType)
   InvalidSsaUse(SsaValueId, HotSsaUseOrigin)
   InvalidSsaDominance(SsaValueId, BlockId, BlockId)
   InvalidAnalysisOwner
-  InvalidAnalysisRevision(HotAnalysis, Int, Int)
+  InvalidAnalysisRevision(HotAnalysis, Int32, Int32)
   InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, Debug)
 
@@ -96,7 +96,7 @@ fn hot_verify_region_holder(func : HotFunc, node_id : NodeId) -> Bool {
 }
 
 ///|
-fn hot_verify_branch_payload_arity(func : HotFunc, node_id : NodeId) -> Int? {
+fn hot_verify_branch_payload_arity(func : HotFunc, node_id : NodeId) -> Int32? {
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::Br | HotOp::Delegate => Some(node.child_count)
@@ -163,7 +163,7 @@ fn hot_verify_branch_target(
   func : HotFunc,
   node_id : NodeId,
   target : LabelId,
-  actual_arity : Int,
+  actual_arity : Int32,
 ) -> Result[Unit, HotVerifyError] {
   if target != HOT_IMPLICIT_FUNCTION_LABEL &&
     !hot_verify_label_id_is_valid(func, target) {
@@ -193,7 +193,7 @@ fn hot_verify_branch_targets(
   func : HotFunc,
   node_id : NodeId,
   targets : Array[LabelId],
-  actual_arity : Int,
+  actual_arity : Int32,
 ) -> Result[Unit, HotVerifyError] {
   for target in targets {
     match hot_verify_branch_target(func, node_id, target, actual_arity) {
@@ -212,7 +212,7 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
 ///|
 fn hot_verify_core_impl(
   func : HotFunc,
-  postorder? : Array[NodeId]? = None,
+  postorder~ : Array[NodeId]? = None,
 ) -> Result[Unit, HotVerifyError] {
   if !hot_verify_type_id_is_valid(func, hot_body_result_type(func)) {
     return Err(
@@ -386,9 +386,11 @@ fn hot_verify_child_graph(
   func : HotFunc,
   postorder : Array[NodeId]?,
 ) -> Result[Unit, HotVerifyError] {
+  // Core admission has checked every live node span and child reference.
+  // This traversal only reads the arena, including live detached nodes.
   let marks = Array::make(hot_node_count(func), b'\x00')
   let nodes : Array[NodeId] = []
-  let slots : Array[Int] = []
+  let slots : Array[Int32] = []
   for start in 0..<hot_node_count(func) {
     if !hot_node_is_live(func, start) || marks[start] != b'\x00' {
       continue
@@ -399,7 +401,7 @@ fn hot_verify_child_graph(
     while !nodes.is_empty() {
       let top = nodes.length() - 1
       let current = nodes[top]
-      let node = hot_node_get(func, current)
+      let node = func.nodes[current]
       let slot = slots[top]
       if slot == node.child_count {
         marks[current] = b'\x02'
@@ -411,7 +413,7 @@ fn hot_verify_child_graph(
         continue
       }
       slots[top] = slot + 1
-      let child = hot_child_get(func, current, slot)
+      let child = func.children[node.child_base + slot]
       if child == HOT_NONE_NODE {
         continue
       }
@@ -431,13 +433,13 @@ fn hot_verify_child_graph(
 ///|
 priv struct HotVerifyLabelScopes {
   parents : Array[LabelId]
-  depths : Array[Int]
-  levels : Int
+  depths : Array[Int32]
+  levels : Int32
   mut jumps : Array[LabelId]?
 }
 
 ///|
-fn HotVerifyLabelScopes::new(count : Int) -> HotVerifyLabelScopes {
+fn HotVerifyLabelScopes::new(count : Int32) -> HotVerifyLabelScopes {
   let mut levels = 1
   let mut size = count
   while size > 1 {
@@ -458,7 +460,7 @@ fn HotVerifyLabelScopes::new(count : Int) -> HotVerifyLabelScopes {
 fn HotVerifyLabelScopes::jump(
   self : HotVerifyLabelScopes,
   label : LabelId,
-  level : Int,
+  level : Int32,
 ) -> LabelId {
   if label < 0 {
     return -1
@@ -530,7 +532,7 @@ fn HotVerifyLabelScopes::common(
 fn hot_verify_scope_body_slot(
   func : HotFunc,
   node : HotNode,
-  slot : Int,
+  slot : Int32,
 ) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
@@ -546,6 +548,8 @@ fn hot_verify_branch_scopes(
   func : HotFunc,
   postorder : Array[NodeId],
 ) -> Result[Unit, HotVerifyError] {
+  // Successful core verification supplies a live postorder and valid spans.
+  // No node or child storage changes while lexical scopes are checked.
   let contexts = Array::make(hot_node_count(func), -3)
   for root in func.roots {
     contexts[root] = -1
@@ -559,8 +563,12 @@ fn hot_verify_branch_scopes(
     if context == -3 {
       continue
     }
-    let node = hot_node_get(func, node_id)
-    let label = hot_control_node_label(func, node_id)
+    let node = func.nodes[node_id]
+    let label = match node.op {
+      HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
+        node.imm0
+      _ => -1
+    }
     let active = if label >= 0 &&
       hot_label_kind(func, label) != HotLabelKind::RegionLabel {
       scopes.parents[label] = context
@@ -574,7 +582,7 @@ fn hot_verify_branch_scopes(
       context
     }
     for slot in 0..<node.child_count {
-      let child = hot_child_get(func, node_id, slot)
+      let child = func.children[node.child_base + slot]
       if child < 0 {
         continue
       }
@@ -600,7 +608,7 @@ fn hot_verify_branch_scopes(
   }
   let starts = Array::make(count, -1)
   let ends = Array::make(count, -1)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   let mut root = heads[0]
   let mut clock = 0
   while root >= 0 || !stack.is_empty() {
@@ -627,7 +635,7 @@ fn hot_verify_branch_scopes(
       return Ok(())
     }
     let context = contexts[node_id]
-    if hot_query_op(func, node_id) == HotOp::Delegate && context == target {
+    if func.nodes[node_id].op == HotOp::Delegate && context == target {
       return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
     }
     if context < 0 ||
@@ -642,7 +650,7 @@ fn hot_verify_branch_scopes(
     if contexts[node_id] == -3 {
       continue
     }
-    let node = hot_node_get(func, node_id)
+    let node = func.nodes[node_id]
     match node.op {
       HotOp::BrTable => {
         for target in hot_branch_table_targets_for_node(func, node_id) {
@@ -678,13 +686,18 @@ fn hot_verify_branch_scopes(
             Err(err) => return Err(err)
           }
         }
-      _ =>
-        if hot_branch_target(func, node_id) is Some(target) {
-          match check(node_id, target) {
-            Ok(_) => ()
-            Err(err) => return Err(err)
-          }
+      HotOp::Br
+      | HotOp::BrIf
+      | HotOp::BrOnNull
+      | HotOp::BrOnNonNull
+      | HotOp::BrOnCast
+      | HotOp::BrOnCastFail
+      | HotOp::Delegate =>
+        match check(node_id, node.imm0) {
+          Ok(_) => ()
+          Err(err) => return Err(err)
         }
+      _ => ()
     }
   }
   Ok(())
@@ -833,8 +846,8 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
 ///|
 fn hot_verify_control_impl(
   func : HotFunc,
-  catch_layout_calls? : Array[Int]? = None,
-  core_verification_calls? : Array[Int]? = None,
+  catch_layout_calls~ : Array[Int32]? = None,
+  core_verification_calls~ : Array[Int32]? = None,
 ) -> Result[Unit, HotVerifyError] {
   match core_verification_calls {
     Some(calls) => calls[0] = calls[0] + 1
@@ -862,12 +875,14 @@ fn hot_verify_control_impl(
     Err(err) => return Err(err)
   }
 
+  // Core verification above admits all live nodes, spans, and child refs.
+  // Keep control-shape and sentinel checks in their original order.
   let mut needs_catch_layout = false
   for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
       continue
     }
-    let node = hot_node_get(func, node_id)
+    let node = func.nodes[node_id]
     match node.op {
       HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
         match hot_verify_control_label_kind(func, node_id, node) {
@@ -880,7 +895,7 @@ fn hot_verify_control_impl(
     match node.op {
       HotOp::Block | HotOp::Loop => {
         for slot = 0; slot < node.child_count; slot = slot + 1 {
-          let child_id = hot_child_get(func, node_id, slot)
+          let child_id = func.children[node.child_base + slot]
           if child_id == HOT_NONE_NODE {
             return Err(
               HotVerifyError::InvalidControlChild(node_id, slot, child_id),
@@ -908,7 +923,7 @@ fn hot_verify_control_impl(
             ),
           )
         }
-        let condition_id = hot_child_get(func, node_id, 0)
+        let condition_id = func.children[node.child_base]
         if condition_id == HOT_NONE_NODE ||
           !hot_node_is_live(func, condition_id) {
           return Err(
@@ -916,20 +931,20 @@ fn hot_verify_control_impl(
           )
         }
         for slot in 3..<node.child_count {
-          let entry = hot_child_get(func, node_id, slot)
+          let entry = func.children[node.child_base + slot]
           if entry == HOT_NONE_NODE || !hot_node_is_live(func, entry) {
             return Err(
               HotVerifyError::InvalidControlChild(node_id, slot, entry),
             )
           }
         }
-        let then_region = hot_child_get(func, node_id, 1)
+        let then_region = func.children[node.child_base + 1]
         if !hot_verify_region_holder(func, then_region) {
           return Err(
             HotVerifyError::InvalidControlChild(node_id, 1, then_region),
           )
         }
-        let else_region = hot_child_get(func, node_id, 2)
+        let else_region = func.children[node.child_base + 2]
         if else_region != HOT_NONE_NODE &&
           !hot_verify_region_holder(func, else_region) {
           return Err(
@@ -949,7 +964,7 @@ fn hot_verify_control_impl(
           )
         }
         for slot = 0; slot < 2; slot = slot + 1 {
-          let child_id = hot_child_get(func, node_id, slot)
+          let child_id = func.children[node.child_base + slot]
           if slot == 1 && child_id == HOT_NONE_NODE {
             continue
           }
@@ -992,7 +1007,7 @@ fn hot_verify_control_impl(
           )
         }
         for slot = 0; slot < 2; slot = slot + 1 {
-          let child_id = hot_child_get(func, node_id, slot)
+          let child_id = func.children[node.child_base + slot]
           if !hot_verify_region_holder(func, child_id) {
             return Err(
               HotVerifyError::InvalidControlChild(node_id, slot, child_id),
@@ -1051,7 +1066,7 @@ fn hot_verify_control_impl(
           | HotOp::BrOnNonNull
           | HotOp::BrOnCast
           | HotOp::BrOnCastFail => {
-            let guard_id = hot_child_get(func, node_id, node.child_count - 1)
+            let guard_id = func.children[node.child_base + node.child_count - 1]
             if guard_id == HOT_NONE_NODE || !hot_node_is_live(func, guard_id) {
               return Err(
                 HotVerifyError::InvalidControlChild(
@@ -1068,7 +1083,9 @@ fn hot_verify_control_impl(
             }
           }
           HotOp::BrTable => {
-            let selector_id = hot_child_get(func, node_id, node.child_count - 1)
+            let selector_id = func.children[node.child_base +
+              node.child_count -
+              1]
             if selector_id == HOT_NONE_NODE ||
               !hot_node_is_live(func, selector_id) {
               return Err(
@@ -1165,7 +1182,7 @@ fn hot_verify_cfg_block_contains_node(
 }
 
 ///|
-fn hot_verify_node_child_is_region_slot(node : HotNode, slot : Int) -> Bool {
+fn hot_verify_node_child_is_region_slot(node : HotNode, slot : Int32) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
     HotOp::Loop => true
@@ -2155,7 +2172,7 @@ pub fn hot_verify_cached_analyses(
 ///|
 pub fn[C] hot_verify_all(
   func : HotFunc,
-  cache? : C? = None,
+  cache~ : C? = None,
 ) -> Result[Unit, HotVerifyError] {
   let _ = cache
   hot_verify_all_impl(func)
@@ -2164,7 +2181,7 @@ pub fn[C] hot_verify_all(
 ///|
 fn hot_verify_all_impl(
   func : HotFunc,
-  core_verification_calls? : Array[Int]? = None,
+  core_verification_calls~ : Array[Int32]? = None,
 ) -> Result[Unit, HotVerifyError] {
   // Control verification begins with the complete core verifier. No mutation
   // separates the two original calls, so repeating core adds no checks and

@@ -72,7 +72,7 @@ fn hot_walk_push_live_node(
 // If keeps its historical condition/then/else slots, followed by typed entry
 // operands. Execution order is entries, condition, then the selected region.
 #inline
-fn hot_child_evaluation_slot(node : HotNode, index : Int) -> Int {
+fn hot_child_evaluation_slot(node : HotNode, index : Int32) -> Int32 {
   if node.op == HotOp::If && node.child_count > 3 {
     let entries = node.child_count - 3
     if index < entries {
@@ -100,7 +100,7 @@ fn hot_walk_push_children_reversed(
 pub fn[S, E] hot_for_each_root(
   func : HotFunc,
   initial : S,
-  visit : (S, Int, NodeId) -> HotVisitCtl[S, E],
+  visit : (S, Int32, NodeId) -> HotVisitCtl[S, E],
 ) -> Result[S, E] {
   let mut state = initial
   for idx = 0; idx < hot_root_count(func); idx = idx + 1 {
@@ -119,7 +119,7 @@ pub fn[S, E] hot_for_each_child(
   func : HotFunc,
   parent_id : NodeId,
   initial : S,
-  visit : (S, Int, NodeId) -> HotVisitCtl[S, E],
+  visit : (S, Int32, NodeId) -> HotVisitCtl[S, E],
 ) -> Result[S, E] {
   let mut state = initial
   for slot = 0; slot < hot_child_count(func, parent_id); slot = slot + 1 {
@@ -197,7 +197,7 @@ pub fn[S, E] hot_walk_region(
   func : HotFunc,
   region_id : NodeId,
   initial : S,
-  visit : (S, Int, NodeId) -> HotVisitCtl[S, E],
+  visit : (S, Int32, NodeId) -> HotVisitCtl[S, E],
 ) -> Result[S, E] {
   hot_for_each_child(func, region_id, initial, visit)
 }
@@ -207,7 +207,7 @@ pub fn[S, E] hot_rewrite_children_by_slot(
   func : HotFunc,
   parent_id : NodeId,
   initial : S,
-  rewrite : (S, NodeId, Int, NodeId) -> HotRewriteCtl[S, E],
+  rewrite : (S, NodeId, Int32, NodeId) -> HotRewriteCtl[S, E],
 ) -> Result[S, E] {
   let mut state = initial
   for slot = 0; slot < hot_child_count(func, parent_id); slot = slot + 1 {

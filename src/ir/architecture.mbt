@@ -64,14 +64,14 @@ pub impl Show for HotPassDescriptor with fn output(self, logger) {
 ///|
 pub fn HotPassDescriptor::new(
   name : String,
-  requires? : Array[HotAnalysis] = [],
-  invalidates? : Array[HotAnalysis] = [],
+  requires~ : Array[HotAnalysis] = [],
+  invalidates~ : Array[HotAnalysis] = [],
 ) -> HotPassDescriptor {
   { name, requires, invalidates, }
 }
 
 ///|
-pub fn hot_revision_current(func : HotFunc) -> Int {
+pub fn hot_revision_current(func : HotFunc) -> Int32 {
   func.revision
 }
 

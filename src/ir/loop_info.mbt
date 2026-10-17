@@ -15,8 +15,8 @@ pub struct HotLoopSummary {
   blocks : Array[BlockId]
   latches : Array[BlockId]
   exits : Array[HotLoopExit]
-  parent : Int
-  depth : Int
+  parent : Int32
+  depth : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -27,8 +27,8 @@ pub impl Show for HotLoopSummary with fn output(self, logger) {
 ///|
 pub struct HotLoopInfo {
   loops : Array[HotLoopSummary]
-  block_to_loop : Array[Int]
-  block_depth : Array[Int]
+  block_to_loop : Array[Int32]
+  block_depth : Array[Int32]
 } derive(Eq, Debug)
 
 ///|
@@ -140,7 +140,7 @@ fn loop_info_is_subset(lhs : Bitset, rhs : Bitset) -> Bool {
 }
 
 ///|
-fn loop_info_parent(temps : Array[LoopInfoTemp], loop_idx : Int) -> Int {
+fn loop_info_parent(temps : Array[LoopInfoTemp], loop_idx : Int32) -> Int32 {
   let mut parent = -1
   let mut parent_size = 1 << 30
   for idx = 0; idx < temps.length(); idx = idx + 1 {
@@ -160,7 +160,7 @@ fn loop_info_parent(temps : Array[LoopInfoTemp], loop_idx : Int) -> Int {
 }
 
 ///|
-fn loop_info_depths(parents : Array[Int]) -> Array[Int] {
+fn loop_info_depths(parents : Array[Int32]) -> Array[Int32] {
   let depths = Array::make(parents.length(), 0)
   for idx = 0; idx < parents.length(); idx = idx + 1 {
     let mut depth = 1
@@ -176,10 +176,10 @@ fn loop_info_depths(parents : Array[Int]) -> Array[Int] {
 
 ///|
 fn loop_info_block_mappings(
-  block_count : Int,
+  block_count : Int32,
   temps : Array[LoopInfoTemp],
-  depths : Array[Int],
-) -> (Array[Int], Array[Int]) {
+  depths : Array[Int32],
+) -> (Array[Int32], Array[Int32]) {
   let block_to_loop = Array::make(block_count, -1)
   let block_depth = Array::make(block_count, 0)
   for block_id = 0; block_id < block_count; block_id = block_id + 1 {
@@ -265,27 +265,27 @@ pub fn loop_info_build(cfg : HotCfg, dom : HotDominators) -> HotLoopInfo {
 }
 
 ///|
-pub fn loop_header(info : HotLoopInfo, loop_id : Int) -> BlockId {
+pub fn loop_header(info : HotLoopInfo, loop_id : Int32) -> BlockId {
   info.loops[loop_id].header
 }
 
 ///|
-pub fn loop_blocks(info : HotLoopInfo, loop_id : Int) -> Array[BlockId] {
+pub fn loop_blocks(info : HotLoopInfo, loop_id : Int32) -> Array[BlockId] {
   info.loops[loop_id].blocks.copy()
 }
 
 ///|
-pub fn loop_latches(info : HotLoopInfo, loop_id : Int) -> Array[BlockId] {
+pub fn loop_latches(info : HotLoopInfo, loop_id : Int32) -> Array[BlockId] {
   info.loops[loop_id].latches.copy()
 }
 
 ///|
-pub fn loop_exits(info : HotLoopInfo, loop_id : Int) -> Array[HotLoopExit] {
+pub fn loop_exits(info : HotLoopInfo, loop_id : Int32) -> Array[HotLoopExit] {
   info.loops[loop_id].exits.copy()
 }
 
 ///|
-pub fn loop_depth(info : HotLoopInfo, block_id : BlockId) -> Int {
+pub fn loop_depth(info : HotLoopInfo, block_id : BlockId) -> Int32 {
   if block_id < 0 || block_id >= info.block_depth.length() {
     abort("loop_depth requires a valid block id")
   }
@@ -293,7 +293,7 @@ pub fn loop_depth(info : HotLoopInfo, block_id : BlockId) -> Int {
 }
 
 ///|
-pub fn loop_for_block(info : HotLoopInfo, block_id : BlockId) -> Int? {
+pub fn loop_for_block(info : HotLoopInfo, block_id : BlockId) -> Int32? {
   if block_id < 0 || block_id >= info.block_to_loop.length() {
     abort("loop_for_block requires a valid block id")
   }

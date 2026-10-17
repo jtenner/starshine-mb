@@ -1,5 +1,7 @@
 ///|
-fn local_graph_ssa_summary_fixture(count : Int) -> (HotFunc, Array[Array[Int]]) {
+fn local_graph_ssa_summary_fixture(
+  count : Int32,
+) -> (HotFunc, Array[Array[Int32]]) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i32(),

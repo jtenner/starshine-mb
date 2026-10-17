@@ -1,6 +1,6 @@
 ///|
 fn source_order_write_free_fixture(
-  count : Int,
+  count : Int32,
   write : Bool,
 ) -> (HotFunc, Array[NodeId], NodeId) {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))

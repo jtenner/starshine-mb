@@ -1,20 +1,20 @@
 ///|
-pub type NodeId = Int
+pub type NodeId = Int32
 
 ///|
-pub type TypeId = Int
+pub type TypeId = Int32
 
 ///|
-pub type LocalId = Int
+pub type LocalId = Int32
 
 ///|
-pub type LabelId = Int
+pub type LabelId = Int32
 
 ///|
-pub type SideTableId = Int
+pub type SideTableId = Int32
 
 ///|
-pub type RootId = Int
+pub type RootId = Int32
 
 ///|
 pub enum HotOp {
@@ -145,13 +145,13 @@ pub fn HotOp::atomic_op() -> HotOp {
 pub struct HotNode {
   op : HotOp
   ty : TypeId
-  flags : UInt
+  flags : UInt32
   // Allocation order follows copied replacements; a storage slot does not.
-  order : Int
-  imm0 : Int
-  imm1 : Int
-  child_base : Int
-  child_count : Int
+  order : Int32
+  imm0 : Int32
+  imm1 : Int32
+  child_base : Int32
+  child_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -161,7 +161,7 @@ pub impl Show for HotNode with fn output(self, logger) {
 
 ///|
 pub struct HotLocals {
-  param_count : Int
+  param_count : Int32
   params : Array[ValType]
   locals : Array[ValType]
 } derive(Eq, Debug)
@@ -173,9 +173,9 @@ pub impl Show for HotLocals with fn output(self, logger) {
 
 ///|
 pub fn HotLocals::new(
-  param_count? : Int = 0,
-  params? : Array[ValType] = [],
-  locals? : Array[ValType] = [],
+  param_count~ : Int32 = 0,
+  params~ : Array[ValType] = [],
+  locals~ : Array[ValType] = [],
 ) -> HotLocals {
   if param_count != 0 && params.length() > 0 && param_count != params.length() {
     abort(
@@ -217,7 +217,7 @@ pub struct HotLabelInfo {
   kind : HotLabelKind
   result_type : TypeId
   owner : NodeId
-  branch_arity : Int
+  branch_arity : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -343,7 +343,7 @@ pub struct HotFunc {
   mut func_type_idx : TypeIdx?
   free_nodes : Array[NodeId]
   deleted_nodes : Array[Bool]
-  mut revision : Int
+  mut revision : Int32
   // Shared module type context, retained once per lifted function for verification.
   mut validation_env : @validate.Env?
   mut lifted_local_accesses : HotLiftLocalAccesses?
@@ -357,8 +357,8 @@ pub const HOT_IMPLICIT_FUNCTION_LABEL : LabelId = -2
 
 ///|
 pub fn HotFunc::new(
-  locals? : HotLocals = HotLocals::new(),
-  body_result_type? : TypeId = 0,
+  locals~ : HotLocals = HotLocals::new(),
+  body_result_type~ : TypeId = 0,
 ) -> HotFunc {
   let type_ids = @hashmap.new(capacity=16)
   type_ids.set(HotTypeInfo::VoidType.to_string(), 0)
@@ -391,17 +391,17 @@ pub fn HotFunc::new(
 }
 
 ///|
-pub fn hot_node_count(func : HotFunc) -> Int {
+pub fn hot_node_count(func : HotFunc) -> Int32 {
   func.nodes.length()
 }
 
 ///|
-pub fn hot_child_storage_count(func : HotFunc) -> Int {
+pub fn hot_child_storage_count(func : HotFunc) -> Int32 {
   func.children.length()
 }
 
 ///|
-pub fn hot_root_storage_count(func : HotFunc) -> Int {
+pub fn hot_root_storage_count(func : HotFunc) -> Int32 {
   func.roots.length()
 }
 
@@ -444,7 +444,7 @@ pub fn hot_node_is_live(func : HotFunc, node_id : NodeId) -> Bool {
 fn hot_node_is_live_impl(
   func : HotFunc,
   node_id : NodeId,
-  free_list_checks? : Array[Int]? = None,
+  free_list_checks~ : Array[Int32]? = None,
 ) -> Bool {
   if node_id < 0 || node_id >= func.nodes.length() {
     return false
@@ -482,9 +482,9 @@ pub fn hot_debug_dump_core(func : HotFunc) -> String {
 pub fn hot_make_simple_node(
   op : HotOp,
   ty : TypeId,
-  canonicalized_flags : UInt,
-  imm0 : Int,
-  imm1 : Int,
+  canonicalized_flags : UInt32,
+  imm0 : Int32,
+  imm1 : Int32,
   children : Array[NodeId],
 ) -> HotNode {
   // Flags are intentionally canonicalized from the opcode so callers cannot

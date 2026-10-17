@@ -1,7 +1,7 @@
 ///|
 // Compare identical CFG/source work; full graphs also publish writer and SSA
 // metadata. CFG construction is outside these solver-only controls.
-fn read_flow_perf_run(it : @bench.T, count : Int, full : Bool) -> Unit {
+fn read_flow_perf_run(it : @bench.T, count : Int32, full : Bool) -> Unit {
   let (func, cfg, _, _) = entry_read_fixture(count)
   it.bench(fn() {
     if full {

@@ -1,7 +1,9 @@
 ///|
 // A chain of conditional writes forces immutable selector reads to cross
 // earlier joins and unrelated writers in the original reverse solver.
-fn entry_read_fixture(count : Int) -> (HotFunc, HotCfg, Array[NodeId], NodeId) {
+fn entry_read_fixture(
+  count : Int32,
+) -> (HotFunc, HotCfg, Array[NodeId], NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )

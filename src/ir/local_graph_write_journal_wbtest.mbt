@@ -1,6 +1,6 @@
 ///|
 fn local_graph_write_journal_fixture(
-  width : Int,
+  width : Int32,
 ) -> (HotFunc, HotCfg, NodeId, NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(width, @lib.ValType::i32())),

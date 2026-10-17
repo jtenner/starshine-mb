@@ -22,8 +22,8 @@ fn cfg_order_push_root(
 fn cfg_order_postorder_from_roots(
   cfg : HotCfg,
   roots : Array[BlockId],
-  reverse? : Bool = false,
-  include_exceptional? : Bool = false,
+  reverse~ : Bool = false,
+  include_exceptional~ : Bool = false,
 ) -> Array[BlockId] {
   let visited = @bitset.BitSet::new(cfg_block_count(cfg))
   let stack : Array[(BlockId, Bool)] = []
@@ -62,8 +62,8 @@ fn cfg_order_postorder_from_roots(
 fn cfg_order_preorder_from_roots(
   cfg : HotCfg,
   roots : Array[BlockId],
-  reverse? : Bool = false,
-  include_exceptional? : Bool = false,
+  reverse~ : Bool = false,
+  include_exceptional~ : Bool = false,
 ) -> Array[BlockId] {
   let visited = Array::make(cfg_block_count(cfg), false)
   let stack : Array[BlockId] = []

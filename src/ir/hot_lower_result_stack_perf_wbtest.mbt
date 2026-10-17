@@ -12,7 +12,7 @@ fn lower_result_stack_reference(
 ///|
 fn lower_result_stack_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit raise {
   let func = HotFunc::new()

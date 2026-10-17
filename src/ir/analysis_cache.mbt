@@ -1,6 +1,6 @@
 ///|
 pub struct HotCacheEntry[T] {
-  built_at_revision : Int
+  built_at_revision : Int32
   value : T
 } derive(Eq, Debug)
 
@@ -55,7 +55,10 @@ pub fn HotAnalysisCache::new() -> HotAnalysisCache {
 }
 
 ///|
-fn[T] cache_entry_is_current(entry : HotCacheEntry[T]?, revision : Int) -> Bool {
+fn[T] cache_entry_is_current(
+  entry : HotCacheEntry[T]?,
+  revision : Int32,
+) -> Bool {
   match entry {
     Some(item) => item.built_at_revision == revision
     None => false

@@ -1,7 +1,7 @@
 ///|
 fn hot_lift_mask_fork_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let env = @validate.empty_env().with_locals(

@@ -7,8 +7,8 @@ fn hot_node_get_before_direct(func : HotFunc, id : NodeId) -> HotNode {
 ///|
 fn hot_node_get_direct_bench(
   it : @bench.T,
-  width : Int,
-  deleted : Int,
+  width : Int32,
+  deleted : Int32,
   incomplete : Bool,
   reference : Bool,
 ) -> Unit {

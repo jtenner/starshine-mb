@@ -1,8 +1,8 @@
 ///|
 fn local_graph_write_journal_bench(
   it : @bench.T,
-  width : Int,
-  count : Int,
+  width : Int32,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let (func, cfg, _, _) = local_graph_write_journal_fixture(width)

@@ -1,6 +1,6 @@
 ///|
 fn carried_vector_fixture(
-  count : Int,
+  count : Int32,
 ) -> (HotFunc, Array[NodeId], NodeId, Array[NodeId]) {
   let func = HotFunc::new()
   let calls = Array::makei(count, fn(i) {

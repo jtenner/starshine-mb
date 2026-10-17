@@ -1,5 +1,7 @@
 ///|
-fn single_writer_index_fixture(width : Int) -> (HotFunc, Array[NodeId], NodeId) {
+fn single_writer_index_fixture(
+  width : Int32,
+) -> (HotFunc, Array[NodeId], NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(width, @lib.ValType::i32())),
   )

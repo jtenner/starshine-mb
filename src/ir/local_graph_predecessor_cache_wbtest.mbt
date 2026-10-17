@@ -8,21 +8,21 @@ fn local_graph_predecessor_cache_reference_sources(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
-  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?],
+  last_writes : Array[@hashmap.HashMap[Int32, NodeId]?],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-  local_count : Int,
-  cache_slots? : Array[Int]? = None,
-) -> Array[Int] {
+  local_count : Int32,
+  cache_slots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
       // Completed rows are immutable; readers either borrow or copy on write.
       return sources
     }
   }
-  let sources : Array[Int] = []
+  let sources : Array[Int32] = []
   work.push(block_id)
   seen[block_id] = true
   visited.push(block_id)
@@ -82,8 +82,8 @@ fn local_graph_predecessor_cache_reference_sources(
 
 ///|
 fn local_graph_predecessor_cache_fixture(
-  reads : Int,
-  overwrite? : Bool = false,
+  reads : Int32,
+  overwrite~ : Bool = false,
 ) -> (HotFunc, HotCfg, Array[BlockId], Array[NodeId]) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
@@ -152,25 +152,25 @@ fn local_graph_predecessor_cache_queries(
   blocks : Array[BlockId],
   local_id : LocalId,
   reference : Bool,
-  include_exceptional? : Bool = true,
-) -> Array[Array[Int]] {
+  include_exceptional~ : Bool = true,
+) -> Array[Array[Int32]] {
   let actions = local_graph_reverse_action_sequences(func, cfg)
   let writes = local_graph_build_write_local_ids(func)
   let transparent = local_graph_reverse_transparent_predecessors(
     writes, cfg, actions, include_exceptional,
   )
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let last_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let last_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
   let seen = Array::make(cfg_block_count(cfg), false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
-  let rows : Array[Array[Int]] = []
+  let rows : Array[Array[Int32]] = []
   for block in blocks {
     rows.push(
       if reference {
@@ -227,7 +227,7 @@ test "candidate reverse queries share completed predecessor rows across read-onl
   assert_eq(rows[0].length(), 9)
   assert_true(physical_equal(rows[0], rows[1]))
   assert_true(physical_equal(rows[1], rows[2]))
-  let outputs : Array[Array[Int]] = [[], []]
+  let outputs : Array[Array[Int32]] = [[], []]
   let recorder = LocalGraphSourceRecorder::new(outputs)
   recorder.record(0, rows[0])
   recorder.record(1, rows[1])
@@ -346,11 +346,11 @@ test "candidate reverse query resolves a sole preceding write without traversal 
   let transparent = local_graph_reverse_transparent_predecessors(
     writes, cfg, actions, true,
   )
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let last_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let last_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
@@ -392,14 +392,14 @@ fn local_graph_predecessor_cache_candidate_sources(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
-  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?],
+  last_writes : Array[@hashmap.HashMap[Int32, NodeId]?],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-  local_count : Int,
-  cache_slots? : Array[Int]? = None,
-) -> Array[Int] {
+  local_count : Int32,
+  cache_slots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
       // Completed rows are immutable; readers either borrow or copy on write.
@@ -437,7 +437,7 @@ fn local_graph_predecessor_cache_candidate_sources(
   let sources = match resolved {
     Some(sources) => sources
     None => {
-      let sources : Array[Int] = []
+      let sources : Array[Int32] = []
       seen[block_id] = true
       visited.push(block_id)
       if first_predecessor >= 0 {

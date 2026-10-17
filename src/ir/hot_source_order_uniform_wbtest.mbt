@@ -1,7 +1,7 @@
 ///|
 fn source_order_uniform_fixture(
-  count : Int,
-  local : Int,
+  count : Int32,
+  local : Int32,
 ) -> (HotFunc, Array[NodeId], NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[

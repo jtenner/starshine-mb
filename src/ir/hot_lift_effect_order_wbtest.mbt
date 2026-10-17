@@ -5,7 +5,7 @@ test "lift first-effect queries visit only completed operands and retain no-effe
     ignore(hot_build_const_i32(func, @lib.I32(i)))
   }
   let value = hot_build_const_i32(func, @lib.I32(7))
-  let cache : Array[Int] = []
+  let cache : Array[Int32] = []
   let visits = [0]
   assert_eq(
     hot_lift_impl_first_effect_order(
@@ -53,7 +53,7 @@ test "lift first-effect queries preserve control boundaries and earliest input e
     hot_module_context_from_module(module),
   ).unwrap()
   let reference = hot_lower_impl_build_first_effect_orders(func)
-  let cache : Array[Int] = []
+  let cache : Array[Int32] = []
   for node = hot_node_count(func) - 1; node >= 0; node = node - 1 {
     assert_eq(
       hot_lift_impl_first_effect_order(func, node, cache),

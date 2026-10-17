@@ -1,7 +1,7 @@
 ///|
 fn cfg_fixed_workspace_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   expanded : Bool,
   reference : Bool,
 ) -> Unit {

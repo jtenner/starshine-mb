@@ -12,9 +12,9 @@ fn local_graph_influence_rows_before_sharing(
 ///|
 fn local_graph_influence_rows_bench(
   it : @bench.T,
-  nodes : Int,
-  density : Int,
-  observations : Int,
+  nodes : Int32,
+  density : Int32,
+  observations : Int32,
   reference : Bool,
 ) -> Unit {
   let writes_count = if density == 0 {
@@ -29,7 +29,7 @@ fn local_graph_influence_rows_bench(
   )
   let writes : Array[NodeId] = []
   let reads : Array[Array[NodeId]] = []
-  let sources : Array[Array[Int]] = []
+  let sources : Array[Array[Int32]] = []
   for local in 0..<writes_count {
     let write = hot_build_local_set(
       func,

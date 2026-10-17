@@ -20,7 +20,10 @@ test "HOT lowering preserves the entry operands of a parameterized if" {
 }
 
 ///|
-fn if_parameters_roundtrip(wat : String, func_index? : UInt = 0U) -> Unit raise {
+fn if_parameters_roundtrip(
+  wat : String,
+  func_index~ : UInt32 = 0U,
+) -> Unit raise {
   let module_ = @wast.wast_to_binary_module(wat).unwrap()
   @validate.validate_module(module_).unwrap()
   let func = hot_lift_func_with_context_result(
@@ -120,7 +123,7 @@ test "HOT parameterized if CFG evaluates entry calls before condition calls" {
   ).unwrap()
   let func = hot_lift_func(module_, @lib.FuncIdx::new(2U))
   let cfg = cfg_build(func, expand_operand_control=true)
-  let calls : Array[Int] = []
+  let calls : Array[Int32] = []
   for block in cfg.blocks {
     for id in block.nodes {
       let node = hot_node_get(func, id)

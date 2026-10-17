@@ -3,8 +3,8 @@
 fn lift_data_boxed_reference(
   instr : Instruction,
   tc_state : TcState,
-  concrete_before_types? : Array[ValType] = [],
-) -> Result[(TcState, Int, Array[ValType]), HotLiftError] {
+  concrete_before_types~ : Array[ValType] = [],
+) -> Result[(TcState, Int32, Array[ValType]), HotLiftError] {
   // The region owns this stack. Known arity only needs its old length, so the
   // ordinary typechecker can consume it directly. Generic inference below
   // retains its snapshot because it replays suffix candidates.
@@ -56,7 +56,7 @@ fn lift_data_boxed_reference(
 ///|
 fn lift_data_result_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   unreachable : Bool,
   before : Bool,
 ) -> Unit raise {

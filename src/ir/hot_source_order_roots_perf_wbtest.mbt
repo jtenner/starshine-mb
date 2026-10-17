@@ -1,5 +1,5 @@
 ///|
-fn source_order_roots_bench(it : @bench.T, count : Int) -> Unit {
+fn source_order_roots_bench(it : @bench.T, count : Int32) -> Unit {
   let (func, carried, barrier, future) = source_order_roots_fixture(count)
   let facts = HotSourceOrderFacts::new(func)
   let minima = hot_source_order_future_suffix_minima(func, future, facts)

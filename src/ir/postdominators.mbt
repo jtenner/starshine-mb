@@ -50,7 +50,7 @@ fn postdom_successors(
 
 ///|
 fn postdom_build_children(
-  block_count : Int,
+  block_count : Int32,
   ipdoms : Array[BlockId],
 ) -> Array[Array[BlockId]] {
   let children : Array[Array[BlockId]] = []

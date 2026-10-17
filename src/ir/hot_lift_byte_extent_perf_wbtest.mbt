@@ -1,7 +1,7 @@
 ///|
 fn lift_byte_extent_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   original : Bool,
 ) -> Unit raise {
   let func = HotFunc::new(

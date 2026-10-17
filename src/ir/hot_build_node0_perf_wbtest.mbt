@@ -1,5 +1,5 @@
 ///|
-fn node0_bench(it : @bench.T, kind : Int, before : Bool) -> Unit raise {
+fn node0_bench(it : @bench.T, kind : Int32, before : Bool) -> Unit raise {
   let (func, op, ty, imm0, imm1) = node0_fixture(kind)
   let expected = hot_build_node(func, op, ty, imm0~, imm1~)
   let actual = hot_build_node0(func, op, ty, imm0~, imm1~)

@@ -1,7 +1,7 @@
 ///|
 fn lift_typecheck_result_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let env = @validate.empty_env()

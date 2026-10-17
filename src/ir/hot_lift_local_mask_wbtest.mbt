@@ -1,5 +1,5 @@
 ///|
-fn hot_lift_local_mask_fixture(depth : Int) -> (HotFunc, NodeId) {
+fn hot_lift_local_mask_fixture(depth : Int32) -> (HotFunc, NodeId) {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(128, @lib.ValType::i32())),
   )

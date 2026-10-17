@@ -84,7 +84,7 @@ test "hot lowering keeps call order after replacing drop roots" {
     ignore(hot_root_set(func, index, hot_build_drop(func, call)))
   }
   let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(func)
-  let calls : Array[UInt] = []
+  let calls : Array[UInt32] = []
   for instr in body {
     match instr {
       @lib.Call(@lib.FuncIdx(index)) => calls.push(index)
@@ -134,7 +134,7 @@ test "hot lowering reuses a carried call below another constructor operand" {
   hot_replace_node(func, set_id, hot_node_get(func, nop))
   hot_delete_node(func, nop)
   let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(func)
-  let calls : Array[UInt] = []
+  let calls : Array[UInt32] = []
   for instr in body {
     match instr {
       @lib.Call(@lib.FuncIdx(index)) => calls.push(index)

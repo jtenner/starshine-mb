@@ -7,19 +7,19 @@ struct HotWalkSkipState {
 ///|
 struct HotRewriteState {
   replacement : NodeId
-  touched_slots : Array[Int]
+  touched_slots : Array[Int32]
 } derive(Eq, Debug)
 
 ///|
 struct HotControlWalkState {
-  slots : Array[Int]
+  slots : Array[Int32]
   region_ids : Array[NodeId]
 } derive(Eq, Debug)
 
 ///|
 fn hot_walk_collect_root(
   state : Array[NodeId],
-  _root_idx : Int,
+  _root_idx : Int32,
   node_id : NodeId,
 ) -> HotVisitCtl[Array[NodeId], String] {
   let next = state.copy()
@@ -30,7 +30,7 @@ fn hot_walk_collect_root(
 ///|
 fn hot_walk_collect_child(
   state : Array[NodeId],
-  _slot : Int,
+  _slot : Int32,
   node_id : NodeId,
 ) -> HotVisitCtl[Array[NodeId], String] {
   let next = state.copy()
@@ -66,7 +66,7 @@ fn hot_walk_skip_node(
 ///|
 fn hot_walk_stop_after_first_root(
   state : Array[NodeId],
-  _root_idx : Int,
+  _root_idx : Int32,
   node_id : NodeId,
 ) -> HotVisitCtl[Array[NodeId], String] {
   let next = state.copy()
@@ -92,7 +92,7 @@ fn hot_walk_collect_control_region(
 fn hot_walk_rewrite_if_children(
   state : HotRewriteState,
   _parent_id : NodeId,
-  slot : Int,
+  slot : Int32,
   _child_id : NodeId,
 ) -> HotRewriteCtl[HotRewriteState, String] {
   let next_slots = state.touched_slots.copy()

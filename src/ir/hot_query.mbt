@@ -152,7 +152,7 @@ pub fn hot_node_type(func : HotFunc, node_id : NodeId) -> TypeId {
 }
 
 ///|
-pub fn hot_node_result_arity(func : HotFunc, node_id : NodeId) -> Int {
+pub fn hot_node_result_arity(func : HotFunc, node_id : NodeId) -> Int32 {
   hot_type_result_arity(func, hot_node_type(func, node_id))
 }
 
@@ -442,7 +442,7 @@ pub fn hot_region_holder_block_label(
 pub fn hot_region_split_trailing_payload_roots(
   func : HotFunc,
   region_ref : HotRegionRef,
-  result_arity : Int,
+  result_arity : Int32,
 ) -> (Array[NodeId], Array[NodeId])? {
   hot_split_trailing_payload_roots(
     func,
@@ -455,7 +455,7 @@ pub fn hot_region_split_trailing_payload_roots(
 pub fn hot_split_trailing_payload_roots(
   func : HotFunc,
   roots : Array[NodeId],
-  result_arity : Int,
+  result_arity : Int32,
 ) -> (Array[NodeId], Array[NodeId])? {
   if result_arity <= 0 {
     return Some((roots, []))
@@ -631,12 +631,12 @@ pub fn hot_child_span(func : HotFunc, node_id : NodeId) -> Array[NodeId] {
 }
 
 ///|
-pub fn hot_local_param_count(func : HotFunc) -> Int {
+pub fn hot_local_param_count(func : HotFunc) -> Int32 {
   hot_param_count(func)
 }
 
 ///|
-pub fn hot_local_body_count(func : HotFunc) -> Int {
+pub fn hot_local_body_count(func : HotFunc) -> Int32 {
   hot_local_count(func) - hot_local_param_count(func)
 }
 

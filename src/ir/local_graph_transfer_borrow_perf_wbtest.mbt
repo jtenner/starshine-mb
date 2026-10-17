@@ -3,11 +3,11 @@ fn local_graph_transfer_block_reference(
   func : HotFunc,
   cfg : HotCfg,
   block_id : BlockId,
-  in_state : Array[Array[Int]],
+  in_state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
-  tuple_slots? : Array[Int]? = None,
-) -> Array[Array[Int]] {
+  tuple_slots~ : Array[Int32]? = None,
+) -> Array[Array[Int32]] {
   if cfg_block_get(cfg, block_id).nodes.is_empty() {
     return in_state
   }
@@ -55,8 +55,8 @@ fn local_graph_transfer_block_reference(
 fn local_graph_transfer_borrow_reference(
   func : HotFunc,
   cfg : HotCfg,
-  incoming : Array[Array[Int]],
-) -> Array[Array[Int]] {
+  incoming : Array[Array[Int32]],
+) -> Array[Array[Int32]] {
   local_graph_transfer_block_reference(
     func,
     cfg,
@@ -70,8 +70,8 @@ fn local_graph_transfer_borrow_reference(
 ///|
 fn local_graph_transfer_borrow_bench(
   it : @bench.T,
-  count : Int,
-  writes : Int,
+  count : Int32,
+  writes : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new(

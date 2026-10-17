@@ -1,9 +1,9 @@
 ///|
 fn local_graph_record_sources_before_borrow(
-  local_count : Int,
+  local_count : Int32,
   get_id : NodeId,
-  sources : Array[Int],
-  get_sources : Array[Array[Int]]?,
+  sources : Array[Int32],
+  get_sources : Array[Array[Int32]]?,
   write_influences : Array[Array[NodeId]]?,
 ) -> Unit {
   match get_sources {
@@ -33,17 +33,17 @@ fn local_graph_record_sources_before_borrow(
 ///|
 fn local_graph_read_source_bench(
   it : @bench.T,
-  width : Int,
-  reads : Int,
-  merges : Int,
+  width : Int32,
+  reads : Int32,
+  merges : Int32,
   reference : Bool,
-  recorder_reference? : Bool = false,
+  recorder_reference~ : Bool = false,
 ) -> Unit {
   let sources = Array::makei(merges, fn(round) {
     Array::makei(width, fn(index) { index + round })
   })
   let build = fn() {
-    let gets : Array[Array[Int]] = if reference {
+    let gets : Array[Array[Int32]] = if reference {
       Array::makei(reads, fn(_) { [] })
     } else {
       Array::make(reads, [])

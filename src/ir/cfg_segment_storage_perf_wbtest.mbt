@@ -1,7 +1,7 @@
 ///|
 fn cfg_segment_storage_rows_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   it.bench(fn() {
@@ -33,7 +33,7 @@ fn cfg_segment_storage_rows_bench(
 ///|
 fn cfg_segment_storage_region_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let func = cfg_segment_storage_fixture(count)

@@ -15,7 +15,7 @@ fn hot_intern_before_reuse(func : HotFunc, info : HotTypeInfo) -> TypeId {
 ///|
 fn hot_type_intern_reuse_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   resolved : Bool,
   reference : Bool,
 ) -> Unit {

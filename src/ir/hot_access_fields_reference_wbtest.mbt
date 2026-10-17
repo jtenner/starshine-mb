@@ -2,7 +2,10 @@
 // Frozen V65 complete-header local-state traversal controls.
 
 ///|
-fn access_fields_reference_child_count(func : HotFunc, node_id : NodeId) -> Int {
+fn access_fields_reference_child_count(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Int32 {
   let count = hot_child_count(func, node_id)
   match hot_node_get(func, node_id).op {
     HotOp::Block | HotOp::Loop => {

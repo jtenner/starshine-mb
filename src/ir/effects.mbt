@@ -1,5 +1,5 @@
 ///|
-pub type EffectMask = UInt
+pub type EffectMask = UInt32
 
 ///|
 pub const EFFECT_MASK_CONTROL : EffectMask = 1U
@@ -100,7 +100,7 @@ fn effects_has(mask : EffectMask, bit : EffectMask) -> Bool {
 }
 
 ///|
-fn effects_mask_for_flags(flags : UInt) -> EffectMask {
+fn effects_mask_for_flags(flags : UInt32) -> EffectMask {
   let mut mask = 0U
   if (flags & HOT_FLAG_CONTROL) != 0U ||
     (flags & HOT_FLAG_BRANCH) != 0U ||
@@ -379,7 +379,7 @@ fn effects_accumulate_node_cached(
   node_id : NodeId,
   node_masks : Array[EffectMask],
   ready : @bitset.BitSet,
-  own_masks_ready? : Bool = false,
+  own_masks_ready~ : Bool = false,
 ) -> EffectMask {
   if ready[node_id] {
     return node_masks[node_id]
@@ -412,7 +412,7 @@ fn effects_accumulate_node_cached(
 ///|
 fn effects_build_node_masks(
   func : HotFunc,
-  own_masks? : Array[EffectMask]? = None,
+  own_masks~ : Array[EffectMask]? = None,
 ) -> Array[EffectMask] {
   // A supplied buffer is privately owned, covers this immutable arena, and
   // starts with own-node contributions only. Consume it in place; completed
@@ -445,6 +445,12 @@ fn effects_build_node_masks(
 
 ///|
 pub fn effects_for_node(func : HotFunc, node_id : NodeId) -> EffectMask {
+  // A leaf has only its own effects. Avoid full-arena query scratch without
+  // retaining a revision-sensitive buffer or changing payload validation.
+  if hot_child_count(func, node_id) == 0 {
+    return effects_mask_for_flags(hot_node_flags(func, node_id)) |
+      effects_mask_for_node_exact(func, node_id)
+  }
   effects_accumulate_node_cached(
     func,
     node_id,

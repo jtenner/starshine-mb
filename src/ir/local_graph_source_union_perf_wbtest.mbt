@@ -1,5 +1,9 @@
 ///|
-fn source_union_perf_run(it : @bench.T, writers : Int, original : Bool) -> Unit {
+fn source_union_perf_run(
+  it : @bench.T,
+  writers : Int32,
+  original : Bool,
+) -> Unit {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let read = hot_build_local_get(func, 0)
   let writer_nodes = Array::makei(writers, fn(index) {
@@ -31,11 +35,14 @@ fn source_union_perf_run(it : @bench.T, writers : Int, original : Bool) -> Unit 
     writes, cfg, actions, true,
   )
   let count = cfg_block_count(cfg)
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     count,
     None,
   )
-  let indices : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(count, None)
+  let indices : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
+    count,
+    None,
+  )
   let seen = Array::make(count, false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []

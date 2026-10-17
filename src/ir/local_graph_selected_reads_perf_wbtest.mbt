@@ -4,7 +4,7 @@
 // retain complete write/action/CFG work in both alternatives.
 fn selected_read_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   all : Bool,
   selected : Bool,
 ) -> Unit raise {

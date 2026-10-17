@@ -1,7 +1,7 @@
 ///|
 fn source_order_threshold_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   dense : Bool,
   indexed : Bool,
 ) -> Unit {

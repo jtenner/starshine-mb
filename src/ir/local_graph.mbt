@@ -11,22 +11,22 @@ pub enum HotLocalGraphSource {
 #valtype
 pub struct HotLocalGraphSourceValue {
   is_entry : Bool
-  index : Int
+  index : Int32
 } derive(Eq, Debug)
 
 ///|
 fn HotLocalGraphSourceValue::new(
   is_entry : Bool,
-  index : Int,
+  index : Int32,
 ) -> HotLocalGraphSourceValue {
   { is_entry, index, }
 }
 
 ///|
 pub struct HotLocalGraph {
-  local_count : Int
-  param_count : Int
-  get_source_ids : Array[Array[Int]]
+  local_count : Int32
+  param_count : Int32
+  get_source_ids : Array[Array[Int32]]
   set_influence_gets : Array[Array[NodeId]]
   write_local_ids : Array[LocalId]
   write_is_tees : Array[Bool]
@@ -38,14 +38,14 @@ pub struct HotLocalGraph {
 /// Immutable reaching-read sources, without writer influences or SSA facts.
 /// A zero source count remains unknown; consumers must keep their fallback.
 pub struct HotLocalReadSources {
-  priv local_count : Int
-  priv get_source_ids : Array[Array[Int]]
+  priv local_count : Int32
+  priv get_source_ids : Array[Array[Int32]]
 } derive(Debug)
 
 ///|
 fn HotLocalReadSources::new(
-  local_count : Int,
-  get_source_ids : Array[Array[Int]],
+  local_count : Int32,
+  get_source_ids : Array[Array[Int32]],
 ) -> HotLocalReadSources {
   { local_count, get_source_ids, }
 }
@@ -54,14 +54,14 @@ fn HotLocalReadSources::new(
 // Shared solver result. Optional metadata is requested only by full graphs;
 // this internal type never masquerades as a complete HotLocalGraph.
 priv struct LocalGraphFlowRows {
-  get_source_ids : Array[Array[Int]]
+  get_source_ids : Array[Array[Int32]]
   write_influences : Array[Array[NodeId]]
   write_facts : LocalGraphWriteFacts
 }
 
 ///|
 fn LocalGraphFlowRows::new(
-  get_source_ids : Array[Array[Int]],
+  get_source_ids : Array[Array[Int32]],
   write_influences : Array[Array[NodeId]],
   write_facts : LocalGraphWriteFacts,
 ) -> LocalGraphFlowRows {
@@ -117,7 +117,7 @@ fn local_graph_finish_full_flow(
 pub fn local_graph_build_read_sources(
   func : HotFunc,
   cfg : HotCfg,
-  selected_gets? : Array[Bool]? = None,
+  selected_gets~ : Array[Bool]? = None,
 ) -> HotLocalReadSources {
   match selected_gets {
     Some(mask) => {
@@ -148,7 +148,7 @@ pub fn local_graph_build_read_sources(
 pub fn local_read_source_count_for_get(
   graph : HotLocalReadSources,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   if node_id < 0 || node_id >= graph.get_source_ids.length() {
     abort("local graph query requires a valid node id")
   }
@@ -160,7 +160,7 @@ pub fn local_read_source_count_for_get(
 pub fn local_read_source_value_for_get(
   graph : HotLocalReadSources,
   node_id : NodeId,
-  source_index : Int,
+  source_index : Int32,
 ) -> HotLocalGraphSourceValue {
   if node_id < 0 || node_id >= graph.get_source_ids.length() {
     abort("local graph query requires a valid node id")
@@ -206,19 +206,19 @@ fn local_graph_require_local_range(
 }
 
 ///|
-fn local_graph_entry_source_id(local_id : LocalId) -> Int {
+fn local_graph_entry_source_id(local_id : LocalId) -> Int32 {
   local_id
 }
 
 ///|
-fn local_graph_set_source_id(local_count : Int, node_id : NodeId) -> Int {
+fn local_graph_set_source_id(local_count : Int32, node_id : NodeId) -> Int32 {
   local_count + node_id
 }
 
 ///|
 fn local_graph_source_from_id(
-  local_count : Int,
-  source_id : Int,
+  local_count : Int32,
+  source_id : Int32,
 ) -> HotLocalGraphSource {
   if source_id < local_count {
     HotLocalGraphSource::EntrySource(source_id)
@@ -228,7 +228,7 @@ fn local_graph_source_from_id(
 }
 
 ///|
-fn local_graph_array_contains(values : Array[Int], value : Int) -> Bool {
+fn local_graph_array_contains(values : Array[Int32], value : Int32) -> Bool {
   for existing in values {
     if existing == value {
       return true
@@ -252,11 +252,11 @@ fn local_graph_node_array_contains(
 
 ///|
 fn local_graph_union_into(
-  target : Array[Int],
-  src : Array[Int],
-  buffer_growths? : Array[Int]? = None,
-  membership_queries? : Array[Int]? = None,
-  start? : Int = 0,
+  target : Array[Int32],
+  src : Array[Int32],
+  buffer_growths~ : Array[Int32]? = None,
+  membership_queries~ : Array[Int32]? = None,
+  start~ : Int32 = 0,
 ) -> Bool {
   let mut changed = false
   for index = start; index < src.length(); index = index + 1 {
@@ -278,7 +278,7 @@ fn local_graph_union_into(
 }
 
 ///|
-fn local_graph_state_clone(state : Array[Array[Int]]) -> Array[Array[Int]] {
+fn local_graph_state_clone(state : Array[Array[Int32]]) -> Array[Array[Int32]] {
   // State source sets are immutable. A transfer replaces the affected local's
   // set; forks and block states can therefore share all unchanged sets.
   state.copy()
@@ -286,12 +286,12 @@ fn local_graph_state_clone(state : Array[Array[Int]]) -> Array[Array[Int]] {
 
 ///|
 fn local_graph_join_sources(
-  lhs : Array[Int],
-  rhs : Array[Int],
-  buffer_growths? : Array[Int]? = None,
-  membership_queries? : Array[Int]? = None,
-  minimum_capacity? : Int = 0,
-) -> Array[Int] {
+  lhs : Array[Int32],
+  rhs : Array[Int32],
+  buffer_growths~ : Array[Int32]? = None,
+  membership_queries~ : Array[Int32]? = None,
+  minimum_capacity~ : Int32 = 0,
+) -> Array[Int32] {
   if physical_equal(lhs, rhs) || rhs.is_empty() {
     return lhs
   }
@@ -315,7 +315,7 @@ fn local_graph_join_sources(
   if first_new == rhs.length() {
     return lhs
   }
-  let merged : Array[Int] = Array(
+  let merged : Array[Int32] = Array(
     capacity=(lhs.length() + rhs.length()).max(minimum_capacity),
   )
   merged.append(lhs)
@@ -336,8 +336,8 @@ fn local_graph_join_sources(
 
 ///|
 fn local_graph_state_equal(
-  lhs : Array[Array[Int]],
-  rhs : Array[Array[Int]],
+  lhs : Array[Array[Int32]],
+  rhs : Array[Array[Int32]],
 ) -> Bool {
   if physical_equal(lhs, rhs) {
     return true
@@ -362,13 +362,13 @@ fn local_graph_state_equal(
 }
 
 ///|
-fn local_graph_empty_state(local_count : Int) -> Array[Array[Int]] {
+fn local_graph_empty_state(local_count : Int32) -> Array[Array[Int32]] {
   Array::make(local_count, [])
 }
 
 ///|
-fn local_graph_entry_state(local_count : Int) -> Array[Array[Int]] {
-  let state : Array[Array[Int]] = []
+fn local_graph_entry_state(local_count : Int32) -> Array[Array[Int32]] {
+  let state : Array[Array[Int32]] = []
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     state.push([local_graph_entry_source_id(local_id)])
   }
@@ -378,8 +378,8 @@ fn local_graph_entry_state(local_count : Int) -> Array[Array[Int]] {
 ///|
 fn local_graph_is_region_slot(
   node : HotNode,
-  slot : Int,
-  func? : HotFunc? = None,
+  slot : Int32,
+  func~ : HotFunc? = None,
 ) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
@@ -396,14 +396,14 @@ fn local_graph_is_region_slot(
 
 ///|
 priv struct LocalGraphSourceRecorder {
-  rows : Array[Array[Int]]
-  mut single_owned : Int
+  rows : Array[Array[Int32]]
+  mut single_owned : Int32
   mut owned : @bitset.BitSet?
 }
 
 ///|
 fn LocalGraphSourceRecorder::new(
-  rows : Array[Array[Int]],
+  rows : Array[Array[Int32]],
 ) -> LocalGraphSourceRecorder {
   { rows, single_owned: -1, owned: None, }
 }
@@ -413,7 +413,7 @@ fn LocalGraphSourceRecorder::new(
 fn LocalGraphSourceRecorder::record(
   self : LocalGraphSourceRecorder,
   get_id : NodeId,
-  sources : Array[Int],
+  sources : Array[Int32],
 ) -> Unit {
   let previous = self.rows[get_id]
   if previous.is_empty() {
@@ -460,9 +460,9 @@ fn LocalGraphSourceRecorder::record(
 ///|
 #inline
 fn local_graph_record_get_sources(
-  local_count : Int,
+  local_count : Int32,
   get_id : NodeId,
-  sources : Array[Int],
+  sources : Array[Int32],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
 ) -> Unit {
@@ -616,9 +616,9 @@ fn local_graph_nested_region_can_transfer(
 ///|
 fn local_graph_transfer_nested_region(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
   region : HotRegionRef,
-  state : Array[Array[Int]],
+  state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   evaluated_tuples : LocalGraphTupleState,
@@ -640,9 +640,9 @@ fn local_graph_transfer_nested_region(
 ///|
 fn local_graph_transfer_node(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
   node_id : NodeId,
-  state : Array[Array[Int]],
+  state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
@@ -862,12 +862,12 @@ fn local_graph_transfer_block(
   func : HotFunc,
   cfg : HotCfg,
   block_id : BlockId,
-  in_state : Array[Array[Int]],
+  in_state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
-  tuple_slots? : Array[Int]? = None,
-  join_visits? : Array[Int]? = None,
-) -> Array[Array[Int]] {
+  tuple_slots~ : Array[Int32]? = None,
+  join_visits~ : Array[Int32]? = None,
+) -> Array[Array[Int32]] {
   if cfg_block_get(cfg, block_id).nodes.is_empty() {
     return in_state
   }
@@ -920,13 +920,13 @@ fn local_graph_transfer_block(
 fn local_graph_merge_predecessors(
   cfg : HotCfg,
   block_id : BlockId,
-  local_count : Int,
-  out_states : Array[Array[Array[Int]]],
+  local_count : Int32,
+  out_states : Array[Array[Array[Int32]]],
   include_exceptional : Bool,
-) -> Array[Array[Int]] {
+) -> Array[Array[Int32]] {
   // Published block states and their source sets are immutable. A transfer
   // takes its own outer-array copy before replacing any local's source set.
-  let mut merged : Array[Array[Int]]? = None
+  let mut merged : Array[Array[Int32]]? = None
   let mut owned = false
   for pred in cfg_predecessor_edges(cfg, block_id) {
     if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
@@ -1002,13 +1002,13 @@ fn local_graph_build_in_states(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  block_transfers? : Array[Int]? = None,
-  block_merges? : Array[Int]? = None,
-) -> Array[Array[Array[Int]]] {
+  block_transfers~ : Array[Int32]? = None,
+  block_merges~ : Array[Int32]? = None,
+) -> Array[Array[Array[Int32]]] {
   let local_count = hot_local_count(func)
   let block_count = cfg_block_count(cfg)
-  let in_states : Array[Array[Array[Int]]] = []
-  let out_states : Array[Array[Array[Int]]] = []
+  let in_states : Array[Array[Array[Int32]]] = []
+  let out_states : Array[Array[Array[Int32]]] = []
   for _ in 0..<block_count {
     in_states.push(local_graph_empty_state(local_count))
     out_states.push(local_graph_empty_state(local_count))
@@ -1115,7 +1115,7 @@ fn LocalGraphWriteFacts::new(
 ///|
 fn local_graph_build_write_facts(
   func : HotFunc,
-  include_tees? : Bool = true,
+  include_tees~ : Bool = true,
 ) -> LocalGraphWriteFacts {
   let count = hot_node_count(func)
   let local_ids = Array::make(count, -1)
@@ -1178,7 +1178,7 @@ fn local_graph_build_write_is_tees(func : HotFunc) -> Array[Bool] {
 ///|
 fn local_graph_build_local_defaultability(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
 ) -> Array[Bool] {
   let out : Array[Bool] = []
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
@@ -1193,8 +1193,8 @@ fn local_graph_build_local_defaultability(
 ///|
 fn local_graph_build_local_already_ssa(
   func : HotFunc,
-  local_count : Int,
-  get_sources : Array[Array[Int]],
+  local_count : Int32,
+  get_sources : Array[Array[Int32]],
 ) -> Array[Bool] {
   if local_count == 0 {
     return []
@@ -1254,7 +1254,7 @@ fn local_graph_build_with_exceptional_policy(
   include_exceptional : Bool,
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
-  let get_sources : Array[Array[Int]] = Array::make(hot_node_count(func), [])
+  let get_sources : Array[Array[Int32]] = Array::make(hot_node_count(func), [])
   let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
   let write_influences = local_graph_empty_influences(func)
   let in_states = local_graph_build_in_states(func, cfg, include_exceptional)
@@ -1321,7 +1321,7 @@ pub fn local_graph_reaching_sources_for_get(
 pub fn local_graph_reaching_source_count_for_get(
   graph : HotLocalGraph,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   local_graph_require_node_range(graph, node_id)
   graph.get_source_ids[node_id].length()
 }
@@ -1334,7 +1334,7 @@ pub fn local_graph_reaching_source_count_for_get(
 pub fn local_graph_reaching_source_for_get(
   graph : HotLocalGraph,
   node_id : NodeId,
-  source_index : Int,
+  source_index : Int32,
 ) -> HotLocalGraphSource {
   local_graph_require_node_range(graph, node_id)
   local_graph_source_from_id(
@@ -1349,7 +1349,7 @@ pub fn local_graph_reaching_source_for_get(
 pub fn local_graph_reaching_source_value_for_get(
   graph : HotLocalGraph,
   node_id : NodeId,
-  source_index : Int,
+  source_index : Int32,
 ) -> HotLocalGraphSourceValue {
   local_graph_require_node_range(graph, node_id)
   let source_id = graph.get_source_ids[node_id][source_index]
@@ -1649,7 +1649,7 @@ fn local_graph_reverse_action_sequences(
 fn local_graph_reverse_find_last_write(
   write_local_ids : Array[LocalId],
   actions : Array[NodeId],
-  end : Int,
+  end : Int32,
   local_id : LocalId,
 ) -> NodeId? {
   let mut idx = if end < actions.length() { end } else { actions.length() }
@@ -1669,7 +1669,7 @@ fn local_graph_reverse_indexed_last_write(
   actions : Array[Array[NodeId]],
   block : BlockId,
   local_id : LocalId,
-  indices : Array[@hashmap.HashMap[Int, NodeId]?],
+  indices : Array[@hashmap.HashMap[Int32, NodeId]?],
 ) -> NodeId? {
   let nodes = actions[block]
   if nodes.length() <= 4 {
@@ -1683,7 +1683,7 @@ fn local_graph_reverse_indexed_last_write(
   let index = match indices[block] {
     Some(index) => index
     None => {
-      let index : @hashmap.HashMap[Int, NodeId] = @hashmap.new()
+      let index : @hashmap.HashMap[Int32, NodeId] = @hashmap.new()
       for node in nodes {
         let local = write_local_ids[node]
         if local >= 0 {
@@ -1769,14 +1769,14 @@ fn local_graph_reverse_entry_sources(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
-  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?],
+  last_writes : Array[@hashmap.HashMap[Int32, NodeId]?],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-  local_count : Int,
-  cache_slots? : Array[Int]? = None,
-) -> Array[Int] {
+  local_count : Int32,
+  cache_slots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   local_graph_reverse_entry_sources_impl(
     write_local_ids,
     cfg,
@@ -1806,23 +1806,23 @@ fn local_graph_reverse_entry_sources_impl(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
-  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?],
+  last_writes : Array[@hashmap.HashMap[Int32, NodeId]?],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-  local_count : Int,
-  writer_blocks : Array[Int]?,
-  membership_queries : Array[Int]?,
-  cache_slots : Array[Int]?,
-) -> Array[Int] {
+  local_count : Int32,
+  writer_blocks : Array[Int32]?,
+  membership_queries : Array[Int32]?,
+  cache_slots : Array[Int32]?,
+) -> Array[Int32] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
       // Completed rows are immutable; readers either borrow or copy on write.
       return sources
     }
   }
-  let sources : Array[Int] = []
+  let sources : Array[Int32] = []
   let mut root_write_seen = false
   let mut writer_marks = false
   work.push(block_id)
@@ -1973,10 +1973,10 @@ fn local_graph_reverse_entry_sources_impl(
 // Reverse flow visits each get once, and each source row is already unique.
 // Append influences directly instead of repeatedly searching prior readers.
 fn local_graph_record_unique_get_sources(
-  local_count : Int,
+  local_count : Int32,
   get_id : NodeId,
-  sources : Array[Int],
-  get_sources : Array[Array[Int]],
+  sources : Array[Int32],
+  get_sources : Array[Array[Int32]],
   write_influences : Array[Array[NodeId]],
 ) -> Unit {
   get_sources[get_id] = sources
@@ -2002,7 +2002,7 @@ fn local_graph_build_reverse_flow(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  cache_slots? : Array[Int]? = None,
+  cache_slots~ : Array[Int32]? = None,
 ) -> HotLocalGraph {
   local_graph_finish_full_flow(
     func,
@@ -2021,9 +2021,9 @@ fn local_graph_build_reverse_rows(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  cache_slots? : Array[Int]? = None,
+  cache_slots~ : Array[Int32]? = None,
   full_metadata~ : Bool,
-  selected_gets? : Array[Bool]? = None,
+  selected_gets~ : Array[Bool]? = None,
 ) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
@@ -2058,7 +2058,7 @@ fn local_graph_build_reverse_rows(
   let nearest_writes = Array::make(node_count, -1)
   let last_writes = Array::make(local_count, -1)
   let written_anywhere = Array::make(local_count, false)
-  let written_locals : Array[Int] = []
+  let written_locals : Array[Int32] = []
   for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
       let node_id = actions[block_id][idx]
@@ -2116,24 +2116,24 @@ fn local_graph_build_reverse_rows(
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
     write_local_ids, cfg, actions, include_exceptional,
   )
-  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
+  let get_sources : Array[Array[Int32]] = Array::make(node_count, [])
   let write_influences = if full_metadata {
     local_graph_empty_influences(func)
   } else {
     []
   }
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let block_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let block_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
   let seen = Array::make(cfg_block_count(cfg), false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
-  let entry_rows : Array[Array[Int]] = Array::make(local_count, [])
+  let entry_rows : Array[Array[Int32]] = Array::make(local_count, [])
   if local_graph_has_immutable_entry_read(
       actions, nearest_writes, written_anywhere,
     ) {
@@ -2252,7 +2252,7 @@ fn local_graph_build_reverse_rows(
 }
 
 ///|
-fn local_graph_sequence_find(seq : Array[NodeId], node_id : NodeId) -> Int {
+fn local_graph_sequence_find(seq : Array[NodeId], node_id : NodeId) -> Int32 {
   for idx = 0; idx < seq.length(); idx = idx + 1 {
     if seq[idx] == node_id {
       return idx
@@ -2266,11 +2266,11 @@ fn local_graph_path_reaches_get_avoiding_obstacle(
   cfg : HotCfg,
   sequences : Array[Array[NodeId]],
   block_id : BlockId,
-  start_idx : Int,
+  start_idx : Int32,
   get_id : NodeId,
   obstacle_id : NodeId,
   seen : Array[Bool],
-  key_stride : Int,
+  key_stride : Int32,
 ) -> Bool {
   let key = block_id * key_stride + start_idx
   if key >= 0 && key < seen.length() {
@@ -2342,7 +2342,7 @@ fn local_graph_can_reach_get_after_set_avoiding_obstacle(
 }
 
 ///|
-fn hot_node_count_from_cfg_sequences(sequences : Array[Array[NodeId]]) -> Int {
+fn hot_node_count_from_cfg_sequences(sequences : Array[Array[NodeId]]) -> Int32 {
   let mut max_node = 0
   for seq in sequences {
     for node_id in seq {
@@ -2380,12 +2380,12 @@ pub fn local_graph_can_move_set_past_node(
 // for reads within that region. Ignoring the region is not an unknown summary.
 fn local_graph_transfer_unknown_control(
   func : HotFunc,
-  local_count : Int,
+  local_count : Int32,
   node : NodeId,
-  state : Array[Array[Int]],
+  state : Array[Array[Int32]],
   get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
-  write_journal? : LocalGraphWriteJournal? = None,
+  write_journal~ : LocalGraphWriteJournal? = None,
 ) -> Unit {
   let work = [node]
   let seen = Array::make(hot_node_count(func), false)
@@ -2427,7 +2427,7 @@ fn local_graph_transfer_unknown_control(
 ///|
 fn local_graph_has_immutable_entry_read(
   actions : Array[Array[NodeId]],
-  nearest_writes : Array[Int],
+  nearest_writes : Array[Int32],
   written_anywhere : Array[Bool],
 ) -> Bool {
   // All writes are known now. Demand entry reachability only for an observed

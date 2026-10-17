@@ -1,7 +1,7 @@
 ///|
 fn local_graph_predecessor_cache_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   overwrite : Bool,
   reference : Bool,
 ) -> Unit {
@@ -26,11 +26,11 @@ fn local_graph_predecessor_cache_bench(
   // Include cold cache, index and scratch allocation, querying each read
   // block once. Facts/CFG construction is excluded equally from both paths.
   it.bench(fn() {
-    let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+    let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
       cfg_block_count(cfg),
       None,
     )
-    let last_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+    let last_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
       cfg_block_count(cfg),
       None,
     )

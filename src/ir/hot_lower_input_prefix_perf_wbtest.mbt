@@ -2,7 +2,7 @@
 fn hot_lower_input_prefix_reference(
   stack : Array[HotLowerStackValue],
   inputs : ArrayView[NodeId],
-) -> Int {
+) -> Int32 {
   let max_count = if stack.length() < inputs.length() {
     stack.length()
   } else {
@@ -28,8 +28,8 @@ fn hot_lower_input_prefix_reference(
 ///|
 fn hot_lower_input_prefix_bench(
   it : @bench.T,
-  width : Int,
-  mode : Int,
+  width : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let nodes = Array::makei(width, fn(i) { if mode == 1 { i } else { 7 } })

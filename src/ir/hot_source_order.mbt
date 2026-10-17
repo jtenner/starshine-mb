@@ -2,33 +2,33 @@
 /// Source-order facts shared by lowering and the operand-expanded CFG.
 /// Cached local-access summaries are populated on demand.
 priv struct HotSourceOrderFacts {
-  local_access_cache : Array[Int]
-  value_orders : Array[Int]
+  local_access_cache : Array[Int32]
+  value_orders : Array[Int32]
   node_effects : Array[EffectMask]
-  first_effect_orders : Array[Int]
-  preceding_dependency_min_cache : Array[Int]
+  first_effect_orders : Array[Int32]
+  preceding_dependency_min_cache : Array[Int32]
   local_access_nodes : Array[Array[NodeId]?]
   first_local_access_orders : @hashmap.HashMap[
     NodeId,
-    @hashmap.HashMap[Int, Int],
+    @hashmap.HashMap[Int32, Int32],
   ]
   mut last_wide_access_root : NodeId
-  local_access_seen : Array[Int]
-  mut local_access_stamp : Int
+  local_access_seen : Array[Int32]
+  mut local_access_stamp : Int32
   mut dependency_scratch : HotSourceOrderScratch?
 }
 
 ///|
 priv struct HotSourceOrderScratch {
-  seen_consumer : Array[Int]
-  consumer_bounds : Array[Int]
+  seen_consumer : Array[Int32]
+  consumer_bounds : Array[Int32]
   anti_dependencies : @bitset.BitSet
   touched : Array[NodeId]
   carried : Array[NodeId]
 }
 
 ///|
-fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
+fn HotSourceOrderScratch::new(count : Int32) -> HotSourceOrderScratch {
   {
     seen_consumer: Array::make(count, count),
     consumer_bounds: Array::make(count, -1),
@@ -41,8 +41,8 @@ fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
 ///|
 #valtype
 priv struct HotSourceOrderOrders {
-  value_orders : Array[Int]
-  first_effect_orders : Array[Int]
+  value_orders : Array[Int32]
+  first_effect_orders : Array[Int32]
   own_effects : Array[EffectMask]
 }
 
@@ -92,7 +92,7 @@ fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
 ///|
 fn HotSourceOrderFacts::new(
   func : HotFunc,
-  node_effects? : Array[EffectMask]? = None,
+  node_effects~ : Array[EffectMask]? = None,
 ) -> HotSourceOrderFacts {
   let orders = HotSourceOrderOrders::new(func)
   {
@@ -174,12 +174,12 @@ fn hot_source_order_first_local_access_orders(
   node_id : NodeId,
   accesses : Array[NodeId],
   facts : HotSourceOrderFacts,
-  visits? : Array[Int]? = None,
-) -> @hashmap.HashMap[Int, Int] {
+  visits~ : Array[Int32]? = None,
+) -> @hashmap.HashMap[Int32, Int32] {
   if facts.first_local_access_orders.get(node_id) is Some(orders) {
     return orders
   }
-  let orders : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  let orders : @hashmap.HashMap[Int32, Int32] = @hashmap.new()
   for access_id in accesses {
     match visits {
       Some(count) => count[0] += 1
@@ -200,12 +200,12 @@ fn hot_source_order_preceding_dependencies(
   func : HotFunc,
   current_root : NodeId,
   future_roots : Array[NodeId],
-  future_start : Int,
+  future_start : Int32,
   future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   facts : HotSourceOrderFacts,
-  scratch_builds? : Array[Int]? = None,
-  root_visits? : Array[Int]? = None,
-  carried_builds? : Array[Int]? = None,
+  scratch_builds~ : Array[Int32]? = None,
+  root_visits~ : Array[Int32]? = None,
+  carried_builds~ : Array[Int32]? = None,
 ) -> Array[NodeId] {
   // Extracting an existing value into a new statement preserves its execution
   // order. Its allocation ID can be newer than the consumer of an older read.
@@ -419,11 +419,16 @@ fn hot_source_order_future_suffix_minima(
 
 ///|
 priv struct HotSourceOrderRootIndex {
-  suffix_minima : Array[Int]
-  minima : Array[Int]
-  leaf_base : Int
-  length : Int
-  maximum : Int
+  suffix_minima : Array[Int32]
+  minima : Array[Int32]
+  leaf_base : Int32
+  length : Int32
+  maximum : Int32
+  // Lower-only cursor for one immutable region; CFG queries never use it.
+  mut lower_store_next : Int32
+  mut lower_store_end : Int32
+  mut lower_store_producer : NodeId
+  mut lower_store_admitted : Bool
 }
 
 ///|
@@ -465,17 +470,27 @@ fn HotSourceOrderRootIndex::new(
     minima[idx] = if left < right { left } else { right }
     idx -= 1
   }
-  { suffix_minima, minima, leaf_base, length: roots.length(), maximum, }
+  {
+    suffix_minima,
+    minima,
+    leaf_base,
+    length: roots.length(),
+    maximum,
+    lower_store_next: -1,
+    lower_store_end: -1,
+    lower_store_producer: HOT_NONE_NODE,
+    lower_store_admitted: false,
+  }
 }
 
 ///|
 fn HotSourceOrderRootIndex::candidates(
   self : HotSourceOrderRootIndex,
-  start : Int,
-  before : Int,
-) -> Array[Int] {
-  let out : Array[Int] = []
-  fn visit(index : Int, left : Int, right : Int) -> Unit {
+  start : Int32,
+  before : Int32,
+) -> Array[Int32] {
+  let out : Array[Int32] = []
+  fn visit(index : Int32, left : Int32, right : Int32) -> Unit {
     if right <= start || left >= self.length || self.minima[index] >= before {
       return
     }

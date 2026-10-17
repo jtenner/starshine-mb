@@ -4,7 +4,7 @@ fn flow_tag_reference_build_reverse_rows(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  cache_slots? : Array[Int]? = None,
+  cache_slots~ : Array[Int32]? = None,
   full_metadata~ : Bool,
 ) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
@@ -40,7 +40,7 @@ fn flow_tag_reference_build_reverse_rows(
   let nearest_writes = Array::make(node_count, -1)
   let last_writes = Array::make(local_count, -1)
   let written_anywhere = Array::make(local_count, false)
-  let written_locals : Array[Int] = []
+  let written_locals : Array[Int32] = []
   for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
       let node_id = actions[block_id][idx]
@@ -92,24 +92,24 @@ fn flow_tag_reference_build_reverse_rows(
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
     write_local_ids, cfg, actions, include_exceptional,
   )
-  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
+  let get_sources : Array[Array[Int32]] = Array::make(node_count, [])
   let write_influences = if full_metadata {
     local_graph_empty_influences(func)
   } else {
     []
   }
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let block_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let block_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
   let seen = Array::make(cfg_block_count(cfg), false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
-  let entry_rows : Array[Array[Int]] = Array::make(local_count, [])
+  let entry_rows : Array[Array[Int32]] = Array::make(local_count, [])
   if written_anywhere.any(fn(written) { !written }) {
     let entry = cfg_entry_block(cfg)
     // Match the reverse query's exact origin rule: entry contributes only

@@ -11,7 +11,7 @@ fn region_fields_header_label(func : HotFunc, id : NodeId) -> LabelId {
 }
 
 ///|
-fn region_fields_header_base(func : HotFunc, id : NodeId) -> Int {
+fn region_fields_header_base(func : HotFunc, id : NodeId) -> Int32 {
   let node = hot_node_get(func, id)
   if node.op == HotOp::Block && node.imm1 > 0 {
     return node.imm1
@@ -48,7 +48,7 @@ fn region_fields_header_holder(func : HotFunc, id : NodeId) -> Bool {
 }
 
 ///|
-fn region_fields_header_count(func : HotFunc, region : HotRegionRef) -> Int {
+fn region_fields_header_count(func : HotFunc, region : HotRegionRef) -> Int32 {
   if region.holder == HOT_NONE_NODE {
     return hot_root_count(func)
   }
@@ -63,7 +63,7 @@ fn region_fields_header_count(func : HotFunc, region : HotRegionRef) -> Int {
 fn region_fields_header_get(
   func : HotFunc,
   region : HotRegionRef,
-  slot : Int,
+  slot : Int32,
 ) -> NodeId {
   hot_region_require_index(region_fields_header_count(func, region), slot)
   if region.holder == HOT_NONE_NODE {

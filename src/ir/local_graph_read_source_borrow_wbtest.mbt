@@ -1,6 +1,6 @@
 ///|
 test "small owned source rows reserve space for subsequent observations" {
-  let rows : Array[Array[Int]] = [[]]
+  let rows : Array[Array[Int32]] = [[]]
   let recorder = LocalGraphSourceRecorder::new(rows)
   let source = [0]
   recorder.record(0, source)
@@ -19,7 +19,7 @@ test "small owned source rows reserve space for subsequent observations" {
 ///|
 test "local flow records immutable reaching sources without copying their rows" {
   let sources = [0, 5]
-  let gets : Array[Array[Int]] = Array::makei(6, fn(_) { [] })
+  let gets : Array[Array[Int32]] = Array::makei(6, fn(_) { [] })
   let recorder = LocalGraphSourceRecorder::new(gets)
   let influences : Array[Array[NodeId]] = Array::makei(6, fn(_) { [] })
   local_graph_record_get_sources(
@@ -99,7 +99,7 @@ test "local flow builders share empty source rows without exposing mutable queri
 
 ///|
 test "local flow cleared symbolic rows lose their previous ownership" {
-  let rows : Array[Array[Int]] = [[], []]
+  let rows : Array[Array[Int32]] = [[], []]
   let recorder = LocalGraphSourceRecorder::new(rows)
   recorder.record(0, [-1])
   recorder.record(0, [-2])

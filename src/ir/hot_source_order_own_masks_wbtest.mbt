@@ -119,8 +119,8 @@ test "source-order own masks keep dead nodes zero and distinguish region effects
 // Frozen v16 value/first-effect pass, before sharing its own-effect results.
 #valtype
 priv struct SourceOrderOwnMasksReferenceOrders {
-  value_orders : Array[Int]
-  first_effect_orders : Array[Int]
+  value_orders : Array[Int32]
+  first_effect_orders : Array[Int32]
 }
 
 ///|

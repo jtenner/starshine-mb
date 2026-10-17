@@ -1,8 +1,8 @@
 ///|
 fn hot_root_splice_reference(
   func : HotFunc,
-  idx : Int,
-  remove_count : Int,
+  idx : Int32,
+  remove_count : Int32,
   new_roots : Array[NodeId],
 ) -> Array[NodeId] {
   hot_mutate_require_root_index(func, idx, allow_end=true)
@@ -33,7 +33,7 @@ fn hot_root_splice_reference(
 ///|
 fn hot_root_splice_bulk_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()

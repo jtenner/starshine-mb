@@ -1,8 +1,8 @@
 ///|
 fn cfg_presence_bench(
   it : @bench.T,
-  width : Int,
-  kind : Int,
+  width : Int32,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let func = if kind == 2 {

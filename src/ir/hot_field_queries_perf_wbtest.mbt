@@ -3,7 +3,7 @@
 fn hot_field_query_header_child(
   func : HotFunc,
   id : NodeId,
-  index : Int,
+  index : Int32,
 ) -> NodeId {
   let data = hot_node_get(func, id)
   hot_mutate_require_child_index(data, index)
@@ -13,9 +13,9 @@ fn hot_field_query_header_child(
 ///|
 fn hot_field_queries_bench(
   it : @bench.T,
-  width : Int,
-  deleted : Int,
-  field : Int,
+  width : Int32,
+  deleted : Int32,
+  field : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()

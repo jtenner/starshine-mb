@@ -20,9 +20,9 @@ fn hot_region_is_root(region_ref : HotRegionRef) -> Bool {
 
 ///|
 fn hot_region_require_index(
-  length : Int,
-  idx : Int,
-  allow_end? : Bool = false,
+  length : Int32,
+  idx : Int32,
+  allow_end~ : Bool = false,
 ) -> Unit {
   let upper = if allow_end { length } else { length - 1 }
   if idx < 0 || idx > upper {
@@ -32,9 +32,9 @@ fn hot_region_require_index(
 
 ///|
 fn hot_region_require_remove_count(
-  length : Int,
-  idx : Int,
-  remove_count : Int,
+  length : Int32,
+  idx : Int32,
+  remove_count : Int32,
 ) -> Unit {
   if remove_count < 0 || idx + remove_count > length {
     abort("hot region remove_count out of bounds")
@@ -86,7 +86,7 @@ fn hot_region_ref_from_holder(func : HotFunc, holder : NodeId) -> HotRegionRef {
 }
 
 ///|
-fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int {
+fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int32 {
   hot_node_require_live_read(func, holder)
   hot_region_body_base_live(func, holder)
 }
@@ -95,7 +95,7 @@ fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int {
 // Call only after checked live admission in this query. Region reads do not
 // mutate the arena between admission and selecting its body boundary.
 #inline
-fn hot_region_body_base_live(func : HotFunc, holder : NodeId) -> Int {
+fn hot_region_body_base_live(func : HotFunc, holder : NodeId) -> Int32 {
   let op = func.nodes[holder].op
   if op == HotOp::Block && func.nodes[holder].imm1 > 0 {
     return func.nodes[holder].imm1
@@ -114,7 +114,7 @@ fn hot_region_body_base_live(func : HotFunc, holder : NodeId) -> Int {
 fn hot_region_optional_slot_ref(
   func : HotFunc,
   control_id : NodeId,
-  slot : Int,
+  slot : Int32,
 ) -> HotRegionRef? {
   hot_node_require_live_read(func, control_id)
   if slot >= func.nodes[control_id].child_count {
@@ -228,7 +228,10 @@ fn hot_region_write_roots(
 }
 
 ///|
-pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
+pub fn hot_region_root_count(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Int32 {
   if hot_region_is_root(region_ref) {
     return hot_root_count(func)
   }
@@ -240,7 +243,7 @@ pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
 pub fn hot_region_result_arity(
   func : HotFunc,
   region_ref : HotRegionRef,
-) -> Int {
+) -> Int32 {
   if hot_region_is_root(region_ref) {
     return hot_type_result_arity(func, hot_body_result_type(func))
   }
@@ -253,7 +256,7 @@ pub fn hot_region_result_arity(
 pub fn hot_region_get(
   func : HotFunc,
   region_ref : HotRegionRef,
-  idx : Int,
+  idx : Int32,
 ) -> NodeId {
   if hot_region_is_root(region_ref) {
     hot_region_require_index(hot_root_count(func), idx)
@@ -269,7 +272,7 @@ pub fn hot_region_get(
 pub fn hot_region_set(
   func : HotFunc,
   region_ref : HotRegionRef,
-  idx : Int,
+  idx : Int32,
   node_id : NodeId,
 ) -> NodeId {
   let previous = hot_region_get(func, region_ref, idx)
@@ -291,7 +294,7 @@ pub fn hot_region_set(
 pub fn hot_region_insert(
   func : HotFunc,
   region_ref : HotRegionRef,
-  idx : Int,
+  idx : Int32,
   node_ids : Array[NodeId],
 ) -> Unit {
   ignore(hot_region_splice(func, region_ref, idx, 0, node_ids))
@@ -301,8 +304,8 @@ pub fn hot_region_insert(
 pub fn hot_region_remove(
   func : HotFunc,
   region_ref : HotRegionRef,
-  idx : Int,
-  count : Int,
+  idx : Int32,
+  count : Int32,
 ) -> Array[NodeId] {
   hot_region_splice(func, region_ref, idx, count, [])
 }
@@ -311,7 +314,7 @@ pub fn hot_region_remove(
 pub fn hot_region_truncate_suffix(
   func : HotFunc,
   region_ref : HotRegionRef,
-  keep_count : Int,
+  keep_count : Int32,
 ) -> Array[NodeId] {
   let root_count = hot_region_root_count(func, region_ref)
   hot_region_require_index(root_count, keep_count, allow_end=true)
@@ -340,8 +343,8 @@ pub fn hot_region_truncate_suffix(
 pub fn hot_region_splice(
   func : HotFunc,
   region_ref : HotRegionRef,
-  idx : Int,
-  remove_count : Int,
+  idx : Int32,
+  remove_count : Int32,
   node_ids : Array[NodeId],
 ) -> Array[NodeId] {
   if hot_region_is_root(region_ref) {

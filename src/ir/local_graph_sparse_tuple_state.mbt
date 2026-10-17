@@ -3,17 +3,17 @@
 // forks copy only encountered tuple producers, and joins retain their intersection.
 priv struct LocalGraphTupleState {
   mut evaluated : @set.Set[NodeId]?
-  slots : Array[Int]?
-  join_visits : Array[Int]?
-  local_count : Int
+  slots : Array[Int32]?
+  join_visits : Array[Int32]?
+  local_count : Int32
   mut write_journal : LocalGraphWriteJournal?
 }
 
 ///|
 fn LocalGraphTupleState::new(
-  slots : Array[Int]?,
-  join_visits? : Array[Int]? = None,
-  local_count? : Int = 0,
+  slots : Array[Int32]?,
+  join_visits~ : Array[Int32]? = None,
+  local_count~ : Int32 = 0,
 ) -> LocalGraphTupleState {
   { evaluated: None, slots, join_visits, local_count, write_journal: None, }
 }
@@ -21,7 +21,7 @@ fn LocalGraphTupleState::new(
 ///|
 fn LocalGraphTupleState::count_slots(
   self : LocalGraphTupleState,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   match self.slots {
     Some(slots) => slots[0] += count
@@ -90,12 +90,12 @@ fn LocalGraphTupleState::intersect_paths(
 // A journal belongs to one recursive block transfer. Forks share it because
 // writes are observations, while source arrays remain owned by each path.
 priv struct LocalGraphWriteJournal {
-  locals : Array[Int]
+  locals : Array[Int32]
   seen : Array[Bool]
 }
 
 ///|
-fn LocalGraphWriteJournal::new(count : Int) -> LocalGraphWriteJournal {
+fn LocalGraphWriteJournal::new(count : Int32) -> LocalGraphWriteJournal {
   { locals: [], seen: Array::make(count, false), }
 }
 

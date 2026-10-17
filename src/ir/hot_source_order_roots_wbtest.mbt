@@ -1,6 +1,6 @@
 ///|
 fn source_order_roots_fixture(
-  count : Int,
+  count : Int32,
 ) -> (HotFunc, NodeId, NodeId, Array[NodeId]) {
   let func = HotFunc::new()
   let carried = hot_build_call(func, 0, [@lib.ValType::i32()], [])

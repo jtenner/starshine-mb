@@ -1,8 +1,8 @@
 ///|
 fn local_graph_join_before_prefix(
-  lhs : Array[Int],
-  rhs : Array[Int],
-) -> Array[Int] {
+  lhs : Array[Int32],
+  rhs : Array[Int32],
+) -> Array[Int32] {
   if physical_equal(lhs, rhs) || rhs.is_empty() {
     return lhs
   }
@@ -15,7 +15,7 @@ fn local_graph_join_before_prefix(
   if rhs.all(fn(source) { local_graph_array_contains(lhs, source) }) {
     return lhs
   }
-  let merged : Array[Int] = Array(capacity=lhs.length() + rhs.length())
+  let merged : Array[Int32] = Array(capacity=lhs.length() + rhs.length())
   merged.append(lhs)
   ignore(local_graph_union_into(merged, rhs))
   merged
@@ -24,8 +24,8 @@ fn local_graph_join_before_prefix(
 ///|
 fn local_graph_join_prefix_bench(
   it : @bench.T,
-  width : Int,
-  mode : Int,
+  width : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let lhs = Array::makei(width, fn(index) { index })

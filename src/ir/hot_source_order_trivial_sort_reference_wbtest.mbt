@@ -4,12 +4,12 @@ fn trivial_sort_reference_query(
   func : HotFunc,
   current_root : NodeId,
   future_roots : Array[NodeId],
-  future_start : Int,
+  future_start : Int32,
   future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   facts : HotSourceOrderFacts,
-  scratch_builds? : Array[Int]? = None,
-  root_visits? : Array[Int]? = None,
-  carried_builds? : Array[Int]? = None,
+  scratch_builds~ : Array[Int32]? = None,
+  root_visits~ : Array[Int32]? = None,
+  carried_builds~ : Array[Int32]? = None,
 ) -> Array[NodeId] {
   // Extracting an existing value into a new statement preserves its execution
   // order. Its allocation ID can be newer than the consumer of an older read.

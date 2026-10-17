@@ -6,8 +6,8 @@ fn source_union_compare_query(
   local : LocalId,
   exceptional : Bool,
   unique : Bool,
-  membership : Array[Int]?,
-) -> Array[Int] raise {
+  membership : Array[Int32]?,
+) -> Array[Int32] raise {
   let actions = local_graph_reverse_action_sequences(func, cfg)
   let writes = local_graph_build_write_local_ids(func)
   let transparent = local_graph_reverse_transparent_predecessors(
@@ -26,11 +26,14 @@ fn source_union_compare_query(
     None
   }
   let count = cfg_block_count(cfg)
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     count,
     None,
   )
-  let indices : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(count, None)
+  let indices : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
+    count,
+    None,
+  )
   let seen = Array::make(count, false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
@@ -55,11 +58,11 @@ fn source_union_compare_query(
   assert_eq(seen, Array::make(count, false))
   assert_eq(visited, [])
   assert_eq(work, [])
-  let original_cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let original_cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     count,
     None,
   )
-  let original_indices : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let original_indices : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     count,
     None,
   )
@@ -265,21 +268,21 @@ fn source_union_reference_entry_sources(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
-  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?],
+  last_writes : Array[@hashmap.HashMap[Int32, NodeId]?],
   seen : Array[Bool],
   visited : Array[BlockId],
   work : Array[BlockId],
-  local_count : Int,
-  cache_slots? : Array[Int]? = None,
-) -> Array[Int] {
+  local_count : Int32,
+  cache_slots~ : Array[Int32]? = None,
+) -> Array[Int32] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
       // Completed rows are immutable; readers either borrow or copy on write.
       return sources
     }
   }
-  let sources : Array[Int] = []
+  let sources : Array[Int32] = []
   work.push(block_id)
   seen[block_id] = true
   visited.push(block_id)
@@ -342,7 +345,7 @@ fn source_union_reference_build_reverse_flow(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
-  cache_slots? : Array[Int]? = None,
+  cache_slots~ : Array[Int32]? = None,
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
@@ -372,7 +375,7 @@ fn source_union_reference_build_reverse_flow(
   let nearest_writes = Array::make(node_count, -1)
   let last_writes = Array::make(local_count, -1)
   let written_anywhere = Array::make(local_count, false)
-  let written_locals : Array[Int] = []
+  let written_locals : Array[Int32] = []
   for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
       let node_id = actions[block_id][idx]
@@ -416,20 +419,20 @@ fn source_union_reference_build_reverse_flow(
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
     write_local_ids, cfg, actions, include_exceptional,
   )
-  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
+  let get_sources : Array[Array[Int32]] = Array::make(node_count, [])
   let write_influences = local_graph_empty_influences(func)
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let block_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let block_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
   let seen = Array::make(cfg_block_count(cfg), false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
-  let entry_rows : Array[Array[Int]] = Array::make(local_count, [])
+  let entry_rows : Array[Array[Int32]] = Array::make(local_count, [])
   if written_anywhere.any(fn(written) { !written }) {
     let entry = cfg_entry_block(cfg)
     // Match the reverse query's exact origin rule: entry contributes only
@@ -542,7 +545,7 @@ fn source_union_reference_build_reverse_flow(
 }
 
 ///|
-fn source_union_width_fixture(writers : Int) -> (HotFunc, HotCfg, BlockId) {
+fn source_union_width_fixture(writers : Int32) -> (HotFunc, HotCfg, BlockId) {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let read = hot_build_local_get(func, 0)
   let writes = Array::makei(writers, fn(index) {

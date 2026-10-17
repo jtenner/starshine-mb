@@ -1,7 +1,7 @@
 ///|
 priv struct HotLowerCopiedInputs {
   nodes : Array[NodeId]
-  pop_count : Int
+  pop_count : Int32
 }
 
 ///|
@@ -63,7 +63,7 @@ fn hot_lower_copy_input_reference(
 ///|
 fn hot_lower_input_view_benchmark(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let func = HotFunc::new()

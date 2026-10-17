@@ -1,7 +1,7 @@
 ///|
 fn local_graph_tuple_state_bench(
   it : @bench.T,
-  blocks : Int,
+  blocks : Int32,
   expanded : Bool,
 ) -> Unit {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))

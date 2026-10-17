@@ -3,7 +3,7 @@ fn lift_extent_reference_collect(
   func : HotFunc,
   node_id : NodeId,
   masks : HotLiftLocalAccessReferenceMasks,
-  node_visits : Array[Int]?,
+  node_visits : Array[Int32]?,
 ) -> Unit {
   while masks.ready.length() <= node_id {
     masks.reads.push(0UL)
@@ -48,10 +48,10 @@ fn lift_extent_reference_collect(
 fn lift_extent_reference_conflict(
   func : HotFunc,
   node_id : NodeId,
-  local_id : Int,
+  local_id : Int32,
   is_write : Bool,
-  masks? : HotLiftLocalAccessReferenceMasks? = None,
-  node_visits? : Array[Int]? = None,
+  masks~ : HotLiftLocalAccessReferenceMasks? = None,
+  node_visits~ : Array[Int32]? = None,
 ) -> Bool {
   if node_id < 0 || !hot_node_is_live(func, node_id) {
     return false

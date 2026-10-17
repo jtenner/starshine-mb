@@ -1,7 +1,7 @@
 ///|
-fn source_order_value_reference(func : HotFunc) -> Array[Int] {
+fn source_order_value_reference(func : HotFunc) -> Array[Int32] {
   let orders = Array::make(hot_node_count(func), -1)
-  fn visit(node_id : NodeId) -> Int {
+  fn visit(node_id : NodeId) -> Int32 {
     if node_id < 0 || !hot_node_is_live(func, node_id) {
       return -1
     }

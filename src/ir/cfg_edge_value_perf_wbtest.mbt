@@ -9,7 +9,7 @@ priv struct CfgBoxedEdgeReference {
 ///|
 fn cfg_edge_value_construct_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   before : Bool,
 ) -> Unit {
   let kind = CfgEdgeKind::BranchEdge

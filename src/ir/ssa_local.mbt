@@ -55,7 +55,11 @@ fn ssa_local_record_use(
 }
 
 ///|
-fn ssa_local_is_region_slot(func : HotFunc, node : HotNode, slot : Int) -> Bool {
+fn ssa_local_is_region_slot(
+  func : HotFunc,
+  node : HotNode,
+  slot : Int32,
+) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
     HotOp::Loop => slot >= hot_label_branch_arity(func, node.imm0)
@@ -312,7 +316,7 @@ fn ssa_simple_result_if_condition_allowed(
 pub fn ssa_simple_drop_result_if_allowed(
   func : HotFunc,
   drop_id : NodeId,
-  operand_slot : Int,
+  operand_slot : Int32,
   if_id : NodeId,
 ) -> Bool {
   if drop_id < 0 ||
@@ -351,7 +355,7 @@ pub fn ssa_simple_drop_result_if_allowed(
 pub fn ssa_simple_drop_value_block_allowed(
   func : HotFunc,
   drop_id : NodeId,
-  operand_slot : Int,
+  operand_slot : Int32,
   block_id : NodeId,
 ) -> Bool {
   if drop_id < 0 ||
@@ -386,7 +390,11 @@ fn ssa_local_visit_region_roots(
 }
 
 ///|
-fn ssa_local_live_child(func : HotFunc, node : HotNode, slot : Int) -> NodeId? {
+fn ssa_local_live_child(
+  func : HotFunc,
+  node : HotNode,
+  slot : Int32,
+) -> NodeId? {
   let child_id = func.children[node.child_base + slot]
   if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
     return None

@@ -68,7 +68,7 @@ fn cfg_continuation_guard_reference_segments(
   let root_count = hot_region_root_count(func, region_ref)
   let expanded = builder.operand_seen is Some(_)
   let ordered_nodes : Array[NodeId] = []
-  let root_slots : Array[Int] = []
+  let root_slots : Array[Int32] = []
   let roots : Array[NodeId] = []
   let suffix_minima = match builder.source_order {
     Some(facts) => {

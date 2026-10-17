@@ -1,6 +1,6 @@
 ///|
 fn local_graph_unique_reads_fixture(
-  count : Int,
+  count : Int32,
 ) -> (HotFunc, NodeId, Array[NodeId]) {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let write = hot_build_local_set(

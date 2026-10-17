@@ -101,7 +101,7 @@ test "inline checked header reads preserve sparse lanes and legacy live admissio
 fn input_header_reference_info(
   func : HotFunc,
   id : NodeId,
-  copied_slots? : Array[Int]? = None,
+  copied_slots~ : Array[Int32]? = None,
 ) -> HotLowerInputs {
   let node = hot_node_get(func, id)
   match node.op {

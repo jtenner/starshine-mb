@@ -1,6 +1,6 @@
 ///|
-fn bitset_test_collect(bitset : Bitset) -> Array[Int] {
-  let out : Array[Int] = []
+fn bitset_test_collect(bitset : Bitset) -> Array[Int32] {
+  let out : Array[Int32] = []
   bitset_for_each_set_bit(bitset, fn(idx) { out.push(idx) })
   out
 }

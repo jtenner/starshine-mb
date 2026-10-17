@@ -144,7 +144,7 @@ test "dead tee forwarding preserves an earlier local read across an overwrite" {
   ignore(ir_test_assert_verify_and_lower(fixture))
   let @lib.Func(locals, @lib.Expr(body)) = hot_lower_func(func)
   let values = Array::make(locals.length(), 0)
-  let stack : Array[Int] = []
+  let stack : Array[Int32] = []
   for instr in body {
     match instr {
       @lib.I32Const(@lib.I32(value)) => stack.push(value)
@@ -185,7 +185,7 @@ test "node deletion records tombstones without immediate free-list reuse" {
 ///|
 test "node deletion keeps large free-list liveness queries correct" {
   let func = HotFunc::new()
-  let nodes : Array[Int] = []
+  let nodes : Array[Int32] = []
   for idx = 0; idx < 40; idx = idx + 1 {
     ignore(idx)
     nodes.push(hot_build_nop(func))

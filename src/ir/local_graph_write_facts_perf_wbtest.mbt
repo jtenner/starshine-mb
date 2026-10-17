@@ -1,5 +1,5 @@
 ///|
-fn write_facts_perf_fixture(count : Int, dense : Bool) -> HotFunc {
+fn write_facts_perf_fixture(count : Int32, dense : Bool) -> HotFunc {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=Array::make(4, @lib.ValType::i32())),
   )
@@ -22,7 +22,7 @@ fn write_facts_perf_fixture(count : Int, dense : Bool) -> HotFunc {
 ///|
 fn write_facts_perf_run(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   dense : Bool,
   original : Bool,
 ) -> Unit {

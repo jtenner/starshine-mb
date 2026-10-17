@@ -1,8 +1,8 @@
 ///|
 fn local_graph_join_before_capacity(
-  lhs : Array[Int],
-  rhs : Array[Int],
-) -> Array[Int] {
+  lhs : Array[Int32],
+  rhs : Array[Int32],
+) -> Array[Int32] {
   if physical_equal(lhs, rhs) || rhs.is_empty() {
     return lhs
   }
@@ -23,7 +23,7 @@ fn local_graph_join_before_capacity(
 ///|
 fn local_graph_join_capacity_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   subset : Bool,
   reference : Bool,
 ) -> Unit {

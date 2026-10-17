@@ -1,5 +1,5 @@
 ///|
-fn lower_lazy_order_carried_fixture(width : Int) -> HotFunc {
+fn lower_lazy_order_carried_fixture(width : Int32) -> HotFunc {
   let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
   let read = hot_build_local_get(func, 0)
   for index in 0..<width {
@@ -16,7 +16,7 @@ fn lower_lazy_order_carried_fixture(width : Int) -> HotFunc {
 ///|
 fn lower_lazy_order_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   carried : Bool,
   reference : Bool,
 ) -> Unit raise {

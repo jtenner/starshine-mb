@@ -32,10 +32,10 @@ fn payload_fields_owned_reference(func : HotFunc, id : NodeId) -> SideTableId? {
 ///|
 fn payload_fields_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   present : Bool,
   owned : Bool,
-  query : Int,
+  query : Int32,
 ) -> Unit raise {
   let func = HotFunc::new()
   let payload = hot_alloc_instr_payload(

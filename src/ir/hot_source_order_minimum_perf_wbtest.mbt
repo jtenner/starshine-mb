@@ -1,7 +1,7 @@
 ///|
 fn source_order_minimum_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   cold : Bool,
   reference : Bool,
 ) -> Unit {

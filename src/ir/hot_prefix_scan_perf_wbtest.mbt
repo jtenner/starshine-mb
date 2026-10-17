@@ -1,5 +1,5 @@
 ///|
-fn hot_prefix_scan_bench(it : @bench.T, count : Int) -> Unit raise {
+fn hot_prefix_scan_bench(it : @bench.T, count : Int32) -> Unit raise {
   let types = Array::make(count, "i32").join(" ")
   let constants = Array::make(count, "i32.const 7").join(" ")
   let input = @wast.wast_to_binary_module(

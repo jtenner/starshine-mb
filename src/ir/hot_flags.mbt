@@ -1,43 +1,43 @@
 ///|
-pub const HOT_FLAG_TERMINATOR : UInt = 1U
+pub const HOT_FLAG_TERMINATOR : UInt32 = 1U
 
 ///|
-pub const HOT_FLAG_CONTROL : UInt = 2U
+pub const HOT_FLAG_CONTROL : UInt32 = 2U
 
 ///|
-pub const HOT_FLAG_SIDE_EFFECT : UInt = 4U
+pub const HOT_FLAG_SIDE_EFFECT : UInt32 = 4U
 
 ///|
-pub const HOT_FLAG_VALUE : UInt = 8U
+pub const HOT_FLAG_VALUE : UInt32 = 8U
 
 ///|
-pub const HOT_FLAG_MAY_TRAP : UInt = 16U
+pub const HOT_FLAG_MAY_TRAP : UInt32 = 16U
 
 ///|
-pub const HOT_FLAG_BRANCH : UInt = 32U
+pub const HOT_FLAG_BRANCH : UInt32 = 32U
 
 ///|
-pub const HOT_FLAG_CALL : UInt = 64U
+pub const HOT_FLAG_CALL : UInt32 = 64U
 
 ///|
-pub const HOT_FLAG_LOAD : UInt = 128U
+pub const HOT_FLAG_LOAD : UInt32 = 128U
 
 ///|
-pub const HOT_FLAG_STORE : UInt = 256U
+pub const HOT_FLAG_STORE : UInt32 = 256U
 
 ///|
-pub const HOT_FLAG_THROWS : UInt = 512U
+pub const HOT_FLAG_THROWS : UInt32 = 512U
 
 ///|
-pub const HOT_FLAG_HAS_EXCEPTIONAL_SUCC : UInt = 1024U
+pub const HOT_FLAG_HAS_EXCEPTIONAL_SUCC : UInt32 = 1024U
 
 ///|
-fn hot_flags_include(bits : UInt, flag : UInt) -> Bool {
+fn hot_flags_include(bits : UInt32, flag : UInt32) -> Bool {
   (bits & flag) == flag
 }
 
 ///|
-pub fn hot_default_flags_for_op(op : HotOp) -> UInt {
+pub fn hot_default_flags_for_op(op : HotOp) -> UInt32 {
   match op {
     HotOp::Nop => 0U
     HotOp::Unreachable => HOT_FLAG_TERMINATOR
@@ -120,7 +120,7 @@ fn hot_flags_for_exact_payload(
   func : HotFunc,
   op : HotOp,
   payload_id : SideTableId,
-) -> UInt {
+) -> UInt32 {
   let base = hot_default_flags_for_op(op)
   if payload_id < 0 || payload_id >= func.instr_payloads.length() {
     return base
@@ -159,12 +159,16 @@ fn hot_flags_for_exact_payload(
 }
 
 ///|
-pub fn hot_node_flags(func : HotFunc, node_id : NodeId) -> UInt {
+pub fn hot_node_flags(func : HotFunc, node_id : NodeId) -> UInt32 {
   func.nodes[node_id].flags
 }
 
 ///|
-pub fn hot_node_has_flag(func : HotFunc, node_id : NodeId, flag : UInt) -> Bool {
+pub fn hot_node_has_flag(
+  func : HotFunc,
+  node_id : NodeId,
+  flag : UInt32,
+) -> Bool {
   hot_flags_include(hot_node_flags(func, node_id), flag)
 }
 

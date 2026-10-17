@@ -1,7 +1,7 @@
 ///|
 fn access_fields_bench(
   it : @bench.T,
-  depth : Int,
+  depth : Int32,
   reference : Bool,
   cold : Bool,
 ) -> Unit raise {

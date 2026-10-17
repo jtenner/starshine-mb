@@ -3,7 +3,7 @@
 fn lift_scalar_owned_reference(
   instr : Instruction,
   tc_state : TcState,
-  concrete_before_types? : Array[ValType] = [],
+  concrete_before_types~ : Array[ValType] = [],
 ) -> HotLiftDataCheck {
   // The region owns this stack. Known arity only needs its old length, so the
   // ordinary typechecker can consume it directly. Generic inference below
@@ -54,7 +54,7 @@ fn lift_scalar_owned_reference(
 ///|
 fn lift_scalar_results_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let env = if kind == 2 {

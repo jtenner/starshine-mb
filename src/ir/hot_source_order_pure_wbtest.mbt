@@ -4,10 +4,10 @@ fn source_order_reference_hot_lower_impl_collect_preceding_dependency(
   node_id : NodeId,
   before_node_id : NodeId,
   consumer_id : NodeId,
-  value_orders : Array[Int],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-  seen_consumer : Array[Int],
-  consumer_bounds : Array[Int],
+  seen_consumer : Array[Int32],
+  consumer_bounds : Array[Int32],
   touched : Array[NodeId],
   out : Array[NodeId],
 ) -> Unit {
@@ -43,10 +43,10 @@ fn source_order_reference_hot_lower_impl_collect_preceding_dependency(
 fn source_order_reference_hot_lower_impl_preceding_dependency_min_node(
   func : HotFunc,
   node_id : NodeId,
-  cache : Array[Int],
-  value_orders : Array[Int],
+  cache : Array[Int32],
+  value_orders : Array[Int32],
   node_effects : Array[EffectMask],
-) -> Int {
+) -> Int32 {
   let none = hot_node_count(func)
   if node_id < 0 ||
     node_id >= cache.length() ||
@@ -75,13 +75,15 @@ fn source_order_reference_hot_lower_impl_preceding_dependency_min_node(
 }
 
 ///|
-fn source_order_pure_fixture(count : Int) -> (HotFunc, NodeId, NodeId, NodeId) {
+fn source_order_pure_fixture(
+  count : Int32,
+) -> (HotFunc, NodeId, NodeId, NodeId) {
   let func = HotFunc::new()
   let barrier = hot_build_call(func, 0, [], [])
   let leaves = Array::makei(count, fn(i) {
     hot_build_const_i32(func, @lib.I32(i))
   })
-  fn build(start : Int, length : Int) -> NodeId {
+  fn build(start : Int32, length : Int32) -> NodeId {
     if length == 1 {
       return leaves[start]
     }

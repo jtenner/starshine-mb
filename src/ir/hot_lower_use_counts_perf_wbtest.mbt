@@ -1,7 +1,7 @@
 ///|
 fn lower_use_counts_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   compact : Bool,
 ) -> Unit raise {
   let func = HotFunc::new(

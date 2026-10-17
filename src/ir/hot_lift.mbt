@@ -1,6 +1,6 @@
 ///|
 pub enum HotLiftError {
-  InvalidLabelDepth(Int)
+  InvalidLabelDepth(Int32)
   InvalidFunctionIndex(FuncIdx)
   MissingFunctionBody(FuncIdx)
   MissingFunctionType(FuncIdx)
@@ -15,10 +15,12 @@ pub enum HotLiftError {
 /// lifetime captures have no source entry. Raw rewriters must use this map,
 /// rather than assuming that HOT node order equals raw instruction order.
 pub struct HotLiftLocalAccesses {
-  local_count : Int
+  local_count : Int32
   gets : Array[(LocalId, NodeId)]
   writes : Array[(LocalId, NodeId)]
-  revision : Int
+  // Opt-in creator journal: (fresh capture read, its preceding capture set).
+  capture_sources : Array[(NodeId, NodeId)]?
+  revision : Int32
 }
 
 ///|
@@ -35,6 +37,13 @@ pub fn hot_lift_local_accesses(func : HotFunc) -> HotLiftLocalAccesses {
         "raw local access map requires a HOT lift with source recording enabled",
       )
   }
+}
+
+///|
+/// Release optional source and capture provenance after its final consumer.
+/// Existing journal aliases remain valid; this drops the HotFunc owner only.
+pub fn hot_lift_release_local_accesses(func : HotFunc) -> Unit {
+  func.lifted_local_accesses = None
 }
 
 ///|
@@ -60,15 +69,16 @@ fn HotLiftLocalAccessMasks::new() -> HotLiftLocalAccessMasks {
 ///|
 priv struct HotLiftLabelFrames {
   active : Array[LabelId]
-  mut legacy_catch_depth : Int
-  local_count : Int
+  mut legacy_catch_depth : Int32
+  local_count : Int32
   record_local_accesses : Bool
   gets : Array[(LocalId, NodeId)]
   writes : Array[(LocalId, NodeId)]
+  capture_sources : Array[(NodeId, NodeId)]?
   capture_stack_locals : Bool
   materialize_multi_values : Bool
-  pending_effects : Array[Int]
-  first_effect_orders : Array[Int]
+  pending_effects : Array[Int32]
+  first_effect_orders : Array[Int32]
   mut local_access_masks : HotLiftLocalAccessMasks?
   mut scalar_result_scratch : Array[ValType]?
 }
@@ -76,9 +86,10 @@ priv struct HotLiftLabelFrames {
 ///|
 fn hot_lift_impl_new_label_frames(
   func : HotFunc,
-  capture_stack_locals? : Bool = false,
-  materialize_multi_values? : Bool = false,
-  record_local_accesses? : Bool = true,
+  capture_stack_locals~ : Bool = false,
+  materialize_multi_values~ : Bool = false,
+  record_local_accesses~ : Bool = true,
+  record_capture_sources~ : Bool = false,
 ) -> HotLiftLabelFrames {
   {
     active: [],
@@ -87,6 +98,11 @@ fn hot_lift_impl_new_label_frames(
     record_local_accesses,
     gets: [],
     writes: [],
+    capture_sources: if record_capture_sources && record_local_accesses {
+      Some([])
+    } else {
+      None
+    },
     capture_stack_locals,
     materialize_multi_values,
     pending_effects: [],
@@ -114,7 +130,7 @@ fn hot_lift_impl_scalar_result_scratch(
 }
 
 ///|
-fn hot_lift_impl_seed_function_label(frames : HotLiftLabelFrames) -> Int {
+fn hot_lift_impl_seed_function_label(frames : HotLiftLabelFrames) -> Int32 {
   frames.active.push(HOT_IMPLICIT_FUNCTION_LABEL)
   frames.active.length() - 1
 }
@@ -122,20 +138,16 @@ fn hot_lift_impl_seed_function_label(frames : HotLiftLabelFrames) -> Int {
 ///|
 fn hot_lift_impl_push_label(
   frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   label_id : LabelId,
-) -> Int {
+) -> Int32 {
   ignore(label_stack_head)
   frames.active.push(label_id)
   frames.active.length() - 1
 }
 
 ///|
-fn hot_lift_impl_pop_label(
-  frames : HotLiftLabelFrames,
-  label_stack_head : Int,
-) -> Unit {
-  ignore(label_stack_head)
+fn hot_lift_impl_pop_label(frames : HotLiftLabelFrames) -> Unit {
   match frames.active.pop() {
     Some(_) => ()
     None => abort("hot lift label pop requires a non-empty active label stack")
@@ -212,7 +224,7 @@ fn hot_lift_impl_env_from_context(
   ctx : HotModuleContext,
   locals : HotLocals,
   return_types : Array[ValType],
-  validation_locals? : @lib.Locals? = None,
+  validation_locals~ : @lib.Locals? = None,
 ) -> Env {
   let all_locals = match validation_locals {
     Some(decls) => decls
@@ -278,7 +290,7 @@ fn hot_lift_impl_pop_value(
 fn hot_lift_impl_pop_values(
   values : Array[NodeId],
   concrete_values : Array[ValType],
-  count : Int,
+  count : Int32,
 ) -> Array[NodeId] {
   let out = Array::make(count, HOT_NONE_NODE)
   for idx = count - 1; idx >= 0; idx = idx - 1 {
@@ -291,7 +303,7 @@ fn hot_lift_impl_pop_values(
 fn hot_lift_impl_pop_typed_values(
   values : Array[NodeId],
   concrete_values : Array[ValType],
-  count : Int,
+  count : Int32,
 ) -> (Array[NodeId], Array[ValType]) {
   let out_values = Array::make(count, HOT_NONE_NODE)
   let out_types = Array::make(count, @lib.ValType::i32())
@@ -310,7 +322,7 @@ fn hot_lift_impl_pop_typed_values(
 ///|
 fn hot_lift_impl_peek_values_with_extra(
   values : Array[NodeId],
-  count : Int,
+  count : Int32,
   extra : NodeId,
 ) -> Array[NodeId] {
   let out = Array::make(count + 1, extra)
@@ -325,7 +337,7 @@ fn hot_lift_impl_peek_values_with_extra(
 fn hot_lift_impl_require_value_count(
   instr : Instruction,
   values : Array[NodeId],
-  count : Int,
+  count : Int32,
   context : String,
 ) -> Result[Unit, HotLiftError] {
   if count <= values.length() {
@@ -356,7 +368,7 @@ fn hot_lift_impl_pop_values_for_instr(
   instr : Instruction,
   values : Array[NodeId],
   concrete_values : Array[ValType],
-  count : Int,
+  count : Int32,
   context : String,
 ) -> Result[Array[NodeId], HotLiftError] {
   match hot_lift_impl_require_value_count(instr, values, count, context) {
@@ -370,7 +382,7 @@ fn hot_lift_impl_pop_typed_values_for_instr(
   instr : Instruction,
   values : Array[NodeId],
   concrete_values : Array[ValType],
-  count : Int,
+  count : Int32,
   context : String,
 ) -> Result[(Array[NodeId], Array[ValType]), HotLiftError] {
   match hot_lift_impl_require_value_count(instr, values, count, context) {
@@ -382,7 +394,7 @@ fn hot_lift_impl_pop_typed_values_for_instr(
 ///|
 fn hot_lift_impl_resolve_label(
   frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   label_idx : LabelIdx,
 ) -> Result[LabelId, HotLiftError] {
   ignore(label_stack_head)
@@ -400,7 +412,7 @@ fn hot_lift_impl_branch_arity(
   func : HotFunc,
   label_id : LabelId,
   return_type : Array[ValType]?,
-) -> Result[Int, HotLiftError] {
+) -> Result[Int32, HotLiftError] {
   if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
     return match return_type {
       Some(types) => Ok(types.length())
@@ -413,7 +425,7 @@ fn hot_lift_impl_branch_arity(
 ///|
 fn hot_lift_impl_resolve_catch_label(
   frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   label_idx : LabelIdx,
   return_type : Array[ValType]?,
 ) -> Result[LabelId, HotLiftError] {
@@ -436,7 +448,7 @@ fn hot_lift_impl_resolve_catch_label(
 ///|
 fn hot_lift_impl_try_catch_arm(
   frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   catch_ : Catch,
   return_type : Array[ValType]?,
 ) -> Result[HotCatchArm, HotLiftError] {
@@ -480,7 +492,7 @@ fn hot_lift_impl_try_catch_arm(
 fn hot_lift_impl_make_region(
   func : HotFunc,
   body : Array[NodeId],
-  result_arity : Int,
+  result_arity : Int32,
 ) -> NodeId {
   let id = hot_build_node(
     func,
@@ -516,7 +528,7 @@ fn hot_lift_impl_intern_control_result_type(
 ///|
 fn hot_lift_impl_stack_suffix(
   types : Array[ValType],
-  suffix_len : Int,
+  suffix_len : Int32,
 ) -> Array[ValType] {
   let out : Array[ValType] = []
   let start = types.length() - suffix_len
@@ -530,7 +542,7 @@ fn hot_lift_impl_stack_suffix(
 fn hot_lift_impl_matches_candidate_after(
   before_types : Array[ValType],
   after_state : TcState,
-  pop_count : Int,
+  pop_count : Int32,
   candidate_after : TcState,
 ) -> Bool {
   if candidate_after.polymorphic != after_state.polymorphic ||
@@ -561,8 +573,8 @@ fn hot_lift_impl_generic_pop_count(
   candidate_before_types : Array[ValType],
   before_state : TcState,
   after_state : TcState,
-  min_count : Int,
-) -> Result[(Int, Array[ValType]), HotLiftError] {
+  min_count : Int32,
+) -> Result[(Int32, Array[ValType]), HotLiftError] {
   for count = min_count
       count <= candidate_before_types.length()
       count = count + 1 {
@@ -593,7 +605,7 @@ fn hot_lift_impl_resolve_generic_pop_count(
   before_state : TcState,
   after_state : TcState,
   concrete_before_types : Array[ValType],
-) -> Result[(Int, Array[ValType]), HotLiftError] {
+) -> Result[(Int32, Array[ValType]), HotLiftError] {
   match instr {
     Instruction::RefCastDescEq(_, _, _) =>
       match
@@ -696,7 +708,7 @@ fn hot_lift_impl_resolve_generic_pop_count(
 }
 
 ///|
-fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int? {
+fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int32? {
   match instr {
     Instruction::Call(func_idx) | Instruction::ReturnCall(func_idx) =>
       match env.get_functype_by_funcidx(func_idx) {
@@ -719,7 +731,7 @@ fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int? {
 }
 
 ///|
-fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
+fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int32? {
   // SIMD constants are nullary even on a polymorphic stack. Generic arity
   // inference must not promote them to consume a preceding scalar operand.
   match instr {
@@ -876,7 +888,7 @@ fn hot_lift_impl_can_materialize_unreachable_instr(
   instr : Instruction,
   tc_state : TcState,
   concrete_values : Array[ValType],
-  child_count : Int,
+  child_count : Int32,
 ) -> Bool {
   if child_count > concrete_values.length() {
     return false
@@ -1468,16 +1480,16 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
 priv struct HotLiftNodeShape {
   op : HotOp
   ty : TypeId
-  imm0 : Int
-  imm1 : Int
+  imm0 : Int32
+  imm1 : Int32
 }
 
 ///|
 fn HotLiftNodeShape::new(
   op : HotOp,
   ty : TypeId,
-  imm0 : Int,
-  imm1 : Int,
+  imm0 : Int32,
+  imm1 : Int32,
 ) -> HotLiftNodeShape {
   { op, ty, imm0, imm1, }
 }
@@ -1820,7 +1832,7 @@ fn hot_lift_impl_collect_local_access_masks(
   func : HotFunc,
   node_id : NodeId,
   masks : HotLiftLocalAccessMasks,
-  node_visits : Array[Int]?,
+  node_visits : Array[Int32]?,
 ) -> Unit {
   while masks.extent.length() <= node_id {
     masks.reads.push(0UL)
@@ -1878,10 +1890,10 @@ fn hot_lift_impl_collect_local_access_masks(
 fn hot_lift_impl_value_conflicts_with_local_access(
   func : HotFunc,
   node_id : NodeId,
-  local_id : Int,
+  local_id : Int32,
   is_write : Bool,
-  masks? : HotLiftLocalAccessMasks? = None,
-  node_visits? : Array[Int]? = None,
+  masks~ : HotLiftLocalAccessMasks? = None,
+  node_visits~ : Array[Int32]? = None,
 ) -> Bool {
   if node_id < 0 || !hot_node_is_live(func, node_id) {
     return false
@@ -2012,9 +2024,9 @@ fn hot_lift_impl_capture_before_local_access(
   roots : Array[NodeId],
   values : Array[NodeId],
   concrete_values : Array[ValType],
-  local_id : Int,
+  local_id : Int32,
   is_write : Bool,
-  operand_count : Int,
+  operand_count : Int32,
   label_frames : HotLiftLabelFrames,
 ) -> Unit {
   let pending_count = values.length() - operand_count
@@ -2076,8 +2088,13 @@ fn hot_lift_impl_capture_before_local_access(
           _ => original_type
         }
         let capture_local = hot_append_body_local(func, storage_type)
-        roots.push(hot_build_local_set(func, capture_local, value_id))
+        let write = hot_build_local_set(func, capture_local, value_id)
+        roots.push(write)
         let read = hot_build_local_get(func, capture_local)
+        match label_frames.capture_sources {
+          Some(pairs) => pairs.push((read, write))
+          None => ()
+        }
         values[slot] = match original_type {
           @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
             let checked = hot_build_unary(func, original_type, read)
@@ -2102,7 +2119,7 @@ fn hot_lift_impl_capture_before_local_access(
 fn hot_lift_impl_is_stable_capture(
   func : HotFunc,
   node_id : NodeId,
-  source_local_count : Int,
+  source_local_count : Int32,
 ) -> Bool {
   let node = hot_node_get(func, node_id)
   if node.op == HotOp::LocalGet {
@@ -2207,7 +2224,7 @@ fn hot_lift_impl_copy_val_types(types : Array[ValType]) -> Array[ValType] {
 fn hot_lift_impl_pushed_types(
   before_types : Array[ValType],
   after_types : Array[ValType],
-  pop_count : Int,
+  pop_count : Int32,
 ) -> Array[ValType] {
   let prefix_len = before_types.length() - pop_count
   let out : Array[ValType] = []
@@ -2223,7 +2240,7 @@ fn hot_lift_impl_pushed_types(
 #valtype
 priv struct HotLiftDataCheck {
   state : TcState
-  pop_count : Int
+  pop_count : Int32
   pushed : Array[ValType]
   error : HotLiftError?
 }
@@ -2231,7 +2248,7 @@ priv struct HotLiftDataCheck {
 ///|
 fn HotLiftDataCheck::success(
   state : TcState,
-  pop_count : Int,
+  pop_count : Int32,
   pushed : Array[ValType],
 ) -> HotLiftDataCheck {
   { state, pop_count, pushed, error: None, }
@@ -2249,8 +2266,8 @@ fn HotLiftDataCheck::failure(
 fn hot_lift_impl_typecheck_data_instruction(
   instr : Instruction,
   tc_state : TcState,
-  concrete_before_types? : Array[ValType] = [],
-  scalar_results? : Array[ValType]? = None,
+  concrete_before_types~ : Array[ValType] = [],
+  scalar_results~ : Array[ValType]? = None,
 ) -> HotLiftDataCheck {
   // The optional row is disjoint from state/signature storage. Clear it even
   // on failure; a borrowed result must be consumed before the next call.
@@ -2315,9 +2332,9 @@ fn hot_lift_impl_lift_region(
   expr : Expr,
   tc_state : TcState,
   label_frames : HotLiftLabelFrames,
-  label_stack_head : Int,
-  initial_values? : Array[NodeId] = [],
-  initial_value_types? : Array[ValType] = [],
+  label_stack_head : Int32,
+  initial_values~ : Array[NodeId] = [],
+  initial_value_types~ : Array[ValType] = [],
 ) -> Result[(Array[NodeId], Array[NodeId], TcState), HotLiftError] {
   let Expr(instrs) = expr
   // Entry stacks can share a tag signature or an arm's saved entry types.
@@ -2386,8 +2403,14 @@ fn hot_lift_impl_lift_region(
             ) {
             for lane = end - 1; lane >= slot; lane = lane - 1 {
               let scratch = hot_append_body_local(func, concrete_values[lane])
-              roots.push(hot_build_local_set(func, scratch, producer))
-              values[lane] = hot_build_local_get(func, scratch)
+              let write = hot_build_local_set(func, scratch, producer)
+              roots.push(write)
+              let read = hot_build_local_get(func, scratch)
+              match label_frames.capture_sources {
+                Some(pairs) => pairs.push((read, write))
+                None => ()
+              }
+              values[lane] = read
             }
           }
           slot = end
@@ -2429,8 +2452,13 @@ fn hot_lift_impl_lift_region(
                 _ => original_type
               }
               let scratch = hot_append_body_local(func, storage_type)
-              roots.push(hot_build_local_set(func, scratch, producer))
+              let write = hot_build_local_set(func, scratch, producer)
+              roots.push(write)
               let read = hot_build_local_get(func, scratch)
+              match label_frames.capture_sources {
+                Some(pairs) => pairs.push((read, write))
+                None => ()
+              }
               values[lane] = match original_type {
                 @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
                   let checked = hot_build_unary(func, original_type, read)
@@ -2539,12 +2567,109 @@ fn hot_lift_impl_reserve_elided_accesses(
 }
 
 ///|
+fn hot_lift_impl_has_deep_void_block_chain(body : Expr) -> Bool {
+  let mut current = body
+  let mut depth = 1
+  while depth < 32 {
+    match current {
+      Expr([Instruction::Block(block_type, nested)]) if block_type ==
+        BlockType::void_() => {
+        depth += 1
+        current = nested
+      }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+// Consecutive void blocks carry no values between regions. Lift their labels
+// and body with an explicit stack so deeply nested valid input does not consume
+// one host call frame per block on the WasmGC backend.
+fn hot_lift_impl_lift_void_block_chain(
+  func : HotFunc,
+  body : Expr,
+  tc_state : TcState,
+  label_frames : HotLiftLabelFrames,
+  label_stack_head : Int32,
+  roots : Array[NodeId],
+  values : Array[NodeId],
+  concrete_values : Array[ValType],
+) -> Result[TcState, HotLiftError] {
+  let states : Array[TcState] = []
+  let entry_states : Array[TcState] = []
+  let ids : Array[NodeId] = []
+  let mut current_body = body
+  let mut current_state = tc_state
+  let mut current_stack_head = label_stack_head
+  while true {
+    let entry_state = match tc_state_pop_types(current_state, []) {
+      Ok(next) => next
+      Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+    }
+    let ty = hot_lift_impl_intern_control_result_type(
+      func,
+      BlockType::void_(),
+      [],
+      [],
+    )
+    let id = hot_build_node(func, HotOp::Block, ty)
+    let label_id = hot_label_alloc(func, HotLabelKind::BlockLabel, ty, id, 0)
+    hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
+    let next_stack_head = hot_lift_impl_push_label(
+      label_frames, current_stack_head, label_id,
+    )
+    let region_env = entry_state.env.with_label([])
+    let region_state = hot_lift_impl_region_state(entry_state, region_env, [])
+    states.push(current_state)
+    entry_states.push(entry_state)
+    ids.push(id)
+    current_state = region_state
+    current_stack_head = next_stack_head
+    match current_body {
+      Expr([Instruction::Block(block_type, nested_body)]) if block_type ==
+        BlockType::void_() => current_body = nested_body
+      _ => break
+    }
+  }
+  let (body_roots, _, body_exit_state) = match
+    hot_lift_impl_lift_region(
+      func, current_body, current_state, label_frames, current_stack_head,
+    ) {
+    Ok(state) => state
+    Err(err) => return Err(err)
+  }
+  let mut nested_roots = body_roots
+  let mut exit_state = body_exit_state
+  let mut idx = ids.length() - 1
+  while idx >= 0 {
+    hot_lift_impl_pop_label(label_frames)
+    exit_state = match
+      @validate.tc_state_finish_block(
+        states[idx],
+        entry_states[idx],
+        exit_state,
+        [],
+      ) {
+      Ok(state) => state
+      Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+    }
+    ignore(hot_replace_child_span(func, ids[idx], nested_roots))
+    nested_roots = [ids[idx]]
+    idx -= 1
+  }
+  hot_lift_impl_push_node(roots, values, concrete_values, ids[0], [])
+  Ok(exit_state)
+}
+
+///|
 fn hot_lift_impl_lift_control(
   func : HotFunc,
   instr : Instruction,
   tc_state : TcState,
   label_frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   roots : Array[NodeId],
   values : Array[NodeId],
   concrete_values : Array[ValType],
@@ -2589,6 +2714,12 @@ fn hot_lift_impl_lift_control(
   }
   match instr {
     Instruction::Block(block_type, body) => {
+      if block_type == BlockType::void_() &&
+        hot_lift_impl_has_deep_void_block_chain(body) {
+        return hot_lift_impl_lift_void_block_chain(
+          func, body, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
+        )
+      }
       let (params, results) = match
         hot_lift_impl_block_results(tc_state.env, block_type) {
         Ok(types) => types
@@ -2640,7 +2771,7 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(err)
       }
-      hot_lift_impl_pop_label(label_frames, next_stack)
+      hot_lift_impl_pop_label(label_frames)
       let after_state = match
         @validate.tc_state_finish_block(
           tc_state, entry_state, body_exit_state, results,
@@ -2729,7 +2860,7 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(err)
       }
-      hot_lift_impl_pop_label(label_frames, next_stack)
+      hot_lift_impl_pop_label(label_frames)
       let after_state = match
         @validate.tc_state_finish_loop(
           tc_state, entry_state, body_exit_state, results,
@@ -2844,7 +2975,7 @@ fn hot_lift_impl_lift_control(
         }
         None => HOT_NONE_NODE
       }
-      hot_lift_impl_pop_label(label_frames, next_stack)
+      hot_lift_impl_pop_label(label_frames)
       let after_state = match
         @validate.tc_state_finish_if(
           tc_state, entry_state, then_exit_state, checked_else_state, results,
@@ -3040,7 +3171,7 @@ fn hot_lift_impl_lift_control(
             _ => abort("legacy try catch count checked above")
           }
       }
-      hot_lift_impl_pop_label(label_frames, next_stack)
+      hot_lift_impl_pop_label(label_frames)
       ignore(
         hot_replace_child_span(func, id, [
           hot_lift_impl_make_region(func, body_roots, result_arity),
@@ -3108,7 +3239,7 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(err)
       }
-      hot_lift_impl_pop_label(label_frames, next_stack)
+      hot_lift_impl_pop_label(label_frames)
       for catch_ in catches {
         match tc_state_typecheck_catch_clause(entry_state, catch_) {
           Ok(_) => ()
@@ -3168,7 +3299,7 @@ fn hot_lift_impl_lift_instruction(
   instr : Instruction,
   tc_state : TcState,
   label_frames : HotLiftLabelFrames,
-  label_stack_head : Int,
+  label_stack_head : Int32,
   roots : Array[NodeId],
   values : Array[NodeId],
   concrete_values : Array[ValType],
@@ -3923,7 +4054,7 @@ fn hot_lift_impl_finish(
   func : HotFunc,
   roots : Array[NodeId],
   label_frames : HotLiftLabelFrames,
-  verify? : Bool = true,
+  verify~ : Bool = true,
 ) -> HotFunc {
   for root in roots {
     hot_root_append(func, root)
@@ -3936,6 +4067,7 @@ fn hot_lift_impl_finish(
       local_count: label_frames.local_count,
       gets: label_frames.gets,
       writes: label_frames.writes,
+      capture_sources: label_frames.capture_sources,
       revision: func.revision,
     })
   } else {
@@ -3948,7 +4080,7 @@ fn hot_lift_impl_finish(
 pub fn hot_lift_body_result(
   body : Expr,
   locals : HotLocals,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type~ : BlockType = BlockType::void_(),
 ) -> Result[HotFunc, HotLiftError] {
   let env = hot_lift_impl_env_without_context(
     locals,
@@ -3978,7 +4110,7 @@ pub fn hot_lift_body_with_context(
   body : Expr,
   locals : HotLocals,
   ctx : HotModuleContext,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type~ : BlockType = BlockType::void_(),
 ) -> HotFunc {
   let func = hot_lift_body_with_context_unverified(
     body,
@@ -3996,12 +4128,13 @@ fn hot_lift_impl_body_with_context_result(
   locals : HotLocals,
   ctx : HotModuleContext,
   body_result_type : BlockType,
-  validation_locals? : @lib.Locals? = None,
-  known_return_types? : Array[ValType]? = None,
-  env_build_visits? : Array[Int]? = None,
-  capture_stack_locals? : Bool = false,
-  materialize_multi_values? : Bool = false,
-  record_local_accesses? : Bool = true,
+  validation_locals~ : @lib.Locals? = None,
+  known_return_types~ : Array[ValType]? = None,
+  env_build_visits~ : Array[Int32]? = None,
+  capture_stack_locals~ : Bool = false,
+  materialize_multi_values~ : Bool = false,
+  record_local_accesses~ : Bool = true,
+  record_capture_sources~ : Bool = false,
 ) -> Result[HotFunc, HotLiftError] {
   let return_types = match known_return_types {
     Some(types) => types
@@ -4048,6 +4181,7 @@ fn hot_lift_impl_body_with_context_result(
     capture_stack_locals~,
     materialize_multi_values~,
     record_local_accesses~,
+    record_capture_sources~,
   )
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
@@ -4069,7 +4203,7 @@ pub fn hot_lift_body_with_context_result(
   body : Expr,
   locals : HotLocals,
   ctx : HotModuleContext,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type~ : BlockType = BlockType::void_(),
 ) -> Result[HotFunc, HotLiftError] {
   hot_lift_impl_body_with_context_result(body, locals, ctx, body_result_type)
 }
@@ -4079,7 +4213,7 @@ pub fn hot_lift_body_with_context_unverified(
   body : Expr,
   locals : HotLocals,
   ctx : HotModuleContext,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type~ : BlockType = BlockType::void_(),
 ) -> HotFunc {
   match
     hot_lift_body_with_context_result(body, locals, ctx, body_result_type~) {
@@ -4090,10 +4224,10 @@ pub fn hot_lift_body_with_context_unverified(
 
 ///|
 fn hot_lift_impl_defined_code_index(
-  total_func_count : Int,
-  defined_func_count : Int,
+  total_func_count : Int32,
+  defined_func_count : Int32,
   func_idx : FuncIdx,
-) -> Int? {
+) -> Int32? {
   let FuncIdx(raw) = func_idx
   let code_idx = raw.reinterpret_as_int() -
     (total_func_count - defined_func_count)
@@ -4124,9 +4258,10 @@ pub fn hot_lift_func_with_context_result(
   mod_ : Module,
   func_idx : FuncIdx,
   ctx : HotModuleContext,
-  capture_stack_locals? : Bool = false,
-  materialize_multi_values? : Bool = false,
-  record_local_accesses? : Bool = true,
+  capture_stack_locals~ : Bool = false,
+  materialize_multi_values~ : Bool = false,
+  record_local_accesses~ : Bool = true,
+  record_capture_sources~ : Bool = false,
 ) -> Result[HotFunc, HotLiftError] {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
@@ -4175,6 +4310,7 @@ pub fn hot_lift_func_with_context_result(
       capture_stack_locals~,
       materialize_multi_values~,
       record_local_accesses~,
+      record_capture_sources~,
     ) {
     Ok(hot) => hot
     Err(err) => return Err(err)
@@ -4208,8 +4344,8 @@ pub fn hot_lift_func(mod_ : Module, func_idx : FuncIdx) -> HotFunc {
 fn hot_lift_impl_pending_observable(
   func : HotFunc,
   node : NodeId,
-  cache : Array[Int],
-  depth : Int,
+  cache : Array[Int32],
+  depth : Int32,
 ) -> Bool {
   if node < 0 {
     return false

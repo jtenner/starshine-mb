@@ -1,5 +1,9 @@
 ///|
-fn cfg_root_snapshot_bench(it : @bench.T, width : Int, expanded : Bool) -> Unit {
+fn cfg_root_snapshot_bench(
+  it : @bench.T,
+  width : Int32,
+  expanded : Bool,
+) -> Unit {
   let func = cfg_root_snapshot_fixture(width, 16)
   hot_verify_all(func).unwrap()
   let cfg = cfg_build(func, expand_operand_control=expanded)

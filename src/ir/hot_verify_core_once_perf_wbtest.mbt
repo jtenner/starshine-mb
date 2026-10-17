@@ -1,7 +1,7 @@
 ///|
 fn core_once_perf_run(
   it : @bench.T,
-  roots : Int,
+  roots : Int32,
   with_catch : Bool,
   original : Bool,
 ) -> Unit {

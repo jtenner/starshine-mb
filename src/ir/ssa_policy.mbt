@@ -1,8 +1,8 @@
 ///|
-pub type SsaValueId = Int
+pub type SsaValueId = Int32
 
 ///|
-pub type PhiId = Int
+pub type PhiId = Int32
 
 ///|
 pub enum HotSsaValueOrigin {
@@ -78,7 +78,7 @@ pub fn HotSsaPhiInput::new(
 
 ///|
 pub struct HotLocalSsa {
-  revision : Int
+  revision : Int32
   value_types : Array[ValType]
   value_origins : Array[HotSsaValueOrigin]
   phis : Array[HotSsaPhi]
@@ -98,17 +98,17 @@ pub impl Show for HotLocalSsa with fn output(self, logger) {
 
 ///|
 pub fn HotLocalSsa::new(
-  revision? : Int = 0,
-  value_types? : Array[ValType] = [],
-  value_origins? : Array[HotSsaValueOrigin] = [],
-  phis? : Array[HotSsaPhi] = [],
-  entry_defs? : Array[SsaValueId] = [],
-  phi_value_ids? : Array[SsaValueId] = [],
-  block_phis? : Array[Array[PhiId]] = [],
-  phi_inputs? : Array[Array[HotSsaPhiInput]] = [],
-  local_get_values? : Array[SsaValueId] = [],
-  local_write_defs? : Array[SsaValueId] = [],
-  value_uses? : Array[Array[HotSsaUseOrigin]] = [],
+  revision~ : Int32 = 0,
+  value_types~ : Array[ValType] = [],
+  value_origins~ : Array[HotSsaValueOrigin] = [],
+  phis~ : Array[HotSsaPhi] = [],
+  entry_defs~ : Array[SsaValueId] = [],
+  phi_value_ids~ : Array[SsaValueId] = [],
+  block_phis~ : Array[Array[PhiId]] = [],
+  phi_inputs~ : Array[Array[HotSsaPhiInput]] = [],
+  local_get_values~ : Array[SsaValueId] = [],
+  local_write_defs~ : Array[SsaValueId] = [],
+  value_uses~ : Array[Array[HotSsaUseOrigin]] = [],
 ) -> HotLocalSsa {
   if revision < 0 {
     abort("ssa overlays require a non-negative hot revision")
@@ -218,7 +218,10 @@ fn ssa_require_cfg_shapes(
 }
 
 ///|
-fn ssa_phi_block_order_index(cfg : HotCfg, rpo : Array[BlockId]) -> Array[Int] {
+fn ssa_phi_block_order_index(
+  cfg : HotCfg,
+  rpo : Array[BlockId],
+) -> Array[Int32] {
   let out = Array::make(cfg_block_count(cfg), -1)
   for idx = 0; idx < rpo.length(); idx = idx + 1 {
     out[rpo[idx]] = idx
@@ -234,12 +237,12 @@ fn ssa_phi_placement_blocks_with_scratch(
   liveness : HotLiveness,
   use_def : HotUseDef,
   local_id : LocalId,
-  rpo_index : Array[Int],
-  placed_stamps : Array[Int],
-  queued_stamps : Array[Int],
+  rpo_index : Array[Int32],
+  placed_stamps : Array[Int32],
+  queued_stamps : Array[Int32],
   queue : Array[BlockId],
   placements : Array[BlockId],
-  stamp : Int,
+  stamp : Int32,
 ) -> Array[BlockId] {
   ssa_require_local_range(func, local_id)
   ssa_require_cfg_shapes(func, cfg, liveness, use_def)

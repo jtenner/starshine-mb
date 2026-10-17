@@ -5,9 +5,9 @@
 fn hot_lift_impl_first_effect_order(
   func : HotFunc,
   node : NodeId,
-  cache : Array[Int],
-  node_visits? : Array[Int]? = None,
-) -> Int {
+  cache : Array[Int32],
+  node_visits~ : Array[Int32]? = None,
+) -> Int32 {
   if node < 0 || !hot_node_is_live(func, node) {
     return 2147483647
   }

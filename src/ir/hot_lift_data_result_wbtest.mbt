@@ -1,7 +1,7 @@
 ///|
 fn lift_data_check_unwrap(
   checked : HotLiftDataCheck,
-) -> (TcState, Int, Array[ValType]) {
+) -> (TcState, Int32, Array[ValType]) {
   match checked.error {
     Some(error) => abort("unexpected lift typecheck error: \{error}")
     None => (checked.state, checked.pop_count, checked.pushed)

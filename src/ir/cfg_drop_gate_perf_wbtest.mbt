@@ -1,5 +1,9 @@
 ///|
-fn cfg_drop_gate_bench(it : @bench.T, width : Int, drops : Bool) -> Unit raise {
+fn cfg_drop_gate_bench(
+  it : @bench.T,
+  width : Int32,
+  drops : Bool,
+) -> Unit raise {
   let func = HotFunc::new()
   for i in 0..<width {
     hot_root_append(

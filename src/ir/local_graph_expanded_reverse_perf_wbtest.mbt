@@ -1,7 +1,7 @@
 ///|
 fn local_graph_expanded_reverse_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   dense : Bool,
 ) -> Unit {
   let (func, writes, reads) = local_graph_query_fixture(count, count * 4)

@@ -1,5 +1,5 @@
 ///|
-fn input_header_perf_run(it : @bench.T, roots : Int, original : Bool) -> Unit {
+fn input_header_perf_run(it : @bench.T, roots : Int32, original : Bool) -> Unit {
   let func = cfg_segment_storage_fixture(roots)
   let live : Array[NodeId] = []
   for node in 0..<hot_node_count(func) {

@@ -7,11 +7,11 @@ test "reverse query cache shares completed immutable rows and isolates later mer
   let transparent = local_graph_reverse_transparent_predecessors(
     writes, cfg, actions, true,
   )
-  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+  let cache : Array[@hashmap.HashMap[Int32, Array[Int32]]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
-  let last_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+  let last_writes : Array[@hashmap.HashMap[Int32, NodeId]?] = Array::make(
     cfg_block_count(cfg),
     None,
   )
@@ -31,7 +31,7 @@ test "reverse query cache shares completed immutable rows and isolates later mer
   assert_eq(first, [local_graph_entry_source_id(1)])
   assert_true(physical_equal(first, cached))
   assert_true(physical_equal(second, cached))
-  let rows : Array[Array[Int]] = [[], []]
+  let rows : Array[Array[Int32]] = [[], []]
   let recorder = LocalGraphSourceRecorder::new(rows)
   recorder.record(0, first)
   recorder.record(1, second)
