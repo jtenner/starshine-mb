@@ -172,4 +172,4 @@ const optimized = modules.optimizeWasm(wasm, {
 
 WIT `result` errors are surfaced by Jco as `ComponentError`; the structured diagnostic is available on the error payload.
 
-The WIT package is versioned as `jtenner:starshine-component@0.1.1`. Treat WIT changes with the same compatibility care as any public API change.
+The WIT interface package remains `jtenner:starshine-component@0.1.1`, and `metadata.version()` reports that interface version. It is independent of the MoonBit/npm product candidate `0.1.2-beta.0`; an npm metadata update alone must not rename portable component exports. Component generation derives its local root dependency from the synchronized product metadata. WIT and metadata interface versions must agree. Treat WIT changes with the same compatibility care as any public API change.

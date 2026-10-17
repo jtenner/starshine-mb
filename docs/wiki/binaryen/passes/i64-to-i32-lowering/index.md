@@ -1,7 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+starshine_status: boundary-only
+last_reviewed: 2026-10-11
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -25,14 +26,15 @@ related:
 
 - `i64-to-i32-lowering` is a real public Binaryen pass.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It has no owner file or dispatcher case today; [`./starshine-strategy.md`](./starshine-strategy.md) maps the exact local code surfaces a future module pass would need.
+- Starshine separately exposes `i64-trunc-sat-float-lowering` for the already implemented four-op saturating-conversion rewrite. That narrow pass does not claim the Binaryen ABI contract.
+- The canonical name has no active dispatcher case; [`./starshine-strategy.md`](./starshine-strategy.md) maps the exact local code surfaces a future full module pass would need.
 - It is also still listed in the local whole-module transform roster in [research note 0063](../../../ir2/registry-map.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
 
 - The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local boundary-only registry entry.
-- `agent-todo.md` currently has **no dedicated `i64-to-i32-lowering` slice**.
+- `agent-todo.md` keeps the missing full ABI/opcode implementation as an explicit correctness blocker.
 - The pass name sounds like a small arithmetic lowering, but the real contract is much larger.
 - It sits near already-documented neighbors like `flatten`, `inlining`, and JS-interface legalization, so a future port will benefit from a dedicated canonical explanation instead of scattering the facts across those folders.
 
@@ -64,7 +66,7 @@ So this pass is best taught as:
 - Some families still require helper imports or prior cleanup: reinterpret uses wasm2js scratch-memory helpers, some atomic families use wasm2js runtime helpers, and ops like `mul` / `div` / `rem` / `rot` / `popcnt` are expected to be gone already.
 - The refreshed dossier now also has a dedicated ABI/opcode coverage ledger so future readers can see, in one place, which families are directly pair-lowered, helper-backed, fallback-only, or still explicitly unsupported.
 - The folder is anchored by direct `version_129` sources plus the retained 2026-04-26 port-readiness source recheck; the recheck did not correct the upstream algorithm, but it makes first-slice sequencing and local code surfaces explicit.
-- The dedicated Starshine strategy page records the exact current local truth: boundary-only registry name, request rejection, no module-pass dispatcher case, no owner file, no active preset role, and no active backlog slice.
+- The dedicated Starshine strategy page records the exact current local truth: canonical boundary-only registry name, request rejection, a separately named active saturating-conversion subset, no canonical dispatcher case, no active preset role, and an explicit backlog blocker.
 - The 2026-04-26 port-readiness bridge adds the missing implementation sequence: registry honesty first, then analyzer-only classification, then a deliberately narrow scalar type/param/local split before calls, globals, returns, memory, helper imports, or atomics.
 
 ## Page map

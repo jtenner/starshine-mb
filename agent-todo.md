@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 9, 2026. Follow
+Active unreleased work only, reviewed October 13, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -10,11 +10,147 @@ oracle versions and checkpoints do not sign current source.
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
+## Missed-optimization follow-ups [IR2-MO-STATIC]
+
+- [ ] **Goal / why:** extend the bounded static marker lane only where replay proves a missed optimization; opaque markers can change pass decisions.
+- **Deliverables / tasks:** preserve candidate marker identities during automatic reduction; add supported exception/control instrumentation; qualify the separate post-pass dynamic detector in issue #19 using the existing runtime/reducer tools.
+- **APIs / invariants:** canonical parser/encoder and native pass flags; actual call-site survival, unchanged original module, exact ordered effects/traps, bounded work, explicit unsupported features.
+- **Dependencies / exit criteria:** candidate-preserving reducer predicate, validated instrumented/output modules, uninstrumented replay and paired size/runtime/cost measurements; keep presets unchanged until held-out schedule evidence supports a change.
+- **Tests:** lost parent marker, remapped import identity, nested typed/multivalue branches, ordered load/store and trap controls. See [fuzz runner](docs/wiki/tooling/fuzz-runner.md).
+- **Open raw RUB parity:** the October 13 aggregate compares 10,000 cases with no canonical size loss, but raw Starshine output is larger in 8,110 cases (+159,331 total bytes versus v133). Twenty retained cases reproduce byte-identical baseline outputs. Keep this encoding gap open; see [evidence](docs/wiki/raw/tooling/2026-10-13-missed-optimization-evidence.json).
+
+## Package follow-ups [NPM-WASMGC-BETA]
+
+- npm `starshine@0.2.0` and Mooncakes `jtenner/starshine@0.2.0` are published.
+  Registry archives match the qualified bytes. The default npm install, nine
+  exports, Node25/26 strict TypeScript/API/CLI consumers and Mooncakes source
+  consumers passed. All six master workflows at `27a6ec81e` passed. Coverage
+  is 28,075 / 227 against unchanged 28,138 / 196. Earlier failures and bypass
+  warnings stay in [release evidence](docs/wiki/tooling/release-process.md).
+- Mooncakes `0.2.1` is published and its registry archive matches the qualified
+  bytes. Registry-only tutorial/API consumers pass. The root module overview
+  renders the archived MoonBit tutorial, including at the unversioned latest URL.
+  GitHub default master still has the `0.2.0` guide until protected advancement.
+- [ ] Complete the owner-authorized Mooncakes `0.2.2` MoonBit tutorial revision.
+  Use the bundled `moonrun` for WasmGC, document `moon update`, and give a visible
+  header success check. Run actual archived MoonBit examples with Node absent
+  from the MoonGC process PATH, native file I/O and checked errors; independently
+  execute the encoded answer. Obtain candidate review before publication, then
+  verify literal registry installation and the rendered default/latest overview.
+  Synchronized npm `0.2.2` metadata is only a private build candidate; published
+  npm remains `0.2.0`. No npm publication is authorized by this correction.
+- The automatic FFI-backed declarations, six-pass self-build and packed runtime
+  boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
+  Unsupported ABI mappings fail generation; root/subpaths share async ESM
+  initialization and GC-managed ownership. Ordinary consumers need no build tools.
+- Preserve [upstream terms](docs/wiki/tooling/license-provenance.md). The author
+  confirmed source use. Josh-owned original portions are scoped MIT; upstream
+  Binaryen/Core/x rights and change notices remain. Exact per-file derivation is
+  incomplete; do not claim clean-room or MIT-only compiled bundles.
+- P1 memory, broader MSF audit and raw serialization/parity gaps stay open.
+  Ordinary MSF 10k normalized/semantic comparison passes but raw bytes grow
+  28,329. Record-copy 10k has smaller outputs and semantic matches but retained
+  structural comparison exit 1; tiny-copy runtime costs are accepted locally.
+  Current six-pass gzip grows 7,294 bytes despite unpacked reduction.
+- Targeted unread-tee 10k has all runtime matches and no invalid outputs, but
+  7,747 structural differences and raw total growth 25,882 remain open parity
+  gaps. Preserve saved aggregate's zero-tee coverage limit and targeted profile
+  evidence in [Vacuum signoff](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
+- No tags/releases, deployment, credential or protection changes are authorized.
+  Preserve other worktrees and held optimizer refs. Do not revive DAE2/O work.
+
+### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
+
+- **Goal / why:** recover the incremental native peak memory from bounded GC
+  canonicalization and immutable TypeIdx/concrete-HeapType wrapper sharing while
+  preserving its artifact benefit and correctness. The user temporarily accepts
+  the overhead for integration; this acceptance does not close the P1 blocker.
+- **Same-input evidence:** on preserved ORIGINAL GC SHA-256
+  `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`
+  (7,452,107 bytes), three serial fixed-order samples gave first-checkpoint
+  equivalent median 265,612 KiB (range 261,400–265,952), memory-repair control
+  324,776 KiB (324,236–326,352), and final `680fd66c` 303,164 KiB
+  (302,828–303,492). Final saves 21,612 KiB versus repair, but retains 37,552 KiB
+  (~36.7 MiB) above first. Output 7,232,524 -> 6,960,836 bytes retains 271,688
+  bytes of additional benefit. These are historical same-original cohorts, not
+  measurements of fresh unlike-input npm builds or current a2 source.
+- **Limits / invariants:** native peak RSS and occupied rounded heap blocks are
+  different measurements; allocator-retained RSS remains after logical data
+  releases. No upper-peak, general leak, repeated-JavaScript retention or speed
+  guarantee. Keep immutable source ownership, complete type/exact/nullable
+  operands, retained recursive-group/public identities, bounded per-CodeSec
+  cache lifetime and unchanged preset admission. Exclude the no-benefit baseline
+  route and unqualified RefType/global/mutable graph caches.
+- [ ] **Tasks / deliverables:** attribute phase maxima and input/output live overlap,
+  map/wrapper capacities and allocator retention; retain normal uninstrumented
+  RSS cohorts and separately label diagnostic occupied-block snapshots. Exercise
+  unchanged/changed typed widths and cache lifetime, then repeated initialize /
+  parse / optimize / encode and reclamation in supported Node runtimes. Publish
+  a reduced allocation/lifetime regression and explicit source/tool/input hashes.
+- **Exit criteria:** agree a baseline-noise budget before measuring; run matched
+  fresh actual-baseline/candidate cohorts directly from identical original bytes
+  with controlled concurrency/order and retained samples (at least five pairs,
+  median/MAD/ranges/maxima). Recover incremental RSS within that budget without
+  losing the reviewed GC benefit, independent validation, runtime observations,
+  nominal ownership or tarball behavior. Re-run focused regressions, full suite,
+  generated ABI/type drift and isolated packed consumers. A cache microbenchmark,
+  single favorable sample or temporary integration approval cannot close this
+  blocker; partial reductions remain documented progress.
+## Typed-if constant propagation [IR2-OPT-EXP01]
+
+- **Goal / why:** remove the remaining equal-arm typed-if propagation gap;
+  the equivalent branch-local form folds its final add.
+- **Deliverables / tasks:** prove the typed-if local-flow eligibility before
+  changing the existing unsafe-local guard; preserve condition/arm effects and
+  traps; measure complete encoded output and downstream cleanup.
+- **Required APIs / invariants:** current LocalGraph reaching-write facts and
+  HOT result-region APIs; no fact may bypass alias/write or branch semantics.
+- **Dependencies / exit criteria:** focused semantic proof and red optimizer
+  regression, independently valid output, positive measured size/runtime cost.
+- **Suggested tests:** equal/different arm values, arm writes, condition writes,
+  traps and unreachable arms. The independent execution fixture and current
+  direct-pass evidence are in [paired size diagnostics](docs/wiki/fuzzing/semantic-optimizer-campaigns.md#paired-optimization-size-diagnostics).
+
+## v0.1.1 — GC effect scanner immediates [IR2-FUZZ-GC-SCANNER]
+
+- **Goal / why:** parse GC prefix `0xfb` and its complete immediates so type
+  and field index bytes do not become false standalone instruction hazards.
+- **Deliverables / tasks:** failing-first scanner fixture for struct allocation
+  and field access, bounded prefix decoding, and correct unsupported/truncated
+  handling. Audit related reference/array opcodes before expanding coverage.
+- **Required APIs / invariants:** existing effect-trap scanner and hazard
+  provenance; no claimed unreachable coverage from GC subopcode or index bytes.
+- **Dependencies / exit criteria:** independent decoded instruction evidence,
+  focused scanner tests and renewed affected interaction evidence. The
+  [DFE aggregate](docs/wiki/binaryen/passes/duplicate-function-elimination/fuzzing.md)
+  reproduces two false hazards in a 78-byte executable GC module.
+- **Suggested tests:** struct.new, struct.get, array instructions, zero indices,
+  multi-byte indices, truncated input, actual unreachable and nullable traps.
+
+## v0.1.1 — Ordinary RUME host function names [IR2-RUME-HOST-NAMES]
+
+- **Goal / why:** resolve the pre-existing numeric JavaScript `Function.name`
+  change when ordinary RUME removes an earlier function slot. A 42-byte module
+  with an unused function 0 and retained `run` function 1 returns 42 before and
+  after pruning, but its exported name changes from `"1"` to `"0"`.
+- **Deliverables / tasks:** define ordinary optimizer host-observation policy,
+  test exposed references/aliases and retained names, then measure an index
+  preservation strategy across standard presets.
+- **Required APIs / invariants:** existing RUME remap and reference liveness;
+  do not treat core return equality as proof of all host observations.
+- **Dependencies / exit criteria:** independent JavaScript name/identity checks,
+  reviewed semantics and measured encoded size/time/memory tradeoffs.
+- **Suggested tests:** earlier dead functions, late returned refs, exported
+  tables/globals, imported callbacks and preset cleanup. The explicit
+  [application root API](docs/wiki/binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#explicit-application-export-roots)
+  preserves names relative to its input; it does not close ordinary RUME policy.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
-- **Current execution checkout:** work on `main` in the primary local repository.
+- **Current execution checkout:** follow the user-requested verified `master`
+  baseline and coordinate existing independent checkouts without resetting them.
   The October 5 correctness campaign is integrated from local `master`.
   Preserve historical branch measurements under their frozen source versions;
   follow the latest user-requested checkout for subsequent work.
@@ -226,11 +362,15 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   open. Private malformed-arena setup passes, but its native build was stopped.
   The ordinary worker diagnostic baseline needs `<stddef.h>` before compilation;
   its resource checks and counter-free implementation remain unrun.
+  The merge with current `origin/master` passes 15,078 bounded behavior tests.
+  Native checking and all 740 IR tests pass after stack representation fixes.
+  The direct default runner hits its argument-length limit; the compact
+  default-selection runner supplies the bounded behavior result.
 - **Correctness takes release priority:** the independent October 3 baseline
   audit has reproduced validator, DAE and OI failures. Keep performance patches
   isolated and preserve their evidence; do not treat existing passing tests or
   unchanged output hashes as release signoff. See P00 below before publication.
-- **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
+- **Speed target:** match or beat verified Binaryen 133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
 - **Earlier committed all-four checkpoint:** native `8eac37f6…`→`1c6d69ab…`,
@@ -268,12 +408,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
   with all rows contended. No command win is established. The large directization
   scan finds no rewrite, but all141,252 discovery visits remain and OI transforms
-  elsewhere.13,503 tests and1,172 validations/3,440 supported observations;
+  elsewhere.13,503 tests and 1,172 validations/3,440 supported observations;
   all four1× and release gates stay open. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite).
 - **OI quality checkpoint:** native`4c20bc54…` retains guarded adjacent constant
   folds. One large function shrinks3 B; the current normalized gap is33,494 B.
   CLI2013.416±17.913 / B1030.112±22.296ms (1.955×), paired+0.698%; no speed
-  win is established.13,507 workspace tests and1,220 validations/3,584 runtime
+  win is established.13,507 workspace tests and 1,220 validations/3,584 runtime
   observations pass supported cases. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
@@ -503,6 +643,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   343 passes, zero failures and one existing opt-in Chromium skip. Source
   repairs and corrected invalid fixtures preserve optimizer features and
   strict parser/type/IR checks. No default passing test was disabled.
+- [ ] **Complete Binaryen `i64-to-i32-lowering` (IR2-I64-ABI):** the canonical
+  name is boundary-only. The active `i64-trunc-sat-float-lowering` pass covers
+  only four saturating float-to-i64 opcodes and must not be used as evidence for
+  i64 ABI, locals, globals, calls, returns, memory, arithmetic, comparison,
+  shift, helper, or atomic lowering. Implement the staged module rewrite in the
+  pass dossier, preserve explicit unsupported families, and require verified
+  Binaryen 133 reduced-oracle evidence before activating the canonical name.
 - [ ] **Occurrence and lifetime admission (P00/P11/P12):** extend beyond the
   repaired repeated linear tuple flow to complex control/call occurrences,
   occurrence-specific SSA rewrites and typed-loop backedge values. Preserve
@@ -574,9 +721,22 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [x] Run verified Binaryen 133 aggregate 10,000-case comparisons for each
   affected pass with the freshly built native CLI. All four runs completed
   without validation, generator, property, or command failures.
-- [ ] Reduce and classify the existing `simplify-locals-all` effect and cleanup
-  families and the `pass-oi-all` tuple family with semantic and downstream
-  evidence. Smaller canonical output alone does not close these parity gaps.
+- [x] Classify the current generated SL effect/cleanup and OI tuple families
+  with source contracts, complete replay, observed traps/state, and identical
+  common downstream output. Repair the MergeBlocks, descriptor and branch-value
+  spill encoding losses. The [output checkpoint](docs/wiki/tooling/validation-gates.md#october-9-2026--classify-and-repair-generated-output-differences)
+  records the exact finite profiles; it does not close general pass parity.
+- [ ] Close the separate 6 MB compiler-artifact SL gap: current output is
+  368,910 bytes larger than v133. Native full-preset runs exceed the 60-second
+  probe limit on both baseline and an earlier post-fix build; downstream
+  artifact parity remains unverified. Five quiet pairs still show 165.892 ms (13.0%) added
+  pipeline cost for 20 bytes saved after the measured cost repairs. Keep this
+  performance gap open and retain samples under their exact executable hashes.
+- [ ] Keep the known multi-pass optimizer fixed-point gap visible. The bounded
+  failure-retention tests still detect changed bytes and retain the reduced
+  pass sequence; encoding cleanup now needs both MergeBlocks and
+  RemoveUnusedBrs to reproduce it. Single-pass aggregate size and behavior
+  evidence does not close combined-pass idempotence.
 - [x] Replay the three direct-pass SIMD modules in independent Node instances
   after the native build; all match the input behavior and validate with
   `wasm-tools`. The available stringref runtimes and the CLI WAT frontend do
@@ -794,8 +954,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Reduce remaining root-write list, source traversal and enclosing costs.
   V79 closes duplicated live-node census; V80 closes zero/singleton local-index
   entry-row allocation. All 13,255 tests and 1,376 observations pass with exact
-  bytes; singleton native queries improve 12–86%. Root-write list ownership,
-  multiple-admission interval rows and complete fallback still allocate.
+  bytes; singleton native queries improve 12–86%. The October 11 repair removes
+  the temporary root-write list and changes repeated unknown-local fallback
+  dependencies from an R×W edge product to shared linear graph edges.
+  Multiple-admission interval rows, source traversal and complete fallback
+  still allocate.
   Preserve exact ordered sources, shared/repeated root rejection, complete CFG
   and exceptional fallback. Measure tiny, wide unused-local, zero/many admission
   and complete analysis controls. No new public API is required. V80 enclosing
@@ -1735,6 +1898,19 @@ retain the detailed provenance.
   legacy-EH locals, RemoveUnusedBrs switch/multi-function and constraint-loop
   siblings need reproduction and family-level evidence. Do not extrapolate
   retained representative fixes to the historical aggregate.
+- **Globally unread tee Vacuum:** the numeric 4/1 wrapper and targeted
+  `vacuum-unread-tee` profile preserve producers, stack values, read/legacy
+  boundaries and COW ownership. Keep duplicate-type raw serialization losses
+  open despite measured canonical tee-removal gains and actual runtime parity;
+  retain the multivalue raw/canonical win separately. Integrated coverage,
+  generated FFI/npm consumers and CI still require exact-head renewal.
+  [Targeted evidence and limits](docs/wiki/binaryen/passes/vacuum/fuzzing.md#october-10-targeted-globally-unread-tee-coverage).
+- **Native generator I/O:** fresh absolute/relative output directories work;
+  a preexisting empty output directory aborts with SIGABRT (`-6`), including
+  under corrected process permissions. Reduce and repair the shared
+  `src/fs/fs.mbt` / xfs create-directory error path with a failing-first native
+  regression. Do not count this as a profile validation or semantic failure;
+  existing successful fresh-directory campaigns remain unchanged.
 - **EH/Vacuum:** renew the dedicated 10,000-case aggregate and resolve raw-size
   losses. The historical 256-case campaign had 128 differences. Layouts 1/7
   have canonical projection wins but raw losses; 54 of their 64 rows have only
@@ -1757,8 +1933,9 @@ retain the detailed provenance.
   reference/cast lowering and branch-table cleanup. Keep compact-import policy,
   name-metadata size gaps and unsampled tuple/downstream cases visible.
 - **Host-visible identity guards:** measure preset DFE/DIE size and performance
-  costs; narrow broad guards only with escape analysis protecting exports,
-  tables, globals, imported callbacks and host getter/lookup effects. Preserve
+  costs. October 10 DFE admission uses conservative per-materialization protection
+  for exports, tables, globals and callbacks; qualify its measured deltas. Keep
+  DIE host getter/lookup effects protected. Preserve
   `tests/optimizer/regressions/host-identity.test.ts`; require exact runtime
   observations and measured output deltas for any broader merge.
 - **Runtime coverage:** extend concurrent AcqRel, general wait/notify liveness,
@@ -2093,6 +2270,14 @@ pass dossiers; historical green checkpoints do not replace current signoff.
   add body-only and initializer-only reference usage/order fixtures and reduced
   Binaryen comparisons when the pass is implemented. Keep this deferred behind
   the four v0.1.1 main follow-ups and current DAE2/O performance work.
+- **Measured reopening condition:** the 2026-10-13 private-call frequency
+  prototype reduced two large modules by 28–32 KiB, but added approximately
+  0.2–0.35 seconds and 11–35 MiB peak RSS. It was withdrawn. A new slice must
+  reduce the exact-size/remap cost before preset admission. Preserve import
+  lookup order and the indices of exports and every addressable function;
+  JavaScript exposes those indices through `Function.name`. Preserve unknown
+  name records and annotation multiplicity. See the
+  [experiment assessment](docs/wiki/binaryen/passes/reorder-functions/starshine-strategy.md#measured-private-call-experiment).
 
 ## Backlog hygiene
 

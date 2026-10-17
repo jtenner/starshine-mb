@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2021 WebAssembly Community Group participants
+// Counterpart: src/passes/Heap2Local.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn heap2local_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
@@ -1455,24 +1467,30 @@ fn h2l_array_allocation_write_type(
 }
 
 ///|
-fn h2l_has_repeated_array_allocation_writes(
+fn h2l_repeated_array_allocation_write_locals(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   root_slots : Array[Int32],
-) -> Bool {
+) -> Array[Bool] {
+  let unsafe_locals = Array::make(@ir.hot_local_count(func), false)
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
     let allocation_slots : Array[Int32] = []
+    let mut missing_slot = false
     for write_node_id in use_def.local_writes[local_id] {
       match h2l_array_allocation_write_type(func, write_node_id, local_id) {
         Some(_) =>
           match h2l_root_slot_from_index(root_slots, write_node_id) {
             Some(slot) => allocation_slots.push(slot)
-            None => return true
+            None => missing_slot = true
           }
         None => ()
       }
+    }
+    if missing_slot {
+      unsafe_locals[local_id] = true
+      continue
     }
     if allocation_slots.length() <= 1 {
       continue
@@ -1482,8 +1500,12 @@ fn h2l_has_repeated_array_allocation_writes(
     for read_node_id in use_def.local_reads[local_id] {
       match h2l_root_slot_from_index(root_slots, read_node_id) {
         Some(read_slot) => read_slots.push(read_slot)
-        None => return true
+        None => missing_slot = true
       }
+    }
+    if missing_slot {
+      unsafe_locals[local_id] = true
+      continue
     }
     read_slots.sort()
     let mut read_cursor = 0
@@ -1518,11 +1540,12 @@ fn h2l_has_repeated_array_allocation_writes(
           read_slots[read_cursor] >= next_write_slot &&
           !boundary_read_before_write
         ) {
-        return true
+        unsafe_locals[local_id] = true
+        break
       }
     }
   }
-  false
+  unsafe_locals
 }
 
 ///|
@@ -3728,9 +3751,9 @@ pub fn heap2local_run(
   }
   let use_def = pass_require_use_def(ctx, func)
   let root_slots = h2l_build_root_slot_index(func)
-  if h2l_has_repeated_array_allocation_writes(func, use_def, root_slots) {
-    return HotPassResult::unchanged()
-  }
+  let unsafe_array_locals = h2l_repeated_array_allocation_write_locals(
+    func, use_def, root_slots,
+  )
   let cfg = @ir.cfg_build(func, expand_operand_control=true)
   let dom = @ir.dom_build(cfg)
   let order = H2LDominanceOrder::new(@ir.hot_node_count(func))
@@ -3743,6 +3766,9 @@ pub fn heap2local_run(
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
+    if unsafe_array_locals[local_id] {
+      continue
+    }
     match
       h2l_find_variant_local_candidate(
         func, module_ctx, use_def, local_id, cfg, dom, order,
@@ -3789,7 +3815,8 @@ pub fn heap2local_run(
             labels
           }
         }
-        if !h2l_variant_producer_has_used_label(
+        if !unsafe_array_locals[candidate.owner_local] &&
+          !h2l_variant_producer_has_used_label(
             func,
             candidate.if_node_id,
             candidate.then_block_node_id,
@@ -3812,7 +3839,7 @@ pub fn heap2local_run(
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
-    if variant_owner_locals.contains(local_id) {
+    if variant_owner_locals.contains(local_id) || unsafe_array_locals[local_id] {
       continue
     }
     match

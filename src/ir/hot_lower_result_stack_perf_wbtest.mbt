@@ -2,7 +2,7 @@
 fn lower_result_stack_reference(
   func : HotFunc,
   id : NodeId,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
 ) -> Unit {
   for val_type in hot_type_results(func, hot_node_type(func, id)) {
     stack.push({ node_id: id, val_type, })
@@ -25,7 +25,7 @@ fn lower_result_stack_bench(
     hot_type_intern_results(func, values)
   }
   let node = hot_build_node(func, HotOp::Nop, shape)
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   hot_lower_impl_push_results(func, node, stack)
   assert_eq(stack.length(), width)
   stack.clear()

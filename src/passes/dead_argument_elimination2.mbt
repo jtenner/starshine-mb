@@ -1,3 +1,13 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2025 WebAssembly Community Group participants
+// Counterpart: src/passes/DeadArgumentElimination2.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Binaryen 132 DAE2: parameter and whole-result liveness share a least fixed
 // point. All locations start unused. Observable uses seed a backwards worklist;
@@ -262,13 +272,14 @@ fn dae2_entry_read_sources(
   if opaque {
     return None
   }
-  let root_writes : Array[Int32] = []
+  let mut has_root_write = false
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
-      root_writes.push(root)
+      has_root_write = true
+      break
     }
   }
-  if root_writes.is_empty() {
+  if !has_root_write {
     return None
   }
   let writes = match known_writes {
@@ -290,7 +301,10 @@ fn dae2_entry_read_sources(
   let mut single_local = -1
   let mut single_write = -1
   let mut admitted = 0
-  for root in root_writes {
+  for root in @ir.hot_root_span(func) {
+    if root < 0 || !(@ir.hot_node_op(func, root) is @ir.LocalSet) {
+      continue
+    }
     let local = @ir.hot_node_get(func, root).imm0
     if writes[local] != root {
       continue
@@ -878,6 +892,58 @@ fn dae2_void_sequence(func : @ir.HotFunc, nodes : Array[Int32]) -> Int32 {
 }
 
 ///|
+fn dae2_replace_region_entry_uses(
+  func : @ir.HotFunc,
+  region : Int32,
+  original : Int32,
+  replacements : Array[Int32],
+) -> Unit {
+  let node_limit = @ir.hot_node_count(func)
+  let visited = Array::make(node_limit, false)
+  let pending = [region]
+  while !pending.is_empty() {
+    let node = pending.pop().unwrap()
+    if node < 0 || node >= node_limit || visited[node] {
+      continue
+    }
+    visited[node] = true
+    let children = @ir.hot_child_span(func, node)
+    let mut changed = false
+    let mut slot = 0
+    while slot < children.length() {
+      if children[slot] == original {
+        let mut end = slot + 1
+        while end < children.length() && children[end] == original {
+          end += 1
+        }
+        if replacements.length() == 1 {
+          for lane in slot..<end {
+            children[lane] = replacements[0]
+          }
+        } else if end - slot == replacements.length() {
+          for lane in 0..<replacements.length() {
+            children[slot + lane] = replacements[lane]
+          }
+        } else {
+          abort("dae2 typed entry tuple use does not match its captured lanes")
+        }
+        changed = true
+        slot = end
+      } else {
+        let child = children[slot]
+        if child >= 0 && child < node_limit {
+          pending.push(child)
+        }
+        slot += 1
+      }
+    }
+    if changed {
+      ignore(@ir.hot_replace_child_span(func, node, children))
+    }
+  }
+}
+
+///|
 // Keep generic leaf rewriting scalar. Calls and structural controls still
 // require their family/result updates in the complete rewrite below.
 #inline
@@ -929,8 +995,25 @@ fn dae2_rewrite_children(
   type_infos : Array[Int32],
 ) -> Array[Int32]? {
   let count = @ir.hot_child_count(func, node)
+  let typed_if_entries = if @ir.hot_node_op(func, node) is @ir.If && count > 3 {
+    count - 3
+  } else {
+    0
+  }
   let mut changed : Array[Int32]? = None
-  for slot in 0..<count {
+  for step in 0..<count {
+    // Typed-if entries execute before the condition and can be shared with
+    // their arm placeholders. Rewrite them first so a removed effect remains
+    // at the entry instead of becoming conditional through memo ownership.
+    let slot = if typed_if_entries > 0 {
+      if step < typed_if_entries {
+        step + 3
+      } else {
+        step - typed_if_entries
+      }
+    } else {
+      step
+    }
     let original = @ir.hot_child_get(func, node, slot)
     let child = dae2_rewrite_node(
       graph, infos, index, func, original, memo, old_arities, lower_state, type_infos,
@@ -1146,23 +1229,34 @@ fn dae2_rewrite_node(
         dae2_void_sequence(func, parts)
       }
     @ir.Block | @ir.Loop | @ir.If => {
+      let entry_offset = if data.op is @ir.If { 3 } else { 0 }
       let entry_count = if data.op is @ir.Block && data.imm1 > 0 {
         data.imm1
+      } else if data.op is @ir.If {
+        match @ir.hot_type_get(func, data.ty) {
+          @ir.BlockResultResolved(_, params, _) => params.length()
+          _ => 0
+        }
       } else {
         0
+      }
+      let entry_params = if entry_count == 0 {
+        []
+      } else {
+        match @ir.hot_type_get(func, data.ty) {
+          @ir.BlockResultResolved(_, params, _) => params
+          _ => abort("dae2 typed entry prefix requires resolved parameters")
+        }
       }
       if !used {
         let next_type = if entry_count == 0 {
           @ir.hot_type_void(func)
         } else {
-          let params = match @ir.hot_type_get(func, data.ty) {
-            @ir.BlockResultResolved(_, params, _) => params
-            _ => abort("dae2 typed entry prefix requires resolved parameters")
-          }
           let kept : Array[@lib.ValType] = []
           for slot in 0..<entry_count {
-            if @ir.hot_node_result_arity(func, children[slot]) > 0 {
-              kept.push(params[slot])
+            if @ir.hot_node_result_arity(func, children[entry_offset + slot]) >
+              0 {
+              kept.push(entry_params[slot])
             }
           }
           let block_type = if kept.is_empty() {
@@ -1185,7 +1279,115 @@ fn dae2_rewrite_node(
         }
         @ir.hot_control_result_type_set(func, node, next_type)
       }
-      let next = if data.op is @ir.If || used {
+      let next = if data.op is @ir.If && !used && entry_count > 0 {
+        let next : Array[Int32] = [children[0], children[1], children[2]]
+        let mut has_removed_effect = false
+        for slot in 0..<entry_count {
+          let entry = children[entry_offset + slot]
+          if @ir.hot_node_result_arity(func, entry) == 0 &&
+            !(@ir.hot_node_op(func, entry) is @ir.Nop) {
+            has_removed_effect = true
+          }
+        }
+        if has_removed_effect {
+          // Typed-if entries execute before the condition. If one dead entry
+          // still traps or has effects, capture each surviving producer in an
+          // entry block. Attach removed effects to the next surviving entry,
+          // or to the condition when they trail all live entries. The control
+          // input order then preserves the original entry/condition order.
+          let mut slot = 0
+          let mut pending : Array[Int32] = []
+          while slot < entry_count {
+            let original = @ir.hot_child_get(func, node, entry_offset + slot)
+            let mut end = slot + 1
+            while end < entry_count &&
+                  @ir.hot_child_get(func, node, entry_offset + end) == original {
+              end += 1
+            }
+            let first = children[entry_offset + slot]
+            if @ir.hot_node_result_arity(func, first) > 0 {
+              let locals = Array::make(end - slot, -1)
+              let capture_parts = pending
+              pending = []
+              for lane = end - 1; lane >= slot; lane = lane - 1 {
+                let scratch = @ir.hot_append_body_local(
+                  func,
+                  entry_params[lane],
+                )
+                locals[lane - slot] = scratch
+                capture_parts.push(
+                  @ir.hot_build_local_set_from_value(
+                    func,
+                    scratch,
+                    children[entry_offset + lane],
+                  ),
+                )
+              }
+              let result_types : Array[@lib.ValType] = []
+              for lane = slot; lane < end; lane = lane + 1 {
+                result_types.push(entry_params[lane])
+                capture_parts.push(
+                  @ir.hot_build_local_get(func, locals[lane - slot]),
+                )
+              }
+              let capture_type = match result_types {
+                [value_type] => @lib.BlockType::val_type(value_type)
+                _ =>
+                  @lib.BlockType::type_idx(
+                    run_hot_pipeline_lower_intern_block_result_type_idx(
+                      lower_state, result_types,
+                    ),
+                  )
+              }
+              let capture = @ir.hot_build_resolved_block(
+                func,
+                capture_type,
+                [],
+                result_types,
+                capture_parts,
+              )
+              @ir.hot_preserve_replacement_position(func, capture, original)
+              for _ in slot..<end {
+                next.push(capture)
+              }
+              let region_replacements = Array::make(end - slot, capture)
+              for region in [next[1], next[2]] {
+                dae2_replace_region_entry_uses(
+                  func, region, original, region_replacements,
+                )
+              }
+            } else {
+              for lane = slot; lane < end; lane = lane + 1 {
+                let entry = children[entry_offset + lane]
+                if !(@ir.hot_node_op(func, entry) is @ir.Nop) {
+                  pending.push(entry)
+                }
+              }
+            }
+            slot = end
+          }
+          if !pending.is_empty() {
+            pending.push(children[0])
+            let condition = @ir.hot_build_resolved_block(
+              func,
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [],
+              [@lib.ValType::i32()],
+              pending,
+            )
+            @ir.hot_preserve_replacement_position(func, condition, children[0])
+            next[0] = condition
+          }
+        } else {
+          for slot in 0..<entry_count {
+            let entry = children[entry_offset + slot]
+            if @ir.hot_node_result_arity(func, entry) > 0 {
+              next.push(entry)
+            }
+          }
+        }
+        next
+      } else if data.op is @ir.If || used {
         children
       } else {
         children.mapi(fn(slot, child) {

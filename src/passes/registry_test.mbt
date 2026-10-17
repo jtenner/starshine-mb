@@ -203,6 +203,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::module_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("i64-trunc-sat-float-lowering"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("i64-to-i32-lowering"),
+    Some(HotPassRegistryCategory::boundary_only()),
+  )
+  @debug.assert_eq(
     pass_registry_category("de-nan"),
     Some(HotPassRegistryCategory::removed()),
   )
@@ -621,4 +629,47 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
         "expected single-function tuple-optimization module, got \{@debug.to_string(other)}",
       )
   }
+}
+
+///|
+test "interaction random profile is bounded and keeps legacy seed mapping" {
+  let profile = "random-interaction-short"
+  let seed = 0x5eedUL
+  let passes = pass_registry_random_executable_sequence(profile, seed)
+  assert_true(passes.length() >= 2 && passes.length() <= 5)
+  @debug.assert_eq(
+    passes,
+    pass_registry_random_executable_sequence(profile, seed),
+  )
+  for i in 0..<passes.length() {
+    for j in 0..<passes.length() {
+      if j > i {
+        assert_true(passes[i] != passes[j])
+      }
+    }
+  }
+  for name in passes {
+    @debug.assert_eq(
+      pass_registry_category(name),
+      Some(HotPassRegistryCategory::hot_pass()),
+    )
+  }
+  @debug.assert_eq(passes, ["merge-blocks", "precompute-propagate"])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 0UL), [
+    "merge-blocks", "optimize-instructions", "simplify-locals", "pick-load-signs",
+    "heap2local",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 1UL), [
+    "remove-unused-brs", "precompute-propagate", "pick-load-signs",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 5UL), [
+    "heap2local", "optimize-casts", "precompute-propagate", "heap-store-optimization",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 11UL), [
+    "vacuum", "dead-code-elimination", "heap-store-optimization",
+  ])
+  @debug.assert_eq(
+    pass_registry_random_executable_sequence("random-short", seed),
+    ["remove-unused-brs", "merge-blocks", "remove-unused-brs"],
+  )
 }

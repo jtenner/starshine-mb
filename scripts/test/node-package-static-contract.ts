@@ -50,8 +50,8 @@ export function runNodePackageStaticContractTest(): void {
     path.join(repoRoot, "scripts", "lib", "build-node-package.mjs"),
     "utf8",
   );
-  if (!buildScript.includes("Missing checked-in node/internal/starshine.wasm-gc.wasm")) {
-    fail("Node build script must fail explicitly when the local-only wasm-gc adapter is absent");
+  for (const required of ["runFfi('generate'", "src/npm", "--target', 'native'", "'validate'", "assert.deepEqual(observations[1], observations[0]"] ) {
+    if (!buildScript.includes(required)) fail(`Node build is missing required step: ${required}`);
   }
 }
 

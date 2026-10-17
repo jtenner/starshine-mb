@@ -420,6 +420,257 @@ test "type root collector agrees with rewrites for GC descriptor cast and call o
 }
 
 ///|
+test "type pruning scans and remaps stack continuation array-memory and descriptor branch operands" {
+  let idx = @lib.TypeIdx::new(3U)
+  let other = @lib.TypeIdx::new(7U)
+  let next = @lib.TypeIdx::new(1U)
+  let next_other = @lib.TypeIdx::new(2U)
+  let tag = @lib.TagIdx::new(0U)
+  let label = @lib.LabelIdx::new(0U)
+  let field = @lib.U32::new(0U)
+  let source = type_reference_ref(3U)
+  let target = type_reference_ref(7U)
+  let next_source = type_reference_ref(1U)
+  let next_target = type_reference_ref(2U)
+  let cases : Array[(@lib.Instruction, @lib.Instruction, Array[Int32])] = [
+    (
+      @lib.Instruction::struct_wait(idx, field),
+      @lib.Instruction::struct_wait(next, field),
+      [3],
+    ),
+    (@lib.Instruction::cont_new(idx), @lib.Instruction::cont_new(next), [3]),
+    (
+      @lib.Instruction::cont_bind(idx, other),
+      @lib.Instruction::cont_bind(next, next_other),
+      [3, 7],
+    ),
+    (
+      @lib.Instruction::resume_(idx, []),
+      @lib.Instruction::resume_(next, []),
+      [3],
+    ),
+    (
+      @lib.Instruction::resume_throw(idx, tag, []),
+      @lib.Instruction::resume_throw(next, tag, []),
+      [3],
+    ),
+    (
+      @lib.Instruction::resume_throw_ref(idx, []),
+      @lib.Instruction::resume_throw_ref(next, []),
+      [3],
+    ),
+    (
+      @lib.Instruction::stack_switch(idx, tag),
+      @lib.Instruction::stack_switch(next, tag),
+      [3],
+    ),
+    (
+      @lib.Instruction::array_load(@lib.LoadOp::i32_load(), idx),
+      @lib.Instruction::array_load(@lib.LoadOp::i32_load(), next),
+      [3],
+    ),
+    (
+      @lib.Instruction::array_store(@lib.StoreOp::i32_store(), idx),
+      @lib.Instruction::array_store(@lib.StoreOp::i32_store(), next),
+      [3],
+    ),
+    (
+      @lib.Instruction::br_on_cast_desc_eq(label, source, target),
+      @lib.Instruction::br_on_cast_desc_eq(label, next_source, next_target),
+      [3, 7],
+    ),
+    (
+      @lib.Instruction::br_on_cast_desc_eq_fail(label, source, target),
+      @lib.Instruction::br_on_cast_desc_eq_fail(label, next_source, next_target),
+      [3, 7],
+    ),
+  ]
+  let remap : Map[UInt32, UInt32] = Map([(3U, 1U), (7U, 2U)])
+  for case in cases {
+    let (before, after, expected) = case
+    type_reference_assert_roots(
+      @lib.Module::new().with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([before])),
+        ]),
+      ),
+      expected,
+    )
+    assert_true(dfe_instruction_mentions_type_idxs(before))
+    assert_eq(dfe_rewrite_instruction_type_idxs(before, remap), after)
+    assert_eq(dfe_try_rewrite_instruction_type_idxs(before, remap), Some(after))
+    let scanned = dfe_scan_rewrite_instruction_type_idxs(before, remap)
+    assert_true(scanned.mentions_type_idxs)
+    assert_eq(scanned.rewritten, Some(after))
+  }
+}
+
+///|
+test "type remapping preserves exact cast flags" {
+  let label = @lib.LabelIdx::new(0U)
+  let source = @lib.HeapType::new(@lib.TypeIdx::new(3U))
+  let target = @lib.HeapType::new(@lib.TypeIdx::new(7U))
+  let next_source = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let next_target = @lib.HeapType::new(@lib.TypeIdx::new(2U))
+  let cases = [
+    (
+      @lib.Instruction::br_on_cast(
+        label,
+        true,
+        source,
+        false,
+        target,
+        source_exact=true,
+        target_exact=true,
+      ),
+      @lib.Instruction::br_on_cast(
+        label,
+        true,
+        next_source,
+        false,
+        next_target,
+        source_exact=true,
+        target_exact=true,
+      ),
+    ),
+    (
+      @lib.Instruction::br_on_cast_fail(
+        label,
+        true,
+        source,
+        false,
+        target,
+        source_exact=true,
+        target_exact=true,
+      ),
+      @lib.Instruction::br_on_cast_fail(
+        label,
+        true,
+        next_source,
+        false,
+        next_target,
+        source_exact=true,
+        target_exact=true,
+      ),
+    ),
+  ]
+  let remap : Map[UInt32, UInt32] = Map([(3U, 1U), (7U, 2U)])
+  for pair in cases {
+    let (before, after) = pair
+    assert_eq(dfe_rewrite_instruction_type_idxs(before, remap), after)
+    assert_eq(dfe_try_rewrite_instruction_type_idxs(before, remap), Some(after))
+    assert_eq(
+      dfe_scan_rewrite_instruction_type_idxs(before, remap).rewritten,
+      Some(after),
+    )
+  }
+}
+
+///|
+fn type_reference_o4z_wrapper(
+  compare_func : @lib.FuncIdx,
+  values : Array[Int32],
+) -> @lib.Func {
+  let body : Array[@lib.Instruction] = []
+  for position = 0; position < 5; position = position + 1 {
+    body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    if position > 0 {
+      body.push(@lib.Instruction::i32_const(@lib.I32(position)))
+      body.push(@lib.Instruction::i32_add())
+    }
+    body.push(@lib.Instruction::i32_const(@lib.I32(values[position])))
+    body.push(@lib.Instruction::call(compare_func))
+  }
+  for and_idx = 1; and_idx < 5; and_idx = and_idx + 1 {
+    body.push(@lib.Instruction::i32_and())
+  }
+  @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
+}
+
+///|
+test "O4z byte-comparator outlining preserves and remaps body-only array-memory types" {
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let wrapper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let void_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let compare_func = @lib.FuncIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([helper_type, wrapper_type, void_type, array_type]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(2U),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_load8u(@lib.MemArg::new(0, None, 0)),
+            @lib.Instruction::i32_eq(),
+          ]),
+        ),
+        type_reference_o4z_wrapper(compare_func, [1, 2, 3, 4, 5]),
+        type_reference_o4z_wrapper(compare_func, [1, 2, 9, 4, 5]),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::array_load(
+              @lib.LoadOp::i32_load(),
+              @lib.TypeIdx::new(3U),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("invalid O4z outline fixture: \{err}")
+  }
+  let output = o4z_size_outline_byte_comparator_siblings(input)
+  assert_true(output != input, msg="expected byte-comparator outlining")
+  @validate.validate_module(output).unwrap()
+  let types = output.type_sec.unwrap().0
+  assert_eq(types.length(), 4)
+  let funcs = output.code_sec.unwrap().0
+  let @lib.Func(_, @lib.Expr(body)) = funcs[3]
+  assert_true(body[1] is @lib.ArrayLoad(_, @lib.TypeIdx(2U), _))
+}
+
+///|
 test "type pruning preserves NaN initializer bytes while removing unused signatures" {
   let input = pass_test_module_from_wat(
     "(module (type (func)) (type (func (param i32))) (type (func (param i64))) (global f64 f64.const nan:0x123456) (func (type 0)))",

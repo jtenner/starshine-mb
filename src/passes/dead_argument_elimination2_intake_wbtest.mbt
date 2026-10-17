@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified for Starshine in 2026: selected Binaryen version_132 fixtures are adapted here: selected regression modules encoded and asserted in Starshine.
+// Upstream portions retain Apache-2.0; see ../../licenses/Binaryen-LICENSE.txt.
+// https://github.com/WebAssembly/binaryen/blob/79dfe6b412a3c22bfdb190ed6a4d79adf734db5d/test/lit/passes/dae2.wast
+
 ///|
 test "dae2 upstream regression legacy try without handlers" {
   // Binaryen version_132 test/lit/passes/dae2.wast, module 064.

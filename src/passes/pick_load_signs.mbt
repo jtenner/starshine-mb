@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2017 WebAssembly Community Group participants.
+// Copyright 2023 WebAssembly Community Group participants (historical Starshine notice).
+// Adapted and modified for Starshine in 2026: HOT graph representation,
+// typed boundaries, cache handling and validation differ from upstream.
+// Derived portions retain Apache-2.0 terms; see ../../licenses/Binaryen-LICENSE.txt.
+// Source: Binaryen src/passes/PickLoadSigns.cpp, version_130.
+// https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/PickLoadSigns.cpp
+
 ///|
 pub fn pick_load_signs_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(

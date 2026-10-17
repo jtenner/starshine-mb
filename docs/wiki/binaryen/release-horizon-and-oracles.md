@@ -49,8 +49,8 @@ about the input pattern or output form rather than the public release date.
 The [v133 intake](version-133-upgrade.md) records its 107-commit source delta,
 released optimizer shapes, and local red corpus. The 2026-09-25 policy update
 supersedes that intake's v132 comparison-policy wording.
-Version 131 remains the historical source of existing measurements and signoffs;
-none of those results is silently relabeled v132. Post-tag fixes remain a separate
+Versions 131 and 132 remain the historical sources of existing measurements and signoffs;
+none of those results is silently relabeled v133. Post-tag fixes remain a separate
 intake, including DAE2 #8994 and constraint correctness guardrails. The v132 tag
 does not add constraint analysis to default optimization presets.
 
@@ -64,7 +64,7 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 - 2026-06-02: correction note 0698 temporarily moved the wiki baseline back to `version_125`; keep it as provenance, not as the current baseline.
 - 2026-06-04: the official GitHub `version_130` release page, changelog, and Chromium mirror re-established v130 as the stable baseline, superseding the temporary `version_125` correction.
 - 2026-07-15: Binaryen published `version_131` at tag commit `1f903c14babf829745b421b92ff0f286e93e4209`.
-- 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This superseded v130 for release-horizon decisions at that time; v132 is the current baseline.
+- 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This superseded v130 for release-horizon decisions at that time; later v132 and v133 policy updates supersede it for new comparisons.
 
 - 2026-09-10: the verified v132 tag and exact v131-to-v132 inventory supersede v131 as the comparison baseline; historical pass signoffs retain their original oracle.
 - 2026-09-21: Binaryen published `version_133`; the 2026-09-23 intake recorded its optimizer shapes while Starshine's comparison policy remained v132.
@@ -75,7 +75,7 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
 | Public release horizon | Official GitHub release page for `version_133` | The newest tagged public release. |
-| Starshine comparison oracle | Verified official `version_132` binary | The repository's current correctness and performance baseline. |
+| Starshine comparison oracle | Verified official `version_133` binary | The repository's current correctness and performance baseline. |
 | Oracle/security boundary | Official Binaryen commit `1251efb` | The `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
 | Durable local evidence | The v133 intake, v132 upgrade, and historical research note 1573 | Release-specific summaries, pass-impact classification, and reopening decisions under their actual source versions. |
 | Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_133` in a way that matters to the docs. |

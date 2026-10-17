@@ -1248,6 +1248,7 @@ pub enum GenValidProfile {
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile
+  VacuumUnreadTeeProfile
   RseAllProfile
   RseCoreSameValueProfile
   RseLocalCopySelfSetProfile
@@ -1594,6 +1595,7 @@ pub enum GenValidProfile {
   MergeSimilarFunctionsNestedProfile
   MergeSimilarFunctionsCallTargetsProfile
   MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsRecordCopyProfile
   MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile

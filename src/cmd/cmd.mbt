@@ -357,9 +357,6 @@ pub fn OptimizeOptions::new(
 }
 
 ///|
-const CMD_VERSION : String = "v0.1.0"
-
-///|
 fn ascii_lower_u16(c : UInt16) -> UInt16 {
   if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
     (c.to_int() + 32).to_uint16()
@@ -3639,6 +3636,36 @@ test "Binaryen 132 dae2 dispatch removes a result forwarded to an unused paramet
 }
 
 ///|
+test "command precompute-propagate keeps a folded if self-branch target live" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32)
+    #|    block
+    #|      i32.const 1
+    #|      if
+    #|        br 0
+    #|      end
+    #|    end
+    #|    i32.const 0))
+  for pass in ["precompute", "precompute-propagate"] {
+    let input = match @wast.wast_to_binary_module(source) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected valid command branch fixture: \{err}")
+    }
+    let optimized = match
+      optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected branch-safe command \{pass}: \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected valid command branch target after \{pass}: \{err}")
+    }
+  }
+}
+
+///|
 test "Binaryen 132 explicit precompute variants fold relaxed immutable struct reads through cmd" {
   let source =
     #|(module
@@ -4918,8 +4945,8 @@ fn cmd_o4z_host_identity_safe_candidate_passes(
   }
   let safe : Array[String] = []
   for pass in passes {
-    // DFE protects exported and address-materialized functions at each merge.
-    // Private functions can still merge within this full O4z size portfolio.
+    // DFE has per-function identity protection, including materialization
+    // through callbacks, tables and globals. Keep private merging available.
     if pass != "duplicate-import-elimination" {
       safe.push(pass)
     }
@@ -9207,11 +9234,18 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
   let input = @passes.pass_test_module_from_wat(
     (
       #|(module
+      #|  (global (mut i32) (i32.const 0))
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    i32.const 43))
       #|
     ),
@@ -11079,4 +11113,25 @@ test "command DAE2 modes preserve nonfallthrough scalar result typing" {
     )
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
+}
+
+///|
+test "command package consumer preserves exact host-root function indices" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (func (result i32) i32.const 9)
+      #|   (func (export "run") (result i32) i32.const 42)
+      #|   (func (export "debug") (result i32) i32.const 99))
+    ),
+  )
+  let output = @passes.rume_run_host_roots_module_pass(input, ["run"]).unwrap()
+  @debug.assert_eq(output.code_sec.unwrap().0.length(), 2)
+  @debug.assert_eq(output.export_sec.unwrap().0, [
+    @lib.Export::new(
+      @lib.Name::from_string("run"),
+      @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+    ),
+  ])
+  @debug.assert_eq(@validate.validate_module(output), Ok(()))
 }

@@ -4,6 +4,7 @@ import process from "node:process";
 import { spawnSync } from "node:child_process";
 
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
+import { runStaticMarkerComparison } from "./optimizer-static-markers";
 import { runPassFuzzCompare } from "./pass-fuzz-compare-task";
 import { runFuzzCoverageDelta } from "./fuzz-coverage-delta-task";
 import { promoteOptimizerFailure } from "./optimizer-corpus";
@@ -706,6 +707,8 @@ export type OptimizerReductionTaskOptions = {
   source: string;
   outputPath: string;
   wasmReduceBin: string;
+  predicateTimeoutSeconds?: number;
+  timeoutMs?: number;
   starshineBin: string | undefined;
   moonBin: string;
   wasmToolsBin: string;
@@ -866,6 +869,8 @@ export function parseOptimizerReductionArgs(argv: string[]): OptimizerReductionT
   const positional: string[] = [];
   let outputPath: string | null = null;
   let wasmReduceBin = process.env.WASM_REDUCE_BIN || "wasm-reduce";
+  let predicateTimeoutSeconds: number | undefined;
+  let timeoutMs: number | undefined;
   let starshineBin: string | undefined;
   let moonBin = "moon";
   let wasmToolsBin = "wasm-tools";
@@ -885,6 +890,22 @@ export function parseOptimizerReductionArgs(argv: string[]): OptimizerReductionT
         wasmReduceBin = argv[index + 1] ?? fail("missing value for --wasm-reduce-bin");
         index += 2;
         break;
+      case "--predicate-timeout-seconds": {
+        const raw = argv[index + 1] ?? fail("missing value for --predicate-timeout-seconds");
+        const value = Number(raw);
+        if (!Number.isInteger(value) || value < 1 || value > 3600) fail(`invalid predicate timeout: ${raw}`);
+        predicateTimeoutSeconds = value;
+        index += 2;
+        break;
+      }
+      case "--subprocess-timeout-seconds": {
+        const raw = argv[index + 1] ?? fail("missing value for --subprocess-timeout-seconds");
+        const value = Number(raw);
+        if (!Number.isInteger(value) || value < 1 || value > 3600) fail(`invalid subprocess timeout: ${raw}`);
+        timeoutMs = value * 1000;
+        index += 2;
+        break;
+      }
       case "--starshine-bin":
         starshineBin = argv[index + 1] ?? fail("missing value for --starshine-bin");
         index += 2;
@@ -903,7 +924,7 @@ export function parseOptimizerReductionArgs(argv: string[]): OptimizerReductionT
   }
   if (positional.length !== 1) fail("reduce-optimizer requires exactly one failure directory or manifest");
   if (outputPath === null) fail("reduce-optimizer requires --out <path>");
-  return { source: positional[0], outputPath, wasmReduceBin, starshineBin, moonBin, wasmToolsBin };
+  return { source: positional[0], outputPath, wasmReduceBin, ...(predicateTimeoutSeconds === undefined ? {} : { predicateTimeoutSeconds }), ...(timeoutMs === undefined ? {} : { timeoutMs }), starshineBin, moonBin, wasmToolsBin };
 }
 
 function optimizerReductionInputPath(source: string): string {
@@ -957,6 +978,9 @@ async function runOptimizerReductionTask(options: OptimizerReductionTaskOptions)
     inputPath: optimizerReductionInputPath(options.source),
     outputPath,
     predicateCommand,
+    predicateTimeoutSeconds: options.predicateTimeoutSeconds,
+    timeoutMs: options.timeoutMs,
+    wasmToolsBin: options.wasmToolsBin,
   });
   fs.writeFileSync(`${outputPath}.reduction.log`, result.status === "unavailable" ? `${result.detail}\n` : result.log);
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -1001,6 +1025,10 @@ async function runOptimizerPromotionTask(options: OptimizerPromotionTaskOptions)
 // `bun fuzz run` entrypoint with strict sibling subcommands and no fallback parser.
 export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
+  if (subcommand === "static-markers") {
+    runStaticMarkerComparison(argv.slice(1));
+    return;
+  }
   if (subcommand === "compare-pass") {
     void runPassFuzzCompare(rest);
     return;
@@ -1043,7 +1071,7 @@ export function main(argv: string[]): void {
   }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]\n   or: bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions] [--starshine-bin <path>]\n   or: bun fuzz optimizer-seeds [--pass <name> ...] [--self-semantic] [--debug-serial-passes]\n   or: bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm> [--wasm-reduce-bin <path>]\n   or: bun fuzz list-optimizer-thresholds [--seed=<value>]\n   or: bun fuzz prove-rewrites <contracts.json> [--solver z3] [--out-dir .tmp/optimizer-rewrite-proofs]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
+      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz static-markers --input <module.wasm> --out-dir <new-dir> --starshine-bin <native-bin> --weaker <pass,...> --stronger <pass,...>\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]\n   or: bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions] [--starshine-bin <path>]\n   or: bun fuzz optimizer-seeds [--pass <name> ...] [--self-semantic] [--debug-serial-passes]\n   or: bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm> [--wasm-reduce-bin <path>] [--predicate-timeout-seconds <1..3600>] [--subprocess-timeout-seconds <1..3600>]\n   or: bun fuzz list-optimizer-thresholds [--seed=<value>]\n   or: bun fuzz prove-rewrites <contracts.json> [--solver z3] [--out-dir .tmp/optimizer-rewrite-proofs]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

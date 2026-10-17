@@ -208,6 +208,18 @@ The coded surface is still smaller than Binaryen's general interpreter, heap cac
 
 The current constant-`if` implementation is also in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The HOT implementation handles structural arm picking, while the raw evaluator handles stack-level constant-`if` tails, including label-relative terminal branches when the target arity is resolved. Unsafe parameterized-block flattening remains rejected.
 
+A constant `if` can own a live branch target, even when its selected arm has no
+result. HOT arm splicing does not detach the `if` when a live branch targets its
+label; a later fold may demote it to a block that retains the label. The
+label-use scan is shared with later precompute work. A saved 49-byte
+reduction and direct pass and command tests cover a branch from the selected arm
+to the `if` label; removing the owner previously aborted during HOT lowering.
+On the release GC module and yyjson, three measured old/new pairs for each
+direct precompute variant produced identical bytes. The largest median paired
+wall cost was about 31 ms on the 1.7 s GC `precompute-propagate` command;
+other small timing differences need more samples before attribution. Raw samples
+and binary identities are in the local EXP-14 evidence directory.
+
 HOT details:
 
 - `precompute_try_fold_constant_if(...)`

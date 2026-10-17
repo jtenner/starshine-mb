@@ -34,6 +34,12 @@ related:
 
 This page is the local strategy overview for the Binaryen-v131 closeout, the 2026-07-31 condition-evaluation review reclose, and the completed 2026-08-01 performance re-signoff. For the helper walk and raw/HOT wiring, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
+## Equal-constant self branches with effectful conditions
+
+When a self-target `br_if` payload and its fallthrough are proven to be the same constant, the condition can stay at its original position as `drop(condition)`. A call, load or nested exit in that condition does not depend on the constant payload. The enclosing label remains, so a nested branch with a different carried value keeps its target. The existing condition/read interference guard still applies to local-valued payloads. This removes an unnecessary speculation restriction without moving or deleting effects.
+
+[Focused pass tests](../../../../../src/passes/remove_unused_brs_constant_effects_test.mbt) require one retained call, the exact trapping load and the nested different-value exit. [Command dispatch coverage](../../../../../src/cmd/rub_constant_effects_wbtest.mbt) checks the decoded output. This is a narrow extension of the existing redundant self-branch rule; it does not change presets or the scheduler.
+
 ## Short version
 
 Starshine's represented direct behavior was closed against Binaryen `version_131` on the 2026-07-31 reviewed binary. The same-target two-arm `if` rewrite emits `drop(condition)` before the branch, preserving calls, local/global mutation, reads, and traps. The completed 2026-08-01 speedup slice preserves those artifact bytes, passes full Moon `10177/10177`, and improves pass-local median from `595.227ms` to `227.250ms`; recorded Binaryen-v131 median is `289.650ms`, so Starshine is now comfortably faster at `0.785x` by independent medians and about `1.27x` Binaryen throughput. A maintainer-approved bounded re-sign removes `[RUB-PERF]001` from the active backlog while retaining the 2026-07-31 full matrix as behavioral provenance. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:

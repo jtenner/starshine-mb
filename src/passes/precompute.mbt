@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/Precompute.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn precompute_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("precompute", invalidates=[
@@ -3817,6 +3829,7 @@ fn precompute_simplify_region_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  label_used : @bitset.BitSet,
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
@@ -3829,6 +3842,7 @@ fn precompute_simplify_region_roots(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            label_used,
           ) ||
           changed
       @ir.HotOp::If => {
@@ -3836,11 +3850,14 @@ fn precompute_simplify_region_roots(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
+            label_used,
           ) ||
           changed
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_region) =>
-            changed = precompute_simplify_region_roots(ctx, func, else_region) ||
+            changed = precompute_simplify_region_roots(
+                ctx, func, else_region, label_used,
+              ) ||
               changed
           None => ()
         }
@@ -3850,11 +3867,14 @@ fn precompute_simplify_region_roots(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            label_used,
           ) ||
           changed
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_region) =>
-            changed = precompute_simplify_region_roots(ctx, func, catch_region) ||
+            changed = precompute_simplify_region_roots(
+                ctx, func, catch_region, label_used,
+              ) ||
               changed
           None => ()
         }
@@ -3864,12 +3884,14 @@ fn precompute_simplify_region_roots(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            label_used,
           ) ||
           changed
         changed = precompute_simplify_region_roots(
             ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
+            label_used,
           ) ||
           changed
       }
@@ -4019,12 +4041,21 @@ fn precompute_simplify_region_roots(
                 } else {
                   @ir.hot_region_else_ref(func, node_id)
                 }
-                let can_splice = match chosen_region {
-                  Some(chosen_region) =>
-                    precompute_constant_if_chosen_region_can_inline(
-                      func, chosen_region,
-                    )
-                  None => true
+                // A chosen arm may branch to this if's own label. Splicing
+                // would detach that target before hot lowering resolves it.
+                let can_splice = if pass_label_is_used(
+                    @ir.hot_control_node_label(func, node_id),
+                    label_used,
+                  ) {
+                  false
+                } else {
+                  match chosen_region {
+                    Some(chosen_region) =>
+                      precompute_constant_if_chosen_region_can_inline(
+                        func, chosen_region,
+                      )
+                    None => true
+                  }
                 }
                 if can_splice {
                   match chosen_region {
@@ -10349,11 +10380,22 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_round = true
   while changed_round {
     changed_round = false
-    if precompute_simplify_region_roots(ctx, func, @ir.HotRegionRef::root()) {
+    let entry_label_used = pass_compute_label_used(func)
+    let simplified = precompute_simplify_region_roots(
+      ctx,
+      func,
+      @ir.HotRegionRef::root(),
+      entry_label_used,
+    )
+    if simplified {
       changed_round = true
       changed_any = true
     }
-    let label_used = pass_compute_label_used(func)
+    let label_used = if simplified {
+      pass_compute_label_used(func)
+    } else {
+      entry_label_used
+    }
     let mut inline_candidates : Array[Int32]? = None
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {

@@ -719,7 +719,8 @@ test "simplify-globals-optimizing simplifies locals in the final cleanup suffix"
   assert_false(pretty.contains("local.set"), msg=pretty)
   assert_false(pretty.contains("local.get"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("return"), msg=pretty)
+  // The call result is the function result; an explicit return costs a byte.
+  assert_false(pretty.contains("return"), msg=pretty)
   assert_true(
     trace.any(fn(line) {
       line.contains(

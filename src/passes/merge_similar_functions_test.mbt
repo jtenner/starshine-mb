@@ -11,11 +11,18 @@ fn msf_test_tail_call_disabled_module() -> @lib.Module {
   pass_test_module_from_wat(
     (
       #|(module
+      #|  (global (mut i32) (i32.const 0))
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    i32.const 43))
       #|
     ),
@@ -84,17 +91,27 @@ fn msf_test_assert_no_function_reference_merge(
 }
 
 ///|
-test "merge-similar-functions shares large literal-only siblings" {
-  let optimized = try! msf_test_run(
-    (
-      #|(module
-      #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
-      #|    i32.const 42)
-      #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
-      #|    i32.const 43))
-    ),
+test "merge-similar-functions shares large effectful siblings" {
+  let source =
+    #|(module
+    #|  (global (mut i32) (i32.const 0))
+    #|  (func (result i32)
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    i32.const 42)
+    #|  (func (result i32)
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    global.get 0 i32.const 1 i32.add global.set 0
+    #|    i32.const 43))
+  let input = pass_test_module_from_wat(source)
+  let optimized = try! msf_test_run(source)
+  assert_true(
+    @binary.encode_module(optimized).unwrap().length() <
+    @binary.encode_module(input).unwrap().length(),
   )
   match (optimized.func_sec, optimized.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
@@ -115,9 +132,27 @@ test "merge-similar-functions shares large literal-only siblings" {
         @lib.Instruction::return_call(helper_idx),
       ])
       @debug.assert_eq(helper_locals, @lib.Locals::empty())
-      @debug.assert_eq(helper.length(), 15)
+      let expected_helper : Array[@lib.Instruction] = []
+      for _ in 0..<4 {
+        expected_helper.push(
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        )
+        expected_helper.push(@lib.Instruction::i32_const(@lib.I32(1)))
+        expected_helper.push(@lib.Instruction::i32_add())
+        expected_helper.push(
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        )
+      }
+      expected_helper.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+      @debug.assert_eq(helper, expected_helper)
+      @debug.assert_eq(helper.length(), 17)
+      assert_false(helper.contains(@lib.Instruction::nop()))
       @debug.assert_eq(
-        helper[14],
+        helper.filter(fn(instr) { instr is @lib.GlobalSet(_) }).length(),
+        4,
+      )
+      @debug.assert_eq(
+        helper[16],
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       )
     }
@@ -394,11 +429,18 @@ test "merge-similar-functions rewrites nested literal sites" {
   let optimized = try! msf_test_run(
     (
       #|(module
+      #|  (global (mut i32) (i32.const 0))
       #|  (func (param i32) (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    block (result i32) i32.const 42 end)
       #|  (func (param i32) (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    global.get 0 i32.const 1 i32.add global.set 0
       #|    block (result i32) i32.const 43 end))
     ),
   )

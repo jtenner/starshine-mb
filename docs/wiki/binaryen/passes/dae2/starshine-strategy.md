@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-11
 sources:
+  - ../../../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
+  - ../../../../../src/passes/dae2_lazy_flow_wbtest.mbt
   - ../../../../../src/passes/dae2_effect_order_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/hot_verify.mbt
@@ -9133,6 +9136,31 @@ Sources: [combined verifier](../../../../../src/ir/hot_verify.mbt),
 [rewrite call](../../../../../src/passes/dead_argument_elimination2.mbt),
 [pass checkpoint](../../../../../src/passes/pass_manager.mbt).
 
+## October 11, 2026 — Preserve typed-if entries and bound unknown flow
+
+DAE2 now treats `if` parameters as typed control entries when it removes a
+dead result. It derives the entry count from the resolved block type, updates
+the replacement type with the retained entries and removes dead entry children
+from the control span. Removed entries keep their evaluation order and effects;
+surviving entries use scratch locals when effectful removals require sequencing.
+The public pipeline regression previously failed verification with an invalid
+four-child `if`; both DAE2 modes now produce a valid one-parameter, no-result
+helper.
+
+Unknown-local fallback dependencies now share one graph hub when several reads
+need the same conservative write set. This changes the previous reads-by-writes
+edge product to linear edges while retaining transitive liveness for the
+parameter and all possible writes. A single unknown read keeps direct edges.
+Root-write admission also scans the root span directly after a cheap existence
+check instead of allocating a temporary root-write list.
+
+Sources: [rewrite and dependency graph](../../../../../src/passes/dead_argument_elimination2.mbt),
+[public pipeline regression](../../../../../src/passes/dead_argument_elimination2_wbtest.mbt),
+[bounded fallback regression](../../../../../src/passes/dae2_lazy_flow_wbtest.mbt).
+Focused tests cover validation, both pass modes and transitive fallback
+liveness. Broad fuzz, aggregate parity and enclosing performance measurements
+remain open because this repair used the busy-host lane.
+
 
 The final `ee57fe32…` singleton is 59 canonical bytes in both modes, compared
 with original/before 60 and the witness intermediate 63. All 48 retained
@@ -11443,3 +11471,13 @@ compile because its private C host stub lacks `<stddef.h>`; no diagnostic-work
 resource result is claimed. Private experiments and raw samples remain in the
 ignored local evidence directory. Both external projects stayed running. All
 four Binaryen wall-time parity goals remain open.
+
+The checkpoint merge preserves the 147 existing `origin/master` commits through
+`3cb24819f`. Its bounded behavior gate passes 15,078 tests with 2,211 stable
+source rows. Direct `moon test` reaches the operating-system argument limit;
+the existing compact-selection runner executes the default behavior classes.
+Merge regressions in control cleanup, wide-local frequency cleanup and invalid
+caught-preset fallback are repaired without changing their test expectations.
+After adapting the new HOT helpers and fixtures to master's native stack
+representation, `moon check --target native` and all 740 wasm-gc IR tests pass.
+These checks do not close native timing or aggregate GenValid signoff.

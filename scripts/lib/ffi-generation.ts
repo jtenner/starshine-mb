@@ -85,12 +85,24 @@ export interface UnsupportedFfiSymbol {
 }
 
 export interface GeneratedFfiPackage {
+  schema: FfiExportSchema[];
   source: string;
   packageManifest: string;
   linkExports: string[];
   exportNames: Record<string, string>;
   unsupported: UnsupportedFfiSymbol[];
   exportedCount: number;
+}
+
+export interface FfiExportSchema {
+  sourceName: string;
+  exportName: string;
+  packageAlias: string;
+  owner: string | null;
+  name: string;
+  params: { name: string; type: string; optional: boolean; labelOnly: boolean }[];
+  returnType: string;
+  effect: string;
 }
 
 interface ParsedParameter {
@@ -799,6 +811,23 @@ export function generateFfiPackage(inputs: FfiInterfaceInput[]): GeneratedFfiPac
     }),
   );
   return {
+    schema: concrete.map((fn) => ({
+      sourceName: sourceFunctionName(fn),
+      exportName: exportNames[sourceFunctionName(fn)],
+      packageAlias: fn.packageAlias,
+      owner: fn.owner,
+      name: fn.name,
+      params: splitTopLevel(fn.paramsText).map((raw, index) => {
+        const colon = raw.indexOf(":");
+        const label = colon < 0 ? `arg${index}` : raw.slice(0, colon).trim();
+        const type = colon < 0 ? raw : raw.slice(colon + 1).trim();
+        return { name: label.replace(/[?~]$/, ""),
+          type: qualifyType(type, fn.packageAlias, fn.localTypes, fn.owner, fn.selfType, fn.typeBindings),
+          optional: label.endsWith("?"), labelOnly: label.endsWith("~") };
+      }),
+      returnType: qualifyType(fn.returnText, fn.packageAlias, fn.localTypes, fn.owner, fn.selfType, fn.typeBindings),
+      effect: fn.suffixText,
+    })),
     source,
     packageManifest: renderPackageManifest(inputs, usedAliases),
     linkExports,

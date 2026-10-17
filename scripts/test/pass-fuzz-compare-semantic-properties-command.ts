@@ -66,6 +66,36 @@ const fs=require("node:fs"),path=require("node:path"),cp=require("node:child_pro
     assert(fs.readdirSync(path.join(outDir, directory)).length === 0, `successful ${directory} must be cleaned`);
   }
 
+  const genValid = executable(path.join(dir, "gen-valid"), `
+const fs=require("node:fs"),path=require("node:path");const a=process.argv.slice(2);
+const out=a[a.indexOf("--out-dir")+1], manifest=a[a.indexOf("--manifest")+1];fs.mkdirSync(out,{recursive:true});
+const base="paired-base.wasm", twin="gen-valid-000001.wasm",bytes=fs.readFileSync(process.env.FIXTURE);
+fs.writeFileSync(path.join(out,base),bytes);fs.writeFileSync(path.join(out,twin),Buffer.concat([bytes,Buffer.from([0,10,4,110,97,109,101,0,3,2,102,111])]));
+fs.writeFileSync(manifest,JSON.stringify({schema:"starshine.gen-valid.batch.v2",records:[{file_name:twin,base_file_name:base,relation_group_id:"fixture-module-name",transform_id:"add-module-name-section"}]}));
+`);
+  const pairedOut = path.join(dir, "paired-out");
+  const paired = spawnSync("bun", [
+    path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+    "--count", "1", "--out-dir", pairedOut,
+    "--starshine-bin", starshine, "--gen-valid-bin", genValid,
+    "--wasm-tools-bin", realWasmTools, "--require-binaryen-version", "133",
+    "--semantic-oracle", "node-v2", "--semantic-policy", "strict",
+    "--gen-valid-metamorphic-transform", "add-module-name-section",
+    "--emit-metamorphic-pairs", "--pass", "remove-unused-brs",
+  ], { cwd: repoRoot, env: { ...process.env, FIXTURE: wasm }, encoding: "utf8", timeout: 120000 });
+  if (paired.error) throw paired.error;
+  assert(paired.status === 0, `${paired.stdout}\n${paired.stderr}`);
+  const pairedRecord = JSON.parse(fs.readFileSync(path.join(pairedOut, "cases.jsonl"), "utf8"));
+  const outcome = pairedRecord.semanticPropertyOutcomes.find((entry: { kind: string }) => entry.kind === "metamorphic-equivalence");
+  assert(outcome.status === "pass", "paired semantic checks must pass");
+  assert(outcome.structuralDiagnostics?.classification === "canonical-equal-encoding-difference",
+    `paired size diagnostic must survive cleanup: ${JSON.stringify(outcome)}`);
+  assert(outcome.structuralDiagnostics.optimizedDeltaBytes === 12, "must record exact encoded bytes");
+  assert(outcome.structuralDiagnostics.smallerVariant === null, "canonical-equal debug-name bytes are not an optimization candidate");
+  assert(fs.readdirSync(path.join(pairedOut, "property-results")).length === 0, "successful reports must be cleaned");
+  assert(fs.readdirSync(path.join(pairedOut, "property-artifacts")).length === 0, "successful artifacts must be cleaned");
+  fs.rmSync(dir, { recursive: true, force: true });
+
 }
 
 if (import.meta.main) runPassFuzzCompareSemanticPropertiesCommandTest();

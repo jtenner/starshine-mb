@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/DeadCodeElimination.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("dead-code-elimination", requires=[], invalidates=[
@@ -802,6 +814,9 @@ fn dead_code_elimination_region_has_terminal_last_live_root(
         @ir.HotOp::Br
         | @ir.HotOp::BrTable
         | @ir.HotOp::Return
+        | @ir.HotOp::ReturnCall
+        | @ir.HotOp::ReturnCallIndirect
+        | @ir.HotOp::ReturnCallRef
         | @ir.HotOp::Throw
         | @ir.HotOp::ThrowRef
         | @ir.HotOp::Rethrow
@@ -2913,7 +2928,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
       continue
     }
     match @ir.hot_node_get(func, branch_id).op {
-      @ir.HotOp::Br => ()
+      @ir.HotOp::Br | @ir.HotOp::BrIf => ()
       _ => return false
     }
     let payload_count = dead_code_elimination_branch_payload_count(

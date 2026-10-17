@@ -326,7 +326,7 @@ test "reorder-locals is a no-op when a function has only params" {
 }
 
 ///|
-test "run_hot_pipeline applies reorder-locals by Binaryen access count and first-use order" {
+test "run_hot_pipeline keeps access frequencies and compresses size-winning ties" {
   let input =
     #| (module
     #|   (func (param i32) (result i32) (local i32 i64 i32 i64)
@@ -349,14 +349,14 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
     locals,
     @lib.Locals::from_types([
       @lib.ValType::i32(),
-      @lib.ValType::i64(),
       @lib.ValType::i32(),
+      @lib.ValType::i64(),
     ]),
   )
   @debug.assert_eq(instrs.length(), 7)
   @debug.assert_eq(
     instrs[1],
-    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
   )
   @debug.assert_eq(
     instrs[3],
@@ -368,8 +368,20 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
   )
   @debug.assert_eq(
     instrs[6],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
   )
+  let first_use_bytes = @buffer.new()
+  let grouped_bytes = @buffer.new()
+  @binary.Encode::encode(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+    ]),
+    first_use_bytes,
+  ).unwrap()
+  @binary.Encode::encode(locals, grouped_bytes).unwrap()
+  @debug.assert_eq(first_use_bytes.length() - grouped_bytes.length(), 2)
 }
 
 ///|

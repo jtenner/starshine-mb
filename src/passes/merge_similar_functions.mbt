@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2021 WebAssembly Community Group participants
+// Counterpart: src/passes/MergeSimilarFunctions.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn merge_similar_functions_summary() -> String {
   "Merge profitable near-duplicate defined functions through shared parameterized helpers and preserving thunks."
@@ -1197,7 +1209,7 @@ fn msf_collect_classes(
 }
 
 ///|
-fn msf_run_module_pass_with_perf(
+fn msf_run_similarity_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
@@ -1334,7 +1346,28 @@ fn msf_run_module_pass_with_perf(
   )
   let result = match
     msf_validate_append_only_candidate_detail(mod_, candidate) {
-    Ok(_) => candidate
+    Ok(_) =>
+      match @binary.encoded_module_sizes(mod_, candidate) {
+        Ok((before_size, after_size)) if after_size <= before_size => candidate
+        Ok((before_size, after_size)) => {
+          match perf {
+            Some(session) =>
+              (session.trace)(
+                "msf:size-reject before=\{before_size} after=\{after_size}",
+              )
+            None => ()
+          }
+          mod_
+        }
+        Err(err) => {
+          match perf {
+            Some(session) =>
+              (session.trace)("msf:size-reject encode-error=\{err}")
+            None => ()
+          }
+          mod_
+        }
+      }
     Err(reason) => {
       match perf {
         Some(session) =>
@@ -1353,4 +1386,26 @@ pub fn merge_similar_functions_run_module_pass(
   mod_ : @lib.Module,
 ) -> @lib.Module {
   msf_run_module_pass_with_perf(mod_, None)
+}
+
+///|
+fn msf_run_module_pass_with_perf(
+  mod_ : @lib.Module,
+  perf : HotPerfSession?,
+) -> @lib.Module {
+  let outlined = gc_record_copy_outline_module(mod_)
+  let candidate = msf_run_similarity_module_pass_with_perf(outlined, perf)
+  if physical_equal(outlined, mod_) {
+    return candidate
+  }
+  // The new owner admits only a complete encoded win, including any subsequent
+  // ordinary MSF rewrite, and rolls back the whole addition on invalid output.
+  match @binary.encoded_module_sizes(mod_, candidate) {
+    Ok((before, after)) if after < before =>
+      if @validate.validate_module(candidate) is Ok(_) {
+        return candidate
+      }
+    _ => ()
+  }
+  mod_
 }

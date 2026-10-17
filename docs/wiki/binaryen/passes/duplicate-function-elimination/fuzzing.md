@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-10
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,6 +9,55 @@ sources:
 ---
 
 # `duplicate-function-elimination` Fuzzing Profile
+
+## October 10 immutable-wrapper sharing renewal
+
+The [wrapper-sharing qualification](../../../tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
+records native `3f0aaf851d9a6c1acb93e43d68a5dbd664dd91635daebb42c412182e9af0a395`,
+verified v133, unchanged generator, seed 0x5eed and eight workers. Strict 10,000
+cases preserve the previous complete manifest and all 100 retained Wasms:
+5,000 normalized matches plus the same reviewed private-caller six-byte wins,
+zero validation/generator/command failures. Runtime/property modes are off;
+that aggregate does not cover GC aliases. Separate Node-v2 GC subtype renewal
+matches all 256 original/Starshine/Binaryen observations with no blocked cases
+and the identical prior manifest. All 14,035 default tests and bounded public
+identity/state/trap observers pass. These facts do not establish general leak,
+peak, full semantic coverage or final whole-pass audit closure. Memory acceptance
+and integrated package/CI gates remain pending.
+
+## October 10 GC storage repair renewal
+
+The [memory follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)
+records fresh native `df2c4d5c01d21509718c4c6b65b3659de77285b0c0d456c959c1f36c7795bb9b`,
+verified v133 and an identical owned-profile manifest at seed 0x5eed. All 10,000
+cases complete under explicit independent validation, 15s subprocess limits
+and eight workers: 5,000 normalized matches plus 5,000 existing private-caller
+residuals, zero validation/generator/command failures. Every retained bundle
+byte-matches the previous reviewed checkpoint; its scoped six-byte-win
+classification carries forward with the same source contract and limitations.
+Runtime/property modes are off and no GC alias coverage follows from this lane.
+Default 14,033 tests and reduced public alias/shifted/subtype runtime observations
+pass; memory sample overlap and retained allocator pages are qualified separately.
+This remains scoped implementation signoff, not final whole-pass audit closure.
+
+## October 10 bounded GC canonicalization renewal
+
+The [npm discrepancy follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)
+records fresh native2364a2c553c27c949f0406d25808c32a42258547dc9484f9db8c2b796ea06c55,
+verified Binaryen 133, explicit unchanged generator, seed 0x5eed and eight workers.
+The 10,000-case owned trigger profile yields 5,000 matches and5,000 source-backed
+six-byte private-caller wins, with zero validation/generator/command failures.
+All 20 retained residual outputs match the prior reviewed checkpoint. This is an
+agent/reviewer classification; runtime/property modes are off and no GC alias
+coverage is implied by that aggregate.
+
+A separate 256-case `campaign-gc-ref-subtypes` lane with `--semantic-oracle node-v2`
+passes 256 normalized and 256 primary original/Starshine/Binaryen runtime cases,
+zero blocked/failing cases. The initial sandboxed runtime blocks are preserved;
+local subprocess approval resolved them with the identical input manifest.
+Reduced positive public/whitebox fixtures supply alias, shifted-group, import,
+global/local and protected identity coverage. Exact commands, hashes, size/RSS
+tradeoffs, remaining gap and observation limits are in the linked checkpoint.
 
 ## September 27 follow-up allocation campaign renewal
 

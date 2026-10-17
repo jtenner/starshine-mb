@@ -4,7 +4,7 @@ priv struct TupleLaneTypesFixture {
   func : HotFunc
   frames : HotLowerLabelFrames
   producer : NodeId
-  seed : Array[HotLowerStackValue]
+  seed : HotLowerValueStack
   prefix : Array[Instruction]
 }
 
@@ -60,7 +60,7 @@ fn tuple_lane_types_fixture(
     })[0]
   let frames = hot_lower_impl_new_label_frames(func)
   let counts = hot_node_use_counts_build(func)
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   let prefix : Array[Instruction] = []
   let extras : Array[ValType] = []
   hot_lower_impl_emit_root(
@@ -291,7 +291,11 @@ test "lower tuple lane nonoverlapping typed pairs reuse only matching scratch sl
         @lib.LocalIdx::new((cover_index - 1).reinterpret_as_uint()),
       ),
     )
-    let stack = [fixture.seed[0], fixture.seed[1], fixture.seed[cover_index]]
+    let stack = lower_test_value_stack([
+      fixture.seed[0],
+      fixture.seed[1],
+      fixture.seed[cover_index],
+    ])
     let start = out.length()
     assert_true(
       hot_lower_impl_reuse_buried_scalar(

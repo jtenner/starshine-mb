@@ -2352,3 +2352,46 @@ test "dead-code-elimination preserves final multivalue loop region results" {
     _ => fail("expected DCE to preserve the final multivalue loop root")
   }
 }
+
+///|
+test "dead-code-elimination voidifies dead result blocks ending in tail calls" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $callee (func (result i32)))
+        #|  (func $callee (type $callee) (result i32) i32.const 7)
+        #|  (func (result i32)
+        #|    (drop
+        #|      (block $exit (result i32)
+        #|        (br_if $exit (i32.const 42) (i32.const 0))
+        #|        (return_call $callee)))
+        #|    i32.const 0))
+        #|
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected terminal tail-call block success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  assert_false(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      match instr {
+        @lib.Block(block_type, _) => block_type != @lib.BlockType::void_()
+        _ => false
+      }
+    }),
+    msg="DCE retained a typed result block",
+  )
+  assert_true(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.ReturnCall(_)
+    }),
+    msg="DCE removed the terminal tail call",
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid terminal tail-call block, got \{err}")
+  }
+}

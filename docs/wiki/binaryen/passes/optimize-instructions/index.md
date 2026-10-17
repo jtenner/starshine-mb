@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-10-11
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
+  - ../../../../../src/passes/optimize_instructions_fixed_point_wbtest.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/optimize_instructions_try_state_perf_wbtest.mbt
   - ../../../../../src/passes/oi_local_group_parity_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -36,6 +38,25 @@ related:
 ---
 
 # `optimize-instructions`
+
+## October 11, 2026 receiverless aggregate-atomic isolation
+
+Partially lifted HOT can retain a receiverless struct aggregate RMW or
+compare-exchange node. OptimizeInstructions cannot safely rewrite that malformed
+subtree, but the earlier whole-function preflight also suppressed unrelated safe
+rewrites. The pass now relies on the aggregate rewrite's exact child-count guard:
+it preserves the unsupported node and continues visiting independent roots.
+White-box coverage proves that an independent integer identity fold commits,
+advances the HOT revision, and leaves the receiverless atomic payload unchanged.
+
+The same repair removes the extra unsupported-node arena scan. The sign-extension
+and unsigned-maximum local assignment summaries now share one post-order setup
+walk and one visited bitset instead of traversing the same graph twice. The fact
+finalization and pre-mutation collection point are unchanged. A focused traversal
+counter test requires one combined setup walk plus the normal rewrite walk, and
+the performance trace exposes one `collect-local-facts` phase rather than the two
+retired collectors. This is a structural setup reduction; busy-host focused
+testing does not establish a full-pass timing or the open 1× performance target.
 
 ## September 25, 2026 self-opt module-context reuse
 

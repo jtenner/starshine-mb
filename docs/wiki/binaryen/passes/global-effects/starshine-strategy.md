@@ -29,24 +29,24 @@ related:
 
 ## Current status
 
-Starshine currently treats `global-effects` as a **boundary-only compatibility name**, not as an active pass.
+Starshine currently treats `global-effects` as an **active-partial module pass**. The local contract is a direct continuation rewrite, not Binaryen's `generate-global-effects` metadata producer.
 
 The exact local facts are:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `127-137` list `global-effects` in `pass_registry_boundary_only_names()`.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `315-318` materialize those boundary-only names into the hot registry.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines `525-531` reject requested boundary-only passes with the standard “not implemented in the hot pipeline” error during pass expansion.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `global-effects` as `ModulePass`.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches [`global_effects.mbt`](../../../../../src/passes/global_effects.mbt).
+- The owner replaces `ref.func F; cont.new T; resume T` with `call F` when handlers are empty and a conservative scan proves locally defined `F` cannot suspend.
+- Candidate discovery and rewriting currently descend through `block`, `loop`, and `if`, but not through legacy `try` or modern `try_table`. Those nested forms remain an open correctness/parity gap.
 - [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) lines `207-210` prove `--global-effects` is accepted by CLI parsing and normalized to the `global-effects` pass flag.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) lines `1721-1731` and `1919-1923` keep the hot-pipeline pass-flag path explicit.
 - [`src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt) lines `118-120` and `318-338` keep the shared local effects analysis path explicit.
 - [`src/ir/analysis_cache.mbt`](../../../../../src/ir/analysis_cache.mbt) lines `19-23`, `34-35`, `70-72`, and `220-222` keep the cached hot effects summary model explicit.
 - [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt) lines `4413-4607` and [`src/passes/heap_store_optimization.mbt`](../../../../../src/passes/heap_store_optimization.mbt) lines `2224-2234` are the main local consumers of that shared effect cache.
-- no `src/passes/global_effects.mbt` owner file exists today.
-- no active HOT pass, module pass, preset slot, or `agent-todo.md` backlog slice exists for this pass today.
+- the active pass is not scheduled by presets and does not produce or store Binaryen-compatible per-function global-effect summaries.
 
-The 2026-04-27 readiness bridge makes the next step explicit, and the 2026-05-06 current-main recheck did not change it: keep this boundary-only until Starshine can at least build observable per-function summaries, then promote it as a module pass with dispatcher support and paired consumer validation.
+The retained readiness bridge describes the still-open metadata-producer work. It must not be used to deny the active resume rewrite or to claim that the rewrite satisfies the upstream metadata contract.
 
-That means the local behavior is intentionally honest: users can spell the compatibility flag, but Starshine refuses to run it until a real implementation exists.
+That means the local behavior must be named precisely: users can run the active resume rewrite, while interprocedural global-effect metadata remains unavailable.
 
 ## Why this cannot be a small HOT peephole
 
@@ -119,7 +119,7 @@ Minimum algorithmic requirements:
 
 Minimum validation requirements:
 
-- a CLI/request test showing boundary-only rejection disappears only when a real pass exists
+- direct registry and dispatcher tests for the active resume-rewrite contract
 - direct reader/writer/transitive-wrapper tests for summary contents
 - recursive-call tests for conservative cycle handling
 - imported/indirect-call tests for unknown-effect poisoning

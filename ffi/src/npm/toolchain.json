@@ -1,0 +1,8 @@
+{
+  "moon": "moon 0.1.20260920 (914d7da 2026-09-20)",
+  "moonc": "moonc v0.10.14+7d59c7ec9 (2026-09-18)",
+  "bun": "1.4.2",
+  "minimumNodeMajor": 25,
+  "wasmTools": "wasm-tools 1.251.0",
+  "typescript": "5.8.3"
+}

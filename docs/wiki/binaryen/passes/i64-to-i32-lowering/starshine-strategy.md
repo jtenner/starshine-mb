@@ -1,7 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+starshine_status: boundary-only
+last_reviewed: 2026-10-11
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -32,11 +33,11 @@ related:
 
 # Starshine strategy for `i64-to-i32-lowering`
 
-## September 25, 2026: no-candidate pass timing
+## October 11, 2026: registry honesty and narrow-pass split
 
-The status text below describes the July 2026 implementation state and is superseded for the saturating-conversion slice: [`i64_to_i32_lowering.mbt`](../../../../../src/passes/i64_to_i32_lowering.mbt) now lowers the four `i64.trunc_sat_f32/f64_s/u` opcodes. The broader Binaryen ABI lowering described below remains unimplemented.
+[`i64_to_i32_lowering.mbt`](../../../../../src/passes/i64_to_i32_lowering.mbt) lowers only the four `i64.trunc_sat_f32/f64_s/u` opcodes. That rewrite is now exposed as `i64-trunc-sat-float-lowering`. The public Binaryen name `i64-to-i32-lowering` is boundary-only because Starshine does not yet split i64 ABI values or ordinary i64 operations into i32 pairs.
 
-The module pass first scans bodies for those opcodes. If none occurs, it returns before building a signature cache and rewritten function array. A native direct-pass benchmark with 128 unchanged functions improved from `54.18 µs` to `6.64 µs`; with 256 functions it improved from `107.16 µs` to `12.63 µs`. The [benchmark and positive conversion test](../../../../../src/passes/i64_to_i32_lowering_noop_perf_wbtest.mbt) cover this guard. These synthetic no-candidate timings do not measure full-pipeline impact.
+The narrow module pass first scans bodies for those opcodes. If none occurs, it returns before building a signature cache and rewritten function array. A native direct-pass benchmark with 128 unchanged functions improved from `54.18 µs` to `6.64 µs`; with 256 functions it improved from `107.16 µs` to `12.63 µs`. The [benchmark and positive conversion test](../../../../../src/passes/i64_to_i32_lowering_noop_perf_wbtest.mbt) cover this guard. Each changed function now allocates only the f32 or f64 temporary it needs. These synthetic no-candidate timings do not measure full-pipeline impact.
 
 ## Current local status
 
@@ -46,14 +47,14 @@ The exact local status is:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lists `i64-to-i32-lowering` inside `pass_registry_boundary_only_names()`.
 - The same file's pass expansion rejects boundary-only names before dispatching any pass, with the diagnostic that the flag is not implemented in the hot pipeline.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) has active module-pass dispatch for the implemented module passes only (`duplicate-function-elimination`, `remove-unused-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, and `reorder-locals`). There is no `i64-to-i32-lowering` case.
-- [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) covers active, boundary-only, and removed category behavior, but there is no pass-specific `i64-to-i32-lowering` implementation or parity test.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches the narrow `i64-trunc-sat-float-lowering` module pass. There is no `i64-to-i32-lowering` case.
+- [`src/passes/binaryen133_i64_lowering_red_wbtest.mbt`](../../../../../src/passes/binaryen133_i64_lowering_red_wbtest.mbt) proves that the canonical name rejects both an i64-bearing function ABI and ordinary `i64.add`, while the narrow name lowers all four saturating conversions.
 - [research note 0063](../../../ir2/registry-map.md) still lists the pass in Batch 3 under whole-module or layout transforms.
-- [`agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated active `i64-to-i32-lowering` slice.
+- [`agent-todo.md`](../../../../../agent-todo.md) keeps the full Binaryen contract as an active correctness blocker.
 
 So the honest one-line summary is:
 
-> Starshine preserves the pass name as a boundary-only planning surface, but has no owner file, no dispatcher case, no active preset role, and no committed backlog slice for it yet.
+> Starshine preserves the canonical pass name as a boundary-only planning surface. The active narrow pass has an explicit saturating-conversion name and does not claim ABI or ordinary-op parity.
 
 ## Why this is not a HOT-only pass
 

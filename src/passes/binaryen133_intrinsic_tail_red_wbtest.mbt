@@ -44,3 +44,14 @@ test "Binaryen 133 intrinsic lowering directizes a non-tail dynamic call" {
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_true(body.any(fn(instr) { instr is @lib.CallRef(_) }))
 }
+
+///|
+test "Binaryen 133 intrinsic lowering uses declared typed locals" {
+  let output = binaryen133_run_new_pass(
+    "(module (type $sig (func)) (import \"binaryen-intrinsics\" \"call.without.effects\" (func $cwe (param funcref))) (func (export \"run\") (local (ref null $sig)) (ref.null $sig) (local.set 0) (call $cwe (local.get 0))))",
+    "intrinsic-lowering",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(instr) { instr is @lib.CallRef(_) }))
+  assert_false(body.any(fn(instr) { instr is @lib.Call(@lib.FuncIdx(0U)) }))
+}

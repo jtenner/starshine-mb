@@ -24,12 +24,14 @@ export function runCiWorkflowContractTest(): void {
     ["name: \"Required CI\"", "workflow name"],
     ["pull_request:", "pull-request trigger"],
     ["      - master", "master push trigger"],
+    ["  push:\n    branches:\n      - master\n      - codex/npm-wasmgc-beta", "eligible preparation branch push trigger"],
     ["permissions:\n  contents: read", "read-only default permissions"],
     ["concurrency:", "concurrency cancellation"],
     ["  format-and-tests:", "format and full-test job"],
     ["    timeout-minutes: 30", "bounded format/test timeout"],
     ["moon info", "MoonBit interface refresh"],
     ["moon fmt", "MoonBit formatting"],
+    ["bun scripts/lib/generate-product-version.mjs --check", "synchronized product version drift check"],
     ["bun ffi check", "generated FFI freshness check"],
     ["git diff --exit-code", "format/interface cleanliness enforcement"],
     ["moon test", "full MoonBit test suite"],
@@ -70,6 +72,10 @@ export function runCiWorkflowContractTest(): void {
   const differentialJob = workflow.split("  dae-differential:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
   if (differentialJob === undefined) fail("required CI is missing the DAE differential job body");
   for (const [fragment, label] of [
+    ["    timeout-minutes: 45", "bounded cold-build and comparison job budget"],
+    ["      - name: Preserve differential comparison evidence\n        if: always()\n        uses: actions/upload-artifact@v4", "comparison evidence on success or failure"],
+    [".tmp/ci-dae-genvalid/", "DAE comparison reports and retained failures"],
+    [".tmp/ci-semantic-optimizer/", "semantic comparison reports and retained failures"],
     ["uses: actions/setup-node@v5", "explicit semantic Node runtime installation"],
     ['node-version: "26.10.0"', "Node version supporting memory64 and experimental reference proposals"],
     ["moon build --target native --release src/fuzz", "fresh GenValid build"],
@@ -122,6 +128,11 @@ export function runCiWorkflowContractTest(): void {
     "clean-checkout Node package static contract",
   );
 
+  const nativeExamples = fs.readFileSync(path.join(workflowDir, "examples-cli-native.yml"), "utf8");
+  if (nativeExamples.split('      - "src/ir/**"').length - 1 !== 2) {
+    fail("native examples must watch IR changes in both push and pull-request path filters");
+  }
+
   const staleMainTriggers: string[] = [];
   const missingMoonUpdates: string[] = [];
   const staleNodePrefixes: string[] = [];
@@ -142,6 +153,14 @@ export function runCiWorkflowContractTest(): void {
   }
   if (staleNodePrefixes.length > 0) {
     fail(`workflows reference the removed tests/node package: ${staleNodePrefixes.join(", ")}`);
+  }
+  for (const file of ["node-wasm-tests.yml", "coverage-report.yml", "examples-cli-native.yml", "fuzz.yml"]) {
+    const contents = fs.readFileSync(path.join(workflowDir, file), "utf8");
+    for (const currentMetadataPath of ['      - "moon.mod"', '      - "**/moon.pkg"']) {
+      if (contents.split(currentMetadataPath).length - 1 !== 2) {
+        fail(`${file} must watch current MoonBit metadata in both push and pull-request path filters: ${currentMetadataPath.trim()}`);
+      }
+    }
   }
 }
 

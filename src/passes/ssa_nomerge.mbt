@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("ssa-nomerge", invalidates=[
@@ -574,38 +581,42 @@ fn ssa_nomerge_is_simple_nested_result_if_operand(
 }
 
 ///|
-fn ssa_nomerge_if_in_supported_drop_result_if(
+fn ssa_nomerge_supported_drop_result_ifs(
   func : @ir.HotFunc,
-  if_id : @ir.NodeId,
-) -> Bool {
-  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
-    return false
-  }
-  match @ir.hot_node_get(func, if_id).op {
-    @ir.HotOp::If => ()
-    _ => return false
-  }
+  visits~ : Array[Int32]? = None,
+) -> Array[Bool] {
+  let supported = Array::make(@ir.hot_node_count(func), false)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Drop =>
-        if @ir.hot_child_get(func, node_id, 0) == if_id &&
+      @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => {
+        let if_id = @ir.hot_child_get(func, node_id, 0)
+        if if_id >= 0 &&
+          if_id < supported.length() &&
+          @ir.hot_node_is_live(func, if_id) &&
+          @ir.hot_node_get(func, if_id).op is @ir.HotOp::If &&
           ssa_nomerge_is_simple_nested_result_if_operand(
             func, node_id, 0, if_id,
           ) {
-          return true
+          supported[if_id] = true
         }
+      }
       _ => ()
     }
   }
-  false
+  supported
 }
 
 ///|
 fn ssa_nomerge_is_supported_result_if_condition_value_block(
   func : @ir.HotFunc,
+  supported_drop_result_ifs : Array[Bool],
   parent_id : @ir.NodeId,
   parent_slot : Int32,
   block_id : @ir.NodeId,
@@ -625,12 +636,14 @@ fn ssa_nomerge_is_supported_result_if_condition_value_block(
     return false
   }
   @ir.ssa_simple_condition_value_block_allowed(func, block_id) &&
-  ssa_nomerge_if_in_supported_drop_result_if(func, parent_id)
+  parent_id < supported_drop_result_ifs.length() &&
+  supported_drop_result_ifs[parent_id]
 }
 
 ///|
 fn ssa_nomerge_nested_cfg_node_is_fail_closed(
   func : @ir.HotFunc,
+  supported_drop_result_ifs : Array[Bool],
   parent_id : @ir.NodeId,
   parent_slot : Int32,
   node_id : @ir.NodeId,
@@ -646,7 +659,7 @@ fn ssa_nomerge_nested_cfg_node_is_fail_closed(
     return false
   }
   if ssa_nomerge_is_supported_result_if_condition_value_block(
-      func, parent_id, parent_slot, node_id,
+      func, supported_drop_result_ifs, parent_id, parent_slot, node_id,
     ) {
     return false
   }
@@ -656,6 +669,7 @@ fn ssa_nomerge_nested_cfg_node_is_fail_closed(
 ///|
 fn ssa_nomerge_has_nested_cfg_control_node(
   func : @ir.HotFunc,
+  supported_drop_result_ifs : Array[Bool],
   node_id : @ir.NodeId,
   is_region_root : Bool,
   parent_id : @ir.NodeId,
@@ -670,7 +684,7 @@ fn ssa_nomerge_has_nested_cfg_control_node(
       @ir.hot_is_terminator_node(func, node_id)
     ) &&
     ssa_nomerge_nested_cfg_node_is_fail_closed(
-      func, parent_id, parent_slot, node_id,
+      func, supported_drop_result_ifs, parent_id, parent_slot, node_id,
     ) {
     return true
   }
@@ -683,7 +697,8 @@ fn ssa_nomerge_has_nested_cfg_control_node(
     let child_is_region_root = @ir.hot_is_control_node(func, node_id) &&
       ssa_nomerge_is_control_region_slot(node.op, slot)
     if ssa_nomerge_has_nested_cfg_control_node(
-        func, child_id, child_is_region_root, node_id, slot,
+        func, supported_drop_result_ifs, child_id, child_is_region_root, node_id,
+        slot,
       ) {
       return true
     }
@@ -704,9 +719,11 @@ fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
   // nested value-control regions can still
   // contain local reads/writes and terminators outside SSA v1's region-root
   // model; fail closed for those shapes.
+  let supported_drop_result_ifs = ssa_nomerge_supported_drop_result_ifs(func)
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     if ssa_nomerge_has_nested_cfg_control_node(
         func,
+        supported_drop_result_ifs,
         @ir.hot_root_get(func, root_idx),
         true,
         -1,

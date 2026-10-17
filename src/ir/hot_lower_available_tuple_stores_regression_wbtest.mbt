@@ -46,7 +46,7 @@ test "lower available tuple stores preserve every value and event with bounded o
     assert_true(plan.required)
     assert_true(plan.suffix_minima is Some(_))
     let visits = [0]
-    let stack : Array[HotLowerStackValue] = []
+    let stack : HotLowerValueStack = hot_lower_value_stack_new()
     let out : Array[Instruction] = []
     let extras : Array[ValType] = []
     for index in 0..<func.roots.length() {
@@ -116,7 +116,7 @@ test "lower tuple store fallback preserves events without repeated stack suffix 
   let facts = frames.source_order.unwrap()
   assert_true(plan.suffix_minima is Some(_))
   let work = [0]
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   let out : Array[Instruction] = []
   let extras : Array[ValType] = []
   let mut stores = 0
@@ -203,7 +203,7 @@ test "lower tuple store shortcut retains source-order fallback for earlier reads
     let index = Some(HotSourceOrderRootIndex::new(func, func.roots, facts))
     let counts = hot_node_use_counts_build(func)
     let frames = hot_lower_impl_new_label_frames(func)
-    let stack : Array[HotLowerStackValue] = []
+    let stack : HotLowerValueStack = hot_lower_value_stack_new()
     let out : Array[Instruction] = []
     let extras : Array[ValType] = []
     hot_lower_impl_emit_root(

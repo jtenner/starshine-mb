@@ -225,7 +225,11 @@ type ResumeIdentityRecord = {
   sources: Record<string, unknown>;
 };
 
-type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
+type EffectTrapCounts = Record<
+  "hasCall" | "mutatesMemory" | "mutatesTable" | "mutatesGlobal" | "hasException" |
+  "hasAtomics" | "hasUnreachable" | "mayTrap" | "gcDecodeIncomplete",
+  number
+>;
 type GenValidTransformCounts = Record<string, number>;
 type GenValidSelectedProfileCounts = Record<string, number>;
 type GenValidProfileCaseCounts = Record<string, number>;
@@ -244,6 +248,9 @@ type CaseEffectTrapFacts = Pick<
   | "hasAtomics"
   | "hasUnreachable"
   | "mayTrap"
+  | "gcDecodeStatus"
+  | "gcDecodeIncompleteOffset"
+  | "gcDecodeIncompleteReason"
 >;
 
 type CompilerFactsCaseContext = {
@@ -277,6 +284,7 @@ type CaseRecord = {
     kind: "semantic-idempotence" | "convergence" | "commutator" | "metamorphic-equivalence";
     status: string;
     classification: string;
+    structuralDiagnostics?: unknown;
   }>;
   localizationOutcome?: {
     classification: string;
@@ -3153,12 +3161,15 @@ function emptyEffectTrapCounts(): EffectTrapCounts {
     hasAtomics: 0,
     hasUnreachable: 0,
     mayTrap: 0,
+    gcDecodeIncomplete: 0,
   };
 }
 
 export function boundedEffectTrapFactsForCase(
   facts: CaseEffectTrapFacts | EffectTrapFacts,
 ): CaseEffectTrapFacts {
+  const reason = facts.gcDecodeIncompleteReason
+    ?? (facts.gcDecodeStatus === undefined ? "legacy-scan-status-unavailable" : null);
   return {
     hasCall: facts.hasCall,
     mutatesMemory: facts.mutatesMemory,
@@ -3168,6 +3179,9 @@ export function boundedEffectTrapFactsForCase(
     hasAtomics: facts.hasAtomics,
     hasUnreachable: facts.hasUnreachable,
     mayTrap: facts.mayTrap,
+    gcDecodeStatus: facts.gcDecodeStatus ?? "incomplete",
+    gcDecodeIncompleteOffset: facts.gcDecodeIncompleteOffset ?? null,
+    gcDecodeIncompleteReason: reason === null ? null : reason.slice(0, 80),
   };
 }
 
@@ -3180,6 +3194,7 @@ function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: CaseEf
   if (facts.hasAtomics) summary.inputEffectTrapCounts.hasAtomics += 1;
   if (facts.hasUnreachable) summary.inputEffectTrapCounts.hasUnreachable += 1;
   if (facts.mayTrap) summary.inputEffectTrapCounts.mayTrap += 1;
+  if (facts.gcDecodeStatus !== "complete") summary.inputEffectTrapCounts.gcDecodeIncomplete += 1;
 }
 
 function genValidManifestTransformId(genValidManifestEntry: unknown | null): string | null {
@@ -3405,6 +3420,7 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   addCounter(features, "optional_input_has_atomics", summary.inputEffectTrapCounts.hasAtomics);
   addCounter(features, "optional_input_has_unreachable", summary.inputEffectTrapCounts.hasUnreachable);
   addCounter(features, "optional_input_may_trap", summary.inputEffectTrapCounts.mayTrap);
+  addCounter(features, "optional_input_gc_decode_incomplete", summary.inputEffectTrapCounts.gcDecodeIncomplete);
   addCounter(features, "optional_runtime_checked", summary.runtimeExecutionCounts.checked);
   addCounter(features, "optional_runtime_unsupported", summary.runtimeExecutionCounts.unsupported);
   addCounter(features, "optional_runtime_failed", summary.runtimeExecutionCounts.failed);
@@ -3837,6 +3853,80 @@ function reduceGenValidMismatchInput(
   };
 }
 
+type SemanticReductionFinalization = {
+  originalBytes: Uint8Array;
+  candidateBytes: Uint8Array;
+  expectedFingerprint: SemanticFailureFingerprint;
+  evaluateOnce: (candidate: Uint8Array) => Promise<SemanticFailureFingerprint | null>;
+  matchLevel: "exact" | "family";
+  workDir: string;
+  predicateEvaluations: number;
+  steps: Array<ReductionStep & { matchLevel: string }>;
+  relaxation: { from: "exact"; to: "family"; reason: string } | null;
+};
+
+async function finalizeSemanticReduction(options: SemanticReductionFinalization) {
+  let finalFingerprint: SemanticFailureFingerprint | null = null;
+  let secondFingerprint: SemanticFailureFingerprint | null = null;
+  let finalVerificationEvaluations = 0;
+  let finalVerification: "no-progress" | "failed" | "verified" = "no-progress";
+  let finalVerificationFailure: string | null = null;
+  if (options.candidateBytes.length < options.originalBytes.length) {
+    finalVerification = "failed";
+    try {
+      finalVerificationEvaluations += 1;
+      finalFingerprint = await options.evaluateOnce(options.candidateBytes);
+      if (finalFingerprint === null || !fingerprintMatches(options.expectedFingerprint, finalFingerprint, options.matchLevel)) {
+        finalVerificationFailure = "first final observation does not match the recorded failure";
+      } else {
+        finalVerificationEvaluations += 1;
+        secondFingerprint = await options.evaluateOnce(options.candidateBytes);
+        if (secondFingerprint !== null
+          && fingerprintMatches(options.expectedFingerprint, secondFingerprint, options.matchLevel)
+          && fingerprintMatches(finalFingerprint, secondFingerprint, "exact")) {
+          finalVerification = "verified";
+        } else {
+          finalVerificationFailure = "second final observation is missing, mismatching or unstable";
+        }
+      }
+    } catch (error) {
+      finalVerificationFailure = String(error).slice(0, 2048);
+    }
+  }
+  const report = {
+    schema: "starshine.optimizer-fingerprint-reduction.v1",
+    matchLevel: options.matchLevel,
+    originalFingerprint: options.expectedFingerprint,
+    finalFingerprint,
+    secondFingerprint,
+    finalVerification,
+    finalVerificationFailure,
+    finalVerificationEvaluations,
+    originalSize: options.originalBytes.length,
+    finalSize: finalVerification === "verified" ? options.candidateBytes.length : options.originalBytes.length,
+    attemptedFinalSize: options.candidateBytes.length,
+    predicateEvaluations: options.predicateEvaluations,
+    steps: options.steps,
+    changed: finalVerification === "verified",
+    relaxation: options.relaxation,
+  };
+  const writeAtomic = (name: string, data: Uint8Array | string) => {
+    const dir = fs.mkdtempSync(path.join(options.workDir, ".semantic-publish-"));
+    try {
+      const file = path.join(dir, name);
+      fs.writeFileSync(file, data);
+      fs.renameSync(file, path.join(options.workDir, name));
+    } finally {
+      fs.rmSync(dir, {recursive:true,force:true});
+    }
+  };
+  if (report.changed) writeAtomic("semantic-reduced-input.wasm", options.candidateBytes);
+  writeAtomic("semantic-fingerprint-reduction.json", JSON.stringify(report, null, 2) + "\n");
+  return report;
+}
+
+export const passFuzzFinalizeSemanticReductionForTest = finalizeSemanticReduction;
+
 async function reduceSemanticV2FailureInput(
   inputPath: string,
   expectedFingerprint: SemanticFailureFingerprint,
@@ -3917,27 +4007,14 @@ async function reduceSemanticV2FailureInput(
       reduction = await runLevel(originalBytes, "family");
       matchLevel = "family";
     }
-    const finalFingerprint = await evaluateOnce(reduction.result) ?? expectedFingerprint;
-    const report = {
-      schema: "starshine.optimizer-fingerprint-reduction.v1",
-      matchLevel,
-      originalFingerprint: expectedFingerprint,
-      finalFingerprint,
-      originalSize: reduction.originalSize,
-      finalSize: reduction.finalSize,
-      predicateEvaluations: exactReduction.predicateEvaluations +
-        (matchLevel === "family" ? reduction.predicateEvaluations : 0),
+    await finalizeSemanticReduction({
+      originalBytes, candidateBytes: reduction.result, expectedFingerprint, evaluateOnce,
+      matchLevel, workDir, relaxation,
+      predicateEvaluations: exactReduction.predicateEvaluations + (matchLevel === "family" ? reduction.predicateEvaluations : 0),
       steps: matchLevel === "family"
-        ? [
-            ...exactReduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
-            ...reduction.steps.map((step) => ({ ...step, matchLevel: "family" })),
-          ]
+        ? [...exactReduction.steps.map((step) => ({ ...step, matchLevel: "exact" })), ...reduction.steps.map((step) => ({ ...step, matchLevel: "family" }))]
         : reduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
-      changed: reduction.finalSize < reduction.originalSize,
-      relaxation,
-    };
-    fs.writeFileSync(path.join(workDir, "semantic-fingerprint-reduction.json"), JSON.stringify(report, null, 2) + "\n");
-    if (report.changed) fs.writeFileSync(path.join(workDir, "semantic-reduced-input.wasm"), reduction.result);
+    });
   } finally {
     fs.rmSync(reductionDir, { recursive: true, force: true });
   }
@@ -6265,7 +6342,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         updateCaseOptimizerEvidence({
           semanticPropertyOutcomes: [
             ...priorPropertyOutcomes,
-            { kind, status: result.status, classification: result.classification },
+            {
+              kind, status: result.status, classification: result.classification,
+              ...(kind === "metamorphic-equivalence" && result.structuralDiagnostics !== null
+                ? { structuralDiagnostics: result.structuralDiagnostics } : {}),
+            },
           ],
         });
         const propertyResultsDir = path.join(outDir, "property-results");

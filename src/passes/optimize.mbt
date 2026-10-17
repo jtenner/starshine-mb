@@ -1,3 +1,12 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub enum HotPassRegistryCategory {
   HotPass
@@ -132,7 +141,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "type-un-finalizing", "unsubtyping", "minimize-rec-groups", "type-merging", "monomorphize",
     "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all", "reorder-types",
     "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused",
+    "remove-unused", "i64-to-i32-lowering",
   ]
 }
 
@@ -320,7 +329,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "global-type-optimization", "Preserve JS descriptor prototype layout while optimizing fields.",
     ),
     pass_registry_entry_module(
-      "i64-to-i32-lowering", "Lower saturating float-to-i64 conversions through guarded operations.",
+      "i64-trunc-sat-float-lowering", "Lower saturating float-to-i64 conversions through guarded operations.",
     ),
     pass_registry_entry_module(
       "remove-unused-nonfunction-module-elements",
@@ -526,9 +535,15 @@ pub fn pass_registry_random_executable_sequence(
   profile : String,
   seed : UInt64,
 ) -> Array[String] {
-  let compatible_names = [
-    "remove-unused-names", "remove-unused-brs", "vacuum", "merge-blocks",
-  ]
+  let compatible_names = if profile == "random-interaction-short" {
+    [
+      "precompute-propagate", "optimize-instructions", "dead-code-elimination", "simplify-locals",
+      "heap2local", "optimize-casts", "heap-store-optimization", "pick-load-signs",
+      "remove-unused-brs", "vacuum", "merge-blocks",
+    ]
+  } else {
+    ["remove-unused-names", "remove-unused-brs", "vacuum", "merge-blocks"]
+  }
   let eligible : Array[String] = []
   for name in compatible_names {
     match pass_registry_lookup(name) {
@@ -540,6 +555,9 @@ pub fn pass_registry_random_executable_sequence(
   if eligible.length() == 0 {
     return []
   }
+  if profile == "random-interaction-short" && eligible.length() < 2 {
+    return []
+  }
   let mut ordinal = 0UL
   let next = fn() {
     let value = pass_registry_splitmix_word(seed, ordinal)
@@ -547,6 +565,7 @@ pub fn pass_registry_random_executable_sequence(
     value
   }
   let length = match profile {
+    "random-interaction-short" => 2 + (next() % 4UL).to_int()
     "random-short" => 1 + (next() % 5UL).to_int()
     "random-medium" => 2 + (next() % 11UL).to_int()
     "random-long" => 12 + (next() % 21UL).to_int()
@@ -563,8 +582,21 @@ pub fn pass_registry_random_executable_sequence(
     _ => 0
   }
   let passes : Array[String] = []
-  for _ in 0..<length {
-    let idx = (next() % eligible.length().to_uint64()).to_int()
+  let selection_length = if profile == "random-interaction-short" &&
+    length > eligible.length() {
+    eligible.length()
+  } else {
+    length
+  }
+  for _ in 0..<selection_length {
+    let mut idx = (next() % eligible.length().to_uint64()).to_int()
+    if profile == "random-interaction-short" {
+      let mut probes = 0
+      while passes.contains(eligible[idx]) && probes < eligible.length() {
+        idx = (idx + 1) % eligible.length()
+        probes += 1
+      }
+    }
     passes.push(eligible[idx])
   }
   passes
@@ -1118,6 +1150,11 @@ fn hot_pipeline_fast_preset_passes(
   if optimize_level >= 3 || shrink_level >= 1 {
     passes.append(["constraint-analysis", "vacuum", "reorder-locals"])
   }
+  // Only the measured numeric 4/1 lane adds the bounded MSF cleanup. Other
+  // fast levels and the explicit O4z scheduler keep their existing queues.
+  if optimize_level == 4 && shrink_level == 1 {
+    passes.push("merge-similar-functions")
+  }
   passes.push("strip-debug")
   passes
 }
@@ -1188,19 +1225,6 @@ fn run_hot_pipeline_imported_func_count(mod_ : @lib.Module) -> Int32 {
     None => ()
   }
   count
-}
-
-///|
-fn run_hot_pipeline_has_host_boundary(mod_ : @lib.Module) -> Bool {
-  let has_imports = match mod_.import_sec {
-    Some(@lib.ImportSec(imports)) => !imports.is_empty()
-    None => false
-  }
-  let has_exports = match mod_.export_sec {
-    Some(@lib.ExportSec(exports)) => !exports.is_empty()
-    None => false
-  }
-  has_imports || has_exports
 }
 
 ///|
@@ -1365,23 +1389,6 @@ pub fn run_hot_pipeline(
     Ok(entries) => entries
     Err(err) => return Err(err)
   }
-  if options.optimize_level >= 4 &&
-    options.shrink_level >= 4 &&
-    run_hot_pipeline_module_has_caught_try_table(mod_) &&
-    requested_passes.any(fn(name) { name == "optimize" || name == "shrink" }) {
-    let explicit_passes : Array[String] = []
-    for name in requested_passes {
-      if name != "optimize" && name != "shrink" {
-        explicit_passes.push(name)
-      }
-    }
-    if !explicit_passes.is_empty() {
-      (options.trace)(
-        "pipeline:o4z-transaction:rollback preset-only reason=caught-try-table",
-      )
-      return run_hot_pipeline(mod_, options, explicit_passes)
-    }
-  }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
   let prepared = match
@@ -1396,8 +1403,8 @@ pub fn run_hot_pipeline(
     )
   }
   // Compiler facts are a user-selected preparation contract, not part of the
-  // speculative O4z preset transaction. A caught-try rollback must retain
-  // trusted materialization and the consumed fact-section removal.
+  // O4z preset queue. A caught-try preset skip must retain trusted
+  // materialization and the consumed fact-section removal.
   let prepared_module = prepared.module_
   let mut current = prepared_module
   let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
@@ -1406,19 +1413,10 @@ pub fn run_hot_pipeline(
   let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
-  // A successful caught-try transaction returns only the prepared module.
-  // Validate before omitting its discarded preset work. Invalid inputs retain
-  // the existing execution and error behavior, including validation-off mode.
-  let execution_entries = if artifact_scale_o4z_preset &&
+  let skip_caught_o4z_preset = artifact_scale_o4z_preset &&
     original_has_caught_try_table &&
-    @validate.validate_module(prepared_module) is Ok(_) {
-    (options.trace)(
-      "pipeline:o4z-transaction:skip preset-work reason=caught-try-table",
-    )
-    []
-  } else {
-    entries
-  }
+    @validate.validate_module(prepared_module) is Ok(_)
+  let mut caught_o4z_skip_traced = false
   let mut ssa_wave = 0
   let mut skip_o4z_late_convergence_entries = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
@@ -1449,8 +1447,19 @@ pub fn run_hot_pipeline(
     pending_hot_passes.clear()
     Ok(())
   }
-  for entry_idx, item in execution_entries {
+  for entry_idx, item in entries {
     let (entry, from_preset) = item
+    if skip_caught_o4z_preset && from_preset {
+      match flush_hot_passes() {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      if !caught_o4z_skip_traced {
+        (options.trace)("pipeline:o4z-preset:skip reason=caught-try-table")
+        caught_o4z_skip_traced = true
+      }
+      continue
+    }
     if skip_o4z_late_convergence_entries > 0 {
       (options.trace)(
         "pass[\{entry.name}]:skip reason=artifact-scale-late-convergence",
@@ -1458,26 +1467,8 @@ pub fn run_hot_pipeline(
       skip_o4z_late_convergence_entries -= 1
       continue
     }
-    // Full O4z uses DFE's per-function identity guard: exports and references
-    // materialized in bodies, tables, globals, and active/passive elements stay
-    // distinct while private equal helpers can merge. Short presets retain
-    // their existing conservative host-boundary policy.
-    if from_preset &&
-      entry.name == "duplicate-function-elimination" &&
-      !(options.optimize_level >= 4 && options.shrink_level >= 4) &&
-      (
-        run_hot_pipeline_has_host_boundary(mod_) ||
-        run_hot_pipeline_has_host_boundary(current)
-      ) {
-      match flush_hot_passes() {
-        Ok(_) => ()
-        Err(err) => return Err(err)
-      }
-      (options.trace)(
-        "pass[duplicate-function-elimination]:skip reason=host-visible-function-identity",
-      )
-      continue
-    }
+    // DFE protects exported and address-materialized identities individually;
+    // imports/exports do not prevent safe private helper merging.
     // Repeated lookup of an imported function name can invoke a host getter
     // more than once and can return distinct functions. Direct DIE remains an
     // explicit opt-in pass; presets preserve the original import slots.
@@ -1654,8 +1645,12 @@ pub fn run_hot_pipeline(
     Ok(_) => ()
     Err(err) => return Err(err)
   }
-  if artifact_scale_o4z_preset && original_has_caught_try_table {
-    (options.trace)("pipeline:o4z-transaction:rollback reason=caught-try-table")
+  if artifact_scale_o4z_preset &&
+    original_has_caught_try_table &&
+    !skip_caught_o4z_preset &&
+    requested_passes.all(fn(name) { name == "optimize" || name == "shrink" }) {
+    // The original invalid-input fallback returns the prepared module when
+    // validation is disabled. Explicit passes retain their own ordered result.
     current = prepared_module
   }
   if options.validate_final_module {

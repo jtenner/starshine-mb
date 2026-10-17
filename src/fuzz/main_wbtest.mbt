@@ -2140,6 +2140,16 @@ test "fuzz CLI resolves seeded random pass profiles" {
 }
 
 ///|
+test "cmd-harness success details retain resolved interaction passes" {
+  @debug.assert_eq(
+    format_cmd_harness_pass_sequence_details_json("random-interaction-short", [
+      "heap2local", "optimize-casts",
+    ]),
+    "{\"pass_profile\":\"random-interaction-short\",\"pass_pool\":\"interaction-short-v1\",\"resolved_passes\":[\"heap2local\",\"optimize-casts\"]}",
+  )
+}
+
+///|
 test "standard fuzz recipe texts parse through the public recipe parser" {
   for name in fuzz_standard_recipe_names() {
     let text = match fuzz_standard_recipe_text_by_name(name) {
@@ -3937,7 +3947,7 @@ test "cmd-harness suite accepts GenValid and pass profile modifiers" {
 test "cmd-harness optimizer property failures retain replay evidence" {
   let reports : Array[FuzzCmdHarnessFailureReport] = []
   match
-    run_fuzz_cmd_harness_profile(
+    run_fuzz_cmd_harness_profile_with_sequence(
       "smoke+gen=natural-small+passes=random-short+opt-idempotence",
       0x5eedUL,
       on_failure=Some(fn(report) {
@@ -3955,7 +3965,11 @@ test "cmd-harness optimizer property failures retain replay evidence" {
   assert_true(report.first_output.length() > 0)
   assert_true(report.second_output.length() > 0)
   assert_true(report.optimize_passes.length() > 0)
-  @debug.assert_eq(report.minimized_passes, ["remove-unused-brs"])
+  // Encoding cleanup changes the minimal order-dependent sequence; both
+  // retained passes are needed to reproduce this known fixed-point failure.
+  @debug.assert_eq(report.minimized_passes, [
+    "remove-unused-brs", "merge-blocks",
+  ])
 }
 
 ///|

@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 fn pass_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
   for custom in mod_.custom_secs {
@@ -964,24 +971,13 @@ pub fn pass_verify_before_after(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Result[Unit, String] {
-  match
-    pipeline_verify_checkpoint_with_perf(
-      ctx.perf,
-      ctx.verify_policy,
-      "verify before \{ctx.descriptor.name}",
-      HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
-      "verify:before:\{ctx.descriptor.name}",
-    ) {
-    Ok(_) =>
-      pipeline_verify_checkpoint_with_perf(
-        ctx.perf,
-        ctx.verify_policy,
-        "verify after \{ctx.descriptor.name}",
-        HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
-        "verify:after:\{ctx.descriptor.name}",
-      )
-    Err(err) => Err(err)
-  }
+  pipeline_verify_checkpoint_with_perf(
+    ctx.perf,
+    ctx.verify_policy,
+    "verify after \{ctx.descriptor.name}",
+    HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
+    "verify:after:\{ctx.descriptor.name}",
+  )
 }
 
 ///|

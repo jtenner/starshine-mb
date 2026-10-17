@@ -53,10 +53,11 @@ test "dispatcher removes case 144 same-target br_table shells through seven pass
     OptimizeOptions::new(),
   ).unwrap()
 
+  @validate.validate_module(optimized).unwrap()
+  // The final cleanup removes the dead replacement nop and keeps both results.
   match optimized.code_sec {
     Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) =>
       @debug.assert_eq(body, [
-        @lib.Instruction::nop(),
         @lib.Instruction::i32_const(@lib.I32(47)),
         @lib.Instruction::i64_const(@lib.I64(53L)),
       ])

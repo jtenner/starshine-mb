@@ -586,28 +586,23 @@ The explicit `duplicate-import-elimination-assume-stable-bindings` pass keeps
 the earlier merge capability behind a stronger caller contract. Presets and
 `--closed-world` never select it implicitly.
 
-Public presets retain their scheduled DFE/DIE slots. Short presets skip
-preset-origin DFE when the original or current module has imports or exports.
-Full O4z (`optimize_level >= 4` and `shrink_level >= 4`) instead uses DFE's
-per-function identity guard, so private equal helpers can merge across a host
-boundary. The guard covers exports, `ref.func` in all body/control forms,
-table and global initializers, and active/passive element entries. Declarative
-entries alone do not materialize a runtime address. This conservatively protects
-every materialized function; it does not require an escape analysis.
-Preset-origin DIE still skips modules with function imports. The CLI O4z size
-portfolio admits guarded DFE and retains its existing DIE exclusion for an
-original module with imports or exports. A mixed request with an explicitly
-named merge pass does not enter the pure-preset portfolio. This October 14,
-2026 policy supersedes the earlier blanket full-O4z DFE exclusion. The
-[private-helper regression](../../../tests/optimizer/regressions/preset-private-dfe.test.ts)
-checks helper removal, a byte-size decrease, eight distinct export/table/global/
-body-reference identities, return values, and ordered host calls. The
-[library tests](../../../src/passes/preset_private_dfe_regression_test.mbt)
-check both full presets with inlining thresholds disabled.
-This is a host-correctness divergence from Binaryen 132's merge behavior,
-not a claim of output-shape parity. Direct DIE now enforces the same
-preservation contract even when explicitly requested. DFE policy remains
-separate because it concerns identities of module-defined functions.
+The October 10 O4s investigation narrows the previous whole-module preset DFE
+guard. Preset and direct DFE share the per-function address-materialization scan,
+which protects all exports, active/passive elements, table/global initializers
+and nested `ref.func`, including EH catches. Every materialized function stays
+outside candidate buckets even when it cannot escape. Direct calls and `start`
+remain rewriteable, and declarative-only segments may remap. No escape-analysis
+assumption is needed. Private duplicate helpers can therefore merge beside a
+host boundary while distinct JavaScript function objects remain distinct.
+
+Preset-origin DIE still skips modules with function imports. The CLI O4z
+portfolio retains DFE and separately filters DIE under its existing import
+resolution policy. The [focused preset regression](../../../src/passes/o4s_private_duplicates_test.mbt)
+and [ongoing exact-input investigation](../tooling/npm-optimizer-discrepancy.md)
+record validation and remaining release gates. This supersedes the earlier
+blanket DFE restriction without weakening address identity preservation.
+
+The later private-helper regression also checks both full presets with inlining disabled: [library controls](../../../src/passes/preset_private_dfe_regression_test.mbt).
 
 ## Overview
 
@@ -1798,10 +1793,12 @@ Both once analysis and rewriting push an if-label scope and retain local branch 
 
 Once-reduction deep-copies block, loop, if, legacy try, and try-table bodies
 before its in-place dataflow rewrite. Direct pass calls therefore leave their
-input module's nested instruction arrays unchanged, and an O4z caught-try-table
-rollback can safely return the original module. `once_reduction_test.mbt`
-checks encoded input bytes around a nested rewrite; `optimize_test.mbt` checks
-the same invariant through the active transactional dispatcher.
+input module's nested instruction arrays unchanged. O4z no longer runs the
+preset queue for a module that already contains a caught `try_table`; it applies
+the compiler-fact preparation policy and skips preset-origin entries before
+execution. `once_reduction_test.mbt` checks encoded input bytes around a nested
+rewrite, while `optimize_test.mbt` checks the preset-skip boundary and explicit
+pass ordering.
 
 ### Once wrapper eligibility
 

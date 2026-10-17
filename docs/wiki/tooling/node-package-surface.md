@@ -67,17 +67,62 @@ package timings. See [the tracing record](tracing-playbook.md).
 
 ## Overview
 
-The checked-in `node/` package is a hand-maintained, ESM-first boundary package for `@jtenner/starshine`, not a live mirror of every active MoonBit package.
-It exports a small JavaScript-facing toolkit for binary/text roundtrips, command execution, validation, and examples, while deeper compiler internals remain repo-local.
-Treat the Node package as a public API layer whose correctness depends on explicit wrapper tests and packaging checks rather than on automatic regeneration from `src/*`.
+The `node/` package is an ESM boundary for `starshine`, with generated
+WasmGC bindings and declarations plus a retained JavaScript callback command
+facade. The October 10 beta build replaces the former frozen-artifact route.
+Function signatures come from the generated FFI export schema; unsupported
+callbacks/raising/generics remain explicit placeholders. Deeper compiler
+internals remain outside the package export map.
 The public boundary is the explicit [`node/package.json`](../../../node/package.json) `exports` map: Node resolves only the listed package subpaths, and TypeScript must resolve matching declaration files through the same listed surface. The official [Node package documentation](https://nodejs.org/api/packages.html) and [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html) support the package-resolution rules behind that claim: unlisted subpaths stay private, export targets must be package-relative `./...` paths, TypeScript follows `exports` in Node-aware modes, and each public subpath needs declaration/runtime parity.
 
-The current flow has two important artifacts:
+[`scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
+selects authoritative signatures from
+[`ffi/src/ffi/export-schema.generated.json`](../../../ffi/src/ffi/export-schema.generated.json)
+and generates the concrete `ffi/src/npm` adapter and JS/TS files. Reviewed
+constructor-order and callback-facade projections preserve intentional compatibility.
+[`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
+compiles that adapter, a fresh native bootstrap and the WASI CLI. It preserves
+raw baselines, applies Starshine O4s (`--optimize --optimize-level 4 --shrink-level 1`), validates input/output
+with wasm-tools and compares copied-package API and CLI behavior before promotion.
+Failure prevents packing. The published `1cbf1ae55` checkpoint verifies the exact
+five-pass queue: DFE, constraint analysis, vacuum, reorder locals and strip debug.
+Literal `-O4s` is unsupported; numeric levels 4/1 select this fast preset and
+levels 4/4 select the separate O4z scheduler. That checkpoint's fresh-source
+WasmGC build is 7,475,602 → 6,560,165 bytes and WASI is 6,774,798 → 6,013,480
+bytes, with before/after API and CLI parity. Its 52-file tarball SHA-256 is
+`78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
 
-1. [`scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs) intentionally throws because the old generator depended on the legacy `src/node_api` adapter and removed pass ports.
-2. [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs) rebuilds the optimized WASI CLI artifact from `src/cmd`, copies it to `node/internal/starshine.wasm-wasi.wasm`, and requires `node/internal/starshine.wasm-gc.wasm` to already exist.
+The local successor integrates MSF as the sixth pass only at numeric 4/1,
+with a separately reviewed continuation validator and bounded copy admission.
+Its actual self-build validates GC 7,494,321→5,398,191 and WASI
+6,795,450→5,812,099 bytes with raw/optimized API and CLI parity, including
+copy fields, old/fresh identity, host effects and null traps. The exact 52-file tarball passes external JS and strict TypeScript 5.8.3/5.9.3
+consumers on Node 25.8.1/26.11.1; source API 45/45 on both. Its SHA-256 is
+`075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`.
+The integrated full WasmGC gate passes 14,104 tests and all fourteen CI fuzz
+suites; plain default passes 14,107 tests. The ordinary MSF 10k passes normalized
+and semantic comparison, preserving its raw encoding loss. Coverage passes against its unchanged baseline (28,075 lines / 227 files,
+−63 lines / +31 files). Exact-head remote CI remains pending. The external consumer
+scratch guard rejects checkout-local directories and symlink aliases;
+`NPM_CONSUMER_TMPDIR` is independent of compiler `TMPDIR`.
+The frozen 1cb checkpoint passed all six exact-head workflows. The separate bootstrap fixture is
+70 → 48 bytes with result 84. Earlier O1/O4s artifacts and failed build attempts
+remain historical evidence in [the handoff](../../npm-beta-handoff.md).
 
-That split is the main invariant for maintainers: **do not assume `npm run build` refreshes all JS/TS wrappers from the current MoonBit signatures.** The wasm-gc adapter also has a host feature requirement: [`node/internal/runtime.js`](../../../node/internal/runtime.js) compiles and instantiates with `builtins: ["js-string"]`, matching the README's Node.js 25+ / WebAssembly GC / JS string builtins runtime note. The JS builtins versus `stringref` / `StringRefsSec` split is documented in [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md); current Node runtime code does not pass `importedStringConstants`. The adjacent active JS Primitive Builtins and JS Text Encoding Builtins proposals are not enabled or modeled by the current wrapper; route any future `wasm:js-number`, `wasm:js-bigint`, or `wasm:text-encoding` runtime work through [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md).
+The current six-pass build requires an installed-package immutable-record-copy
+proof before promotion. Source build and exact-tarball consumers pass; final
+remote CI qualification remains pending. The published 1cb checkpoint does not qualify
+these changes. No size or runtime improvement is promised for future builds.
+
+The archive is 4,297,012 packed / 12,095,344 unpacked bytes. Relative to frozen
+1cb, unpacked bytes fall 1,361,818 but gzip grows 7,294 bytes. JS/declarations,
+examples, manifest and legal assets are byte-identical; README and two Wasms
+change. This is a compression regression, not a promised download-size gain.
+
+The adapter requires Node 25+ with WasmGC and JS string builtins. All ESM imports
+await shared initialization. Named values are instance-owned GC handles with no
+explicit disposal. See [the package README](../../../node/README.md) for mappings,
+errors, the complete tested build/install workflow and release decisions. The JS builtins versus `stringref` / `StringRefsSec` split is documented in [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md); current Node runtime code does not pass `importedStringConstants`. The adjacent active JS Primitive Builtins and JS Text Encoding Builtins proposals are not enabled or modeled by the current wrapper; route any future `wasm:js-number`, `wasm:js-bigint`, or `wasm:text-encoding` runtime work through [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md).
 
 The package's async loading is also **not JSPI support**. [`node/internal/runtime.js`](../../../node/internal/runtime.js) and [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) use ordinary JavaScript `async` / `await` around file I/O, compile/instantiate, and WASI execution, but current code does not construct `WebAssembly.Suspending` wrappers, call `WebAssembly.promising(...)`, or advertise Promise-suspending imports/exports. Route future JavaScript Promise Integration work through [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md) so it stays separate from JS String Builtins, Component Model / WASI, WAST/binary/validator support, and optimizer pass evidence.
 
@@ -85,26 +130,182 @@ The ESM-first package format is also **not WebAssembly ESM Integration support**
 
 The package's `starshine.wasm-wasi.wasm` runner path is **WASI Preview 1 Core-module execution**, not WASI Preview 2 / WASI 0.2, WASI Preview 3 / WASI 0.3, or Component Model support. [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) constructs Node's experimental `WASI` object with `version: "preview1"`, manually merges `wasi_snapshot_preview1: wasi.wasiImport` with Starshine/MoonBit-specific host shims, and runs `_start` or initializes a reactor. Node now also documents `getImportObject()` and `finalizeBindings(...)`; current Starshine runners deliberately do not use the former or directly invoke the latter, while their normal `start` / `initialize` paths finalize ordinary bindings internally. Package smoke still is not WASI-thread evidence because there is no child-thread binding or worker policy. Route runtime, import-module, sandboxing, and `*-wasi.wasm` artifact claims through [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md) so they stay separate from package export-map parity, JSPI, Wasm ESM Integration, and Component Model claims.
 
-There is one packaging caveat: the wasm artifacts are Git-ignored by [`node/internal/.gitignore`](../../../node/internal/.gitignore) but deliberately kept publishable by [`node/internal/.npmignore`](../../../node/internal/.npmignore). The script and some older notes call the wasm-gc artifact “checked-in,” but current Git metadata makes it better to treat both wasm files as ignored local/package artifacts whose presence and tarball inclusion must be verified during release prep. The package README states the same build boundary at a higher level: build refreshes the WASI CLI artifact only, while wrapper generation remains disabled until the Node adapter story is redesigned.
+There is one packaging caveat: the wasm artifacts are Git-ignored by [`node/internal/.gitignore`](../../../node/internal/.gitignore) but deliberately kept publishable by [`node/internal/.npmignore`](../../../node/internal/.npmignore). The build regenerates both artifacts from live source; `npm pack` runs it through
+`prepack`. The allowlist excludes source, schema, tests, raw baselines and reports.
+[`scripts/test/npm-packed-consumers.mjs`](../../../scripts/test/npm-packed-consumers.mjs)
+installs the exact tarball into empty JavaScript and strict TypeScript consumers
+outside the source tree and exercises every public export and the CLI.
+
+
+## October 10, 2026 — Cold npm bootstrap deadline
+
+The first published npm prep head `9057a5d8` failed its
+[packed-package CI job](https://github.com/jtenner/starshine-mb/actions/runs/38028151417/job/114143304259)
+while compiling the fresh native release bootstrap: `spawnSync moon ETIMEDOUT`
+at 180 seconds. The successful baseline
+[release job](https://github.com/jtenner/starshine-mb/actions/runs/38014936990/job/114103005410)
+took 328,583 ms for native compilation, so the old compiler budget was below
+an observed successful cold build. No npm tarball was produced by the failed job.
+
+[`npm-process.mjs`](../../../scripts/lib/npm-process.mjs) gives compiler commands
+15 minutes and the packed-consumer harness's whole pack/prepack command 30
+minutes. Optimizer commands retain three minutes; consumer commands retain four.
+CI is bounded to 45 minutes. Overrides reject unbounded/invalid values. Full
+compiler/pack logs and early bootstrap error reports survive failed builds.
+On the tested Linux host, timeout cleanup freezes the command's root group,
+inventories descendants with `ps`, and kills nested groups as well. A red-first
+[regression](../../../scripts/lib/npm-process.test.ts) reproduced the old orphan
+and now protects completion, independent optimizer limits and process cleanup.
+
+The exact follow-up head `564c11e` passed the
+[cold package CI run](https://github.com/jtenner/starshine-mb/actions/runs/38029914397)
+in 360,624 ms of build time. The Node 25.9.0 / TypeScript 5.8.3 consumers checked
+all nine exports; the resulting archive is byte-identical to the local package
+(4,822,175 bytes, SHA-256 `2c20fd47b4fd4b9bbe0ab179329bbbb0b3aa919f630d411cb2522e47ec64deb0`).
+`latest` supplied the documented Moon 0.1.20260920 / moonc 0.10.14 snapshot.
+This closes the package compilation timeout on that head, while native-debug
+issue #1322 and the retained coverage gate remain separate open work. The three
+required checks and Fuzz Suites passed on this exact head.
+
+The source-owned [`unsupported ABI policy`](../../../ffi/src/npm/unsupported-abi-policy.json)
+records the 23 existing compatibility exceptions without duplicating signatures.
+Generation rejects new unsupported mappings, changed reasons and stale policy
+entries before formatting or writing generated artifacts. Pure tests and real
+generator fault injection verify rejection and unchanged output hashes.
+
+The [handoff](../../npm-beta-handoff.md#published-head-ci-and-cold-build-follow-up)
+preserves exact CI links, raw artifacts and the initial push's unexpected
+implicit protection bypass. Follow-up source publication must first satisfy the
+required checks without altering protections. Matching native-debug examples
+failures and coverage evidence remain separate; this fix does not clear issue
+#1322 or release licensing. Fresh exact-head CI is required for qualification.
+
+## October 10, 2026 — Same-input Binaryen comparison
+
+This frozen checkpoint qualifies source head
+`754562d4f5e822d5f1ae630be79cbb19c6e669bd`. The selected npm build uses
+**neither Binaryen transformation nor Binaryen validation**: native Starshine
+transforms and wasm-tools validates. Source publication was subsequently
+authorized. Licensing was unresolved at that historical checkpoint; the
+conservative treatment at `1cbf1ae55` is now settled. npm publication remains
+pending approval. The user
+requested a separate Sol 6.1 High task to fix the observed discrepancy.
+
+Both optimizers read copies of the identical original name-stripped compiler
+artifacts. No chained optimization or idempotence comparison was performed.
+Matching optimization/shrink knobs do not imply matching pass queues: current
+Starshine O4s levels 4/1 select its five-pass fast queue, while Binaryen's supported
+`-O4 -s 1` selects its own default pipeline. Binaryen `-Oz` is a separate size preset.
+
+| Artifact | Original bytes | Optimizer | Output bytes | Seconds | Peak RSS MiB | Controls |
+| --- | ---: | --- | ---: | ---: | ---: | --- |
+| WasmGC | 7,452,107 | Starshine O4s | 7,287,538 | 8.239 | 255.6 | pass |
+| WasmGC | 7,452,107 | Binaryen `-O4 -s 1` | 5,545,109 | 25.986 | 1,003.1 | pass |
+| WasmGC | 7,452,107 | Binaryen `-Oz` | 5,551,472 | 14.909 | 471.4 | pass |
+| WASI | 6,748,730 | Starshine O4s | 6,347,850 | 8.469 | 234.9 | pass |
+| WASI | 6,748,730 | Binaryen `-O4 -s 1` | 6,148,533 | 28.034 | 1,223.6 | pass |
+| WASI | 6,748,730 | Binaryen `-Oz` | 4,857,635 | 10.351 | 489.3 | pass |
+
+Each reported row passes independent validation, preservation of every original
+export name (2,849 GC / 2 WASI), unchanged absent `target_features` metadata,
+raw-baseline API/CLI-help observations, and isolated exact-candidate packed JS and
+strict TypeScript consumers on Node 26.11.1 / TypeScript 5.8.3 across all nine
+public entries. The fixtures cover parse/validate/optimize/encode, arithmetic,
+locals, GC, errors, bounded fuzz and CLI ambient-stack returns. These bounded
+controls do not prove universal semantic equivalence. No performance or size
+improvement is promised for other inputs.
+
+The native bootstrap hash is
+`26eb438928292397fce2d79700444521a7c881b6ed81b39bf55cc28513d904ed`.
+Installed oracle: `wasm-opt version 133 (version_133-60-g93d6e9de7)` from the
+local emsdk 6.0.12 installation. Binaryen runs use `BINARYEN_CORES=8`; all
+measurements are single serial samples with 60-second transform budgets.
+Times exclude validation/consumer tests, and RSS covers optimizer processes.
+They are not matched-worker or universal speed comparisons.
+
+Original input SHA-256 (preserved locally in `dist/npm/*.unoptimized` and
+`dist/npm/binaryen-comparison/*.unoptimized`):
+
+- WasmGC: `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`.
+- WASI: `b7dd0896d7b41989e1aa29bd297d3fd63097b7e3b7f76883e9897f25010add52`.
+
+Output SHA-256:
+
+- GC / Starshine: `6ace60a63b33dda84c15067ca2ab60b702a6e74e3edb7bfca7d158761984bbea`.
+- GC / Binaryen O4s: `7dfda2ce7376008cf6467d11cc360a95ae47115cc843ca6dca2d286858db9099`.
+- GC / Binaryen Oz: `bd038e0f18f81737c4c25ab645f643675ea9be7cba22a109519fe574fc320bf7`.
+- WASI / Starshine: `40e8be933bb3105aa74a1d54f9f4f350e4695d74ac64a9eceff05aa15bd52570`.
+- WASI / Binaryen O4s: `5ea825c5cff80c377410d5ce90fc61588a69fb4ec4586f975485ad9d235e158c`.
+- WASI / Binaryen Oz: `afcc27ae7a69fd6a344898395e08e461312f2f475f45e641e1de08cdfb939f02`.
+
+Reproduce from the checkout with the toolchains documented in
+[`node/README.md`](../../../node/README.md). Preserve the original input hashes
+above before rebuilding: if compiler outputs differ, that is a new comparison.
+Apply each command to the same original input, writing separate output paths:
+
+```sh
+# Starshine: freshly compiled native bootstrap, independent of npm package.
+_build/native/release/build/cmd/cmd.exe --optimize --optimize-level 4 \
+  --shrink-level 1 INPUT.wasm --out STARSHINE.wasm
+
+# Binaryen: qualify installed version 133 first. This flag set accepts GC input.
+BINARYEN_CORES=8 wasm-opt --mvp-features --enable-mutable-globals \
+  --enable-sign-ext --enable-nontrapping-float-to-int --enable-bulk-memory \
+  --enable-reference-types --enable-multivalue --enable-gc --enable-tail-call \
+  --enable-extended-const -O4 -s 1 INPUT.wasm -o BINARYEN-O4S.wasm
+# For WASI, additionally pass --enable-simd: the original input already uses it.
+# For Oz, replace only -O4 -s 1 with -Oz; retain the same input/features.
+wasm-tools validate --features=wasm2,gc,function-references,tail-call,extended-const OUTPUT.wasm
+```
+
+The local reproduction helpers and full commands/logs/hashes reside under ignored
+`dist/npm/binaryen-comparison/`. `report.json` holds all samples, including
+unqualified diagnostics; `comparison.md` summarizes qualified rows. The helpers
+`measure-single-worker.py`, `measure-eight-workers.py`,
+`measure-runtime-features.py`, `measure-runtime-features-wasi-simd.py`,
+`check-exports-features.mjs` and `consumer-controls.py` retain time/RSS and control
+procedures. For consumer qualification, the controls clone the selected tarball,
+substitute only comparison Wasm files, pack with `--ignore-scripts` to avoid a
+rebuild, and run a copied
+[`npm-packed-consumers.mjs`](../../../scripts/test/npm-packed-consumers.mjs)
+with an explicit candidate archive path in an isolated harness. Do not replace
+the selected package or reports with candidate artifacts.
+
+The selected tarball remains 4,821,600 bytes, SHA-256
+`0d4cc321fef5554fce32cf95ee30a1d7be30a84380df048e75f07302775d9ab2`.
+Separate 47-file comparison tarballs are 2,999,850 bytes (O4s,
+`82e675f10c830f4a1c32219af6bf3ace7128517dbb9fc21c4c5cdf88785153fe`)
+and 2,891,722 bytes (Oz,
+`4ad4d227815963565433b25fa9d6ea845392f645390210973547b0854c199260`).
+They are evidence only and are not the selected npm package.
+
+Initial Binaryen `--all-features` outputs introduced custom-descriptor exact
+references and compact imports rejected by stock Node, despite passing all-feature
+wasm-tools validation; those outputs are unqualified. Single-worker O4s on both
+inputs and GC Oz exceeded 60 seconds. Initial restricted WASI probes omitted its
+existing SIMD and failed input validation before optimization. Qualified runs use
+the explicit feature set above (plus SIMD for WASI), with no unsafe assumptions,
+feature lowering or experimental Node custom-descriptor flag.
 
 ## Current Export Shape
 
 [`node/package.json`](../../../node/package.json) currently exports these public subpaths. Each listed subpath has both a `types` target and an `import` target, so the package contract is two-sided: consumers need the declaration shape and the runtime export shape to agree.
 
-The package currently uses one extensionless public specifier style (`@jtenner/starshine/validate`, not a second `@jtenner/starshine/validate.js` alias), has no wildcard export patterns, and has no `require` condition because the package is ESM-first. Adding a new public helper normally belongs inside one of the existing subpaths; adding a new subpath or an extensioned alias broadens the package API and should be reviewed like a semver-relevant public surface.
+The package currently uses one extensionless public specifier style (`starshine/validate`, not a second `starshine/validate.js` alias), has no wildcard export patterns, and has no `require` condition because the package is ESM-first. Adding a new public helper normally belongs inside one of the existing subpaths; adding a new subpath or an extensioned alias broadens the package API and should be reviewed like a semver-relevant public surface.
 
 | Subpath | Purpose | Current status |
 | --- | --- | --- |
 | `.` | Barrel re-export surface | Public convenience layer with root `types` / `main` metadata plus explicit export-map entry. |
 | `./binary` | Decode / encode binary wasm | Full top-level wrapper surface in the original audit. |
-| `./cli` | Parse CLI flags and config-shaped inputs | Useful, but still behind the full MoonBit closed-world parser state. |
+| `./cli` | Parse CLI flags and config-shaped inputs | Concrete signatures generated from current FFI; callback gaps stay explicit. |
 | `./cmd` | Packaged command pipeline, cmd fuzz harness, differential hooks | Highest-priority April drift is now repaired by parity tests. |
 | `./lib` | Public module constructors and value wrappers | Broad constructor surface; examples exercise module-from-scratch paths. |
-| `./validate` | Module validation and selected validator helpers | Intentionally partial; now the largest grouped wrapper-drift surface. |
-| `./wast` / `./wat` | Text parsing, printing, and spec helpers | File/suite spec helpers exist, but command-level static assertions and arbitrary-feature stats still lag MoonBit. |
+| `./validate` | Module validation and selected validator helpers | Current concrete FFI signatures; unsupported callbacks are placeholders. |
+| `./wast` / `./wat` | Text parsing, printing, and spec helpers | Current concrete FFI signatures and typed unsupported boundaries. |
+| `./passes` | `optimizeModule` | Bounded active hot-pipeline facade; full pass internals stay private. |
 
 The MoonBit workspace/package topology is cataloged in [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md). Active MoonBit package surfaces under [`src/`](../../../src/) include `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
-Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the normal `moon.pkg` / `is-main` / generated-interface distinction plus the current `spec_runner` `imports.mbt` topology exception behind that statement.
+Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the normal `moon.pkg` / `is-main` / generated-interface distinction plus the current `spec_runner` `imports.mbt` topology exception behind that statement.
 That omission is acceptable only while the README and tests keep the package framed as a partial host boundary, not as the whole Starshine implementation surface.
 
 ## Export-Map Health Contract
@@ -115,7 +316,7 @@ Use this audit shape:
 
 | Step | Question | Starshine rule |
 | --- | --- | --- |
-| 1. Public subpaths | Which subpaths are listed under `exports`? | Only `.`, `./binary`, `./cli`, `./cmd`, `./lib`, `./validate`, `./wast`, and `./wat` are public today. Do not file `src/ir`, `src/passes`, `src/spec_runner`, or `node/internal/*` omissions as Node API drift unless a design decision adds a public subpath. |
+| 1. Public subpaths | Which subpaths are listed under `exports`? | Only `.`, `./binary`, `./cli`, `./cmd`, `./lib`, `./validate`, `./wast`, `./wat`, and the bounded `./passes` facade are public today. Do not file `src/ir`, `src/passes`, `src/spec_runner`, or `node/internal/*` omissions as Node API drift unless a design decision adds a public subpath. |
 | 2. Runtime/declaration parity | Does each public subpath have both `import` and `types` targets, and do those files agree? | Every current export has both targets. Wrapper work must update `.js`, `.d.ts`, README, and tests together; a declaration-only helper or runtime-only helper is an API bug. |
 | 3. Specifier style | Is there exactly one public spelling for each subpath? | Keep the current extensionless style. Adding `./validate.js` next to `./validate` broadens the public API and should be treated as a semver-relevant decision, not a convenience alias. |
 | 4. MoonBit parity classification | If a generated MoonBit symbol is missing from Node, why? | Classify it as `public-required-now`, `adapter-unsupported`, `intentionally-omitted`, or `compat-alias`. The `cmd` parity repair is the model; `validateModuleWithTrace(...args: never[])` is an adapter-unsupported placeholder, not a ready public callback API. |
@@ -123,7 +324,13 @@ Use this audit shape:
 
 This keeps package health checks small and reviewable. A broad “mirror all `pkg.generated.mbti` symbols” test would be noisy and wrong because the package is intentionally partial. A useful stronger test is export-map-driven: enumerate public subpaths, read their `types` and `import` files, and then assert only the symbols that this page classifies as required for that subpath.
 
-## Current Gap-To-Action Ledger
+## Historical July Gap-To-Action Ledger
+
+The following July audit is retained as history. The October 10 generator supersedes
+its disabled-generation and concrete-wrapper omissions. Callback/raising/generic
+boundaries still require explicit adapters. Use the generated unsupported manifest
+and exact packed consumer gate for current claims.
+
 
 | Subpath | Current high-value gap | First useful slice | Required evidence before docs call it ready |
 | --- | --- | --- | --- |
@@ -147,7 +354,7 @@ That specific status is now stale:
 
 The new teaching rule is therefore: **`cmd` is no longer the top correctness cleanup; it is the model for the kind of explicit parity coverage other Node subpaths still need.**
 
-## Still-Open Drift And Why It Matters
+## Historical Drift And Why It Mattered
 
 ### `cli`: closed-world state is only partially exposed
 
@@ -186,7 +393,7 @@ The current MoonBit `wast` package also exposes `wast_arbitrary_feature_stats(..
 
 The Node package is also the npm publication boundary. Current package metadata and workflows, read with npm's [trusted-publisher](https://docs.npmjs.com/trusted-publishers) / [provenance](https://docs.npmjs.com/generating-provenance-statements) documentation and GitHub Actions [OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect), show that Starshine is **not** configured for npm trusted publishing yet:
 
-- [`node/package.json`](../../../node/package.json) has no `repository` field and no `publishConfig`.
+- [`node/package.json`](../../../node/package.json) records the GitHub repository and publication defaults (`access: public`, `tag: latest`); these do not configure an npm trusted publisher.
 - Existing GitHub workflows are validation/test workflows with read-only contents permissions; no workflow grants `id-token: write` for an npm OIDC publish.
 - No checked-in workflow runs a package publish step from the `node/` package directory.
 
@@ -199,7 +406,7 @@ Use these checks when touching the Node package or documenting its surface:
 1. **Wrapper parity:** run or update [`node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs) for any intentional `.d.ts` / runtime export shape change.
 2. **Smoke behavior:** keep [`node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs) green for binary/text validation, `cmd` adapter hooks, differential validation, fuzz-report persistence, closed-world summary precedence, and WASI startup.
 3. **Examples:** keep [`node/test/examples.test.mjs`](../../../node/test/examples.test.mjs) green so the checked-in published examples still exercise the public API.
-4. **Build boundary:** remember that [`npm run build`](../../../node/package.json) rebuilds the WASI CLI artifact through [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), but does not regenerate every JS/TS wrapper from MoonBit. Verify the ignored-but-publishable wasm artifacts with release tarball inspection instead of treating Git tracking as package evidence.
+4. **Build boundary:** run the real pack/consumer gate, the Node suite and `npm run check-generated --prefix node`. Both Wasm artifacts and bindings are rebuilt; compare the reports and inspect the exact tarball. The [CI workflow](../../../.github/workflows/node-wasm-tests.yml) runs these checks with read-only permissions.
 5. **Publication metadata:** if trusted publishing or package provenance is introduced, add the package-level `repository` metadata and release workflow evidence before calling the package trusted-publishing-ready.
 6. **JS string builtins runtime:** if the wasm-gc adapter changes `builtins: ["js-string"]`, adds `importedStringConstants`, or stops requiring JS string builtins, update [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), README runtime requirements, and package smoke tests together.
 7. **JS primitive/text-encoding builtins runtime:** if the adapter adds JS Primitive Builtins or JS Text Encoding Builtins compile-option/import-object behavior, update [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md), [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md), README runtime requirements, API docs, package smoke tests, and release-gate expectations together. Do not describe `string.encode_utf8_array` or generic `externref` support as proof of those host proposals.
@@ -207,7 +414,7 @@ Use these checks when touching the Node package or documenting its surface:
 9. **Wasm ESM Integration:** if the package starts exposing `.wasm` resources through source-phase `import source`, dynamic `import.source(...)`, instance-phase `.wasm` imports, or package wasm export targets, update [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), README/API docs, Node smoke/examples tests, runtime-support notes, and release packaging checks together.
 10. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
 
-A future stronger parity test should compare:
+The generated drift and packed consumer checks compare:
 
 - [`src/*/pkg.generated.mbti`](../../../src/)
 - [`node/*.d.ts`](../../../node/)
@@ -221,7 +428,11 @@ The comparison must start from the `exports` allowlist, not from every file in `
 3. intentionally omitted from the partial Node package,
 4. renamed compatibility aliases that must remain documented and tested until a semver decision removes them.
 
-## Recommended Widening Order
+## Historical Recommended Widening Order
+
+This ordering predates the FFI-driven October beta. The limited `passes` facade
+is now exported; wider internals still require a separate API decision.
+
 
 1. Keep `cmd` parity tests as the template and extend similar declaration/runtime checks to `cli`, `validate`, and `wast`, driven from `node/package.json#exports`.
 2. Add `cli` closed-world parity (`resolveClosedWorld`, parse-error constructors, and `CliParseResult.closedWorld`) or document a permanent split if `cmd` remains the only closed-world consumer.
@@ -229,6 +440,53 @@ The comparison must start from the `exports` allowlist, not from every file in `
 4. Add the high-value `validate` diagnostics / invalid-AST repro slice before the broader GenValid and feature-ledger slice.
 5. Reconcile the older `runValidateInvalidFuzz` naming with the current MoonBit `run_validate_invalid_ast_fuzz(...)` surface through either a compatibility alias or a documented semver plan.
 6. Only then decide whether to add new package subpaths such as `diff`, `validate_trace`, or `fuzz`; exposing `ir` and `passes` should be treated as a larger API-design decision, not a parity cleanup.
+
+## October 10, 2026 — candidate metadata and bridge coverage
+
+The candidate metadata prepares `0.1.2-beta.0` in root `moon.mod` and npm.
+[`generate-product-version.mjs`](../../../scripts/lib/generate-product-version.mjs)
+derives `src/cmd/version.generated.mbt` and the FFI root dependency; it rejects missing or multiple version
+assignments, noncanonical/malformed npm semver and npm/MoonBit disagreement.
+Required CI and FFI drift checks compare the generated source. Packed API
+observations and the installed CLI require `v0.1.2-beta.0`, replacing the stale
+`v0.1.0` CLI value. The stable portable WIT/metadata interface remains `0.1.1`,
+with its root dependency generated from product metadata; changing the npm
+candidate does not rename component exports. The final npm version is a release
+decision.
+
+Six tests in [`npm_test.mbt`](../../../src/ffi_bridge/npm_test.mbt) exercise
+explicit precompute/vacuum transformations, independent optional optimization
+levels, intentionally invalid pass/validation/encoding errors, recovery and
+GC/import/memory constructor roundtrips. Direct IR and byte assertions cover
+real bridge behavior. All fourteen bridge tests pass on WasmGC. Complete local
+coverage improves to 28,251 uncovered lines in 226 files against the retained
+28,138 / 196 baseline. The remaining +113 / +30 is an open gate; local analysis
+completion is not a passing baseline check or exact-head CI result.
+
+Current-format `moon.mod` and nested `moon.pkg` changes now trigger package,
+fuzz, coverage and native-example workflows. The workflow contract fails if
+either push or pull-request filters omit them; legacy JSON triggers remain.
+These triggers preserve the separate native-debug and coverage failures.
+
+The reviewed optimizer checkpoint through `62ba4012f` is integrated at
+`d0fbed55a` on the package branch. Fresh combined source produces a 47-file,
+4,801,791-byte archive, SHA-256
+`c59a32ef17ee6538a1c9c6e4c5515b9b0b4763bae16d5067e99d2e78ebf2d411`.
+GC/WASI sizes are 7,452,238 -> 7,232,670 and 6,748,815 -> 6,240,581 bytes.
+All 14,019 default tests, 44 Node cases, 45 optimizer host controls and isolated
+Node25/26 JS/strict TS consumers pass. The [handoff](../../npm-beta-handoff.md#combined-optimizer-checkpoint)
+separates fresh build evidence from the owner's same-original comparisons and
+records the exact-head CI publication precondition. The separate GC follow-up,
+licensing, coverage and native-debug failures remain open.
+
+Exact `c9fc25cd2` package CI reproduces these bytes and full tests/release/fuzz
+checks pass. Its final required semantic comparison hit the 30-minute overall
+DAE job deadline after successful native builds and a 10,000-case deterministic
+comparison. The job budget is now bounded at 45 minutes with comparison reports
+and retained failures uploaded on success/failure; counts and failure policy are
+unchanged. Red-first workflow contracts and actionlint verify the provisioning
+repair. Exact-head protected checks still precede source publication. Coverage
+remains failed at 28,244 / 226 (+106 / +30), without resetting the baseline.
 
 ## Sources
 
@@ -248,3 +506,15 @@ The comparison must start from the `exports` allowlist, not from every file in `
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../../../moon.mod`](../../../moon.mod), and the official [MoonBit package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)
+
+## Scoped licensing follow-up
+
+The October 10 [provenance audit](license-provenance.md) supersedes the earlier
+no-bundled-license state. Josh-owned original portions use MIT; compiled Core/x
+and identified Binaryen adaptations retain upstream terms. `SEE LICENSE IN
+LICENSE` describes the scoped arrangement. Five explicitly packed legal assets
+are byte-checked in the installed consumer, mirrored by generated-drift checks,
+and matched to the reviewed installed dependency notices before source builds.
+The owner chose conservative Binaryen notice retention; full upstream license,
+source/change notices and pinned counterpart attribution are retained while
+unknown factual provenance stays unknown. No npm publication follows.

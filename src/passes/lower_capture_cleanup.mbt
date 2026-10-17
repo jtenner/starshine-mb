@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Lift captures local values before writes so analysis observes stack order.
 // A capture can remain on the stack if the intervening instructions form a
@@ -383,6 +390,37 @@ fn pass_lower_compact_captures(
   params : Array[@lib.ValType],
 ) -> @lib.Func {
   pass_lower_compact_captures_with_map(func, original, params).0
+}
+
+///|
+fn pass_lower_instr_transfers_control(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Unreachable
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Rethrow(_)
+    | @lib.Suspend(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
+    _ => false
+  }
 }
 
 ///|

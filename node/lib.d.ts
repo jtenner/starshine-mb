@@ -1,7 +1,9 @@
 import type { OpaqueHandle, StarshineResult } from "./internal/shared.js";
 
 export type AbsHeapType = OpaqueHandle<"lib.AbsHeapType">;
+export type AggregateAtomicRmwOp = OpaqueHandle<"lib.AggregateAtomicRmwOp">;
 export type AtomicCmpxchgOp = OpaqueHandle<"lib.AtomicCmpxchgOp">;
+export type AtomicOrder = OpaqueHandle<"lib.AtomicOrder">;
 export type AtomicRmwOp = OpaqueHandle<"lib.AtomicRmwOp">;
 export type BinaryOp = OpaqueHandle<"lib.BinaryOp">;
 export type BlockType = OpaqueHandle<"lib.BlockType">;
@@ -42,15 +44,17 @@ export type Global = OpaqueHandle<"lib.Global">;
 export type GlobalIdx = OpaqueHandle<"lib.GlobalIdx">;
 export type GlobalSec = OpaqueHandle<"lib.GlobalSec">;
 export type GlobalType = OpaqueHandle<"lib.GlobalType">;
-export type HashResult = OpaqueHandle<"lib.HashResult">;
 export type HeapType = OpaqueHandle<"lib.HeapType">;
 export type I32 = OpaqueHandle<"lib.I32">;
 export type I64 = OpaqueHandle<"lib.I64">;
 export type Import = OpaqueHandle<"lib.Import">;
 export type ImportSec = OpaqueHandle<"lib.ImportSec">;
+export type IndirectNameAssoc = OpaqueHandle<"lib.IndirectNameAssoc">;
+export type IndirectNameMap = OpaqueHandle<"lib.IndirectNameMap">;
 export type Instruction = OpaqueHandle<"lib.Instruction">;
 export type LabelIdx = OpaqueHandle<"lib.LabelIdx">;
 export type LaneIdx = OpaqueHandle<"lib.LaneIdx">;
+export type LegacyCatch = OpaqueHandle<"lib.LegacyCatch">;
 export type Limits = OpaqueHandle<"lib.Limits">;
 export type LoadOp = OpaqueHandle<"lib.LoadOp">;
 export type LocalIdx = OpaqueHandle<"lib.LocalIdx">;
@@ -63,6 +67,9 @@ export type MemType = OpaqueHandle<"lib.MemType">;
 export type Module = OpaqueHandle<"lib.Module">;
 export type Mut = OpaqueHandle<"lib.Mut">;
 export type Name = OpaqueHandle<"lib.Name">;
+export type NameAssoc = OpaqueHandle<"lib.NameAssoc">;
+export type NameMap = OpaqueHandle<"lib.NameMap">;
+export type NameSec = OpaqueHandle<"lib.NameSec">;
 export type NumType = OpaqueHandle<"lib.NumType">;
 export type PackType = OpaqueHandle<"lib.PackType">;
 export type PrettyPrintContext = OpaqueHandle<"lib.PrettyPrintContext">;
@@ -70,10 +77,12 @@ export type RecType = OpaqueHandle<"lib.RecType">;
 export type RefType = OpaqueHandle<"lib.RefType">;
 export type ReplaceLaneOp = OpaqueHandle<"lib.ReplaceLaneOp">;
 export type ResultType = OpaqueHandle<"lib.ResultType">;
+export type ResumeHandler = OpaqueHandle<"lib.ResumeHandler">;
 export type S33 = OpaqueHandle<"lib.S33">;
 export type StartSec = OpaqueHandle<"lib.StartSec">;
 export type StorageType = OpaqueHandle<"lib.StorageType">;
 export type StoreOp = OpaqueHandle<"lib.StoreOp">;
+export type StringRefsSec = OpaqueHandle<"lib.StringRefsSec">;
 export type SubType = OpaqueHandle<"lib.SubType">;
 export type Table = OpaqueHandle<"lib.Table">;
 export type TableIdx = OpaqueHandle<"lib.TableIdx">;
@@ -84,6 +93,7 @@ export type TagIdx = OpaqueHandle<"lib.TagIdx">;
 export type TagSec = OpaqueHandle<"lib.TagSec">;
 export type TagType = OpaqueHandle<"lib.TagType">;
 export type TypeIdx = OpaqueHandle<"lib.TypeIdx">;
+export type TypeMetadata = OpaqueHandle<"lib.TypeMetadata">;
 export type TypeSec = OpaqueHandle<"lib.TypeSec">;
 export type U32 = OpaqueHandle<"lib.U32">;
 export type U64 = OpaqueHandle<"lib.U64">;
@@ -97,7 +107,7 @@ export type ValType = OpaqueHandle<"lib.ValType">;
 export function applyPrettyContext(arg0: string, arg1: PrettyPrintContext): string;
 export function arrayCompType(arg0: FieldType): CompType;
 export function arrayOfArbitrary(...args: never[]): never;
-export function compTypeSubType(arg0: CompType): SubType;
+export function compTypeSubType(arg0: CompType, metadata?: TypeMetadata): SubType;
 export function equals(...args: never[]): never;
 export function funcCompType(arg0: Array<ValType>, arg1: Array<ValType>): CompType;
 export function funcExternIdx(arg0: FuncIdx): ExternIdx;
@@ -114,14 +124,15 @@ export function inspectDebug(...args: never[]): never;
 export function inspectPrettyPrint(...args: never[]): never;
 export function memExternIdx(arg0: MemIdx): ExternIdx;
 export function memExternType(arg0: MemType): ExternType;
-export function memType(arg0: Limits): MemType;
+export function memType(arg0: Limits, shared?: boolean): MemType;
 export function minAddr(arg0: Limits, arg1: Limits): Limits;
 export function minAddrValtype(arg0: Limits, arg1: Limits): ValType;
+export function moduleUsesCustomDescriptors(arg0: Module): boolean;
 export function recIdx(arg0: number): TypeIdx;
 export function resultType(arg0: Array<ValType>): Array<ValType>;
 export function singleRecType(arg0: SubType): RecType;
 export function structCompType(arg0: Array<FieldType>): CompType;
-export function subType(arg0: boolean, arg1: Array<TypeIdx>, arg2: CompType): SubType;
+export function subType(arg0: boolean, arg1: Array<TypeIdx>, arg2: CompType, metadata?: TypeMetadata): SubType;
 export function tableExternIdx(arg0: TableIdx): ExternIdx;
 export function tableExternType(arg0: TableType): ExternType;
 export function tableIdx(arg0: number): TableIdx;
@@ -137,17 +148,32 @@ export function traceNowUs(): bigint;
 export const AbsHeapType: {
   any(): AbsHeapType;
   array(): AbsHeapType;
+  cont(): AbsHeapType;
   eq(): AbsHeapType;
   exn(): AbsHeapType;
   extern(): AbsHeapType;
   func(): AbsHeapType;
   i31(): AbsHeapType;
+  noCont(): AbsHeapType;
   noExn(): AbsHeapType;
   noExtern(): AbsHeapType;
   noFunc(): AbsHeapType;
+  noWaitqueue(): AbsHeapType;
   none(): AbsHeapType;
+  string(): AbsHeapType;
   struct(): AbsHeapType;
+  waitqueue(): AbsHeapType;
   show(value: AbsHeapType): string;
+};
+
+export const AggregateAtomicRmwOp: {
+  add(): AggregateAtomicRmwOp;
+  and(): AggregateAtomicRmwOp;
+  or(): AggregateAtomicRmwOp;
+  sub(): AggregateAtomicRmwOp;
+  xchg(): AggregateAtomicRmwOp;
+  xor(): AggregateAtomicRmwOp;
+  show(value: AggregateAtomicRmwOp): string;
 };
 
 export const AtomicCmpxchgOp: {
@@ -159,6 +185,13 @@ export const AtomicCmpxchgOp: {
   i6432U(): AtomicCmpxchgOp;
   i648U(): AtomicCmpxchgOp;
   show(value: AtomicCmpxchgOp): string;
+};
+
+export const AtomicOrder: {
+  acqRel(): AtomicOrder;
+  relaxed(): AtomicOrder;
+  seqCst(): AtomicOrder;
+  show(value: AtomicOrder): string;
 };
 
 export const AtomicRmwOp: {
@@ -420,8 +453,10 @@ export const BlockType: {
 };
 
 export const CastOp: {
-  new(arg0: boolean, arg1: boolean): CastOp;
+  "new"(arg0: boolean, arg1: boolean, sourceExact?: boolean, targetExact?: boolean): CastOp;
+  sourceExact(arg0: CastOp): boolean;
   sourceNullable(arg0: CastOp): boolean;
+  targetExact(arg0: CastOp): boolean;
   targetNullable(arg0: CastOp): boolean;
   show(value: CastOp): string;
 };
@@ -429,43 +464,41 @@ export const CastOp: {
 export const Catch: {
   all(arg0: LabelIdx): Catch;
   allRef(arg0: LabelIdx): Catch;
-  new(arg0: TagIdx, arg1: LabelIdx): Catch;
+  "new"(arg0: TagIdx, arg1: LabelIdx): Catch;
   ref(arg0: TagIdx, arg1: LabelIdx): Catch;
   show(value: Catch): string;
 };
 
 export const CodeSec: {
-  inner(arg0: CodeSec): Array<Func>;
-  new(arg0: Array<Func>): CodeSec;
+  "new"(arg0: Array<Func>): CodeSec;
   show(value: CodeSec): string;
 };
 
 export const CompType: {
   array(arg0: FieldType): CompType;
+  cont(arg0: TypeIdx): CompType;
   func(arg0: Array<ValType>, arg1: Array<ValType>): CompType;
   struct(arg0: Array<FieldType>): CompType;
   show(value: CompType): string;
 };
 
 export const CustomSec: {
-  new(arg0: Name, arg1: Uint8Array): CustomSec;
+  "new"(arg0: Name, arg1: Uint8Array): CustomSec;
   show(value: CustomSec): string;
 };
 
 export const Data: {
-  new(arg0: DataMode, arg1: Uint8Array): Data;
+  "new"(arg0: DataMode, arg1: Uint8Array): Data;
   show(value: Data): string;
 };
 
 export const DataCntSec: {
-  inner(arg0: DataCntSec): U32;
-  new(arg0: U32): DataCntSec;
+  "new"(arg0: U32): DataCntSec;
   show(value: DataCntSec): string;
 };
 
 export const DataIdx: {
-  inner(arg0: DataIdx): number;
-  new(arg0: number): DataIdx;
+  "new"(arg0: number): DataIdx;
   show(value: DataIdx): string;
 };
 
@@ -476,26 +509,24 @@ export const DataMode: {
 };
 
 export const DataSec: {
-  inner(arg0: DataSec): Array<Data>;
-  new(arg0: Array<Data>): DataSec;
+  "new"(arg0: Array<Data>): DataSec;
   show(value: DataSec): string;
 };
 
 export const DefType: {
-  new(arg0: RecType, arg1: number): DefType;
-  project(arg0: DefType): SubType | null;
+  "new"(arg0: RecType, arg1: number): DefType;
+  project(arg0: DefType): (SubType) | null;
   show(value: DefType): string;
 };
 
 export const Elem: {
-  new(arg0: ElemMode, arg1: ElemKind): Elem;
+  "new"(arg0: ElemMode, arg1: ElemKind): Elem;
   reftype(arg0: Elem): RefType;
   show(value: Elem): string;
 };
 
 export const ElemIdx: {
-  inner(arg0: ElemIdx): number;
-  new(arg0: number): ElemIdx;
+  "new"(arg0: number): ElemIdx;
   show(value: ElemIdx): string;
 };
 
@@ -514,25 +545,22 @@ export const ElemMode: {
 };
 
 export const ElemSec: {
-  inner(arg0: ElemSec): Array<Elem>;
-  new(arg0: Array<Elem>): ElemSec;
+  "new"(arg0: Array<Elem>): ElemSec;
   show(value: ElemSec): string;
 };
 
 export const Export: {
-  new(arg0: Name, arg1: ExternIdx): Export;
+  "new"(arg0: Name, arg1: ExternIdx): Export;
   show(value: Export): string;
 };
 
 export const ExportSec: {
-  inner(arg0: ExportSec): Array<Export>;
-  new(arg0: Array<Export>): ExportSec;
+  "new"(arg0: Array<Export>): ExportSec;
   show(value: ExportSec): string;
 };
 
 export const Expr: {
-  inner(arg0: Expr): Array<Instruction>;
-  new(arg0: Array<Instruction>): Expr;
+  "new"(arg0: Array<Instruction>): Expr;
   show(value: Expr): string;
 };
 
@@ -567,60 +595,55 @@ export const ExtractLaneOp: {
 };
 
 export const F32: {
-  inner(arg0: F32): number;
-  new(arg0: number): F32;
+  "new"(arg0: number): F32;
   show(value: F32): string;
 };
 
 export const F64: {
-  inner(arg0: F64): number;
-  new(arg0: number): F64;
+  "new"(arg0: number): F64;
   show(value: F64): string;
 };
 
 export const FieldType: {
   getStorageType(arg0: FieldType): StorageType;
   isMutable(arg0: FieldType): boolean;
-  new(arg0: StorageType, arg1: Mut): FieldType;
+  "new"(arg0: StorageType, arg1: Mut): FieldType;
   unpack(arg0: FieldType): ValType;
   show(value: FieldType): string;
 };
 
 export const Func: {
-  new(arg0: Locals, arg1: Expr): Func;
+  "new"(arg0: Locals, arg1: Expr): Func;
   show(value: Func): string;
 };
 
 export const FuncAnnotation: {
-  new(arg0: string, arg1?: Array<string>): FuncAnnotation;
+  "new"(arg0: string, args?: Array<string>): FuncAnnotation;
   show(value: FuncAnnotation): string;
 };
 
 export const FuncAnnotationAssoc: {
-  new(arg0: number, arg1: Array<FuncAnnotation>): FuncAnnotationAssoc;
+  "new"(arg0: number, arg1: Array<FuncAnnotation>): FuncAnnotationAssoc;
   show(value: FuncAnnotationAssoc): string;
 };
 
 export const FuncAnnotationSec: {
-  inner(arg0: FuncAnnotationSec): Array<FuncAnnotationAssoc>;
-  new(arg0: Array<FuncAnnotationAssoc>): FuncAnnotationSec;
+  "new"(arg0: Array<FuncAnnotationAssoc>): FuncAnnotationSec;
   show(value: FuncAnnotationSec): string;
 };
 
 export const FuncIdx: {
-  inner(arg0: FuncIdx): number;
-  new(arg0: number): FuncIdx;
+  "new"(arg0: number): FuncIdx;
   show(value: FuncIdx): string;
 };
 
 export const FuncSec: {
-  inner(arg0: FuncSec): Array<TypeIdx>;
-  new(arg0: Array<TypeIdx>): FuncSec;
+  "new"(arg0: Array<TypeIdx>): FuncSec;
   show(value: FuncSec): string;
 };
 
 export const FuncType: {
-  new(arg0: Array<ValType>, arg1: Array<ValType>): FuncType;
+  "new"(arg0: Array<ValType>, arg1: Array<ValType>): FuncType;
   show(value: FuncType): string;
 };
 
@@ -630,35 +653,30 @@ export const FunctionLocals: {
   fromLocalDecls(arg0: Array<ValType>, arg1: Locals): StarshineResult<FunctionLocals, string>;
   fromTypedFunc(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>;
   fromTypedFuncForPass(arg0: Array<ValType>, arg1: Array<ValType>, arg2: Locals): StarshineResult<FunctionLocals, string>;
-  localType(arg0: FunctionLocals, arg1: LocalIdx): ValType | null;
-  new(arg0: Array<ValType>, arg1: Locals): FunctionLocals;
+  localType(arg0: FunctionLocals, arg1: LocalIdx): (ValType) | null;
+  "new"(arg0: Array<ValType>, arg1: Locals): FunctionLocals;
   paramCount(arg0: FunctionLocals): number;
   params(arg0: FunctionLocals): Array<ValType>;
 };
 
 export const Global: {
-  new(arg0: GlobalType, arg1: Expr): Global;
+  "new"(arg0: GlobalType, arg1: Expr): Global;
   show(value: Global): string;
 };
 
 export const GlobalIdx: {
-  inner(arg0: GlobalIdx): number;
-  new(arg0: number): GlobalIdx;
+  "new"(arg0: number): GlobalIdx;
   show(value: GlobalIdx): string;
 };
 
 export const GlobalSec: {
-  inner(arg0: GlobalSec): Array<Global>;
-  new(arg0: Array<Global>): GlobalSec;
+  "new"(arg0: Array<Global>): GlobalSec;
   show(value: GlobalSec): string;
 };
 
 export const GlobalType: {
-  new(arg0: ValType, arg1: boolean): GlobalType;
+  "new"(arg0: ValType, arg1: boolean): GlobalType;
   show(value: GlobalType): string;
-};
-
-export const HashResult: {
 };
 
 export const HeapType: {
@@ -667,36 +685,51 @@ export const HeapType: {
   defType(arg0: DefType): HeapType;
   isArray(arg0: HeapType): boolean;
   isGcAggregate(arg0: HeapType): boolean;
+  isShared(arg0: HeapType): boolean;
   isStruct(arg0: HeapType): boolean;
-  new(arg0: TypeIdx): HeapType;
+  "new"(arg0: TypeIdx): HeapType;
+  sharedAbs(arg0: AbsHeapType): HeapType;
   show(value: HeapType): string;
 };
 
 export const I32: {
-  inner(arg0: I32): number;
-  new(arg0: number): I32;
+  "new"(arg0: number): I32;
   show(value: I32): string;
 };
 
 export const I64: {
-  inner(arg0: I64): bigint;
-  new(arg0: bigint): I64;
+  "new"(arg0: bigint): I64;
   show(value: I64): string;
 };
 
 export const Import: {
-  new(arg0: Name, arg1: Name, arg2: ExternType): Import;
+  "new"(arg0: Name, arg1: Name, arg2: ExternType): Import;
   show(value: Import): string;
 };
 
 export const ImportSec: {
-  inner(arg0: ImportSec): Array<Import>;
-  new(arg0: Array<Import>): ImportSec;
+  "new"(arg0: Array<Import>): ImportSec;
   show(value: ImportSec): string;
+};
+
+export const IndirectNameAssoc: {
+  "new"(arg0: number, arg1: NameMap): IndirectNameAssoc;
+  show(value: IndirectNameAssoc): string;
+};
+
+export const IndirectNameMap: {
+  "new"(arg0: Array<IndirectNameAssoc>): IndirectNameMap;
+  show(value: IndirectNameMap): string;
 };
 
 export const Instruction: {
   anyConvertExtern(): Instruction;
+  arrayAtomicCmpxchg(arg0: TypeIdx, order?: AtomicOrder): Instruction;
+  arrayAtomicGet(arg0: AtomicOrder, arg1: TypeIdx): Instruction;
+  arrayAtomicGetS(arg0: AtomicOrder, arg1: TypeIdx): Instruction;
+  arrayAtomicGetU(arg0: AtomicOrder, arg1: TypeIdx): Instruction;
+  arrayAtomicRmw(arg0: AggregateAtomicRmwOp, arg1: TypeIdx, order?: AtomicOrder): Instruction;
+  arrayAtomicSet(arg0: AtomicOrder, arg1: TypeIdx): Instruction;
   arrayCopy(arg0: TypeIdx, arg1: TypeIdx): Instruction;
   arrayFill(arg0: TypeIdx): Instruction;
   arrayGet(arg0: TypeIdx): Instruction;
@@ -705,26 +738,32 @@ export const Instruction: {
   arrayInitData(arg0: TypeIdx, arg1: DataIdx): Instruction;
   arrayInitElem(arg0: TypeIdx, arg1: ElemIdx): Instruction;
   arrayLen(): Instruction;
+  arrayLoad(arg0: LoadOp, arg1: TypeIdx, memarg?: MemArg): Instruction;
   arrayNew(arg0: TypeIdx): Instruction;
   arrayNewData(arg0: TypeIdx, arg1: DataIdx): Instruction;
   arrayNewDefault(arg0: TypeIdx): Instruction;
   arrayNewElem(arg0: TypeIdx, arg1: ElemIdx): Instruction;
   arrayNewFixed(arg0: TypeIdx, arg1: U32): Instruction;
   arraySet(arg0: TypeIdx): Instruction;
-  atomicCmpxchg(arg0: AtomicCmpxchgOp, arg1: MemArg): Instruction;
-  atomicFence(): Instruction;
-  atomicRmw(arg0: AtomicRmwOp, arg1: MemArg): Instruction;
+  arrayStore(arg0: StoreOp, arg1: TypeIdx, memarg?: MemArg): Instruction;
+  atomicCmpxchg(arg0: AtomicCmpxchgOp, arg1: MemArg, order?: AtomicOrder): Instruction;
+  atomicFence(order?: AtomicOrder): Instruction;
+  atomicRmw(arg0: AtomicRmwOp, arg1: MemArg, order?: AtomicOrder): Instruction;
   block(arg0: BlockType, arg1: Expr): Instruction;
   br(arg0: LabelIdx): Instruction;
   brIf(arg0: LabelIdx): Instruction;
-  brOnCast(arg0: LabelIdx, arg1: boolean, arg2: HeapType, arg3: boolean, arg4: HeapType): Instruction;
-  brOnCastFail(arg0: LabelIdx, arg1: boolean, arg2: HeapType, arg3: boolean, arg4: HeapType): Instruction;
+  brOnCast(arg0: LabelIdx, arg1: boolean, arg2: HeapType, arg3: boolean, arg4: HeapType, sourceExact?: boolean, targetExact?: boolean): Instruction;
+  brOnCastDescEq(arg0: LabelIdx, arg1: RefType, arg2: RefType): Instruction;
+  brOnCastDescEqFail(arg0: LabelIdx, arg1: RefType, arg2: RefType): Instruction;
+  brOnCastFail(arg0: LabelIdx, arg1: boolean, arg2: HeapType, arg3: boolean, arg4: HeapType, sourceExact?: boolean, targetExact?: boolean): Instruction;
   brOnNonNull(arg0: LabelIdx): Instruction;
   brOnNull(arg0: LabelIdx): Instruction;
   brTable(arg0: Array<LabelIdx>, arg1: LabelIdx): Instruction;
   call(arg0: FuncIdx): Instruction;
   callIndirect(arg0: TypeIdx, arg1: TableIdx): Instruction;
   callRef(arg0: TypeIdx): Instruction;
+  contBind(arg0: TypeIdx, arg1: TypeIdx): Instruction;
+  contNew(arg0: TypeIdx): Instruction;
   dataDrop(arg0: DataIdx): Instruction;
   drop(): Instruction;
   elemDrop(arg0: ElemIdx): Instruction;
@@ -904,12 +943,12 @@ export const Instruction: {
   i31GetU(): Instruction;
   i32Add(): Instruction;
   i32And(): Instruction;
-  i32AtomicLoad(arg0: MemArg): Instruction;
-  i32AtomicLoad16U(arg0: MemArg): Instruction;
-  i32AtomicLoad8U(arg0: MemArg): Instruction;
-  i32AtomicStore(arg0: MemArg): Instruction;
-  i32AtomicStore16(arg0: MemArg): Instruction;
-  i32AtomicStore8(arg0: MemArg): Instruction;
+  i32AtomicLoad(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i32AtomicLoad16U(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i32AtomicLoad8U(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i32AtomicStore(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i32AtomicStore16(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i32AtomicStore8(arg0: MemArg, order?: AtomicOrder): Instruction;
   i32Clz(): Instruction;
   i32Const(arg0: I32): Instruction;
   i32Ctz(): Instruction;
@@ -1008,14 +1047,14 @@ export const Instruction: {
   i32x4TruncSatF64x2uZero(): Instruction;
   i64Add(): Instruction;
   i64And(): Instruction;
-  i64AtomicLoad(arg0: MemArg): Instruction;
-  i64AtomicLoad16U(arg0: MemArg): Instruction;
-  i64AtomicLoad32U(arg0: MemArg): Instruction;
-  i64AtomicLoad8U(arg0: MemArg): Instruction;
-  i64AtomicStore(arg0: MemArg): Instruction;
-  i64AtomicStore16(arg0: MemArg): Instruction;
-  i64AtomicStore32(arg0: MemArg): Instruction;
-  i64AtomicStore8(arg0: MemArg): Instruction;
+  i64AtomicLoad(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicLoad16U(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicLoad32U(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicLoad8U(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicStore(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicStore16(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicStore32(arg0: MemArg, order?: AtomicOrder): Instruction;
+  i64AtomicStore8(arg0: MemArg, order?: AtomicOrder): Instruction;
   i64Clz(): Instruction;
   i64Const(arg0: I64): Instruction;
   i64Ctz(): Instruction;
@@ -1136,7 +1175,7 @@ export const Instruction: {
   i8x16SubSatS(): Instruction;
   i8x16SubSatU(): Instruction;
   i8x16Swizzle(): Instruction;
-  if(arg0: BlockType, arg1: Array<Instruction>, arg2: Array<Instruction> | null): Instruction;
+  if(arg0: BlockType, arg1: Array<Instruction>, arg2: (Array<Instruction>) | null): Instruction;
   localGet(arg0: LocalIdx): Instruction;
   localSet(arg0: LocalIdx): Instruction;
   localTee(arg0: LocalIdx): Instruction;
@@ -1150,28 +1189,66 @@ export const Instruction: {
   memoryInit(arg0: DataIdx, arg1: MemIdx): Instruction;
   memorySize(arg0: MemIdx): Instruction;
   nop(): Instruction;
+  publish(): Instruction;
   refAsNonNull(): Instruction;
   refCast(arg0: boolean, arg1: HeapType): Instruction;
   refCastDescEq(arg0: boolean, arg1: HeapType): Instruction;
+  refCastDescEqType(arg0: RefType): Instruction;
+  refCastExact(arg0: boolean, arg1: HeapType): Instruction;
+  refCastType(arg0: RefType): Instruction;
   refEq(): Instruction;
   refFunc(arg0: FuncIdx): Instruction;
-  refGetDesc(): Instruction;
+  refGetDesc(arg0: TypeIdx): Instruction;
   refI31(): Instruction;
+  refI31Shared(): Instruction;
   refIsNull(): Instruction;
   refNull(arg0: HeapType): Instruction;
+  refNullType(arg0: RefType): Instruction;
   refTest(arg0: boolean, arg1: HeapType): Instruction;
   refTestDesc(arg0: boolean, arg1: HeapType): Instruction;
+  refTestExact(arg0: boolean, arg1: HeapType): Instruction;
+  refTestType(arg0: RefType): Instruction;
+  resume(arg0: TypeIdx, arg1: Array<ResumeHandler>): Instruction;
+  resumeThrow(arg0: TypeIdx, arg1: TagIdx, arg2: Array<ResumeHandler>): Instruction;
+  resumeThrowRef(arg0: TypeIdx, arg1: Array<ResumeHandler>): Instruction;
+  rethrow(arg0: LabelIdx): Instruction;
   return(): Instruction;
   returnCall(arg0: FuncIdx): Instruction;
   returnCallIndirect(arg0: TypeIdx, arg1: TableIdx): Instruction;
   returnCallRef(arg0: TypeIdx): Instruction;
-  select(types?: Array<ValType> | null): Instruction;
+  select(types?: (Array<ValType>) | null): Instruction;
+  stackSwitch(arg0: TypeIdx, arg1: TagIdx): Instruction;
+  stringAsWtf16(): Instruction;
+  stringConcat(): Instruction;
+  stringConst(arg0: Uint8Array): Instruction;
+  stringEncodeLossyUtf8Array(): Instruction;
+  stringEncodeUtf8Array(): Instruction;
+  stringEncodeWtf16Array(): Instruction;
+  stringEncodeWtf8Array(): Instruction;
+  stringEq(): Instruction;
+  stringMeasureWtf16(): Instruction;
+  stringNewLossyUtf8Array(): Instruction;
+  stringNewUtf8Array(): Instruction;
+  stringNewWtf16Array(): Instruction;
+  stringNewWtf8Array(): Instruction;
+  stringviewWtf16GetCodeunit(): Instruction;
+  stringviewWtf16Slice(): Instruction;
+  structAtomicCmpxchg(arg0: TypeIdx, arg1: U32, order?: AtomicOrder): Instruction;
+  structAtomicGet(arg0: AtomicOrder, arg1: TypeIdx, arg2: U32): Instruction;
+  structAtomicGetS(arg0: AtomicOrder, arg1: TypeIdx, arg2: U32): Instruction;
+  structAtomicGetU(arg0: AtomicOrder, arg1: TypeIdx, arg2: U32): Instruction;
+  structAtomicRmw(arg0: AggregateAtomicRmwOp, arg1: TypeIdx, arg2: U32, order?: AtomicOrder): Instruction;
+  structAtomicSet(arg0: AtomicOrder, arg1: TypeIdx, arg2: U32): Instruction;
   structGet(arg0: TypeIdx, arg1: U32): Instruction;
   structGetS(arg0: TypeIdx, arg1: U32): Instruction;
   structGetU(arg0: TypeIdx, arg1: U32): Instruction;
   structNew(arg0: TypeIdx): Instruction;
   structNewDefault(arg0: TypeIdx): Instruction;
+  structNewDefaultDesc(arg0: TypeIdx): Instruction;
+  structNewDesc(arg0: TypeIdx): Instruction;
   structSet(arg0: TypeIdx, arg1: U32): Instruction;
+  structWait(arg0: TypeIdx, arg1: U32): Instruction;
+  suspend(arg0: TagIdx): Instruction;
   tableCopy(arg0: TableIdx, arg1: TableIdx): Instruction;
   tableFill(arg0: TableIdx): Instruction;
   tableGet(arg0: TableIdx): Instruction;
@@ -1181,6 +1258,7 @@ export const Instruction: {
   tableSize(arg0: TableIdx): Instruction;
   throw(arg0: TagIdx): Instruction;
   throwRef(): Instruction;
+  try(arg0: BlockType, arg1: Expr, arg2: Array<LegacyCatch>, delegate?: (LabelIdx) | null): Instruction;
   tryTable(arg0: BlockType, arg1: Array<Catch>, arg2: Expr): Instruction;
   unreachable(): Instruction;
   v128And(): Instruction;
@@ -1213,25 +1291,31 @@ export const Instruction: {
   v128Store64Lane(arg0: MemArg, arg1: LaneIdx): Instruction;
   v128Store8Lane(arg0: MemArg, arg1: LaneIdx): Instruction;
   v128Xor(): Instruction;
+  waitqueueNew(): Instruction;
+  waitqueueNotify(): Instruction;
   show(value: Instruction): string;
 };
 
 export const LabelIdx: {
-  inner(arg0: LabelIdx): number;
-  new(arg0: number): LabelIdx;
+  "new"(arg0: number): LabelIdx;
   show(value: LabelIdx): string;
 };
 
 export const LaneIdx: {
-  inner(arg0: LaneIdx): number;
-  new(arg0: number): LaneIdx;
+  "new"(arg0: number): LaneIdx;
   show(value: LaneIdx): string;
+};
+
+export const LegacyCatch: {
+  all(arg0: Expr): LegacyCatch;
+  tagged(arg0: TagIdx, arg1: Expr): LegacyCatch;
+  show(value: LegacyCatch): string;
 };
 
 export const Limits: {
   addrValtype(arg0: Limits): ValType;
-  i32(arg0: number, arg1: number | null): Limits;
-  i64(arg0: bigint, arg1: bigint | null): Limits;
+  i32(arg0: number, arg1: (number) | null): Limits;
+  i64(arg0: bigint, arg1: (bigint) | null): Limits;
   memAddrBits(arg0: Limits): number;
   show(value: Limits): string;
 };
@@ -1275,14 +1359,13 @@ export const LoadOp: {
 };
 
 export const LocalIdx: {
-  inner(arg0: LocalIdx): number;
-  new(arg0: number): LocalIdx;
+  "new"(arg0: number): LocalIdx;
   show(value: LocalIdx): string;
 };
 
 export const LocalRun: {
   count(arg0: LocalRun): number;
-  new(arg0: number, arg1: ValType): LocalRun;
+  "new"(arg0: number, arg1: ValType): LocalRun;
   valType(arg0: LocalRun): ValType;
   show(value: LocalRun): string;
 };
@@ -1290,22 +1373,23 @@ export const LocalRun: {
 export const Locals: {
   append(arg0: Locals, arg1: Locals): void;
   appendTypes(arg0: Locals, arg1: Array<ValType>): void;
-  at(arg0: Locals, arg1: number): ValType | null;
+  at(arg0: Locals, arg1: number): (ValType) | null;
   copy(arg0: Locals): Locals;
   empty(): Locals;
   ensureIndex(arg0: Locals): Array<number>;
+  fromDeclRunsPreservingGroups(arg0: Array<LocalRun>): Locals;
   fromTypes(arg0: Array<ValType>): Locals;
   get(arg0: Locals, arg1: number): ValType;
   insertRun(arg0: Locals, arg1: number, arg2: LocalRun): void;
   invalidateIndices(arg0: Locals): void;
   isEmpty(arg0: Locals): boolean;
-  iter(arg0: Locals): OpaqueHandle<"Iter[ValType]">;
+  iter(arg0: Locals): OpaqueHandle<"Iter[@lib.ValType]">;
   length(arg0: Locals): number;
   mergeAdjacentRuns(arg0: Locals): void;
-  new(arg0: Array<LocalRun>): Locals;
+  "new"(arg0: Array<LocalRun>): Locals;
   push(arg0: Locals, arg1: ValType): void;
   pushRun(arg0: Locals, arg1: LocalRun): void;
-  removeRun(arg0: Locals, arg1: number): LocalRun | null;
+  removeRun(arg0: Locals, arg1: number): (LocalRun) | null;
   runCount(arg0: Locals): number;
   runs(arg0: Locals): Array<LocalRun>;
   set(arg0: Locals, arg1: number, arg2: ValType): boolean;
@@ -1317,33 +1401,31 @@ export const Locals: {
 };
 
 export const MemArg: {
-  new(arg0: U32, arg1: MemIdx | null, arg2: U64): MemArg;
+  "new"(arg0: U32, arg1: (MemIdx) | null, arg2: U64): MemArg;
   show(value: MemArg): string;
 };
 
 export const MemIdx: {
-  inner(arg0: MemIdx): number;
-  new(arg0: number): MemIdx;
+  "new"(arg0: number): MemIdx;
   show(value: MemIdx): string;
 };
 
 export const MemSec: {
-  inner(arg0: MemSec): Array<MemType>;
-  new(arg0: Array<MemType>): MemSec;
+  "new"(arg0: Array<MemType>): MemSec;
   show(value: MemSec): string;
 };
 
 export const MemType: {
-  inner(arg0: MemType): Limits;
-  new(arg0: Limits): MemType;
+  "new"(arg0: Limits, shared?: boolean): MemType;
   show(value: MemType): string;
 };
 
 export const Module: {
-  new(customSecs?: Array<CustomSec>, typeSec?: TypeSec | null, importSec?: ImportSec | null, funcAnnotationSec?: FuncAnnotationSec | null, funcSec?: FuncSec | null, tableSec?: TableSec | null, memSec?: MemSec | null, tagSec?: TagSec | null, globalSec?: GlobalSec | null, exportSec?: ExportSec | null, startSec?: StartSec | null, elemSec?: ElemSec | null, dataCntSec?: DataCntSec | null, codeSec?: CodeSec | null, dataSec?: DataSec | null): Module;
+  "new"(customSecs?: Array<CustomSec>, typeSec?: (TypeSec) | null, importSec?: (ImportSec) | null, funcAnnotationSec?: (FuncAnnotationSec) | null, funcSec?: (FuncSec) | null, tableSec?: (TableSec) | null, memSec?: (MemSec) | null, tagSec?: (TagSec) | null, globalSec?: (GlobalSec) | null, exportSec?: (ExportSec) | null, startSec?: (StartSec) | null, elemSec?: (ElemSec) | null, dataCntSec?: (DataCntSec) | null, codeSec?: (CodeSec) | null, dataSec?: (DataSec) | null, stringrefsSec?: (StringRefsSec) | null, nameSec?: (NameSec) | null, rawNameSecPayload?: (Uint8Array) | null, compilerFactCustomSection?: (OpaqueHandle<"@representation.CompilerFactCustomSection">) | null): Module;
   prettyPrintDefinedFunc(arg0: Module, arg1: number): string;
   prettyPrintFunc(arg0: Module, arg1: FuncIdx): string;
   withCodeSec(arg0: Module, arg1: CodeSec): Module;
+  withCompilerFactCustomSection(arg0: Module, arg1: OpaqueHandle<"@representation.CompilerFactCustomSection">): Module;
   withCustomSecs(arg0: Module, arg1: Array<CustomSec>): Module;
   withDataCntSec(arg0: Module, arg1: DataCntSec): Module;
   withDataSec(arg0: Module, arg1: DataSec): Module;
@@ -1354,10 +1436,15 @@ export const Module: {
   withGlobalSec(arg0: Module, arg1: GlobalSec): Module;
   withImportSec(arg0: Module, arg1: ImportSec): Module;
   withMemSec(arg0: Module, arg1: MemSec): Module;
+  withNameSec(arg0: Module, arg1: NameSec): Module;
+  withRawNameSecPayload(arg0: Module, arg1: Uint8Array): Module;
   withStartSec(arg0: Module, arg1: StartSec): Module;
+  withStringrefsSec(arg0: Module, arg1: StringRefsSec): Module;
   withTableSec(arg0: Module, arg1: TableSec): Module;
   withTagSec(arg0: Module, arg1: TagSec): Module;
   withTypeSec(arg0: Module, arg1: TypeSec): Module;
+  withoutCompilerFactCustomSection(arg0: Module): Module;
+  withoutNameSec(arg0: Module): Module;
   show(value: Module): string;
 };
 
@@ -1369,9 +1456,23 @@ export const Mut: {
 
 export const Name: {
   fromString(arg0: string): Name;
-  inner(arg0: Name): OpaqueHandle<"StringView">;
-  new(arg0: OpaqueHandle<"StringView">): Name;
+  "new"(...args: never[]): never;
   show(value: Name): string;
+};
+
+export const NameAssoc: {
+  "new"(arg0: number, arg1: Name): NameAssoc;
+  show(value: NameAssoc): string;
+};
+
+export const NameMap: {
+  "new"(arg0: Array<NameAssoc>): NameMap;
+  show(value: NameMap): string;
+};
+
+export const NameSec: {
+  "new"(moduleName?: (Name) | null, funcNames?: (NameMap) | null, localNames?: (IndirectNameMap) | null, labelNames?: (IndirectNameMap) | null, typeNames?: (NameMap) | null, tableNames?: (NameMap) | null, memoryNames?: (NameMap) | null, globalNames?: (NameMap) | null, elemNames?: (NameMap) | null, dataNames?: (NameMap) | null, fieldNames?: (IndirectNameMap) | null, tagNames?: (NameMap) | null): NameSec;
+  show(value: NameSec): string;
 };
 
 export const NumType: {
@@ -1391,14 +1492,13 @@ export const PackType: {
 export const PrettyPrintContext: {
   indent(arg0: PrettyPrintContext, arg1: number): string;
   indentUnit(arg0: PrettyPrintContext): string;
-  new(maxLineWidth?: number, tabsOrSpaces?: TabsOrSpaces, tabWidth?: number, continuationIndent?: number, sourceIndentWidth?: number): PrettyPrintContext;
-  show(value: PrettyPrintContext): string;
+  "new"(maxLineWidth?: number, tabsOrSpaces?: TabsOrSpaces, tabWidth?: number, continuationIndent?: number, sourceIndentWidth?: number): PrettyPrintContext;
 };
 
 export const RecType: {
-  getSubtype(arg0: RecType, arg1: number): SubType | null;
+  getSubtype(arg0: RecType, arg1: number): (SubType) | null;
   group(arg0: Array<SubType>): RecType;
-  new(arg0: SubType): RecType;
+  "new"(arg0: SubType): RecType;
   show(value: RecType): string;
 };
 
@@ -1406,10 +1506,11 @@ export const RefType: {
   abs(arg0: AbsHeapType): RefType;
   getHeapType(arg0: RefType): HeapType;
   isDefaultable(arg0: RefType): boolean;
+  isExact(arg0: RefType): boolean;
   isNonNullable(arg0: RefType): boolean;
   isNullable(arg0: RefType): boolean;
   makeNullable(arg0: RefType): RefType;
-  new(arg0: boolean, arg1: HeapType): RefType;
+  "new"(arg0: boolean, arg1: HeapType, exact?: boolean): RefType;
   show(value: RefType): string;
 };
 
@@ -1426,15 +1527,19 @@ export const ReplaceLaneOp: {
 export const ResultType: {
 };
 
+export const ResumeHandler: {
+  onLabel(arg0: TagIdx, arg1: LabelIdx): ResumeHandler;
+  onSwitch(arg0: TagIdx): ResumeHandler;
+  show(value: ResumeHandler): string;
+};
+
 export const S33: {
-  inner(arg0: S33): number;
-  new(arg0: number): S33;
+  "new"(arg0: number): S33;
   show(value: S33): string;
 };
 
 export const StartSec: {
-  inner(arg0: StartSec): FuncIdx;
-  new(arg0: FuncIdx): StartSec;
+  "new"(arg0: FuncIdx): StartSec;
   show(value: StartSec): string;
 };
 
@@ -1467,81 +1572,86 @@ export const StoreOp: {
   show(value: StoreOp): string;
 };
 
+export const StringRefsSec: {
+  "new"(arg0: Array<Uint8Array>): StringRefsSec;
+  show(value: StringRefsSec): string;
+};
+
 export const SubType: {
-  compType(arg0: CompType): SubType;
+  compType(arg0: CompType, metadata?: TypeMetadata): SubType;
+  describesType(arg0: SubType): (TypeIdx) | null;
+  descriptorType(arg0: SubType): (TypeIdx) | null;
   getComptype(arg0: SubType): CompType;
-  new(arg0: boolean, arg1: Array<TypeIdx>, arg2: CompType): SubType;
+  metadata(arg0: SubType): TypeMetadata;
+  "new"(arg0: boolean, arg1: Array<TypeIdx>, arg2: CompType, metadata?: TypeMetadata): SubType;
   superTypes(arg0: SubType): Array<TypeIdx>;
   show(value: SubType): string;
 };
 
 export const Table: {
-  new(arg0: TableType, arg1: Expr | null): Table;
+  "new"(arg0: TableType, arg1: (Expr) | null): Table;
   show(value: Table): string;
 };
 
 export const TableIdx: {
-  inner(arg0: TableIdx): number;
-  new(arg0: number): TableIdx;
+  "new"(arg0: number): TableIdx;
   show(value: TableIdx): string;
 };
 
 export const TableSec: {
-  inner(arg0: TableSec): Array<Table>;
-  new(arg0: Array<Table>): TableSec;
+  "new"(arg0: Array<Table>): TableSec;
   show(value: TableSec): string;
 };
 
 export const TableType: {
-  new(arg0: RefType, arg1: Limits): TableType;
+  "new"(arg0: RefType, arg1: Limits): TableType;
   show(value: TableType): string;
 };
 
 export const TabsOrSpaces: {
   spaces(): TabsOrSpaces;
   tabs(): TabsOrSpaces;
-  show(value: TabsOrSpaces): string;
 };
 
 export const TagIdx: {
-  inner(arg0: TagIdx): number;
-  new(arg0: number): TagIdx;
+  "new"(arg0: number): TagIdx;
   show(value: TagIdx): string;
 };
 
 export const TagSec: {
-  inner(arg0: TagSec): Array<TagType>;
-  new(arg0: Array<TagType>): TagSec;
+  "new"(arg0: Array<TagType>): TagSec;
   show(value: TagSec): string;
 };
 
 export const TagType: {
-  inner(arg0: TagType): TypeIdx;
-  new(arg0: TypeIdx): TagType;
+  "new"(arg0: TypeIdx): TagType;
   show(value: TagType): string;
 };
 
 export const TypeIdx: {
-  new(arg0: number): TypeIdx;
+  "new"(arg0: number): TypeIdx;
   rec(arg0: number): TypeIdx;
   show(value: TypeIdx): string;
 };
 
+export const TypeMetadata: {
+  isShared(arg0: TypeMetadata): boolean;
+  "new"(describes?: (TypeIdx) | null, descriptor?: (TypeIdx) | null, shared?: boolean): TypeMetadata;
+  withShared(arg0: TypeMetadata, arg1: boolean): TypeMetadata;
+};
+
 export const TypeSec: {
-  inner(arg0: TypeSec): Array<RecType>;
-  new(arg0: Array<RecType>): TypeSec;
+  "new"(arg0: Array<RecType>): TypeSec;
   show(value: TypeSec): string;
 };
 
 export const U32: {
-  inner(arg0: U32): number;
-  new(arg0: number): U32;
+  "new"(arg0: number): U32;
   show(value: U32): string;
 };
 
 export const U64: {
-  inner(arg0: U64): bigint;
-  new(arg0: bigint): U64;
+  "new"(arg0: bigint): U64;
   show(value: U64): string;
 };
 
@@ -1737,7 +1847,9 @@ export const ValType: {
   refNull(arg0: HeapType): ValType;
   refNullArrayOf(arg0: TypeIdx): ValType;
   refNullExn(): ValType;
+  refNullType(arg0: RefType): ValType;
   refType(arg0: RefType): ValType;
+  stringref(): ValType;
   v128(): ValType;
   show(value: ValType): string;
 };

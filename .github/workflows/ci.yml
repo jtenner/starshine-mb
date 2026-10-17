@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - codex/npm-wasmgc-beta
 
 concurrency:
   group: required-ci-${{ github.workflow }}-${{ github.ref }}
@@ -47,6 +48,7 @@ jobs:
 
       - name: Refresh interfaces and enforce formatting
         run: |
+          bun scripts/lib/generate-product-version.mjs --check
           moon info
           moon fmt
           bun ffi check
@@ -146,7 +148,9 @@ jobs:
 
   dae-differential:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Fresh native CLI + generator builds and both bounded comparisons exceeded
+    # the old whole-job deadline; comparison counts and failure policy remain.
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -257,3 +261,12 @@ jobs:
             --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
             --require-binaryen-version 132 \
             --out-dir .tmp/ci-semantic-optimizer
+
+      - name: Preserve differential comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: required-differential-evidence
+          path: |
+            .tmp/ci-dae-genvalid/
+            .tmp/ci-semantic-optimizer/

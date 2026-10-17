@@ -2445,7 +2445,7 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
     if command == "--resolve-random-pass-profile" {
       if args.length() != 4 || args[2] != "--seed" {
         abort(
-          "usage: --resolve-random-pass-profile <random-short|random-medium|random-long|random-mixed> --seed <uint64>",
+          "usage: --resolve-random-pass-profile <random-short|random-medium|random-long|random-mixed|random-interaction-short> --seed <uint64>",
         )
       }
       return FuzzCliCommand::ResolveRandomPassProfile(
@@ -3108,12 +3108,20 @@ fn run_single_suite(
       }
     "cmd-harness" =>
       match
-        run_fuzz_cmd_harness_profile(
+        run_fuzz_cmd_harness_profile_with_sequence(
           profile,
           seed,
           on_failure=cmd_harness_on_failure,
         ) {
-        Ok(attempts) => (attempts, None)
+        Ok((attempts, pass_profile, passes)) =>
+          (
+            attempts,
+            Some(
+              format_cmd_harness_pass_sequence_details_json(
+                pass_profile, passes,
+              ),
+            ),
+          )
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
@@ -6573,6 +6581,31 @@ fn format_validate_valid_feature_floors_json(
 ///|
 fn format_validate_valid_details_json(stats : ValidateValidFuzzStats) -> String {
   "{\"validated\":\{stats.validated},\"generator_config\":\"\{fuzz_json_escape(gen_valid_config_label(stats.generator_config))}\",\"feature_stats\":\{format_gen_valid_feature_stats_json(stats.feature_stats)},\"feature_floors\":\{format_validate_valid_feature_floors_json(stats.feature_floors)}}"
+}
+
+///|
+fn format_cmd_harness_pass_sequence_details_json(
+  pass_profile : String,
+  passes : Array[String],
+) -> String {
+  let pool = match pass_profile {
+    "random-interaction-short" => "interaction-short-v1"
+    "random-short" | "random-medium" | "random-long" | "random-mixed" =>
+      "cleanup-v1"
+    _ => "named-profile"
+  }
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"pass_profile\":\"\{fuzz_json_escape(pass_profile)}\",\"pass_pool\":\"\{pool}\",\"resolved_passes\":[",
+  )
+  for i in 0..<passes.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string("\"\{fuzz_json_escape(passes[i])}\"")
+  }
+  out.write_string("]}")
+  out.to_string()
 }
 
 ///|

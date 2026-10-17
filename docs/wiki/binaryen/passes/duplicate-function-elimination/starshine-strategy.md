@@ -131,17 +131,24 @@ What this local core does:
 
 The target-insensitive hash is deliberately an over-approximation: direct `call`, `return_call`, and `ref.func` targets use opcode-shape hashes, while exact equality after canonical remapping remains the safety proof. Structured bodies, locals, annotations, and non-remappable instruction payloads remain part of the partition key.
 
-The important current local boundary is direct behavior versus broader no-DWARF preset parity:
+The October 10 O4s investigation supersedes the broad preset host-boundary
+restriction. Direct and preset DFE now share conservative per-function identity
+protection: each exported or address-materialized function stays outside duplicate
+candidate groups. The address scan covers active/passive element entries,
+table/global initializers and `ref.func` throughout structured and EH bodies.
+Declarative-only entries do not instantiate runtime references. Direct calls and
+`start` remain rewriteable; import slots never merge in DFE.
 
-- direct `duplicate-function-elimination` converges transitive callee/caller duplicates over one fixed candidate partition
-- fast public `optimize` / `shrink` queues contain the early DFE slot; O4z also
-  queues Binaryen's late DFE slot
+This admits private duplicate helpers even beside imports, exports and callbacks.
+It does not require escape analysis: every materialized address is protected,
+even when it cannot actually escape. Protected bodies still contribute rewrite
+and cleanup facts but do not enter candidate normalization or collision buckets.
+The CLI O4z automatic candidate rosters now retain DFE under this same contract;
+the existing DIE import-resolution restriction remains separate.
 
-The scheduled slots remain in the queue. Short presets skip preset-origin DFE
-when the original or current module has any imports or exports. Full O4z
-(`optimize_level >= 4`, `shrink_level >= 4`) uses the direct pass's identity guard
-and can merge private equal helpers across that boundary. Closed modules still
-run the scheduled DFE slot. Direct
+The scheduled slots remain in the queue. Presets use the direct pass's
+per-function identity guard and can merge private equal helpers across a host
+boundary. Direct
 `--duplicate-function-elimination` now keeps each exported or
 address-materialized defined function outside duplicate groups, even when
 bodies match. The conservative address scan covers `ref.func` in function
@@ -169,6 +176,14 @@ locks private duplicate removal, smaller encoded bytes, all pairwise identities
 for eight exposed functions, and ordered imported-call effects in both presets.
 The [library regression](../../../../../src/passes/preset_private_dfe_regression_test.mbt)
 also locks exported, table, global and body-reference definitions.
+
+The [focused O4s tests](../../../../../src/passes/o4s_private_duplicates_test.mbt)
+cover helper compaction, remapped calls, import slots, exported and table/global
+identities, validation, size and input ownership. The
+[candidate test](../../../../../src/passes/dfe_protected_candidates_wbtest.mbt)
+locks bounded protected-bucket admission. See the
+[ongoing artifact investigation](../../../tooling/npm-optimizer-discrepancy.md)
+for original-input evidence and remaining release gates.
 
 White-box tests lock one-time hashing, candidate-only type normalization, complete body hashing, target-insensitive grouping, type/cleanup fact collection, and direct-target rewrite admission.
 
@@ -398,3 +413,48 @@ Final validation is unchanged. See the [size proof and error controls](../../../
 
 The renewed artifact matrix and dedicated correctness lanes are recorded in the
 [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).
+
+## October 10 GC compaction storage reuse
+
+The bounded singleton compactor uses a sparse changed-index map for operands.
+Explicit identity entries make the shared optional reference rewriter rebuild
+otherwise unchanged types and bodies. A separate dense name map, allocated only
+when name metadata exists, preserves unmoved name ownership and canonical-source
+selection. The compactor skips the generic whole type-section rewrite because
+it installs rewritten retained groups itself; other remapper callers retain
+the default full rewrite. Admission and immutable input ownership are unchanged.
+
+`dfe_gc_retention_wbtest.mbt` first fails on unnecessary body reconstruction,
+then protects physical sharing of unmoved typed bodies/subtypes, dense type names,
+validation, size reduction and original encoded bytes. Widths 1/8/32 remain
+bounded. Existing public alias/shifted-group/proposal fixtures cover moved indices.
+Resource qualification and limitations belong in the
+[npm discrepancy investigation](../../../tooling/npm-optimizer-discrepancy.md).
+
+
+### Bounded sharing of rewritten scalar type indices
+
+The CodeSec remapper now owns one optional cache keyed by the final absolute
+type-index target. Repeated changed operands across bodies and locals share the
+immutable `TypeIdx` scalar, while expression arrays and exact/nullable reference
+wrappers retain their existing ownership. Cache cardinality cannot exceed the
+number of distinct targets in the remap, and the table does not escape the
+rewrite. Mapping is direct; a cached target is never remapped a second time.
+
+Private helper callers default to no cache. Identity operands, recursive-group
+indices and abstract heap types keep their prior behavior. Legacy `Try` scan
+rewrites and inline `DefType` recursion remain uncached. The bounded regression
+in `dfe_gc_index_sharing_wbtest.mbt` checks sharing, per-module isolation, direct
+targets, reference flags, validation and immutable input bytes. This change
+preserves encoded output; its resource effect requires separate measurements.
+
+
+The same private remap-local cache can also share concrete `HeapType` wrappers
+containing an already rewritten absolute `TypeIdx`. A separate UInt-keyed map
+has at most one heap wrapper per distinct reached target; no second remapping,
+tuple-key allocation or flag packing is involved. Recursive-group indices,
+abstract/shared heap forms and inline `DefType` graphs remain uncached.
+`RefType` wrappers and `ref.null`/cast constructors retain their prior behavior
+and exact/nullable flags. The extended red-first fixture requires heap sharing
+across nested/body/local operands and checks direct targets and bounded tables.
+Independent measurement determines whether this reduces enclosing memory/time.

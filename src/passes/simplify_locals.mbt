@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2015 WebAssembly Community Group participants
+// Counterpart: src/passes/SimplifyLocals.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("simplify-locals", requires=[], invalidates=[
@@ -8970,16 +8982,18 @@ fn simplify_locals_group_numeric_locals_if_smaller(
 // Finalize module-wide type indices only after all HOT bodies are written back.
 // Body-local grouping stays selected; a type remap also updates unselected
 // typed instructions so their module references remain valid.
-fn simplify_locals_cleanup_module_encoding(
+fn simplify_locals_cleanup_changed_module_encoding(
   before : @lib.Module,
   mod_ : @lib.Module,
+  allow_grouping~ : Bool = true,
   touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
-  let grouped = simplify_locals_group_numeric_locals_if_smaller(
-    before,
-    mod_,
-    touched~,
-  )
+  let cleaned = pass_cleanup_control_and_type_encoding(mod_, touched~)
+  let grouped = if allow_grouping {
+    simplify_locals_group_numeric_locals_if_smaller(before, cleaned, touched~)
+  } else {
+    cleaned
+  }
   if physical_equal(before, grouped) ||
     !grouped.custom_secs.is_empty() ||
     pass_module_has_offset_sensitive_metadata(grouped) {

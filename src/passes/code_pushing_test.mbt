@@ -2522,8 +2522,10 @@ test "code-pushing preserves order moving multiple SFA sets after dropped br_if 
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
   let mut branch_idx = -1
-  let first_moved = @ir.hot_region_get(func, body_ref, 3)
-  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  let dropped_value = @ir.hot_region_get(func, body_ref, 3)
+  code_pushing_expect_op(func, dropped_value, "drop")
+  let first_moved = @ir.hot_region_get(func, body_ref, 4)
+  let second_moved = @ir.hot_region_get(func, body_ref, 5)
   for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, body_ref, idx)
     match @ir.hot_node_get(func, root_id).op {

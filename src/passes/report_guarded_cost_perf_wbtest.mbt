@@ -83,7 +83,7 @@ fn report_cleanup_bench(
   @validate.validate_module(before).unwrap()
   @validate.validate_module(after).unwrap()
   let input = if changed { after } else { before }
-  let result = simplify_locals_cleanup_module_encoding(before, input)
+  let result = simplify_locals_cleanup_changed_module_encoding(before, input)
   @validate.validate_module(result).unwrap()
   if changed {
     assert_true(
@@ -94,7 +94,7 @@ fn report_cleanup_bench(
     assert_true(physical_equal(result, before))
   }
   it.bench(fn() {
-    it.keep(simplify_locals_cleanup_module_encoding(before, input))
+    it.keep(simplify_locals_cleanup_changed_module_encoding(before, input))
   })
 }
 

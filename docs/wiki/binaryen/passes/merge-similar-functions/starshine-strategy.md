@@ -1,10 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-13
 sources:
   - ./index.md
   - ../../../../../src/passes/merge_similar_functions.mbt
+  - ../../../../../src/passes/gc_record_copy_outlining.mbt
+  - ../../../../../src/passes/gc_record_copy_outlining_wbtest.mbt
+  - ../../../../../src/validate/typecheck_iterative_control.mbt
+  - ../../../../../src/validate/typecheck_iterative_control_wbtest.mbt
   - ../../../../../src/passes/merge_similar_functions_test.mbt
   - ../../../../../src/passes/merge_similar_functions_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -20,7 +24,136 @@ related:
 
 # Starshine strategy for `merge-similar-functions`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Historical comparison baseline — September 10, 2026:** comparisons then used [Binaryen 132](../../release-horizon-and-oracles.md). The October 10 qualification below uses verified Binaryen 133. Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
+
+## October 13, 2026 encoded-size guard and positive fixtures
+
+The October 11 final encoded-size guard remains strict: the ordinary MSF candidate must not grow the complete encoded module. The weighted instruction-count estimate only admits a candidate for construction; it does not override measured helper/type/index costs. A fourteen-`nop` pair is 61 bytes before outlining and 62 after, even in verified Binaryen 133. The [ordinary-overhead regression](../../../../../src/passes/merge_similar_functions_wbtest.mbt) now proves that estimate passes but the actual candidate is rejected. Existing function/type index-boundary rejection tests remain unchanged.
+
+Five older positive tests used this unprofitable padding, so their expected helper was blocked by the correct guard. Their fixtures now contain four shared global updates instead of padding. Helper/thunk, nested literal, ordinary-call metadata and offset-sensitive metadata assertions remain. The main [positive test](../../../../../src/passes/merge_similar_functions_test.mbt) additionally requires smaller bytes and the exact ordered update instructions, with no `nop`. An exported execution variant shrinks 116 to 103 bytes, is byte-identical to v133, and returns 42/43/42 while the global advances 0/4/8/12. This repairs test setup; no shipping MSF behavior or profitability rule changes.
+
+The full wasm-gc suite passes 14,149/14,149 after these fixture repairs. Interfaces, formatting and README API sync pass. [Qualification evidence](../../../raw/tooling/2026-10-13-six-failure-fixtures.json) retains the size and execution observations.
+
+## October 10, 2026 immutable record-copy cleanup
+
+The direct MSF owner first tries the bounded record-copy slice in
+[`gc_record_copy_outlining.mbt`](../../../../../src/passes/gc_record_copy_outlining.mbt),
+before the ordinary similarity matcher excludes unsupported GC bodies. It
+recognizes at least eight copies of one ordinary, final, unshared immutable
+record with 8–512 i32 fields. Each copy reads fields in declaration order from
+one local, replaces exactly one field with an i32 literal, and constructs one
+fresh record. Arbitrary replacement expressions, mutable or packed fields,
+subtyping, descriptors, shared records, exact function/local references and
+opaque exception regions remain outside this slice.
+
+A private appended helper receives the source, selected field and replacement.
+It reads each immutable field and uses scalar `select` to produce the chosen
+field value, then performs one fresh `struct.new`. Every admitted original copy
+already reads at least seven source fields. The helper's additional read of the
+replaced field therefore preserves nullable traps after the same preceding
+host effects. It preserves old aliases, allocation count and fresh identity.
+Original type and function indices, imports, exports, global/table references
+and `ref.func` targets retain their original identity; only private helpers and
+their signatures are appended.
+
+Admission bounds imports, flattened types and function totals to 65,536,
+helpers to 32, sites to 4,096 and recursive rewrite depth to 128. An iterative whole-module preflight permits bounded validation depth up to 1,024; deeper functions remain physically shared and are never matched or rewritten. Inputs exceeding the validation ceiling fail closed. One eight-million-unit
+budget covers type groups and subtype/supertype vectors, function parameters
+and results, struct/array/continuation fields, function bodies, declarations,
+local initialization and initializer expressions, including functions excluded
+from rewriting and active segment offsets. Raw element function-index vectors
+also participate. Vector lengths are charged before traversal or cache setup.
+This is a structural admission budget; custom sections and data payload bytes
+retain their existing handling and are not bounded by this count.
+Compressed local runs are bounded before snapshot conversion and unsigned
+parameter/local totals before dense allocation. Unsupported or excessive
+resources return the original module.
+
+Both the outline transaction and its combination with ordinary MSF require a
+strict reduction in complete encoded module bytes and successful full-module
+validation. Failure rolls back the new transaction. This does not change the
+existing ordinary MSF candidate's separate validation/profitability contract.
+The fast preset adds MSF only at exact numeric
+optimize level 4 and shrink level 1, after `reorder-locals` and before
+`strip-debug`. Neighboring fast levels and the O4z scheduler retain their
+previous queues. Direct requests and other existing MSF routes can also use
+this owner; unchanged queues do not imply unchanged MSF behavior.
+
+This is a bounded cleanup slice, not a complete GC or MSF audit. Production
+qualification below is tied to actual frozen source and executables; manually
+outlined projections establish the causal shape only. Wider pass audit gaps
+remain open.
+
+### Compiled same-original qualification (October 10, 2026)
+
+The clean selective-preset source at `d5097be3e` compiled to native CLI SHA
+`420c4de9177cae6b6f56f56d4518f7bfb530e2eb3f710e53a309ab834e1b462e`.
+Three alternating fresh-process repetitions on each immutable original input
+produced identical output hashes and passed independent wasm-tools validation:
+
+| Input | Previous five-pass bytes | Selective six-pass bytes | Saving |
+| --- | ---: | ---: | ---: |
+| Original GC, 7,452,107 bytes | 6,539,241 | 5,361,362 | 1,177,879 |
+| Original WASI, 6,748,730 bytes | 5,993,028 | 5,775,198 | 217,830 |
+
+The GC output SHA is
+`25731db65a7f1aefd6460c10b3e0dcbad06b3429be862e2208ea4209484d0fa5`;
+WASI is `328f45208d8ce374e5904f381664b1889effb0ca5ada8474e2e8ea10cea31f59`.
+The same-original Binaryen 133 O4/s1 GC result is 5,545,109 bytes, 183,747
+larger. The earlier ordinary-MSF checkpoint was 6,463,197 bytes; the final
+combined result saves another 1,101,835 bytes beyond that checkpoint. This
+comparison does not isolate every interaction as a purely additive owner gain.
+The earlier 1,073,894-byte hand-outlined projection remains causal shape evidence.
+Its WAT roundtrip difference comprised 71 custom-section bytes and three bytes
+from an omitted empty table; it was not entirely custom metadata.
+
+These samples overlapped authorized package/compiler work. Rough native
+medians were GC 13.131 to 11.390 seconds, 304,004 to 302,008 KiB peak RSS;
+WASI 15.509 to 12.787 seconds, 278,776 to 278,600 KiB. Individual samples varied;
+these are developer-process diagnostics, not universal speed or output-runtime
+memory claims. Existing P1 compiler-memory tracking remains open.
+
+Actual compiled direct and selective-preset reduced fixtures passed default
+Node 25 and 26 expected-value observers: all record fields, unchanged old
+aliases, fresh identity, selected-null traps, fallback identity, ordered host
+calls/state, throwing callbacks, callback reentry, and public function/table/
+global identity. A separate unchanged 567-depth function executed alongside
+the new copies. The 403-field, 64-arm callback-free batch used seven warm
+20,000-iteration samples: medians were Node 25 11.806 ms original to
+3.855 ms direct / 3.563 ms preset, and Node 26 13.005 to 4.048 / 3.900 ms.
+The tiny 12-field batch slowed: Node 25 0.286 to 0.314 / 0.454 ms and Node 26
+0.180 to 0.230 / 0.298 ms. These microbenchmarks do not establish whole-API
+throughput. The separate 403-arm fixture exceeds rewrite depth 128 and stays
+outside the new owner; its runtime is compatibility evidence only.
+
+The original-input optimized WASI artifact also executed CLI help and numeric
+4/1 through the repository MoonBit host adapter. Help stdout matched the
+original; expected numeric values, division trap, ordered callbacks, throwing
+callback and state matched under default Node 25/26. The artifact retains
+its original compiled program; new-source API behavior is separately qualified
+by package consumers.
+
+Local supporting evidence is retained under task9 `gc-cleanup-evidence`:
+`original-six-cohort.json`, `selective-six-source-fingerprint.json`,
+`fresh-reduced-source-qualification.json`, `final-reduced-runtime-exits.json`,
+the corresponding default-Node observer JSON files, and
+`wasi-help-final-comparison.json` / `wasi-final-effects-node25.json` / `node26`.
+Generated comparisons are recorded in [the fuzzing page](./fuzzing.md).
+Source/full-package gates remain separately recorded, with original-input and
+new-source artifact results kept distinct.
+
+The shipping WasmGC release outlining controls passed 16/16, including full
+candidate validation at depth 1,024, rejection at 1,025, unchanged 567-depth
+body identity, invalid deep rollback, compressed-local and structural budget
+boundaries. Independent native debug and release validator controls passed
+11/11 each. The seed-derived custom observer executed every selected arm for
+52 distinct native-generator input modules, with all original, direct MSF,
+selective preset and Binaryen variants on default Node 25/26: 208 variants,
+153,704 export calls, 624 traps and 140,216 field checks per runtime. A separate
+linear WAT input census found exactly 531 copy sites, 8–12 in every input,
+plus one make constructor per input; field-load totals matched the generator
+contract. The generic runtime host is a stub, so these independent callbacks
+and reentry checks supplement its recorded import trace.
 
 ## September 25, 2026 call-type shape-collision measurement
 
@@ -102,3 +235,45 @@ The dedicated aggregate is `merge-similar-functions-all`. It includes:
 - tail-call targets
 
 See [`./fuzzing.md`](./fuzzing.md) for commands and results.
+
+### Source qualification gates
+
+At frozen executable source `d5097be3e`, plain `moon test` passed 14,107/14,107
+and explicit WasmGC defaults passed 14,104/14,104. Shipping release outlining
+controls passed 16/16, including dedicated skipped resource/depth boundaries.
+The integrated owner also passed full WasmGC validation (14,104 tests and all
+14 CI fuzz suites). Its executable logic matches this checkpoint; subsequent
+source changes were provenance comments. Package build/consumer and compressed
+archive results belong to the separately retained package evidence.
+
+At this documentation checkpoint, `CI=true bun validate coverage --top 15
+--baseline .github/coverage-baseline.txt` was still collecting instrumented
+test results against the unchanged baseline of 28,138 uncovered lines in
+196 files. No coverage pass or delta is inferred here; its eventual normal
+exit and report are retained in `record-copy-final-coverage.log` under the
+local evidence directory.
+
+### Deep control validation dependency
+
+The fixed GC artifact contains unrelated Block/Loop/If bodies up to 567 control
+levels. Full candidate validation previously overflowed the shipping WasmGC
+expression checker on an equivalent valid body; release mode reproduced this
+failure. Expression validation now suspends these three control kinds in private
+boxed continuation frames and invokes the existing entry and finish rules.
+Exception controls retain their existing dispatch. Each expression retains its
+own initialization owner, and if validation checks both instruction sequences
+before either arm's end-stack normalization, preserving error precedence.
+
+Ordinary diagnostics retain their existing text. On errors, a control subtree
+exceeding 32 levels or 256 instructions uses an explicit bounded control
+rendering marker while retaining the instruction index, block type, underlying
+reason and stack. This avoids recursively formatting a deep invalid body. This
+change validates the body fully; it only bounds diagnostic rendering.
+
+A short ordinary validation process sample retained both improvements and
+regressions. Flat 10,000-instruction fixture medians were 6.005 to 5.085 ms
+with peak RSS 13,854 to 13,924 KiB; a shallow 12-arm fixture was 2.493 to
+2.764 ms and 13,620 to 13,880 KiB. These include process startup, codec and
+I/O, and are rough concurrent diagnostics rather than isolated frame-allocation
+or universal consumer performance measurements. The continuation repair
+therefore does not carry a blanket zero-overhead claim.

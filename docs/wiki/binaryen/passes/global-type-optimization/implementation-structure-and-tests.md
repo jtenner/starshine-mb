@@ -301,7 +301,7 @@ That is a narrow freshness note, not a proof that every helper file is identical
 
 A future Starshine port would need to mirror at least these file-level responsibilities:
 
-- a boundary-only module pass entry point, not a HOT pass
+- an active module pass entry point, not a HOT pass
 - the upstream/local naming split (`gto` vs `global-type-optimization`)
 - shared-scanner-equivalent exact/inexact field tracking
 - hierarchy propagation for both “reads anywhere” and “only strict subtypes care” queries

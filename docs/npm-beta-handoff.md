@@ -1,0 +1,609 @@
+# npm WasmGC beta preparation handoff
+
+This prepares `@jtenner/starshine@0.1.2-beta.0`. Source publication to
+`origin/master` was explicitly authorized on October 10 after local qualification.
+No npm package was published, no tag/release created, and no account credentials
+were changed. The later scoped licensing audit offers Josh-owned originals under MIT, preserves third-party terms, and records unknown pass provenance under owner-authorized conservative Binaryen notice retention; see [the provenance matrix](wiki/tooling/license-provenance.md).
+
+## Checkout and authority
+
+The sections describing initial O1/O4s packaging below are historical. The
+latest fully qualified published packaging/licensing checkpoint is
+`1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3`, with all six exact-head workflows
+successful and a 52-file archive SHA-256
+`78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
+It passed isolated JavaScript and strict TypeScript 5.8.3 consumers on Node
+25.8.1/26.11.1; CI's exact archive is byte-identical. Five canonical legal
+assets are bundled. The author confirmed, “Source was used; retain upstream
+terms.” MIT is scoped to Josh-owned rights; upstream terms and notices remain,
+and npm metadata is `SEE LICENSE IN LICENSE`. This settles the conservative
+distribution treatment while exact file provenance remains limited.
+
+The current local branch is `codex/npm-license-provenance`. Reviewed record-copy
+source/profile, separate iterative-control validation and bounded admission,
+and the exact numeric 4/1 sixth-pass scheduler are integrated locally. Combined
+native optimization of the immutable original GC produces 5,361,362 bytes
+(SHA-256 `25731db65a7f1aefd6460c10b3e0dcbad06b3429be862e2208ea4209484d0fa5`),
+183,747 bytes below the recorded Binaryen 133 O4/s1 result. WASI produces
+5,775,198 bytes. Both independently validate; twelve alternating commands
+produce stable outputs. Earlier ordinary-MSF-only 6,463,197-byte output is a
+separate historical local checkpoint, not a record-copy result.
+
+The fresh six-pass npm self-build passes validation and API/CLI parity:
+GC 7,494,321→5,398,191 bytes, WASI 6,795,450→5,812,099 bytes. The real WasmGC
+API copy fixture transforms 1,415→844/direct or 825/preset while preserving
+fields, fresh/old identities, public f/g identities, null traps and host effects.
+The exact 52-file archive SHA-256
+`075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`
+passes external JavaScript and strict NodeNext TypeScript 5.8.3 and 5.9.3 consumers
+on Node 25.8.1/26.11.1, all nine exports/CLI/errors/roundtrips and runtime source/
+MoonBit filesystem denial. Source API 45/45 passes on both. Its packed size is
+4,297,012 bytes, 7,294 bytes larger than 1cb despite a 1,361,818-byte unpacked
+reduction. All JS/types/examples/manifest/legal bytes are identical; only README
+and two Wasms change. The integrated full WasmGC gate passes 14,104/14,104 tests and all fourteen
+CI fuzz suites (100,784 attempts, seed 117419138004019635). Plain default Wasm
+passes 14,107/14,107. The ordinary MSF 10k has 10,000 normalized and semantic
+matches, exit 0, with equal total canonical size 1,747,794 bytes; its raw output
+remains 28,329 bytes larger. Coverage passes normally: 28,075 uncovered lines / 227 files
+against unchanged 28,138 / 196 (−63 lines / +31 files). Exact-head CI continues.
+No projected gain signs the package; rough concurrent performance measurements
+and small-fixture slowdowns remain diagnostic. Broad MSF audit, memory P1 and
+sixteen historical differential discrepancies remain open.
+
+The source publication route runs Required CI on a push to the existing
+`codex/npm-wasmgc-beta` preparation branch. This provides eligible checks for
+`format-and-tests`, `release-artifacts` and `dae-differential` before a normal
+master fast-forward. The workflow retains its existing jobs, permissions and
+master/pull-request triggers; a contract regression requires the preparation
+push trigger. Four other workflows can qualify the same head by manual dispatch.
+Fuzz is excluded from manual dispatch because that event enables the unrequested
+external generator; normal master push runs its ordinary jobs. Manual success
+alone does not satisfy protected requirements, as [GitHub documents](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
+No protection setting, force push, new PR or administrative bypass is required
+by this route. Earlier bypass exceptions remain historical and scoped.
+
+- Initial preparation branch: `codex/npm-wasmgc-beta`; current local branch:
+  `codex/npm-license-provenance`.
+- Isolated checkout: `/home/jtenner/Documents/Codex/2026-10-09/task-9/starshine-mb`.
+- Baseline: verified local and remote `master`,
+  `f91f5ec300ec72027342a5942b4a86c96bd53c5e`, rather than stale `main`.
+- Other worktrees and active tasks were inspected and preserved. Unrelated
+  DAE2/O work was not resumed. Preparation commits are listed by
+  `git log f91f5ec300ec72027342a5942b4a86c96bd53c5e..HEAD`.
+- Before the authorized source push, a fresh fetch still found `origin/master`
+  at that baseline; no newer source or integration conflict was present.
+
+## Generated API
+
+The FFI generator writes a schema from the same parsed and qualified signatures
+that generate its actual exports. Current schema: 4,370 concrete signatures.
+The npm generator uses it for parameters, returns, effects, optional arguments
+and concrete forwarding calls. `.mbti` metadata supplies named types, constants
+and traits. There is no separate hand-maintained function signature list.
+
+`ffi/src/npm/generated.mbt` is the actual compiled WasmGC adapter. The required
+ABI manifest currently has 2,848 names. The direct ABI unsupported manifest has
+23 callback/raising/generic entries, explicitly reviewed in
+[`unsupported-abi-policy.json`](../ffi/src/npm/unsupported-abi-policy.json).
+Generation fails before writing files when a newly unsupported symbol appears,
+an exception's reason changes, or a policy entry becomes stale. Unknown and
+ambiguous type mappings also fail. This policy contains identities/reasons;
+FFI signatures remain the sole type authority. Selected command callbacks are implemented
+by the retained JavaScript facade. Unknown or ambiguous supported
+mappings stop generation. Public JS and TypeScript files are deterministic;
+`npm run check-generated --prefix node` checks FFI/npm outputs, and CI also checks
+tracked diffs. `moon info` can refresh source interfaces while checking.
+
+Compatibility metadata preserves existing `Module.new` and `CliParseResult.new`
+argument positions, appending new optional fields. Callback facade declarations
+are generated with explicit FFI parameter projections and JavaScript record
+representations. Aliases remain. Independent omitted optional arguments, unsigned
+integer returns, primitive GC enum values and instance-owned opaque handles are
+covered. Handles are GC-managed without explicit disposal. The README documents
+async ESM initialization, mapping/errors and the retained callback facade limits.
+
+## Current bootstrap and self-optimization
+
+This describes the current six-pass build. The following historical local
+evidence section retains the initial 47-file package and its older preset.
+
+The build regenerates FFI/bindings, compiles the WasmGC adapter, compiles a fresh
+native release CLI directly from source, and compiles the WASI release CLI. The
+native binary does not depend on the final npm package. Compiler debug name
+sections are removed because their subsection ordering is noncanonical.
+
+The name-stripped unoptimized artifacts are preserved under ignored `dist/npm/`.
+The fresh bootstrap applies the requested **O4s** preset using
+`--optimize --optimize-level 4 --shrink-level 1` to both artifacts. Literal
+`-O4s` is rejected by the current CLI parser; the existing ambient-stack return
+regression names numeric levels 4/1 O4s. The build queries the fresh bootstrap
+and requires those levels and the expanded queue: duplicate-function elimination,
+constraint analysis, vacuum, reorder locals, merge similar functions and strip
+debug. MSF is added only at exact numeric 4/1; neighboring fast presets retain
+the five-pass queue. The full O4z scheduler requires levels 4/4.
+A duplicate-function fixture must transform and preserve execution result 84
+before/after; the integrated checkpoint changes it from 70 to 48 bytes
+(the earlier checkpoint produced 54 bytes). Both actual package
+artifacts shrink in this qualification. Size or runtime gains are not promised.
+Each optimizer command has a default 180-second budget; consumer commands have
+a 240-second budget. Cold compiler commands have separate 900-second deadlines,
+and the packed-consumer harness gives its whole npm pack/prepack command a
+1,800-second deadline. Direct builds retain per-command limits. CI has an overall
+45-minute job cap. Positive bounded overrides, process-tree termination and complete diagnostic logs are
+documented in the package README. A timeout fails the build.
+
+Input/output bytes pass independent wasm-tools validation. Required exports must
+survive. Separate standalone package copies compare semantic executions, errors,
+roundtrips, O4s-optimized bytes and executed values, export names, a one-case fuzz result and CLI help before optimized
+bytes are promoted. A failure stops packaging without an unoptimized fallback.
+Stale promoted artifacts are removed at the beginning of every build.
+
+## Historical initial local evidence
+
+Initial O4s tarball at `9057a5d8`, now preserved under
+`dist/npm/qualified-o4s-9057a5d8/`: 4,821,600 bytes, 47 files.
+SHA-256: `0d4cc321fef5554fce32cf95ee30a1d7be30a84380df048e75f07302775d9ab2`.
+The reproducible commands and toolchain are in [the package README](../node/README.md)
+and `ffi/src/npm/toolchain.json`. Exact local reports and tarballs live in ignored
+`dist/npm/`; they are handoff evidence, not repository source or package contents.
+
+- FFI/schema generator tests: 10 passed, 44 assertions.
+- Static package contract: passed.
+- Documented dependency setup: `moon update` passed after allowing registry-cache writes; initial sandboxed registry update was read-only and cached dependencies were used for the first build.
+- README/API synchronization: passed.
+- Prior package implementation at `279aaf642`: MoonBit bounded WasmGC suite 14,001 passed, zero failed; full repository gate including all 14 CI-profile fuzz suites passed with seed `0x1a1241680765d7f`. This preset-only revision changes no MoonBit implementation; those historical gates are retained rather than claimed as fresh O4s runs. No passing test was disabled.
+- Final exact packed JS/TS consumers: passed on Node 25.8.1 and 26.11.1, TypeScript 5.8.3, all nine public export entries. Both runtime reports identify the same tarball hash.
+- O4s qualification: the packed gate first rejected the preserved O1 report, then passed with levels 4/1 and the exact queue. Three API fixtures preserve results 42 / 7 / 9; the packed CLI also executes the ambient-stack return regression with O4s and result 42.
+- Focused existing MoonBit O4s ambient-stack return regression: one passed on WasmGC.
+- Node suite: 44 passed, zero failed or skipped.
+- Generated FFI/npm drift: passed. CI workflow passes actionlint; remote CI was
+  unrun at the initial local qualification checkpoint.
+- Coverage: `bun validate coverage --top 5 --baseline .github/coverage-baseline.txt` exceeded a ten-minute execution budget. After stopping its instrumented Wasm test and parent Moon process, it emitted a partial report: 59,436 uncovered lines / 243 files versus the unchanged baseline 28,138 / 196 (delta +31,298 / +47). The report command exited zero, but the collection was interrupted; no completed coverage or regression pass is claimed. These partial counts do not attribute a regression to this package change or repair previously reported coverage failures.
+
+O4s build measurement: 29,637 ms locally, including bootstrap, generation,
+validation and parity. The complete build/pack/Node 26 consumer run took 34,276 ms,
+with 926,512 KiB peak RSS across reaped descendants (not an additive concurrent
+process total). `o4s-build-measurement.json` records this scope.
+
+| Artifact | Unoptimized bytes | O4s bytes | Delta | Optimized SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| WasmGC | 7,452,107 | 7,287,538 | -164,569 | `6ace60a63b33dda84c15067ca2ab60b702a6e74e3edb7bfca7d158761984bbea` |
+| WASI | 6,748,730 | 6,347,850 | -400,880 | `40e8be933bb3105aa74a1d54f9f4f350e4695d74ac64a9eceff05aa15bd52570` |
+
+Raw hashes remain `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`
+(WasmGC) and `b7dd0896d7b41989e1aa29bd297d3fd63097b7e3b7f76883e9897f25010add52`
+(WASI). Build optimizer-plus-validation times were 9,454 / 9,726 ms. A separate
+single serial native optimization sample measured 9,139 ms / 262,956 KiB peak RSS
+for WasmGC and 9,373 ms / 223,436 KiB for WASI, excluding independent validation.
+Both samples reproduced the promoted hashes and independently validated. The
+sample command/measurement helper is retained with `validation-o4s/` evidence.
+These are short local samples, not throughput or runtime-performance claims.
+
+This O4s checkpoint supersedes the O1 package qualification at `279aaf642`.
+All 20 previous evidence files, raw/optimized artifacts and the 4,898,006-byte
+O1 tarball are preserved in `dist/npm/qualified-o1-279aaf642/`, with a verified
+`snapshot.json` checksum manifest. O1 tar SHA-256:
+`2105e691b479f7ae081deb4bb094f969815617a9d46764c122eac186345b25ad`.
+O1 had zero artifact size change, an 11,560 ms build and 708 / 476 ms
+optimizer-plus-validation times. O4s is slower in these local build samples;
+the smaller package is not presented as a speed win.
+
+The tarball includes public JS/declarations, shared runtime/declarations, the
+required private command JS, README/examples, executable and both optimized Wasm
+files. Unused private backend declarations were removed with an explicit file
+allowlist. No source, tests, schema, debug maps, raw baselines or reports are
+packed. There are no runtime package dependencies. The original candidate omitted bundled license text; the later [licensing correction](wiki/tooling/license-provenance.md) adds five required scope/license/notice assets.
+
+The consumer harness uses empty projects under `/tmp`, installs the exact packed
+archive offline with no lifecycle scripts or runtime dependencies, and removes
+MoonBit from runtime PATH. Node runtime filesystem permissions allow only the
+consumer directory, with explicit denied-read checks for repository and compiler
+files; the CLI preopens only the consumer directory. It imports root plus every promised subpath, checks
+strict NodeNext declarations without `skipLibCheck`, and exercises arithmetic,
+locals and GC struct semantics, actual precompute/vacuum optimization, errors,
+optional holes, nominal handles, command callbacks, positive bounded fuzz and
+CLI WAT-to-Wasm output and O4s ambient-stack return semantics. The packed file
+list is included in `consumer-report.json` and the Node 25 / 26 copies.
+
+Internal Sol 6.1 High read-only review found and verified repairs for enum
+representations, handle type/instance ownership, constructor compatibility,
+optional argument holes, `osize` config and the previously broken positive fuzz
+entry point. No external CLI reviewer received code. Final review found no
+remaining concrete package-code blocker. A subsequent O4s review independently
+checked preset expansion, artifact/tar hashes and direct observation results,
+with no new concrete defect. The later conservative licensing correction is
+recorded above and in the provenance dossier.
+
+## Remaining release decisions
+
+- The initial MIT/Apache conflict was resolved by retaining the module's
+  Apache declaration, scoping the root MIT grant to Josh-owned rights and
+  bundling upstream terms and notices. Unknown per-file derivation remains a
+  limit before any future MIT-only relabeling.
+- Approve candidate version `0.1.2-beta.0`, the prepared public/beta metadata defaults and a publishing/
+  provenance route. Current CI only validates; it never publishes.
+- Tested Moon snapshot archive requests returned HTTP 403, while `latest` is
+  available. Provision the documented snapshot or qualify a newer compiler with
+  drift and consumer gates. Bun, wasm-tools and TypeScript are pinned/documented;
+  CI installs the available Moon compiler and checks generated drift. The
+  successful October 10 cold build received the same documented Moon/moonc
+  snapshot through `latest`; no newer compiler was required for that result.
+- Initial package qualification was local. On pre-push `origin/master` at
+  `f91f5ec3`, [Required CI](https://github.com/jtenner/starshine-mb/actions/runs/38014936990),
+  [Fuzz Suites](https://github.com/jtenner/starshine-mb/actions/runs/38014937050)
+  and [Node API Surface Tests](https://github.com/jtenner/starshine-mb/actions/runs/38014936998)
+  passed, while [Coverage Report](https://github.com/jtenner/starshine-mb/actions/runs/38014936994)
+  and [Examples CLI Native](https://github.com/jtenner/starshine-mb/actions/runs/38014937021)
+  failed. Exact pushed-head CI must be
+  reported separately; these prior results do not sign the new source head.
+  Repository coverage and broader release/performance gates are independent of
+  package consumer success.
+  Native-debug MoonBit issue #1322 remains open; the exact-head examples
+  job exercised the reported unsupported lowering path and did not clear it.
+- The JavaScript callback facade does not invoke `CmdIO.printTextModule`; the
+  live bundled CLI is the complete command route. Generic/raising/callback
+  unsupported placeholders remain documented API limits.
+
+npm publication remains pending user approval. Source publication authorization
+does not authorize an npm publish, tag/release, deployment or credential change.
+
+## Published-head CI and cold-build follow-up
+
+Source head `9057a5d8a5a5b85859c702c76d0cbe3e9f18ab55` was verified on
+`origin/master`. The normal non-force push used existing account permissions;
+GitHub unexpectedly reported bypassed violations for three missing required
+checks. No branch protection or account setting was changed. This was a failed
+protection preflight, not approval to bypass checks on subsequent updates.
+
+Its [packed-package job](https://github.com/jtenner/starshine-mb/actions/runs/38028151417/job/114143304259)
+failed with `spawnSync moon ETIMEDOUT` during the fresh native release bootstrap
+build at the old 180-second deadline. It produced no tarball. The previous
+successful baseline [release job](https://github.com/jtenner/starshine-mb/actions/runs/38014936990/job/114103005410)
+spent 328,583 ms on native release compilation (01:55:25.246 to 02:00:53.829 UTC).
+This supports a separate bounded cold-compiler budget rather than extending the
+optimizer deadline or reusing a stale bootstrap. The follow-up retains full
+compiler and pack logs, writes an error report even for bootstrap failures, and
+tests completion, independent optimizer timeout, diagnostics, invalid budgets
+and termination of descendants that ignore SIGTERM. Internal review reproduced
+an orphan with the first synchronous timeout helper; the final asynchronous
+runner terminates descendant groups on timeout, including reparented inherited-output holders, and awaits a bounded termination grace before permitting a retry.
+The exact follow-up head `564c11e559d6785b19406a5d976b375a485d9c72`
+passed the [cold package CI run](https://github.com/jtenner/starshine-mb/actions/runs/38029914397).
+Its build took 360,624 ms; GC/WASI optimization plus validation took 9,949 /
+11,017 ms. Node 25.9.0 and TypeScript 5.8.3 consumers exercised all nine exports
+under consumer-only filesystem permissions. The CI tarball has exactly the same
+4,822,175-byte SHA-256 as the local cold-budget package below, and the raw and
+optimized Wasm hashes match. Downloaded reports, compiler logs and the archive
+are preserved under `dist/npm/source-publication/cold-budget-ci-evidence/`.
+This qualifies the package route on that head; other required/release gates
+remain separately tracked. All three protected required checks and Fuzz Suites
+also passed on `564c11e`; Coverage Report failed at the unchanged 28,279 / 227
+count, and Examples CLI Native retained the compiler ICE. Later local policy
+and bridge-test hardening require their own checks. No source update to master
+followed this result.
+
+The [native examples job](https://github.com/jtenner/starshine-mb/actions/runs/38028151316/job/114143303815)
+failed with the same `Machine_of_clam_lower.lower_array_make` unsupported
+uninitialized non-null GC ref array error and memory64 example command as the
+baseline job. The follow-up examples job failed identically. The upstream
+[issue #1322](https://github.com/moonbitlang/moonbit-docs/issues/1322), still open
+on October 10, documents the same compiler version, native-debug `#valtype`
+record/enum array allocation path and lowering diagnostic. This is evidence of
+the reported compiler limitation, distinct from the fixed release-bootstrap
+timeout; it does not clear the native-debug gate.
+
+The completed published-head coverage run reported 28,279 uncovered lines in
+227 files against the retained 28,138 / 196 baseline. The completed pre-push
+`f91f5ec3` run already reported 28,277 / 226, so npm preparation adds two
+uncovered lines and one file to an existing +139-line / +30-file regression.
+The old interrupted local coverage report was partial and is not substituted
+for either completed result. Six new bridge behavior tests cover explicit optimization, both optional
+preset levels, diagnostics reset, encoding failure recovery and GC/import/memory
+constructors with direct IR/byte assertions. Fourteen bridge tests pass on
+WasmGC. Complete local coverage improves to 28,251 uncovered lines in 226 files
+(+113 / +30 against the retained baseline), eliminating the npm bridge
+regression and covering another 26 existing lines. The baseline gate still
+fails; no baseline is reset. This local result awaits exact-head CI.
+
+The cold-build follow-up's historical local tarball is
+`dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,822,175 bytes, 47 files,
+SHA-256 `2c20fd47b4fd4b9bbe0ab179329bbbb0b3aa919f630d411cb2522e47ec64deb0`.
+Its 575-byte archive increase comes from the updated build documentation;
+both raw and optimized Wasm hashes remain exactly those above. The rebuilt
+package passed before/after observations and both JS/strict TypeScript consumers
+on Node 25.8.1 and 26.11.1 with TypeScript 5.8.3. Build time was 26,165 ms on the
+warm local checkout; this is not a cold CI or optimization speed measurement.
+The 44 Node tests, generated drift, README sync and actionlint pass. Timeout
+regressions include both a live-parent detached child and a departed parent
+whose detached child holds the inherited output pipe. Linux cleanup recovers
+those pipe holders and deadline settlement does not depend on `close`.
+
+The selected O4s checkpoint and raw inputs are additionally preserved in
+`dist/npm/qualified-o4s-9057a5d8/` with `snapshot.json` hashes. CI logs and JSON
+are retained under `dist/npm/source-publication/`. No gate or coverage baseline
+was disabled or reset. Licensing was undecided at this historical checkpoint; the conservative
+treatment recorded above is now settled.
+
+## Discrepancy investigation handoff
+
+The [same-input comparison](wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison)
+records the observed Starshine/Binaryen artifact size and local time/RSS gap,
+exact input/output hashes, feature limits and reproduction commands. The selected
+build remains Starshine O4s; comparison candidate tarballs are separate evidence.
+All original unoptimized inputs and the qualified tarball remain under ignored
+`dist/npm/`, including preserved O1 and Binaryen comparison reports. The user
+requested a new Sol 6.1 High task to investigate the discrepancy after source
+publication. Its reviewed ten-commit checkpoint through `62ba4012f` is now
+integrated into this preparation branch; later GC follow-up remains isolated.
+
+## Combined optimizer checkpoint
+
+The ten optimizer commits were cherry-picked with original commit attribution
+onto the version-consistent package branch. Combined implementation head is
+`d0fbed55a8bfedc3877740b61961e1e8c8816b08`; pass sources and regressions match
+the owner's reviewed `62ba4012f` checkpoint. Backlog/wiki conflicts preserve
+both the package release blockers and the remaining optimizer gaps. All 14,019
+default MoonBit tests pass, alongside generator/process/version/component helper
+tests, the workflow contract and actionlint. An identical explicit-target test
+rerun was stopped after the default WasmGC suite passed; it is not counted as
+an additional passing gate.
+
+The [scoped optimizer dossier](wiki/tooling/npm-optimizer-discrepancy.md)
+records private DFE admission, absent optional-arm analysis and bounded flat
+coalescing. O4s retains its five-pass queue. The three dedicated 10,000-case
+GenValid comparisons have no validation/generator/command failures, but
+runtime/property modes were off and structural residuals remain. This is
+scoped integration evidence, not full pass closure or universal equivalence.
+The owner's same-original samples save an additional 55,014 GC / 107,345 WASI
+bytes; the remaining Binaryen O4/s1 gaps are 1,687,415 / 91,972 bytes. Those
+frozen-input samples are distinct from this combined source's fresh artifacts.
+
+The combined source's fresh tarball contains 47 files and 4,801,791 bytes,
+SHA-256 `c59a32ef17ee6538a1c9c6e4c5515b9b0b4763bae16d5067e99d2e78ebf2d411`.
+Preserved evidence is under `dist/npm/qualified-combined/`, including raw and
+optimized artifacts, build report, snapshot hashes and both consumer reports.
+WasmGC changes from 7,452,238 to 7,232,670 bytes; WASI from 6,748,815 to
+6,240,581 bytes. Local build time is 278,892 ms, including changed native source
+compilation; optimization plus independent validation takes 8,410 / 9,138 ms.
+API/CLI parity takes 627 ms and retains observation hash
+`49034fc667f46d450d3147c525c10c9bb54f7663c85711df7cb9a1089ec0593c`.
+These are single local samples, not a runtime-performance claim.
+
+Normal offline installation into empty JS and strict NodeNext TypeScript
+projects passes on Node 25.8.1 and 26.11.1 with TypeScript 5.8.3. All nine
+exports, initialization, parse/validate/optimize/encode behavior and errors,
+nominal type rejection, installed CLI `v0.1.2-beta.0`, transformation and
+ambient-stack fixtures pass with checkout/compiler reads denied. The archive
+includes both Wasm artifacts, declared JS/types, CLI and examples, with no
+source, schema, private backend declarations, tests, raw artifacts or logs.
+All 44 Node cases and 45 optimizer host/grow-select cases (90 expectations),
+28 helper cases (105 expectations), generated drift and README sync pass.
+Independent internal review found no new concrete defect and confirmed the
+integration and package contracts. Exact final committed-head CI remains the
+precondition for a normal nonforce master update; baseline native-debug and
+coverage failures remain separate release gates.
+
+Exact documentation head `c9fc25cd2` reproduces the same tarball in cold package
+CI: 433,519 ms, with 14,587 / 15,442 ms GC/WASI optimization plus validation.
+Its full 14,019 tests, release artifacts, package and fuzz checks pass. Complete
+coverage is 28,244 / 226, still +106 / +30 against the unchanged baseline;
+native-debug reproduces MoonBit #1322. The final required DAE job reached its
+semantic comparison after successful boundary tests, fresh native builds
+(14 min 33 s) and deterministic 10,000-case comparison (10 min 50 s), then hit
+the old 30-minute whole-job deadline. Cancellation is not a semantic pass or a
+reported semantic failure. Its complete logs and step timestamps are retained
+under `dist/npm/source-publication/`.
+
+The required DAE job now has a bounded 45-minute overall budget, retaining its
+counts, profiles, runtime/property checks, validator/oracle requirements and
+failure policy. Comparison reports and retained failure bundles upload on
+success or failure. Red-first workflow contracts reject the old deadline and
+missing evidence retention; actionlint passes. This fixes provisioning time
+without changing optimizer source or package bytes. The exact new head must
+complete all three protected checks before a normal source push; no bypass,
+coverage reset or native-debug gate change is permitted.
+
+## Candidate version consistency
+
+MoonBit product metadata and npm metadata now prepare `0.1.2-beta.0`. The CLI
+previously returned `v0.1.0`; its private version constant is generated from
+`moon.mod` by `scripts/lib/generate-product-version.mjs`. Generation rejects
+missing, ambiguous, malformed or inconsistent metadata before FFI work.
+Required CI and `bun ffi check` reject stale generated version text. API
+observations and installed CLI checks require the packed metadata version.
+The candidate version remains subject to release review; this does not publish
+the package or create a tag.
+
+Path-filtered package, fuzz, coverage and native-example workflows now watch
+`moon.mod` and nested `moon.pkg` files as well as legacy JSON metadata. This
+closes a metadata-only trigger gap; it does not clear coverage or the compiler
+ICE. The workflow contract rejects missing current-format triggers.
+
+Before optimizer integration, the version-consistent candidate packed 47 files
+into 4,822,247 bytes, SHA-256
+`208ee14e3057fc04c22c023ca24661db8dcdc21f1f4927163e85007142f48b8b`.
+Its raw/optimized GC artifacts are 7,452,114 / 7,287,545 bytes; WASI artifacts
+are 6,748,746 / 6,347,866 bytes. The local rebuild took 235,654 ms with
+8,386 / 9,059 ms GC/WASI optimization plus independent validation. This
+recompiled changed native CLI source and is not an optimizer speed comparison.
+Normal offline install, all nine exports, API behavior and installed CLI
+`v0.1.2-beta.0` pass on Node 25.8.1 and 26.11.1; strict NodeNext TypeScript
+5.8.3 passes. The 44 actual Node cases and 28 Bun helper cases pass. Evidence
+is preserved under `dist/npm/qualified-version-preintegration/`.
+
+The portable component deliberately retains WIT interface and metadata API
+version `0.1.1`, preserving its export qualifiers. Product/npm metadata is
+independent. Component generation derives its root dependency from the product
+version; FFI version generation derives the same root dependency while keeping
+the private adapter module version independent. The pinned 0.60.0 wit-bindgen
+release was provisioned inside ignored `.tmp/component-tools/` after checking
+the official release digest. Component generation/build/independent validation
+passes, with no generated signature or ABI changes. The npm commands do not
+publish npm, tags or releases.
+
+
+## Native compatibility and unchanged-baseline coverage repair
+
+This supersedes the earlier native/coverage failure status for the local repair
+candidate while retaining the exact published `113af3874` failures. Published
+master Required CI, package, Fuzz and README all pass; Coverage reports 28,244 /
+226 and Native Examples fails at upstream MoonBit #1322. Downloaded master
+package bytes match the qualified combined archive. The native initialized-stack
+workaround and its measured cost are recorded in the
+[optimizer dossier](wiki/tooling/npm-optimizer-discrepancy.md#october-10-2026--native-debug-compatibility-and-resource-qualification).
+
+All 14,032 fresh instrumented wasm tests pass. A final added hint witness passes
+with all eight selected metadata tests and byte-identical production trace maps;
+combining only compatible fresh traces reports **28,104 uncovered lines / 224
+files**, 34 below the unchanged **28,138 / 196** baseline. The legacy line-total
+gate keeps the higher file count and native-only conditional branches visible.
+No exclusion or baseline reset is used. The prior automatic reporter failed
+because recursive discovery mixed stale traces; its failed log is retained, and
+this local report explicitly supplies fresh maps/traces. Clean exact-head CI
+must independently confirm the repair. The
+[codec guide](wiki/binary/compiler-facts-v1.md#october-10-2026--version-1-codec-contract-qualification)
+records independent golden bytes, nested truncation/error boundaries and bridge
+assertions. Internal review verified the source, all 54 production-map hashes,
+corrected golden tags and both native IR workflow triggers.
+
+The later GC checkpoint `680fd66c14899375fddc26b7a2979db2abe183d4` remains isolated.
+It retains the additional 271,688-byte GC saving but its reported median peak
+remains 36.7 MiB above the first checkpoint. Its 21,612 KiB improvement compares
+a different paired memory-repair baseline; these results are not subtracted as
+one baseline. No later GC canonicalization/memory code is part of this repair.
+Licensing was unresolved at this historical checkpoint; the later conservative
+treatment is settled. Candidate/provenance approval and npm publication remain
+human release decisions. No npm publication, tag/release, deployment or credential change occurs.
+
+
+The repaired source builds and packs a fresh 47-file / **4,802,894-byte** archive,
+SHA-256 `f5bace9daf4947dd3982a7950d634d498b3efb2470397dff1197e8ecced154a8`.
+This is 1,103 bytes larger than the prior combined archive; source inputs and
+README changed, so it is not an equal-input optimizer size comparison. The
+preserved-input paired optimizer outputs remain byte-identical.
+
+| Fresh repaired artifact | Raw bytes | Optimized bytes | Saved bytes |
+| --- | ---: | ---: | ---: |
+| WasmGC API | 7,452,543 | 7,232,943 | 219,600 |
+| WASI CLI | 6,748,603 | 6,240,407 | 508,196 |
+
+Raw SHA-256 GC/WASI:
+`3ec5a69b6f07bef913bfaf8df7f2bab0c4dc34cae2cbeed0e2037da3f412c072` /
+`150a6be577fbeb31a2ef299158f686fd6112db43b7196d1d6e5375a72c7370be`.
+Optimized SHA-256 GC/WASI:
+`b9c9466080b86996f2d616e41bf9c4eadf18a0ce5c8038699fabac154c9d290b` /
+`48a9a9a2b63a5c6b5bc7aff4bcbe244bb7d8d745582be269f25938c2807e84f0`.
+Fresh native bootstrap SHA-256:
+`b5ff64f355fe6b415b662a79d3762faf36276641f22f8628f8d45c6cc41faf36`.
+Build wall time is 297,603 ms; GC/WASI optimization plus validation is
+8,305 / 9,084 ms; API/help parity takes 644 ms. The observation hash remains
+`49034fc667f46d450d3147c525c10c9bb54f7663c85711df7cb9a1089ec0593c`.
+These are single build observations, not a timing improvement claim.
+
+The exact fresh archive passes normal offline install into empty JS and strict
+NodeNext TypeScript 5.8.3 consumers on Node 25.8.1 and 26.11.1. Both consumer kinds
+exercise all nine exports, real GC initialization, parse/validate/optimize/encode,
+errors and CLI execution with checkout/MoonBit filesystem access denied and
+MoonBit absent from PATH. All 44 actual Node tests, 18 generation/process helper
+tests, FFI/declaration/product-version drift, README/API sync, workflow contracts
+and actionlint pass. Tar inspection confirms both required optimized Wasm files,
+public JS/declarations, internal runtime/shared declarations, generated command
+JS, CLI mode 0755, examples and README; zero runtime dependencies. No source,
+schema, tests, raw/debug artifacts, logs or private backend declarations enter
+the archive. Both Wasm files extracted from this exact archive independently
+validate. Artifacts/reports remain in ignored `dist/npm/qualified-native-coverage/`
+and `dist/npm/source-publication/native-debug-investigation/`. Clean exact-head
+CI and protected source-push preflight remain the final source qualification.
+
+
+## Reviewed GC integration and memory release decision
+
+The native/coverage checkpoint a2 is published and all six master workflows
+pass. Its exact 47-file tarball and Node25/26 consumers above remain historical
+package qualification. The complete nineteen-commit owner chain through
+`680fd66c` is now locally integrated at `dfee891382f9ed188129242fcde4408377d6839f`;
+this supersedes the earlier statement that it remains isolated. Source-native
+bootstrap, FFI/types, self-optimized artifact parity, exact packed consumers and
+protected CI must be renewed on the combined source before master publication.
+
+The user temporarily accepts the measured GC memory overhead and requires an
+open [P1 memory blocker](../agent-todo.md#p1-blocker--reduce-gc-canonicalization-and-wrapper-peak-memory-npm-gc-memory-p1).
+The [decision and preserved evidence](wiki/tooling/npm-optimizer-discrepancy.md#integration-decision-and-p1-memory-blocker)
+retain all sample ranges, adverse diagnostics and distinct baseline cohorts.
+The additional original GC benefit is 271,688 bytes; the historical final
+median remains 37,552 KiB above the first equivalent control. Acceptance does
+not close memory, broader optimizer or npm release decisions. The later
+conservative license treatment is settled.
+
+
+## Reviewed ReorderLocals preparation checkpoint
+
+Published 0ca completes the nineteen-commit GC integration above: all six
+master workflows pass, exact 47-file package SHA-256
+`23158c22d55ac0f7eee64d42fd10e8fc6412c14372d896ee0eeb4003b2b75d1c`
+passes isolated Node25/26 JS/strict-TS consumers, and coverage remains gated
+against 28,138 / 196 (actual 28,022 / 225). This supersedes its earlier
+qualification-pending language without discarding historical failures.
+
+The five reviewed commits through `36cfe0be` are integrated locally for renewed
+qualification. [The integration dossier](wiki/tooling/npm-optimizer-discrepancy.md#reviewed-declaration-grouping-integration)
+and [pass evidence](wiki/binaryen/passes/reorder-locals/parity.md) preserve both
+RED/GREEN pairs, 186,626 / 11,308 ORIGINAL byte savings, separate fresh-owner
+self-build gains 26,442 / 7,910, raw GC growth 133,237 and the failed 16 KiB target.
+The final single GC pair is adverse; P1 remains open. Public ABI, preset,
+packaging and CI contracts remain unchanged; later optimizer experiments are
+excluded. Fresh combined-source package/consumer/test evidence must be recorded
+against its exact head. A scoped user-approved normal source fast-forward may
+use the existing admin exemption; retain any warning and require terminal
+published-head workflows. npm, license, candidate/provenance, tags/releases,
+deployment and credentials remain separate release decisions.
+
+
+## Reviewed unread-tee integration and exact qualification boundary
+
+Grouping source is published at `4de34fa29a4c561e477aaa00360204cb5a078df0`.
+All six exact-head workflows succeeded; Required CI passed 14,070 tests and
+Fuzz passed 14,067 GC tests. Coverage remains 28,022 / 225 against the unchanged
+28,138 / 196 baseline. Its local and downloaded CI tarballs are byte-identical:
+47 files / 4,663,076 bytes, SHA-256
+`0bf6b61dbe432fbb50365d0f673594f18c651c0ebd4cccd52a1e58bc20cf46a8`.
+The scoped ordinary push emitted the expected missing-check bypass warning;
+later CI success does not erase it. No protection or credential changed.
+
+The later source chain through `311e1d58` is integrated locally with provenance.
+Its original owner checkout and uncommitted patch are preserved; an isolated
+rescue completed the allocation repair and actual-tee generated coverage.
+[Vacuum's evidence](wiki/binaryen/passes/vacuum/fuzzing.md) separates the old
+zero-tee aggregate compatibility run from 10,000 targeted actual-tee cases:
+all journaled three-way executable observations match, zero reported runtime
+blocks or validity/generator/command failures, and normal structural exit 1.
+There are 2,253 canonical matches and 7,747 structural differences. Canonical
+output saves 31,206 bytes while raw output grows 25,882 bytes; 786 multivalue
+cases win both. Remaining raw serialization losses are open parity gaps.
+Most execution payloads were cleaned; the full journal and manifest retain
+outcomes/uniqueness, while 20 complete reports were independently audited.
+Default Node25/26 each execute 5,096 calls on 104 generated inputs spanning all
+13 families and seven variants, with independent values, effects, state and
+trap assertions. The four Binaryen-only default-runtime blocks in older
+fixtures and the separate flagged supplement remain distinct.
+
+The public source interface adds only the named generator-profile variant.
+FFI, schema and npm outputs must be regenerated from that authoritative source
+as a separate unit, then drift-checked. There are no hand-added signatures.
+The existing noncircular native bootstrap, numeric 4/1 five-pass build and
+ordinary-consumer runtime requirements remain the package route.
+
+Planned final integrated qualification will record its frozen source head, raw/optimized
+artifacts, exact tarball, isolated consumers, runtime controls, full gate and
+unchanged-baseline coverage under ignored `dist/npm/unread-tee-integration/`.
+It rebuilds the native generator and independently replays all 104 inputs,
+requiring all 728 variants to match reviewed child hashes before Node25/26
+execution. Child tests and the earlier 315 package cannot be represented as
+fresh final-head package or coverage evidence. Interrupted EPERM runs and the
+native generator's preexisting-directory SIGABRT remain recorded; the tested
+route uses fresh output directories. No compiler-issue attribution is inferred
+from the directory failure. No later source publication is implied by local
+integration; the completed grouping exemption is not a future bypass policy.
+The later conservative license treatment is settled. Candidate/provenance
+review, npm publication, tags/releases, deployment and P1 developer-build
+resource work remain separate decisions.

@@ -1,5 +1,8 @@
 ///|
 fn gen_valid_msf_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  if profile == MergeSimilarFunctionsRecordCopyProfile {
+    return gen_valid_msf_record_copy_config()
+  }
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let family_id = match profile {
     MergeSimilarFunctionsLiteralsProfile => 1
@@ -33,6 +36,7 @@ fn gen_valid_msf_profile_config(profile : GenValidProfile) -> GenValidConfig {
 
 ///|
 fn gen_valid_is_msf_profile_config(config : GenValidConfig) -> Bool {
+  config == gen_valid_msf_record_copy_config() ||
   config == gen_valid_msf_profile_config(MergeSimilarFunctionsLiteralsProfile) ||
   config ==
   gen_valid_msf_profile_config(MergeSimilarFunctionsRepeatedDiffProfile) ||
@@ -59,6 +63,7 @@ fn gen_valid_msf_profile_kind(config : GenValidConfig) -> GenValidProfile {
       MergeSimilarFunctionsNestedProfile,
       MergeSimilarFunctionsCallTargetsProfile,
       MergeSimilarFunctionsTailCallsProfile,
+      MergeSimilarFunctionsRecordCopyProfile,
     ] {
     if config == gen_valid_msf_profile_config(profile) {
       return profile
@@ -88,6 +93,10 @@ pub fn gen_valid_msf_profile_case_label(
       Some("msf:call-targets:\{suffix}")
     MergeSimilarFunctionsTailCallsProfile =>
       Some("msf:tail-call-targets:\{suffix}")
+    MergeSimilarFunctionsRecordCopyProfile =>
+      Some(
+        "msf:record-copy:fields-\{12 + (seed % 21UL).to_int()}:arms-\{8 + (seed % 5UL).to_int()}",
+      )
     _ => None
   }
 }
@@ -393,6 +402,8 @@ fn gen_valid_msf_profile_module(ctx : GenValidContext) -> Module {
       gen_valid_msf_call_target_module(ctx.root_seed, false)
     MergeSimilarFunctionsTailCallsProfile =>
       gen_valid_msf_call_target_module(ctx.root_seed, true)
+    MergeSimilarFunctionsRecordCopyProfile =>
+      gen_valid_msf_record_copy_module(ctx.root_seed)
     _ => gen_valid_msf_literal_module(ctx.root_seed)
   }
 }

@@ -9,6 +9,8 @@ on:
       - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
+      - "moon.mod"
+      - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
   push:
@@ -20,6 +22,8 @@ on:
       - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
+      - "moon.mod"
+      - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
 

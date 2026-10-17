@@ -1,4 +1,16 @@
 ///|
+// Keep fixture values independent of the native stack storage representation.
+fn lower_test_value_stack(
+  values : Array[HotLowerStackValue],
+) -> HotLowerValueStack {
+  let stack = hot_lower_value_stack_new()
+  for value in values {
+    stack.push(value)
+  }
+  stack
+}
+
+///|
 fn lower_scope_query_fixture(
   depth : Int32,
   dependent : Bool,
@@ -62,12 +74,12 @@ fn lower_scope_query_run(
   entry : NodeId,
   outer : NodeId,
   frames : HotLowerLabelFrames,
-) -> (Array[Instruction], Array[HotLowerStackValue], Array[ValType]) {
+) -> (Array[Instruction], HotLowerValueStack, Array[ValType]) {
   // The real carried value differs from local 0's initializer. Re-evaluating
   // its producer would turn 7 + 1 into 0 + 1 in the observer below.
-  let stack : Array[HotLowerStackValue] = [
+  let stack : HotLowerValueStack = lower_test_value_stack([
     { node_id: entry, val_type: @lib.ValType::i32(), },
-  ]
+  ])
   let out = [Instruction::i32_const(7)]
   let extras : Array[ValType] = []
   hot_lower_impl_emit_root(
@@ -179,9 +191,9 @@ test "scope dependency reuse distinguishes shared operands and changing held nod
       ([other_second], false),
       ([first], true),
     ] {
-    let stack : Array[HotLowerStackValue] = held.map(fn(node_id) {
-      { node_id, val_type: @lib.ValType::i32(), }
-    })
+    let stack : HotLowerValueStack = lower_test_value_stack(
+      held.map(fn(node_id) { { node_id, val_type: @lib.ValType::i32(), } }),
+    )
     assert_eq(
       hot_lower_impl_scope_uses_parent(hot, scope, frames, stack),
       expected,

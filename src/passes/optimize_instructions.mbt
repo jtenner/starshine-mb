@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/OptimizeInstructions.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
@@ -8730,7 +8742,8 @@ fn optimize_instructions_sign_ext_bits_for_value(
 }
 
 ///|
-fn optimize_instructions_collect_sign_ext_local_assignment_region(
+fn optimize_instructions_collect_local_assignment_fact_region(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   seen : @bitset.BitSet,
@@ -8738,7 +8751,8 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
   region : @ir.HotRegionRef,
 ) -> Unit {
   for i = 0; i < @ir.hot_region_root_count(func, region); i = i + 1 {
-    optimize_instructions_collect_sign_ext_local_assignment_expr(
+    optimize_instructions_collect_local_assignment_fact_expr(
+      ctx,
       func,
       dead,
       seen,
@@ -8749,7 +8763,8 @@ fn optimize_instructions_collect_sign_ext_local_assignment_region(
 }
 
 ///|
-fn optimize_instructions_collect_sign_ext_local_assignment_expr(
+fn optimize_instructions_collect_local_assignment_fact_expr(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   seen : @bitset.BitSet,
@@ -8760,9 +8775,14 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
     return
   }
   seen[node_id] = true
+  match ctx.perf {
+    Some(perf) => perf_count_traversal_visit(perf)
+    None => ()
+  }
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_collect_sign_ext_local_assignment_expr(
+    optimize_instructions_collect_local_assignment_fact_expr(
+      ctx,
       func,
       dead,
       seen,
@@ -8772,7 +8792,8 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
   }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
-      optimize_instructions_collect_sign_ext_local_assignment_region(
+      optimize_instructions_collect_local_assignment_fact_region(
+        ctx,
         func,
         dead,
         seen,
@@ -8780,7 +8801,8 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
         @ir.hot_region_body_ref(func, node_id),
       )
     @ir.HotOp::If => {
-      optimize_instructions_collect_sign_ext_local_assignment_region(
+      optimize_instructions_collect_local_assignment_fact_region(
+        ctx,
         func,
         dead,
         seen,
@@ -8789,8 +8811,8 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
-          optimize_instructions_collect_sign_ext_local_assignment_region(
-            func, dead, seen, scratch, else_region,
+          optimize_instructions_collect_local_assignment_fact_region(
+            ctx, func, dead, seen, scratch, else_region,
           )
         None => ()
       }
@@ -8811,22 +8833,62 @@ fn optimize_instructions_collect_sign_ext_local_assignment_expr(
           )
         None => ()
       }
+      match assignment_fact.i32_assignment() {
+        Some(payload) =>
+          scratch.local_facts.merge_i32_unsigned_max_for_local(
+            payload.local_id,
+            OiUnsignedMaxValueFact::from_assigned_i32_value(
+              func,
+              dead,
+              scratch,
+              payload.value_id,
+            ).i32_max,
+          )
+        None =>
+          match assignment_fact.i64_assignment() {
+            Some(payload) =>
+              scratch.local_facts.merge_i64_unsigned_max_for_local(
+                payload.local_id,
+                OiUnsignedMaxValueFact::from_assigned_i64_value(
+                  func,
+                  dead,
+                  scratch,
+                  payload.value_id,
+                ).i64_max,
+              )
+            None => ()
+          }
+      }
     }
   }
 }
 
 ///|
-fn optimize_instructions_collect_sign_ext_facts(
+fn optimize_instructions_collect_local_facts(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
 ) -> Unit {
-  if scratch.local_facts.sign_ext_ready {
+  if scratch.local_facts.sign_ext_ready &&
+    scratch.local_facts.unsigned_max_ready {
     return
+  }
+  for local_id = @ir.hot_local_param_count(func)
+      local_id < @ir.hot_local_count(func)
+      local_id = local_id + 1 {
+    match @ir.hot_local_type(func, local_id) {
+      Some(val_type) if val_type == @lib.ValType::i32() =>
+        scratch.local_facts.seed_i32_unsigned_max_local(local_id)
+      Some(val_type) if val_type == @lib.ValType::i64() =>
+        scratch.local_facts.seed_i64_unsigned_max_local(local_id)
+      _ => ()
+    }
   }
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for slot = 0; slot < func.roots.length(); slot = slot + 1 {
-    optimize_instructions_collect_sign_ext_local_assignment_expr(
+    optimize_instructions_collect_local_assignment_fact_expr(
+      ctx,
       func,
       dead,
       seen,
@@ -8835,7 +8897,18 @@ fn optimize_instructions_collect_sign_ext_facts(
     )
   }
   scratch.local_facts.finalize_sign_ext_bits()
+  // Assignment collection recursively memoizes producer facts with local.get
+  // summaries disabled. Clear that query-mode cache before enabling finalized
+  // local summaries so rewrite-time consumers can derive stronger local-aware
+  // facts without inheriting conservative assignment-time misses.
+  for node_id = 0
+      node_id < scratch.local_facts.i32_max_ready.length()
+      node_id = node_id + 1 {
+    scratch.local_facts.i32_max_ready[node_id] = false
+    scratch.local_facts.i64_max_ready[node_id] = false
+  }
   scratch.local_facts.sign_ext_ready = true
+  scratch.local_facts.unsigned_max_ready = true
 }
 
 ///|
@@ -11687,149 +11760,6 @@ fn OiSignedExtendWrapI64FallbackFact::apply(
     @lib.Instruction::i64_extend32s(),
     self.value_id,
   )
-}
-
-///|
-fn optimize_instructions_collect_unsigned_max_local_assignment_region(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
-  scratch : OptimizeInstructionsScratch,
-  region : @ir.HotRegionRef,
-) -> Unit {
-  for i = 0; i < @ir.hot_region_root_count(func, region); i = i + 1 {
-    optimize_instructions_collect_unsigned_max_local_assignment_expr(
-      func,
-      dead,
-      seen,
-      scratch,
-      @ir.hot_region_get(func, region, i),
-    )
-  }
-}
-
-///|
-fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  seen : @bitset.BitSet,
-  scratch : OptimizeInstructionsScratch,
-  node_id : Int32,
-) -> Unit {
-  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) || seen[node_id] {
-    return
-  }
-  seen[node_id] = true
-  let node = @ir.hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    optimize_instructions_collect_unsigned_max_local_assignment_expr(
-      func,
-      dead,
-      seen,
-      scratch,
-      func.children[node.child_base + slot],
-    )
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
-      optimize_instructions_collect_unsigned_max_local_assignment_region(
-        func,
-        dead,
-        seen,
-        scratch,
-        @ir.hot_region_body_ref(func, node_id),
-      )
-    @ir.HotOp::If => {
-      optimize_instructions_collect_unsigned_max_local_assignment_region(
-        func,
-        dead,
-        seen,
-        scratch,
-        @ir.hot_region_then_ref(func, node_id),
-      )
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_region) =>
-          optimize_instructions_collect_unsigned_max_local_assignment_region(
-            func, dead, seen, scratch, else_region,
-          )
-        None => ()
-      }
-    }
-    _ => {
-      let assignment_fact = OiLocalAssignmentFact::from_node(
-        func, dead, node_id,
-      )
-      match assignment_fact.i32_assignment() {
-        Some(payload) =>
-          scratch.local_facts.merge_i32_unsigned_max_for_local(
-            payload.local_id,
-            OiUnsignedMaxValueFact::from_assigned_i32_value(
-              func,
-              dead,
-              scratch,
-              payload.value_id,
-            ).i32_max,
-          )
-        None =>
-          match assignment_fact.i64_assignment() {
-            Some(payload) =>
-              scratch.local_facts.merge_i64_unsigned_max_for_local(
-                payload.local_id,
-                OiUnsignedMaxValueFact::from_assigned_i64_value(
-                  func,
-                  dead,
-                  scratch,
-                  payload.value_id,
-                ).i64_max,
-              )
-            None => ()
-          }
-      }
-    }
-  }
-}
-
-///|
-fn optimize_instructions_collect_unsigned_max_facts(
-  func : @ir.HotFunc,
-  dead : @bitset.BitSet,
-  scratch : OptimizeInstructionsScratch,
-) -> Unit {
-  if scratch.local_facts.unsigned_max_ready {
-    return
-  }
-  for local_id = @ir.hot_local_param_count(func)
-      local_id < @ir.hot_local_count(func)
-      local_id = local_id + 1 {
-    match @ir.hot_local_type(func, local_id) {
-      Some(val_type) if val_type == @lib.ValType::i32() =>
-        scratch.local_facts.seed_i32_unsigned_max_local(local_id)
-      Some(val_type) if val_type == @lib.ValType::i64() =>
-        scratch.local_facts.seed_i64_unsigned_max_local(local_id)
-      _ => ()
-    }
-  }
-  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
-  for slot = 0; slot < func.roots.length(); slot = slot + 1 {
-    optimize_instructions_collect_unsigned_max_local_assignment_expr(
-      func,
-      dead,
-      seen,
-      scratch,
-      func.roots[slot],
-    )
-  }
-  // Assignment collection recursively memoizes producer facts with local.get
-  // summaries disabled. Clear that query-mode cache before enabling finalized
-  // local summaries so rewrite-time consumers can derive stronger local-aware
-  // facts without inheriting conservative assignment-time misses.
-  for node_id = 0
-      node_id < scratch.local_facts.i32_max_ready.length()
-      node_id = node_id + 1 {
-    scratch.local_facts.i32_max_ready[node_id] = false
-    scratch.local_facts.i64_max_ready[node_id] = false
-  }
-  scratch.local_facts.unsigned_max_ready = true
 }
 
 ///|
@@ -16312,6 +16242,11 @@ fn optimize_instructions_prefer_negative_leb_i64(raw : Int64) -> Bool {
 
 ///|
 fn optimize_instructions_i32_power_of_two_shift(raw : Int32) -> Int32? {
+  // The sign bit is the largest unsigned power of two, despite its signed
+  // representation. Other negative bit patterns remain excluded.
+  if raw == -2147483648 {
+    return Some(31)
+  }
   if raw <= 0 || (raw & (raw - 1)) != 0 {
     return None
   }
@@ -16326,6 +16261,9 @@ fn optimize_instructions_i32_power_of_two_shift(raw : Int32) -> Int32? {
 
 ///|
 fn optimize_instructions_i64_power_of_two_shift(raw : Int64) -> Int64? {
+  if raw == -9223372036854775808L {
+    return Some(63L)
+  }
   if raw <= 0L || (raw & (raw - 1L)) != 0L {
     return None
   }
@@ -20133,7 +20071,12 @@ fn OiStateWriteSetFact::from_value_subtree(
       _ => ()
     }
     for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
-      walk(@ir.hot_child_get(func, id, slot))
+      let child_id = @ir.hot_child_get(func, id, slot)
+      // Optional else/catch regions use HOT's absent-node sentinel. They have
+      // no writes to collect; all present children still require a live node.
+      if child_id != -1 {
+        walk(child_id)
+      }
     }
   }
   walk(node_id)
@@ -23729,6 +23672,9 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
       true
     }
     @lib.Instruction::StructAtomicRmw(order, op, type_idx, field_idx) => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return false
+      }
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -23739,6 +23685,9 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
       )
     }
     @lib.Instruction::StructAtomicCmpxchg(order, type_idx, field_idx) => {
+      if @ir.hot_child_count(func, node_id) != 3 {
+        return false
+      }
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -42134,41 +42083,6 @@ fn OiNoRewriteI32LiteralRevisionFact::proves_no_rewrite_candidate(
 }
 
 ///|
-priv struct OiUnsupportedAggregateAtomicReceiverFact {
-  found_unsupported_receiver : Bool
-}
-
-///|
-fn OiUnsupportedAggregateAtomicReceiverFact::from_func(
-  func : @ir.HotFunc,
-) -> OiUnsupportedAggregateAtomicReceiverFact {
-  // Current HOT can contain aggregate atomic receiver-less shapes that OI cannot
-  // safely rewrite. Keep the fail-closed preflight as a named representation
-  // fact until the aggregate-atomic receiver representation is repaired.
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    match @ir.hot_node_exact_instr(func, node_id) {
-      Some(@lib.Instruction::StructAtomicRmw(_, _, _, _))
-      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _, _)) =>
-        if @ir.hot_child_count(func, node_id) == 0 {
-          return { found_unsupported_receiver: true, }
-        }
-      _ => ()
-    }
-  }
-  { found_unsupported_receiver: false, }
-}
-
-///|
-fn OiUnsupportedAggregateAtomicReceiverFact::requires_fail_closed_skip(
-  self : OiUnsupportedAggregateAtomicReceiverFact,
-) -> Bool {
-  self.found_unsupported_receiver
-}
-
-///|
 fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -42177,21 +42091,6 @@ fn optimize_instructions_run(
     Some(fact) if fact.proves_no_rewrite_candidate(func) =>
       return HotPassResult::unchanged()
     _ => ()
-  }
-  let unsupported_preflight_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-  )
-  let requires_fail_closed_skip = OiUnsupportedAggregateAtomicReceiverFact::from_func(
-    func,
-  ).requires_fail_closed_skip()
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-    unsupported_preflight_start_us,
-  )
-  if requires_fail_closed_skip {
-    return HotPassResult::unchanged()
   }
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
@@ -42224,25 +42123,15 @@ fn optimize_instructions_run(
     "detail:optimize-instructions:free-node-init",
     free_node_init_start_us,
   )
-  let sign_ext_start_us = perf_start_timer_opt(
+  let local_facts_start_us = perf_start_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:collect-sign-ext-facts",
+    "detail:optimize-instructions:collect-local-facts",
   )
-  optimize_instructions_collect_sign_ext_facts(func, dead, scratch)
+  optimize_instructions_collect_local_facts(ctx, func, dead, scratch)
   perf_stop_timer_opt(
     ctx.perf,
-    "detail:optimize-instructions:collect-sign-ext-facts",
-    sign_ext_start_us,
-  )
-  let unsigned_max_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:collect-unsigned-max-facts",
-  )
-  optimize_instructions_collect_unsigned_max_facts(func, dead, scratch)
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:collect-unsigned-max-facts",
-    unsigned_max_start_us,
+    "detail:optimize-instructions:collect-local-facts",
+    local_facts_start_us,
   )
   let visit_start_us = perf_start_timer_opt(
     ctx.perf,

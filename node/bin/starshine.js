@@ -2,9 +2,9 @@
 
 import process from 'node:process';
 
-import { runCmdExitCode } from '../cmd.js';
+import { runWasmStart } from '../internal/wasi-runner.js';
 
-const exitCode = runCmdExitCode(process.argv.slice(2));
+const exitCode = await runWasmStart({ wasmPath: new URL('../internal/starshine.wasm-wasi.wasm', import.meta.url), args: ['starshine', ...process.argv.slice(2)] });
 if (typeof exitCode === 'number' && exitCode !== 0) {
   process.exitCode = exitCode;
 }

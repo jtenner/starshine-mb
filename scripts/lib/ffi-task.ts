@@ -1,3 +1,4 @@
+import { generateProductVersion } from "./generate-product-version.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -25,7 +26,8 @@ export function collectFfiInterfaces(repoRoot: string): FfiInterfaceInput[] {
     const interfacePath = path.join(packageRoot, "pkg.generated.mbti");
     if (!fs.existsSync(manifestPath) || !fs.existsSync(interfacePath)) continue;
     const manifest = fs.readFileSync(manifestPath, "utf8");
-    if (/pkgtype\(kind:\s*"executable"\)/.test(manifest)) continue;
+    // cmd has a supported importable API used by the npm callback facade.
+    if (/pkgtype\(kind:\s*"executable"\)/.test(manifest) && entry.name !== "cmd") continue;
     inputs.push({
       alias: entry.name,
       packagePath: `jtenner/starshine/${entry.name}`,
@@ -35,7 +37,7 @@ export function collectFfiInterfaces(repoRoot: string): FfiInterfaceInput[] {
   return inputs.sort((left, right) => left.packagePath.localeCompare(right.packagePath));
 }
 
-function formatGeneratedMoonBit(
+export function formatGeneratedMoonBit(
   repoRoot: string,
   source: string,
   manifest: string,
@@ -77,6 +79,7 @@ export function runFfi(command: FfiCommand, repoRoot = resolveWorkspaceRoot()): 
   if (command !== "generate" && command !== "check" && command !== "build") {
     fail("usage: bun ffi <generate|check|build>");
   }
+  generateProductVersion({ root: repoRoot, check: command === "check" });
   const ffiRoot = path.join(repoRoot, "ffi");
   const outputRoot = path.join(ffiRoot, "src", "ffi");
   if (command === "generate" || command === "build") {
@@ -102,6 +105,11 @@ export function runFfi(command: FfiCommand, repoRoot = resolveWorkspaceRoot()): 
   writeOrCheck(
     path.join(outputRoot, "export-names.generated.json"),
     `${JSON.stringify(generated.exportNames, null, 2)}\n`,
+    command === "check",
+  );
+  writeOrCheck(
+    path.join(outputRoot, "export-schema.generated.json"),
+    `${JSON.stringify(generated.schema, null, 2)}\n`,
     command === "check",
   );
   writeOrCheck(

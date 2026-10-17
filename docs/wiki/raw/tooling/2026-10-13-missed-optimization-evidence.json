@@ -1,0 +1,1834 @@
+{
+  "date": "2026-10-13",
+  "baselineCommit": "3e6c77476ad446e11e3094b5890a10a7148793d9",
+  "baselineBinaryHash": "c9f76e63fd77b47e96fee8865a9b66549b49fb57f86a4aa27b52b66e3787a2ee",
+  "candidateBinaryHash": "988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df",
+  "oracleVersion": "133 (version_133)",
+  "oracleHash": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+  "moonVersion": "0.1.20260920 (914d7da)",
+  "nodeVersion": "v26.11.1",
+  "bunVersion": "1.4.3",
+  "wasmToolsVersion": "1.251.0",
+  "fixtures": [
+    {
+      "fixture": "branch-call",
+      "inputBytes": 70,
+      "pass": "remove-unused-brs",
+      "baseline": 70,
+      "baselineCanonicalBytes": 55,
+      "candidate": 58,
+      "candidateCanonicalBytes": 48,
+      "delta": -12,
+      "canonicalDelta": -7
+    },
+    {
+      "fixture": "branch-load",
+      "inputBytes": 79,
+      "pass": "remove-unused-brs",
+      "baseline": 79,
+      "baselineCanonicalBytes": 64,
+      "candidate": 67,
+      "candidateCanonicalBytes": 57,
+      "delta": -12,
+      "canonicalDelta": -7
+    },
+    {
+      "fixture": "branch-nested",
+      "inputBytes": 72,
+      "pass": "remove-unused-brs",
+      "baseline": 72,
+      "baselineCanonicalBytes": 54,
+      "candidate": 60,
+      "candidateCanonicalBytes": 50,
+      "delta": -12,
+      "canonicalDelta": -4
+    },
+    {
+      "fixture": "float-nan",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 44,
+      "baselineCanonicalBytes": 44,
+      "candidate": 44,
+      "candidateCanonicalBytes": 44,
+      "delta": 0,
+      "canonicalDelta": 0
+    },
+    {
+      "fixture": "i32-div_u",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 44,
+      "baselineCanonicalBytes": 44,
+      "candidate": 40,
+      "candidateCanonicalBytes": 40,
+      "delta": -4,
+      "canonicalDelta": -4
+    },
+    {
+      "fixture": "i32-mul",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 44,
+      "baselineCanonicalBytes": 44,
+      "candidate": 40,
+      "candidateCanonicalBytes": 40,
+      "delta": -4,
+      "canonicalDelta": -4
+    },
+    {
+      "fixture": "i32-rem_u",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 44,
+      "baselineCanonicalBytes": 44,
+      "candidate": 44,
+      "candidateCanonicalBytes": 44,
+      "delta": 0,
+      "canonicalDelta": 0
+    },
+    {
+      "fixture": "i32-tee-and",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 48,
+      "baselineCanonicalBytes": 48,
+      "candidate": 39,
+      "candidateCanonicalBytes": 39,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "i32-tee-or",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 48,
+      "baselineCanonicalBytes": 48,
+      "candidate": 39,
+      "candidateCanonicalBytes": 39,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "i64-div_u",
+      "inputBytes": 49,
+      "pass": "optimize-instructions",
+      "baseline": 49,
+      "baselineCanonicalBytes": 49,
+      "candidate": 40,
+      "candidateCanonicalBytes": 40,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "i64-mul",
+      "inputBytes": 49,
+      "pass": "optimize-instructions",
+      "baseline": 49,
+      "baselineCanonicalBytes": 49,
+      "candidate": 40,
+      "candidateCanonicalBytes": 40,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "i64-rem_u",
+      "inputBytes": 49,
+      "pass": "optimize-instructions",
+      "baseline": 49,
+      "baselineCanonicalBytes": 49,
+      "candidate": 49,
+      "candidateCanonicalBytes": 49,
+      "delta": 0,
+      "canonicalDelta": 0
+    },
+    {
+      "fixture": "i64-tee-and",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 48,
+      "baselineCanonicalBytes": 48,
+      "candidate": 39,
+      "candidateCanonicalBytes": 39,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "i64-tee-or",
+      "inputBytes": 44,
+      "pass": "optimize-instructions",
+      "baseline": 48,
+      "baselineCanonicalBytes": 48,
+      "candidate": 39,
+      "candidateCanonicalBytes": 39,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "ordered-load-store",
+      "inputBytes": 68,
+      "pass": "optimize-instructions",
+      "baseline": 65,
+      "baselineCanonicalBytes": 65,
+      "candidate": 65,
+      "candidateCanonicalBytes": 65,
+      "delta": 0,
+      "canonicalDelta": 0
+    },
+    {
+      "fixture": "raw-call",
+      "inputBytes": 58,
+      "pass": "optimize-instructions",
+      "baseline": 55,
+      "baselineCanonicalBytes": 55,
+      "candidate": 51,
+      "candidateCanonicalBytes": 51,
+      "delta": -4,
+      "canonicalDelta": -4
+    },
+    {
+      "fixture": "raw-trap",
+      "inputBytes": 54,
+      "pass": "optimize-instructions",
+      "baseline": 51,
+      "baselineCanonicalBytes": 51,
+      "candidate": 47,
+      "candidateCanonicalBytes": 47,
+      "delta": -4,
+      "canonicalDelta": -4
+    },
+    {
+      "fixture": "tee-call",
+      "inputBytes": 52,
+      "pass": "optimize-instructions",
+      "baseline": 52,
+      "baselineCanonicalBytes": 52,
+      "candidate": 49,
+      "candidateCanonicalBytes": 49,
+      "delta": -3,
+      "canonicalDelta": -3
+    },
+    {
+      "fixture": "tee-grow",
+      "inputBytes": 61,
+      "pass": "optimize-instructions",
+      "baseline": 65,
+      "baselineCanonicalBytes": 65,
+      "candidate": 56,
+      "candidateCanonicalBytes": 56,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "tee-invalidating",
+      "inputBytes": 52,
+      "pass": "optimize-instructions",
+      "baseline": 49,
+      "baselineCanonicalBytes": 49,
+      "candidate": 49,
+      "candidateCanonicalBytes": 49,
+      "delta": 0,
+      "canonicalDelta": 0
+    },
+    {
+      "fixture": "tee-trap",
+      "inputBytes": 48,
+      "pass": "optimize-instructions",
+      "baseline": 52,
+      "baselineCanonicalBytes": 52,
+      "candidate": 43,
+      "candidateCanonicalBytes": 43,
+      "delta": -9,
+      "canonicalDelta": -9
+    },
+    {
+      "fixture": "tee-trunc",
+      "inputBytes": 45,
+      "pass": "optimize-instructions",
+      "baseline": 49,
+      "baselineCanonicalBytes": 49,
+      "candidate": 40,
+      "candidateCanonicalBytes": 40,
+      "delta": -9,
+      "canonicalDelta": -9
+    }
+  ],
+  "fixtureExecution": {
+    "runtime": "v26.11.1",
+    "rows": [
+      {
+        "fixture": "branch-call",
+        "observations": 6
+      },
+      {
+        "fixture": "branch-load",
+        "observations": 4
+      },
+      {
+        "fixture": "branch-nested",
+        "observations": 3
+      },
+      {
+        "fixture": "float-nan",
+        "observations": 4
+      },
+      {
+        "fixture": "i32-div_u",
+        "observations": 6
+      },
+      {
+        "fixture": "i32-mul",
+        "observations": 6
+      },
+      {
+        "fixture": "i32-rem_u",
+        "observations": 6
+      },
+      {
+        "fixture": "i32-tee-and",
+        "observations": 6
+      },
+      {
+        "fixture": "i32-tee-or",
+        "observations": 6
+      },
+      {
+        "fixture": "i64-div_u",
+        "observations": 6
+      },
+      {
+        "fixture": "i64-mul",
+        "observations": 6
+      },
+      {
+        "fixture": "i64-rem_u",
+        "observations": 6
+      },
+      {
+        "fixture": "i64-tee-and",
+        "observations": 6
+      },
+      {
+        "fixture": "i64-tee-or",
+        "observations": 6
+      },
+      {
+        "fixture": "ordered-load-store",
+        "observations": 4
+      },
+      {
+        "fixture": "raw-call",
+        "observations": 6
+      },
+      {
+        "fixture": "raw-trap",
+        "observations": 3
+      },
+      {
+        "fixture": "tee-call",
+        "observations": 6
+      },
+      {
+        "fixture": "tee-grow",
+        "observations": 4
+      },
+      {
+        "fixture": "tee-invalidating",
+        "observations": 3
+      },
+      {
+        "fixture": "tee-trap",
+        "observations": 3
+      },
+      {
+        "fixture": "tee-trunc",
+        "observations": 6
+      }
+    ],
+    "total": 112
+  },
+  "corpusSizes": [
+    {
+      "input": "compute/fannkuch.wasm",
+      "inputBytes": 2667,
+      "baseline": 2667,
+      "candidate": 2667,
+      "delta": 0
+    },
+    {
+      "input": "compute/sha256.wasm",
+      "inputBytes": 2818,
+      "baseline": 2818,
+      "candidate": 2818,
+      "delta": 0
+    },
+    {
+      "input": "semantic/zstd/zstd.wasm",
+      "inputBytes": 58777,
+      "baseline": 58961,
+      "candidate": 58961,
+      "delta": 0
+    },
+    {
+      "input": "applications/sqlite3/sqlite3.wasm",
+      "inputBytes": 1318577,
+      "baseline": 1306533,
+      "candidate": 1306533,
+      "delta": 0
+    }
+  ],
+  "micropythonSize": {
+    "input": 370403,
+    "baseline": 371053,
+    "candidate": 371050
+  },
+  "fuzzRuns": {
+    "fuzz-oi-profile-final": {
+      "requestedCount": 10000,
+      "comparedCount": 10000,
+      "normalizedMatchCount": 7558,
+      "cleanupNormalizedMatchCount": 0,
+      "mismatchCount": 2442,
+      "starshineRawBytes": 742235,
+      "binaryenRawBytes": 799482,
+      "starshineRawSmallerCount": 3569,
+      "starshineRawEqualCount": 6431,
+      "starshineRawLargerCount": 0,
+      "starshineCanonicalBytes": 761972,
+      "binaryenCanonicalBytes": 807894,
+      "starshineCanonicalSmallerCount": 2442,
+      "starshineCanonicalEqualCount": 7558,
+      "starshineCanonicalLargerCount": 0,
+      "validationFailureCount": 0,
+      "generatorFailureCount": 0,
+      "propertyFailureCount": 0,
+      "commandFailureCount": 0,
+      "commandFailureClasses": {},
+      "genValidProfile": "pass-oi-all",
+      "genValidSelectedProfileCounts": {
+        "pass-oi-boolean-select": 1160,
+        "pass-oi-ref-gc": 1161,
+        "pass-oi-gc-aggregate": 1138,
+        "pass-oi-call-ref": 1124,
+        "pass-oi-local-facts": 1114,
+        "pass-oi-memory-bulk": 1068,
+        "pass-oi-default-scalar": 1065,
+        "pass-oi-tuple": 1080,
+        "pass-oi-descriptor-gc": 1090
+      },
+      "runtimeExecutionCounts": {
+        "checked": 3193,
+        "unsupported": 6807,
+        "failed": 0
+      },
+      "runtimeMatrixSummary": {
+        "total": 4581,
+        "observed": 3363,
+        "blocked": 1218,
+        "equalResults": 3107,
+        "equalTraps": 256,
+        "unsupportedRuntimes": 1218,
+        "nondeterministicImports": 0,
+        "semanticMismatches": 0
+      },
+      "exitStatus": 1,
+      "exitReason": "structural output differences; not a semantic verdict"
+    },
+    "fuzz-rub-profile-final": {
+      "requestedCount": 10000,
+      "comparedCount": 10000,
+      "normalizedMatchCount": 6082,
+      "cleanupNormalizedMatchCount": 0,
+      "mismatchCount": 3918,
+      "starshineRawBytes": 2204668,
+      "binaryenRawBytes": 2045337,
+      "starshineRawSmallerCount": 355,
+      "starshineRawEqualCount": 1535,
+      "starshineRawLargerCount": 8110,
+      "starshineCanonicalBytes": 1944713,
+      "binaryenCanonicalBytes": 2000972,
+      "starshineCanonicalSmallerCount": 3918,
+      "starshineCanonicalEqualCount": 6082,
+      "starshineCanonicalLargerCount": 0,
+      "validationFailureCount": 0,
+      "generatorFailureCount": 0,
+      "propertyFailureCount": 0,
+      "commandFailureCount": 0,
+      "commandFailureClasses": {},
+      "genValidProfile": "remove-unused-brs-all",
+      "genValidSelectedProfileCounts": {
+        "remove-unused-brs-restructure-if": 389,
+        "remove-unused-brs-jump-thread": 399,
+        "remove-unused-brs-cleanup": 394,
+        "remove-unused-brs-tail-flow": 386,
+        "remove-unused-brs-optimize-set-if": 392,
+        "remove-unused-brs-multivalue-drop": 355,
+        "remove-unused-brs-constant-br-if": 744,
+        "remove-unused-brs-single-target-br-table": 807,
+        "remove-unused-brs-multi-function": 749,
+        "remove-unused-brs-sink-blocks": 401,
+        "remove-unused-brs-tablify": 398,
+        "remove-unused-brs-result-refinalize": 373,
+        "remove-unused-brs-adjacent-branch": 378,
+        "remove-unused-brs-eh": 382,
+        "remove-unused-brs-wrapper-cleanup": 753,
+        "remove-unused-brs-selectify": 732,
+        "remove-unused-brs-loop": 369,
+        "remove-unused-brs-gc": 407,
+        "remove-unused-brs-control": 391,
+        "remove-unused-brs-switch": 397,
+        "remove-unused-brs-one-arm-if": 404
+      },
+      "runtimeExecutionCounts": {
+        "checked": 1377,
+        "unsupported": 8623,
+        "failed": 0
+      },
+      "runtimeMatrixSummary": {
+        "total": 1590,
+        "observed": 1377,
+        "blocked": 213,
+        "equalResults": 1377,
+        "equalTraps": 0,
+        "unsupportedRuntimes": 213,
+        "nondeterministicImports": 0,
+        "semanticMismatches": 0
+      },
+      "exitStatus": 1,
+      "exitReason": "structural output differences; not a semantic verdict"
+    }
+  },
+  "optimizerCost": {
+    "environment": "Linux-6.12.111+deb13-amd64-x86_64-with-glibc2.41",
+    "cpuAffinity": 15,
+    "binaryHashes": {
+      "baseline": "c9f76e63fd77b47e96fee8865a9b66549b49fb57f86a4aa27b52b66e3787a2ee",
+      "candidate": "988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df"
+    },
+    "warmup": 2,
+    "measuredRounds": 9,
+    "scope": "full native optimizer command including startup, decode, pass, writeback and encode; not a pass-local timer",
+    "rows": [
+      {
+        "input": "micropython",
+        "inputHash": "c6294bc03ca3bc9ccc91bafa95ba60c4511cee9bc187e65fd71056069a1bf1b8",
+        "pass": "--optimize-instructions",
+        "outputHashes": {
+          "baseline": "7f9835d0b9c941494dcb19407ae5d1db0c214f78757131f9bc1822a27123a42f",
+          "candidate": "5167476f1d163ff3c64bece27ec1ca439cac25208031bee5dbf9652b84b97060"
+        },
+        "samples": [
+          {
+            "round": 0,
+            "version": "baseline",
+            "wallMs": 108.90374,
+            "peakRssKiB": 25628
+          },
+          {
+            "round": 0,
+            "version": "candidate",
+            "wallMs": 107.750798,
+            "peakRssKiB": 25396
+          },
+          {
+            "round": 1,
+            "version": "candidate",
+            "wallMs": 106.379131,
+            "peakRssKiB": 25540
+          },
+          {
+            "round": 1,
+            "version": "baseline",
+            "wallMs": 104.17976,
+            "peakRssKiB": 25556
+          },
+          {
+            "round": 2,
+            "version": "baseline",
+            "wallMs": 105.359568,
+            "peakRssKiB": 25356
+          },
+          {
+            "round": 2,
+            "version": "candidate",
+            "wallMs": 113.228546,
+            "peakRssKiB": 25424
+          },
+          {
+            "round": 3,
+            "version": "candidate",
+            "wallMs": 103.0057,
+            "peakRssKiB": 25540
+          },
+          {
+            "round": 3,
+            "version": "baseline",
+            "wallMs": 106.39854,
+            "peakRssKiB": 25624
+          },
+          {
+            "round": 4,
+            "version": "baseline",
+            "wallMs": 105.378214,
+            "peakRssKiB": 25552
+          },
+          {
+            "round": 4,
+            "version": "candidate",
+            "wallMs": 106.819613,
+            "peakRssKiB": 25492
+          },
+          {
+            "round": 5,
+            "version": "candidate",
+            "wallMs": 117.598036,
+            "peakRssKiB": 25400
+          },
+          {
+            "round": 5,
+            "version": "baseline",
+            "wallMs": 109.893956,
+            "peakRssKiB": 25400
+          },
+          {
+            "round": 6,
+            "version": "baseline",
+            "wallMs": 108.097747,
+            "peakRssKiB": 25364
+          },
+          {
+            "round": 6,
+            "version": "candidate",
+            "wallMs": 103.596553,
+            "peakRssKiB": 25528
+          },
+          {
+            "round": 7,
+            "version": "candidate",
+            "wallMs": 105.437957,
+            "peakRssKiB": 25544
+          },
+          {
+            "round": 7,
+            "version": "baseline",
+            "wallMs": 101.901703,
+            "peakRssKiB": 25584
+          },
+          {
+            "round": 8,
+            "version": "baseline",
+            "wallMs": 105.720273,
+            "peakRssKiB": 25620
+          },
+          {
+            "round": 8,
+            "version": "candidate",
+            "wallMs": 102.583515,
+            "peakRssKiB": 25596
+          }
+        ],
+        "summary": {
+          "baseline": {
+            "medianMs": 105.720273,
+            "madMs": 1.5405130000000042,
+            "minMs": 101.901703,
+            "maxMs": 109.893956,
+            "medianPeakRssKiB": 25556,
+            "maxPeakRssKiB": 25628
+          },
+          "candidate": {
+            "medianMs": 106.379131,
+            "madMs": 2.782578000000001,
+            "minMs": 102.583515,
+            "maxMs": 117.598036,
+            "medianPeakRssKiB": 25528,
+            "maxPeakRssKiB": 25596
+          }
+        },
+        "percentChange": 0.6232087576996559
+      },
+      {
+        "input": "fannkuch",
+        "inputHash": "31e05ae6968784b6d1078f70d4badb93ca8772a0b790559b724efefa64dfaf37",
+        "pass": "--optimize-instructions",
+        "outputHashes": {
+          "baseline": "31e05ae6968784b6d1078f70d4badb93ca8772a0b790559b724efefa64dfaf37",
+          "candidate": "31e05ae6968784b6d1078f70d4badb93ca8772a0b790559b724efefa64dfaf37"
+        },
+        "samples": [
+          {
+            "round": 0,
+            "version": "baseline",
+            "wallMs": 3.120299,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 0,
+            "version": "candidate",
+            "wallMs": 3.223211,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 1,
+            "version": "candidate",
+            "wallMs": 3.835563,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 1,
+            "version": "baseline",
+            "wallMs": 3.389662,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 2,
+            "version": "baseline",
+            "wallMs": 2.754877,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 2,
+            "version": "candidate",
+            "wallMs": 3.746407,
+            "peakRssKiB": 12064
+          },
+          {
+            "round": 3,
+            "version": "candidate",
+            "wallMs": 3.839852,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 3,
+            "version": "baseline",
+            "wallMs": 4.127868,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 4,
+            "version": "baseline",
+            "wallMs": 3.947622,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 4,
+            "version": "candidate",
+            "wallMs": 2.973555,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 5,
+            "version": "candidate",
+            "wallMs": 3.236465,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 5,
+            "version": "baseline",
+            "wallMs": 3.390232,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 6,
+            "version": "baseline",
+            "wallMs": 3.941922,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 6,
+            "version": "candidate",
+            "wallMs": 4.270355,
+            "peakRssKiB": 12068
+          },
+          {
+            "round": 7,
+            "version": "candidate",
+            "wallMs": 3.629089,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 7,
+            "version": "baseline",
+            "wallMs": 4.516563,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 8,
+            "version": "baseline",
+            "wallMs": 3.977899,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 8,
+            "version": "candidate",
+            "wallMs": 4.162873,
+            "peakRssKiB": 12072
+          }
+        ],
+        "summary": {
+          "baseline": {
+            "medianMs": 3.941922,
+            "madMs": 0.5516899999999998,
+            "minMs": 2.754877,
+            "maxMs": 4.516563,
+            "medianPeakRssKiB": 12068,
+            "maxPeakRssKiB": 12072
+          },
+          "candidate": {
+            "medianMs": 3.746407,
+            "madMs": 0.4164660000000002,
+            "minMs": 2.973555,
+            "maxMs": 4.270355,
+            "medianPeakRssKiB": 12068,
+            "maxPeakRssKiB": 12072
+          }
+        },
+        "percentChange": -4.959890124665067
+      },
+      {
+        "input": "sha256",
+        "inputHash": "0dbe8308751754ba91836fc546e7b805101851e301edc7b135fbb64aab46e384",
+        "pass": "--optimize-instructions",
+        "outputHashes": {
+          "baseline": "0dbe8308751754ba91836fc546e7b805101851e301edc7b135fbb64aab46e384",
+          "candidate": "0dbe8308751754ba91836fc546e7b805101851e301edc7b135fbb64aab46e384"
+        },
+        "samples": [
+          {
+            "round": 0,
+            "version": "baseline",
+            "wallMs": 3.760062,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 0,
+            "version": "candidate",
+            "wallMs": 4.101559,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 1,
+            "version": "candidate",
+            "wallMs": 3.516609,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 1,
+            "version": "baseline",
+            "wallMs": 3.262715,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 2,
+            "version": "baseline",
+            "wallMs": 4.182871,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 2,
+            "version": "candidate",
+            "wallMs": 3.526838,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 3,
+            "version": "candidate",
+            "wallMs": 3.544049,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 3,
+            "version": "baseline",
+            "wallMs": 3.610563,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 4,
+            "version": "baseline",
+            "wallMs": 3.75894,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 4,
+            "version": "candidate",
+            "wallMs": 4.25207,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 5,
+            "version": "candidate",
+            "wallMs": 3.856252,
+            "peakRssKiB": 12072
+          },
+          {
+            "round": 5,
+            "version": "baseline",
+            "wallMs": 3.992075,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 6,
+            "version": "baseline",
+            "wallMs": 4.119332,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 6,
+            "version": "candidate",
+            "wallMs": 3.447149,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 7,
+            "version": "candidate",
+            "wallMs": 3.401383,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 7,
+            "version": "baseline",
+            "wallMs": 3.218933,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 8,
+            "version": "baseline",
+            "wallMs": 3.512531,
+            "peakRssKiB": 12076
+          },
+          {
+            "round": 8,
+            "version": "candidate",
+            "wallMs": 3.236787,
+            "peakRssKiB": 12080
+          }
+        ],
+        "summary": {
+          "baseline": {
+            "medianMs": 3.75894,
+            "madMs": 0.24640899999999988,
+            "minMs": 3.218933,
+            "maxMs": 4.182871,
+            "medianPeakRssKiB": 12072,
+            "maxPeakRssKiB": 12076
+          },
+          "candidate": {
+            "medianMs": 3.526838,
+            "madMs": 0.1254550000000001,
+            "minMs": 3.236787,
+            "maxMs": 4.25207,
+            "medianPeakRssKiB": 12072,
+            "maxPeakRssKiB": 12080
+          }
+        },
+        "percentChange": -6.174666262297346
+      },
+      {
+        "input": "sqlite3",
+        "inputHash": "bbfa28f00fea33bd95bd3bd573c92fd821173d03b280180b7e40dac0af91a669",
+        "pass": "--optimize-instructions",
+        "outputHashes": {
+          "baseline": "af11792f0124482790d6a639c1c17107359a7f504723fed6a722dc8b0361e464",
+          "candidate": "af11792f0124482790d6a639c1c17107359a7f504723fed6a722dc8b0361e464"
+        },
+        "samples": [
+          {
+            "round": 0,
+            "version": "baseline",
+            "wallMs": 374.043304,
+            "peakRssKiB": 52212
+          },
+          {
+            "round": 0,
+            "version": "candidate",
+            "wallMs": 382.949033,
+            "peakRssKiB": 52196
+          },
+          {
+            "round": 1,
+            "version": "candidate",
+            "wallMs": 376.984612,
+            "peakRssKiB": 51944
+          },
+          {
+            "round": 1,
+            "version": "baseline",
+            "wallMs": 371.367929,
+            "peakRssKiB": 52132
+          },
+          {
+            "round": 2,
+            "version": "baseline",
+            "wallMs": 373.923005,
+            "peakRssKiB": 51744
+          },
+          {
+            "round": 2,
+            "version": "candidate",
+            "wallMs": 375.455975,
+            "peakRssKiB": 52296
+          },
+          {
+            "round": 3,
+            "version": "candidate",
+            "wallMs": 378.977104,
+            "peakRssKiB": 51780
+          },
+          {
+            "round": 3,
+            "version": "baseline",
+            "wallMs": 378.591516,
+            "peakRssKiB": 52164
+          },
+          {
+            "round": 4,
+            "version": "baseline",
+            "wallMs": 374.031535,
+            "peakRssKiB": 52152
+          },
+          {
+            "round": 4,
+            "version": "candidate",
+            "wallMs": 376.631854,
+            "peakRssKiB": 51700
+          },
+          {
+            "round": 5,
+            "version": "candidate",
+            "wallMs": 373.873039,
+            "peakRssKiB": 51928
+          },
+          {
+            "round": 5,
+            "version": "baseline",
+            "wallMs": 374.401138,
+            "peakRssKiB": 52272
+          },
+          {
+            "round": 6,
+            "version": "baseline",
+            "wallMs": 374.476599,
+            "peakRssKiB": 52052
+          },
+          {
+            "round": 6,
+            "version": "candidate",
+            "wallMs": 385.224086,
+            "peakRssKiB": 51948
+          },
+          {
+            "round": 7,
+            "version": "candidate",
+            "wallMs": 381.784852,
+            "peakRssKiB": 52280
+          },
+          {
+            "round": 7,
+            "version": "baseline",
+            "wallMs": 370.87199,
+            "peakRssKiB": 51848
+          },
+          {
+            "round": 8,
+            "version": "baseline",
+            "wallMs": 372.983692,
+            "peakRssKiB": 51852
+          },
+          {
+            "round": 8,
+            "version": "candidate",
+            "wallMs": 374.319454,
+            "peakRssKiB": 52160
+          }
+        ],
+        "summary": {
+          "baseline": {
+            "medianMs": 374.031535,
+            "madMs": 0.4450640000000021,
+            "minMs": 370.87199,
+            "maxMs": 378.591516,
+            "medianPeakRssKiB": 52132,
+            "maxPeakRssKiB": 52272
+          },
+          "candidate": {
+            "medianMs": 376.984612,
+            "madMs": 2.6651580000000195,
+            "minMs": 373.873039,
+            "maxMs": 385.224086,
+            "medianPeakRssKiB": 51948,
+            "maxPeakRssKiB": 52296
+          }
+        },
+        "percentChange": 0.7895262093341904
+      },
+      {
+        "input": "branch-call",
+        "inputHash": "9e4c82f5c595af8ec6a4de39e2bdfb777378b73a946972b5d263847e9b96cbd7",
+        "pass": "--remove-unused-brs",
+        "outputHashes": {
+          "baseline": "9e4c82f5c595af8ec6a4de39e2bdfb777378b73a946972b5d263847e9b96cbd7",
+          "candidate": "e4f3b391e17f73d34d0f9e58f8d74f4c0c6b5743b97b0f08dc57a7bbaf09bc00"
+        },
+        "samples": [
+          {
+            "round": 0,
+            "version": "baseline",
+            "wallMs": 3.88193,
+            "peakRssKiB": 13900
+          },
+          {
+            "round": 0,
+            "version": "candidate",
+            "wallMs": 3.698568,
+            "peakRssKiB": 14588
+          },
+          {
+            "round": 1,
+            "version": "candidate",
+            "wallMs": 3.975595,
+            "peakRssKiB": 14256
+          },
+          {
+            "round": 1,
+            "version": "baseline",
+            "wallMs": 3.579556,
+            "peakRssKiB": 13876
+          },
+          {
+            "round": 2,
+            "version": "baseline",
+            "wallMs": 3.460233,
+            "peakRssKiB": 13688
+          },
+          {
+            "round": 2,
+            "version": "candidate",
+            "wallMs": 3.685465,
+            "peakRssKiB": 14604
+          },
+          {
+            "round": 3,
+            "version": "candidate",
+            "wallMs": 4.077585,
+            "peakRssKiB": 14488
+          },
+          {
+            "round": 3,
+            "version": "baseline",
+            "wallMs": 3.541314,
+            "peakRssKiB": 13664
+          },
+          {
+            "round": 4,
+            "version": "baseline",
+            "wallMs": 3.126421,
+            "peakRssKiB": 13412
+          },
+          {
+            "round": 4,
+            "version": "candidate",
+            "wallMs": 3.632285,
+            "peakRssKiB": 14196
+          },
+          {
+            "round": 5,
+            "version": "candidate",
+            "wallMs": 3.56539,
+            "peakRssKiB": 14672
+          },
+          {
+            "round": 5,
+            "version": "baseline",
+            "wallMs": 4.403072,
+            "peakRssKiB": 13980
+          },
+          {
+            "round": 6,
+            "version": "baseline",
+            "wallMs": 3.513523,
+            "peakRssKiB": 13816
+          },
+          {
+            "round": 6,
+            "version": "candidate",
+            "wallMs": 3.684792,
+            "peakRssKiB": 14624
+          },
+          {
+            "round": 7,
+            "version": "candidate",
+            "wallMs": 3.295477,
+            "peakRssKiB": 14204
+          },
+          {
+            "round": 7,
+            "version": "baseline",
+            "wallMs": 4.199412,
+            "peakRssKiB": 13904
+          },
+          {
+            "round": 8,
+            "version": "baseline",
+            "wallMs": 3.208053,
+            "peakRssKiB": 13584
+          },
+          {
+            "round": 8,
+            "version": "candidate",
+            "wallMs": 3.987306,
+            "peakRssKiB": 14532
+          }
+        ],
+        "summary": {
+          "baseline": {
+            "medianMs": 3.541314,
+            "madMs": 0.3332609999999998,
+            "minMs": 3.126421,
+            "maxMs": 4.403072,
+            "medianPeakRssKiB": 13816,
+            "maxPeakRssKiB": 13980
+          },
+          "candidate": {
+            "medianMs": 3.685465,
+            "madMs": 0.12007500000000038,
+            "minMs": 3.295477,
+            "maxMs": 4.077585,
+            "medianPeakRssKiB": 14532,
+            "maxPeakRssKiB": 14672
+          }
+        },
+        "percentChange": 4.070551213476148
+      }
+    ]
+  },
+  "runtime": {
+    "runtime": "v26.11.1",
+    "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+    "arch": "x64",
+    "warmup": 3,
+    "measuredRounds": 11,
+    "outputHash": "f6d55657e93a308383869175bd299ef355d0e1b95fe32475027f060fb9aef8cd",
+    "inputHashes": [
+      "7f9835d0b9c941494dcb19407ae5d1db0c214f78757131f9bc1822a27123a42f",
+      "5167476f1d163ff3c64bece27ec1ca439cac25208031bee5dbf9652b84b97060"
+    ],
+    "samples": [
+      {
+        "round": 0,
+        "version": "baseline",
+        "executionMs": 338.019893
+      },
+      {
+        "round": 0,
+        "version": "candidate",
+        "executionMs": 334.38754
+      },
+      {
+        "round": 1,
+        "version": "candidate",
+        "executionMs": 332.637958
+      },
+      {
+        "round": 1,
+        "version": "baseline",
+        "executionMs": 340.585753
+      },
+      {
+        "round": 2,
+        "version": "baseline",
+        "executionMs": 334.843994
+      },
+      {
+        "round": 2,
+        "version": "candidate",
+        "executionMs": 360.591359
+      },
+      {
+        "round": 3,
+        "version": "candidate",
+        "executionMs": 339.644199
+      },
+      {
+        "round": 3,
+        "version": "baseline",
+        "executionMs": 335.492716
+      },
+      {
+        "round": 4,
+        "version": "baseline",
+        "executionMs": 339.67982
+      },
+      {
+        "round": 4,
+        "version": "candidate",
+        "executionMs": 338.173281
+      },
+      {
+        "round": 5,
+        "version": "candidate",
+        "executionMs": 340.117667
+      },
+      {
+        "round": 5,
+        "version": "baseline",
+        "executionMs": 334.506956
+      },
+      {
+        "round": 6,
+        "version": "baseline",
+        "executionMs": 340.526113
+      },
+      {
+        "round": 6,
+        "version": "candidate",
+        "executionMs": 335.440908
+      },
+      {
+        "round": 7,
+        "version": "candidate",
+        "executionMs": 338.228941
+      },
+      {
+        "round": 7,
+        "version": "baseline",
+        "executionMs": 338.836865
+      },
+      {
+        "round": 8,
+        "version": "baseline",
+        "executionMs": 334.928836
+      },
+      {
+        "round": 8,
+        "version": "candidate",
+        "executionMs": 333.354703
+      },
+      {
+        "round": 9,
+        "version": "candidate",
+        "executionMs": 339.785668
+      },
+      {
+        "round": 9,
+        "version": "baseline",
+        "executionMs": 335.575687
+      },
+      {
+        "round": 10,
+        "version": "baseline",
+        "executionMs": 335.712785
+      },
+      {
+        "round": 10,
+        "version": "candidate",
+        "executionMs": 349.973764
+      }
+    ],
+    "summary": {
+      "baseline": {
+        "medianMs": 335.712785,
+        "madMs": 1.2058289999999943,
+        "minMs": 334.506956,
+        "maxMs": 340.585753
+      },
+      "candidate": {
+        "medianMs": 338.228941,
+        "madMs": 2.7880330000000413,
+        "minMs": 332.637958,
+        "maxMs": 360.591359
+      }
+    },
+    "percentChange": 0.7494966270051417
+  },
+  "fullMoonTests": {
+    "target": "wasm-gc",
+    "total": 14148,
+    "passed": 14142,
+    "failed": 6,
+    "baselineSelected": {
+      "total": 192,
+      "passed": 186,
+      "failed": 6
+    },
+    "baselineFailures": [
+      "src/cmd/cmd.mbt:9133 MSF disabled-tail-call metadata",
+      "src/passes/merge_similar_functions_test.mbt:87 large literal-only siblings",
+      "src/passes/merge_similar_functions_test.mbt:136 disabled-tail-call metadata",
+      "src/passes/merge_similar_functions_test.mbt:393 nested literal sites",
+      "src/passes/offset_metadata_guard_wbtest.mbt:171 MSF offset metadata",
+      "src/passes/rse_test.mbt:1575 floating bit patterns"
+    ]
+  },
+  "bunTests": {
+    "passed": 378,
+    "failed": 0,
+    "existingSkipped": 1
+  },
+  "readmeApiSync": "passed",
+  "agentClassifications": {
+    "oiNewScalar1065": "Starshine win: exact unsigned sign-bit strength reduction matches v133; integer tee/get OR cleanup preserves the complete producer and local value. Replayed case16 improves 97 to89 bytes versus oracle92.",
+    "oiLegacy1377": "Existing source-backed tuple cleanup (1080) and value-if-drop cleanup (297), with effect/trap tests and supported runtime replays. No pass audit closure is claimed.",
+    "rubCanonical3918": "Existing source-backed branch, wrapper, multivalue and result-type cleanup families. The 20 retained cases are byte-identical to the pinned baseline.",
+    "rubRaw8110": "Open raw encoding size/parity gap against v133: canonical projection improves or matches but raw aggregate grows. Not accepted as merely representation drift."
+  },
+  "limitations": [
+    "No confirmed runtime speedup. Small size gain on MicroPython; four other measured corpus modules unchanged.",
+    "Optimizer timings include startup/decode/pass/writeback/encode; no separate pass-local timing claim.",
+    "Six unrelated tests fail on both baseline and candidate.",
+    "100000 regular, random-all and explicit wasm-smith full audit lanes are not claimed; user-requested ordinary 10000-case aggregate lanes were run. External generator was not requested.",
+    "Static automatic candidate reduction and EH/continuation/reference-branch instrumentation remain open.",
+    "MicroPython runtime median rose 0.75%; reverse compilation rose 0.69% and same-binary control rose 0.34%. Dispersions overlap; the samples do not establish a runtime gain or a causal slowdown. Branch-call optimizer RSS median rose 716 KiB; this adverse row remains reported."
+  ],
+  "harnessSource": {
+    "optimizer-cost.py": "from pathlib import Path\nimport subprocess, time, json, statistics, hashlib, os, platform, tempfile, signal\nroot=Path(__file__).resolve().parent\ncpu=max(os.sched_getaffinity(0))\nversions=['baseline','candidate']\nhashes={v:hashlib.sha256((root/(v+'.exe')).read_bytes()).hexdigest() for v in versions}\ncorpus=Path('/home/jtenner/Projects/starshine-mb/.tmp/runtime-compare-20261011/wago-source/corpus/workloads')\ninputs=[('micropython',root/'micropython-input.wasm','--optimize-instructions'),('fannkuch',corpus/'compute/fannkuch.wasm','--optimize-instructions'),('sha256',corpus/'compute/sha256.wasm','--optimize-instructions'),('sqlite3',corpus/'applications/sqlite3/sqlite3.wasm','--optimize-instructions'),('branch-call',root/'fixtures/branch-call.wasm','--remove-unused-brs')]\nrows=[]\nfor name,source,flag in inputs:\n samples=[];output_hashes={}\n for round in range(-2,9):\n  for version in versions if round%2==0 else versions[::-1]:\n   out=root/f'cost-{name}-{version}.wasm';rss_file=root/'cost-rss.txt'\n   cmd=[str(root/(version+'.exe')),str(source),flag,'-o',str(out)]\n   start=time.perf_counter_ns()\n   with tempfile.TemporaryFile() as errors:\n    process=subprocess.Popen(cmd,stdout=errors,stderr=errors,preexec_fn=lambda:os.sched_setaffinity(0,{cpu}))\n    _,status,usage=os.wait4(process.pid,0);process.returncode=os.waitstatus_to_exitcode(status)\n    elapsed=(time.perf_counter_ns()-start)/1e6\n    if process.returncode:errors.seek(0);raise RuntimeError(errors.read().decode())\n   digest=hashlib.sha256(out.read_bytes()).hexdigest()\n   if version in output_hashes:assert output_hashes[version]==digest\n   output_hashes[version]=digest\n   if round>=0:samples.append({'round':round,'version':version,'wallMs':elapsed,'peakRssKiB':usage.ru_maxrss})\n summary={}\n for version in versions:\n  xs=[s['wallMs'] for s in samples if s['version']==version];rss=[s['peakRssKiB'] for s in samples if s['version']==version];m=statistics.median(xs)\n  summary[version]={'medianMs':m,'madMs':statistics.median(abs(x-m) for x in xs),'minMs':min(xs),'maxMs':max(xs),'medianPeakRssKiB':statistics.median(rss),'maxPeakRssKiB':max(rss)}\n rows.append({'input':name,'inputHash':hashlib.sha256(source.read_bytes()).hexdigest(),'pass':flag,'outputHashes':output_hashes,'samples':samples,'summary':summary,'percentChange':100*(summary['candidate']['medianMs']/summary['baseline']['medianMs']-1)})\nfor version in versions:assert hashes[version]==hashlib.sha256((root/(version+'.exe')).read_bytes()).hexdigest()\nreport={'environment':platform.platform(),'cpuAffinity':cpu,'binaryHashes':hashes,'warmup':2,'measuredRounds':9,'scope':'full native optimizer command including startup, decode, pass, writeback and encode; not a pass-local timer','rows':rows}\n(root/'optimizer-cost.json').write_text(json.dumps(report,indent=2)+'\\n')\nprint(json.dumps([{'input':r['input'],'percentChange':r['percentChange'],'summary':r['summary']} for r in rows]))\n",
+    "micropython-runtime.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nimport crypto from 'node:crypto';\nimport os from 'node:os';\nimport assert from 'node:assert/strict';\nimport { WASI } from 'node:wasi';\nconst root=path.dirname(new URL(import.meta.url).pathname);\nconst inputDir='/home/jtenner/Projects/starshine-mb/.tmp/runtime-compare-20261011/wago-source/corpus/workloads/applications/micropython/inputs';\nconst versions=['baseline','candidate'];\nconst mode=process.argv.includes('--same')?'same-binary-control':process.argv.includes('--reverse-compile')?'reverse-compile':'default';\nconst files=versions.map(v=>path.join(root,`micropython-${mode==='same-binary-control'?'baseline':v}.wasm`));\nconst modules=[];\nfor(const i of mode==='reverse-compile'?[1,0]:[0,1]) modules[i]=new WebAssembly.Module(fs.readFileSync(files[i]));\nlet serial=0;\nfunction run(index) {\n const output=path.join(root,`micropython-stdout-${serial++}.txt`), fd=fs.openSync(output,'w');\n const wasi=new WASI({version:'preview1',args:['micropython','/program.py'],env:{},preopens:{'/':inputDir},returnOnExit:true,stdout:fd,stderr:fd});\n let hostCalls=0;\n const instance=new WebAssembly.Instance(modules[index],{wasi_snapshot_preview1:wasi.wasiImport,micropython_wasm:{host_result_cap(){return 1024},host_call(){hostCalls++;throw new Error('unexpected host_call')}}});\n const start=process.hrtime.bigint();\n const exit=wasi.start(instance);\n const ms=Number(process.hrtime.bigint()-start)/1e6;\n fs.closeSync(fd);\n const stdout=fs.readFileSync(output);\n assert.equal(exit,0);assert.equal(hostCalls,0);\n assert.equal(crypto.createHash('sha256').update(stdout).digest('hex'),'f6d55657e93a308383869175bd299ef355d0e1b95fe32475027f060fb9aef8cd');\n return ms;\n}\nfor(let warmup=0;warmup<3;warmup++) for(let i=0;i<2;i++) run(i);\nconst samples=[];\nfor(let round=0;round<11;round++) for(const index of round%2?[1,0]:[0,1]) samples.push({round,version:versions[index],executionMs:run(index)});\nconst median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];\nconst summary=Object.fromEntries(versions.map(v=>{const xs=samples.filter(s=>s.version===v).map(s=>s.executionMs),m=median(xs);return [v,{medianMs:m,madMs:median(xs.map(x=>Math.abs(x-m))),minMs:Math.min(...xs),maxMs:Math.max(...xs)}]}));\nconst report={mode,runtime:process.version,cpu:os.cpus()[0].model,arch:process.arch,warmup:3,measuredRounds:11,outputHash:'f6d55657e93a308383869175bd299ef355d0e1b95fe32475027f060fb9aef8cd',inputHashes:files.map(file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')),samples,summary,percentChange:100*(summary.candidate.medianMs/summary.baseline.medianMs-1)};\nfs.writeFileSync(path.join(root,mode==='default'?'micropython-runtime.json':`micropython-runtime-${mode}.json`),JSON.stringify(report,null,2));\nconsole.log(JSON.stringify({mode,summary,percentChange:report.percentChange}));\n",
+    "runtime-check.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nimport assert from 'node:assert/strict';\nconst root=path.dirname(new URL(import.meta.url).pathname);\nconst rows=[];\nfunction observation(file,args,condition=1,hostTrap=false) {\n let calls=0;\n const module=new WebAssembly.Module(fs.readFileSync(file));\n const instance=new WebAssembly.Instance(module,{m:{c(){calls++;if(hostTrap)throw new Error('host-trap');return condition;}}});\n let result;\n try {result={kind:'return',value:instance.exports.run(...args)};}\n catch(e){result={kind:e instanceof WebAssembly.RuntimeError?'wasm-trap':'host-trap',message:e.message};}\n let memory=null;\n if(instance.exports.memory) memory={bytes:[...new Uint8Array(instance.exports.memory.buffer).subarray(0,8)],length:instance.exports.memory.buffer.byteLength};\n return {result,calls,memory};\n}\nfor(const name of fs.readdirSync(path.join(root,'fixtures')).filter(n=>n.endsWith('.wasm'))) {\n const stem=name.slice(0,-5), paths=['fixtures','baseline','candidate'].map(dir=>path.join(root,dir,name));\n let argumentsList;\n if(stem.startsWith('i64-')) argumentsList=[0n,1n,-1n,-9223372036854775808n,9223372036854775807n,0x0123456789abcdefn].map(v=>[v]);\n else if(stem.startsWith('i32-')) argumentsList=[0,1,-1,-2147483648,2147483647,0x12345678].map(v=>[v]);\n else if((stem==='tee-trap'||stem==='raw-trap')) argumentsList=[[9,2],[9,0],[-2147483648,-1]];\n else if(stem==='tee-invalidating') argumentsList=[[1,2],[-1,0],[0,-1]];\n else if(stem==='tee-grow') argumentsList=[[0],[1],[2],[-1]];\n else if(stem==='tee-trunc') argumentsList=[[0],[1.5],[NaN],[Infinity],[2147483648],[-2147483649]];\n else if(stem==='float-nan') argumentsList=[[NaN],[0],[Infinity],[-0]];\n else if(stem==='branch-load'||stem==='ordered-load-store') argumentsList=[[0],[65533],[65536],[-1]];\n else if(stem==='branch-nested') argumentsList=[[0],[1],[-1]];\n else argumentsList=[[]];\n let observations=0;\n for(const args of argumentsList) for(const condition of stem.includes('call')?[0,1,-1]:[1]) for(const hostTrap of stem.includes('call')?[false,true]:[false]) {\n  const values=paths.map(file=>observation(file,args,condition,hostTrap));\n  assert.deepEqual(values[1],values[0],`${stem}:baseline`);\n  assert.deepEqual(values[2],values[0],`${stem}:candidate`);\n  observations++;\n }\n rows.push({fixture:stem,observations});\n}\nfs.writeFileSync(path.join(root,'runtime-check.json'),JSON.stringify({runtime:process.version,rows,total:rows.reduce((s,r)=>s+r.observations,0)},null,2));\nconsole.log(JSON.stringify({fixtures:rows.length,observations:rows.reduce((s,r)=>s+r.observations,0),status:'equal'}));\n"
+  },
+  "fixtureSource": {
+    "branch-call.wat": "(module (import \"m\" \"c\" (func (result i32))) (func (export \"run\") (result i32) (block $b (result i32) (drop (br_if $b (i32.const 7) (call 0))) (i32.const 7))))",
+    "branch-load.wat": "(module (memory (export \"memory\") 1) (func (export \"run\") (param i32) (result i32) (block $b (result i32) (drop (br_if $b (i32.const 7) (i32.load (local.get 0)))) (i32.const 7))))",
+    "branch-nested.wat": "(module (func (export \"run\") (param i32) (result i32) (block $b (result i32) (drop (br_if $b (i32.const 7) (block (result i32) (br_if $b (i32.const 9) (local.get 0)) drop (i32.const 0)))) (i32.const 7))))",
+    "float-nan.wat": "(module (func (export \"run\") (param f64) (result i32) (local f64) local.get 0 local.tee 1 local.get 1 f64.eq))",
+    "i32-div_u.wat": "(module (func (export \"run\") (param i32) (result i32) local.get 0 i32.const -2147483648 i32.div_u))",
+    "i32-mul.wat": "(module (func (export \"run\") (param i32) (result i32) local.get 0 i32.const -2147483648 i32.mul))",
+    "i32-rem_u.wat": "(module (func (export \"run\") (param i32) (result i32) local.get 0 i32.const -2147483648 i32.rem_u))",
+    "i32-tee-and.wat": "(module (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 local.tee 1 local.get 1 i32.and))",
+    "i32-tee-or.wat": "(module (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 local.tee 1 local.get 1 i32.or))",
+    "i64-div_u.wat": "(module (func (export \"run\") (param i64) (result i64) local.get 0 i64.const -9223372036854775808 i64.div_u))",
+    "i64-mul.wat": "(module (func (export \"run\") (param i64) (result i64) local.get 0 i64.const -9223372036854775808 i64.mul))",
+    "i64-rem_u.wat": "(module (func (export \"run\") (param i64) (result i64) local.get 0 i64.const -9223372036854775808 i64.rem_u))",
+    "i64-tee-and.wat": "(module (func (export \"run\") (param i64) (result i64) (local i64) local.get 0 local.tee 1 local.get 1 i64.and))",
+    "i64-tee-or.wat": "(module (func (export \"run\") (param i64) (result i64) (local i64) local.get 0 local.tee 1 local.get 1 i64.or))",
+    "ordered-load-store.wat": "(module (memory (export \"memory\") 1) (func (export \"run\") (param i32) (result i32) (i32.ge_u (i32.load (local.get 0)) (block (result i32) (i32.store (i32.const 0) (i32.const 99)) (i32.const 0)))))",
+    "raw-call.wat": "(module (import \"m\" \"c\" (func (result i32))) (func (export \"run\") (result i32) (drop (i32.add (i32.const 7) (i32.const 0))) (i32.div_u (call 0) (i32.const -2147483648))))",
+    "raw-trap.wat": "(module (func (export \"run\") (param i32 i32) (result i32) (drop (i32.add (i32.const 7) (i32.const 0))) (i32.div_u (i32.div_s (local.get 0) (local.get 1)) (i32.const -2147483648))))",
+    "tee-call.wat": "(module (import \"m\" \"c\" (func (result i32))) (func (export \"run\") (result i32) (local i32) call 0 local.tee 0 local.get 0 i32.and))",
+    "tee-grow.wat": "(module (memory (export \"memory\") 1 2) (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 memory.grow local.tee 1 local.get 1 i32.or))",
+    "tee-invalidating.wat": "(module (func (export \"run\") (param i32 i32) (result i32) (local i32) (i32.or (local.tee 2 (local.get 0)) (block (result i32) (local.set 2 (local.get 1)) (local.get 2)))))",
+    "tee-trap.wat": "(module (func (export \"run\") (param i32 i32) (result i32) (local i32) local.get 0 local.get 1 i32.div_s local.tee 2 local.get 2 i32.or))",
+    "tee-trunc.wat": "(module (func (export \"run\") (param f64) (result i32) (local i32) local.get 0 i32.trunc_f64_s local.tee 1 local.get 1 i32.and))"
+  },
+  "runtimeControls": {
+    "reverse-compile": {
+      "mode": "reverse-compile",
+      "runtime": "v26.11.1",
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "arch": "x64",
+      "warmup": 3,
+      "measuredRounds": 11,
+      "outputHash": "f6d55657e93a308383869175bd299ef355d0e1b95fe32475027f060fb9aef8cd",
+      "inputHashes": [
+        "7f9835d0b9c941494dcb19407ae5d1db0c214f78757131f9bc1822a27123a42f",
+        "5167476f1d163ff3c64bece27ec1ca439cac25208031bee5dbf9652b84b97060"
+      ],
+      "samples": [
+        {
+          "round": 0,
+          "version": "baseline",
+          "executionMs": 349.226884
+        },
+        {
+          "round": 0,
+          "version": "candidate",
+          "executionMs": 348.046228
+        },
+        {
+          "round": 1,
+          "version": "candidate",
+          "executionMs": 348.365224
+        },
+        {
+          "round": 1,
+          "version": "baseline",
+          "executionMs": 343.73944
+        },
+        {
+          "round": 2,
+          "version": "baseline",
+          "executionMs": 350.522445
+        },
+        {
+          "round": 2,
+          "version": "candidate",
+          "executionMs": 352.978131
+        },
+        {
+          "round": 3,
+          "version": "candidate",
+          "executionMs": 341.494479
+        },
+        {
+          "round": 3,
+          "version": "baseline",
+          "executionMs": 338.046981
+        },
+        {
+          "round": 4,
+          "version": "baseline",
+          "executionMs": 334.080174
+        },
+        {
+          "round": 4,
+          "version": "candidate",
+          "executionMs": 336.4759
+        },
+        {
+          "round": 5,
+          "version": "candidate",
+          "executionMs": 341.683975
+        },
+        {
+          "round": 5,
+          "version": "baseline",
+          "executionMs": 337.757914
+        },
+        {
+          "round": 6,
+          "version": "baseline",
+          "executionMs": 334.114762
+        },
+        {
+          "round": 6,
+          "version": "candidate",
+          "executionMs": 340.090581
+        },
+        {
+          "round": 7,
+          "version": "candidate",
+          "executionMs": 332.601687
+        },
+        {
+          "round": 7,
+          "version": "baseline",
+          "executionMs": 332.233923
+        },
+        {
+          "round": 8,
+          "version": "baseline",
+          "executionMs": 335.169144
+        },
+        {
+          "round": 8,
+          "version": "candidate",
+          "executionMs": 329.030611
+        },
+        {
+          "round": 9,
+          "version": "candidate",
+          "executionMs": 331.282098
+        },
+        {
+          "round": 9,
+          "version": "baseline",
+          "executionMs": 332.211804
+        },
+        {
+          "round": 10,
+          "version": "baseline",
+          "executionMs": 339.130743
+        },
+        {
+          "round": 10,
+          "version": "candidate",
+          "executionMs": 329.779052
+        }
+      ],
+      "summary": {
+        "baseline": {
+          "medianMs": 337.757914,
+          "madMs": 3.6777400000000284,
+          "minMs": 332.211804,
+          "maxMs": 350.522445
+        },
+        "candidate": {
+          "medianMs": 340.090581,
+          "madMs": 7.955646999999999,
+          "minMs": 329.030611,
+          "maxMs": 352.978131
+        }
+      },
+      "percentChange": 0.690632818155068
+    },
+    "same-binary-control": {
+      "mode": "same-binary-control",
+      "runtime": "v26.11.1",
+      "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+      "arch": "x64",
+      "warmup": 3,
+      "measuredRounds": 11,
+      "outputHash": "f6d55657e93a308383869175bd299ef355d0e1b95fe32475027f060fb9aef8cd",
+      "inputHashes": [
+        "7f9835d0b9c941494dcb19407ae5d1db0c214f78757131f9bc1822a27123a42f",
+        "7f9835d0b9c941494dcb19407ae5d1db0c214f78757131f9bc1822a27123a42f"
+      ],
+      "samples": [
+        {
+          "round": 0,
+          "version": "baseline",
+          "executionMs": 329.612083
+        },
+        {
+          "round": 0,
+          "version": "candidate",
+          "executionMs": 330.46593
+        },
+        {
+          "round": 1,
+          "version": "candidate",
+          "executionMs": 335.403461
+        },
+        {
+          "round": 1,
+          "version": "baseline",
+          "executionMs": 331.511843
+        },
+        {
+          "round": 2,
+          "version": "baseline",
+          "executionMs": 332.703111
+        },
+        {
+          "round": 2,
+          "version": "candidate",
+          "executionMs": 335.457942
+        },
+        {
+          "round": 3,
+          "version": "candidate",
+          "executionMs": 345.518272
+        },
+        {
+          "round": 3,
+          "version": "baseline",
+          "executionMs": 347.822848
+        },
+        {
+          "round": 4,
+          "version": "baseline",
+          "executionMs": 341.543941
+        },
+        {
+          "round": 4,
+          "version": "candidate",
+          "executionMs": 338.250702
+        },
+        {
+          "round": 5,
+          "version": "candidate",
+          "executionMs": 332.90388
+        },
+        {
+          "round": 5,
+          "version": "baseline",
+          "executionMs": 339.338293
+        },
+        {
+          "round": 6,
+          "version": "baseline",
+          "executionMs": 350.020874
+        },
+        {
+          "round": 6,
+          "version": "candidate",
+          "executionMs": 335.659927
+        },
+        {
+          "round": 7,
+          "version": "candidate",
+          "executionMs": 340.702695
+        },
+        {
+          "round": 7,
+          "version": "baseline",
+          "executionMs": 336.747508
+        },
+        {
+          "round": 8,
+          "version": "baseline",
+          "executionMs": 334.45554
+        },
+        {
+          "round": 8,
+          "version": "candidate",
+          "executionMs": 340.447881
+        },
+        {
+          "round": 9,
+          "version": "candidate",
+          "executionMs": 337.889743
+        },
+        {
+          "round": 9,
+          "version": "baseline",
+          "executionMs": 335.101328
+        },
+        {
+          "round": 10,
+          "version": "baseline",
+          "executionMs": 336.865363
+        },
+        {
+          "round": 10,
+          "version": "candidate",
+          "executionMs": 342.850711
+        }
+      ],
+      "summary": {
+        "baseline": {
+          "medianMs": 336.747508,
+          "madMs": 4.044397000000004,
+          "minMs": 329.612083,
+          "maxMs": 350.020874
+        },
+        "candidate": {
+          "medianMs": 337.889743,
+          "madMs": 2.5581379999999854,
+          "minMs": 330.46593,
+          "maxMs": 345.518272
+        }
+      },
+      "percentChange": 0.3391962740226129
+    }
+  },
+  "staticMarkerComparisons": {
+    "static-control-report-v3": {
+      "schema": "starshine.static-missed-optimization.v1",
+      "detector": "pre-pass-static-markers",
+      "classification": "candidate-only",
+      "inputHash": "42c2bc1f4c72878542d95c5d3e1d12c90ca8061a98213f58479a9c7a69563fe0",
+      "optimizerHash": "c9f76e63fd77b47e96fee8865a9b66549b49fb57f86a4aa27b52b66e3787a2ee",
+      "wasmToolsVersion": "wasm-tools 1.251.0 (a1a178a02 2026-05-28)",
+      "sequences": [
+        [
+          "optimize-instructions",
+          "merge-blocks",
+          "optimize-instructions",
+          "remove-unused-brs",
+          "dead-code-elimination"
+        ],
+        [
+          "dead-code-elimination"
+        ]
+      ],
+      "markers": [
+        {
+          "id": 0,
+          "parent": null,
+          "kind": "function",
+          "function": "$run"
+        },
+        {
+          "id": 1,
+          "parent": 0,
+          "kind": "block",
+          "function": "$run"
+        },
+        {
+          "id": 2,
+          "parent": 1,
+          "kind": "after-br_if",
+          "function": "$run"
+        },
+        {
+          "id": 3,
+          "parent": 0,
+          "kind": "after-end",
+          "function": "$run"
+        }
+      ],
+      "survivors": [
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ],
+      "candidates": [
+        2
+      ],
+      "primaryCandidates": [
+        2
+      ],
+      "reverseDifferences": [],
+      "note": "Pass sequences need not be monotonic. Reduce candidates with a marker-set predicate and confirm effects, traps, size and runtime on original.wasm before accepting a change."
+    },
+    "static-identity-final": {
+      "schema": "starshine.static-missed-optimization.v1",
+      "detector": "pre-pass-static-markers",
+      "classification": "candidate-only",
+      "inputHash": "b3ec1acef6e5790ea1343067fc6cffedfbc5b7f21483f0993f7cea4fe9007480",
+      "optimizerHash": "988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df",
+      "optimizerHashes": [
+        "c9f76e63fd77b47e96fee8865a9b66549b49fb57f86a4aa27b52b66e3787a2ee",
+        "988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df"
+      ],
+      "wasmToolsVersion": "wasm-tools 1.251.0 (a1a178a02 2026-05-28)",
+      "sequences": [
+        [
+          "optimize-instructions",
+          "merge-blocks",
+          "optimize-instructions",
+          "remove-unused-brs",
+          "dead-code-elimination"
+        ],
+        [
+          "optimize-instructions",
+          "merge-blocks",
+          "optimize-instructions",
+          "remove-unused-brs",
+          "dead-code-elimination"
+        ]
+      ],
+      "markers": [
+        {
+          "id": 0,
+          "parent": null,
+          "kind": "function",
+          "function": "$run"
+        },
+        {
+          "id": 1,
+          "parent": 0,
+          "kind": "block",
+          "function": "$run"
+        },
+        {
+          "id": 2,
+          "parent": 1,
+          "kind": "after-br_if",
+          "function": "$run"
+        },
+        {
+          "id": 3,
+          "parent": 0,
+          "kind": "after-end",
+          "function": "$run"
+        }
+      ],
+      "survivors": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ],
+      "candidates": [],
+      "primaryCandidates": [],
+      "reverseDifferences": [],
+      "note": "Pass sequences need not be monotonic. Reduce candidates with a marker-set predicate and confirm effects, traps, size and runtime on original.wasm before accepting a change."
+    }
+  }
+}

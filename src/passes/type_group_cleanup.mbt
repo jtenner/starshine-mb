@@ -1,7 +1,17 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
-// A bounded optional encoding cleanup. Whole recursion groups remain indivisible;
+// An optional encoding cleanup. Whole recursion groups remain indivisible;
 // only global indices are renamed, preserving relative recursive identities.
-fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
+fn pass_cleanup_unused_type_groups(
+  mod_ : @lib.Module,
+  root_scans~ : Array[Int32]? = None,
+) -> @lib.Module {
   if !mod_.custom_secs.is_empty() {
     return mod_
   }
@@ -34,50 +44,45 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
       }
     }
   }
-  // The existing reference scanner is probe-based. Bound that optional work
-  // until a one-pass type-reference collector replaces it.
-  if total == 0 ||
-    total > 128 ||
-    !pass_type_cleanup_reference_surfaces_supported(mod_) {
+  if total == 0 || !pass_type_cleanup_reference_surfaces_supported(mod_) {
     return mod_
   }
-  let mut nodes = 0
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for func in funcs {
-        let @lib.Func(_, @lib.Expr(body)) = func
-        nodes += pass_type_cleanup_instruction_count(body)
-        if nodes > 4096 {
-          return mod_
-        }
-      }
+  let type_to_group = Array::make(total, -1)
+  for group_idx = 0; group_idx < groups.length(); group_idx = group_idx + 1 {
+    for offset = 0; offset < counts[group_idx]; offset = offset + 1 {
+      type_to_group[starts[group_idx] + offset] = group_idx
+    }
+  }
+  let refs : DfeTypeRefs = { live: Array::make(total, false), pending: [], }
+  match root_scans {
+    Some(count) => count[0] += 1
     None => ()
   }
-  let probes : Array[Map[UInt32, UInt32]] = []
+  dfe_type_refs_module_roots(mod_.with_type_sec(@lib.TypeSec::new([])), refs)
   let live : Array[Bool] = Array::make(groups.length(), false)
-  let roots = mod_.with_type_sec(@lib.TypeSec::new([]))
-  for group_idx = 0; group_idx < groups.length(); group_idx = group_idx + 1 {
-    let probe : Map[UInt32, UInt32] = Map([])
-    for offset = 0; offset < counts[group_idx]; offset = offset + 1 {
-      probe[(starts[group_idx] + offset).to_uint()] = total.to_uint()
-    }
-    probes.push(probe)
-    live[group_idx] = dfe_module_type_refs_use_remap(roots, probe)
-  }
-  let pending : Array[Int32] = []
-  for idx = 0; idx < groups.length(); idx = idx + 1 {
-    if live[idx] {
-      pending.push(idx)
+  let pending_groups : Array[Int32] = []
+  let mut type_cursor = 0
+  while type_cursor < refs.pending.length() {
+    let type_slot = refs.pending[type_cursor]
+    type_cursor += 1
+    let group_idx = type_to_group[type_slot]
+    if group_idx >= 0 && !live[group_idx] {
+      live[group_idx] = true
+      pending_groups.push(group_idx)
     }
   }
-  while pending.pop() is Some(owner) {
-    for dependency = 0
-        dependency < groups.length()
-        dependency = dependency + 1 {
-      if !live[dependency] &&
-        dfe_rec_type_uses_remap(groups[owner], probes[dependency]) {
+  let mut group_cursor = 0
+  while group_cursor < pending_groups.length() {
+    let owner = pending_groups[group_cursor]
+    group_cursor += 1
+    dfe_type_refs_rec_type(groups[owner], refs)
+    while type_cursor < refs.pending.length() {
+      let type_slot = refs.pending[type_cursor]
+      type_cursor += 1
+      let dependency = type_to_group[type_slot]
+      if dependency >= 0 && !live[dependency] {
         live[dependency] = true
-        pending.push(dependency)
+        pending_groups.push(dependency)
       }
     }
   }
@@ -145,20 +150,6 @@ fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
     _ => ()
   }
   mod_
-}
-
-///|
-fn pass_type_cleanup_instruction_count(body : Array[@lib.Instruction]) -> Int32 {
-  let mut count = body.length()
-  for instr in body {
-    ignore(
-      pass_lower_map_children(instr, fn(children) {
-        count += pass_type_cleanup_instruction_count(children)
-        children
-      }),
-    )
-  }
-  count
 }
 
 ///|

@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2022 WebAssembly Community Group participants
+// Counterpart: src/passes/GlobalEffects.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 fn ge_body_cannot_suspend(body : @lib.Expr) -> Bool {
   let @lib.Expr(instrs) = body
@@ -76,6 +88,23 @@ fn ge_body_has_rewritable_resume(body : @lib.Expr) -> Bool {
           None => ()
         }
       }
+      @lib.Try(_, body, catches, _) => {
+        if ge_body_has_rewritable_resume(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if ge_body_has_rewritable_resume(catch_body) {
+            return true
+          }
+        }
+      }
+      @lib.TryTable(_, _, body) =>
+        if ge_body_has_rewritable_resume(body) {
+          return true
+        }
       _ => ()
     }
   }
@@ -158,6 +187,43 @@ fn ge_rewrite_fresh_resumes(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
+      @lib.Try(block_type, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            ge_rewrite_fresh_resumes(
+              body, funcs, summaries, imported_funcs, changed,
+            ),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    ge_rewrite_fresh_resumes(
+                      catch_body, funcs, summaries, imported_funcs, changed,
+                    ),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    ge_rewrite_fresh_resumes(
+                      catch_body, funcs, summaries, imported_funcs, changed,
+                    ),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
+      @lib.TryTable(block_type, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            ge_rewrite_fresh_resumes(
+              body, funcs, summaries, imported_funcs, changed,
+            ),
+          ),
+        )
       _ => out.push(instr)
     }
   }

@@ -213,6 +213,69 @@ fn rume_test_memarg_rewrite_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_backing_array_fixture() -> @lib.Module {
+  let dead_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let array_ref = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [array_ref, @lib.ValType::i32(), @lib.ValType::i32()],
+        [],
+      ),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([dead_type, array_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_mem_sec(@lib.MemSec::new([rume_test_mem_type()]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::array_load(
+            @lib.LoadOp::i32_load(),
+            @lib.TypeIdx::new(1U),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::array_store(
+            @lib.StoreOp::i32_store(),
+            @lib.TypeIdx::new(1U),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_import_remap_fixture() -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(rume_test_type_sec())
@@ -1369,6 +1432,68 @@ test "remove-unused-module-elements rewrites explicit memarg memory indices" {
       fail(
         "expected memarg remove-unused-module-elements module to validate, got \{err}",
       )
+  }
+}
+
+///|
+test "RUME backing-array operations do not retain linear memory" {
+  let input = rume_test_backing_array_fixture()
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid backing-array fixture, got \{err}")
+  }
+  for
+    pass_name in [
+      "remove-unused-module-elements", "remove-unused-nonfunction-module-elements",
+    ] {
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} success, got \{err}")
+    }
+    assert_true(
+      optimized.mem_sec is None,
+      msg="\{pass_name} retained unrelated linear memory",
+    )
+    match optimized.code_sec {
+      Some(
+        @lib.CodeSec(
+          [
+            @lib.Func(
+              _,
+              @lib.Expr(
+                [
+                  @lib.LocalGet(_),
+                  @lib.LocalGet(_),
+                  @lib.ArrayLoad(
+                    _,
+                    @lib.TypeIdx(load_type_idx),
+                    @lib.MemArg(_, None, _)
+                  ),
+                  @lib.Drop,
+                  @lib.LocalGet(_),
+                  @lib.LocalGet(_),
+                  @lib.LocalGet(_),
+                  @lib.ArrayStore(
+                    _,
+                    @lib.TypeIdx(store_type_idx),
+                    @lib.MemArg(_, None, _)
+                  ),
+                ]
+              )
+            ),
+          ]
+        )
+      ) => {
+        @debug.assert_eq(load_type_idx, 0U)
+        @debug.assert_eq(store_type_idx, 0U)
+      }
+      _ => fail("expected preserved array load and store for \{pass_name}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid \{pass_name} output, got \{err}")
+    }
   }
 }
 

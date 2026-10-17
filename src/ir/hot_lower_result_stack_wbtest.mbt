@@ -31,9 +31,9 @@ test "lower result stack preserves scalar tuple block and GC result order withou
     let node = hot_build_node(func, HotOp::Nop, shape)
     let expected = hot_type_results(func, shape)
     let revision = hot_revision_current(func)
-    let stack : Array[HotLowerStackValue] = [
-      { node_id: -1, val_type: @lib.ValType::f32(), },
-    ]
+    let stack : HotLowerValueStack = hot_lower_value_stack_makei(1, fn(_) {
+      { node_id: -1, val_type: @lib.ValType::f32(), }
+    })
     hot_lower_impl_push_results(func, node, stack)
     hot_lower_impl_push_results(func, node, stack)
     assert_eq(stack.length(), 1 + 2 * expected.length())

@@ -1,36 +1,35 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { readMoonProductVersion, readProductVersion, validateProductVersion } from "./generate-product-version.mjs";
 
 import { generateCoreIrBindings } from "./core-ir-generation";
 import { fail, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
 export const WIT_BINDGEN_VERSION = "0.60.0";
-const STARSHINE_COMPONENT_VERSION = "0.1.1";
 
 export function validateComponentVersionSources(
   moonModule: string,
   witSource: string,
   metadataImplementation: string,
 ): string {
-  const moonVersion = moonModule.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+  // The portable WIT interface has its own compatibility version. Updating
+  // npm/product metadata alone must not rename stable component exports.
+  readMoonProductVersion(moonModule);
   const witVersion = witSource.match(/package\s+jtenner:starshine-component@([^;]+);/)?.[1];
   const metadataVersion = metadataImplementation.match(
     /pub fn version\(\)\s*->\s*String\s*\{\s*"([^"]+)"/,
   )?.[1];
-  if (!moonVersion || !witVersion || !metadataVersion) {
+  if (!witVersion || !metadataVersion) {
     fail("unable to read component version from moon.mod, WIT, or metadata implementation");
   }
-  if (
-    moonVersion !== witVersion ||
-    moonVersion !== metadataVersion ||
-    moonVersion !== STARSHINE_COMPONENT_VERSION
-  ) {
+  validateProductVersion(witVersion);
+  if (witVersion !== metadataVersion) {
     fail(
-      `component version mismatch: moon=${moonVersion} wit=${witVersion} metadata=${metadataVersion} expected=${STARSHINE_COMPONENT_VERSION}`,
+      `component version mismatch: wit=${witVersion} metadata=${metadataVersion}`,
     );
   }
-  return moonVersion;
+  return witVersion;
 }
 
 export type ComponentCommand = "generate" | "build" | "check";
@@ -170,7 +169,7 @@ export function parseComponentArgs(argv: string[]): ComponentArgs {
   return { command, moonBin, wasmToolsBin, witBindgenBin, outDir, release };
 }
 
-export function patchGeneratedMoonModule(module: GeneratedMoonModule): {
+export function patchGeneratedMoonModule(module: GeneratedMoonModule, productVersion: string): {
   name: string;
   preferredTarget: string;
   deps: Record<string, string>;
@@ -178,7 +177,7 @@ export function patchGeneratedMoonModule(module: GeneratedMoonModule): {
   return {
     ...module,
     deps: {
-      "jtenner/starshine": "0.1.1",
+      "jtenner/starshine": validateProductVersion(productVersion),
     },
   };
 }
@@ -386,7 +385,7 @@ function syncGeneratedBindings(repoRoot: string): void {
   const patched = patchGeneratedMoonModule({
     name: rawModule.name,
     preferredTarget: rawModule["preferred-target"] ?? "wasm",
-  });
+  }, readProductVersion(repoRoot));
 
   copyDirectory(path.join(stagingRoot, "gen"), path.join(componentRoot, "gen"));
   copyDirectory(path.join(stagingRoot, "world"), path.join(componentRoot, "world"));
@@ -471,6 +470,7 @@ function runGenerationStep(step: ComponentCommandStep): void {
 export function runComponent(argv: string[]): void {
   const parsed = parseComponentArgs(argv);
   const repoRoot = resolveWorkspaceRoot();
+  readProductVersion(repoRoot);
   const outDir = path.isAbsolute(parsed.outDir) ? parsed.outDir : path.join(repoRoot, parsed.outDir);
   syncCoreIrSources(repoRoot);
   validateComponentVersionSources(

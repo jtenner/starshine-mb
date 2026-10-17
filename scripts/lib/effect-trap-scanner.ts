@@ -23,6 +23,10 @@ export type EffectTrapFacts = {
   hasAtomics: boolean;
   hasUnreachable: boolean;
   mayTrap: boolean;
+  // Only GC prefix decoding is qualified; other opcode families remain best-effort.
+  gcDecodeStatus: "complete" | "incomplete";
+  gcDecodeIncompleteOffset: number | null;
+  gcDecodeIncompleteReason: string | null;
   hazards: EffectTrapHazard[];
   possibleTrapCategories: string[];
 };
@@ -37,6 +41,9 @@ export function emptyEffectTrapFacts(): EffectTrapFacts {
     hasAtomics: false,
     hasUnreachable: false,
     mayTrap: false,
+    gcDecodeStatus: "complete",
+    gcDecodeIncompleteOffset: null,
+    gcDecodeIncompleteReason: null,
     hazards: [],
     possibleTrapCategories: [],
   };
@@ -101,6 +108,99 @@ function recordOpcodeHazard(facts: EffectTrapFacts, opcode: number, offset: numb
 
 function markTrap(facts: EffectTrapFacts): void {
   facts.mayTrap = true;
+}
+
+function markIncomplete(facts: EffectTrapFacts, offset: number, reason: string): void {
+  if (facts.gcDecodeStatus === "complete") {
+    facts.gcDecodeStatus = "incomplete";
+    facts.gcDecodeIncompleteOffset = offset;
+    facts.gcDecodeIncompleteReason = reason;
+  }
+}
+
+function readGcUleb(bytes: Uint8Array, offset: number, end: number): { value: number; next: number } | null {
+  let value = 0;
+  for (let byteIndex = 0; byteIndex < 5; byteIndex += 1) {
+    if (offset >= end) return null;
+    const byte = bytes[offset++];
+    const payload = byte & 0x7f;
+    if (byteIndex === 4 && payload > 0x0f) return null;
+    value += payload * 2 ** (byteIndex * 7);
+    if ((byte & 0x80) === 0) return { value, next: offset };
+  }
+  return null;
+}
+
+function skipGcHeapType(bytes: Uint8Array, offset: number, end: number): number | null {
+  if (offset < end && bytes[offset] === 0x62) offset += 1; // exact
+  if (offset < end && bytes[offset] === 0x65) offset += 1; // shared
+  if (offset >= end) return null;
+  const first = bytes[offset];
+  if (first === 0x5b || first === 0x5c || (first >= 0x67 && first <= 0x75)) return offset + 1;
+  // The remaining core form is a nonnegative signed-33 type index.
+  let value = 0;
+  for (let byteIndex = 0; byteIndex < 5; byteIndex += 1) {
+    if (offset >= end) return null;
+    const byte = bytes[offset++];
+    value += (byte & 0x7f) * 2 ** (byteIndex * 7);
+    if ((byte & 0x80) === 0) {
+      if ((byte & 0x40) !== 0) value -= 2 ** ((byteIndex + 1) * 7);
+      return value >= 0 && value <= 0xffff_ffff ? offset : null;
+    }
+  }
+  return null;
+}
+
+function scanGcOpcode(bytes: Uint8Array, offset: number, end: number, facts: EffectTrapFacts, opcodeOffset: number): number {
+  const sub = readGcUleb(bytes, offset, end);
+  if (sub === null) {
+    markIncomplete(facts, opcodeOffset, "malformed-gc-subopcode");
+    return end;
+  }
+  const opcode = sub.value;
+  let next = sub.next;
+  const integerOperands = opcode <= 1 || (opcode >= 6 && opcode <= 7)
+    || (opcode >= 11 && opcode <= 14) || opcode === 16 ? 1
+    : (opcode >= 2 && opcode <= 5) || (opcode >= 8 && opcode <= 10)
+      || opcode === 17 || opcode === 18 || opcode === 19 ? 2 : 0;
+  if (integerOperands > 0) {
+    for (let operand = 0; operand < integerOperands; operand += 1) {
+      const parsed = readGcUleb(bytes, next, end);
+      if (parsed === null) {
+        markIncomplete(facts, opcodeOffset, "malformed-gc-immediate");
+        return end;
+      }
+      next = parsed.next;
+    }
+  } else if (opcode >= 20 && opcode <= 23) {
+    const afterHeap = skipGcHeapType(bytes, next, end);
+    if (afterHeap === null) {
+      markIncomplete(facts, opcodeOffset, "malformed-gc-heap-type");
+      return end;
+    }
+    next = afterHeap;
+  } else if (opcode === 24 || opcode === 25) {
+    if (next >= end || bytes[next] > 3) {
+      markIncomplete(facts, opcodeOffset, "malformed-gc-cast-flags");
+      return end;
+    }
+    const label = readGcUleb(bytes, next + 1, end);
+    const source = label === null ? null : skipGcHeapType(bytes, label.next, end);
+    const target = source === null ? null : skipGcHeapType(bytes, source, end);
+    if (target === null) {
+      markIncomplete(facts, opcodeOffset, "malformed-gc-cast-immediate");
+      return end;
+    }
+    next = target;
+  } else if (opcode !== 15 && (opcode < 26 || opcode > 30)) {
+    markIncomplete(facts, opcodeOffset, "unsupported-gc-subopcode");
+    return end;
+  }
+  if ((opcode >= 2 && opcode <= 19) || opcode === 22 || opcode === 23 || opcode === 29 || opcode === 30) {
+    markTrap(facts);
+    noteTrapCategory(facts, "gc-reference-or-bounds");
+  }
+  return next;
 }
 
 function readUleb(bytes: Uint8Array, offset: number): { value: number; next: number } {
@@ -394,6 +494,13 @@ function scanOpcode(
 
   if (opcode === 0xfd) {
     return scanSimdOpcode(bytes, offset, end, facts, opcodeOffset);
+  }
+
+  if (opcode === 0xfb) {
+    // A valid function body ends with 0x0b; it cannot supply a missing GC
+    // immediate even when the byte value would look like a valid index.
+    const operandEnd = end > offset && bytes[end - 1] === 0x0b ? end - 1 : end;
+    return scanGcOpcode(bytes, offset, operandEnd, facts, opcodeOffset);
   }
 
   if (opcode === 0xfc || opcode === 0xfe) {

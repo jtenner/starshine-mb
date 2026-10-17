@@ -1,3 +1,13 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/RemoveUnusedModuleElements.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn rume_summary() -> String {
   @rume.rume_summary()
@@ -58,4 +68,14 @@ pub fn rume_run_nonfunction_module_pass(
     traps_never_happen~,
     closed_world~,
   )
+}
+
+///|
+/// Apply the application's exact export roots as the final mutating transform.
+/// Preserve exposed function names/identity relative to this input module.
+pub fn rume_run_host_roots_module_pass(
+  mod_ : @lib.Module,
+  roots : Array[String],
+) -> Result[@lib.Module, String] {
+  @rume.rume_run_host_roots_module_pass(mod_, roots)
 }

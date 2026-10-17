@@ -10,7 +10,7 @@ fn lower_stack_value_bench(
   } else {
     @lib.ValType::i32()
   }
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   it.bench(fn() {
     for node_id in 0..<width {
       stack.push({ node_id, val_type, })

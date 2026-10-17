@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/ReorderLocals.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn reorder_locals_summary() -> String {
   "Sort body locals by access frequency and drop unaccessed body locals."
@@ -166,6 +178,122 @@ fn rl_sort_used_body_locals(
     }
   })
   used_body_locals
+}
+
+///|
+fn rl_grouping_abs_key(abs : @lib.AbsHeapType) -> UInt64 {
+  match abs {
+    @lib.ExnAbsHeapType => 0UL
+    @lib.StringAbsHeapType => 1UL
+    @lib.ArrayAbsHeapType => 2UL
+    @lib.StructAbsHeapType => 3UL
+    @lib.I31AbsHeapType => 4UL
+    @lib.EqAbsHeapType => 5UL
+    @lib.AnyAbsHeapType => 6UL
+    @lib.ExternAbsHeapType => 7UL
+    @lib.FuncAbsHeapType => 8UL
+    @lib.ContAbsHeapType => 9UL
+    @lib.NoneAbsHeapType => 10UL
+    @lib.NoExternAbsHeapType => 11UL
+    @lib.NoFuncAbsHeapType => 12UL
+    @lib.NoExnAbsHeapType => 13UL
+    @lib.NoContAbsHeapType => 14UL
+    @lib.WaitqueueAbsHeapType => 15UL
+    @lib.NoWaitqueueAbsHeapType => 16UL
+  }
+}
+
+///|
+// Scalar/heap-kind/reference flags occupy disjoint high bits; the payload keeps
+// the full UInt32 index. No derived ValType graph hash or equality is needed.
+fn rl_grouping_type_key(ty : @lib.ValType) -> UInt64? {
+  match ty {
+    @lib.NumTypeValType(@lib.I32NumType) => Some(0UL)
+    @lib.NumTypeValType(@lib.I64NumType) => Some(1UL)
+    @lib.NumTypeValType(@lib.F32NumType) => Some(2UL)
+    @lib.NumTypeValType(@lib.F64NumType) => Some(3UL)
+    @lib.VecTypeValType => Some(4UL)
+    @lib.BotValType => None
+    @lib.RefTypeValType(@lib.AbsHeapTypeRefType(abs)) =>
+      Some(0x1100000000000000UL | rl_grouping_abs_key(abs))
+    @lib.RefTypeValType(@lib.HeapTypeRefType(nullable, exact, heap)) => {
+      let payload = match heap {
+        @lib.AbsHeapTypeHeapType(abs) => rl_grouping_abs_key(abs)
+        @lib.SharedAbsHeapTypeHeapType(abs) =>
+          0x100000000UL | rl_grouping_abs_key(abs)
+        @lib.HeapType(@lib.TypeIdx(idx)) => 0x200000000UL | idx.to_uint64()
+        @lib.HeapType(@lib.RecIdx(idx)) => 0x300000000UL | idx.to_uint64()
+        @lib.DefTypeHeapType(_) => return None
+      }
+      let nullable_flag = if nullable { 0x0100000000000000UL } else { 0UL }
+      let exact_flag = if exact { 0x0200000000000000UL } else { 0UL }
+      Some(0x1000000000000000UL | nullable_flag | exact_flag | payload)
+    }
+  }
+}
+
+///|
+// Equal-frequency permutations preserve the weighted local-index ULEB size,
+// including width boundaries. Compress declaration runs only when their actual
+// encoded bytes strictly improve; retain first-use ordering on ties/no gain.
+fn rl_group_equal_frequency_locals(
+  order : Array[Int32],
+  counts : Array[Int32],
+  body_types : Array[@lib.ValType],
+  first_uses : Array[Int32],
+  param_count : Int32,
+) -> Array[Int32] {
+  if order.length() <= 2 {
+    return order
+  }
+  let type_ranks : Map[UInt64, Int32] = Map([])
+  let ranks = Array::make(body_types.length(), 0)
+  for old_idx in order {
+    let key = match rl_grouping_type_key(body_types[old_idx - param_count]) {
+      Some(key) => key
+      None => return order
+    }
+    let rank = match type_ranks.get(key) {
+      Some(rank) => rank
+      None => {
+        let rank = type_ranks.length()
+        type_ranks[key] = rank
+        rank
+      }
+    }
+    ranks[old_idx - param_count] = rank
+  }
+  if type_ranks.length() <= 1 {
+    return order
+  }
+  let grouped = order.copy()
+  grouped.sort_by(fn(lhs, rhs) {
+    if counts[lhs] != counts[rhs] {
+      counts[rhs] - counts[lhs]
+    } else if ranks[lhs - param_count] != ranks[rhs - param_count] {
+      ranks[lhs - param_count] - ranks[rhs - param_count]
+    } else {
+      first_uses[lhs] - first_uses[rhs]
+    }
+  })
+  let current_runs : Array[@lib.LocalRun] = []
+  let grouped_runs : Array[@lib.LocalRun] = []
+  for old_idx in order {
+    rl_push_local_run(current_runs, body_types[old_idx - param_count])
+  }
+  for old_idx in grouped {
+    rl_push_local_run(grouped_runs, body_types[old_idx - param_count])
+  }
+  let current_bytes = @buffer.new()
+  let grouped_bytes = @buffer.new()
+  match
+    (
+      @binary.Encode::encode(@lib.Locals::new(current_runs), current_bytes),
+      @binary.Encode::encode(@lib.Locals::new(grouped_runs), grouped_bytes),
+    ) {
+    (Ok(_), Ok(_)) if grouped_bytes.length() < current_bytes.length() => grouped
+    _ => order
+  }
 }
 
 ///|
@@ -465,10 +593,23 @@ fn rl_rewrite_func(
     return { func, old_to_new: [], changed: false, }
   }
 
-  let used_body_locals = rl_sort_used_body_locals(
+  let frequency_order = rl_sort_used_body_locals(
     scan.used_body_locals,
     scan.counts,
     scan.first_uses,
+  )
+  if body_locals.runs().length() <= 1 &&
+    frequency_order.length() == body_local_count &&
+    rl_used_body_locals_are_original_prefix(frequency_order, params.length()) {
+    return { func, old_to_new: [], changed: false, }
+  }
+  let body_local_types = rl_flatten_locals(body_locals, body_local_count)
+  let used_body_locals = rl_group_equal_frequency_locals(
+    frequency_order,
+    scan.counts,
+    body_local_types,
+    scan.first_uses,
+    params.length(),
   )
   let used_body_locals_are_original_prefix = rl_used_body_locals_are_original_prefix(
     used_body_locals,
@@ -484,7 +625,6 @@ fn rl_rewrite_func(
     old_to_new[idx] = idx
   }
 
-  let body_local_types = rl_flatten_locals(body_locals, body_local_count)
   let reordered_body_runs : Array[@lib.LocalRun] = Array::new(
     capacity=used_body_locals.length(),
   )

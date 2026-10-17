@@ -59,7 +59,7 @@ test "lower distinct scalar calls avoid futile reuse work and retain each value 
     assert_eq(func.roots.length(), width)
     let counts = hot_node_use_counts_build(func)
     let frames = hot_lower_impl_new_label_frames(func)
-    let stack : Array[HotLowerStackValue] = []
+    let stack : HotLowerValueStack = hot_lower_value_stack_new()
     let out : Array[Instruction] = []
     let locals : Array[ValType] = []
     for root in func.roots {
@@ -117,7 +117,7 @@ test "lower first-emission admission retains buried calls and in-flight control 
     assert_eq(func.roots.length(), 2)
     let counts = hot_node_use_counts_build(func)
     let frames = hot_lower_impl_new_label_frames(func)
-    let stack : Array[HotLowerStackValue] = []
+    let stack : HotLowerValueStack = hot_lower_value_stack_new()
     let out : Array[Instruction] = []
     let locals : Array[ValType] = []
     // A dependency may be emitted before its sole actual graph use. Reusing
@@ -176,7 +176,7 @@ test "lower first-emission state includes suspended outer stack values" {
   }
   let counts = hot_node_use_counts_build(func)
   let frames = hot_lower_impl_new_label_frames(func)
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   let out : Array[Instruction] = []
   let locals : Array[ValType] = []
   // The first deep lookup occurs on another stack. It must not hide the
@@ -215,7 +215,7 @@ test "lower first-emission state includes synthesized control prefix values" {
   let nop = hot_build_nop(func)
   let counts = hot_node_use_counts_build(func)
   let frames = hot_lower_impl_new_label_frames(func)
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   // Entry values already exist in the enclosing output. Their synthesized
   // stack entries do not necessarily pass through emit_root themselves.
   let out = [

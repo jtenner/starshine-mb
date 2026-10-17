@@ -708,6 +708,344 @@
   [Npm package blockers](tooling/node-package-surface.md#october-11-2026-local-package-blockers)
   remain explicit; the JavaScript timings use a separate current-source runner.
 
+
+### 2026-10-13 — Evaluate final function index ordering
+
+- [The private-call experiment](binaryen/passes/reorder-functions/starshine-strategy.md#measured-private-call-experiment)
+  records repeatable raw and gzip savings on two compiler modules, measured
+  optimizer time and RSS costs, and the resulting rejection. Import lookup order,
+  host-visible function names and exact metadata preservation constrain a future
+  port. The pass remains boundary-only; no experimental flag or preset survives.
+
+### 2026-10-13 — Resolve six test-fixture conflicts
+
+- Kept the strict [MSF encoded-size guard](binaryen/passes/merge-similar-functions/starshine-strategy.md#october-13-2026-encoded-size-guard-and-positive-fixtures). Old positive padding required a 61-to-62-byte helper. Positive fixtures now use real shared global updates and retain helper/call/nested/metadata checks; new assertions require smaller bytes and exact ordered work. A new regression rejects ordinary one-byte helper growth; both index-boundary tests are unchanged.
+- Isolated [RSE signed-zero defaults from parameter identity](binaryen/passes/rse/starshine-strategy.md#october-13-2026-floating-bit-fixture-isolation). The initial body-local +0 write is correctly redundant. Original expected counts remain; additional raw/HOT/default/parameter checks require exact signed-zero and NaN bits. This corrects the earlier NaN diagnosis without changing production RSE.
+- [Qualification evidence](raw/tooling/2026-10-13-six-failure-fixtures.json) records the size conflict, exact v133 effectful output and execution state. Full wasm-gc passes 14,149/14,149; interfaces, formatting and README API sync pass. No production pass or public API changed. This supersedes the six-failure blocker below; the broader RUB raw encoding gap remains open.
+
+### 2026-10-13 — Qualify bounded missed-optimization fixes
+
+- [OI strategy](binaryen/passes/optimize-instructions/starshine-strategy.md) records unsigned sign-bit arithmetic and immediate integer tee reuse. [RUB strategy](binaryen/passes/remove-unused-brs/starshine-strategy.md) records equal-constant branches with retained effectful conditions. Small source rules replace broader analysis or scheduling changes.
+- [Static markers](tooling/fuzz-runner.md) add pre-pass diagnostic calls, current import identity resolution and parent grouping. A controlled omitted-pass case reports one primary candidate. A baseline/candidate identity comparison reports no difference; marker effects can hide opportunities. Automatic reduction and issue #19's dynamic detector remain open.
+- [Raw evidence](raw/tooling/2026-10-13-missed-optimization-evidence.json) records 22 fixtures (136 bytes saved, no size losses), 112 matching execution observations, a three-byte real MicroPython gain, all timing/RSS rows and noise controls. No runtime gain is claimed. Two 10,000-case v133 aggregate renewals have no observed semantic mismatch or validation failure; unsupported runtime cases and residual structural differences remain explicit in the pass dossiers.
+- Six full-suite failures reproduce on the exact baseline. RUB's existing raw encoding gap remains open. The active backlog retains these limits and the next diagnostic work; this is not a full pass-audit closure.
+
+### 2026-10-11 — Restore honest `i64-to-i32-lowering` boundaries
+
+- Verified with Binaryen 133 reduced fixtures that the canonical pass rewrites
+  i64 function parameters and ordinary `i64.add` into i32-pair forms, while the
+  Starshine implementation only handled four saturating float conversions.
+- Returned `i64-to-i32-lowering` to boundary-only request rejection and exposed
+  the existing safe subset as `i64-trunc-sat-float-lowering`. Focused tests keep
+  both boundaries explicit. The narrow pass now adds only the f32 or f64
+  temporary needed by each changed function.
+- Updated the pass dossier, shared catalogs, fuzzing status and active backlog.
+  Full type, ABI, local, global, call, return, memory, ordinary numeric, helper
+  and atomic lowering remains open and cannot use narrow-pass evidence.
+
+### 2026-10-11 — Prepare the MoonBit tutorial revision 0.2.2
+
+- Mooncakes 0.2.1 is published, byte-qualified and rendered on its module overview;
+  the owner requested a further MoonBit-focused patch. npm latest remains 0.2.0.
+- [Release process](tooling/release-process.md#moonbit-tutorial-revision-022)
+  records bundled moonrun requirements, explicit moon update, complete copyable
+  MoonBit examples and a visible Wasm header success check. No API changes.
+- A regression against the preserved 0.2.1 archive runs MoonGC with Node absent
+  from its PATH, then fails because the new success output is absent. The revised
+  harness reads actual archive Markdown and retains native file/error checks plus
+  independent execution of the encoded answer. It removes the additional npm CLI
+  section/tests and focuses solely on MoonBit library examples. Publication
+  requires candidate review. The exact 2,157-file archive passes both tutorial
+  targets, native file/error cases and API roundtrips; independent execution
+  returns 42. Generated FFI/product drift, packaging guards and README API sync
+  pass. Registry installation and public 0.2.2 rendering remain post-publication
+  checks.
+
+### 2026-10-11 — Correct Mooncakes landing README in 0.2.1
+
+- The published 0.2.0 registries serve qualified bytes; all six master workflows
+  passed. The owner explicitly confirmed source use and retention of upstream terms.
+- Mooncakes rendered no README because the source archive excluded root README.md.
+  The custom metadata filename did not select a landing page. The regression
+  rejects the preserved 0.2.0 archive before the `.moonignore`/metadata correction.
+- The owner authorized a beginner tutorial and the 0.2.1 Mooncakes fallback.
+  [Release process](tooling/release-process.md) records the correction, controlled-
+  language principles, archived-example execution and registry/rendered-page checks.
+  npm metadata is synchronized as an unpublished candidate; npm remains 0.2.0.
+- The guide covers dependency setup, aliases, checked parse/validate/optimize/encode,
+  WasmGC/native execution, native file I/O, error limits and the public npm CLI.
+  The full API reference remains in README.mbt.md. No optimizer API change.
+
+### 2026-10-11 — Prepare synchronized registry release 0.2.0
+
+- The owner authorized 0.2.0 for npm and Mooncakes, replacing the historical
+  npm default product while preserving old versions. Registry writes remain
+  subject to exact package access and artifact qualification.
+- [Release process](tooling/release-process.md) records source-only Mooncakes
+  packaging, upstream legal retention and independent packed consumer checks.
+- The npm consumer harness derives package paths/imports from the packed manifest
+  and executes the shipped README JS/TS, CLI and npm workflow examples.
+  Existing six-pass runtime/resource caveats remain unchanged.
+- The first 0.2.0 Required CI release-artifact check exposed a stale generated
+  component dependency. Regeneration updates only its module dependency; the
+  stable WIT/API version remains 0.1.1. The failed checkpoint stays recorded.
+- The next full source suite passed 14,104/14,107; three adapter assertions still
+  expected the beta version. They now compare formatted output with the generated
+  product identity, whose metadata/packed-runtime drift checks remain independent.
+  Focused adapter tests pass 4/4; no runtime code or API changes.
+
+### 2026-10-10 — Bound immutable record-copy outlining and isolate npm consumers
+
+- [MergeSimilarFunctions](binaryen/passes/merge-similar-functions/index.md)
+  can outline repeated immutable i32 copies with fresh allocation, old alias,
+  null trap and public identity preservation; full validation and complete-size
+  rollback guard admission. Unrelated deep bodies retain physical sharing.
+- Separate iterative Block/Loop/If validation and type/declaration resource
+  accounting support the bounded owner. EH retains existing dispatch; diagnostic
+  subtrees over 32 levels/256 nodes use an explicit bounded marker.
+- Only numeric optimize 4/shrink 1 adds MSF after ReorderLocals. The immutable
+  ORIGINAL GC result 5,361,362 is 183,747 bytes below the recorded Binaryen 133 O4/s1;
+  [the discrepancy record](tooling/npm-optimizer-discrepancy.md) separates
+  combined native output, fresh-source package bytes and historical projections.
+- The real source npm build and exact 52-file Node 25/26 JavaScript/strict TypeScript consumers pass,
+  including runtime filesystem isolation. Separate external consumer scratch
+  avoids inheriting the compiler's checkout-local disk TMPDIR. Gzip grows 7,294 bytes
+  despite unpacked reduction; tiny copy calls slow, memory P1 stays open.
+- Integrated full WasmGC passes 14,104 tests and all fourteen CI fuzz suites.
+  Plain default passes 14,107 tests and ordinary MSF 10k matches normalized
+  output and semantics, retaining its raw-size gap. Coverage passes against the unchanged baseline; remote CI remains pending;
+  npm publication, tags/releases and protection changes are excluded.
+
+### 2026-10-10 — Retain scoped MIT and conservative Binaryen redistribution notices
+
+- [The provenance matrix](tooling/license-provenance.md) records the owner's
+  conservative Binaryen notice-retention choice without resolving unknown
+  authorship. Josh-owned originals retain MIT; incorporated upstream expression
+  and compiled dependencies retain their applicable terms.
+- Full pinned Binaryen license, source scope/change notices, historical notices
+  and 40 exact counterpart attributions are preserved. Five package legal assets
+  are copied verbatim, drift-checked and checked after offline installation.
+- This licensing follow-up is separate from published b0b3 and its historical
+  notice-free archive. Unknown provenance does not permit future MIT-only
+  relabeling; npm publication and candidate/provenance approval remain pending.
+- The first published licensing-head npm CI run exposed an absent FFI registry
+  tree. A release build dry-run now resolves that tree before the unchanged
+  license guard and artifact compilation; the failed run remains evidence.
+
+### 2026-10-10 — Rescue targeted unread-tee coverage and preserve raw-size gaps
+
+- [Vacuum's qualification](binaryen/passes/vacuum/fuzzing.md) distinguishes the
+  prior zero-tee aggregate from 10,000 unique targeted tee cases and 104-input
+  independent execution. All journaled three-way observations match; normal
+  exit 1 preserves structural differences and raw serialization size losses.
+- The isolated rescue preserves the unavailable owner's source/patch, confirms
+  actual RED tests, bounds compressed declaration snapshots and shares unchanged
+  regions through lazy COW. FFI/npm generation and exact integrated release
+  gates remain distinct from the child source/runtime signoff.
+- [The integration boundary](tooling/npm-optimizer-discrepancy.md#targeted-unread-tee-integration-boundary)
+  records completed grouping publication, its successful exact-head workflows
+  and retained bypass warning. P1, raw-size gaps, license/npm decisions and the
+  later publication route remain open; no protection or credential changed.
+
+### 2026-10-10 — Integrate bounded declaration grouping and retain its costs
+
+- [ReorderLocals](binaryen/passes/reorder-locals/parity.md) groups only equal-
+  frequency ties when actual declaration encoding strictly shrinks. Primitive
+  keys preserve type distinctions without recursive graph hashing; both
+  regression-first pairs remain in the reviewed chain through `36cfe0be`.
+- [The integration dossier](tooling/npm-optimizer-discrepancy.md#reviewed-declaration-grouping-integration)
+  distinguishes ORIGINAL savings from fresh self-build changes, retains raw GC
+  growth and an adverse single resource pair, and leaves the memory P1 open.
+  All six prior 0ca workflows pass; fresh combined-head qualification is separate.
+- The source-push event eligibility investigation and scoped user authorization
+  are explicit. No later unread-tee experiment, preset change, protection edit,
+  npm publication or license decision enters this checkpoint.
+
+### 2026-10-10 — Integrate reviewed GC repairs with an open P1 memory blocker
+
+- [The integration decision](tooling/npm-optimizer-discrepancy.md#integration-decision-and-p1-memory-blocker)
+  combines the full reviewed nineteen-commit GC/remap/storage/wrapper chain with
+  the a2 native/coverage repair. All six published a2 master workflows pass;
+  its older failure checkpoints remain historical evidence.
+- The user temporarily accepts the measured remaining 36.7 MiB median increase
+  versus the first equivalent control and requires an open P1 blocker in the
+  [active backlog](../../agent-todo.md#p1-blocker--reduce-gc-canonicalization-and-wrapper-peak-memory-npm-gc-memory-p1).
+  This supersedes acceptance-pending wording below, not the measurement limits.
+  Preserve the additional 271,688-byte original GC benefit and exclude the
+  separate no-benefit baseline allocation route.
+- Fresh combined-head generated ABI/types, source-native self-build, exact
+  packed consumers, native-debug, unchanged coverage and protected CI remain
+  required before normal master publication. No npm/tag/release/license action
+  is authorized, and broader optimizer gaps stay open.
+
+### 2026-10-10 — Repair native compatibility and strengthen codec contracts
+
+- [The native qualification](tooling/npm-optimizer-discrepancy.md#october-10-2026--native-debug-compatibility-and-resource-qualification)
+  replaces uninitialized mixed-record arrays only in the private native lower
+  stack. Other targets keep Array storage, value types and optimizer behavior.
+  Native debug examples and validator tests pass with bounded process-stack
+  requirements; CI watches IR changes and retains its debug and validator gates.
+- [Version-1 metadata tests](binary/compiler-facts-v1.md#october-10-2026--version-1-codec-contract-qualification)
+  add independent wire, malformed-section, discriminator and truncation
+  contracts. Public bridge tests assert concrete index, initializer, opcode
+  and WASI-schema behavior. Coverage keeps the existing baseline; complete
+  exact-head qualification remains separate from selected tests.
+- All 14,032 instrumented tests pass before the final hint witness;
+  all eight selected metadata tests pass. Fresh compatible traces report
+  28,104 uncovered lines, 34 below the unchanged baseline; exact-head CI
+  remains independently required. The fresh 47-file/4,802,894-byte package
+  passes isolated Node25/26 JS and strict TS consumers and 44 Node tests.
+  The tarball is 1,103 bytes larger than the previous source checkpoint.
+  Three paired release samples preserve every optimized output. The WASI median is 3.4% slower, with overlapping ranges and
+  less than 1 MiB median RSS differences; no speed win is claimed. The later GC
+  canonicalization/memory work remains isolated pending the owner's decision.
+
+### 2026-10-10 — Qualify immutable index and heap sharing
+
+- [The bounded allocation follow-up](tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
+  shares immutable absolute indices and concrete heaps within one CodeSec remap,
+  with separate failing-first regressions, independent review and 14,035 tests.
+- Exact original outputs remain unchanged. Local paired median RSS falls
+  21,612KiB; about 36.7MiB remains above the published-first equivalent. Timings,
+  adverse diagnostic RSS and allocator/semantic limits remain explicit.
+- Strict 10k and separate 256 GC runtime renewal preserve previous inputs and
+  scoped judgments. Memory approval, fresh integrated package/CI and licensing
+  remain open; no npm, push or release action.
+
+### 2026-10-10 — Qualify GC compaction storage and memory cost
+
+- [Resource qualification](tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)
+  preserves the reviewed GC checkpoint and separately repairs identity-map and
+  discarded type-section reconstruction, with red storage-reuse regression,
+  independent review and 14,033 passing tests. Original outputs stay exact.
+- Occupied default-heap storage falls 3,480,480 bytes after pre-canonicalization;
+  both versions release extra logical data before writing. Normal RSS ranges
+  overlap; repaired median remains about 49.8MiB above pre-GC. Native transient
+  lifetime and fixed-shape scaling do not imply general leak/peak guarantees.
+- No npm or licensing action; integrated package/CI qualification stays with
+  preparation owner. Broader optimizer disparity remains open.
+
+### 2026-10-10 — Qualify bounded GC type canonicalization
+
+- [The follow-up checkpoint](tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)
+  repairs complete type remapping, recursive-group pruning/retained locals and
+  backward singleton type interning with separate failing-first regressions.
+- Original GC numeric 4/1 saves 271,688 further bytes; 4,678 type aliases and 1,619
+  additional private functions disappear. All 105 groups and public identities
+  remain; memory overhead, same-original Binaryen gap and proposal limits stay
+  explicit. Direct RUME admission alone gives no original artifact gain.
+- Independent source/evidence review, 14,032 default tests, owned 10k DFE and 256
+  GC runtime checks complete. Fresh FFI/types, Starshine-only 4/1 self-build and
+  isolated packed JS/strictTS consumers pass. Coordinated integration, licensing
+  and integrated CI remain with the prep owner/parent; no push or publication.
+
+### 2026-10-10 — Qualify bounded npm optimizer fixes
+
+- [The optimizer checkpoint](tooling/npm-optimizer-discrepancy.md) records private
+  DFE admission, absent-control-arm instruction analysis and bounded flat
+  coalescing, with red-first regressions, independent review and 14,010 tests.
+- Exact-original O4s saves another 55,014 GC / 107,345 WASI bytes; the same-input
+  Binaryen gap and resource costs remain explicit. The five-pass beta queue is
+  retained after the small incremental coalescing payoff.
+- The ten reviewed commits through `62ba4012f` are integrated on the package
+  branch at `d0fbed55a`; pass sources match the reviewed checkpoint. Combined
+  default tests pass 14,019/14,019. The fresh 47-file/4,801,791-byte archive passes
+  isolated Node25/26 JS and strict TS consumers, 44 Node and 45 host controls;
+  [the handoff](../npm-beta-handoff.md#combined-optimizer-checkpoint) records exact
+  hashes and build/parity costs. Protected exact-head CI qualifies source
+  publication separately. Broader optimizer, license and
+  release gates remain open; npm publication is not authorized.
+- Exact `c9fc25cd2` cold CI reproduces the tarball and passes package, full-test,
+  release-artifact and fuzz checks. DAE's final semantic comparison was canceled
+  by the old whole-job limit after 14m33s of native builds and 10m50s of successful
+  deterministic comparison. The bounded job budget becomes 45 minutes with
+  success/failure evidence retention, preserving all comparison gates. Complete
+  coverage remains failed at 28,244 / 226 (+106 / +30); native-debug #1322 persists.
+
+### 2026-10-10 — Preserve the npm artifact discrepancy before source publication
+
+- [The same-input checkpoint](tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison)
+  records exact original GC/WASI hashes, six independently optimized outputs,
+  explicit runtime feature flags, one-sample timings/RSS and isolated packed
+  consumer/behavior controls. Binaryen reduces these exact artifacts more, with
+  different pipelines/resources; no universal speed/equivalence claim is made.
+- The qualified Starshine O4s package and all raw inputs remain preserved.
+  Bulky comparison artifacts and local measurement helpers stay under ignored
+  `dist/npm/`; durable hashes, commands and limits are committed here.
+- The [cold-build follow-up](tooling/node-package-surface.md#october-10-2026--cold-npm-bootstrap-deadline)
+  records published-head package CI's native release compilation timeout and a
+  328,583 ms successful baseline build. Separate bounded compiler/harness
+  deadlines retain optimizer limits, full logs and regression-tested process
+  tree cleanup. Exact follow-up CI qualifies the documented compiler snapshot
+  and the packed artifact.
+- Source publication to `origin/master` is authorized; a fresh pre-push fetch
+  found no newer work beyond `f91f5ec3`. Existing baseline Coverage Report and
+  Examples CLI Native failures remain visible. The cold route subsequently
+  passed exact-head package and required CI on `564c11e`; generation now
+  guards new unsupported signatures against the explicit compatibility policy.
+  Six bridge behavior tests reduce completed local coverage to 28,251 / 226
+  without changing the retained baseline. Candidate metadata and generated CLI
+  version text now agree; package observations assert this at runtime. Current
+  MoonBit metadata path filters are covered by the workflow contract.
+  License selection and npm publication remain undecided. A separate Sol 6.1
+  High investigation supplied the reviewed optimizer checkpoint now integrated
+  into this preparation; its later GC follow-up remains isolated.
+
+### 2026-10-10 — Qualify O4s for npm self-optimization
+
+- [The package build](../../scripts/lib/build-node-package.mjs) uses the requested
+  O4s numeric levels 4/1 and verifies its exact five-pass expansion. Literal
+  `-O4s` is unsupported; full O4z uses 4/4. This supersedes the initial O1
+  qualification below; its complete artifact/report snapshot remains preserved.
+- WasmGC shrinks by 164,569 bytes and WASI by 400,880 bytes. Independent
+  validation, required ABI exports, raw/optimized API observations and CLI help
+  pass before promotion. Packed JS and strict TS consumers pass on Node 25/26,
+  including executed O4s fixtures and the ambient-stack return regression.
+- [The handoff](../npm-beta-handoff.md) records exact hashes, bounded time/RSS
+  samples, slower optimization versus O1 and independent internal review.
+  No runtime-performance win is claimed. License selection remains undecided;
+  publication, push, merge, tags/releases and credential changes remain pending.
+
+### 2026-10-10 — Prepare the WasmGC npm beta route (initial O1 checkpoint)
+
+- [The npm package surface](tooling/node-package-surface.md) replaces the disabled
+  generator/prebuilt adapter dependency with authoritative FFI-derived signatures,
+  generated concrete adapter source and deterministic JS/TS declarations. Constructor
+  argument positions and callback record projections preserve compatibility.
+- The fresh native bootstrap self-optimizes both package Wasm artifacts with the
+  bounded O1 preset. Independent Wasm validation, ABI checks and copied-package
+  before/after observations gate promotion. Package bytes at this checkpoint do not shrink;
+  a separate 70-to-54-byte fixture proves transformation and identical execution.
+- The exact tarball is installed into empty JS and strict TypeScript projects,
+  exercising every promised export, meaningful optimization/roundtrips, errors,
+  a bounded fuzz case and the bundled CLI. Internal read-only review led to fixes
+  for nominal handle ownership, optional holes, enum representations and `osize`.
+- [The release handoff](../npm-beta-handoff.md) records validation and unresolved
+  decisions. Root MIT versus MoonBit Apache-2.0 remains unresolved. Publication,
+  releases, tags, pushes, merges and account changes remain outside this work.
+
+### 2026-10-09 — Classify the exposed generated output families
+
+- [The output comparison checkpoint](tooling/validation-gates.md#october-9-2026--classify-and-repair-generated-output-differences)
+  separates measured Starshine size wins from repaired parity gaps. Four pinned
+  Binaryen 133 aggregate lanes compare 10,000 regenerated inputs each. Every
+  raw and canonical output is equal in size or smaller than the oracle.
+  The final frozen native CLI repeats all four lanes with the same counts;
+  interrupted partial runs are excluded. The bounded wasm-gc suite passes
+  14,001/14,001 tests. Info, formatting and the native release build pass.
+- Complete tuple and SimplifyLocals family replays retain traps, state and common
+  downstream output. Fixed MergeBlocks, CodePushing and descriptor fixtures
+  establish their narrower contracts. Descriptor execution remains unavailable.
+- Five independent read-only Claude reviews ran. Verified findings include the
+  partial selected-function type-index fault and missing offset metadata guards.
+  New red tests cover both repairs. Cleanup timing also exposed a
+  large-module cost. Type sizing and candidate gates reduce that cost, but the
+  compiler artifact still loses size versus the oracle and adds time versus
+  the baseline. The checkpoint keeps those gaps open and records the unavailable
+  sixth Claude attempt.
+- The [evidence record](raw/tooling/2026-10-09-output-differences-v133.json) retains
+  source versions and adverse measurements. These observations do not close
+  independent stringref execution, general IR scaling or optimizer speed goals.
 ### 2026-10-09 — Repair direct-pass effects and IR invariants
 
 - [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)
@@ -1163,7 +1501,7 @@ broader pass parity or substitute for the focused descriptor/callback tests.
 
 ### 2026-10-04 — Bound shared-DAG exact lift conflicts
 
-- [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.
+- [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and 1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.
 
 ### 2026-10-04 — Pack structured CL liveness and enumerate live hazards
 
@@ -1183,15 +1521,15 @@ broader pass parity or substitute for the focused descriptor/callback tests.
 
 ### 2026-10-04 — Record lift provenance only for consumers
 
-- [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
+- [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and 1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
 
 ### 2026-10-04 — Reuse structured decoder frames
 
-- [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.
+- [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and 1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.
 
 ### 2026-10-04 — Unbox private unsigned decoder results
 
-- [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
+- [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and 1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
 
 ### 2026-10-04 — Keep local-write validation success unboxed
 
@@ -27380,3 +27718,47 @@ arrays/typecheck wrappers from the completed return packaging change.
   orders remain separate. Unresolved-read preflight passes six bounded tests
   and ten controls; malformed-input checkpoint tests need a compiler setup
   correction. See [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).
+
+
+## 2026-10-13 — Paired optimization size diagnostics
+
+- Extended the existing [semantic optimizer campaign](fuzzing/semantic-optimizer-campaigns.md#paired-optimization-size-diagnostics)
+  to validate optimized twins before execution and keep bounded encoded-size
+  diagnostics in the case journal after successful artifact cleanup.
+- A baseline `a61c3e4` equal-arm local/typed-if fixture shows a verified v133
+  direct-pass propagation opportunity. Independent Wasm execution observes
+  equal return values and exported global effects. The typed-if optimizer gap
+  remains open under `[IR2-OPT-EXP01]`; size skew is a candidate, not a proof of
+  equivalence, profitability, or real-workload speedup.
+## 2026-10-13 — Explicit application export roots
+
+- The [RUME root dossier](binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#explicit-application-export-roots)
+  records the public library contract, exact names and aliases, bounded complete
+  reference scan, metadata refusal, and reuse of maintained liveness/removal.
+  The helper is a final mutator and preserves exposed function indices relative
+  to its input; ordinary optimizer name policy remains an active separate gap.
+- Source-backed LZ4 compression, QOI encoding and BLAKE3 unkeyed application
+  contracts remove real trailing algorithm bodies: 1,006 / 855 / 521 raw bytes
+  and 483 / 405 / 196 gzip9 bytes. Independent declared byte checks and host
+  name/reference/effect/trap fixtures agree. Whole-API validation adds cost;
+  concurrent Moon activity limits small timing claims. Full-export yyjson and
+  KissFFT controls remain byte-identical. Final validation and renewed ordinary
+  RUME aggregate results are recorded in the pass dossier when complete.
+
+### 2026-10-13 — Preserve constant-if branch targets in precompute
+
+- A bounded pass-interaction run reduced a HOT-lowering abort to a valid
+  49-byte module. Both `precompute` variants removed a constant `if` that owned
+  a live branch target. The pass now retains that owner and has direct and
+  command-dispatch regressions. The affected pass and command suites pass
+  9,200 and 688 tests, and Node returns the same value for the original and
+  both optimized reductions. Paired real-module measurements show unchanged
+  output bytes and a small direct-pass timing cost; full signoff remains pending.
+
+### 2026-10-14 — Pass structural reduction timeout through the CLI
+
+- `bun fuzz reduce-optimizer` now accepts bounded predicate and subprocess
+  timeout values. These pass through the existing API to Binaryen's
+  per-candidate timer and the adapter's child-process timer. Command-level
+  regressions check both routes. The defaults remain unchanged; see
+  [reduction backends](fuzzing/reduction-backends.md).

@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified for Starshine in 2026: selected Binaryen version_132 fixtures are adapted here: descriptor inputs translated to Starshine assertions.
+// Upstream portions retain Apache-2.0; see ../../licenses/Binaryen-LICENSE.txt.
+// https://github.com/WebAssembly/binaryen/blob/79dfe6b412a3c22bfdb190ed6a4d79adf734db5d/test/lit/passes/local-subtyping-desc.wast
+
 ///|
 test "Binaryen 132 descriptor bottom inputs remain valid through type and cleanup passes" {
   // Adapted from v132 test/lit/passes/local-subtyping-desc.wast (#8975).

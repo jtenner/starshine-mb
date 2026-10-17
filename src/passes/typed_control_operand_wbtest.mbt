@@ -110,7 +110,12 @@ test "precompute tail trimming keeps a typed entry producer referenced by its he
   }
   assert_true(entry >= 0)
   assert_true(
-    precompute_simplify_region_roots(ctx, func, @ir.HotRegionRef::root()),
+    precompute_simplify_region_roots(
+      ctx,
+      func,
+      @ir.HotRegionRef::root(),
+      pass_compute_label_used(func),
+    ),
   )
   assert_true(@ir.hot_node_is_live(func, entry))
   assert_false(@ir.hot_node_is_live(func, debris))

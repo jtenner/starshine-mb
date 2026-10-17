@@ -1,6 +1,18 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/DuplicateFunctionElimination.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn dfe_summary() -> String {
-  "Merge duplicate defined functions, rewrite surviving function references, and compact duplicate simple function type indices."
+  "Merge duplicate defined functions, rewrite surviving function references, and compact duplicate function and bounded GC singleton type indices."
 }
 
 ///|
@@ -150,7 +162,7 @@ fn dfe_duplicate_simple_type_canonical_map(
 ) -> Map[UInt32, UInt32] {
   let canonical_map : Map[UInt32, UInt32] = Map([])
   if !dfe_supports_simple_type_dedup(rec_types) {
-    return canonical_map
+    return dfe_duplicate_backward_singleton_type_map(rec_types)
   }
   let buckets : @hashmap.HashMap[Int32, Array[Int32]] = @hashmap.new(
     capacity=rec_types.length(),
@@ -188,12 +200,48 @@ fn dfe_duplicate_simple_type_canonical_map(
 }
 
 ///|
+priv struct DfeTypeRewriteCache {
+  indices : Map[UInt32, @lib.TypeIdx]
+  heaps : Map[UInt32, @lib.HeapType]
+}
+
+///|
+fn dfe_new_type_rewrite_cache() -> DfeTypeRewriteCache {
+  { indices: Map([]), heaps: Map([]), }
+}
+
+// One CodeSec remap owns this cache. Its keys are direct final targets;
+// only immutable indices and concrete heaps are shared, never IR containers
+// or type graphs.
+
+///|
+fn dfe_shared_rewritten_type_idx(
+  target : UInt32,
+  cache : DfeTypeRewriteCache?,
+) -> @lib.TypeIdx {
+  match cache {
+    None => @lib.TypeIdx::new(target)
+    Some(cache) =>
+      match cache.indices.get(target) {
+        Some(idx) => idx
+        None => {
+          let idx = @lib.TypeIdx::new(target)
+          cache.indices[target] = idx
+          idx
+        }
+      }
+  }
+}
+
+///|
 fn dfe_rewrite_type_idx(
   idx : @lib.TypeIdx,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.TypeIdx {
   match idx {
-    @lib.TypeIdx(raw) => @lib.TypeIdx::new(remap.get(raw).unwrap_or(raw))
+    @lib.TypeIdx(raw) =>
+      dfe_shared_rewritten_type_idx(remap.get(raw).unwrap_or(raw), index_cache)
     @lib.RecIdx(_) => idx
   }
 }
@@ -202,13 +250,14 @@ fn dfe_rewrite_type_idx(
 fn dfe_try_rewrite_type_idx(
   idx : @lib.TypeIdx,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.TypeIdx? {
   match idx {
     @lib.TypeIdx(raw) =>
       match remap.get(raw) {
         Some(next) =>
           if next != raw {
-            Some(@lib.TypeIdx::new(next))
+            Some(dfe_shared_rewritten_type_idx(next, index_cache))
           } else {
             None
           }
@@ -589,6 +638,26 @@ fn _dfe_locals_mention_type_idxs(locals : @lib.Locals) -> Bool {
 ///|
 fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
   match instr {
+    @lib.StructWait(_, _)
+    | @lib.ArrayLoad(_, _, _)
+    | @lib.ArrayStore(_, _, _)
+    | @lib.StructAtomicSet(_, _, _)
+    | @lib.StructAtomicRmw(_, _, _, _)
+    | @lib.StructAtomicCmpxchg(_, _, _)
+    | @lib.ArrayAtomicGet(_, _)
+    | @lib.ArrayAtomicGetS(_, _)
+    | @lib.ArrayAtomicGetU(_, _)
+    | @lib.ArrayAtomicSet(_, _)
+    | @lib.ArrayAtomicRmw(_, _, _)
+    | @lib.ArrayAtomicCmpxchg(_, _) => true
+    @lib.ContNew(_)
+    | @lib.ContBind(_, _)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) => true
     @lib.Try(_, _, _, _) =>
       dfe_scan_rewrite_instruction_type_idxs(instr, Map([])).mentions_type_idxs
     @lib.Block(block_type, expr) =>
@@ -676,15 +745,41 @@ fn dfe_rewrite_type_metadata(
   )
 }
 
+// The index was already mapped once. Cache only concrete absolute wrappers;
+// recursive-group indices and inline/abstract/shared type forms stay separate.
+
+///|
+fn dfe_shared_rewritten_heap_type(
+  idx : @lib.TypeIdx,
+  cache : DfeTypeRewriteCache?,
+) -> @lib.HeapType {
+  match (idx, cache) {
+    (@lib.TypeIdx(target), Some(cache)) =>
+      match cache.heaps.get(target) {
+        Some(heap_type) => heap_type
+        None => {
+          let heap_type = @lib.HeapType::new(idx)
+          cache.heaps[target] = heap_type
+          heap_type
+        }
+      }
+    _ => @lib.HeapType::new(idx)
+  }
+}
+
 ///|
 fn dfe_rewrite_heap_type(
   heap_type : @lib.HeapType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.HeapType {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => heap_type
     @lib.HeapType(type_idx) =>
-      @lib.HeapType::new(dfe_rewrite_type_idx(type_idx, remap))
+      dfe_shared_rewritten_heap_type(
+        dfe_rewrite_type_idx(type_idx, remap, index_cache~),
+        index_cache,
+      )
     @lib.DefTypeHeapType(@lib.DefType(rec_type, idx)) =>
       @lib.HeapType::def_type(
         @lib.DefType::new(dfe_rewrite_rec_type(rec_type, remap), idx),
@@ -696,12 +791,13 @@ fn dfe_rewrite_heap_type(
 fn dfe_rewrite_ref_type(
   ref_type : @lib.RefType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.RefType {
   match ref_type {
     @lib.HeapTypeRefType(nullable, exact, heap_type) =>
       @lib.RefType::new(
         nullable,
-        dfe_rewrite_heap_type(heap_type, remap),
+        dfe_rewrite_heap_type(heap_type, remap, index_cache~),
         exact~,
       )
     @lib.AbsHeapTypeRefType(_) => ref_type
@@ -712,9 +808,10 @@ fn dfe_rewrite_ref_type(
 fn dfe_try_rewrite_heap_type(
   heap_type : @lib.HeapType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.HeapType? {
   if dfe_heap_type_uses_remap(heap_type, remap) {
-    Some(dfe_rewrite_heap_type(heap_type, remap))
+    Some(dfe_rewrite_heap_type(heap_type, remap, index_cache~))
   } else {
     None
   }
@@ -724,9 +821,10 @@ fn dfe_try_rewrite_heap_type(
 fn dfe_try_rewrite_ref_type(
   ref_type : @lib.RefType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.RefType? {
   if dfe_ref_type_uses_remap(ref_type, remap) {
-    Some(dfe_rewrite_ref_type(ref_type, remap))
+    Some(dfe_rewrite_ref_type(ref_type, remap, index_cache~))
   } else {
     None
   }
@@ -736,10 +834,13 @@ fn dfe_try_rewrite_ref_type(
 fn dfe_rewrite_val_type(
   val_type : @lib.ValType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.ValType {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
-      @lib.ValType::ref_type(dfe_rewrite_ref_type(ref_type, remap))
+      @lib.ValType::ref_type(
+        dfe_rewrite_ref_type(ref_type, remap, index_cache~),
+      )
     _ => val_type
   }
 }
@@ -748,9 +849,10 @@ fn dfe_rewrite_val_type(
 fn dfe_try_rewrite_val_type(
   val_type : @lib.ValType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.ValType? {
   if dfe_val_type_uses_remap(val_type, remap) {
-    Some(dfe_rewrite_val_type(val_type, remap))
+    Some(dfe_rewrite_val_type(val_type, remap, index_cache~))
   } else {
     None
   }
@@ -760,13 +862,14 @@ fn dfe_try_rewrite_val_type(
 fn dfe_try_rewrite_val_types(
   val_types : Array[@lib.ValType],
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> Array[@lib.ValType]? {
   let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
   let mut changed = false
   let mut idx = 0
   while idx < val_types.length() {
     let val_type = val_types[idx]
-    match dfe_try_rewrite_val_type(val_type, remap) {
+    match dfe_try_rewrite_val_type(val_type, remap, index_cache~) {
       Some(next) => {
         if !changed {
           let mut prefix = 0
@@ -909,15 +1012,16 @@ fn dfe_rewrite_block_type(
 fn dfe_try_rewrite_block_type(
   block_type : @lib.BlockType,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.BlockType? {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
-      match dfe_try_rewrite_val_type(val_type, remap) {
+      match dfe_try_rewrite_val_type(val_type, remap, index_cache~) {
         Some(next) => Some(@lib.BlockType::val_type(next))
         None => None
       }
     @lib.TypeIdxBlockType(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.BlockType::type_idx(next))
         None => None
       }
@@ -1138,6 +1242,7 @@ fn dfe_scan_rewrite_func_type_idxs(
 fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> Array[@lib.Instruction]? {
   // Most regions mention no remapped type. Allocate output capacity only at
   // the first actual rewrite, preserving the original prefix and input storage.
@@ -1145,7 +1250,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
   let mut idx = 0
   while idx < instrs.length() {
     let instr = instrs[idx]
-    match dfe_try_rewrite_instruction_type_idxs(instr, remap) {
+    match dfe_try_rewrite_instruction_type_idxs(instr, remap, index_cache~) {
       Some(next) => {
         let out = match rewritten {
           Some(out) => out
@@ -1179,9 +1284,11 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
 fn dfe_try_rewrite_expr_type_idxs(
   expr : @lib.Expr,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.Expr? {
   let @lib.Expr(instrs) = expr
-  match dfe_try_rewrite_instruction_array_type_idxs(instrs, remap) {
+  match
+    dfe_try_rewrite_instruction_array_type_idxs(instrs, remap, index_cache~) {
     Some(rewritten) => Some(@lib.Expr::new(rewritten))
     None => None
   }
@@ -1191,6 +1298,7 @@ fn dfe_try_rewrite_expr_type_idxs(
 fn dfe_try_rewrite_locals_type_idxs(
   locals : @lib.Locals,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.Locals? {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -1198,7 +1306,7 @@ fn dfe_try_rewrite_locals_type_idxs(
   let mut idx = 0
   while idx < runs.length() {
     let run = runs[idx]
-    match dfe_try_rewrite_val_type(run.val_type(), remap) {
+    match dfe_try_rewrite_val_type(run.val_type(), remap, index_cache~) {
       Some(next) => {
         if !changed {
           let mut prefix = 0
@@ -1225,10 +1333,15 @@ fn dfe_try_rewrite_locals_type_idxs(
 fn dfe_try_rewrite_func_type_idxs(
   func : @lib.Func,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.Func? {
   let @lib.Func(locals, body) = func
-  let rewritten_locals = dfe_try_rewrite_locals_type_idxs(locals, remap)
-  let rewritten_body = dfe_try_rewrite_expr_type_idxs(body, remap)
+  let rewritten_locals = dfe_try_rewrite_locals_type_idxs(
+    locals,
+    remap,
+    index_cache~,
+  )
+  let rewritten_body = dfe_try_rewrite_expr_type_idxs(body, remap, index_cache~)
   if rewritten_locals is None && rewritten_body is None {
     None
   } else {
@@ -1250,6 +1363,57 @@ fn dfe_rewrite_instruction_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Instruction {
   match instr {
+    @lib.StructWait(type_idx, field_idx) =>
+      @lib.Instruction::struct_wait(
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
+    @lib.ArrayLoad(op, type_idx, ma) =>
+      @lib.Instruction::array_load(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        memarg=ma,
+      )
+    @lib.ArrayStore(op, type_idx, ma) =>
+      @lib.Instruction::array_store(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        memarg=ma,
+      )
+    @lib.ContNew(type_idx) =>
+      @lib.Instruction::cont_new(dfe_rewrite_type_idx(type_idx, remap))
+    @lib.ContBind(source, target) =>
+      @lib.Instruction::cont_bind(
+        dfe_rewrite_type_idx(source, remap),
+        dfe_rewrite_type_idx(target, remap),
+      )
+    @lib.Resume(type_idx, handlers) =>
+      @lib.Instruction::resume_(dfe_rewrite_type_idx(type_idx, remap), handlers)
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      @lib.Instruction::resume_throw(
+        dfe_rewrite_type_idx(type_idx, remap),
+        tag,
+        handlers,
+      )
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      @lib.Instruction::resume_throw_ref(
+        dfe_rewrite_type_idx(type_idx, remap),
+        handlers,
+      )
+    @lib.StackSwitch(type_idx, tag) =>
+      @lib.Instruction::stack_switch(dfe_rewrite_type_idx(type_idx, remap), tag)
+    @lib.BrOnCastDescEq(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq(
+        label,
+        dfe_rewrite_ref_type(source, remap),
+        dfe_rewrite_ref_type(target, remap),
+      )
+    @lib.BrOnCastDescEqFail(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq_fail(
+        label,
+        dfe_rewrite_ref_type(source, remap),
+        dfe_rewrite_ref_type(target, remap),
+      )
     @lib.Try(_, _, _, _) =>
       dfe_scan_rewrite_instruction_type_idxs(instr, remap).rewritten.unwrap_or(
         instr,
@@ -1495,6 +1659,8 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_heap_type(source, remap),
         cast_op.target_nullable(),
         dfe_rewrite_heap_type(target, remap),
+        source_exact=cast_op.source_exact(),
+        target_exact=cast_op.target_exact(),
       )
     @lib.BrOnCastFail(label_idx, cast_op, source, target) =>
       @lib.Instruction::br_on_cast_fail(
@@ -1503,6 +1669,8 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_heap_type(source, remap),
         cast_op.target_nullable(),
         dfe_rewrite_heap_type(target, remap),
+        source_exact=cast_op.source_exact(),
+        target_exact=cast_op.target_exact(),
       )
     _ => instr
   }
@@ -1514,6 +1682,25 @@ fn dfe_scan_rewrite_instruction_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Instruction] {
   match instr {
+    @lib.StructWait(_, _)
+    | @lib.ArrayLoad(_, _, _)
+    | @lib.ArrayStore(_, _, _) =>
+      {
+        rewritten: dfe_try_rewrite_instruction_type_idxs(instr, remap),
+        mentions_type_idxs: true,
+      }
+    @lib.ContNew(_)
+    | @lib.ContBind(_, _)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) =>
+      {
+        rewritten: dfe_try_rewrite_instruction_type_idxs(instr, remap),
+        mentions_type_idxs: true,
+      }
     @lib.Try(block_type, body, catches, delegate) => {
       let block_scan = dfe_scan_rewrite_block_type(block_type, remap)
       let body_scan = dfe_scan_rewrite_expr_type_idxs(body, remap)
@@ -2080,6 +2267,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 next_source,
                 cast_op.target_nullable(),
                 next_target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (Some(next_source), None) =>
@@ -2090,6 +2279,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 next_source,
                 cast_op.target_nullable(),
                 target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (None, Some(next_target)) =>
@@ -2100,6 +2291,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 source,
                 cast_op.target_nullable(),
                 next_target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (None, None) => None
@@ -2122,6 +2315,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 next_source,
                 cast_op.target_nullable(),
                 next_target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (Some(next_source), None) =>
@@ -2132,6 +2327,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 next_source,
                 cast_op.target_nullable(),
                 target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (None, Some(next_target)) =>
@@ -2142,6 +2339,8 @@ fn dfe_scan_rewrite_instruction_type_idxs(
                 source,
                 cast_op.target_nullable(),
                 next_target,
+                source_exact=cast_op.source_exact(),
+                target_exact=cast_op.target_exact(),
               ),
             )
           (None, None) => None
@@ -2157,13 +2356,106 @@ fn dfe_scan_rewrite_instruction_type_idxs(
 fn dfe_try_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
   remap : Map[UInt32, UInt32],
+  index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.Instruction? {
   match instr {
+    @lib.StructWait(type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::struct_wait(next, field_idx))
+        None => None
+      }
+    @lib.ArrayLoad(op, type_idx, ma) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::array_load(op, next, memarg=ma))
+        None => None
+      }
+    @lib.ArrayStore(op, type_idx, ma) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::array_store(op, next, memarg=ma))
+        None => None
+      }
+    @lib.ContNew(type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::cont_new(next))
+        None => None
+      }
+    @lib.Resume(type_idx, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::resume_(next, handlers))
+        None => None
+      }
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::resume_throw(next, tag, handlers))
+        None => None
+      }
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::resume_throw_ref(next, handlers))
+        None => None
+      }
+    @lib.StackSwitch(type_idx, tag) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
+        Some(next) => Some(@lib.Instruction::stack_switch(next, tag))
+        None => None
+      }
+    @lib.ContBind(source, target) => {
+      let next_source = dfe_try_rewrite_type_idx(source, remap, index_cache~)
+      let next_target = dfe_try_rewrite_type_idx(target, remap, index_cache~)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::cont_bind(
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
+    @lib.BrOnCastDescEq(label, source, target) => {
+      let next_source = dfe_try_rewrite_ref_type(source, remap, index_cache~)
+      let next_target = dfe_try_rewrite_ref_type(target, remap, index_cache~)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::br_on_cast_desc_eq(
+            label,
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
+    @lib.BrOnCastDescEqFail(label, source, target) => {
+      let next_source = dfe_try_rewrite_ref_type(source, remap, index_cache~)
+      let next_target = dfe_try_rewrite_ref_type(target, remap, index_cache~)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            label,
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
     @lib.Try(_, _, _, _) =>
       dfe_scan_rewrite_instruction_type_idxs(instr, remap).rewritten
     @lib.Block(block_type, expr) => {
-      let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
-      let rewritten_expr = dfe_try_rewrite_expr_type_idxs(expr, remap)
+      let rewritten_block_type = dfe_try_rewrite_block_type(
+        block_type,
+        remap,
+        index_cache~,
+      )
+      let rewritten_expr = dfe_try_rewrite_expr_type_idxs(
+        expr,
+        remap,
+        index_cache~,
+      )
       if rewritten_block_type is None && rewritten_expr is None {
         None
       } else {
@@ -2179,8 +2471,16 @@ fn dfe_try_rewrite_instruction_type_idxs(
       }
     }
     @lib.Loop(block_type, expr) => {
-      let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
-      let rewritten_expr = dfe_try_rewrite_expr_type_idxs(expr, remap)
+      let rewritten_block_type = dfe_try_rewrite_block_type(
+        block_type,
+        remap,
+        index_cache~,
+      )
+      let rewritten_expr = dfe_try_rewrite_expr_type_idxs(
+        expr,
+        remap,
+        index_cache~,
+      )
       if rewritten_block_type is None && rewritten_expr is None {
         None
       } else {
@@ -2196,13 +2496,24 @@ fn dfe_try_rewrite_instruction_type_idxs(
       }
     }
     @lib.If(block_type, then_body, else_body) => {
-      let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
+      let rewritten_block_type = dfe_try_rewrite_block_type(
+        block_type,
+        remap,
+        index_cache~,
+      )
       let rewritten_then = dfe_try_rewrite_instruction_array_type_idxs(
-        then_body, remap,
+        then_body,
+        remap,
+        index_cache~,
       )
       let rewritten_else = match else_body {
         Some(body) =>
-          match dfe_try_rewrite_instruction_array_type_idxs(body, remap) {
+          match
+            dfe_try_rewrite_instruction_array_type_idxs(
+              body,
+              remap,
+              index_cache~,
+            ) {
             Some(next) => Some(Some(next))
             None => None
           }
@@ -2229,34 +2540,42 @@ fn dfe_try_rewrite_instruction_type_idxs(
       }
     }
     @lib.CallIndirect(type_idx, table_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::call_indirect(next, table_idx))
         None => None
       }
     @lib.ReturnCallIndirect(type_idx, table_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::return_call_indirect(next, table_idx))
         None => None
       }
     @lib.CallRef(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::call_ref(next))
         None => None
       }
     @lib.ReturnCallRef(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::return_call_ref(next))
         None => None
       }
     @lib.Select(Some(types)) =>
-      match dfe_try_rewrite_val_types(types, remap) {
+      match dfe_try_rewrite_val_types(types, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::select(types=Some(next)))
         None => None
       }
     @lib.TryTable(block_type, catches, body) => {
-      let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
-      let rewritten_body = dfe_try_rewrite_expr_type_idxs(body, remap)
+      let rewritten_block_type = dfe_try_rewrite_block_type(
+        block_type,
+        remap,
+        index_cache~,
+      )
+      let rewritten_body = dfe_try_rewrite_expr_type_idxs(
+        body,
+        remap,
+        index_cache~,
+      )
       if rewritten_block_type is None && rewritten_body is None {
         None
       } else {
@@ -2272,171 +2591,171 @@ fn dfe_try_rewrite_instruction_type_idxs(
       }
     }
     @lib.RefNull(ref_type) =>
-      match dfe_try_rewrite_ref_type(ref_type, remap) {
+      match dfe_try_rewrite_ref_type(ref_type, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::ref_null_type(next))
         None => None
       }
     @lib.StructNew(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_new(next))
         None => None
       }
     @lib.StructNewDefault(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_new_default(next))
         None => None
       }
     @lib.StructNewDesc(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_new_desc(next))
         None => None
       }
     @lib.StructNewDefaultDesc(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_new_default_desc(next))
         None => None
       }
     @lib.StructGet(type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_get(next, field_idx))
         None => None
       }
     @lib.StructGetS(type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_get_s(next, field_idx))
         None => None
       }
     @lib.StructGetU(type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_get_u(next, field_idx))
         None => None
       }
     @lib.StructAtomicGet(order, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_get(order, next, field_idx))
         None => None
       }
     @lib.StructAtomicGetS(order, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_get_s(order, next, field_idx))
         None => None
       }
     @lib.StructAtomicGetU(order, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_get_u(order, next, field_idx))
         None => None
       }
     @lib.StructAtomicSet(order, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_set(order, next, field_idx))
         None => None
       }
     @lib.ArrayAtomicSet(order, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_set(order, next))
         None => None
       }
     @lib.ArrayAtomicGet(order, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_get(order, next))
         None => None
       }
     @lib.ArrayAtomicGetS(order, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_get_s(order, next))
         None => None
       }
     @lib.ArrayAtomicGetU(order, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_get_u(order, next))
         None => None
       }
     @lib.ArrayAtomicRmw(order, op, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_rmw(op, next, order~))
         None => None
       }
     @lib.ArrayAtomicCmpxchg(order, type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_atomic_cmpxchg(next, order~))
         None => None
       }
     @lib.StructAtomicRmw(order, op, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_rmw(op, next, field_idx, order~))
         None => None
       }
     @lib.StructAtomicCmpxchg(order, type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_cmpxchg(next, field_idx, order~))
         None => None
       }
     @lib.StructSet(type_idx, field_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::struct_set(next, field_idx))
         None => None
       }
     @lib.ArrayNew(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_new(next))
         None => None
       }
     @lib.ArrayNewDefault(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_new_default(next))
         None => None
       }
     @lib.ArrayNewFixed(type_idx, len) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_new_fixed(next, len))
         None => None
       }
     @lib.ArrayNewData(type_idx, data_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_new_data(next, data_idx))
         None => None
       }
     @lib.ArrayNewElem(type_idx, elem_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_new_elem(next, elem_idx))
         None => None
       }
     @lib.ArrayGet(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_get(next))
         None => None
       }
     @lib.ArrayGetS(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_get_s(next))
         None => None
       }
     @lib.ArrayGetU(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_get_u(next))
         None => None
       }
     @lib.ArraySet(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_set(next))
         None => None
       }
     @lib.ArrayFill(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_fill(next))
         None => None
       }
     @lib.ArrayCopy(src_type, dst_type) =>
       match
         (
-          dfe_try_rewrite_type_idx(src_type, remap),
-          dfe_try_rewrite_type_idx(dst_type, remap),
+          dfe_try_rewrite_type_idx(src_type, remap, index_cache~),
+          dfe_try_rewrite_type_idx(dst_type, remap, index_cache~),
         ) {
         (Some(next_src), Some(next_dst)) =>
           Some(@lib.Instruction::array_copy(next_src, next_dst))
@@ -2447,22 +2766,22 @@ fn dfe_try_rewrite_instruction_type_idxs(
         (None, None) => None
       }
     @lib.ArrayInitData(type_idx, data_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_init_data(next, data_idx))
         None => None
       }
     @lib.ArrayInitElem(type_idx, elem_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::array_init_elem(next, elem_idx))
         None => None
       }
     @lib.RefGetDesc(type_idx) =>
-      match dfe_try_rewrite_type_idx(type_idx, remap) {
+      match dfe_try_rewrite_type_idx(type_idx, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::ref_get_desc(next))
         None => None
       }
     @lib.RefTest(nullable, exact, heap_type) =>
-      match dfe_try_rewrite_heap_type(heap_type, remap) {
+      match dfe_try_rewrite_heap_type(heap_type, remap, index_cache~) {
         Some(next) =>
           Some(
             @lib.Instruction::ref_test_type(
@@ -2472,7 +2791,7 @@ fn dfe_try_rewrite_instruction_type_idxs(
         None => None
       }
     @lib.RefCast(nullable, exact, heap_type) =>
-      match dfe_try_rewrite_heap_type(heap_type, remap) {
+      match dfe_try_rewrite_heap_type(heap_type, remap, index_cache~) {
         Some(next) =>
           Some(
             @lib.Instruction::ref_cast_type(
@@ -2482,12 +2801,12 @@ fn dfe_try_rewrite_instruction_type_idxs(
         None => None
       }
     @lib.RefTestDesc(nullable, heap_type) =>
-      match dfe_try_rewrite_heap_type(heap_type, remap) {
+      match dfe_try_rewrite_heap_type(heap_type, remap, index_cache~) {
         Some(next) => Some(@lib.Instruction::ref_test_desc(nullable, next))
         None => None
       }
     @lib.RefCastDescEq(nullable, exact, heap_type) =>
-      match dfe_try_rewrite_heap_type(heap_type, remap) {
+      match dfe_try_rewrite_heap_type(heap_type, remap, index_cache~) {
         Some(next) =>
           Some(
             @lib.Instruction::ref_cast_desc_eq_type(
@@ -2499,8 +2818,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
     @lib.BrOnCast(label_idx, cast_op, source, target) =>
       match
         (
-          dfe_try_rewrite_heap_type(source, remap),
-          dfe_try_rewrite_heap_type(target, remap),
+          dfe_try_rewrite_heap_type(source, remap, index_cache~),
+          dfe_try_rewrite_heap_type(target, remap, index_cache~),
         ) {
         (Some(next_source), Some(next_target)) =>
           Some(
@@ -2510,6 +2829,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (Some(next_source), None) =>
@@ -2520,6 +2841,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, Some(next_target)) =>
@@ -2530,6 +2853,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, None) => None
@@ -2537,8 +2862,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
     @lib.BrOnCastFail(label_idx, cast_op, source, target) =>
       match
         (
-          dfe_try_rewrite_heap_type(source, remap),
-          dfe_try_rewrite_heap_type(target, remap),
+          dfe_try_rewrite_heap_type(source, remap, index_cache~),
+          dfe_try_rewrite_heap_type(target, remap, index_cache~),
         ) {
         (Some(next_source), Some(next_target)) =>
           Some(
@@ -2548,6 +2873,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (Some(next_source), None) =>
@@ -2558,6 +2885,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, Some(next_target)) =>
@@ -2568,6 +2897,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, None) => None
@@ -2751,9 +3082,11 @@ fn dfe_rewrite_module_type_idxs(
   remap : Map[UInt32, UInt32],
   perf~ : HotPerfSession? = None,
   code_rewrite_flags~ : @bitset.BitSet? = None,
+  rewrite_type_sec~ : Bool = true,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.type_sec {
+    _ if !rewrite_type_sec => ()
     Some(@lib.TypeSec(rec_types)) => {
       let timer = dfe_perf_start_timer_opt(perf, "type-rewrite:type-sec")
       let next : Array[@lib.RecType] = []
@@ -2830,6 +3163,12 @@ fn dfe_rewrite_module_type_idxs(
   }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      // Share immutable TypeIdx and concrete HeapType boxes in this remap.
+      // Both caches are bounded by distinct reached final remap targets;
+      // no cache survives in the module or changes surrounding proposal flags.
+      let index_cache : DfeTypeRewriteCache? = Some(
+        dfe_new_type_rewrite_cache(),
+      )
       let timer = dfe_perf_start_timer_opt(perf, "type-rewrite:code-sec")
       let next : Array[@lib.Func] = []
       match code_rewrite_flags {
@@ -2838,7 +3177,7 @@ fn dfe_rewrite_module_type_idxs(
           while idx < funcs.length() {
             let func = funcs[idx]
             if flags[idx] {
-              match dfe_try_rewrite_func_type_idxs(func, remap) {
+              match dfe_try_rewrite_func_type_idxs(func, remap, index_cache~) {
                 Some(rewritten_func) => next.push(rewritten_func)
                 None => next.push(func)
               }
@@ -2850,7 +3189,7 @@ fn dfe_rewrite_module_type_idxs(
         }
         _ =>
           for func in funcs {
-            match dfe_try_rewrite_func_type_idxs(func, remap) {
+            match dfe_try_rewrite_func_type_idxs(func, remap, index_cache~) {
               Some(rewritten_func) => next.push(rewritten_func)
               None => next.push(func)
             }
@@ -4256,33 +4595,50 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let kept_types : Array[@lib.RecType] = []
       let old_to_new : Map[UInt32, UInt32] = Map([])
       let mut old_idx = 0
-      while old_idx < rec_types.length() {
+      let mut next_idx = 0
+      for rec_type in rec_types {
+        let member_count = dfe_rec_type_member_count(rec_type)
         let raw_old_idx = old_idx.reinterpret_as_uint()
-        let canonical_old_idx = canonical_old_idxs
-          .get(raw_old_idx)
-          .unwrap_or(raw_old_idx)
-        if canonical_old_idx == old_idx.reinterpret_as_uint() {
-          old_to_new[canonical_old_idx] = kept_types
-            .length()
-            .reinterpret_as_uint()
-          kept_types.push(rec_types[old_idx])
+        if canonical_old_idxs.get(raw_old_idx) is None {
+          for member = 0; member < member_count; member = member + 1 {
+            old_to_new[(old_idx + member).reinterpret_as_uint()] = (next_idx +
+            member).reinterpret_as_uint()
+          }
+          kept_types.push(rec_type)
+          next_idx += member_count
         }
-        old_idx += 1
+        old_idx += member_count
       }
+      let flat_type_count = old_idx
       dfe_perf_stop_timer_opt(perf, "type-canon:kept-types", keep_timer)
       if kept_types.length() == rec_types.length() {
         return mod_
       }
       let remap_timer = dfe_perf_start_timer_opt(perf, "type-canon:remap")
+      // Operand rewriting needs only changed indices; explicit identity entries
+      // make the shared optional reference rewriter reconstruct unchanged trees.
+      // Names still need dense ownership/remapping to preserve unmoved entries.
       let type_remap : Map[UInt32, UInt32] = Map([])
+      let name_remap : Map[UInt32, UInt32]? = match mod_.name_sec {
+        Some(_) => Some(Map([]))
+        None => None
+      }
       old_idx = 0
-      while old_idx < rec_types.length() {
+      while old_idx < flat_type_count {
         let raw_old_idx = old_idx.reinterpret_as_uint()
         let canonical_old_idx = canonical_old_idxs
           .get(raw_old_idx)
           .unwrap_or(raw_old_idx)
         match old_to_new.get(canonical_old_idx) {
-          Some(new_idx) => type_remap[raw_old_idx] = new_idx
+          Some(new_idx) => {
+            if raw_old_idx != new_idx {
+              type_remap[raw_old_idx] = new_idx
+            }
+            match name_remap {
+              Some(names) => names[raw_old_idx] = new_idx
+              None => ()
+            }
+          }
           None => return mod_
         }
         old_idx += 1
@@ -4294,6 +4650,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         type_remap,
         perf~,
         code_rewrite_flags~,
+        rewrite_type_sec=false,
       )
       let rewritten_kept_types : Array[@lib.RecType] = []
       for kept_type in kept_types {
@@ -4307,12 +4664,10 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let with_types = rewritten.with_type_sec(
         @lib.TypeSec::new(rewritten_kept_types),
       )
-      match with_types.name_sec {
-        Some(name_sec) =>
-          with_types.with_name_sec(
-            dfe_rewrite_type_name_sec(name_sec, type_remap),
-          )
-        None => with_types
+      match (with_types.name_sec, name_remap) {
+        (Some(name_sec), Some(names)) =>
+          with_types.with_name_sec(dfe_rewrite_type_name_sec(name_sec, names))
+        _ => with_types
       }
     }
     None => mod_
@@ -4494,6 +4849,13 @@ fn dfe_eliminate_duplicate_functions(
         }
         if needs_debris_cleanup[0] {
           original_cleanup_flags[local_idx] = true
+        }
+        // Protected identities can be neither merged nor representatives.
+        // Keep their rewrite/cleanup facts above, but exclude them before
+        // normalization and collision grouping to avoid protected-only pair
+        // enumeration when presets admit modules with host boundaries.
+        if identity_visible[local_idx] {
+          continue
         }
         match first_by_hash.get(key) {
           Some(first_idx) =>
@@ -4919,6 +5281,14 @@ fn dfe_run_module_pass_with_perf(
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
+  // Mixed GC modules require type canonicalization before private body
+  // hashing: otherwise equivalent aggregate/signature indices prevent merging.
+  // Keep the existing independent-function path and liveness-pruner guard.
+  let mod_ = match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) if !dfe_supports_simple_type_dedup(rec_types) =>
+      dfe_canonicalize_duplicate_simple_type_indices(mod_, perf~)
+    _ => mod_
+  }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
   let elimination = dfe_eliminate_duplicate_functions(mod_, perf~)
   let mut current = elimination.mod_
@@ -4998,8 +5368,13 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
-  match dfe_cleanup_simple_type_encoding_candidate(mod_) {
+fn dfe_cleanup_simple_type_encoding(
+  mod_ : @lib.Module,
+  full_size_checks~ : Array[Int32]? = None,
+  perf~ : HotPerfSession? = None,
+) -> @lib.Module {
+  match
+    dfe_cleanup_simple_type_encoding_candidate(mod_, full_size_checks~, perf~) {
     Some(candidate) =>
       if @validate.validate_module(candidate) is Ok(_) {
         candidate
@@ -5016,6 +5391,8 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
 fn dfe_cleanup_simple_type_encoding_candidate(
   mod_ : @lib.Module,
   full_size_comparisons~ : Array[Int32]? = None,
+  full_size_checks~ : Array[Int32]? = None,
+  perf~ : HotPerfSession? = None,
 ) -> @lib.Module? {
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
     return None
@@ -5041,8 +5418,20 @@ fn dfe_cleanup_simple_type_encoding_candidate(
   // Distinct functions can still use equivalent signatures. The elimination
   // fast path skips type canonicalization, so intern live plain signatures here
   // as well as pruning dead definitions, under the same complete type guard.
-  let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped)
+  let intern_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-intern",
+  )
+  let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped, perf~)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-intern", intern_start,
+  )
+  let prune_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-prune",
+  )
   let pruned = dfe_prune_unused_simple_types(interned)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-prune", prune_start,
+  )
   if pruned.type_sec.unwrap().0.length() == types.length() {
     return None
   }
@@ -5053,6 +5442,29 @@ fn dfe_cleanup_simple_type_encoding_candidate(
   }
   if full_size_comparisons is Some(count) {
     count[0] += 1
+  }
+  // Both remappers retain types in order and map duplicate types to earlier
+  // entries. Every rewritten type index is therefore no greater than its old
+  // index, so its LEB width cannot grow in any other section. Type names only
+  // lose entries or use smaller indices. Check the sole section that can make
+  // the decision without encoding and validating the entire code section.
+  let before_types = @lib.Module::new().with_type_sec(@lib.TypeSec::new(types))
+  let after_types = @lib.Module::new().with_type_sec(pruned.type_sec.unwrap())
+  let section_size_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-size",
+  )
+  let type_sizes = @binary.encoded_module_sizes(before_types, after_types)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-size", section_size_start,
+  )
+  match type_sizes {
+    Ok((before, after)) if after < before => return Some(pruned)
+    _ => ()
+  }
+  // Keep the original guarded path if section-only encoding cannot decide.
+  match full_size_checks {
+    Some(checks) => checks[0] += 1
+    None => ()
   }
   match @binary.encoded_module_sizes(grouped, pruned) {
     Ok((before, after)) if after < before => return Some(pruned)

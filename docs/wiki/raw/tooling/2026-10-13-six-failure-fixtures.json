@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-13",
+  "reviewedBaseline": "f284c329f56f5fcfd34c4cc5f85809a4cb425acc",
+  "productionChanged": false,
+  "msfGuard": "Complete encoded candidate must not grow; user explicitly retained the guard.",
+  "oldFlatBytes": {
+    "original": 61,
+    "requiredHelper": 62,
+    "binaryen133": 62
+  },
+  "oldNestedBytes": {
+    "original": 72,
+    "requiredPreservedBlockHelper": 73,
+    "binaryen133FlattenedBlock": 70
+  },
+  "indexBoundaryBytes": {
+    "function": [
+      572,
+      575
+    ],
+    "type": [
+      571,
+      573
+    ]
+  },
+  "effectfulExecution": [
+    {
+      "variant": "original",
+      "bytes": 116,
+      "hash": "acd8d8263f030e8059caf1cf85ae1448637c045c251f1b052fa94c839cc9aa09",
+      "observations": [
+        0,
+        42,
+        4,
+        43,
+        8,
+        42,
+        12
+      ]
+    },
+    {
+      "variant": "starshine",
+      "bytes": 103,
+      "hash": "7086a9043edcdf163fbc345ad37857aeadd00bd0cf305c037f6c3d123620a396",
+      "observations": [
+        0,
+        42,
+        4,
+        43,
+        8,
+        42,
+        12
+      ]
+    },
+    {
+      "variant": "binaryen",
+      "bytes": 103,
+      "hash": "7086a9043edcdf163fbc345ad37857aeadd00bd0cf305c037f6c3d123620a396",
+      "observations": [
+        0,
+        42,
+        4,
+        43,
+        8,
+        42,
+        12
+      ]
+    }
+  ],
+  "effectfulSource": "(module (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"a\") (result i32) global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 i32.const 42) (func (export \"b\") (result i32) global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 global.get 0 i32.const 1 i32.add global.set 0 i32.const 43))",
+  "rseCause": "First signed-zero HOT row expected two writes despite the body local already holding +0. The initial +0 write correctly disappears. Distinct NaN payloads are not the failing row.",
+  "rseCoverage": "Original counts retained; separate HOT body-local defaults and unknown parameter input; exact IEEE bits in original/raw/HOT lowered output.",
+  "tests": {
+    "redBefore": {
+      "command": "moon test --target wasm-gc src/passes/merge_similar_functions_test.mbt src/passes/rse_test.mbt src/passes/offset_metadata_guard_wbtest.mbt src/cmd/cmd.mbt",
+      "total": 192,
+      "passed": 186,
+      "failed": 6
+    },
+    "focusedRse": {
+      "total": 45,
+      "passed": 45,
+      "failed": 0
+    },
+    "focusedMsfAndDispatch": {
+      "total": 156,
+      "passed": 156,
+      "failed": 0
+    },
+    "finalFull": {
+      "command": "moon test --target wasm-gc",
+      "total": 14149,
+      "passed": 14149,
+      "failed": 0
+    },
+    "moonInfo": "pass",
+    "moonFmt": "pass",
+    "readmeApiSync": "pass"
+  },
+  "nativeBinaryHash": "988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df",
+  "oracleVersion": "133 (version_133)",
+  "oracleHash": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+  "runtime": "Node v26.11.1",
+  "observerExpected": [
+    0,
+    42,
+    4,
+    43,
+    8,
+    42,
+    12
+  ],
+  "note": "The exported fixture variant provides an independent effect observer. No production algorithm or strict size gate changed.",
+  "differentialScope": "No new pass-fuzz campaign: only tests and docs change. Prior production comparison evidence keeps its original binary/profile scope."
+}

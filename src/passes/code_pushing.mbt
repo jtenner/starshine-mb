@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2016 WebAssembly Community Group participants
+// Counterpart: src/passes/CodePushing.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("code-pushing", invalidates=[
@@ -1215,6 +1227,41 @@ fn code_pushing_push_point_kind(func : @ir.HotFunc, node_id : Int32) -> String {
 }
 
 ///|
+fn code_pushing_insert_after_branch_value_drop(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  push_idx : Int32,
+  push_id : Int32,
+) -> Int32 {
+  let insert_idx = push_idx + 1
+  if insert_idx >= @ir.hot_region_root_count(func, region_ref) ||
+    push_id < 0 ||
+    !@ir.hot_node_is_live(func, push_id) {
+    return insert_idx
+  }
+  let branch = @ir.hot_node_get(func, push_id)
+  if !(branch.op is @ir.HotOp::BrIf) ||
+    @ir.hot_child_count(func, push_id) != 2 ||
+    !(@ir.hot_label_kind(func, branch.imm0) is @ir.HotLabelKind::BlockLabel) ||
+    @ir.hot_label_branch_arity(func, branch.imm0) != 1 {
+    return insert_idx
+  }
+  let drop_id = @ir.hot_region_get(func, region_ref, insert_idx)
+  if drop_id < 0 || !@ir.hot_node_is_live(func, drop_id) {
+    return insert_idx
+  }
+  let drop = @ir.hot_node_get(func, drop_id)
+  if drop.op is @ir.HotOp::Drop &&
+    @ir.hot_child_count(func, drop_id) == 1 &&
+    @ir.hot_child_get(func, drop_id, 0) == @ir.hot_child_get(func, push_id, 0) {
+    // The branch leaves its payload on the fallthrough stack. Discard that
+    // value before moved sets so lowering does not spill it to a new local.
+    return insert_idx + 1
+  }
+  insert_idx
+}
+
+///|
 fn code_pushing_segment_window_diagnostic(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -2209,7 +2256,10 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
       ),
     )
   }
-  ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, pushed_sets))
+  let insert_idx = code_pushing_insert_after_branch_value_drop(
+    func, region_ref, idx, push_id,
+  )
+  ignore(pass_splice_region(ctx, func, region_ref, insert_idx, 0, pushed_sets))
   for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
     let nop = @ir.hot_build_nop(func)
     pass_replace_node(ctx, func, set_ids[move_idx], @ir.hot_node_get(func, nop))
@@ -2511,9 +2561,13 @@ fn code_pushing_try_sink_set_after_if_push_point(
     return false
   }
   let pushed_set = code_pushing_make_local_set_clone(func, local_id, value_id)
-  ignore(
-    pass_splice_region(ctx, func, region_ref, push_idx + 1, 0, [pushed_set]),
+  let insert_idx = code_pushing_insert_after_branch_value_drop(
+    func,
+    region_ref,
+    push_idx,
+    @ir.hot_region_get(func, region_ref, push_idx),
   )
+  ignore(pass_splice_region(ctx, func, region_ref, insert_idx, 0, [pushed_set]))
   let nop = @ir.hot_build_nop(func)
   pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
   true

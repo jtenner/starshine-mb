@@ -163,3 +163,24 @@ const moduleBytes = Uint8Array.from(
 ```
 
 `src/ffi/exports.generated.mbt`, `src/ffi/export-names.generated.json`, `src/ffi/moon.pkg`, and `src/ffi/unsupported.generated.json` are generated files and should not be edited manually.
+
+## npm adapter and authoritative declarations
+
+`bun ffi generate` also writes `src/ffi/export-schema.generated.json` from the
+same qualified public signatures used to generate forwarding exports. Importable
+`cmd` declarations are included despite its executable build target. The npm
+generator selects this schema, generates concrete forwarding functions and
+ABI conversion helpers in `src/npm/generated.mbt`, and produces JS bindings,
+TypeScript declarations and required/unsupported export manifests. The actual
+WasmGC adapter is compiled from `src/npm`, with JS string builtins enabled.
+
+`src/npm/compatibility-parameter-order.json` records legacy constructor positions;
+`cmd-public-api.json` records public callback-facade projections. Neither duplicates
+function types. `cmd-model.d.ts` describes the deliberately JavaScript callback
+and record representations. Unknown mappings fail generation; unsupported
+callback/raising/generic exports are explicit placeholders.
+
+Run `npm run check-generated --prefix node` for FFI and npm drift checks. Run
+`bun scripts/test/npm-packed-consumers.mjs` for the build, self-optimization and
+exact tarball consumer gate. See [the package README](../node/README.md) for the
+bootstrap sequence, toolchain, ownership rules and release decisions.

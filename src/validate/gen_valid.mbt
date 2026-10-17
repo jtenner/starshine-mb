@@ -656,6 +656,7 @@ pub enum GenValidProfile {
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile
+  VacuumUnreadTeeProfile
   RseAllProfile
   RseCoreSameValueProfile
   RseLocalCopySelfSetProfile
@@ -1002,6 +1003,7 @@ pub enum GenValidProfile {
   MergeSimilarFunctionsNestedProfile
   MergeSimilarFunctionsCallTargetsProfile
   MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsRecordCopyProfile
   MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -1158,6 +1160,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     VacuumCallPrefixContinuationProfile => "vacuum-call-prefix-continuation"
     VacuumLocalsetPrefixPreserveProfile => "vacuum-localset-prefix-preserve"
     VacuumHazardBoundaryProfile => "vacuum-hazard-boundary"
+    VacuumUnreadTeeProfile => "vacuum-unread-tee"
     RseAllProfile => "rse"
     RseCoreSameValueProfile => "rse-core-same-value"
     RseLocalCopySelfSetProfile => "rse-local-copy-self-set"
@@ -1564,6 +1567,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "merge-similar-functions-call-targets"
     MergeSimilarFunctionsTailCallsProfile =>
       "merge-similar-functions-tail-calls"
+    MergeSimilarFunctionsRecordCopyProfile =>
+      "merge-similar-functions-record-copy"
     MergeSimilarFunctionsAllProfile => "merge-similar-functions-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -2560,6 +2565,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     VacuumCallPrefixContinuationProfile,
     VacuumLocalsetPrefixPreserveProfile,
     VacuumHazardBoundaryProfile,
+    VacuumUnreadTeeProfile,
     RseAllProfile,
     RseCoreSameValueProfile,
     RseLocalCopySelfSetProfile,
@@ -2925,6 +2931,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MergeSimilarFunctionsNestedProfile,
     MergeSimilarFunctionsCallTargetsProfile,
     MergeSimilarFunctionsTailCallsProfile,
+    MergeSimilarFunctionsRecordCopyProfile,
     MergeSimilarFunctionsAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -5313,7 +5320,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | VacuumConstantResultIfProfile
     | VacuumCallPrefixContinuationProfile
     | VacuumLocalsetPrefixPreserveProfile
-    | VacuumHazardBoundaryProfile => gen_valid_vacuum_profile_config(profile)
+    | VacuumHazardBoundaryProfile
+    | VacuumUnreadTeeProfile => gen_valid_vacuum_profile_config(profile)
     RseAllProfile
     | RseCoreSameValueProfile
     | RseLocalCopySelfSetProfile
@@ -6392,7 +6400,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | MergeSimilarFunctionsLocalsProfile
     | MergeSimilarFunctionsNestedProfile
     | MergeSimilarFunctionsCallTargetsProfile
-    | MergeSimilarFunctionsTailCallsProfile =>
+    | MergeSimilarFunctionsTailCallsProfile
+    | MergeSimilarFunctionsRecordCopyProfile =>
       gen_valid_msf_profile_config(profile)
     MergeSimilarFunctionsAllProfile =>
       gen_valid_msf_profile_config(MergeSimilarFunctionsLiteralsProfile)
@@ -25146,6 +25155,9 @@ fn gen_valid_once_reduction_profile_module() -> Module {
 
 ///|
 fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  if profile == VacuumUnreadTeeProfile {
+    return gen_valid_vacuum_unread_tee_config()
+  }
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let family_id = match profile {
     VacuumCoreProfile => 1
@@ -25255,11 +25267,15 @@ fn gen_valid_is_vacuum_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(VacuumConstantResultIfProfile) ||
   config == GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile) ||
   config == GenValidConfig::for_profile(VacuumLocalsetPrefixPreserveProfile) ||
-  config == GenValidConfig::for_profile(VacuumHazardBoundaryProfile)
+  config == GenValidConfig::for_profile(VacuumHazardBoundaryProfile) ||
+  config == GenValidConfig::for_profile(VacuumUnreadTeeProfile)
 }
 
 ///|
 fn gen_valid_vacuum_profile_kind(config : GenValidConfig) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(VacuumUnreadTeeProfile) {
+    return VacuumUnreadTeeProfile
+  }
   if config == GenValidConfig::for_profile(VacuumTerminalUnreachableProfile) {
     VacuumTerminalUnreachableProfile
   } else if config ==
@@ -25775,6 +25791,7 @@ fn gen_valid_vacuum_hazard_boundary_profile_module() -> Module {
 ///|
 fn gen_valid_vacuum_profile_module(ctx : GenValidContext) -> Module {
   match gen_valid_vacuum_profile_kind(ctx.config) {
+    VacuumUnreadTeeProfile => gen_valid_vacuum_unread_tee_module(ctx.root_seed)
     VacuumTerminalUnreachableProfile =>
       gen_valid_vacuum_terminal_unreachable_profile_module()
     VacuumStructuralWrappersProfile =>
@@ -28403,6 +28420,23 @@ fn gen_valid_oi_default_scalar_profile_body(case : Int32) -> Array[Instruction] 
     Instruction::i32_const(I32(4)),
     Instruction::i32_const(I32(2)),
     Instruction::i32_shl(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_div_u(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_mul(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_rem_u(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_or(),
     Instruction::drop(),
   ]
   match case {
@@ -33008,6 +33042,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   } else if memory_bulk && (case == 13 || case == 15 || case == 17) {
     Locals::from_types([ValType::i32(), ValType::i32()])
   } else if memory_bulk && (case == 5 || case == 11) {
+    Locals::from_types([ValType::i32()])
+  } else if config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) {
     Locals::from_types([ValType::i32()])
   } else if !ref_gc && !memory_bulk && (case == 1 || case == 2) {
     Locals::from_types([ValType::i32()])
@@ -38824,6 +38860,23 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         facts = GenValidInstrFacts::{ ..facts, has_payload_control_flow: true, }
       }
       facts
+    }
+    Try(bt, body, catches, _) => {
+      let (has_ref, has_v128) = gen_valid_scan_block_type(bt)
+      let mut facts = gen_valid_scan_expr(body)
+      for catch_ in catches {
+        let handler = match catch_ {
+          @lib.LegacyCatch(_, handler) | @lib.LegacyCatchAll(handler) => handler
+        }
+        facts = gen_valid_merge_instr_facts(facts, gen_valid_scan_expr(handler))
+      }
+      GenValidInstrFacts::{
+        ..facts,
+        uses_ref_types: facts.uses_ref_types || has_ref,
+        uses_v128: facts.uses_v128 || has_v128,
+        control_nodes: facts.control_nodes + 1,
+        branch_ops: facts.branch_ops + catches.length(),
+      }
     }
     TryTable(bt, catches, body) => {
       let (has_ref, has_v128) = gen_valid_scan_block_type(bt)

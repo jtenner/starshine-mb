@@ -1,9 +1,19 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Run after all writeback repair: restored functions still use original indices.
 fn oi_cleanup_module_encoding(
   mod_ : @lib.Module,
   touched~ : Array[Bool]? = None,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let mut changed = false
   let candidate = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -29,12 +39,67 @@ fn oi_cleanup_module_encoding(
     }
     None => mod_
   }
-  let cleaned = dfe_cleanup_simple_type_encoding(
-    pass_cleanup_unused_type_groups(
-      oi_cleanup_declarative_elements(oi_cleanup_control(candidate, touched~)),
-    ),
+  let control_cleaned = oi_cleanup_declarative_elements(
+    oi_cleanup_control(candidate, touched~),
   )
+  let type_cleaned = if pass_encoding_cleanup_may_remap_types(
+      control_cleaned, touched,
+    ) {
+    dfe_cleanup_simple_type_encoding(
+      pass_cleanup_unused_type_groups(control_cleaned),
+    )
+  } else {
+    control_cleaned
+  }
+  let cleaned = oi_cleanup_descriptor_encoding(type_cleaned, touched~)
   oi_group_numeric_locals_if_smaller(cleaned, touched~)
+}
+
+///|
+// Grouping can only change a function with a removable zero run or a repeated
+// numeric declaration type. Distinct nonzero numeric runs are already in the
+// bucket order that the grouping helper would produce.
+fn oi_numeric_group_has_declaration_candidate(
+  mod_ : @lib.Module,
+  touched : Array[Bool]?,
+) -> Bool {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  for index = 0; index < funcs.length(); index = index + 1 {
+    if touched is Some(selected) &&
+      (index >= selected.length() || !selected[index]) {
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[index]
+    if locals.length() <= 1 {
+      continue
+    }
+    let seen : Array[@lib.ValType] = []
+    let mut candidate = false
+    let mut supported = true
+    for run in locals.runs() {
+      if run.count() == 0U {
+        candidate = true
+        continue
+      }
+      let ty = run.val_type()
+      if !run_hot_pipeline_raw_numeric_local_type(ty) {
+        supported = false
+        break
+      }
+      if seen.any(fn(existing) { existing == ty }) {
+        candidate = true
+      } else {
+        seen.push(ty)
+      }
+    }
+    if supported && candidate {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -46,33 +111,58 @@ fn oi_group_numeric_locals_if_smaller(
   touched~ : Array[Bool]? = None,
   allow_frequency~ : Bool = true,
   function_comparisons~ : Array[Int32]? = None,
+  perf~ : HotPerfSession? = None,
+  legacy_guard_scans~ : Array[Int32]? = None,
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
   }
-  let mut has_body_locals = false
-  for index in 0..<funcs.length() {
-    if touched is Some(set) && (index >= set.length() || !set[index]) {
-      continue
+  if !oi_numeric_group_has_declaration_candidate(mod_, touched) {
+    // Wide frequency cleanup can remove unused locals even when declaration
+    // types are already grouped. Keep the cheap guard for other inputs.
+    let mut wide_frequency_candidate = false
+    if allow_frequency {
+      let params = rl_defined_func_param_cache(mod_)
+      for index in 0..<funcs.length() {
+        if touched is Some(mask) && (index >= mask.length() || !mask[index]) {
+          continue
+        }
+        let @lib.Func(locals, _) = funcs[index]
+        if params.get(index) is Some(ps) &&
+          locals.length() > 0 &&
+          ps.length() + locals.length() > 128 &&
+          ps.all(run_hot_pipeline_raw_numeric_local_type) &&
+          locals
+          .runs()
+          .all(fn(run) { run_hot_pipeline_raw_numeric_local_type(run.vt) }) {
+          wide_frequency_candidate = true
+          break
+        }
+      }
     }
-    let @lib.Func(locals, _) = funcs[index]
-    if locals.length() > 0 {
-      has_body_locals = true
-      break
+    if !wide_frequency_candidate {
+      return mod_
     }
   }
-  if !has_body_locals {
-    return mod_
+  match legacy_guard_scans {
+    Some(scans) => scans[0] += 1
+    None => ()
   }
   if pass_module_has_legacy_try(mod_) ||
     oi_local_group_has_offset_metadata(mod_) ||
     (mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_)) {
     return mod_
   }
+  let grouping_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-remap",
+  )
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(
     mod_,
     touched~,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-remap", grouping_start,
   )
   ignore(function_comparisons)
   // SL preserves body-local declarations and their names. Its boundary cleanup
@@ -206,8 +296,12 @@ fn oi_local_group_changed_bodies(
 fn oi_validate_local_group_changed_bodies(
   before : @lib.Module,
   grouped : @lib.Module,
+  perf~ : HotPerfSession? = None,
 ) -> Bool {
-  match
+  let start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-validate",
+  )
+  let result = match
     @validate.validate_defined_funcs_against_module(
       before,
       oi_local_group_changed_bodies(before, grouped),
@@ -215,6 +309,10 @@ fn oi_validate_local_group_changed_bodies(
     Ok(errors) => errors.is_empty()
     Err(_) => false
   }
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-validate", start,
+  )
+  result
 }
 
 ///|

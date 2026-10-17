@@ -3,6 +3,7 @@ import fsPromises from "node:fs/promises";
 import process from "node:process";
 
 const ARRAY_SENTINEL = "ffi_end_of_/string_array";
+const handleBrands = new WeakMap();
 
 function toCodePoints(value) {
   const out = [];
@@ -358,7 +359,10 @@ export async function instantiateWasmGcBytes(wasmBytes) {
   const instance = await WebAssembly.instantiate(module, importObject, {
     builtins: ["js-string"],
   });
-  return instance.exports;
+  // Custom compatibility accessors also accept the boxed public handles.
+  return Object.freeze(Object.fromEntries(Object.entries(instance.exports).map(([name, value]) => [
+    name, typeof value === 'function' ? (...args) => value(...args.map(arg => handleBrands.has(arg) ? handleBrands.get(arg).raw : arg)) : value,
+  ])));
 }
 
 async function instantiateWasmGc() {
@@ -426,28 +430,33 @@ export function lowerValue(descriptor, value, wasm) {
       if (typeof value !== "number") {
         throw new TypeError("Expected a number.");
       }
+      {
+        const ranges = { Int: [-2147483648, 2147483647], UInt: [0, 4294967295], Int8: [-128, 127], UInt8: [0, 255], Int16: [-32768, 32767], UInt16: [0, 65535] };
+        const range = ranges[descriptor.moonType];
+        if (range && (!Number.isInteger(value) || value < range[0] || value > range[1])) throw new TypeError(`Expected an in-range ${descriptor.moonType}.`);
+      }
       return value;
     case "bigint":
-      if (typeof value === "bigint") {
-        return value;
+      if (typeof value === "number" && Number.isSafeInteger(value)) {
+        value = BigInt(value);
       }
-      if (typeof value === "number" && Number.isInteger(value)) {
-        return BigInt(value);
-      }
-      throw new TypeError("Expected a bigint.");
+      if (typeof value !== 'bigint') throw new TypeError("Expected a bigint or safe integer.");
+      if (descriptor.moonType === 'UInt64' && (value < 0n || value > 0xffffffffffffffffn)) throw new TypeError('Expected an in-range UInt64.');
+      if (descriptor.moonType === 'Int64' && (value < -0x8000000000000000n || value > 0x7fffffffffffffffn)) throw new TypeError('Expected an in-range Int64.');
+      return value;
     case "byte":
-      if (typeof value !== "number" || !Number.isInteger(value)) {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 255) {
         throw new TypeError("Expected an integer byte.");
       }
-      return value & 0xff;
+      return value;
     case "char":
       if (typeof value === "string") {
-        if (value.length === 0) {
-          throw new TypeError("Expected a non-empty string for Char.");
+        if ([...value].length !== 1 || (value.codePointAt(0) >= 0xd800 && value.codePointAt(0) <= 0xdfff)) {
+          throw new TypeError("Expected exactly one Unicode scalar for Char.");
         }
         return value.codePointAt(0);
       }
-      if (typeof value === "number" && Number.isInteger(value)) {
+      if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0x10ffff && !(value >= 0xd800 && value <= 0xdfff)) {
         return value;
       }
       throw new TypeError(
@@ -481,6 +490,8 @@ export function lowerValue(descriptor, value, wasm) {
       return wasm[descriptor.helper.some](
         lowerValue(descriptor.item, value, wasm),
       );
+    case "optional":
+      return value === undefined ? wasm[descriptor.helper.none]() : wasm[descriptor.helper.some](lowerValue(descriptor.item, value, wasm));
     case "tuple":
       expectArray(value, descriptor);
       if (value.length !== descriptor.items.length) {
@@ -495,7 +506,10 @@ export function lowerValue(descriptor, value, wasm) {
       );
     case "named":
     case "opaque":
-      return value;
+      if (!value || handleBrands.get(value)?.brand !== descriptor.brand || handleBrands.get(value)?.wasm !== wasm) {
+        throw new TypeError(`Expected a ${descriptor.brand} handle from this initialized instance.`);
+      }
+      return handleBrands.get(value).raw;
     case "result":
       throw new Error(
         "Lowering JS result objects back into MoonBit Result values is not supported.",
@@ -518,8 +532,10 @@ export function liftValue(descriptor, value, wasm) {
     case "number":
     case "byte":
     case "char":
+      if (descriptor.moonType === 'UInt') return Number(value) >>> 0;
       return Number(value);
     case "bigint":
+      if (descriptor.moonType === 'UInt64') return BigInt.asUintN(64, BigInt(value));
       return BigInt(value);
     case "unit":
       return undefined;
@@ -577,7 +593,11 @@ export function liftValue(descriptor, value, wasm) {
       );
     case "named":
     case "opaque":
-      return value;
+      {
+        const handle = Object.freeze(Object.create(null));
+        handleBrands.set(handle, { raw: value, brand: descriptor.brand, wasm });
+        return handle;
+      }
     case "function":
       throw new Error("Function values cannot be lifted into JavaScript.");
     default:

@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2015 WebAssembly Community Group participants
+// Counterpart: src/passes/RemoveUnusedBrs.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("remove-unused-brs", invalidates=[
@@ -5575,6 +5587,24 @@ fn remove_unused_brs_nodes_are_known_equal_for_redundant_br_if_value(
 }
 
 ///|
+fn remove_unused_brs_condition_preserves_redundant_payload(
+  func : @ir.HotFunc,
+  payload : Int32,
+  condition : Int32,
+) -> Bool {
+  // The matching constant payload and fallthrough have no state dependency.
+  // The condition remains evaluated once in place, including traps and exits.
+  if @ir.hot_node_get(func, payload).op is @ir.HotOp::Const {
+    return true
+  }
+  let payload_reads = @bitset.BitSet::new(0)
+  remove_unused_brs_mark_local_reads_in_value_expr(func, payload, payload_reads)
+  remove_unused_brs_condition_is_select_safe_over_value_arms(
+    func, condition, payload_reads,
+  )
+}
+
+///|
 fn remove_unused_brs_try_drop_redundant_self_br_if_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5696,10 +5726,8 @@ fn remove_unused_brs_try_drop_redundant_self_br_if_value(
     ) {
     return false
   }
-  let payload_reads = @bitset.BitSet::new(0)
-  remove_unused_brs_mark_local_reads_in_value_expr(func, payload, payload_reads)
-  if !remove_unused_brs_condition_is_select_safe_over_value_arms(
-      func, condition, payload_reads,
+  if !remove_unused_brs_condition_preserves_redundant_payload(
+      func, payload, condition,
     ) {
     return false
   }
@@ -5768,15 +5796,11 @@ fn remove_unused_brs_try_drop_redundant_self_br_if_value_block(
         Some(@ir.hot_control_node_label(func, block_id)) {
         let payload = @ir.hot_child_get(func, branch_id, 0)
         let condition = @ir.hot_child_get(func, branch_id, 1)
-        let payload_reads = @bitset.BitSet::new(0)
-        remove_unused_brs_mark_local_reads_in_value_expr(
-          func, payload, payload_reads,
-        )
         if remove_unused_brs_nodes_are_known_equal_for_redundant_br_if_value(
             func, payload, last,
           ) &&
-          remove_unused_brs_condition_is_select_safe_over_value_arms(
-            func, condition, payload_reads,
+          remove_unused_brs_condition_preserves_redundant_payload(
+            func, payload, condition,
           ) {
           let dropped_condition = @ir.hot_build_drop(func, condition)
           let removed = pass_splice_region(ctx, func, body_ref, branch_idx, 2, [

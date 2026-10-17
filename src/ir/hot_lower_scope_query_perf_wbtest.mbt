@@ -3,7 +3,7 @@
 fn lower_scope_query_uncached_reference(
   hot : HotFunc,
   scope : NodeId,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
 ) -> Bool {
   let marks : @hashmap.HashMap[NodeId, Int32] = @hashmap.new()
   for value in stack {
@@ -50,9 +50,9 @@ fn lower_scope_query_bench(
   )
   assert_eq(stack.length(), if dependent { 1 } else { 2 })
   assert_eq(extras, [])
-  let held : Array[HotLowerStackValue] = [
+  let held : HotLowerValueStack = lower_test_value_stack([
     { node_id: entry, val_type: @lib.ValType::i32(), },
-  ]
+  ])
   for scope in scopes {
     assert_eq(lower_scope_query_uncached_reference(hot, scope, held), dependent)
     assert_eq(
@@ -104,10 +104,8 @@ fn lower_scope_query_alternating_bench(
   hot_verify_all_or_abort(hot)
   let revision = hot_revision_current(hot)
   let children = hot.children.copy()
-  let held : Array[Array[HotLowerStackValue]] = [first, second].map(fn(
-    node_id,
-  ) {
-    [{ node_id, val_type: @lib.ValType::i32(), }]
+  let held : Array[HotLowerValueStack] = [first, second].map(fn(node_id) {
+    lower_test_value_stack([{ node_id, val_type: @lib.ValType::i32(), }])
   })
   let frames = hot_lower_impl_new_label_frames(hot)
   for scope in scopes {

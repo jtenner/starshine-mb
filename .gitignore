@@ -18,8 +18,12 @@ result.json
 .artifacts/
 dist/component/
 dist/ffi/
+dist/npm/
 agent-lost-and-found.md
 .tmp/
 build/
 examples/modules/*.wasm
 vgcore.*
+
+# Python archive/consumer checks
+__pycache__/

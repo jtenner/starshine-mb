@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-13
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
@@ -38,6 +38,14 @@ related:
 
 Use this page with the direct current-main owner and fixture links cited by the dossier; the retained historical research preserves older freshness evidence.
 The most important teaching point remains the same: the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
+
+## October 13, 2026 floating-bit fixture isolation
+
+The [floating-bit regression](../../../../../src/passes/rse_test.mbt) mixed two initial states. Its public body-local path expected one write for `+0` followed by `-0`, while its direct HOT path required two writes for the same body-local input. After October 11 HOT default initialization, removing the first `+0` write is correct; the local already holds `+0`. The `-0` write remains. The failure was on signed zero, not a collapsed NaN payload.
+
+The regression retains every original expected count. It now separately tests public and direct HOT body-local defaults, then uses an initially unknown parameter for the existing two-distinct-write HOT assertion. Exact IEEE bit checks cover f32/f64 signed zeros and both distinct NaN payloads before and after each path. This adds coverage without loosening RSE value identity or changing production code.
+
+The full wasm-gc suite passes 14,149/14,149 after these fixture repairs. Interfaces, formatting and README API sync pass. [Qualification evidence](../../../raw/tooling/2026-10-13-six-failure-fixtures.json) retains the size and execution observations.
 
 ## Honest current status
 

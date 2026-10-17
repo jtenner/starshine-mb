@@ -1,264 +1,265 @@
-# Starshine
+# Starshine MoonBit library tutorial
 
-MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
+Starshine is a library for WebAssembly modules.
+A library supplies functions that your program can call.
+A module contains WebAssembly functions, data, and exports.
+An export is a function or value that a host program can use.
 
-Current comparison target: **Binaryen 132**. See the [upgrade status and feature boundaries](docs/wiki/binaryen/version-132-upgrade.md); historical v131 measurements retain their original version.
+Use this guide with `jtenner/starshine@0.2.2`.
+This release supplies a MoonBit library tutorial. The library API is unchanged from `0.2.0`.
 
-For JavaScript/npm usage, see [node/README.md](./node/README.md).
+## Terms
 
-For language-neutral WIT bindings and the Component Model artifact, see [component/README.md](./component/README.md).
+- **WAT** is the text format for a WebAssembly module.
+- **Wasm** is the binary format for a WebAssembly module.
+- **Parse** means to convert text to a module value.
+- **Validate** means to check a module against WebAssembly rules.
+- **Optimize** means to change a module while it keeps the same behavior.
+- **Encode** means to convert a module value to binary bytes.
+- **Alias** means a short name for an imported package.
+- **Result** is a value that contains `Ok(value)` or `Err(error)`.
 
-## Install in MoonBit
+Optimization does not always make a module smaller or faster.
 
-```json
-{
-  "deps": {
-    "jtenner/starshine": "<pin-or-local-source>"
-  }
+## Prepare your computer
+
+1. Install [MoonBit](https://www.moonbitlang.com/download/).
+2. Run this command to check the installation:
+
+   ```sh
+   moon version --all
+   ```
+
+3. Install a C compiler for the native procedure.
+4. Run this command to check the C compiler:
+
+   ```sh
+   cc --version
+   ```
+
+5. On Linux, set the stack limit for native debug compilation in this terminal:
+
+   ```sh
+   ulimit -s 65536
+   ```
+
+This limit applies to the current terminal and its child processes.
+It does not change the system configuration.
+
+The tested Moon version is `0.1.20260920`, with compiler `0.10.14+7d59c7ec9`.
+The tested `moonrun` version is `0.1.20260920`.
+The WasmGC procedure uses `moonrun`, which is included in the MoonBit toolchain.
+It does not require Node.js. The native procedure was tested on Linux.
+
+## Create a program
+
+1. Create an empty project:
+
+   ```sh
+   moon new answer-tool
+   ```
+
+2. Open its directory:
+
+   ```sh
+   cd answer-tool
+   ```
+
+3. Add the library dependency:
+
+   ```sh
+   moon add jtenner/starshine@0.2.2
+   ```
+
+4. Replace `cmd/main/moon.pkg` with this configuration:
+
+<!-- STARSHINE_TUTORIAL package -->
+```moon
+import {
+  "jtenner/starshine/wast" @wast,
+  "jtenner/starshine/validate" @validate,
+  "jtenner/starshine/passes" @passes,
+  "jtenner/starshine/binary" @binary,
+  "jtenner/starshine/fs" @fs,
 }
+pkgtype(kind: "executable")
 ```
 
-## What You Can Do
+The prefix `@wast` refers to the text parser.
+The other aliases refer to validation, optimization, binary conversion, and file functions.
 
-- Parse and print WAT/WAST.
-- Preserve Binaryen-style function annotations in WAT/WAST text and lowered modules.
-- Validate modules and enforce wasm typing and section rules.
-- Decode and encode WebAssembly binaries.
-- Build modules with `lib` constructors and boundary-form helpers.
-- Lift function bodies into `HotFunc`, the only owned optimizer body representation, and lower them back to boundary form.
-- Mutate `HotFunc` storage through canonical root, node, and child-span helpers.
-- Query `HotFunc` structure through canonical node-family, branch, span, and local-metadata helpers.
-- Traverse and rewrite `HotFunc` bodies through stable shared walkers with explicit skip/stop control flow.
-- Edit top-level and nested structured regions through one `HotRegionRef` splice contract.
-- Verify `HotFunc` core and control integrity through structured verifier errors before lowering or later analysis overlays.
-- Use CLI and Node wrappers.
-- Build a portable WIT/Component Model facade for complete typed Core-module construction, deterministic valid-module generation, pass discovery, validation, WAT-to-Wasm conversion, binary roundtrips, and optimizer pipelines.
+## Add the library function
 
-## Package Map
+1. Create `cmd/main/optimizer.mbt`.
+2. Copy this code into the file:
 
-| Package | Purpose |
-| --- | --- |
-| `jtenner/starshine/wast` | Parse and print WAT/WAST text. |
-| `jtenner/starshine/wat` | Text-format wasm helpers. |
-| `jtenner/starshine/validate` | Validation, type matching, and valid-module generation helpers. |
-| `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
-| `jtenner/starshine/lib` | Core Wasm types and constructors. |
-| `jtenner/starshine/ir` | `HotFunc` hot function IR, architecture contracts, and lift/lower helpers. |
-| `jtenner/starshine/passes` | Hot and module pass registry, pass manager, and preset pipeline orchestration. |
-| `jtenner/starshine/cli` | CLI parsing, config, globbing, and flags. |
-| `jtenner/starshine/cmd` | Command execution and host adapters. |
-| `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |
-| `jtenner/starshine/fs` | Small filesystem helpers for host-facing code. |
-| `jtenner/starshine/fuzz` | Fuzz harness entrypoints and support code. |
-| `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
-| `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
-
-## WasmGC linker FFI
-
-```bash
-bun ffi generate
-bun ffi check
-bun ffi build
-```
-
-The generated `jtenner/starshine-ffi/ffi` foreign-library package lives under [`ffi/`](./ffi/). `bun ffi build` writes `dist/ffi/starshine-ffi.wasm` with concrete public APIs exported under stable names such as `BitSet::new`, package-qualified collision names such as `lib::Module::new`, and per-implementer trait names such as `Decode::Module::decode` or `Show::wast::Module::to_string`. Remaining standalone generics and inaccessible signatures are recorded in `ffi/src/ffi/unsupported.generated.json`.
-
-## Component Model / WIT
-
-```bash
-bun component generate
-bun component build
-bun component check
-```
-
-The checked-in world is [`component/wit/starshine.wit`](./component/wit/starshine.wit). The validated local artifact is written to `dist/component/starshine.component.wasm`.
-
-The portable component is compiled from the same Starshine source packages with MoonBit's linear `wasm` target because the current MoonBit Canonical ABI generator is linear-memory based. It exposes a generated resource-backed Core IR constructor graph, deterministic GenValid profile/seed module generation, and module processing, but it is not a direct WIT description of the raw `wasm-gc` module's MoonBit GC-reference ABI. Optimizer-internal HOT/CFG/SSA APIs remain in-process only. See [`component/README.md`](./component/README.md) for the target boundary, generated-file contract, ownership rules, and consumer guidance.
-
-## IR2 Architecture
-
-- `HotFunc` is the only owned optimizer body representation. Boundary decode/encode/validation/debug remain on raw module and expression forms.
-- CFG, dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by hot-IR `revision`.
-- The canonical architecture rule set lives in [`docs/0059-2026-03-24-ir2-architecture-rules.md`](./docs/0059-2026-03-24-ir2-architecture-rules.md); package-local module ownership rules live in [`src/ir/README.md`](./src/ir/README.md).
-
-<!-- README_API_VERIFY src/ir/pkg.generated.mbti -->
-```mbti
-pub fn hot_node_count(HotFunc) -> Int
-pub fn hot_child_storage_count(HotFunc) -> Int
-pub fn hot_root_storage_count(HotFunc) -> Int
-pub fn hot_body_result_type(HotFunc) -> Int
-pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
-pub fn hot_node_is_live(HotFunc, Int) -> Bool
-pub fn hot_debug_dump_core(HotFunc) -> String
-pub fn hot_default_flags_for_op(HotOp) -> UInt
-pub fn hot_node_flags(HotFunc, Int) -> UInt
-pub fn hot_node_has_flag(HotFunc, Int, UInt) -> Bool
-pub fn hot_is_control_node(HotFunc, Int) -> Bool
-pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
-pub fn hot_has_side_effect(HotFunc, Int) -> Bool
-pub fn hot_may_trap(HotFunc, Int) -> Bool
-pub fn hot_is_branch(HotFunc, Int) -> Bool
-pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
-pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
-pub fn hot_type_intern_void(HotFunc) -> Int
-pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int
-pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
-pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
-pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
-pub fn hot_type_result_arity(HotFunc, Int) -> Int
-pub fn hot_type_is_void(HotFunc, Int) -> Bool
-pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
-pub fn hot_param_count(HotFunc) -> Int
-pub fn hot_local_count(HotFunc) -> Int
-pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
-pub fn hot_label_alloc(HotFunc, HotLabelKind, Int, Int, Int) -> Int
-pub fn hot_label_get(HotFunc, Int) -> HotLabelInfo
-pub fn hot_label_owner(HotFunc, Int) -> Int
-pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
-pub fn hot_label_result_type(HotFunc, Int) -> Int
-pub fn hot_label_branch_arity(HotFunc, Int) -> Int
-pub fn hot_control_node_label(HotFunc, Int) -> Int
-pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
-pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
-pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
-pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
-pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
-pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
-pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
-pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
-pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int
-pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
-pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
-pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
-pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
-pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? : Array[Int]) -> Int
-pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
-pub fn hot_build_local_get(HotFunc, Int) -> Int
-pub fn hot_build_br_if(HotFunc, Int, Int, values? : Array[Int]) -> Int
-pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.ValType], Array[Int], Int) -> Int
-pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
-pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
-pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
-pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[Int], catch_list_body? : Array[Int]) -> Int
-pub fn hot_build_drop(HotFunc, Int) -> Int
-pub fn hot_build_unreachable(HotFunc) -> Int
-pub fn hot_build_return(HotFunc, Array[Int]) -> Int
-pub fn hot_alloc_child_span(HotFunc, Int) -> Int
-pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
-pub fn hot_delete_node(HotFunc, Int) -> Unit
-pub fn hot_root_append(HotFunc, Int) -> Unit
-pub fn hot_root_insert(HotFunc, Int, Int) -> Unit
-pub fn hot_root_remove(HotFunc, Int) -> Int
-pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
-pub fn hot_revision_bump(HotFunc) -> Unit
-pub fn hot_node_kind_is_control(HotFunc, Int) -> Bool
-pub fn hot_node_kind_is_call(HotFunc, Int) -> Bool
-pub fn hot_node_type(HotFunc, Int) -> Int
-pub fn hot_node_result_arity(HotFunc, Int) -> Int
-pub fn hot_branch_target(HotFunc, Int) -> Int?
-pub fn hot_branch_table_targets_for_node(HotFunc, Int) -> Array[Int]
-pub fn hot_root_span(HotFunc) -> Array[Int]
-pub fn hot_child_span(HotFunc, Int) -> Array[Int]
-pub fn hot_local_param_count(HotFunc) -> Int
-pub fn hot_local_body_count(HotFunc) -> Int
-pub fn hot_node_is_deleted(HotFunc, Int) -> Bool
-pub fn hot_revision_current(HotFunc) -> Int
-pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
-pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
-pub fn HotAnalysis::cfg() -> Self
-pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidates? : Array[HotAnalysis]) -> Self
-```
-
-## Quick Example
-
+<!-- STARSHINE_TUTORIAL optimizer -->
 ```mbt
-using @binary { encode_module }
-using @validate { validate_module }
-using @wast { wast_to_binary_module }
-
-fn parse_validate_encode(source : String) -> Bool {
-  let mod = match wast_to_binary_module(source, filename="input.wat") {
-    Ok(mod) => mod
-    Err(_) => return false
+fn optimize_wat(text : String) -> Result[Bytes, String] {
+  let input = match @wast.wast_to_binary_module(text) {
+    Ok(value) => value
+    Err(error) => return Err("Cannot parse WAT: \{error}")
   }
-
-  match validate_module(mod) {
-    Ok(()) => ()
-    Err(_) => return false
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(error) => return Err("Cannot validate input: \{error}")
   }
-
-  match encode_module(mod) {
-    Ok(_) => true
-    Err(_) => false
+  let optimized = match @passes.run_hot_pipeline(
+    input,
+    @passes.HotPipelineOptions::new(),
+    ["precompute", "vacuum"],
+  ) {
+    Ok(value) => value
+    Err(error) => return Err("Cannot optimize module: \{error}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(error) => return Err("Cannot validate output: \{error}")
+  }
+  match @binary.encode_module(optimized) {
+    Ok(bytes) => Ok(bytes)
+    Err(error) => Err("Cannot encode module: \{error}")
   }
 }
 ```
 
-## Pipeline Note
+The function checks each result before it uses the value.
+It returns bytes on success. It returns an error message on failure.
+The `precompute` pass calculates constant expressions.
+The `vacuum` pass removes unnecessary instructions.
+The function validates the module before and after optimization.
 
-- `--optimize`, `--shrink`, `--ssa`, `--ssa-nomerge`, `--vacuum`, `--dead-code-elimination`, `--remove-unused-names`, `--remove-unused-brs`, `--optimize-instructions`, `--pick-load-signs`, `--heap-store-optimization`, `--simplify-locals`, `--simplify-locals-notee`, and `--simplify-locals-nonesting` now route through the real IR2 pass pipeline in `jtenner/starshine/passes`.
-- The [live registry map](docs/wiki/ir2/registry-map.md) lists runnable HOT and module passes. This upgrade adds real `dae2` / `dae2-optimizing` module implementations and opt-in `constraint-analysis`; ordinary DAE remains available. New passes do not change presets automatically.
-- CLI pass queues may now interleave `--dump <file.wasm|file.wat>` snapshots, ordered `--print-{type,func,import,table,memory,global,export,tag,elem,data} <name|index>` stderr log steps, and explicit `--validate` checkpoints with optimizer passes, so workflows like "dump before, print, run one pass, print again, then validate" stay ordered and observable.
-- CLI transform queues also support `--extract-functions <index,index,...>` as an ordered module-replacement step that rewrites the module down to the selected functions, reindexes the surviving function space, and trims other live sections through `remove-unused-module-elements`.
-- A wasm input with no scheduled passes and no ordered inspection steps is treated as a raw byte copy; add `--validate`, `--dump`, `--print-*`, `--extract-functions`, or any optimizer pass when the command should decode and inspect the module.
-- `global-struct-inference` is currently a conservative closed-world slice: it folds direct immutable `global.get -> struct.get*` chains backed by top-level `struct.new*` globals and leaves broader type-wide struct inference for later parity work.
-- The registry now keeps explicit `boundary-only` and `removed` mappings for legacy names so planning and diagnostics stay explicit while help output remains limited to the active pass surface.
-- The pass-manager contract is `lift -> verify -> run passes -> verify -> lower -> validate`, with per-function hot-IR verification and final module validation.
-- Pass authors now have shared migration helpers for analysis requests, mutation/invalidation, and pipeline-backed WAT fixtures in `jtenner/starshine/passes`.
-- Programmatic pipeline callers can now attach an opt-in hot perf session to collect stable phase timings, allocation/build counters, validation checkpoints, and lightweight hot-func / CFG debug dumps during IR2 work.
-- The deleted `ModulePass` compatibility shim is gone; CLI tooling and the fuzz harness now use the same real pass-name arrays and registry-backed diagnostics as the hot pipeline itself.
+## Run a complete example
 
-## Prerequisites
+1. Replace `cmd/main/main.mbt` with this code:
 
-- [bun](https://bun.sh) (for project scripts in `package.json`)
-- [MoonBit toolchain (`moon`)](https://www.moonbitlang.com/docs/zh/getting-started/installing-moonbit/) (for building and testing MoonBit packages)
-- Optional: [Node.js](https://nodejs.org/) if you also run `node/` package tooling
-
-Install script dependencies after installing `bun` and `moon` (run from repo root):
-
-```bash
-bun install
+<!-- STARSHINE_TUTORIAL text -->
+```mbt
+fn main {
+  let text = "(module (func (export \"answer\") (result i32) i32.const 40 i32.const 2 i32.add))"
+  let bytes = match optimize_wat(text) {
+    Ok(value) => value
+    Err(error) => abort(error)
+  }
+  let numbers = bytes.to_array().map(byte => byte.to_int())
+  let header = [0, 97, 115, 109, 1, 0, 0, 0]
+  if numbers.length() < header.length() {
+    abort("Wasm output has no header.")
+  }
+  for index = 0; index < header.length(); index = index + 1 {
+    if numbers[index] != header[index] {
+      abort("Wasm output has an invalid header.")
+    }
+  }
+  println(numbers)
+  println("Wasm header is valid.")
+}
 ```
 
-## Build, Test, and Fuzz
+2. Resolve the project dependencies:
 
-Run the full project checks (same as CI defaults):
+   ```sh
+   moon update
+   ```
 
-```bash
-bun validate full --profile ci --target wasm-gc
+3. Run the WasmGC target:
+
+   ```sh
+   moon run cmd/main --target wasm-gc
+   ```
+
+4. Check that the first eight numbers are `[0, 97, 115, 109, 1, 0, 0, 0]`.
+5. Check that the last line is `Wasm header is valid.`.
+
+These eight numbers are the Wasm file marker and version.
+
+The encoded module exports `answer`. That function returns `42` when a WebAssembly host calls it.
+The MoonBit program prints the bytes. It does not call the exported WebAssembly function.
+
+6. Run the native target:
+
+   ```sh
+   moon run cmd/main --target native
+   ```
+
+Both targets run the same library calls.
+The WasmGC target uses WebAssembly garbage collection and `moonrun`.
+A native target compiles machine code for your computer.
+These are the tested targets for this procedure.
+
+## Read a file and write Wasm
+
+Use the native target for this file procedure.
+The `fs` package returns results for file operations.
+
+1. Create `input.wat` in the project directory.
+2. Copy this text into the file:
+
+<!-- STARSHINE_TUTORIAL input -->
+```wat
+(module (func (export "answer") (result i32) i32.const 40 i32.const 2 i32.add))
 ```
 
-The validation runner parallelizes MoonBit tests to the available CPU count (capped at 16 workers).
+3. Replace `cmd/main/main.mbt` with this code:
 
-Run the minimum local quality gate used by this repo:
-
-```bash
-moon info
-moon fmt
-moon test
+<!-- STARSHINE_TUTORIAL file -->
+```mbt
+fn main {
+  let text = match @fs.read_file_sync("input.wat") {
+    Ok(value) => value
+    Err(error) => abort(error)
+  }
+  let bytes = match optimize_wat(text) {
+    Ok(value) => value
+    Err(error) => abort(error)
+  }
+  match @fs.write_file_bytes("answer.wasm", bytes) {
+    Ok(_) => println("Wrote answer.wasm")
+    Err(error) => abort(error)
+  }
+}
 ```
 
-Run fuzzing with default settings (suite/profile/seed/target):
+4. Run the program:
 
-```bash
-bun fuzz run
-```
+   ```sh
+   moon run cmd/main --target native
+   ```
 
-Useful variant commands:
+5. Check that `answer.wasm` exists in the project directory.
 
-```bash
-bun fuzz run --suite <suite> --profile <profile> --seed <seed> --target <target>
-bun fuzz run --profile <profile> --suite <suite> --output jsonl
-bun fuzz run --suite=<suite> --profile=<profile> --seed=<seed> --target=<target> --output=<text|jsonl>
-bun fuzz run --list-suites
-bun fuzz run --list-profiles
-bun fuzz run --help
-moon build --target native --release src/cmd
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --out-dir tmp/pass-fuzz --pass remove-unused-brs --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
-bun scripts/pass-fuzz-compare.ts --list-passes
-bun fuzz compare-pass --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir tmp/pass-fuzz --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
-bun validate coverage
-bun validate readme-api-sync
-```
+The output file contains the encoded module. It is not a text file.
+Your program can also read binary input with `@fs.read_file_bytes`.
+Use `@binary.decode_module` to convert those bytes to a module value.
+Check its result before you validate or optimize the module.
+The [binary API](https://mooncakes.io/docs/jtenner/starshine@0.2.2/binary) lists these functions.
 
-`pass-fuzz-compare.ts` generates in-repo `gen_valid` modules by default, runs the selected Starshine pass flags and the corresponding `wasm-opt` flags, validates Starshine's output with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` text output for parity. Add `--wasm-smith` for the separate external `wasm-tools smith` lane. Use `--pass <name>` for canonical pass selection, `--list-passes` to discover supported passes, or `bun fuzz compare-pass ...` as the standard wrapper entrypoint. The command writes its reports and exits nonzero when it observes mismatches or failures; use `--report-only` only for diagnostic collections whose `result.json` will be classified separately. For long parity lanes, build `src/cmd` once and pass `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20` and `--starshine-bin _build/native/release/build/cmd/cmd.exe` explicitly. The comparison baseline is Binaryen 132; dedicated `dae2` and `constraint-analysis` GenValid aggregates cover the new optimizers.
+## Handle errors
+
+The library returns errors for invalid text, invalid modules, and failed file operations.
+An unknown optimization pass also returns an error.
+The example calls `abort(error)` to stop the program if an operation fails.
+In your library code, return `Err(error)` so the caller can choose how to handle it.
+
+1. Change `input.wat` to invalid text.
+2. Run the file procedure again.
+3. Check the error message.
+4. Restore valid WAT before the next run.
+
+If parsing, validation, or optimization fails, the program does not call the file writer.
+An output file from an earlier run can still exist.
+A failed write can leave a partial output file. Check the error before you use that file.
+A valid module can still trap when a host runs its functions.
+Validation checks types and structure. It does not guarantee successful execution for every input.
+
+## More information
+
+Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.2.2) for function signatures.
+Use the [source API reference](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md) for the full package map.
+Use the [JavaScript guide](https://www.npmjs.com/package/starshine) for npm library calls.
+Use the [component guide](https://github.com/jtenner/starshine-mb/blob/master/component/README.md) for the separate Component Model interface.
+
+The module metadata retains Apache-2.0.
+`LICENSE` grants MIT rights only for Joshua Tenner's original portions.
+`NOTICE` and `licenses/` retain upstream licenses and attribution.
+Known optimizer parity gaps and memory costs remain open.

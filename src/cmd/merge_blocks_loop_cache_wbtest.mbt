@@ -17,5 +17,9 @@ test "dispatcher merge-blocks keeps nested loop control valid" {
     OptimizeOptions::new(),
   ).unwrap()
   @validate.validate_module(output).unwrap()
-  @debug.assert_eq(output.code_sec, input.code_sec)
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 0)
+  @debug.assert_eq(body, [
+    @lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new([])),
+  ])
 }

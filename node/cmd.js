@@ -8,8 +8,9 @@ import { TextDecoder, TextEncoder } from 'node:util';
 import * as binaryModule from './binary.js';
 import * as cliModule from './cli.js';
 import * as generated from './internal/generated/cmd.generated.js';
-import { countProvidedArgs, getWasmGcExports } from './internal/runtime.js';
+import { countProvidedArgs, getWasmGcExports, liftValue } from './internal/runtime.js';
 import * as validateModule from './validate.js';
+import * as passes from './passes.js';
 import * as wastModule from './wast.js';
 
 const binary = {
@@ -170,13 +171,13 @@ function cliParseResultToHost(value) {
     inputGlobs.push(wasm.__node_cli_parse_result_input_globs_get(value, index));
   }
   for (let index = 0; index < wasm.__node_cli_parse_result_output_targets_length(value); index += 1) {
-    outputTargets.push(wasm.__node_cli_parse_result_output_targets_get(value, index));
+    outputTargets.push(liftValue({ kind: "named", brand: "cli.CliOutputTarget" }, wasm.__node_cli_parse_result_output_targets_get(value, index), wasm));
   }
   for (let index = 0; index < wasm.__node_cli_parse_result_pass_flags_length(value); index += 1) {
     passFlags.push(wasm.__node_cli_parse_result_pass_flags_get(value, index));
   }
   for (let index = 0; index < wasm.__node_cli_parse_result_optimize_flags_length(value); index += 1) {
-    optimizeFlags.push(wasm.__node_cli_parse_result_optimize_flags_get(value, index));
+    optimizeFlags.push(liftValue({ kind: "named", brand: "cli.CliOptimizationFlag" }, wasm.__node_cli_parse_result_optimize_flags_get(value, index), wasm));
   }
 
   return {
@@ -189,13 +190,13 @@ function cliParseResultToHost(value) {
     version_requested: wasm.__node_cli_parse_result_version_requested(value),
     read_stdin: wasm.__node_cli_parse_result_read_stdin(value),
     input_format: wasm.__node_cli_parse_result_has_input_format(value)
-      ? wasm.__node_cli_parse_result_get_input_format(value)
+      ? liftValue({ kind: "named", brand: "cli.CliInputFormat" }, wasm.__node_cli_parse_result_get_input_format(value), wasm)
       : null,
     output_targets: outputTargets,
     pass_flags: passFlags,
     optimize_flags: optimizeFlags,
     trap_mode: wasm.__node_cli_parse_result_has_trap_mode(value)
-      ? wasm.__node_cli_parse_result_get_trap_mode(value)
+      ? liftValue({ kind: "named", brand: "cli.TrapMode" }, wasm.__node_cli_parse_result_get_trap_mode(value), wasm)
       : null,
     monomorphize_min_benefit: wasm.__node_cli_parse_result_has_monomorphize_min_benefit(value)
       ? wasm.__node_cli_parse_result_get_monomorphize_min_benefit(value)
@@ -460,6 +461,10 @@ function parseConfigJson(text) {
           out.pass_flags.push('optimize');
           out.optimize_flags.push(cli.CliOptimizationFlag.optimize());
           break;
+        case 'osize':
+          out.pass_flags.push('osize');
+          out.optimize_flags.push(cli.CliOptimizationFlag.osize());
+          break;
         case 'shrink':
           out.pass_flags.push('shrink');
           out.optimize_flags.push(cli.CliOptimizationFlag.shrink());
@@ -707,6 +712,9 @@ function buildCliParseResult(state) {
     state.monomorphize_min_benefit ?? null,
     state.low_memory_unused ?? null,
     state.low_memory_bound ?? null,
+    undefined,
+    false, null, null, null, null, null, null,
+    state.closed_world ?? null,
   );
 }
 
@@ -752,6 +760,10 @@ function resolveOptimizeLevels(flags) {
       }
       case 'optimize':
         optimizeLevel = Math.max(optimizeLevel, 2);
+        break;
+      case 'osize':
+        optimizeLevel = Math.max(optimizeLevel, 2);
+        shrinkLevel = Math.max(shrinkLevel, 1);
         break;
       case 'shrink':
         shrinkLevel = Math.max(shrinkLevel, 2);
@@ -1404,7 +1416,8 @@ function run_cmd_with_adapter(args, io, config_json) {
       return err(createCmdError('UnknownPassFlag', expanded.error));
     }
 
-    const optimized = ok(decoded.value);
+    const optimized = passes.optimizeModule(decoded.value, expanded.value, optimizeLevel, shrinkLevel);
+    if (!optimized.ok) return err(createCmdError('OptimizationFailed', optimized.error));
 
     const encoded = encodeModuleForPipeline(io, inputPath, optimized.value);
     if (!encoded.ok) {
@@ -1691,7 +1704,7 @@ function run_wasm_smith_fuzz_harness(
     return err(fuzzFinalizeFailure(on_failure, report, 'validTarget must be non-negative'));
   }
 
-  const rnd = wasm.__node_splitmix_new(seed);
+  const rnd = liftValue({ kind: 'named', brand: '@splitmix.RandomState' }, wasm.__node_splitmix_new(seed), wasm);
   let attempts = 0;
   let generatedValid = 0;
   let generatedInvalid = 0;
@@ -1719,7 +1732,7 @@ function run_wasm_smith_fuzz_harness(
     }
 
     attempts += 1;
-    const mod = validate.gen_valid_module(rnd);
+    const mod = validate.genValidModule(rnd);
     const validated = validate.validate_module(mod);
     if (!validated.ok) {
       generatedInvalid += 1;
@@ -1766,7 +1779,8 @@ function run_wasm_smith_fuzz_harness(
     }
     pipelineValidated += 1;
 
-    const optimized = ok(decoded.value);
+    const optimized = passes.optimizeModule(decoded.value, optimize_passes);
+    if (!optimized.ok) return optimized;
     optimizedCount += 1;
 
     const roundtripBytes = binary.encode_module(optimized.value);

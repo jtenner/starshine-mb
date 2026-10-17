@@ -744,6 +744,55 @@ test "inlining appended-local entry liveness scans legacy try bodies and catches
 }
 
 ///|
+test "inlining unused-local compaction remaps legacy try bodies and catches" {
+  let dead = @lib.ValType::i64()
+  let live = @lib.ValType::i32()
+  let old_idx = @lib.LocalIdx::new(1U)
+  let compacted = inl_compact_unused_locals_func(
+    @lib.Func::new(
+      @lib.Locals::from_types([dead, live]),
+      @lib.Expr::new([
+        @lib.Instruction::try_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(old_idx),
+            @lib.Instruction::drop(),
+          ]),
+          [
+            @lib.LegacyCatch::all(
+              @lib.Expr::new([
+                @lib.Instruction::local_get(old_idx),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+          ],
+        ),
+      ]),
+    ),
+    0,
+  )
+  let @lib.Func(locals, body) = compacted
+  assert_eq(locals.iter().collect(), [live])
+  match body {
+    @lib.Expr(
+      [
+        @lib.Try(
+          _,
+          @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0U)), @lib.Drop]),
+          [
+            @lib.LegacyCatchAll(
+              @lib.Expr([@lib.LocalGet(@lib.LocalIdx(0U)), @lib.Drop])
+            ),
+          ],
+          _
+        ),
+      ]
+    ) => ()
+    other => fail("expected remapped legacy try locals, got \{other}")
+  }
+}
+
+///|
 test "inlining appended-local entry liveness proves only definite writes" {
   let local_idx = @lib.LocalIdx::new(0U)
   assert_false(

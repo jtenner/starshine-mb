@@ -30,7 +30,7 @@ fn lower_lazy_raw_region(
   let roots = hot_root_span(func)
   let options = HotLowerOptions::new()
   let out : Array[Instruction] = []
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   let locals : Array[ValType] = []
   let preserve = hot_lower_impl_preserve_region_result_roots(
     func,
@@ -147,10 +147,16 @@ test "lower lazy ordering retains effectful buried scalars and skips impossible 
   let later = hot_build_const_i32(func, @lib.I32(7))
   let frames = hot_lower_impl_new_label_frames(func)
   let counts = hot_node_use_counts_build(func)
-  let stack : Array[HotLowerStackValue] = [
-    { node_id: read, val_type: @lib.ValType::i32(), },
-    { node_id: later, val_type: @lib.ValType::i32(), },
-  ]
+  let stack : HotLowerValueStack = hot_lower_value_stack_makei(2, fn(index) {
+    {
+      node_id: if index == 0 {
+        read
+      } else {
+        later
+      },
+      val_type: @lib.ValType::i32(),
+    }
+  })
   let out : Array[Instruction] = []
   let locals : Array[ValType] = []
   hot_lower_impl_emit_root(
@@ -184,7 +190,7 @@ test "lower lazy ordering retains effectful buried scalars and skips impossible 
   assert_eq(stack[0].node_id, later)
   assert_eq(stack[1].node_id, read)
   let fresh = hot_lower_impl_new_label_frames(func)
-  let empty : Array[HotLowerStackValue] = []
+  let empty : HotLowerValueStack = hot_lower_value_stack_new()
   hot_lower_impl_emit_root(
     func,
     read,

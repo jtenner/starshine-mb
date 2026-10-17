@@ -36,6 +36,32 @@ The original module is the primary semantic oracle. A Starshine output is correc
 
 Structural comparison is separate. Canonical structural drift can identify parity, size, or convergence issues, but structural inequality alone is not a semantic failure.
 
+## Paired optimization size diagnostics
+
+The existing metamorphic-equivalence property validates both optimizer outputs
+before execution. After the declared observation plan matches for inputs,
+each input/output pair, and both outputs, it records input/output encoded bytes
+and the signed output-size difference. Unequal sizes with unequal canonical
+hashes are a `size-skew-candidate`; canonical-equal encoding differences are
+excluded. A raw-hash fallback makes the structural comparison inconclusive.
+This is a research candidate, not a semantic failure, profitability
+proof, or proof of general equivalence. Equal-size pairs need no additional
+canonicalization. The bounded diagnostic stays in `cases.jsonl` under
+`semanticPropertyOutcomes[].structuralDiagnostics` after successful temporary
+artifacts are removed. The existing seed, relation, and tool identities remain
+the replay inputs.
+
+The focused [property tests](../../../scripts/lib/optimizer-properties.test.ts)
+preserve a baseline `a61c3e4` opportunity: equal constants transferred through
+branch-local writes fold under `precompute-propagate` (73 bytes), while the
+equivalent typed-if transfer retains its add (74 bytes). Both arms also write
+an exported global. Independent Wasm execution checks return values and that
+global for six signed/boundary arguments. Verified Binaryen 133 has the same
+direct-pass gap. A five-pass Starshine cleanup queue emits 60 versus 63 bytes;
+these observations do not establish a full-preset or real-workload gain.
+The deliberate typed-if local-flow guard remains in place. The transformation
+gap remains open; the detector and its focused reproduction are implemented.
+
 ## September 23 saved seven-pass correctness audit
 
 The historical local artifact `.tmp/current-audit-seven-pass-random-all-1000/`

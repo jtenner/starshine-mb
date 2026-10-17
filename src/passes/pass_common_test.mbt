@@ -68,6 +68,28 @@ test "diagnostic pass verification rejects stale analysis after unmarked mutatio
 }
 
 ///|
+test "post-pass verification labels one invalid state as after the pass" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_root_append(func, @ir.hot_build_br(func, 99))
+  let trace : Array[String] = []
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("test"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(line) { trace.push(line) },
+  )
+
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => fail("expected invalid post-pass state to fail verification")
+    Err(err) => {
+      assert_true(err.contains("verify after test"), msg=err)
+      assert_false(err.contains("verify before test"), msg=err)
+    }
+  }
+}
+
+///|
 test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
   let func = pass_test_lift_first_func("(module (func nop i32.const 4 drop))")
   let ctx = HotPassContext::new(

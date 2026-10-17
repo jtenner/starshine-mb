@@ -14,16 +14,13 @@ test "command root admission still cleans nested captures and preserves the expo
     if pass == "dae2-optimizing" {
       assert_eq(body.length(), 1)
     } else {
-      guard body[0] is @lib.Block(_, @lib.Expr(nested)) else {
-        fail("expected simplified capture block")
-      }
-      assert_true(nested.contains(@lib.Instruction::i32_const(@lib.I32(7))))
-      assert_false(
-        nested.contains(@lib.Instruction::local_set(@lib.LocalIdx::new(1U))),
-      )
-      assert_false(
-        nested.contains(@lib.Instruction::local_get(@lib.LocalIdx::new(1U))),
-      )
+      // The zero-parameter wrapper and replacement nops have no effect.
+      // Removing them keeps the scalar evaluation and exported result order.
+      @debug.assert_eq(body, [
+        @lib.Instruction::i32_const(7),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ])
     }
   }
 }

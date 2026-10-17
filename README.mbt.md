@@ -8,12 +8,8 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 ## Install in MoonBit
 
-```json
-{
-  "deps": {
-    "jtenner/starshine": "<pin-or-local-source>"
-  }
-}
+```sh
+moon add jtenner/starshine@0.2.0
 ```
 
 ## What You Can Do

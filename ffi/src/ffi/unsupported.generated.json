@@ -1,5 +1,10 @@
 [
   {
+    "packagePath": "jtenner/starshine/cmd",
+    "symbol": "reduce_fuzz_sequence_by_deletion",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
     "packagePath": "jtenner/starshine/ir",
     "symbol": "hot_for_each_child",
     "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
@@ -128,6 +133,11 @@
     "packagePath": "jtenner/starshine/validate",
     "symbol": "gen_valid_valtype_with_extra_refs",
     "reason": "public signature references non-public type(s): GenValidContext"
+  },
+  {
+    "packagePath": "jtenner/starshine/cmd",
+    "symbol": "Show::ReadmeApiVerifyBlock",
+    "reason": "public trait implementation uses a non-public implementing type"
   },
   {
     "packagePath": "jtenner/starshine/passes",

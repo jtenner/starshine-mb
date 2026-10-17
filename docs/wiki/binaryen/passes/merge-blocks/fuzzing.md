@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-10-09
 sources:
+  - ../../../raw/tooling/2026-10-09-output-differences-v133.json
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -12,7 +13,128 @@ sources:
 
 # `merge-blocks` Fuzzing Profile
 
+## October 9, 2026 final native comparison renewal
+
+The final native CLI, SHA-256 `42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`,
+completed 10,000 new `merge-blocks-all` comparisons with seed `0x5eed`,
+eight workers, at most eight subprocesses, and verified Binaryen 133.
+The complete result is `.tmp/output-difference-final-merge-v133-10000-renewed/result.json`;
+the [durable evidence record](../../../raw/tooling/2026-10-09-output-differences-v133.json)
+retains its counts and toolchain identity. There are 7,007 normalized matches,
+0 cleanup-normalized matches and 2,993 residual output differences.
+Raw totals are 535,356/541,342 bytes
+(Starshine/Binaryen); canonical totals are
+535,356/541,342 bytes.
+No output is larger under either size measure. Validation, generator, property
+and command failures are zero. Independent `wasm-tools` validation was required.
+Runtime observation was off in this aggregate; the family evidence below
+provides the scoped semantic judgments. The final bounded wasm-gc suite passes
+14,001/14,001 tests. Earlier measurements retain their original binary scope.
+
+## October 9, 2026: raw output gaps repaired
+
+A focused replay with repaired native CLI SHA-256
+`42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`
+and verified Binaryen 133 SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`
+closes the two raw output gaps found outside the expression residual family.
+This supersedes the raw aggregate deficit recorded in the earlier October 9
+entry for the three replayed fixed fixtures; it does not claim a fresh aggregate
+run. The original manifest has 1,998 effect-order records and 1,990 EH/atomic
+records, each formerly three raw bytes larger despite canonical equality.
+The final source and frozen CLI repeat all three raw/canonical/live/downstream
+output records and all nine Node observations from both earlier repaired CLIs
+`9d2f32298a86fe13ded4cd7ed3f97cf33a9f9ae03bd5f8d0c4a3b95e6289523b`
+and `fce72edb42289901fefb4ae40f2febe7482f55f1dc3c425b89cf9b36c80983e1`
+exactly, with zero record differences. This final renewal is a three-fixture
+check, not a new aggregate or timing run.
+
+| Fixed family | Repaired raw / canonical Starshine bytes | Raw / canonical Binaryen bytes | Live-export v133 `-O` / `-Oz`, both tools |
+| --- | ---: | ---: | ---: |
+| Expression children | 76 / 76 | 78 / 78 | 71 / 71 |
+| Effect order | 51 / 51 | 51 / 51 | 73 / 73 |
+| EH/atomic boundary | 58 / 58 | 58 / 58 | 53 / 53 |
+
+Effect-order cleanup removes only a branch-free, zero-parameter result-block
+wrapper in the already lowered instruction stream. The earlier `global.get`
+remains before `global.set`, and the store still uses the old global value.
+The HOT effect-order guard remains active. EH/atomic cleanup removes the
+duplicate plain void function type and remaps the function type use; exception
+control, tag type, fence, and atomic load remain unchanged. The repaired raw
+outputs for those two families are byte-identical to Binaryen. The expression
+output retains its two-byte size win from the effect-free arm nops; generic
+cleanup does not remove additional instructions in this fixture. The
+[encoding regressions](../../../../../src/passes/merge_blocks_encoding_wbtest.mbt),
+[dispatcher tests](../../../../../src/cmd/merge_blocks_encoding_wbtest.mbt), and
+[effect/trap tests](../../../../../src/passes/merge_blocks_test.mbt) check the
+smaller raw bytes, type uses, and instruction order.
+
+For each fixture, the input and both outputs were given live function and memory
+exports; expression also exports its tag, and effect-order exports its global.
+Node replay agrees three ways: expression stores `11` at offset zero then throws
+the exported tag with payload `13`; effect-order stores `7` at offset zero and
+sets its global to `1`; EH/atomic returns normally with zero at offset zero.
+The common v133 `-O` and `-Oz --all-features --strip-debug` outputs are byte-identical
+for each pair, with the live sizes in the table. Every raw, canonical, exported,
+and downstream module passes `wasm-tools validate --features all`.
+
+These are scoped **parity repairs** for effect-order and EH/atomic, and a retained
+**Starshine size win** for expression children. The fixed-generator coverage
+limit in the earlier entry still applies. No engine speed or pass wall-time gain
+was measured. Exact replay hashes, bytes, and observations are local at
+`/tmp/starshine-small-shape-review/final-merge-42f386-checkpoint/summary.json`;
+`checkpoint-equality.json` beside it records zero differences against the
+preserved `final-merge-9d2f-checkpoint/summary.json` and
+`final-merge-fce72-checkpoint/summary.json`. Earlier results below
+retain their recorded binary hashes and historical scope.
+
+## October 9, 2026: v133 expression-family size win
+
+The fresh `merge-blocks-all` lane in `.tmp/optimizer-ir-fix-merge-blocks-v133-10000/`
+compared 10,000 cases at seed `0x5eed`: 7,007 normalized matches and 2,993
+expression-family residuals, with zero validation, property, generator, or command
+failures. It used native CLI SHA-256
+`ef9d25da69bc5a1832d7c12a4f8f3f2ef33a5759fb58190f8fbd1dee55e07b30`
+and verified Binaryen 133 SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+This is current v133 evidence; older entries below keep their historical scope.
+
+| Scope | Starshine raw / canonical bytes | Binaryen raw / canonical bytes |
+| --- | ---: | ---: |
+| Full 10,000-case aggregate | 547,320 / 535,356 | 541,342 / 541,342 |
+| 2,993 expression-family records | 227,468 / 227,468 | 233,454 / 233,454 |
+| One expression fixture | 76 / 76 | 78 / 78 |
+
+All 2,993 expression records have manifest `wasm_hash`
+`fnv1a64-b0f261c877c0cb83`. All 20 retained inputs agree with that generator hash
+and have SHA-256 `cbc3966f5709dac05064e28b702e4ab29c3de455a5c87c699132ccb966858ebe`.
+The retained input/output triples are identical. The
+[expression generator](../../../../../src/validate/gen_valid.mbt#L9490) is a fixed
+fixture; these are repeated executions of one input, not 2,993 distinct programs.
+
+The exact residual removes only two empty-arm `nop` instructions. It keeps the
+condition, all dropped values, the store, and the throw in the same order.
+Static executable instruction count falls from 23 to 21, excluding `else` and
+`end` delimiters. A `nop` has no value, effect, or trap to preserve, so this exact
+family is a **Starshine size win**. Exporting the function, memory, and tag for a
+three-way Node replay gives the same result for input and both outputs: memory
+at offset zero contains `11`, then the exported tag is thrown with payload `13`.
+The original lane had runtime observation off.
+
+With those exports retained, a common verified-v133 `-O` or
+`-Oz --all-features --strip-debug` step produces byte-identical 71-byte modules
+from both outputs. The live direct modules are 98 Starshine versus 100 Binaryen
+bytes. All retained outputs and downstream outputs pass `wasm-tools validate
+--features all`. This proves a direct size gain with no downstream size loss for
+the fixed fixture. It does not measure engine speed or pass wall time and does
+not classify other merge-blocks shapes. Exact measurement and replay records are
+local at `/tmp/starshine-small-shape-review/{measurements,live-summary,aggregate-hash-summary}.json`.
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+Durable baseline totals and tool identities are in the
+[October 9 evidence ledger](../../../raw/tooling/2026-10-09-output-differences-v133.json).
+Its classifications are review judgments for the stated generated families.
 
 ## 2026-08-28 shared-context performance renewal
 

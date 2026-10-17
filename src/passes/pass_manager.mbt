@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly
@@ -395,14 +402,12 @@ pub fn run_hot_pipeline_debug_dump_enabled(
   func_idx : @lib.FuncIdx,
   descriptor_name : String,
 ) -> Bool {
-  if !options.trace_enabled {
-    return false
-  }
-  (descriptor_name == "vacuum" && func_idx == @lib.FuncIdx::new(2944U)) ||
-  (
-    descriptor_name == "tuple-optimization" &&
-    func_idx == @lib.FuncIdx::new(3660U)
-  )
+  // Artifact-index probes stay disabled in ordinary pipelines. Trace output
+  // must not trigger unrelated analyses or function dumps.
+  ignore(options)
+  ignore(func_idx)
+  ignore(descriptor_name)
+  false
 }
 
 ///|
@@ -11575,74 +11580,95 @@ fn run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int32],
 ) -> (Array[@lib.Instruction], Int32) {
-  let rewritten : Array[@lib.Instruction] = []
+  let mut rewritten : Array[@lib.Instruction]? = None
   let mut rewrite_count = 0
+  let mut cursor = 0
   for instr in instrs {
+    let mut next_instr = instr
+    let mut removed = false
+    let mut changes = 0
     match instr {
       @lib.Block(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count += nested_rewrites
+        if nested > 0 {
+          next_instr = @lib.Instruction::block(bt, @lib.Expr::new(next_body))
+          changes = nested
+        }
       }
       @lib.Loop(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count += nested_rewrites
+        if nested > 0 {
+          next_instr = @lib.Instruction::loop_(bt, @lib.Expr::new(next_body))
+          changes = nested
+        }
       }
       @lib.TryTable(bt, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::try_table(
+        if nested > 0 {
+          next_instr = @lib.Instruction::try_table(
             bt,
             catches,
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-        rewrite_count += nested_rewrites
+            @lib.Expr::new(next_body),
+          )
+          changes = nested
+        }
       }
       @lib.If(bt, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_then, then_changes) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           then_body, local_gets,
         )
-        let rewritten_else = match else_body {
+        changes = then_changes
+        let mut next_else = else_body
+        match else_body {
           Some(body) => {
-            let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+            let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
               body, local_gets,
             )
-            rewrite_count += nested_rewrites
-            Some(rewritten_body)
+            if nested > 0 {
+              next_else = Some(next_body)
+              changes += nested
+            }
           }
-          None => None
+          None => ()
         }
-        rewritten.push(
-          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
-        )
-        rewrite_count += then_rewrites
+        if changes > 0 {
+          next_instr = @lib.Instruction::if_(bt, next_then, next_else)
+        }
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
         if local_id >= 0 &&
           local_id < local_gets.length() &&
           local_gets[local_id] == 0 {
-          rewrite_count += 1
-        } else {
-          rewritten.push(instr)
+          removed = true
+          changes = 1
         }
       }
-      _ => rewritten.push(instr)
+      _ => ()
     }
+    // Allocate each changed region once. Copy its prefix once, then append the
+    // remainder; unchanged regions and their existing immutable nodes are shared.
+    if changes > 0 && rewritten is None {
+      let prefix : Array[@lib.Instruction] = []
+      for idx = 0; idx < cursor; idx = idx + 1 {
+        prefix.push(instrs[idx])
+      }
+      rewritten = Some(prefix)
+    }
+    match rewritten {
+      Some(out) => if !removed { out.push(next_instr) }
+      None => ()
+    }
+    rewrite_count += changes
+    cursor += 1
   }
-  (rewritten, rewrite_count)
+  (rewritten.unwrap_or(instrs), rewrite_count)
 }
 
 ///|
@@ -16730,6 +16756,14 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     dce_unchanged_lowering_known: @bitset.BitSet::new(0),
     dce_unchanged_lowering_required: @bitset.BitSet::new(0),
   }
+}
+
+///|
+fn run_hot_pipeline_invalidate_type_dependent_caches(
+  module_state : HotPipelineModuleState,
+) -> Unit {
+  module_state.module_ctx = None
+  module_state.validation_module_env = None
 }
 
 ///|
@@ -45848,6 +45882,16 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
       }
     }
     if i + 1 < instrs.length() {
+      match oi_sign_bit_raw_pair(instrs[i], instrs[i + 1]) {
+        Some((constant, operator)) => {
+          out.push(constant)
+          out.push(operator)
+          changed = true
+          i += 2
+          continue
+        }
+        None => ()
+      }
       match (instrs[i], instrs[i + 1]) {
         (@lib.I32Const(@lib.I32(raw)), @lib.I32Eqz) => {
           out.push(
@@ -69180,12 +69224,16 @@ fn o4z_size_outline_byte_comparator_siblings(mod_ : @lib.Module) -> @lib.Module 
         @lib.Expr::new(wrapper_body),
       )
     }
-    return dfe_prune_unused_simple_types(
+    let candidate = dfe_prune_unused_simple_types(
       mod_
       .with_type_sec(@lib.TypeSec::new(next_rec_types))
       .with_func_sec(@lib.FuncSec::new(next_type_idxs))
       .with_code_sec(@lib.CodeSec::new(next_funcs)),
     )
+    return match @validate.validate_module(candidate) {
+      Ok(_) => candidate
+      Err(_) => mod_
+    }
   }
   mod_
 }
@@ -81009,7 +81057,108 @@ fn run_hot_pipeline_raw_i32_ctz_count(
 }
 
 ///|
+// The numeric 4/1 spine can retire a globally unread tee without entering HOT
+// regions rejected by Vacuum's existing guards. Producers and stack values stay
+// in place. The following module writeback validation and ReorderLocals owner
+// remain responsible for validity, declaration removal and name remapping.
 fn run_hot_pipeline_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+  module_state : HotPipelineModuleState,
+  lower_state : HotPipelineLowerState,
+  options : HotPipelineOptions,
+) -> Result[HotPipelineFuncResult, String] {
+  let result = match
+    run_hot_pipeline_func_before_unread_tees(
+      mod_, func_idx, descriptor, module_state, lower_state, options,
+    ) {
+    Ok(result) => result
+    Err(err) => return Err(err)
+  }
+  if descriptor.name != "vacuum" ||
+    options.optimize_level < 4 ||
+    options.shrink_level < 1 {
+    return Ok(result)
+  }
+  let subtypes = run_hot_pipeline_require_raw_types(mod_, module_state, None)
+  let indices = run_hot_pipeline_func_type_indices(mod_, module_state)
+  let @lib.FuncIdx(raw_func_idx) = func_idx
+  let params = match indices.get(raw_func_idx.reinterpret_as_int()) {
+    Some(@lib.TypeIdx(raw_type_idx)) =>
+      match subtypes.get(raw_type_idx.reinterpret_as_int()) {
+        Some(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, _) => params
+            _ => return Ok(result)
+          }
+        None => return Ok(result)
+      }
+    _ => return Ok(result)
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = result.func
+  let total_locals = match
+    run_hot_pipeline_vacuum_unread_tee_local_count(params.length(), locals) {
+    Some(count) => count
+    None => return Ok(result)
+  }
+  if total_locals == 0 {
+    return Ok(result)
+  }
+  let gets = Array::make(total_locals, 0)
+  let tees = Array::make(total_locals, 0)
+  // The read collector includes both arms and all legacy handler bodies. The
+  // removal helper deliberately leaves legacy Try regions opaque.
+  run_hot_pipeline_raw_collect_local_ref_counts(body, gets, [], tees)
+  let mut has_unread_tee = false
+  for idx = 0; idx < total_locals; idx = idx + 1 {
+    if tees[idx] > 0 && gets[idx] == 0 {
+      has_unread_tee = true
+      break
+    }
+  }
+  if !has_unread_tee {
+    return Ok(result)
+  }
+  let (rewritten, changes) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+    body, gets,
+  )
+  if changes == 0 {
+    return Ok(result)
+  }
+  Ok({
+    reason: "\{result.reason}-unread-tees",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    unchanged_original: false,
+    trace_skip_raw: result.trace_skip_raw,
+  })
+}
+
+///|
+// Keep the two dense proof arrays bounded even when declarations are compressed.
+// Bound the compressed run snapshot before Locals.runs() copies it. Count
+// unsigned runs against the remaining budget before signed conversion/addition;
+// larger functions retain the existing Vacuum path.
+fn run_hot_pipeline_vacuum_unread_tee_local_count(
+  param_count : Int32,
+  locals : @lib.Locals,
+) -> Int32? {
+  let budget = 65536
+  if param_count < 0 || param_count > budget || locals.run_count() > budget {
+    return None
+  }
+  let mut count = param_count
+  for run in locals.runs() {
+    if run.count() > (budget - count).reinterpret_as_uint() {
+      return None
+    }
+    count += run.count().reinterpret_as_int()
+  }
+  Some(count)
+}
+
+///|
+fn run_hot_pipeline_func_before_unread_tees(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
@@ -81242,8 +81391,15 @@ fn run_hot_pipeline_func(
       oi_index~,
     ) {
     Some(result) => {
+      let (precleaned, tee_changed) = if pass_module_has_offset_sensitive_metadata(
+          mod_,
+        ) {
+        (result.func, false)
+      } else {
+        oi_tee_reuse_preclean(result.func)
+      }
       let (cleaned, changed) = run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
-        result.func,
+        precleaned,
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         mod_,
         module_ctx=Some(
@@ -81258,7 +81414,9 @@ fn run_hot_pipeline_func(
       return Ok({
         reason: result.reason,
         func: cleaned,
-        unchanged_original: result.unchanged_original && !changed,
+        unchanged_original: result.unchanged_original &&
+        !changed &&
+        !tee_changed,
         trace_skip_raw: result.trace_skip_raw,
       })
     }
@@ -81427,8 +81585,7 @@ fn run_hot_pipeline_func(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let (lift_mod, merge_blocks_preclean_changed) = if descriptor.name ==
-    "merge-blocks" {
+  let (lift_mod, raw_preclean_changed) = if descriptor.name == "merge-blocks" {
     let (branch_precleaned, branch_changed) = run_hot_pipeline_merge_blocks_preclean_func(
       run_hot_pipeline_original_func(mod_, func_idx),
     )
@@ -81443,6 +81600,19 @@ fn run_hot_pipeline_func(
         "raw-preclean",
         payload="func_idx=\{func_idx} reason=dropped-self-branch-value",
       )
+      (
+        run_hot_pipeline_module_with_rewritten_func(mod_, func_idx, precleaned),
+        true,
+      )
+    } else {
+      (mod_, false)
+    }
+  } else if descriptor.name == "optimize-instructions" &&
+    !pass_module_has_offset_sensitive_metadata(mod_) {
+    let (precleaned, changed) = oi_tee_reuse_preclean(
+      run_hot_pipeline_original_func(mod_, func_idx),
+    )
+    if changed {
       (
         run_hot_pipeline_module_with_rewritten_func(mod_, func_idx, precleaned),
         true,
@@ -81706,7 +81876,7 @@ fn run_hot_pipeline_func(
     Ok(result) =>
       if result.changed {
         ()
-      } else if !merge_blocks_preclean_changed &&
+      } else if !raw_preclean_changed &&
         (
           @ir.hot_revision_current(func) == lifted_revision ||
           descriptor.name == "remove-unused-brs" ||
@@ -83347,7 +83517,7 @@ fn run_hot_pipeline_apply_hot_pass(
           current_mod = validation_mod
           // Later functions must see tuple/block types introduced by this
           // function's lowering rather than the earlier cached module snapshot.
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         if descriptor.name == "ssa-nomerge" &&
           result.reason.contains("-mutated") &&
@@ -83718,8 +83888,16 @@ fn run_hot_pipeline_apply_hot_pass(
           batch_guard_start_us,
         )
         return Ok(
-          if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
-            simplify_locals_cleanup_module_encoding(mod_, repaired_mod)
+          if run_hot_pipeline_descriptor_is_simplify_locals_family(
+              descriptor.name,
+            ) {
+            simplify_locals_cleanup_changed_module_encoding(
+              mod_,
+              repaired_mod,
+              allow_grouping=simplify_locals_grouping_descriptor_is_admitted(
+                descriptor.name,
+              ),
+            )
           } else {
             repaired_mod
           },
@@ -83890,8 +84068,18 @@ fn run_hot_pipeline_apply_hot_pass(
       )
     } else if descriptor.name == "optimize-instructions" {
       oi_cleanup_module_encoding(next_mod)
-    } else if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
-      simplify_locals_cleanup_module_encoding(mod_, next_mod)
+    } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+        descriptor.name,
+      ) {
+      simplify_locals_cleanup_changed_module_encoding(
+        mod_,
+        next_mod,
+        allow_grouping=simplify_locals_grouping_descriptor_is_admitted(
+          descriptor.name,
+        ),
+      )
+    } else if descriptor.name == "merge-blocks" {
+      pass_cleanup_control_and_type_encoding(next_mod)
     } else {
       next_mod
     },
@@ -84136,8 +84324,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             lower_state.next_type_sec.unwrap(),
           )
           // Both caches belong to the previous type snapshot.
-          module_state.module_ctx = None
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func
@@ -84174,9 +84361,17 @@ fn run_hot_pipeline_apply_hot_pass_stack(
     if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
       oi_cleanup_module_encoding(output)
     } else if descriptors.any(fn(d) {
-        simplify_locals_grouping_descriptor_is_admitted(d.name)
+        run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
       }) {
-      simplify_locals_cleanup_module_encoding(mod_, output)
+      simplify_locals_cleanup_changed_module_encoding(
+        mod_,
+        output,
+        allow_grouping=descriptors.any(fn(d) {
+          simplify_locals_grouping_descriptor_is_admitted(d.name)
+        }),
+      )
+    } else if descriptors.any(fn(d) { d.name == "merge-blocks" }) {
+      pass_cleanup_control_and_type_encoding(output)
     } else {
       output
     },
@@ -84191,6 +84386,15 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      "filtered-hot-stack",
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   if requested_descriptors.length() == 0 {
     return Ok(mod_)
   }
@@ -84447,8 +84651,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             lower_state.next_type_sec.unwrap(),
           )
           // Both caches belong to the previous type snapshot.
-          module_state.module_ctx = None
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func
@@ -84482,12 +84685,15 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
       if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
         oi_cleanup_module_encoding(candidate, touched=Some(touched))
       } else if descriptors.any(fn(d) {
-          simplify_locals_grouping_descriptor_is_admitted(d.name)
+          run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
         }) {
-        simplify_locals_cleanup_module_encoding(
+        simplify_locals_cleanup_changed_module_encoding(
           mod_,
           candidate,
           touched=Some(touched),
+          allow_grouping=descriptors.any(fn(d) {
+            simplify_locals_grouping_descriptor_is_admitted(d.name)
+          }),
         )
       } else {
         candidate
@@ -84509,12 +84715,15 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
           oi_cleanup_module_encoding(repaired, touched=Some(touched))
         } else if descriptors.any(fn(d) {
-            simplify_locals_grouping_descriptor_is_admitted(d.name)
+            run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
           }) {
-          simplify_locals_cleanup_module_encoding(
+          simplify_locals_cleanup_changed_module_encoding(
             mod_,
             repaired,
             touched=Some(touched),
+            allow_grouping=descriptors.any(fn(d) {
+              simplify_locals_grouping_descriptor_is_admitted(d.name)
+            }),
           )
         } else {
           repaired
@@ -84573,6 +84782,15 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      descriptor.name,
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   if descriptor.name == "pick-load-signs" &&
     !run_hot_pipeline_module_has_memory(mod_) {
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
@@ -84688,7 +84906,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         if descriptor.name == "vacuum" && !result.trace_skip_raw {
           vacuum_hot_func_count += 1
@@ -84810,11 +85028,16 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           options.shrink_level,
           touched=Some(touched),
         )
-      } else if simplify_locals_grouping_descriptor_is_admitted(descriptor.name) {
-        simplify_locals_cleanup_module_encoding(
+      } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+          descriptor.name,
+        ) {
+        simplify_locals_cleanup_changed_module_encoding(
           mod_,
           candidate,
           touched=Some(touched),
+          allow_grouping=simplify_locals_grouping_descriptor_is_admitted(
+            descriptor.name,
+          ),
         )
       } else {
         candidate
@@ -84842,13 +85065,16 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
             options.shrink_level,
             touched=Some(touched),
           )
-        } else if simplify_locals_grouping_descriptor_is_admitted(
+        } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
             descriptor.name,
           ) {
-          simplify_locals_cleanup_module_encoding(
+          simplify_locals_cleanup_changed_module_encoding(
             mod_,
             repaired,
             touched=Some(touched),
+            allow_grouping=simplify_locals_grouping_descriptor_is_admitted(
+              descriptor.name,
+            ),
           )
         } else {
           repaired
@@ -84950,7 +85176,10 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
         return Err("missing defined function params for code index \{code_idx}")
     }
     let @lib.Func(_, @lib.Expr(instrs)) = funcs[code_idx]
-    if cl_instrs_have_stack_carried_tee_parameter_alias(
+    if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+        instrs,
+      ) ||
+      cl_instrs_have_stack_carried_tee_parameter_alias(
         instrs,
         func_params.length(),
       ) ||
@@ -85089,6 +85318,33 @@ pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
 }
 
 ///|
+// Artifact-scale admission is per body, with a fixed upper bound on dense
+// liveness/coloring. Control/continuation containers retain the existing lane.
+fn run_hot_pipeline_tiny_flat_coalesce_selected(
+  func : @lib.Func,
+  parameter_count : Int32,
+) -> Bool {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() == 0 ||
+    locals.length() > 64 ||
+    parameter_count > 32 ||
+    instrs.length() > 128 {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      _ => if cl_instr_is_control_transfer_barrier(instr) { return false }
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
   requested : Array[Bool],
@@ -85097,6 +85353,15 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
+  if funcs.is_empty() {
+    return []
+  }
+  let artifact_scale = funcs.length() >= 2000
+  let params = if artifact_scale {
+    cl_defined_func_param_cache(mod_)
+  } else {
+    []
+  }
   let protect_optimized_primes_variadic_pack = o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
     mod_,
   )
@@ -85104,15 +85369,30 @@ fn run_hot_pipeline_bounded_coalesce_touched(
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let @lib.Func(locals, _) = funcs[code_idx]
     let local_count = locals.length()
+    let tiny_flat_selected = if artifact_scale {
+      match params.get(code_idx) {
+        Some(parameters) =>
+          run_hot_pipeline_tiny_flat_coalesce_selected(
+            funcs[code_idx],
+            parameters.length(),
+          )
+        None => false
+      }
+    } else {
+      false
+    }
     touched.push(
       code_idx < requested.length() &&
       requested[code_idx] &&
       !(protect_optimized_primes_variadic_pack &&
       run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)) &&
       !cl_locals_have_nondefaultable_type(locals) &&
-      run_hot_pipeline_o4z_coalesce_local_count_selected(
-        funcs.length(),
-        local_count,
+      (
+        run_hot_pipeline_o4z_coalesce_local_count_selected(
+          funcs.length(),
+          local_count,
+        ) ||
+        tiny_flat_selected
       ),
     )
   }
@@ -94898,7 +95178,8 @@ fn run_hot_pipeline_apply_module_pass(
     "global-effects" => global_effects_run_module_pass(mod_)
     "global-type-optimization" =>
       global_type_optimization_run_module_pass(mod_, options.closed_world)
-    "i64-to-i32-lowering" => i64_to_i32_lowering_run_module_pass(mod_)
+    "i64-trunc-sat-float-lowering" =>
+      i64_trunc_sat_float_lowering_run_module_pass(mod_)
     "remove-unused-nonfunction-module-elements" =>
       rume_run_nonfunction_module_pass(
         mod_,

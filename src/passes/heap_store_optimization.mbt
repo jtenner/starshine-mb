@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2024 WebAssembly Community Group participants
+// Counterpart: src/passes/HeapStoreOptimization.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn heap_store_optimization_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
@@ -5417,18 +5429,20 @@ fn heap_store_optimization_run(
   let effects = pass_require_effects(ctx, func)
   let predicate_cache = hso_new_predicate_cache()
   let type_cache = hso_new_type_cache()
-  if hso_process_region(
-      predicate_cache,
-      type_cache,
-      func,
-      ctx.module_ctx,
-      effects.node_masks,
-      @ir.HotRegionRef::root(),
-      0,
-      None,
-      hso_new_external_roots(),
-      hso_new_local_order_workspace(@ir.hot_local_count(func)),
-    ) {
+  let revision = @ir.hot_revision_current(func)
+  let changed = hso_process_region(
+    predicate_cache,
+    type_cache,
+    func,
+    ctx.module_ctx,
+    effects.node_masks,
+    @ir.HotRegionRef::root(),
+    0,
+    None,
+    hso_new_external_roots(),
+    hso_new_local_order_workspace(@ir.hot_local_count(func)),
+  )
+  if changed || @ir.hot_revision_current(func) != revision {
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()
   } else {

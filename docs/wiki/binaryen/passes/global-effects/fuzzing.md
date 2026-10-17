@@ -25,7 +25,7 @@ related:
 
 Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane for `global-effects` today.
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) classifies `global-effects` as boundary-only, so the CLI spelling parses but pass expansion rejects it instead of running a transform.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) classifies `global-effects` as an active module pass. Current direct tests cover the fresh-resume rewrite, not Binaryen metadata generation.
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not admit `--global-effects` in `SUPPORTED_PASS_FLAGS`; the harness rejects the argument before it generates input or runs either optimizer.
 - Upstream publishes this pass as `generate-global-effects`. It produces persistent per-function `Function.effects` metadata, so its standalone Core Wasm text normally remains unchanged. A WAT-only match would not prove summary correctness.
 
@@ -61,7 +61,7 @@ See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 A future lane must not become runnable until all of the following are true:
 
 1. an active Starshine module pass produces persistent per-function global read/write summaries;
-2. the registry no longer treats `global-effects` as boundary-only;
+2. the registry and dispatcher expose the intended contract distinctly from the existing resume rewrite;
 3. `SUPPORTED_PASS_FLAGS` accepts the local spelling and maps it explicitly to Binaryen `--generate-global-effects`; and
 4. a metadata-observer adapter or in-process test plus a paired consumer corpus provides a meaningful nonzero `--min-compared` threshold.
 

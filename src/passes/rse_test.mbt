@@ -136,6 +136,34 @@ test "rse replaces same-value local.set shell with drop" {
 }
 
 ///|
+test "rse HOT state models numeric local defaults" {
+  let func = rse_test_run_hot(
+    (
+      #|(module
+      #|  (func (local i32 i64 f32 f64)
+      #|    i32.const 0 local.set 0
+      #|    i64.const 0 local.set 1
+      #|    f32.const 0 local.set 2
+      #|    f64.const 0 local.set 3))
+      #|
+    ),
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  for root = 0; root < 4; root = root + 1 {
+    rse_expect_op(func, @ir.hot_root_get(func, root), "drop")
+  }
+}
+
+///|
+test "rse HOT state models nullable reference local defaults" {
+  let func = rse_test_run_hot(
+    "(module (func (local externref) ref.null extern local.set 0))",
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  rse_expect_op(func, @ir.hot_root_get(func, 0), "drop")
+}
+
+///|
 test "rse replaces same-value local.tee shell with its value" {
   let func = rse_test_run_hot(
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.tee 0 drop))",
@@ -1548,6 +1576,21 @@ test "rse removes unread structured-result local.set while preserving rhs" {
 }
 
 ///|
+fn rse_test_float_const_bits(body : Array[@lib.Instruction]) -> Array[UInt64] {
+  let bits : Array[UInt64] = []
+  for instr in body {
+    match instr {
+      @lib.Instruction::F32Const(value) =>
+        bits.push(value.0.reinterpret_as_uint().to_uint64())
+      @lib.Instruction::F64Const(value) =>
+        bits.push(value.0.reinterpret_as_uint64())
+      _ => ()
+    }
+  }
+  bits
+}
+
+///|
 test "redundant-set-elimination distinguishes floating-point bit patterns" {
   for
     row in [
@@ -1558,6 +1601,7 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
           @lib.F32::new(0x80000000U.reinterpret_as_float()),
         ),
         1,
+        [0UL, 0x80000000UL],
       ),
       (
         @lib.ValType::f64(),
@@ -1566,6 +1610,7 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
           @lib.F64::new(0x8000000000000000UL.reinterpret_as_double()),
         ),
         1,
+        [0UL, 0x8000000000000000UL],
       ),
       (
         @lib.ValType::f32(),
@@ -1576,6 +1621,7 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
           @lib.F32::new(0x7fc00002U.reinterpret_as_float()),
         ),
         2,
+        [0x7fc00001UL, 0x7fc00002UL],
       ),
       (
         @lib.ValType::f64(),
@@ -1586,9 +1632,11 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
           @lib.F64::new(0x7ff8000000000002UL.reinterpret_as_double()),
         ),
         2,
+        [0x7ff8000000000001UL, 0x7ff8000000000002UL],
       ),
     ] {
-    let (ty, first, second, expected_sets) = row
+    let (ty, first, second, expected_sets, expected_bits) = row
+    @debug.assert_eq(rse_test_float_const_bits([first, second]), expected_bits)
     let input = @lib.Module::new()
       .with_type_sec(
         @lib.TypeSec::new([
@@ -1620,7 +1668,46 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
       body.filter(fn(instr) { instr is @lib.LocalSet(_) }).length(),
       expected_sets,
     )
-    let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    @debug.assert_eq(rse_test_float_const_bits(body), expected_bits)
+
+    // Body locals begin at +0, so the first +0 write is redundant. Keep
+    // direct HOT default-initialization coverage beside the public raw path.
+    let default_hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let default_ctx = HotPassContext::new(
+      rse_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    ignore(hot_pass_run(default_ctx, default_hot).unwrap())
+    let mut default_sets = 0
+    for root in @ir.hot_root_span(default_hot) {
+      if @ir.hot_node_get(default_hot, root).op is @ir.HotOp::LocalSet {
+        default_sets += 1
+      }
+    }
+    @debug.assert_eq(default_sets, expected_sets)
+    let @lib.Func(_, @lib.Expr(default_body)) = @ir.hot_lower_func(default_hot)
+    @debug.assert_eq(rse_test_float_const_bits(default_body), expected_bits)
+
+    // A parameter has an unknown initial value. Both distinct explicit
+    // writes must remain, independent of the body-local default rule.
+    let @lib.Func(_, input_expr) = input.code_sec.unwrap().0[0]
+    let parameter_input = input
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::new(
+            @lib.SubType::comp_type(@lib.CompType::func([ty], [ty])),
+          ),
+        ]),
+      )
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(@lib.Locals::from_types([]), input_expr),
+        ]),
+      )
+    let hot = @ir.hot_lift_func(parameter_input, @lib.FuncIdx::new(0U))
     let ctx = HotPassContext::new(
       rse_descriptor(),
       @ir.HotAnalysisCache::new(),
@@ -1636,5 +1723,7 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
       }
     }
     @debug.assert_eq(sets, 2)
+    let @lib.Func(_, @lib.Expr(parameter_body)) = @ir.hot_lower_func(hot)
+    @debug.assert_eq(rse_test_float_const_bits(parameter_body), expected_bits)
   }
 }

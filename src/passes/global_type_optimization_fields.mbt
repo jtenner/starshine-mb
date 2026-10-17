@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Field liveness is shared across a nominal hierarchy. Constructor writes do
 // not prevent immutability; explicit accesses constrain the layouts instead.
@@ -91,7 +98,14 @@ fn gto_scan_fields(
         let t = t.to_int()
         let f = f.to_int()
         if t < reads.length() && f < reads[t].length() {
-          reads[t][f] = reads[t][f] || read
+          let ordered_atomic_store = match instr {
+            @lib.StructAtomicSet(order, _, _) => !(order is @lib.Relaxed)
+            _ => false
+          }
+          // A non-relaxed atomic store is an ordering event, not only a value
+          // write. Keep its location even when no value read is visible in the
+          // module so field pruning cannot erase that synchronization event.
+          reads[t][f] = reads[t][f] || read || ordered_atomic_store
           writes[t][f] = writes[t][f] || write
         }
       }
