@@ -860,10 +860,23 @@ fn dae2_handler_admission(body : Array[@lib.Instruction]) -> Int32 {
 }
 
 ///|
-fn dae2_fold_known_local_throws(mod_ : @lib.Module) -> @lib.Module {
+fn dae2_fold_known_local_throws(
+  mod_ : @lib.Module,
+  setup_builds~ : Array[Int32]? = None,
+) -> @lib.Module {
+  // The fold requires a fresh defined tag. Imported tags can share identity;
+  // with no definitions, unresolved local-tag indices cannot pass its proof.
+  match mod_.tag_sec {
+    Some(@lib.TagSec(tags)) if !tags.is_empty() => ()
+    _ => return mod_
+  }
   let bodies = match mod_.code_sec {
     Some(@lib.CodeSec(bodies)) => bodies
     None => return mod_
+  }
+  match setup_builds {
+    Some(builds) => builds[0] += 1
+    None => ()
   }
   let env = @validate.Env::new().with_module(mod_)
   let imported_tags = @ir.hot_module_context_from_module(mod_).imported_tag_count
@@ -899,4 +912,19 @@ fn dae2_fold_known_local_throws(mod_ : @lib.Module) -> @lib.Module {
   } else {
     mod_
   }
+}
+
+///|
+test "DAE2 tagless throw fold keeps bytes without building module setup" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) block (result i32) local.get 0 end))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let setups = [0]
+  let output = dae2_fold_known_local_throws(input, setup_builds=Some(setups))
+  assert_true(physical_equal(output, input))
+  assert_eq(@binary.encode_module(output).unwrap(), saved)
+  @validate.validate_module(output).unwrap()
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+  assert_eq(setups, [0])
 }
