@@ -205,8 +205,8 @@ test "Validate checks type field array and allocation shapes" {
 
 ///|
 fn compiler_facts_multivalue_module(
-  site_result : UInt,
-  site_offset? : UInt? = None,
+  site_result : UInt32,
+  site_offset~ : UInt32? = None,
 ) -> Module {
   let type_ = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),

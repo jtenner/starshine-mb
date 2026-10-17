@@ -150,7 +150,7 @@ fn gen_valid_directize_funcref() -> RefType {
 }
 
 ///|
-fn gen_valid_directize_table(size : UInt, init? : Expr? = None) -> Table {
+fn gen_valid_directize_table(size : UInt32, init~ : Expr? = None) -> Table {
   Table::new(
     TableType::new(gen_valid_directize_funcref(), Limits::i32(size, Some(size))),
     init,
@@ -159,8 +159,8 @@ fn gen_valid_directize_table(size : UInt, init? : Expr? = None) -> Table {
 
 ///|
 fn gen_valid_directize_active_elem(
-  table : UInt,
-  offset : Int,
+  table : UInt32,
+  offset : Int32,
   funcs : Array[FuncIdx],
 ) -> Elem {
   Elem::new(
@@ -173,7 +173,10 @@ fn gen_valid_directize_active_elem(
 }
 
 ///|
-fn gen_valid_directize_call(table : UInt, offset : Int) -> Array[Instruction] {
+fn gen_valid_directize_call(
+  table : UInt32,
+  offset : Int32,
+) -> Array[Instruction] {
   [
     Instruction::i32_const(I32(offset)),
     Instruction::call_indirect(TypeIdx::new(0U), TableIdx::new(table)),

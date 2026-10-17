@@ -4,8 +4,8 @@
 fn tc_body_initialization_budget_reference(
   body : Array[Instruction],
   initialized : Array[Bool],
-  budget : Int,
-) -> Int {
+  budget : Int32,
+) -> Int32 {
   if body.length() > budget {
     return -1
   }

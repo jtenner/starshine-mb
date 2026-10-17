@@ -93,7 +93,7 @@ pub fn gen_valid_msf_profile_case_label(
 }
 
 ///|
-fn gen_valid_msf_nops(count : Int) -> Array[Instruction] {
+fn gen_valid_msf_nops(count : Int32) -> Array[Instruction] {
   let out : Array[Instruction] = []
   for idx = 0; idx < count; idx = idx + 1 {
     out.push(Instruction::i32_const(I32(1000 + idx)))
@@ -108,7 +108,11 @@ fn gen_valid_msf_i32_func_type(params : Array[ValType]) -> RecType {
 }
 
 ///|
-fn gen_valid_msf_literal_value(seed : UInt64, ordinal : Int, lane : Int) -> Int {
+fn gen_valid_msf_literal_value(
+  seed : UInt64,
+  ordinal : Int32,
+  lane : Int32,
+) -> Int32 {
   let mixed = seed ^
     ((ordinal + 1).to_uint64() * 0x9e3779b97f4a7c15UL) ^
     ((lane + 1).to_uint64() * 0xbf58476d1ce4e5b9UL)

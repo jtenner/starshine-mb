@@ -1,7 +1,7 @@
 ///|
 fn gen_valid_engine_state_indexed_memarg(
-  align : UInt,
-  memory : UInt,
+  align : UInt32,
+  memory : UInt32,
   offset : UInt64,
 ) -> MemArg {
   MemArg::new(U32(align), Some(MemIdx::new(memory)), U64(offset))
@@ -459,7 +459,10 @@ fn gen_valid_engine_state_resource_exhaustion_module(seed : UInt64) -> Module {
 }
 
 ///|
-fn gen_valid_engine_state_decoder_payload(length : Int, seed : UInt64) -> Bytes {
+fn gen_valid_engine_state_decoder_payload(
+  length : Int32,
+  seed : UInt64,
+) -> Bytes {
   let bytes : Array[Byte] = []
   for i in 0..<length {
     bytes.push(((seed + i.to_uint64() * 37UL) & 0xffUL).to_byte())

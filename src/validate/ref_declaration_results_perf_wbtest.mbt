@@ -84,7 +84,7 @@ fn ref_decl_boxed_reference_expr(
 ///|
 fn ref_declaration_results_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let env = Env::new().with_module(ref_declaration_results_module([]))

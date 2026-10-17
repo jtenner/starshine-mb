@@ -8,8 +8,8 @@ test "Binaryen 132 precompute aggregate includes independently supported atomic 
     Err(err) => fail("expected a valid atomic profile: \{err}")
   }
   let body = match mod_.code_sec {
-    Some(CodeSec([Func(_, Expr(body))])) => body
-    _ => fail("expected one aggregate boundary function")
+    Some(CodeSec([Func(_, Expr(body)), Func(_, Expr(_))])) => body
+    _ => fail("expected the aggregate boundary function and wrapper")
   }
   for order in [AtomicOrder::seq_cst(), AtomicOrder::acq_rel()] {
     assert_true(

@@ -1,5 +1,5 @@
 ///|
-fn gen_valid_rume_test_defined_func_count(mod_ : Module) -> Int {
+fn gen_valid_rume_test_defined_func_count(mod_ : Module) -> Int32 {
   match mod_.func_sec {
     Some(FuncSec(type_idxs)) => type_idxs.length()
     None => 0

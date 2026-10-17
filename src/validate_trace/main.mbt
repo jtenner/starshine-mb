@@ -1,6 +1,6 @@
 ///|
 pub struct ValidateTraceCliArgs {
-  repeats : Int
+  repeats : Int32
   corpora : Array[String]
 } derive(Eq, Debug)
 
@@ -14,7 +14,7 @@ pub enum ValidateTraceCliCommand {
 ///|
 pub struct ValidateTraceBenchmarkResult {
   corpus : String
-  repeats : Int
+  repeats : Int32
   elapsed_ms : UInt64
   phase_totals : String
   helper_totals : String
@@ -67,7 +67,7 @@ fn validate_trace_usage_text() -> String {
 }
 
 ///|
-fn validate_trace_tail_string(input : String, start : Int) -> String {
+fn validate_trace_tail_string(input : String, start : Int32) -> String {
   let out = StringBuilder::new()
   let mut i = start
   while i < input.length() {
@@ -78,7 +78,7 @@ fn validate_trace_tail_string(input : String, start : Int) -> String {
 }
 
 ///|
-fn validate_trace_parse_positive_int(raw : String) -> Int {
+fn validate_trace_parse_positive_int(raw : String) -> Int32 {
   let text = raw.trim().to_owned()
   if text.length() == 0 {
     abort("repeat must not be empty")
@@ -340,7 +340,7 @@ fn validate_trace_find_last_prefix(
 ///|
 fn validate_trace_run_one(
   corpus : ValidateTraceCorpus,
-  repeats : Int,
+  repeats : Int32,
 ) -> Result[ValidateTraceBenchmarkResult, String] {
   if repeats <= 0 {
     return Err("validate-trace repeat count must be positive")
@@ -428,7 +428,7 @@ pub fn validate_trace_corpus_names() -> Array[String] {
 ///|
 pub fn run_validate_trace_benchmark(
   corpora : Array[String],
-  repeats : Int,
+  repeats : Int32,
 ) -> Result[Array[ValidateTraceBenchmarkResult], String] {
   let selected = if corpora.length() == 0 {
     validate_trace_default_corpora()

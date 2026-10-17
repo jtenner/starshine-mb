@@ -335,7 +335,7 @@ fn engine_state_test_start_body(mod_ : Module) -> Array[Instruction] raise {
 ///|
 fn engine_state_test_defined_body(
   mod_ : Module,
-  index : Int,
+  index : Int32,
 ) -> Array[Instruction] raise {
   match mod_.code_sec {
     Some(CodeSec(funcs)) if index >= 0 && index < funcs.length() => {
@@ -349,7 +349,7 @@ fn engine_state_test_defined_body(
 ///|
 fn engine_state_test_has_adjacent_mark(
   instrs : Array[Instruction],
-  event : Int,
+  event : Int32,
 ) -> Bool {
   let mut i = 0
   while i + 1 < instrs.length() {
@@ -380,7 +380,7 @@ fn engine_state_test_has_reachable_workload_call(mod_ : Module) -> Bool raise {
 fn engine_state_test_has_synthetic_export(
   mod_ : Module,
   kind : String,
-  index : UInt,
+  index : UInt32,
 ) -> Bool {
   match mod_.export_sec {
     Some(ExportSec(exports)) =>
@@ -404,7 +404,7 @@ fn engine_state_test_has_synthetic_export(
 }
 
 ///|
-fn engine_state_test_resource_counts(mod_ : Module) -> (Int, Int, Int) {
+fn engine_state_test_resource_counts(mod_ : Module) -> (Int32, Int32, Int32) {
   let mut tables = 0
   let mut memories = 0
   let mut globals = 0

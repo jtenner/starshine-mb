@@ -1,5 +1,5 @@
 ///|
-fn local_write_pop_bench(it : @bench.T, tee : Bool, kind : Int) -> Unit raise {
+fn local_write_pop_bench(it : @bench.T, tee : Bool, kind : Int32) -> Unit raise {
   let expected = if kind == 2 { ValType::anyref() } else { ValType::i32() }
   let actual = if kind == 2 {
     ValType::eqref_null()

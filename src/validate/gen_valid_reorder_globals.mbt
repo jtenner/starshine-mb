@@ -158,7 +158,7 @@ fn gen_valid_rg_i32_result_type() -> RecType {
 }
 
 ///|
-fn gen_valid_rg_i32_global(value : Int, mutable_? : Bool = false) -> Global {
+fn gen_valid_rg_i32_global(value : Int32, mutable_~ : Bool = false) -> Global {
   Global::new(
     GlobalType::new(ValType::i32(), mutable_),
     Expr::new([Instruction::i32_const(I32(value))]),
@@ -167,8 +167,8 @@ fn gen_valid_rg_i32_global(value : Int, mutable_? : Bool = false) -> Global {
 
 ///|
 fn gen_valid_rg_i32_globals(
-  count : Int,
-  mutable_? : Bool = false,
+  count : Int32,
+  mutable_~ : Bool = false,
 ) -> Array[Global] {
   let globals : Array[Global] = Array::new(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
@@ -179,8 +179,8 @@ fn gen_valid_rg_i32_globals(
 
 ///|
 fn gen_valid_rg_drop_gets(
-  global_idx : UInt,
-  repetitions : Int,
+  global_idx : UInt32,
+  repetitions : Int32,
 ) -> Array[Instruction] {
   let body : Array[Instruction] = []
   for rep = 0; rep < repetitions; rep = rep + 1 {
@@ -224,7 +224,9 @@ fn gen_valid_rg_hot_traffic_module(seed : UInt64) -> Module {
 }
 
 ///|
-fn gen_valid_rg_dependency_chain_globals(other_position : Int) -> Array[Global] {
+fn gen_valid_rg_dependency_chain_globals(
+  other_position : Int32,
+) -> Array[Global] {
   let globals : Array[Global] = Array::new(capacity=129)
   let mut chain_old_idx = 0
   for idx = 0; idx < 129; idx = idx + 1 {
@@ -336,7 +338,7 @@ fn gen_valid_rg_imported_module(seed : UInt64) -> Module {
 
 ///|
 fn gen_valid_rg_global_imports(
-  count : Int,
+  count : Int32,
   value_type : ValType,
 ) -> Array[Import] {
   let imports : Array[Import] = Array::new(capacity=count)

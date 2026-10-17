@@ -39,7 +39,7 @@ fn gen_valid_campaign_segment_state_config() -> GenValidConfig {
 }
 
 ///|
-fn gen_valid_campaign_segment_state_bytes(seed : UInt64, salt : Int) -> Bytes {
+fn gen_valid_campaign_segment_state_bytes(seed : UInt64, salt : Int32) -> Bytes {
   let bytes : Array[Byte] = []
   let length = 5 + ((seed + salt.to_uint64() * 11UL) % 7UL).to_int()
   for offset = 0; offset < length; offset = offset + 1 {

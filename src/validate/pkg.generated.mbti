@@ -269,6 +269,8 @@ pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
 pub fn validate_module(@lib.Module, disabled_features? : Array[ProposalFeature]) -> Result[Unit, ValidationError]
 
+pub fn validate_module_name_section(@lib.Module) -> Result[Unit, String]
+
 pub fn validate_module_with_trace(@lib.Module, (String) -> Unit, trace_all_funcs? : Bool, disabled_features? : Array[ProposalFeature]) -> Result[Unit, ValidationError]
 
 pub fn validate_startsec(@lib.StartSec?, Env) -> Result[Unit, String]
@@ -1478,6 +1480,7 @@ pub enum GenValidProfile {
   TupleOptimizationSpillProfile
   TupleOptimizationCopyChainProfile
   TupleOptimizationTeeProfile
+  TupleOptimizationAliasCapturesProfile
   TupleOptimizationAllProfile
   DeadCodeEliminationNonControlProfile
   DeadCodeEliminationBlockSuffixProfile
@@ -1514,6 +1517,7 @@ pub enum GenValidProfile {
   Heap2LocalStructProfile
   Heap2LocalArrayProfile
   Heap2LocalRefProfile
+  Heap2LocalOwnerUpdatesProfile
   Heap2LocalAllProfile
   LocalSubtypingStraightLineProfile
   LocalSubtypingStructuredProfile

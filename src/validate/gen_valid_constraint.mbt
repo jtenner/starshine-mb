@@ -1,5 +1,5 @@
 ///|
-fn gen_valid_constraint_family(profile : GenValidProfile) -> Int {
+fn gen_valid_constraint_family(profile : GenValidProfile) -> Int32 {
   match profile {
     ConstraintIntegerProfile => 0
     ConstraintJoinsProfile => 1
@@ -112,7 +112,7 @@ fn gen_valid_constraint_profile_module(ctx : GenValidContext) -> Module {
       Instruction::i32_const(I32(value.to_uint().reinterpret_as_int()))
     }
   }
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
   let eq = if wide { Instruction::i64_eq() } else { Instruction::i32_eq() }
   let ne = if wide { Instruction::i64_ne() } else { Instruction::i32_ne() }
   let lt_s = if wide {
@@ -410,7 +410,7 @@ fn gen_valid_constraint_handler_module(seed : UInt64) -> Module {
 fn gen_valid_constraint_pending_call_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
   let initial = (seed.to_uint() ^ 0x5342U).reinterpret_as_int()
-  let number = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let number = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let call = Instruction::call(FuncIdx::new(1U))
   Module::new()
   .with_type_sec(
@@ -472,8 +472,8 @@ fn gen_valid_constraint_tuple_loop_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
   let f64 = ValType::f64()
   let tuple = BlockType::type_idx(TypeIdx::new(0U))
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let c = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let c = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let bound = 1 + (seed % 7UL).to_int()
   let body = [
     Instruction::loop_(
@@ -538,8 +538,8 @@ fn gen_valid_constraint_tuple_loop_module(seed : UInt64) -> Module {
 fn gen_valid_constraint_parameter_loop_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
   let tuple = BlockType::type_idx(TypeIdx::new(0U))
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let c = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let c = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let variant = ((seed >> 3) % 4UL).to_int()
   let mut loop_body = [
     Instruction::local_tee(LocalIdx::new(1U)),
@@ -629,8 +629,8 @@ fn gen_valid_constraint_parameter_loop_module(seed : UInt64) -> Module {
 ///|
 fn gen_valid_constraint_copied_control_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
-  let c = fn(value : Int) { Instruction::i32_const(I32(value)) }
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
+  let c = fn(value : Int32) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
   Module::new()
   .with_type_sec(
     TypeSec::new([
@@ -685,8 +685,8 @@ fn gen_valid_constraint_copied_control_module(seed : UInt64) -> Module {
 fn gen_valid_constraint_throwing_stack_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
   let before = seed.to_uint().reinterpret_as_int() ^ 0x4312
-  let c = fn(value : Int) { Instruction::i32_const(I32(value)) }
-  let get = fn(slot : UInt) { Instruction::local_get(LocalIdx::new(slot)) }
+  let c = fn(value : Int32) { Instruction::i32_const(I32(value)) }
+  let get = fn(slot : UInt32) { Instruction::local_get(LocalIdx::new(slot)) }
   Module::new()
   .with_type_sec(
     TypeSec::new([

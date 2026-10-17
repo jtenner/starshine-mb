@@ -1,7 +1,7 @@
 ///|
 pub fn stack_len_after_push1(
-  len : Int,
-) -> Int where {
+  len : Int32,
+) -> Int32 where {
   proof_require: 0 <= len,
   proof_ensure: result => stack_len_after_push1_post(len, result),
 } {
@@ -10,9 +10,9 @@ pub fn stack_len_after_push1(
 
 ///|
 pub fn stack_len_after_push_types(
-  len : Int,
-  pushed_len : Int,
-) -> Int where {
+  len : Int32,
+  pushed_len : Int32,
+) -> Int32 where {
   proof_require: 0 <= len,
   proof_require: 0 <= pushed_len,
   proof_ensure: result => {
@@ -24,8 +24,8 @@ pub fn stack_len_after_push_types(
 
 ///|
 pub fn stack_len_after_pop1(
-  len : Int,
-) -> Int? where {
+  len : Int32,
+) -> Int32? where {
   proof_require: 0 <= len,
   proof_ensure: result => stack_len_after_pop1_post(len, result),
 } {
@@ -38,9 +38,9 @@ pub fn stack_len_after_pop1(
 
 ///|
 pub fn stack_len_after_pop_types(
-  len : Int,
-  popped_len : Int,
-) -> Int? where {
+  len : Int32,
+  popped_len : Int32,
+) -> Int32? where {
   proof_require: 0 <= len,
   proof_require: 0 <= popped_len,
   proof_ensure: result => {
@@ -56,9 +56,9 @@ pub fn stack_len_after_pop_types(
 
 ///|
 pub fn stack_suffix_start_after_end_check(
-  len : Int,
-  results_len : Int,
-) -> Int? where {
+  len : Int32,
+  results_len : Int32,
+) -> Int32? where {
   proof_require: 0 <= len,
   proof_require: 0 <= results_len,
   proof_ensure: result => {

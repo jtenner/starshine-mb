@@ -160,18 +160,18 @@ fn gen_valid_engine_state_funcref() -> RefType {
 }
 
 ///|
-fn gen_valid_engine_state_memarg(align : UInt, offset : UInt64) -> MemArg {
+fn gen_valid_engine_state_memarg(align : UInt32, offset : UInt64) -> MemArg {
   MemArg::new(U32(align), None, U64(offset))
 }
 
 ///|
-fn gen_valid_engine_state_mark(event : Int) -> Array[Instruction] {
+fn gen_valid_engine_state_mark(event : Int32) -> Array[Instruction] {
   [Instruction::i32_const(I32(event)), Instruction::call(FuncIdx::new(2U))]
 }
 
 ///|
 fn gen_valid_engine_state_observe_i32(
-  value_id : Int,
+  value_id : Int32,
   value : Array[Instruction],
 ) -> Array[Instruction] {
   let out = [Instruction::i32_const(I32(value_id))]
@@ -182,7 +182,7 @@ fn gen_valid_engine_state_observe_i32(
 
 ///|
 fn gen_valid_engine_state_observe_i64(
-  value_id : Int,
+  value_id : Int32,
   value : Array[Instruction],
 ) -> Array[Instruction] {
   let out = [Instruction::i32_const(I32(value_id))]
@@ -202,7 +202,7 @@ fn gen_valid_engine_state_append(
 }
 
 ///|
-fn gen_valid_engine_state_function_exports(count : Int) -> Array[Export] {
+fn gen_valid_engine_state_function_exports(count : Int32) -> Array[Export] {
   let exports : Array[Export] = []
   for i in 0..<count {
     exports.push(
@@ -1294,7 +1294,7 @@ fn gen_valid_engine_state_mixed_module(seed : UInt64) -> Module {
 }
 
 ///|
-pub fn gen_valid_engine_state_static_instruction_count(mod_ : Module) -> Int {
+pub fn gen_valid_engine_state_static_instruction_count(mod_ : Module) -> Int32 {
   gen_valid_module_instruction_count(mod_)
 }
 

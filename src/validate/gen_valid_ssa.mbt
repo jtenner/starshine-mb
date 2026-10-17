@@ -225,10 +225,10 @@ pub fn gen_valid_merge_ssa_func_facts(
 }
 
 ///|
-const GEN_VALID_SSA_LOCAL_CAP : Int = 32
+const GEN_VALID_SSA_LOCAL_CAP : Int32 = 32
 
 ///|
-fn gen_valid_ssa_local_slot(idx : LocalIdx) -> Int? {
+fn gen_valid_ssa_local_slot(idx : LocalIdx) -> Int32? {
   let LocalIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
   if slot < 0 || slot >= GEN_VALID_SSA_LOCAL_CAP {
@@ -388,7 +388,7 @@ fn gen_valid_ssa_subtree_is_straight_line_no_nested_control(
 }
 
 ///|
-fn gen_valid_ssa_instr_i32_stack_delta(instr : Instruction) -> Int? {
+fn gen_valid_ssa_instr_i32_stack_delta(instr : Instruction) -> Int32? {
   match instr {
     I32Const(_) | LocalGet(_) => Some(1)
     LocalTee(_) => Some(0)
@@ -420,8 +420,8 @@ fn gen_valid_ssa_instr_i32_stack_delta(instr : Instruction) -> Int? {
 ///|
 fn gen_valid_ssa_prefix_leaves_single_i32(
   instrs : Array[Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   let mut stack = 0
   let mut i = start
@@ -444,7 +444,7 @@ fn gen_valid_ssa_prefix_leaves_single_i32(
 fn gen_valid_ssa_instr_scalar_stack_delta(
   instr : Instruction,
   result_vt : ValType,
-) -> Int? {
+) -> Int32? {
   match instr {
     I32Const(_) if result_vt == ValType::i32() => Some(1)
     I64Const(_) if result_vt == ValType::i64() => Some(1)
@@ -507,10 +507,10 @@ fn gen_valid_ssa_arm_value_block_is_supported(
 ///|
 fn gen_valid_ssa_prefix_stack_depth(
   instrs : Array[Instruction],
-  start : Int,
-  end : Int,
-  result_vt? : ValType = ValType::i32(),
-) -> Int? {
+  start : Int32,
+  end : Int32,
+  result_vt~ : ValType = ValType::i32(),
+) -> Int32? {
   let mut stack = 0
   let mut i = start
   while i < end {
@@ -611,8 +611,8 @@ priv struct GenValidSsaConditionFacts {
 ///|
 fn gen_valid_ssa_condition_window_bounds(
   instrs : Array[Instruction],
-  if_idx : Int,
-) -> (Int, Int)? {
+  if_idx : Int32,
+) -> (Int32, Int32)? {
   if if_idx <= 0 {
     return None
   }
@@ -639,8 +639,8 @@ fn gen_valid_ssa_condition_window_bounds(
 ///|
 fn gen_valid_ssa_condition_window_is_supported(
   instrs : Array[Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   if start < 0 || end <= start || end > instrs.length() {
     return false
@@ -667,8 +667,8 @@ fn gen_valid_ssa_condition_window_is_supported(
 ///|
 fn gen_valid_ssa_condition_facts_from_window(
   instrs : Array[Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> GenValidSsaConditionFacts {
   let mut has_write = false
   let mut has_value_block = false
@@ -696,8 +696,8 @@ fn gen_valid_ssa_condition_facts_from_window(
 ///|
 fn gen_valid_ssa_find_supported_result_if_condition(
   instrs : Array[Instruction],
-  if_idx : Int,
-) -> (Int, Int, GenValidSsaConditionFacts)? {
+  if_idx : Int32,
+) -> (Int32, Int32, GenValidSsaConditionFacts)? {
   match gen_valid_ssa_condition_window_bounds(instrs, if_idx) {
     None => None
     Some((start, end)) =>
@@ -718,7 +718,7 @@ fn gen_valid_ssa_find_supported_result_if_condition(
 ///|
 fn gen_valid_ssa_condition_is_supported(
   instrs : Array[Instruction],
-  if_idx : Int,
+  if_idx : Int32,
 ) -> Bool {
   gen_valid_ssa_find_supported_result_if_condition(instrs, if_idx) is Some(_)
 }
@@ -726,8 +726,8 @@ fn gen_valid_ssa_condition_is_supported(
 ///|
 fn gen_valid_ssa_slice_instrs(
   instrs : Array[Instruction],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut i = start
@@ -761,7 +761,7 @@ fn gen_valid_ssa_arm_is_mixed_value_block_supported(
 ///|
 fn gen_valid_ssa_dropped_result_if_is_supported(
   instrs : Array[Instruction],
-  if_idx : Int,
+  if_idx : Int32,
   bt : BlockType,
   then_body : Array[Instruction],
   else_body : Array[Instruction],
@@ -778,7 +778,7 @@ fn gen_valid_ssa_dropped_result_if_is_supported(
 ///|
 fn gen_valid_ssa_scan_dropped_result_if(
   instrs : Array[Instruction],
-  if_idx : Int,
+  if_idx : Int32,
   bt : BlockType,
   then_body : Array[Instruction],
   else_body : Array[Instruction],
@@ -824,7 +824,7 @@ fn gen_valid_ssa_scan_dropped_result_if(
 }
 
 ///|
-fn gen_valid_ssa_tail_expr(instrs : Array[Instruction], start : Int) -> Expr {
+fn gen_valid_ssa_tail_expr(instrs : Array[Instruction], start : Int32) -> Expr {
   let tail_instrs : Array[Instruction] = []
   let mut j = start
   while j < instrs.length() {
@@ -836,10 +836,10 @@ fn gen_valid_ssa_tail_expr(instrs : Array[Instruction], start : Int) -> Expr {
 
 ///|
 fn gen_valid_ssa_scan_linear(
-  param_count : Int,
+  param_count : Int32,
   instrs : Array[Instruction],
   facts : GenValidSsaFuncFacts,
-  def_counts : Array[Int],
+  def_counts : Array[Int32],
   has_local_write_in : Bool,
   has_exceptional_in : Bool,
 ) -> GenValidSsaFuncFacts {
@@ -1034,7 +1034,7 @@ fn gen_valid_ssa_scan_linear(
         saw_structured_control = true
       }
       If(_, then_body, else_body) => {
-        let def_counts_before_if : Array[Int] = []
+        let def_counts_before_if : Array[Int32] = []
         for count in def_counts {
           def_counts_before_if.push(count)
         }
@@ -1297,7 +1297,7 @@ fn gen_valid_ssa_instr_is_local_branch_operand_source(
 }
 
 ///|
-fn gen_valid_ssa_expr_local_write_count(expr : Expr) -> Int {
+fn gen_valid_ssa_expr_local_write_count(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   let mut count = 0
   for instr in instrs {
@@ -1320,7 +1320,7 @@ fn gen_valid_ssa_expr_local_write_count(expr : Expr) -> Int {
 }
 
 ///|
-fn gen_valid_ssa_expr_structured_control_count(expr : Expr) -> Int {
+fn gen_valid_ssa_expr_structured_control_count(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   let mut count = 0
   for instr in instrs {
@@ -1362,7 +1362,7 @@ fn gen_valid_ssa_instr_writes_local(
 ///|
 fn gen_valid_ssa_after_if_has_exit_before_overwrite(
   instrs : Array[Instruction],
-  start : Int,
+  start : Int32,
   idx : LocalIdx,
 ) -> Bool {
   let mut saw_exit = false
@@ -1382,7 +1382,7 @@ fn gen_valid_ssa_after_if_has_exit_before_overwrite(
 ///|
 fn gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
   instrs : Array[Instruction],
-  start : Int,
+  start : Int32,
   idx : LocalIdx,
 ) -> Bool {
   let mut saw_exit = false
@@ -1420,7 +1420,7 @@ fn gen_valid_ssa_instr_is_nested_enclosing_exit(instr : Instruction) -> Bool {
 ///|
 fn gen_valid_ssa_after_if_has_nested_exit_before_overwrite(
   instrs : Array[Instruction],
-  start : Int,
+  start : Int32,
   idx : LocalIdx,
 ) -> Bool {
   let mut saw_exit = false
@@ -1439,10 +1439,10 @@ fn gen_valid_ssa_after_if_has_nested_exit_before_overwrite(
 
 ///|
 fn gen_valid_ssa_common_slots(
-  left : Array[Int],
-  right : Array[Int],
-) -> Array[Int] {
-  let out : Array[Int] = []
+  left : Array[Int32],
+  right : Array[Int32],
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   for slot in left {
     if right.any(fn(other) { other == slot }) {
       out.push(slot)
@@ -1516,7 +1516,7 @@ fn gen_valid_ssa_scan_enclosing_copy_before_exit(
 ///|
 fn gen_valid_ssa_prev_is_unreachable_debris(
   instrs : Array[Instruction],
-  idx : Int,
+  idx : Int32,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -1537,7 +1537,7 @@ fn gen_valid_ssa_prev_is_unreachable_debris(
 ///|
 fn gen_valid_ssa_tail_next_access_reads_local(
   instrs : Array[Instruction],
-  start : Int,
+  start : Int32,
   idx : LocalIdx,
 ) -> Bool {
   let mut i = start
@@ -1569,9 +1569,9 @@ fn gen_valid_ssa_tail_next_access_reads_local(
 
 ///|
 fn gen_valid_ssa_scan_if_arm(
-  param_count : Int,
+  param_count : Int32,
   body : Array[Instruction],
-  def_counts : Array[Int],
+  def_counts : Array[Int32],
   has_local_write : Bool,
   has_exceptional : Bool,
 ) -> (GenValidSsaFuncFacts, Bool, Bool) {
@@ -1591,8 +1591,8 @@ fn gen_valid_ssa_scan_if_arm(
 }
 
 ///|
-fn gen_valid_ssa_if_arm_writes_local(body : Array[Instruction]) -> Array[Int] {
-  let written : Array[Int] = []
+fn gen_valid_ssa_if_arm_writes_local(body : Array[Instruction]) -> Array[Int32] {
+  let written : Array[Int32] = []
   let Expr(instrs) = Expr::new(body)
   for instr in instrs {
     match instr {
@@ -1618,8 +1618,8 @@ fn gen_valid_ssa_if_arm_writes_local(body : Array[Instruction]) -> Array[Int] {
 }
 
 ///|
-fn gen_valid_ssa_if_arm_tees_local(body : Array[Instruction]) -> Array[Int] {
-  let written : Array[Int] = []
+fn gen_valid_ssa_if_arm_tees_local(body : Array[Instruction]) -> Array[Int32] {
+  let written : Array[Int32] = []
   let Expr(instrs) = Expr::new(body)
   for instr in instrs {
     match instr {
@@ -1646,12 +1646,12 @@ fn gen_valid_ssa_if_arm_tees_local(body : Array[Instruction]) -> Array[Int] {
 
 ///|
 fn gen_valid_ssa_scan_if_join(
-  param_count : Int,
+  param_count : Int32,
   then_body : Array[Instruction],
   else_body : Array[Instruction]?,
   tail : Expr,
   facts : GenValidSsaFuncFacts,
-  def_counts : Array[Int],
+  def_counts : Array[Int32],
 ) -> GenValidSsaFuncFacts {
   let then_writes = gen_valid_ssa_if_arm_writes_local(then_body)
   let then_tees = gen_valid_ssa_if_arm_tees_local(then_body)
@@ -1766,10 +1766,10 @@ fn gen_valid_ssa_scan_if_join(
 
 ///|
 fn gen_valid_ssa_scan_loop(
-  param_count : Int,
+  param_count : Int32,
   bt : BlockType,
   body : Expr,
-  def_counts : Array[Int],
+  def_counts : Array[Int32],
   has_local_write : Bool,
   has_exceptional : Bool,
 ) -> GenValidSsaFuncFacts {
@@ -1826,10 +1826,10 @@ fn gen_valid_ssa_loop_has_backedge(expr : Expr) -> Bool {
 
 ///|
 fn gen_valid_ssa_scan_expr(
-  param_count : Int,
+  param_count : Int32,
   expr : Expr,
   facts : GenValidSsaFuncFacts,
-  def_counts : Array[Int],
+  def_counts : Array[Int32],
   has_local_write : Bool,
   has_exceptional : Bool,
 ) -> (GenValidSsaFuncFacts, Bool, Bool) {
@@ -1978,8 +1978,8 @@ fn gen_valid_ssa_expr_has_return(expr : Expr) -> Bool {
 ///|
 fn gen_valid_ssa_count_local_reads_and_writes(
   expr : Expr,
-  read_counts : Array[Int],
-  write_counts : Array[Int],
+  read_counts : Array[Int32],
+  write_counts : Array[Int32],
 ) -> Unit {
   let Expr(instrs) = expr
   for instr in instrs {
@@ -2021,13 +2021,13 @@ fn gen_valid_ssa_count_local_reads_and_writes(
 
 ///|
 pub fn gen_valid_scan_func_ssa_facts(
-  param_count : Int,
+  param_count : Int32,
   _locals : Locals,
   expr : Expr,
 ) -> GenValidSsaFuncFacts {
-  let def_counts : Array[Int] = []
-  let read_counts : Array[Int] = []
-  let write_counts : Array[Int] = []
+  let def_counts : Array[Int32] = []
+  let read_counts : Array[Int32] = []
+  let write_counts : Array[Int32] = []
   for _ in 0..<GEN_VALID_SSA_LOCAL_CAP {
     def_counts.push(0)
     read_counts.push(0)
@@ -2063,14 +2063,14 @@ pub fn gen_valid_scan_func_ssa_facts(
 }
 
 ///|
-fn gen_valid_ssa_body_local(param_count : Int, body_idx : Int) -> LocalIdx {
+fn gen_valid_ssa_body_local(param_count : Int32, body_idx : Int32) -> LocalIdx {
   LocalIdx::new((param_count + body_idx).reinterpret_as_uint())
 }
 
 ///|
 fn gen_valid_ssa_full_first_ref_local(
   env : GenValidBodyEnv,
-  param_count : Int,
+  param_count : Int32,
 ) -> LocalIdx? {
   for idx = param_count; idx < env.local_types.length(); idx = idx + 1 {
     match env.local_types[idx] {
@@ -3769,7 +3769,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
 
 ///|
 fn gen_valid_ssa_first_body_local_of_type(
-  param_count : Int,
+  param_count : Int32,
   local_types : Array[ValType],
   vt : ValType,
 ) -> LocalIdx? {
@@ -3786,7 +3786,7 @@ fn gen_valid_ssa_first_body_local_of_type(
 ///|
 fn gen_valid_append_ssa_nested_result_if_scalar_variants(
   out : Array[Instruction],
-  param_count : Int,
+  param_count : Int32,
   env : GenValidBodyEnv,
 ) -> Unit {
   for result_vt in [ValType::i64(), ValType::f32(), ValType::f64()] {

@@ -1,7 +1,7 @@
 ///|
 fn if_exit_value_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   ref_result : Bool,
   stopped : Bool,
 ) -> Unit {

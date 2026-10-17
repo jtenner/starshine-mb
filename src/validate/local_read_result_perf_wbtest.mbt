@@ -1,7 +1,7 @@
 ///|
 fn local_read_result_bench(
   it : @bench.T,
-  count : Int,
+  count : Int32,
   reference_type : Bool,
   invalid : Bool,
 ) -> Unit raise {

@@ -1215,7 +1215,7 @@ test "ssa-nomerge coverage profile emits nested result-if supported shape" {
 ///|
 fn gen_valid_ssa_first_func_scan_facts(
   mod_ : Module,
-  param_count : Int,
+  param_count : Int32,
 ) -> GenValidSsaFuncFacts raise {
   let (locals, expr) = match mod_.code_sec {
     Some(CodeSec(funcs)) =>

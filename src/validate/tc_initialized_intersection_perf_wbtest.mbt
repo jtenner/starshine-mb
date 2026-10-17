@@ -16,7 +16,11 @@ fn tc_intersection_reference(
 }
 
 ///|
-fn tc_intersection_bench(it : @bench.T, width : Int, reference : Bool) -> Unit {
+fn tc_intersection_bench(
+  it : @bench.T,
+  width : Int32,
+  reference : Bool,
+) -> Unit {
   let left = Array::makei(width, fn(i) { i % 5 != 0 })
   let right = Array::makei(width, fn(i) { i % 7 != 0 })
   if tc_intersection_reference(left, right) !=
@@ -75,7 +79,11 @@ fn tc_initial_mask_reference(
 }
 
 ///|
-fn tc_initial_mask_bench(it : @bench.T, width : Int, reference : Bool) -> Unit {
+fn tc_initial_mask_bench(
+  it : @bench.T,
+  width : Int32,
+  reference : Bool,
+) -> Unit {
   let params = [ValType::i32()]
   let decls = Locals::single((width - 1).to_uint(), ValType::i32())
   if tc_initial_mask_reference(params, decls) !=

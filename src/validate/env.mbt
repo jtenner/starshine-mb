@@ -5,15 +5,15 @@ type Stack[T] = Array[T]
 // Catch scopes share their ancestors. Ordinary control frames allocate no
 // catch rows and do not copy the enclosing catches.
 pub enum LegacyCatchScope {
-  CatchLabel(Int, LegacyCatchScope?)
+  CatchLabel(Int32, LegacyCatchScope?)
 } derive(Hash, Debug)
 
 ///|
 pub(all) struct LabelStack {
   values : Array[Array[ValType]]
-  parents : Array[Int]
-  mut head : Int
-  mut len : Int
+  parents : Array[Int32]
+  mut head : Int32
+  mut len : Int32
   mut legacy_catches : LegacyCatchScope?
 } derive(Hash, Debug)
 
@@ -37,7 +37,7 @@ pub fn LabelStack::new() -> LabelStack {
 
 ///|
 pub fn LabelStack::from_labels(labels : Array[Array[ValType]]) -> LabelStack {
-  let parents : Array[Int] = []
+  let parents : Array[Int32] = []
   let mut head = -1
   for idx = 0; idx < labels.length(); idx = idx + 1 {
     parents.push(head)
@@ -70,12 +70,12 @@ pub fn LabelStack::push(
 }
 
 ///|
-pub fn LabelStack::length(stack : LabelStack) -> Int {
+pub fn LabelStack::length(stack : LabelStack) -> Int32 {
   stack.len
 }
 
 ///|
-pub fn LabelStack::get(stack : LabelStack, idx : Int) -> Array[ValType]? {
+pub fn LabelStack::get(stack : LabelStack, idx : Int32) -> Array[ValType]? {
   let mut remaining = match label_stack_storage_index(stack.len, idx) {
     Some(remaining) => remaining
     None => return None
@@ -106,7 +106,7 @@ pub(all) struct Env {
   locals : Locals
   labels : LabelStack
   return_type : Array[ValType]?
-  legacy_catch_depth : Int
+  legacy_catch_depth : Int32
   infer_exact_references : Bool
 } derive(Hash, Debug)
 
@@ -264,7 +264,7 @@ pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
 }
 
 ///|
-pub fn Env::with_legacy_catch_depth(env : Env, depth : Int) -> Env {
+pub fn Env::with_legacy_catch_depth(env : Env, depth : Int32) -> Env {
   let labels = env.labels.copy()
   if depth > env.legacy_catch_depth {
     labels.legacy_catches = Some(
@@ -281,7 +281,10 @@ pub fn Env::with_legacy_catch_depth(env : Env, depth : Int) -> Env {
 }
 
 ///|
-pub fn Env::legacy_rethrow_catch_ordinal(env : Env, raw_depth : UInt) -> Int? {
+pub fn Env::legacy_rethrow_catch_ordinal(
+  env : Env,
+  raw_depth : UInt32,
+) -> Int32? {
   let label_count = env.labels.length()
   if raw_depth >= label_count.reinterpret_as_uint() {
     return None

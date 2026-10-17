@@ -1,5 +1,5 @@
 ///|
-fn typesec_storage_bench(it : @bench.T, count : Int, width : Int) -> Unit {
+fn typesec_storage_bench(it : @bench.T, count : Int32, width : Int32) -> Unit {
   let section = Some(typesec_storage_section(count, width))
   let initial = Env::new()
   let actual = validate_typesec(section, initial).unwrap()

@@ -14,14 +14,14 @@ pub impl Show for GenValidMode with fn output(self, logger) {
 
 ///|
 pub struct GenValidSectionBias {
-  imports_percent : Int
-  tables_percent : Int
-  mems_percent : Int
-  globals_percent : Int
-  tags_percent : Int
-  start_percent : Int
-  elems_percent : Int
-  datas_percent : Int
+  imports_percent : Int32
+  tables_percent : Int32
+  mems_percent : Int32
+  globals_percent : Int32
+  tags_percent : Int32
+  start_percent : Int32
+  elems_percent : Int32
+  datas_percent : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -400,27 +400,27 @@ pub fn gen_valid_proposal_feature_gate_matrix() -> Array[
 ///|
 pub struct GenValidConfig {
   mode : GenValidMode
-  max_type_defs : Int
-  max_imports : Int
-  max_defined_funcs : Int
-  max_tables : Int
-  max_mems : Int
-  max_globals : Int
-  max_tags : Int
-  max_elems : Int
-  max_datas : Int
-  max_params : Int
-  max_results : Int
-  max_locals : Int
-  max_body_statements : Int
-  max_body_depth : Int
-  max_instruction_count_budget : Int?
-  max_expression_depth_budget : Int?
-  max_module_byte_size_budget : Int?
-  max_rec_group_size_budget : Int?
-  max_section_count_budget : Int?
-  max_name_length : Int
-  max_segment_payload_size : Int
+  max_type_defs : Int32
+  max_imports : Int32
+  max_defined_funcs : Int32
+  max_tables : Int32
+  max_mems : Int32
+  max_globals : Int32
+  max_tags : Int32
+  max_elems : Int32
+  max_datas : Int32
+  max_params : Int32
+  max_results : Int32
+  max_locals : Int32
+  max_body_statements : Int32
+  max_body_depth : Int32
+  max_instruction_count_budget : Int32?
+  max_expression_depth_budget : Int32?
+  max_module_byte_size_budget : Int32?
+  max_rec_group_size_budget : Int32?
+  max_section_count_budget : Int32?
+  max_name_length : Int32
+  max_segment_payload_size : Int32
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, Debug)
@@ -888,6 +888,7 @@ pub enum GenValidProfile {
   TupleOptimizationSpillProfile
   TupleOptimizationCopyChainProfile
   TupleOptimizationTeeProfile
+  TupleOptimizationAliasCapturesProfile
   TupleOptimizationAllProfile
   DeadCodeEliminationNonControlProfile
   DeadCodeEliminationBlockSuffixProfile
@@ -924,6 +925,7 @@ pub enum GenValidProfile {
   Heap2LocalStructProfile
   Heap2LocalArrayProfile
   Heap2LocalRefProfile
+  Heap2LocalOwnerUpdatesProfile
   Heap2LocalAllProfile
   LocalSubtypingStraightLineProfile
   LocalSubtypingStructuredProfile
@@ -1120,13 +1122,13 @@ pub enum GenValidProfile {
 ///|
 pub struct GenValidProfileMember {
   profile : GenValidProfile
-  weight : Int
+  weight : Int32
 } derive(Eq, Debug)
 
 ///|
 pub fn GenValidProfileMember::new(
   profile : GenValidProfile,
-  weight : Int,
+  weight : Int32,
 ) -> GenValidProfileMember {
   { profile, weight, }
 }
@@ -1426,6 +1428,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     TupleOptimizationSpillProfile => "tuple-optimization-spill"
     TupleOptimizationCopyChainProfile => "tuple-optimization-copy-chain"
     TupleOptimizationTeeProfile => "tuple-optimization-tee"
+    TupleOptimizationAliasCapturesProfile => "tuple-optimization-alias-captures"
     TupleOptimizationAllProfile => "tuple-optimization-all"
     DeadCodeEliminationNonControlProfile => "dead-code-elimination-non-control"
     DeadCodeEliminationBlockSuffixProfile =>
@@ -1470,6 +1473,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     Heap2LocalStructProfile => "heap2local-struct"
     Heap2LocalArrayProfile => "heap2local-array"
     Heap2LocalRefProfile => "heap2local-ref"
+    Heap2LocalOwnerUpdatesProfile => "heap2local-owner-updates"
     Heap2LocalAllProfile => "heap2local-all"
     LocalSubtypingStraightLineProfile => "local-subtyping-straight-line"
     LocalSubtypingStructuredProfile => "local-subtyping-structured"
@@ -1915,6 +1919,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(TupleOptimizationSpillProfile, 3),
         GenValidProfileMember::new(TupleOptimizationCopyChainProfile, 2),
         GenValidProfileMember::new(TupleOptimizationTeeProfile, 1),
+        GenValidProfileMember::new(TupleOptimizationAliasCapturesProfile, 3),
       ]
     DeadCodeEliminationAllProfile =>
       [
@@ -1976,6 +1981,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(Heap2LocalStructProfile, 3),
         GenValidProfileMember::new(Heap2LocalArrayProfile, 2),
         GenValidProfileMember::new(Heap2LocalRefProfile, 2),
+        GenValidProfileMember::new(Heap2LocalOwnerUpdatesProfile, 3),
       ]
     LocalSubtypingAllProfile =>
       [
@@ -2443,7 +2449,7 @@ pub fn gen_valid_profile_members(
 }
 
 ///|
-fn gen_valid_profile_case_roll(seed : UInt64, case_index : Int) -> UInt64 {
+fn gen_valid_profile_case_roll(seed : UInt64, case_index : Int32) -> UInt64 {
   let normalized_index = if case_index <= 0 { 1 } else { case_index }
   gen_valid_derive_stream_seed(seed, HarnessShufflingStream) ^
   (normalized_index.to_uint64() * 0x9e3779b97f4a7c15UL) ^
@@ -2451,7 +2457,7 @@ fn gen_valid_profile_case_roll(seed : UInt64, case_index : Int) -> UInt64 {
 }
 
 ///|
-pub fn gen_valid_case_seed(seed : UInt64, case_index : Int) -> UInt64 {
+pub fn gen_valid_case_seed(seed : UInt64, case_index : Int32) -> UInt64 {
   gen_valid_derive_stream_seed(seed, HarnessShufflingStream) ^
   (case_index.to_uint64() * 0x9e3779b97f4a7c15UL)
 }
@@ -2471,7 +2477,7 @@ fn gen_valid_profile_uses_exact_weighted_cycle(
 pub fn gen_valid_profile_leaf_for_case(
   profile : GenValidProfile,
   seed : UInt64,
-  case_index : Int,
+  case_index : Int32,
 ) -> GenValidProfile {
   let members = gen_valid_profile_members(profile)
   if gen_valid_profile_uses_exact_weighted_cycle(profile) && !members.is_empty() {
@@ -2805,6 +2811,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     TupleOptimizationSpillProfile,
     TupleOptimizationCopyChainProfile,
     TupleOptimizationTeeProfile,
+    TupleOptimizationAliasCapturesProfile,
     TupleOptimizationAllProfile,
     DeadCodeEliminationNonControlProfile,
     DeadCodeEliminationBlockSuffixProfile,
@@ -2841,6 +2848,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     Heap2LocalStructProfile,
     Heap2LocalArrayProfile,
     Heap2LocalRefProfile,
+    Heap2LocalOwnerUpdatesProfile,
     Heap2LocalAllProfile,
     LocalSubtypingStraightLineProfile,
     LocalSubtypingStructuredProfile,
@@ -3557,12 +3565,12 @@ fn gen_valid_dae_optimizing_profile_kind(
 }
 
 ///|
-fn gen_valid_dae_optimizing_structured_case(seed : UInt64) -> Int {
+fn gen_valid_dae_optimizing_structured_case(seed : UInt64) -> Int32 {
   (gen_valid_derive_stream_seed(seed, BodyStream) % 7UL).to_int()
 }
 
 ///|
-fn gen_valid_dae_optimizing_gc_computed_case(seed : UInt64) -> Int {
+fn gen_valid_dae_optimizing_gc_computed_case(seed : UInt64) -> Int32 {
   (gen_valid_derive_stream_seed(seed ^ 0x4743UL, BodyStream) % 4UL).to_int()
 }
 
@@ -4196,7 +4204,7 @@ fn gen_valid_dae_optimizing_core_module(ctx : GenValidContext) -> Module {
 }
 
 ///|
-fn gen_valid_dae_optimizing_cleanup_helper(local_count : Int) -> Func {
+fn gen_valid_dae_optimizing_cleanup_helper(local_count : Int32) -> Func {
   Func::new(
     Locals::from_types(Array::make(local_count, ValType::i32())),
     Expr::new([
@@ -4916,7 +4924,7 @@ fn gen_valid_dae_optimizing_gc_computed_module(ctx : GenValidContext) -> Module 
   } else {
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var))
   }
-  let make_actual = fn(value : Int) -> Array[Instruction] {
+  let make_actual = fn(value : Int32) -> Array[Instruction] {
     match gc_case {
       0 =>
         [Instruction::i32_const(I32(value)), Instruction::struct_new(gc_type)]
@@ -6245,6 +6253,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | TupleOptimizationCopyChainProfile
     | TupleOptimizationTeeProfile =>
       gen_valid_tuple_optimization_profile_config(profile)
+    TupleOptimizationAliasCapturesProfile =>
+      gen_valid_tuple_alias_captures_config()
     TupleOptimizationAllProfile =>
       gen_valid_tuple_optimization_profile_config(TupleOptimizationSpillProfile)
     DeadCodeEliminationNonControlProfile
@@ -6289,6 +6299,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_memory_packing_profile_config(MemoryPackingActiveRangesProfile)
     Heap2LocalStructProfile | Heap2LocalArrayProfile | Heap2LocalRefProfile =>
       gen_valid_heap2local_profile_config(profile)
+    Heap2LocalOwnerUpdatesProfile => gen_valid_heap2local_owner_updates_config()
     Heap2LocalAllProfile =>
       gen_valid_heap2local_profile_config(Heap2LocalAllProfile)
     LocalSubtypingStraightLineProfile
@@ -7025,6 +7036,7 @@ fn gen_valid_precompute_profile_config(
   let max_globals = match profile {
     PrecomputeGlobalProfile => 3
     PrecomputeEffectBoundaryProfile => 1
+    PrecomputePropagateLocalFactsProfile => 1
     _ => 0
   }
   let max_mems = match profile {
@@ -7032,7 +7044,7 @@ fn gen_valid_precompute_profile_config(
     _ => 0
   }
   let max_type_defs = match profile {
-    PrecomputeGcAtomicBoundaryProfile => 3
+    PrecomputeGcAtomicBoundaryProfile => 4
     PrecomputeScalarValueProfile => 4
     PrecomputeGcValueProfile => 5
     _ => 2
@@ -7045,6 +7057,8 @@ fn gen_valid_precompute_profile_config(
       26
     } else if profile == PrecomputeGcValueProfile {
       13
+    } else if profile == PrecomputeGcAtomicBoundaryProfile {
+      2
     } else if profile == PrecomputeEffectBoundaryProfile ||
       profile == PrecomputePropagateLocalFactsProfile {
       2
@@ -7091,6 +7105,7 @@ fn gen_valid_precompute_profile_config(
       allow_elems: false,
       allow_datas: false,
       allow_calls: profile == PrecomputeEffectBoundaryProfile ||
+      profile == PrecomputeGcAtomicBoundaryProfile ||
       profile == PrecomputePropagateLocalFactsProfile,
       allow_call_indirect: false,
       allow_tail_calls: false,
@@ -7380,7 +7395,7 @@ fn gen_valid_tuple_optimization_profile_config(
     max_elems: 0,
     max_datas: 0,
     max_params: 0,
-    max_results: 0,
+    max_results: 2,
     max_locals: if profile == TupleOptimizationCopyChainProfile {
       4
     } else {
@@ -7389,7 +7404,7 @@ fn gen_valid_tuple_optimization_profile_config(
     max_body_statements: match profile {
       TupleOptimizationCopyChainProfile => 12
       TupleOptimizationTeeProfile => 8
-      _ => 7
+      _ => 9
     },
     max_body_depth: 1,
     features: GenValidFeatureToggles::{
@@ -7432,12 +7447,18 @@ fn gen_valid_is_tuple_optimization_profile_config(
 ///|
 pub fn gen_valid_tuple_optimization_trigger_profile_case_label(
   profile : GenValidProfile,
-  _seed : UInt64,
+  seed : UInt64,
 ) -> String? {
   match profile {
     TupleOptimizationSpillProfile => Some("tuple-optimization:spill")
     TupleOptimizationCopyChainProfile => Some("tuple-optimization:copy-chain")
     TupleOptimizationTeeProfile => Some("tuple-optimization:tee")
+    TupleOptimizationAliasCapturesProfile =>
+      match seed % 3UL {
+        0UL => Some("tuple-optimization:alias-captures-prefix")
+        1UL => Some("tuple-optimization:alias-captures-trailing")
+        _ => Some("tuple-optimization:alias-captures-chain")
+      }
     _ => None
   }
 }
@@ -7894,8 +7915,8 @@ fn gen_valid_heap_store_optimization_profile_config(
     max_mems: 1,
     max_globals: 2,
     max_tags: 1,
-    max_elems: 1,
-    max_datas: 1,
+    max_elems: 0,
+    max_datas: 0,
     max_params: 0,
     max_results: 0,
     max_locals: 0,
@@ -11094,7 +11115,7 @@ pub struct GenValidGenerated {
   wasm_module : Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
   facts : GenValidFeatureFacts
 } derive(Eq, Debug)
 
@@ -11103,7 +11124,7 @@ pub struct GenValidModuleGenerated {
   wasm_module : Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -11121,7 +11142,7 @@ pub struct GenValidFailure {
   last_candidate : Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
   validation_error_message : String
   budget_stop : GenValidBudgetStop?
 } derive(Eq, Debug)
@@ -11152,129 +11173,129 @@ pub fn gen_valid_config_label(config : GenValidConfig) -> String {
 ///|
 pub struct GenValidFeatureStats {
   mode : GenValidMode
-  modules : Int
-  imports : Int
-  func_exports : Int
-  table_exports : Int
-  mem_exports : Int
-  global_exports : Int
-  tag_exports : Int
-  starts : Int
-  lacks_start : Int
-  tables : Int
-  mems : Int
-  globals : Int
-  tags : Int
-  elems : Int
-  datas : Int
-  data_count : Int
-  ref_types : Int
-  v128 : Int
-  calls : Int
-  call_indirect : Int
-  branch_heavy_control : Int
-  payload_control_flow : Int
-  multivalue_control_flow : Int
-  numeric_full_ops : Int
-  br_table : Int
-  standalone_unreachable : Int
-  local_tee : Int
-  typed_select : Int
-  tail_calls : Int
-  high_local_indices : Int
-  unused_locals : Int
-  write_only_locals : Int
-  zero_local_funcs : Int
-  multi_param_result_arities : Int
-  empty_body_funcs : Int
-  unreachable_result_bodies : Int
-  local_name_entries : Int
-  scalar_memory_widths : Int
-  nonzero_memarg : Int
-  memory_limit_variants : Int
-  table_limit_variants : Int
-  const_expr_variants : Int
-  basic_ref_instructions : Int
-  i31_extern_conversions : Int
-  simd_phase1 : Int
-  simd_phase2 : Int
-  simd_phase3 : Int
-  descriptors : Int
-  continuations : Int
-  waitqueues : Int
-  atomics : Int
-  array_memory : Int
-  gc_constructors : Int
-  gc_accessors : Int
-  string_ops : Int
-  exception_try_table_matrix : Int
-  subtyping_topology : Int
-  rich_gc_field_plans : Int
-  import_export_topology : Int
-  element_segment_range : Int
-  data_segment_range : Int
-  name_custom_sections : Int
-  gc_exception_combo : Int
-  gc_tail_call_combo : Int
-  shared_memory_atomics : Int
-  imports_start_exports : Int
-  semantic_effects : Int
-  import_event_channel : Int
-  trap_frontier : Int
-  resource_observation : Int
-  poisoned_dead_code : Int
-  ssa_straight_line_local_chain : Int
-  ssa_already_ssa_local : Int
-  ssa_multi_def_same_local : Int
-  ssa_param_entry_read : Int
-  ssa_local_tee_def_use : Int
-  ssa_tee_freshen_candidate : Int
-  ssa_tee_merge_feeding_candidate : Int
-  ssa_tee_child_expression : Int
-  ssa_param_write : Int
-  ssa_dead_local_set : Int
-  ssa_dead_local_tee : Int
-  ssa_if_join_phi_candidate : Int
-  ssa_loop_backedge_phi_candidate : Int
-  ssa_br_table_phi_candidate : Int
-  ssa_parallel_copy_candidate : Int
-  ssa_parallel_copy_cycle_candidate : Int
-  ssa_default_local_merge : Int
-  ssa_one_arm_default_merge : Int
-  ssa_one_arm_param_merge : Int
-  ssa_both_arm_local_merge : Int
-  ssa_loop_carried_local_merge : Int
-  ssa_mixed_fresh_canonical_writes : Int
-  ssa_unreachable_local_carrier : Int
-  ssa_dropped_increment_guard_shape : Int
-  ssa_dropped_increment_reversed_boundary : Int
-  ssa_exceptional_fail_closed_shape : Int
-  ssa_typed_loop_param_fail_closed_shape : Int
-  ssa_nested_cfg_fail_closed_shape : Int
-  ssa_nested_result_if_supported_shape : Int
-  ssa_nested_result_if_condition_write : Int
-  ssa_nested_result_if_condition_value_block : Int
-  ssa_nested_result_if_arm_value_block : Int
-  ssa_nested_result_if_mixed_arm_value_block : Int
-  ssa_nested_result_if_scalar_result : Int
-  ssa_structured_early_return_local : Int
-  ssa_block_branch_merge_copy : Int
-  ssa_block_br_if_merge_copy : Int
-  ssa_structured_param_merge : Int
-  ssa_branch_local_not_read_later : Int
-  ssa_default_local_read_after_branchy_control : Int
-  ssa_dropped_unreachable_debris_before_hard_unreachable : Int
-  ssa_canonical_body_local_next_read : Int
-  ssa_immediate_block_exit_canonical_set_br : Int
-  ssa_enclosing_label_copy_before_exit : Int
-  ssa_branch_block_alias_copy : Int
-  ssa_nested_enclosing_label_copy : Int
-  ssa_parallel_branch_carrier_copy : Int
-  ssa_tee_branch_carrier_copy : Int
-  ssa_void_br_table_canonical_copies : Int
-  ssa_branch_operand_local_boundary : Int
-  ssa_nested_loop_target_boundary : Int
-  ssa_large_structured_local_mix : Int
+  modules : Int32
+  imports : Int32
+  func_exports : Int32
+  table_exports : Int32
+  mem_exports : Int32
+  global_exports : Int32
+  tag_exports : Int32
+  starts : Int32
+  lacks_start : Int32
+  tables : Int32
+  mems : Int32
+  globals : Int32
+  tags : Int32
+  elems : Int32
+  datas : Int32
+  data_count : Int32
+  ref_types : Int32
+  v128 : Int32
+  calls : Int32
+  call_indirect : Int32
+  branch_heavy_control : Int32
+  payload_control_flow : Int32
+  multivalue_control_flow : Int32
+  numeric_full_ops : Int32
+  br_table : Int32
+  standalone_unreachable : Int32
+  local_tee : Int32
+  typed_select : Int32
+  tail_calls : Int32
+  high_local_indices : Int32
+  unused_locals : Int32
+  write_only_locals : Int32
+  zero_local_funcs : Int32
+  multi_param_result_arities : Int32
+  empty_body_funcs : Int32
+  unreachable_result_bodies : Int32
+  local_name_entries : Int32
+  scalar_memory_widths : Int32
+  nonzero_memarg : Int32
+  memory_limit_variants : Int32
+  table_limit_variants : Int32
+  const_expr_variants : Int32
+  basic_ref_instructions : Int32
+  i31_extern_conversions : Int32
+  simd_phase1 : Int32
+  simd_phase2 : Int32
+  simd_phase3 : Int32
+  descriptors : Int32
+  continuations : Int32
+  waitqueues : Int32
+  atomics : Int32
+  array_memory : Int32
+  gc_constructors : Int32
+  gc_accessors : Int32
+  string_ops : Int32
+  exception_try_table_matrix : Int32
+  subtyping_topology : Int32
+  rich_gc_field_plans : Int32
+  import_export_topology : Int32
+  element_segment_range : Int32
+  data_segment_range : Int32
+  name_custom_sections : Int32
+  gc_exception_combo : Int32
+  gc_tail_call_combo : Int32
+  shared_memory_atomics : Int32
+  imports_start_exports : Int32
+  semantic_effects : Int32
+  import_event_channel : Int32
+  trap_frontier : Int32
+  resource_observation : Int32
+  poisoned_dead_code : Int32
+  ssa_straight_line_local_chain : Int32
+  ssa_already_ssa_local : Int32
+  ssa_multi_def_same_local : Int32
+  ssa_param_entry_read : Int32
+  ssa_local_tee_def_use : Int32
+  ssa_tee_freshen_candidate : Int32
+  ssa_tee_merge_feeding_candidate : Int32
+  ssa_tee_child_expression : Int32
+  ssa_param_write : Int32
+  ssa_dead_local_set : Int32
+  ssa_dead_local_tee : Int32
+  ssa_if_join_phi_candidate : Int32
+  ssa_loop_backedge_phi_candidate : Int32
+  ssa_br_table_phi_candidate : Int32
+  ssa_parallel_copy_candidate : Int32
+  ssa_parallel_copy_cycle_candidate : Int32
+  ssa_default_local_merge : Int32
+  ssa_one_arm_default_merge : Int32
+  ssa_one_arm_param_merge : Int32
+  ssa_both_arm_local_merge : Int32
+  ssa_loop_carried_local_merge : Int32
+  ssa_mixed_fresh_canonical_writes : Int32
+  ssa_unreachable_local_carrier : Int32
+  ssa_dropped_increment_guard_shape : Int32
+  ssa_dropped_increment_reversed_boundary : Int32
+  ssa_exceptional_fail_closed_shape : Int32
+  ssa_typed_loop_param_fail_closed_shape : Int32
+  ssa_nested_cfg_fail_closed_shape : Int32
+  ssa_nested_result_if_supported_shape : Int32
+  ssa_nested_result_if_condition_write : Int32
+  ssa_nested_result_if_condition_value_block : Int32
+  ssa_nested_result_if_arm_value_block : Int32
+  ssa_nested_result_if_mixed_arm_value_block : Int32
+  ssa_nested_result_if_scalar_result : Int32
+  ssa_structured_early_return_local : Int32
+  ssa_block_branch_merge_copy : Int32
+  ssa_block_br_if_merge_copy : Int32
+  ssa_structured_param_merge : Int32
+  ssa_branch_local_not_read_later : Int32
+  ssa_default_local_read_after_branchy_control : Int32
+  ssa_dropped_unreachable_debris_before_hard_unreachable : Int32
+  ssa_canonical_body_local_next_read : Int32
+  ssa_immediate_block_exit_canonical_set_br : Int32
+  ssa_enclosing_label_copy_before_exit : Int32
+  ssa_branch_block_alias_copy : Int32
+  ssa_nested_enclosing_label_copy : Int32
+  ssa_parallel_branch_carrier_copy : Int32
+  ssa_tee_branch_carrier_copy : Int32
+  ssa_void_br_table_canonical_copies : Int32
+  ssa_branch_operand_local_boundary : Int32
+  ssa_nested_loop_target_boundary : Int32
+  ssa_large_structured_local_mix : Int32
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -12012,409 +12033,409 @@ struct GenValidContext {
 
 ///|
 pub struct GenValidExactOpcodeCounts {
-  i32_const : Int
-  i64_const : Int
-  f32_const : Int
-  f64_const : Int
-  i32_eqz : Int
-  i64_eqz : Int
-  i32_eq : Int
-  i32_ne : Int
-  i32_lt_s : Int
-  i32_lt_u : Int
-  i32_gt_s : Int
-  i32_gt_u : Int
-  i32_le_s : Int
-  i32_le_u : Int
-  i32_ge_s : Int
-  i32_ge_u : Int
-  i64_eq : Int
-  i64_ne : Int
-  i64_lt_s : Int
-  i64_lt_u : Int
-  i64_gt_s : Int
-  i64_gt_u : Int
-  i64_le_s : Int
-  i64_le_u : Int
-  i64_ge_s : Int
-  i64_ge_u : Int
-  f32_eq : Int
-  f32_ne : Int
-  f32_lt : Int
-  f32_gt : Int
-  f32_le : Int
-  f32_ge : Int
-  f64_eq : Int
-  f64_ne : Int
-  f64_lt : Int
-  f64_gt : Int
-  f64_le : Int
-  f64_ge : Int
-  i32_clz : Int
-  i32_ctz : Int
-  i32_popcnt : Int
-  i32_add : Int
-  i32_sub : Int
-  i32_mul : Int
-  i32_div_s : Int
-  i32_div_u : Int
-  i32_rem_s : Int
-  i32_rem_u : Int
-  i32_and : Int
-  i32_or : Int
-  i32_xor : Int
-  i32_shl : Int
-  i32_shr_s : Int
-  i32_shr_u : Int
-  i32_rotl : Int
-  i32_rotr : Int
-  i64_clz : Int
-  i64_ctz : Int
-  i64_popcnt : Int
-  i64_add : Int
-  i64_sub : Int
-  i64_mul : Int
-  i64_div_s : Int
-  i64_div_u : Int
-  i64_rem_s : Int
-  i64_rem_u : Int
-  i64_and : Int
-  i64_or : Int
-  i64_xor : Int
-  i64_shl : Int
-  i64_shr_s : Int
-  i64_shr_u : Int
-  i64_rotl : Int
-  i64_rotr : Int
-  f32_abs : Int
-  f32_neg : Int
-  f32_ceil : Int
-  f32_floor : Int
-  f32_trunc : Int
-  f32_nearest : Int
-  f32_sqrt : Int
-  f32_add : Int
-  f32_sub : Int
-  f32_mul : Int
-  f32_div : Int
-  f32_min : Int
-  f32_max : Int
-  f32_copysign : Int
-  f64_abs : Int
-  f64_neg : Int
-  f64_ceil : Int
-  f64_floor : Int
-  f64_trunc : Int
-  f64_nearest : Int
-  f64_sqrt : Int
-  f64_add : Int
-  f64_sub : Int
-  f64_mul : Int
-  f64_div : Int
-  f64_min : Int
-  f64_max : Int
-  f64_copysign : Int
-  i32_wrap_i64 : Int
-  i32_trunc_f32s : Int
-  i32_trunc_f32u : Int
-  i32_trunc_f64s : Int
-  i32_trunc_f64u : Int
-  i64_extend_i32s : Int
-  i64_extend_i32u : Int
-  i64_trunc_f32s : Int
-  i64_trunc_f32u : Int
-  i64_trunc_f64s : Int
-  i64_trunc_f64u : Int
-  f32_convert_i32s : Int
-  f32_convert_i32u : Int
-  f32_convert_i64s : Int
-  f32_convert_i64u : Int
-  f32_demote_f64 : Int
-  f64_convert_i32s : Int
-  f64_convert_i32u : Int
-  f64_convert_i64s : Int
-  f64_convert_i64u : Int
-  f64_promote_f32 : Int
-  i32_extend8s : Int
-  i32_extend16s : Int
-  i64_extend8s : Int
-  i64_extend16s : Int
-  i64_extend32s : Int
-  i32_trunc_sat_f32s : Int
-  i32_trunc_sat_f32u : Int
-  i32_trunc_sat_f64s : Int
-  i32_trunc_sat_f64u : Int
-  i64_trunc_sat_f32s : Int
-  i64_trunc_sat_f32u : Int
-  i64_trunc_sat_f64s : Int
-  i64_trunc_sat_f64u : Int
-  i32_reinterpret_f32 : Int
-  i64_reinterpret_f64 : Int
-  f32_reinterpret_i32 : Int
-  f64_reinterpret_i64 : Int
-  br_table : Int
-  unreachable_opcode : Int
-  local_tee : Int
-  typed_select : Int
-  return_call : Int
-  return_call_indirect : Int
-  return_call_ref : Int
-  v128_const : Int
-  i8x16_splat : Int
-  i16x8_splat : Int
-  i32x4_splat : Int
-  i64x2_splat : Int
-  f32x4_splat : Int
-  f64x2_splat : Int
-  i8x16_extract_lane_s : Int
-  i8x16_extract_lane_u : Int
-  i8x16_replace_lane : Int
-  i16x8_extract_lane_s : Int
-  i16x8_extract_lane_u : Int
-  i16x8_replace_lane : Int
-  i32x4_extract_lane : Int
-  i32x4_replace_lane : Int
-  i64x2_extract_lane : Int
-  i64x2_replace_lane : Int
-  f32x4_extract_lane : Int
-  f32x4_replace_lane : Int
-  f64x2_extract_lane : Int
-  f64x2_replace_lane : Int
-  v128_not : Int
-  v128_and : Int
-  v128_andnot : Int
-  v128_or : Int
-  v128_xor : Int
-  v128_bitselect : Int
-  v128_any_true : Int
-  i8x16_eq : Int
-  i8x16_ne : Int
-  i8x16_lt_s : Int
-  i8x16_lt_u : Int
-  i8x16_gt_s : Int
-  i8x16_gt_u : Int
-  i8x16_le_s : Int
-  i8x16_le_u : Int
-  i8x16_ge_s : Int
-  i8x16_ge_u : Int
-  i16x8_eq : Int
-  i16x8_ne : Int
-  i16x8_lt_s : Int
-  i16x8_lt_u : Int
-  i16x8_gt_s : Int
-  i16x8_gt_u : Int
-  i16x8_le_s : Int
-  i16x8_le_u : Int
-  i16x8_ge_s : Int
-  i16x8_ge_u : Int
-  i32x4_eq : Int
-  i32x4_ne : Int
-  i32x4_lt_s : Int
-  i32x4_lt_u : Int
-  i32x4_gt_s : Int
-  i32x4_gt_u : Int
-  i32x4_le_s : Int
-  i32x4_le_u : Int
-  i32x4_ge_s : Int
-  i32x4_ge_u : Int
-  i64x2_eq : Int
-  i64x2_ne : Int
-  i64x2_lt_s : Int
-  i64x2_gt_s : Int
-  i64x2_le_s : Int
-  f32x4_eq : Int
-  f32x4_ne : Int
-  f32x4_lt : Int
-  f32x4_gt : Int
-  f32x4_le : Int
-  f32x4_ge : Int
-  f64x2_eq : Int
-  f64x2_ne : Int
-  f64x2_lt : Int
-  f64x2_gt : Int
-  f64x2_le : Int
-  f64x2_ge : Int
-  i8x16_abs : Int
-  i8x16_neg : Int
-  i8x16_popcnt : Int
-  i8x16_all_true : Int
-  i8x16_bitmask : Int
-  i16x8_abs : Int
-  i16x8_neg : Int
-  i16x8_q15mulr_sat_s : Int
-  i16x8_all_true : Int
-  i16x8_bitmask : Int
-  i32x4_abs : Int
-  i32x4_neg : Int
-  i32x4_bitmask : Int
-  i64x2_abs : Int
-  i64x2_neg : Int
-  i64x2_all_true : Int
-  i8x16_add : Int
-  i8x16_add_sat_s : Int
-  i8x16_add_sat_u : Int
-  i8x16_sub : Int
-  i8x16_sub_sat_s : Int
-  i16x8_mul : Int
-  i8x16_shl : Int
-  i8x16_shr_s : Int
-  i8x16_shr_u : Int
-  i16x8_shl : Int
-  i16x8_shr_s : Int
-  i16x8_shr_u : Int
-  i32x4_shl : Int
-  i32x4_shr_s : Int
-  i32x4_shr_u : Int
-  i64x2_shl : Int
-  i64x2_shr_s : Int
-  i64x2_shr_u : Int
-  i64x2_ge_s : Int
-  i32x4_all_true : Int
-  i64x2_bitmask : Int
-  i8x16_sub_sat_u : Int
-  i8x16_min_s : Int
-  i8x16_min_u : Int
-  i8x16_max_s : Int
-  i8x16_max_u : Int
-  i8x16_avgr_u : Int
-  i16x8_add : Int
-  i16x8_add_sat_s : Int
-  i16x8_add_sat_u : Int
-  i16x8_sub : Int
-  i16x8_sub_sat_s : Int
-  i16x8_sub_sat_u : Int
-  i16x8_min_s : Int
-  i16x8_min_u : Int
-  i16x8_max_s : Int
-  i16x8_max_u : Int
-  i16x8_avgr_u : Int
-  i32x4_add : Int
-  i32x4_sub : Int
-  i32x4_mul : Int
-  i32x4_min_s : Int
-  i32x4_min_u : Int
-  i32x4_max_s : Int
-  i32x4_max_u : Int
-  i64x2_add : Int
-  i64x2_sub : Int
-  i64x2_mul : Int
-  f32x4_add : Int
-  f32x4_abs : Int
-  f32x4_neg : Int
-  f32x4_sqrt : Int
-  f32x4_sub : Int
-  f32x4_mul : Int
-  f32x4_div : Int
-  f32x4_min : Int
-  f32x4_max : Int
-  f32x4_pmin : Int
-  f32x4_pmax : Int
-  f64x2_add : Int
-  f64x2_abs : Int
-  f64x2_neg : Int
-  f64x2_sqrt : Int
-  f64x2_sub : Int
-  f64x2_mul : Int
-  f64x2_div : Int
-  f64x2_min : Int
-  f64x2_max : Int
-  f64x2_pmin : Int
-  f64x2_pmax : Int
-  f32x4_ceil : Int
-  f32x4_floor : Int
-  f32x4_trunc : Int
-  f32x4_nearest : Int
-  f64x2_ceil : Int
-  f64x2_floor : Int
-  f64x2_trunc : Int
-  f64x2_nearest : Int
-  v128_load8x8_s : Int
-  v128_load8x8_u : Int
-  v128_load16x4_s : Int
-  v128_load16x4_u : Int
-  v128_load32x2_s : Int
-  v128_load32x2_u : Int
-  v128_load8_splat : Int
-  v128_load16_splat : Int
-  v128_load32_splat : Int
-  v128_load64_splat : Int
-  v128_load8_lane : Int
-  v128_load16_lane : Int
-  v128_load32_lane : Int
-  v128_load64_lane : Int
-  v128_store8_lane : Int
-  v128_store16_lane : Int
-  v128_store32_lane : Int
-  v128_store64_lane : Int
-  v128_load32_zero : Int
-  v128_load64_zero : Int
-  i8x16_narrow_i16x8_u : Int
-  i16x8_narrow_i32x4_s : Int
-  i16x8_narrow_i32x4_u : Int
-  i16x8_extadd_pairwise_i8x16_s : Int
-  i16x8_extadd_pairwise_i8x16_u : Int
-  i32x4_extadd_pairwise_i16x8_s : Int
-  i32x4_extadd_pairwise_i16x8_u : Int
-  i16x8_extend_low_i8x16_s : Int
-  i16x8_extend_high_i8x16_s : Int
-  i16x8_extend_low_i8x16_u : Int
-  i16x8_extend_high_i8x16_u : Int
-  i32x4_extend_low_i16x8_s : Int
-  i32x4_extend_high_i16x8_s : Int
-  i32x4_extend_low_i16x8_u : Int
-  i32x4_extend_high_i16x8_u : Int
-  i64x2_extend_low_i32x4_s : Int
-  i64x2_extend_high_i32x4_s : Int
-  i64x2_extend_low_i32x4_u : Int
-  i64x2_extend_high_i32x4_u : Int
-  i16x8_extmul_low_i8x16_s : Int
-  i16x8_extmul_high_i8x16_s : Int
-  i16x8_extmul_low_i8x16_u : Int
-  i16x8_extmul_high_i8x16_u : Int
-  i32x4_extmul_low_i16x8_s : Int
-  i32x4_extmul_high_i16x8_s : Int
-  i32x4_extmul_low_i16x8_u : Int
-  i32x4_extmul_high_i16x8_u : Int
-  i64x2_extmul_low_i32x4_s : Int
-  i64x2_extmul_high_i32x4_s : Int
-  i64x2_extmul_low_i32x4_u : Int
-  i64x2_extmul_high_i32x4_u : Int
-  f64x2_promote_low_f32x4 : Int
-  v128_load : Int
-  v128_store : Int
-  i8x16_shuffle : Int
-  i8x16_swizzle : Int
-  i8x16_narrow_i16x8_s : Int
-  i32x4_dot_i16x8_s : Int
-  f32x4_demote_f64x2_zero : Int
-  i32x4_trunc_sat_f32x4_s : Int
-  i32x4_trunc_sat_f32x4_u : Int
-  f32x4_convert_i32x4_s : Int
-  f32x4_convert_i32x4_u : Int
-  i32x4_trunc_sat_f64x2_s_zero : Int
-  i32x4_trunc_sat_f64x2_u_zero : Int
-  f64x2_convert_low_i32x4_s : Int
-  f64x2_convert_low_i32x4_u : Int
-  i8x16_relaxed_swizzle : Int
-  i32x4_relaxed_trunc_f32x4_s : Int
-  i32x4_relaxed_trunc_f32x4_u : Int
-  i32x4_relaxed_trunc_zero_f64x2_s : Int
-  i32x4_relaxed_trunc_zero_f64x2_u : Int
-  f32x4_relaxed_madd : Int
-  f32x4_relaxed_nmadd : Int
-  f64x2_relaxed_madd : Int
-  f64x2_relaxed_nmadd : Int
-  i8x16_relaxed_laneselect : Int
-  i16x8_relaxed_laneselect : Int
-  i32x4_relaxed_laneselect : Int
-  i64x2_relaxed_laneselect : Int
-  f32x4_relaxed_min : Int
-  f32x4_relaxed_max : Int
-  f64x2_relaxed_min : Int
-  f64x2_relaxed_max : Int
-  i16x8_relaxed_q15mulr_s : Int
-  i16x8_relaxed_dot_i8x16_i7x16_s : Int
-  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int
+  i32_const : Int32
+  i64_const : Int32
+  f32_const : Int32
+  f64_const : Int32
+  i32_eqz : Int32
+  i64_eqz : Int32
+  i32_eq : Int32
+  i32_ne : Int32
+  i32_lt_s : Int32
+  i32_lt_u : Int32
+  i32_gt_s : Int32
+  i32_gt_u : Int32
+  i32_le_s : Int32
+  i32_le_u : Int32
+  i32_ge_s : Int32
+  i32_ge_u : Int32
+  i64_eq : Int32
+  i64_ne : Int32
+  i64_lt_s : Int32
+  i64_lt_u : Int32
+  i64_gt_s : Int32
+  i64_gt_u : Int32
+  i64_le_s : Int32
+  i64_le_u : Int32
+  i64_ge_s : Int32
+  i64_ge_u : Int32
+  f32_eq : Int32
+  f32_ne : Int32
+  f32_lt : Int32
+  f32_gt : Int32
+  f32_le : Int32
+  f32_ge : Int32
+  f64_eq : Int32
+  f64_ne : Int32
+  f64_lt : Int32
+  f64_gt : Int32
+  f64_le : Int32
+  f64_ge : Int32
+  i32_clz : Int32
+  i32_ctz : Int32
+  i32_popcnt : Int32
+  i32_add : Int32
+  i32_sub : Int32
+  i32_mul : Int32
+  i32_div_s : Int32
+  i32_div_u : Int32
+  i32_rem_s : Int32
+  i32_rem_u : Int32
+  i32_and : Int32
+  i32_or : Int32
+  i32_xor : Int32
+  i32_shl : Int32
+  i32_shr_s : Int32
+  i32_shr_u : Int32
+  i32_rotl : Int32
+  i32_rotr : Int32
+  i64_clz : Int32
+  i64_ctz : Int32
+  i64_popcnt : Int32
+  i64_add : Int32
+  i64_sub : Int32
+  i64_mul : Int32
+  i64_div_s : Int32
+  i64_div_u : Int32
+  i64_rem_s : Int32
+  i64_rem_u : Int32
+  i64_and : Int32
+  i64_or : Int32
+  i64_xor : Int32
+  i64_shl : Int32
+  i64_shr_s : Int32
+  i64_shr_u : Int32
+  i64_rotl : Int32
+  i64_rotr : Int32
+  f32_abs : Int32
+  f32_neg : Int32
+  f32_ceil : Int32
+  f32_floor : Int32
+  f32_trunc : Int32
+  f32_nearest : Int32
+  f32_sqrt : Int32
+  f32_add : Int32
+  f32_sub : Int32
+  f32_mul : Int32
+  f32_div : Int32
+  f32_min : Int32
+  f32_max : Int32
+  f32_copysign : Int32
+  f64_abs : Int32
+  f64_neg : Int32
+  f64_ceil : Int32
+  f64_floor : Int32
+  f64_trunc : Int32
+  f64_nearest : Int32
+  f64_sqrt : Int32
+  f64_add : Int32
+  f64_sub : Int32
+  f64_mul : Int32
+  f64_div : Int32
+  f64_min : Int32
+  f64_max : Int32
+  f64_copysign : Int32
+  i32_wrap_i64 : Int32
+  i32_trunc_f32s : Int32
+  i32_trunc_f32u : Int32
+  i32_trunc_f64s : Int32
+  i32_trunc_f64u : Int32
+  i64_extend_i32s : Int32
+  i64_extend_i32u : Int32
+  i64_trunc_f32s : Int32
+  i64_trunc_f32u : Int32
+  i64_trunc_f64s : Int32
+  i64_trunc_f64u : Int32
+  f32_convert_i32s : Int32
+  f32_convert_i32u : Int32
+  f32_convert_i64s : Int32
+  f32_convert_i64u : Int32
+  f32_demote_f64 : Int32
+  f64_convert_i32s : Int32
+  f64_convert_i32u : Int32
+  f64_convert_i64s : Int32
+  f64_convert_i64u : Int32
+  f64_promote_f32 : Int32
+  i32_extend8s : Int32
+  i32_extend16s : Int32
+  i64_extend8s : Int32
+  i64_extend16s : Int32
+  i64_extend32s : Int32
+  i32_trunc_sat_f32s : Int32
+  i32_trunc_sat_f32u : Int32
+  i32_trunc_sat_f64s : Int32
+  i32_trunc_sat_f64u : Int32
+  i64_trunc_sat_f32s : Int32
+  i64_trunc_sat_f32u : Int32
+  i64_trunc_sat_f64s : Int32
+  i64_trunc_sat_f64u : Int32
+  i32_reinterpret_f32 : Int32
+  i64_reinterpret_f64 : Int32
+  f32_reinterpret_i32 : Int32
+  f64_reinterpret_i64 : Int32
+  br_table : Int32
+  unreachable_opcode : Int32
+  local_tee : Int32
+  typed_select : Int32
+  return_call : Int32
+  return_call_indirect : Int32
+  return_call_ref : Int32
+  v128_const : Int32
+  i8x16_splat : Int32
+  i16x8_splat : Int32
+  i32x4_splat : Int32
+  i64x2_splat : Int32
+  f32x4_splat : Int32
+  f64x2_splat : Int32
+  i8x16_extract_lane_s : Int32
+  i8x16_extract_lane_u : Int32
+  i8x16_replace_lane : Int32
+  i16x8_extract_lane_s : Int32
+  i16x8_extract_lane_u : Int32
+  i16x8_replace_lane : Int32
+  i32x4_extract_lane : Int32
+  i32x4_replace_lane : Int32
+  i64x2_extract_lane : Int32
+  i64x2_replace_lane : Int32
+  f32x4_extract_lane : Int32
+  f32x4_replace_lane : Int32
+  f64x2_extract_lane : Int32
+  f64x2_replace_lane : Int32
+  v128_not : Int32
+  v128_and : Int32
+  v128_andnot : Int32
+  v128_or : Int32
+  v128_xor : Int32
+  v128_bitselect : Int32
+  v128_any_true : Int32
+  i8x16_eq : Int32
+  i8x16_ne : Int32
+  i8x16_lt_s : Int32
+  i8x16_lt_u : Int32
+  i8x16_gt_s : Int32
+  i8x16_gt_u : Int32
+  i8x16_le_s : Int32
+  i8x16_le_u : Int32
+  i8x16_ge_s : Int32
+  i8x16_ge_u : Int32
+  i16x8_eq : Int32
+  i16x8_ne : Int32
+  i16x8_lt_s : Int32
+  i16x8_lt_u : Int32
+  i16x8_gt_s : Int32
+  i16x8_gt_u : Int32
+  i16x8_le_s : Int32
+  i16x8_le_u : Int32
+  i16x8_ge_s : Int32
+  i16x8_ge_u : Int32
+  i32x4_eq : Int32
+  i32x4_ne : Int32
+  i32x4_lt_s : Int32
+  i32x4_lt_u : Int32
+  i32x4_gt_s : Int32
+  i32x4_gt_u : Int32
+  i32x4_le_s : Int32
+  i32x4_le_u : Int32
+  i32x4_ge_s : Int32
+  i32x4_ge_u : Int32
+  i64x2_eq : Int32
+  i64x2_ne : Int32
+  i64x2_lt_s : Int32
+  i64x2_gt_s : Int32
+  i64x2_le_s : Int32
+  f32x4_eq : Int32
+  f32x4_ne : Int32
+  f32x4_lt : Int32
+  f32x4_gt : Int32
+  f32x4_le : Int32
+  f32x4_ge : Int32
+  f64x2_eq : Int32
+  f64x2_ne : Int32
+  f64x2_lt : Int32
+  f64x2_gt : Int32
+  f64x2_le : Int32
+  f64x2_ge : Int32
+  i8x16_abs : Int32
+  i8x16_neg : Int32
+  i8x16_popcnt : Int32
+  i8x16_all_true : Int32
+  i8x16_bitmask : Int32
+  i16x8_abs : Int32
+  i16x8_neg : Int32
+  i16x8_q15mulr_sat_s : Int32
+  i16x8_all_true : Int32
+  i16x8_bitmask : Int32
+  i32x4_abs : Int32
+  i32x4_neg : Int32
+  i32x4_bitmask : Int32
+  i64x2_abs : Int32
+  i64x2_neg : Int32
+  i64x2_all_true : Int32
+  i8x16_add : Int32
+  i8x16_add_sat_s : Int32
+  i8x16_add_sat_u : Int32
+  i8x16_sub : Int32
+  i8x16_sub_sat_s : Int32
+  i16x8_mul : Int32
+  i8x16_shl : Int32
+  i8x16_shr_s : Int32
+  i8x16_shr_u : Int32
+  i16x8_shl : Int32
+  i16x8_shr_s : Int32
+  i16x8_shr_u : Int32
+  i32x4_shl : Int32
+  i32x4_shr_s : Int32
+  i32x4_shr_u : Int32
+  i64x2_shl : Int32
+  i64x2_shr_s : Int32
+  i64x2_shr_u : Int32
+  i64x2_ge_s : Int32
+  i32x4_all_true : Int32
+  i64x2_bitmask : Int32
+  i8x16_sub_sat_u : Int32
+  i8x16_min_s : Int32
+  i8x16_min_u : Int32
+  i8x16_max_s : Int32
+  i8x16_max_u : Int32
+  i8x16_avgr_u : Int32
+  i16x8_add : Int32
+  i16x8_add_sat_s : Int32
+  i16x8_add_sat_u : Int32
+  i16x8_sub : Int32
+  i16x8_sub_sat_s : Int32
+  i16x8_sub_sat_u : Int32
+  i16x8_min_s : Int32
+  i16x8_min_u : Int32
+  i16x8_max_s : Int32
+  i16x8_max_u : Int32
+  i16x8_avgr_u : Int32
+  i32x4_add : Int32
+  i32x4_sub : Int32
+  i32x4_mul : Int32
+  i32x4_min_s : Int32
+  i32x4_min_u : Int32
+  i32x4_max_s : Int32
+  i32x4_max_u : Int32
+  i64x2_add : Int32
+  i64x2_sub : Int32
+  i64x2_mul : Int32
+  f32x4_add : Int32
+  f32x4_abs : Int32
+  f32x4_neg : Int32
+  f32x4_sqrt : Int32
+  f32x4_sub : Int32
+  f32x4_mul : Int32
+  f32x4_div : Int32
+  f32x4_min : Int32
+  f32x4_max : Int32
+  f32x4_pmin : Int32
+  f32x4_pmax : Int32
+  f64x2_add : Int32
+  f64x2_abs : Int32
+  f64x2_neg : Int32
+  f64x2_sqrt : Int32
+  f64x2_sub : Int32
+  f64x2_mul : Int32
+  f64x2_div : Int32
+  f64x2_min : Int32
+  f64x2_max : Int32
+  f64x2_pmin : Int32
+  f64x2_pmax : Int32
+  f32x4_ceil : Int32
+  f32x4_floor : Int32
+  f32x4_trunc : Int32
+  f32x4_nearest : Int32
+  f64x2_ceil : Int32
+  f64x2_floor : Int32
+  f64x2_trunc : Int32
+  f64x2_nearest : Int32
+  v128_load8x8_s : Int32
+  v128_load8x8_u : Int32
+  v128_load16x4_s : Int32
+  v128_load16x4_u : Int32
+  v128_load32x2_s : Int32
+  v128_load32x2_u : Int32
+  v128_load8_splat : Int32
+  v128_load16_splat : Int32
+  v128_load32_splat : Int32
+  v128_load64_splat : Int32
+  v128_load8_lane : Int32
+  v128_load16_lane : Int32
+  v128_load32_lane : Int32
+  v128_load64_lane : Int32
+  v128_store8_lane : Int32
+  v128_store16_lane : Int32
+  v128_store32_lane : Int32
+  v128_store64_lane : Int32
+  v128_load32_zero : Int32
+  v128_load64_zero : Int32
+  i8x16_narrow_i16x8_u : Int32
+  i16x8_narrow_i32x4_s : Int32
+  i16x8_narrow_i32x4_u : Int32
+  i16x8_extadd_pairwise_i8x16_s : Int32
+  i16x8_extadd_pairwise_i8x16_u : Int32
+  i32x4_extadd_pairwise_i16x8_s : Int32
+  i32x4_extadd_pairwise_i16x8_u : Int32
+  i16x8_extend_low_i8x16_s : Int32
+  i16x8_extend_high_i8x16_s : Int32
+  i16x8_extend_low_i8x16_u : Int32
+  i16x8_extend_high_i8x16_u : Int32
+  i32x4_extend_low_i16x8_s : Int32
+  i32x4_extend_high_i16x8_s : Int32
+  i32x4_extend_low_i16x8_u : Int32
+  i32x4_extend_high_i16x8_u : Int32
+  i64x2_extend_low_i32x4_s : Int32
+  i64x2_extend_high_i32x4_s : Int32
+  i64x2_extend_low_i32x4_u : Int32
+  i64x2_extend_high_i32x4_u : Int32
+  i16x8_extmul_low_i8x16_s : Int32
+  i16x8_extmul_high_i8x16_s : Int32
+  i16x8_extmul_low_i8x16_u : Int32
+  i16x8_extmul_high_i8x16_u : Int32
+  i32x4_extmul_low_i16x8_s : Int32
+  i32x4_extmul_high_i16x8_s : Int32
+  i32x4_extmul_low_i16x8_u : Int32
+  i32x4_extmul_high_i16x8_u : Int32
+  i64x2_extmul_low_i32x4_s : Int32
+  i64x2_extmul_high_i32x4_s : Int32
+  i64x2_extmul_low_i32x4_u : Int32
+  i64x2_extmul_high_i32x4_u : Int32
+  f64x2_promote_low_f32x4 : Int32
+  v128_load : Int32
+  v128_store : Int32
+  i8x16_shuffle : Int32
+  i8x16_swizzle : Int32
+  i8x16_narrow_i16x8_s : Int32
+  i32x4_dot_i16x8_s : Int32
+  f32x4_demote_f64x2_zero : Int32
+  i32x4_trunc_sat_f32x4_s : Int32
+  i32x4_trunc_sat_f32x4_u : Int32
+  f32x4_convert_i32x4_s : Int32
+  f32x4_convert_i32x4_u : Int32
+  i32x4_trunc_sat_f64x2_s_zero : Int32
+  i32x4_trunc_sat_f64x2_u_zero : Int32
+  f64x2_convert_low_i32x4_s : Int32
+  f64x2_convert_low_i32x4_u : Int32
+  i8x16_relaxed_swizzle : Int32
+  i32x4_relaxed_trunc_f32x4_s : Int32
+  i32x4_relaxed_trunc_f32x4_u : Int32
+  i32x4_relaxed_trunc_zero_f64x2_s : Int32
+  i32x4_relaxed_trunc_zero_f64x2_u : Int32
+  f32x4_relaxed_madd : Int32
+  f32x4_relaxed_nmadd : Int32
+  f64x2_relaxed_madd : Int32
+  f64x2_relaxed_nmadd : Int32
+  i8x16_relaxed_laneselect : Int32
+  i16x8_relaxed_laneselect : Int32
+  i32x4_relaxed_laneselect : Int32
+  i64x2_relaxed_laneselect : Int32
+  f32x4_relaxed_min : Int32
+  f32x4_relaxed_max : Int32
+  f64x2_relaxed_min : Int32
+  f64x2_relaxed_max : Int32
+  i16x8_relaxed_q15mulr_s : Int32
+  i16x8_relaxed_dot_i8x16_i7x16_s : Int32
+  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -12448,8 +12469,8 @@ priv struct GenValidInstrFacts {
   has_rich_gc_field_plans : Bool
   has_shared_memories : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
-  control_nodes : Int
-  branch_ops : Int
+  control_nodes : Int32
+  branch_ops : Int32
 }
 
 ///|
@@ -13462,7 +13483,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
 }
 
 ///|
-fn gen_valid_bool_count(flag : Bool) -> Int {
+fn gen_valid_bool_count(flag : Bool) -> Int32 {
   if flag {
     1
   } else {
@@ -13471,7 +13492,7 @@ fn gen_valid_bool_count(flag : Bool) -> Int {
 }
 
 ///|
-fn gen_valid_clamp_non_negative(value : Int) -> Int {
+fn gen_valid_clamp_non_negative(value : Int32) -> Int32 {
   if value < 0 {
     0
   } else {
@@ -13480,7 +13501,7 @@ fn gen_valid_clamp_non_negative(value : Int) -> Int {
 }
 
 ///|
-fn gen_valid_min_int(left : Int, right : Int) -> Int {
+fn gen_valid_min_int(left : Int32, right : Int32) -> Int32 {
   if left < right {
     left
   } else {
@@ -13492,7 +13513,7 @@ fn gen_valid_min_int(left : Int, right : Int) -> Int {
 fn gen_valid_roll_percent_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
-  percent : Int,
+  percent : Int32,
 ) -> Bool {
   let bounded = if percent < 0 {
     0
@@ -13514,8 +13535,8 @@ fn gen_valid_roll_percent_from(
 fn GenValidContext::random_int_from(
   self : GenValidContext,
   label : GenValidRandomStreamLabel,
-  max : Int,
-) -> Int {
+  max : Int32,
+) -> Int32 {
   if max <= 0 {
     return 0
   }
@@ -14003,7 +14024,7 @@ fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
 ///|
 fn gen_result_types(
   ctx : GenValidContext,
-  extra_ref_types? : Array[ValType] = [],
+  extra_ref_types~ : Array[ValType] = [],
 ) -> Array[ValType] {
   let max_results = gen_valid_clamp_non_negative(ctx.config.max_results)
   if max_results <= 0 || ctx.random_bool_from(TypeStream) {
@@ -14061,7 +14082,7 @@ fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
 ///|
 fn gen_local_types(
   ctx : GenValidContext,
-  extra_ref_types? : Array[ValType] = [],
+  extra_ref_types~ : Array[ValType] = [],
 ) -> Array[ValType] {
   let count = ctx.random_int_from(
     FuncStream,
@@ -14237,8 +14258,8 @@ fn gen_valid_gc_type_register_array_const_expr_shape(
 ///|
 fn gen_valid_gc_type_defs(
   ctx : GenValidContext,
-  next_type_idx : Int,
-  remaining_type_budget : Int,
+  next_type_idx : Int32,
+  remaining_type_budget : Int32,
 ) -> (Array[RecType], GenValidGcTypePlan) {
   if !ctx.config.features.allow_ref_types || remaining_type_budget <= 0 {
     return ([], gen_valid_gc_type_plan_empty())
@@ -14286,7 +14307,10 @@ fn gen_valid_gc_type_defs(
   let want_v128_array = ctx.config.features.allow_v128 &&
     ctx.config.mode == CoverageForced &&
     remaining_type_budget - defs.length() > 0
-  let want_descriptor_group = remaining_type_budget - defs.length() > 0 &&
+  let hso_descriptor_leaf = !ctx.config.features.allow_heap_store_optimization_body_generator ||
+    ctx.config.max_body_statements == 94
+  let want_descriptor_group = hso_descriptor_leaf &&
+    remaining_type_budget - defs.length() > 0 &&
     (
       ctx.config.mode == CoverageForced ||
       ctx.random_int_from(TypeStream, 3) == 0
@@ -14768,7 +14792,7 @@ fn gen_matching_local_idx(
 fn gen_matching_high_local_idx(
   local_types : Array[ValType],
   vt : ValType,
-  min_index : Int,
+  min_index : Int32,
 ) -> LocalIdx? {
   for i = min_index; i < local_types.length(); i = i + 1 {
     if local_types[i] == vt {
@@ -14782,7 +14806,7 @@ fn gen_matching_high_local_idx(
 fn gen_matching_high_local_idx_except(
   local_types : Array[ValType],
   vt : ValType,
-  min_index : Int,
+  min_index : Int32,
   excluded : LocalIdx,
 ) -> LocalIdx? {
   for i = min_index; i < local_types.length(); i = i + 1 {
@@ -14910,11 +14934,11 @@ priv struct GenValidFuncSig {
 
 ///|
 priv struct GenValidImportPlan {
-  func_count : Int
-  table_count : Int
-  mem_count : Int
-  global_count : Int
-  tag_count : Int
+  func_count : Int32
+  table_count : Int32
+  mem_count : Int32
+  global_count : Int32
+  tag_count : Int32
 }
 
 ///|
@@ -14949,7 +14973,7 @@ priv struct GenValidGcTypePlan {
   descriptor_type_idx : TypeIdx?
   string_wtf16_array_idx : TypeIdx?
   string_utf8_array_idx : TypeIdx?
-  rec_group_count : Int
+  rec_group_count : Int32
 }
 
 ///|
@@ -14968,15 +14992,15 @@ priv struct GenValidBodyEnv {
   gc_type_plan : GenValidGcTypePlan
   declared_ref_func_idx : FuncIdx?
   current_func_idx : FuncIdx?
-  depth_left : Int
-  label_depth : Int
+  depth_left : Int32
+  label_depth : Int32
 }
 
 ///|
 fn gen_matching_global_idx(
   globals : Array[GlobalType],
   vt : ValType,
-  mutable_only? : Bool = false,
+  mutable_only~ : Bool = false,
 ) -> GlobalIdx? {
   for i = 0; i < globals.length(); i = i + 1 {
     let GlobalType(global_vt, is_mut) = globals[i]
@@ -15113,14 +15137,14 @@ fn gen_valid_memarg() -> MemArg {
 }
 
 ///|
-fn gen_valid_memarg_varied(align_pow : UInt, offset : UInt64) -> MemArg {
+fn gen_valid_memarg_varied(align_pow : UInt32, offset : UInt64) -> MemArg {
   MemArg::new(U32(align_pow), None, U64(offset))
 }
 
 ///|
 fn gen_valid_simd_memarg_varied(
   nonzero_mem_idx : MemIdx?,
-  align_pow : UInt,
+  align_pow : UInt32,
   offset : UInt64,
 ) -> MemArg {
   match nonzero_mem_idx {
@@ -15132,7 +15156,7 @@ fn gen_valid_simd_memarg_varied(
 ///|
 fn gen_valid_memarg_for_mem(
   mem_idx : MemIdx,
-  align_pow : UInt,
+  align_pow : UInt32,
   offset : UInt64,
 ) -> MemArg {
   MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
@@ -15141,7 +15165,7 @@ fn gen_valid_memarg_for_mem(
 ///|
 fn gen_valid_body_env_child(
   env : GenValidBodyEnv,
-  add_void_label? : Bool = false,
+  add_void_label~ : Bool = false,
 ) -> GenValidBodyEnv {
   let next_label_depth = if add_void_label {
     env.label_depth + 1
@@ -15160,7 +15184,10 @@ fn gen_valid_body_env_child(
 }
 
 ///|
-fn gen_valid_body_stmt_count(ctx : GenValidContext, depth_left : Int) -> Int {
+fn gen_valid_body_stmt_count(
+  ctx : GenValidContext,
+  depth_left : Int32,
+) -> Int32 {
   let bounded = gen_valid_clamp_non_negative(ctx.config.max_body_statements)
   let capped = if depth_left <= 0 {
     gen_valid_min_int(2, bounded)
@@ -15206,7 +15233,7 @@ fn gen_valid_append_direct_call(
 }
 
 ///|
-fn gen_valid_func_idx_to_int(idx : FuncIdx) -> Int {
+fn gen_valid_func_idx_to_int(idx : FuncIdx) -> Int32 {
   let FuncIdx(idx_u) = idx
   idx_u.reinterpret_as_int()
 }
@@ -15333,7 +15360,7 @@ fn gen_valid_append_table_ref_value(
 ///|
 fn gen_valid_pick_func_idx(
   ctx : GenValidContext,
-  total_func_count : Int,
+  total_func_count : Int32,
   preferred_idx : FuncIdx,
 ) -> FuncIdx {
   if total_func_count <= 0 {
@@ -15364,9 +15391,9 @@ fn gen_valid_funcref_expr(ctx : GenValidContext, func_idx : FuncIdx) -> Expr {
 fn gen_valid_elem_ref_expr(
   ctx : GenValidContext,
   rt : RefType,
-  func_idx? : FuncIdx = FuncIdx::new(0U),
-  gc_type_plan? : GenValidGcTypePlan = gen_valid_gc_type_plan_empty(),
-  array_kind? : GenValidArrayConstExprKind? = None,
+  func_idx~ : FuncIdx = FuncIdx::new(0U),
+  gc_type_plan~ : GenValidGcTypePlan = gen_valid_gc_type_plan_empty(),
+  array_kind~ : GenValidArrayConstExprKind? = None,
 ) -> Expr {
   let vt = ValType::ref_type(rt)
   if vt == ValType::funcref() {
@@ -15963,7 +15990,7 @@ fn gen_valid_typed_expr(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
   expected_results : Array[ValType],
-  fuel : Int,
+  fuel : Int32,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut stack = gen_valid_typed_stack_empty()
@@ -15988,7 +16015,7 @@ fn gen_valid_append_typed_payload_control_blocks(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
   vt : ValType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Unit {
   let child = gen_valid_body_env_child(env, add_void_label=true)
   let payload_br_body : Array[Instruction] = []
@@ -16043,7 +16070,7 @@ fn gen_valid_append_nested_payload_branch_block(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
   vt : ValType,
-  fuel : Int,
+  fuel : Int32,
 ) -> Unit {
   let child = gen_valid_body_env_child(env, add_void_label=true)
   let inner_body : Array[Instruction] = []
@@ -16083,7 +16110,7 @@ fn gen_valid_typed_stmt(
   out : Array[Instruction],
   ctx : GenValidContext,
   env : GenValidBodyEnv,
-  fuel : Int,
+  fuel : Int32,
 ) -> Unit {
   let child = gen_valid_body_env_child(env, add_void_label=true)
   match gen_valid_typed_pick_local_set_target(env.local_types) {
@@ -16297,7 +16324,7 @@ fn append_value_instrs(
   ctx : GenValidContext,
   vt : ValType,
   env : GenValidBodyEnv,
-  prefer_local? : Bool = true,
+  prefer_local~ : Bool = true,
 ) -> Unit {
   if prefer_local && ctx.random_bool_from(BodyStream) {
     match gen_matching_local_idx(env.local_types, vt) {
@@ -18652,7 +18679,7 @@ fn gen_valid_append_v128_ternary_op(
 ///|
 fn gen_valid_append_v128_shift_op(
   out : Array[Instruction],
-  amount : Int,
+  amount : Int32,
   instr : Instruction,
 ) -> Unit {
   gen_valid_append_v128_zero(out)
@@ -19090,7 +19117,7 @@ fn gen_valid_atomic_shared_mem_idx(env : GenValidBodyEnv) -> MemIdx? {
 ///|
 fn gen_valid_atomic_memarg(
   mem_idx : MemIdx,
-  align_pow : UInt,
+  align_pow : UInt32,
   offset : UInt64,
 ) -> MemArg {
   MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
@@ -20039,7 +20066,7 @@ fn gen_valid_append_call_template_group(
 }
 
 ///|
-fn gen_valid_template_order_key(env : GenValidBodyEnv) -> Int {
+fn gen_valid_template_order_key(env : GenValidBodyEnv) -> Int32 {
   match env.current_func_idx {
     Some(func_idx) => gen_valid_func_idx_to_int(func_idx)
     None =>
@@ -20253,7 +20280,7 @@ fn gen_valid_append_return_value_instrs(
 ///|
 fn gen_valid_coalesce_locals_has_i32_prefix(
   env : GenValidBodyEnv,
-  count : Int,
+  count : Int32,
 ) -> Bool {
   if env.local_types.length() < count {
     return false
@@ -20780,8 +20807,8 @@ fn gen_valid_append_heap2local_body_slice(
 fn gen_valid_append_hso_struct_new_fields(
   out : Array[Instruction],
   shared : Bool,
-  first : Int,
-  second : Int,
+  first : Int32,
+  second : Int32,
 ) -> Unit {
   out.push(Instruction::i32_const(I32(first)))
   if shared {
@@ -22122,7 +22149,7 @@ fn gen_valid_build_func(
   bulk_elem_seed_idx : ElemIdx?,
   gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
-  current_func_idx? : FuncIdx? = None,
+  current_func_idx~ : FuncIdx? = None,
 ) -> Func {
   let local_ref_types = gc_type_plan.concrete_ref_types.copy()
   for vt in gc_type_plan.exact_ref_types {
@@ -22409,10 +22436,10 @@ fn gen_valid_choose_optional_count_with_coverage_floor_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
   allow : Bool,
-  max_count : Int,
-  percent : Int,
-  coverage_floor : Int,
-) -> Int {
+  max_count : Int32,
+  percent : Int32,
+  coverage_floor : Int32,
+) -> Int32 {
   let bounded_max = gen_valid_clamp_non_negative(max_count)
   if !allow || bounded_max <= 0 {
     0
@@ -22433,10 +22460,10 @@ fn gen_valid_choose_optional_count_with_coverage_floor_from(
 fn gen_valid_choose_optional_count_with_coverage_floor(
   ctx : GenValidContext,
   allow : Bool,
-  max_count : Int,
-  percent : Int,
-  coverage_floor : Int,
-) -> Int {
+  max_count : Int32,
+  percent : Int32,
+  coverage_floor : Int32,
+) -> Int32 {
   gen_valid_choose_optional_count_with_coverage_floor_from(
     ctx,
     ModuleTopologyStream,
@@ -22452,16 +22479,16 @@ fn gen_valid_choose_optional_count_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
   allow : Bool,
-  max_count : Int,
-  percent : Int,
-) -> Int {
+  max_count : Int32,
+  percent : Int32,
+) -> Int32 {
   gen_valid_choose_optional_count_with_coverage_floor_from(
     ctx, label, allow, max_count, percent, 1,
   )
 }
 
 ///|
-fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
+fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int32 {
   let bounded_max = gen_valid_clamp_non_negative(ctx.config.max_defined_funcs)
   if bounded_max <= 1 {
     1
@@ -22481,7 +22508,7 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
 fn gen_valid_active_i32_offset_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
-  global_idx? : GlobalIdx? = None,
+  global_idx~ : GlobalIdx? = None,
 ) -> Expr {
   if ctx.config.features.allow_const_expr_variants &&
     (ctx.config.mode == CoverageForced || ctx.random_int_from(label, 4) == 0) {
@@ -22508,7 +22535,7 @@ fn gen_valid_active_offset_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
   addr_type : ValType,
-  global_idx? : GlobalIdx? = None,
+  global_idx~ : GlobalIdx? = None,
 ) -> Expr {
   if addr_type == ValType::i32() {
     gen_valid_active_i32_offset_from(ctx, label, global_idx~)
@@ -22538,15 +22565,15 @@ fn gen_valid_active_offset_from(
 ///|
 fn gen_valid_active_i32_offset(
   ctx : GenValidContext,
-  global_idx? : GlobalIdx? = None,
+  global_idx~ : GlobalIdx? = None,
 ) -> Expr {
   gen_valid_active_i32_offset_from(ctx, ModuleTopologyStream, global_idx~)
 }
 
 ///|
 fn gen_valid_memory_limits_i32(
-  min : UInt,
-  max : UInt?,
+  min : UInt32,
+  max : UInt32?,
   shared : Bool,
 ) -> MemType {
   MemType::new(Limits::i32(min, max), shared~)
@@ -22562,7 +22589,7 @@ fn gen_valid_memory_limits_i64(
 }
 
 ///|
-fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
+fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int32) -> MemType {
   let variants = ctx.config.features.allow_memory_limit_variants
   let shared_enabled = ctx.config.features.allow_shared_memories
   let memory64_enabled = ctx.config.features.allow_memory64
@@ -22638,7 +22665,7 @@ fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
 ///|
 fn gen_valid_table_limits_i32(
   ctx : GenValidContext,
-  total_table_idx : Int,
+  total_table_idx : Int32,
 ) -> Limits {
   if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
@@ -22668,7 +22695,7 @@ fn gen_valid_table_limits_i32(
 ///|
 fn gen_valid_table_ref_type(
   ctx : GenValidContext,
-  total_table_idx : Int,
+  total_table_idx : Int32,
   gc_type_plan : GenValidGcTypePlan,
 ) -> RefType {
   if total_table_idx == 0 ||
@@ -22733,7 +22760,7 @@ fn gen_valid_table_ref_type(
 ///|
 fn gen_valid_table_type(
   ctx : GenValidContext,
-  total_table_idx : Int,
+  total_table_idx : Int32,
   gc_type_plan : GenValidGcTypePlan,
 ) -> TableType {
   TableType::new(
@@ -22745,7 +22772,7 @@ fn gen_valid_table_type(
 ///|
 fn gen_valid_table_init_expr(
   ctx : GenValidContext,
-  total_table_idx : Int,
+  total_table_idx : Int32,
   rt : RefType,
   func_idx : FuncIdx,
   imported_global_types : Array[GlobalType],
@@ -22825,7 +22852,7 @@ fn gen_valid_table_init_expr(
 }
 
 ///|
-fn gen_valid_rec_type_flat_count(rec_type : RecType) -> Int {
+fn gen_valid_rec_type_flat_count(rec_type : RecType) -> Int32 {
   match rec_type {
     SingleRecType(_) => 1
     GroupRecType(group) => group.length()
@@ -22833,7 +22860,7 @@ fn gen_valid_rec_type_flat_count(rec_type : RecType) -> Int {
 }
 
 ///|
-fn gen_valid_rec_types_flat_count(rec_types : Array[RecType]) -> Int {
+fn gen_valid_rec_types_flat_count(rec_types : Array[RecType]) -> Int32 {
   let mut count = 0
   for rec_type in rec_types {
     count += gen_valid_rec_type_flat_count(rec_type)
@@ -22845,7 +22872,7 @@ fn gen_valid_rec_types_flat_count(rec_types : Array[RecType]) -> Int {
 fn gen_valid_pick_type_idx_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
-  type_count : Int,
+  type_count : Int32,
 ) -> TypeIdx {
   TypeIdx::new(ctx.random_int_from(label, type_count).reinterpret_as_uint())
 }
@@ -22853,7 +22880,7 @@ fn gen_valid_pick_type_idx_from(
 ///|
 fn gen_valid_pick_func_type_idx(
   ctx : GenValidContext,
-  type_count : Int,
+  type_count : Int32,
 ) -> TypeIdx {
   gen_valid_pick_type_idx_from(ctx, FuncStream, type_count)
 }
@@ -22887,7 +22914,7 @@ fn gen_valid_payload(ctx : GenValidContext, payload : Bytes) -> Bytes {
 }
 
 ///|
-fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
+fn gen_valid_import_module_name(ctx : GenValidContext, index : Int32) -> Name {
   if gen_valid_is_topology_heavy_config(ctx.config) {
     match index % 6 {
       0 => gen_valid_name(ctx, "env")
@@ -23155,52 +23182,71 @@ fn gen_valid_precompute_profile_kind(
 }
 
 ///|
-fn gen_valid_precompute_scalar_body() -> Array[Instruction] {
+fn gen_valid_precompute_record_i32(global_idx : UInt32) -> Array[Instruction] {
   [
-    Instruction::i32_const(I32(4)),
-    Instruction::i32_const(I32(5)),
+    Instruction::global_get(GlobalIdx::new(global_idx)),
     Instruction::i32_add(),
-    Instruction::drop(),
-    Instruction::i64_const(I64(6L)),
-    Instruction::i64_const(I64(7L)),
-    Instruction::i64_mul(),
-    Instruction::drop(),
-    Instruction::i32_const(I32(0)),
-    Instruction::i32_eqz(),
-    Instruction::drop(),
-    Instruction::i64_const(I64(9L)),
-    Instruction::i64_const(I64(3L)),
-    Instruction::i64_gt_u(),
-    Instruction::drop(),
-    Instruction::i32_const(I32(1)),
-    Instruction::i32_const(I32(4)),
-    Instruction::i32_shl(),
-    Instruction::drop(),
+    Instruction::global_set(GlobalIdx::new(global_idx)),
   ]
 }
 
 ///|
-fn gen_valid_precompute_control_body() -> Array[Instruction] {
-  [
+fn gen_valid_precompute_scalar_body() -> Array[Instruction] {
+  let body : Array[Instruction] = [
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_const(I32(5)),
+    Instruction::i32_add(),
+  ]
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.append([
+    Instruction::i64_const(I64(6L)),
+    Instruction::i64_const(I64(7L)),
+    Instruction::i64_mul(),
+    Instruction::i32_wrap_i64(),
+  ])
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.append([Instruction::i32_const(I32(0)), Instruction::i32_eqz()])
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.append([
+    Instruction::i64_const(I64(9L)),
+    Instruction::i64_const(I64(3L)),
+    Instruction::i64_gt_u(),
+  ])
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.append([
     Instruction::i32_const(I32(1)),
-    Instruction::if_(
-      BlockType::void_(),
-      [Instruction::i32_const(I32(9)), Instruction::drop()],
-      Some([Instruction::i32_const(I32(10)), Instruction::drop()]),
-    ),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_shl(),
+  ])
+  body.append(gen_valid_precompute_record_i32(0U))
+  body
+}
+
+///|
+fn gen_valid_precompute_control_body() -> Array[Instruction] {
+  let yes = [Instruction::i32_const(I32(9))]
+  yes.append(gen_valid_precompute_record_i32(0U))
+  let no = [Instruction::i32_const(I32(10))]
+  no.append(gen_valid_precompute_record_i32(0U))
+  let body : Array[Instruction] = [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(BlockType::void_(), yes, Some(no)),
     Instruction::i32_const(I32(0)),
     Instruction::if_(
       BlockType::val_type(ValType::i32()),
       [Instruction::i32_const(I32(2))],
       Some([Instruction::i32_const(I32(3))]),
     ),
-    Instruction::drop(),
+  ]
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.push(
     Instruction::block(
       BlockType::val_type(ValType::i32()),
       Expr::new([Instruction::i32_const(I32(11))]),
     ),
-    Instruction::drop(),
-  ]
+  )
+  body.append(gen_valid_precompute_record_i32(0U))
+  body
 }
 
 ///|
@@ -23212,6 +23258,14 @@ fn gen_valid_precompute_control_module() -> Module {
   Module::new()
   .with_type_sec(TypeSec::new([void_type, pair_type]))
   .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
   .with_code_sec(
     CodeSec::new([
       Func::new(Locals::empty(), Expr::new(gen_valid_precompute_control_body())),
@@ -23240,35 +23294,44 @@ fn gen_valid_precompute_control_module() -> Module {
 
 ///|
 fn gen_valid_precompute_global_body() -> Array[Instruction] {
-  [
+  let body : Array[Instruction] = [
     Instruction::i32_const(I32(8)),
     Instruction::global_get(GlobalIdx::new(0U)),
     Instruction::i32_add(),
-    Instruction::drop(),
+  ]
+  body.append(gen_valid_precompute_record_i32(3U))
+  body.append([
     Instruction::global_get(GlobalIdx::new(1U)),
     Instruction::i64_eqz(),
-    Instruction::drop(),
+  ])
+  body.append(gen_valid_precompute_record_i32(3U))
+  body.append([
     Instruction::global_get(GlobalIdx::new(2U)),
-    Instruction::drop(),
-  ]
+    Instruction::ref_is_null(),
+  ])
+  body.append(gen_valid_precompute_record_i32(3U))
+  body
 }
 
 ///|
 fn gen_valid_precompute_drop_cleanup_body() -> Array[Instruction] {
-  [
-    Instruction::i32_const(I32(1)),
-    Instruction::drop(),
+  let body : Array[Instruction] = [Instruction::i32_const(I32(1))]
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.append([
     Instruction::i32_const(I32(2)),
     Instruction::i32_const(I32(3)),
     Instruction::i32_const(I32(1)),
     Instruction::select(types=Some([ValType::i32()])),
-    Instruction::drop(),
+  ])
+  body.append(gen_valid_precompute_record_i32(0U))
+  body.push(
     Instruction::block(
       BlockType::val_type(ValType::i32()),
       Expr::new([Instruction::i32_const(I32(6))]),
     ),
-    Instruction::drop(),
-  ]
+  )
+  body.append(gen_valid_precompute_record_i32(0U))
+  body
 }
 
 ///|
@@ -23856,7 +23919,8 @@ fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
     RefType::new(false, HeapType::new(TypeIdx::new(0U))),
   )
   let func_type = RecType::new(SubType::comp_type(CompType::func([ref_ty], [])))
-  [struct_type, array_type, func_type]
+  let wrapper_type = gen_valid_precompute_void_func_type()
+  [struct_type, array_type, func_type, wrapper_type]
 }
 
 ///|
@@ -23881,7 +23945,9 @@ fn gen_valid_precompute_gc_atomic_body() -> Array[Instruction] {
 }
 
 ///|
-fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
+fn gen_valid_precompute_profile_module_unexported(
+  config : GenValidConfig,
+) -> Module {
   let kind = gen_valid_precompute_profile_kind(config)
   if kind == PrecomputeScalarValueProfile {
     return gen_valid_precompute_scalar_value_module()
@@ -23898,12 +23964,20 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
   if kind == PrecomputeGcAtomicBoundaryProfile {
     return Module::new()
       .with_type_sec(TypeSec::new(gen_valid_precompute_gc_atomic_types()))
-      .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(2U), TypeIdx::new(3U)]))
       .with_code_sec(
         CodeSec::new([
           Func::new(
             Locals::empty(),
             Expr::new(gen_valid_precompute_gc_atomic_body()),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::i32_const(I32(0)),
+              Instruction::struct_new(TypeIdx::new(0U)),
+              Instruction::call(FuncIdx::new(0U)),
+            ]),
           ),
         ]),
       )
@@ -23915,9 +23989,27 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
     return Module::new()
       .with_type_sec(TypeSec::new([func_type]))
       .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+      .with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+        ]),
+      )
       .with_code_sec(
         CodeSec::new([
-          Func::new(Locals::empty(), Expr::new([])),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::global_get(GlobalIdx::new(0U)),
+              Instruction::i32_const(I32(131)),
+              Instruction::i32_mul(),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::i32_add(),
+              Instruction::global_set(GlobalIdx::new(0U)),
+            ]),
+          ),
           Func::new(
             Locals::from_types([
               ValType::i32(),
@@ -24002,11 +24094,115 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
             Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
           ]),
         ),
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+      ]),
+    )
+  } else if kind == PrecomputeScalarProfile ||
+    kind == PrecomputeDropCleanupProfile {
+    mod.with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
       ]),
     )
   } else {
     mod
   }
+}
+
+///|
+fn gen_valid_precompute_func_exports(indices : Array[UInt32]) -> Array[Export] {
+  indices.map(fn(index) {
+    Export::new(
+      Name::from_string("run-\{index}"),
+      ExternIdx::func(FuncIdx::new(index)),
+    )
+  })
+}
+
+///|
+fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_precompute_profile_kind(config)
+  let mod_ = gen_valid_precompute_profile_module_unexported(config)
+  let exports = match kind {
+    PrecomputeScalarValueProfile =>
+      gen_valid_precompute_func_exports([
+        0U, 1U, 2U, 3U, 4U, 6U, 8U, 9U, 10U, 11U, 12U, 13U, 14U, 15U, 16U, 17U, 24U,
+        25U,
+      ])
+    PrecomputeGcValueProfile =>
+      gen_valid_precompute_func_exports([0U, 1U, 2U, 3U, 4U, 5U, 9U])
+    PrecomputeControlProfile => {
+      let values = gen_valid_precompute_func_exports([0U, 1U])
+      values.push(
+        Export::new(
+          Name::from_string("checksum"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
+      )
+      values
+    }
+    PrecomputeGlobalProfile => {
+      let values = gen_valid_precompute_func_exports([0U])
+      values.append([
+        Export::new(
+          Name::from_string("global-0"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
+        Export::new(
+          Name::from_string("global-1"),
+          ExternIdx::global(GlobalIdx::new(1U)),
+        ),
+        Export::new(
+          Name::from_string("global-2"),
+          ExternIdx::global(GlobalIdx::new(2U)),
+        ),
+        Export::new(
+          Name::from_string("checksum"),
+          ExternIdx::global(GlobalIdx::new(3U)),
+        ),
+      ])
+      values
+    }
+    PrecomputeEffectBoundaryProfile =>
+      [
+        Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(1U))),
+        Export::new(
+          Name::from_string("memory"),
+          ExternIdx::mem(MemIdx::new(0U)),
+        ),
+        Export::new(
+          Name::from_string("state"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
+      ]
+    PrecomputeGcAtomicBoundaryProfile => gen_valid_precompute_func_exports([1U])
+    PrecomputePropagateLocalFactsProfile =>
+      [
+        Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(1U))),
+        Export::new(
+          Name::from_string("checksum"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
+      ]
+    PrecomputeScalarProfile | PrecomputeDropCleanupProfile => {
+      let values = gen_valid_precompute_func_exports([0U])
+      values.push(
+        Export::new(
+          Name::from_string("checksum"),
+          ExternIdx::global(GlobalIdx::new(0U)),
+        ),
+      )
+      values
+    }
+    _ => gen_valid_precompute_func_exports([0U])
+  }
+  mod_.with_export_sec(ExportSec::new(exports))
 }
 
 ///|
@@ -24647,7 +24843,7 @@ fn gen_valid_pgg_profile_kind(config : GenValidConfig) -> GenValidProfile {
 }
 
 ///|
-fn gen_valid_pgg_i32_global(value : Int) -> Global {
+fn gen_valid_pgg_i32_global(value : Int32) -> Global {
   Global::new(
     GlobalType::new(ValType::i32(), false),
     Expr::new([Instruction::i32_const(I32(value))]),
@@ -26262,7 +26458,7 @@ fn gen_valid_pick_load_signs_unsigned_mask_i32_body(
 
 ///|
 fn gen_valid_pick_load_signs_unsigned_mask_i64_body(
-  load_bits : Int,
+  load_bits : Int32,
 ) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
   let (load, mask) = if load_bits == 8 {
@@ -26329,7 +26525,7 @@ fn gen_valid_pick_load_signs_unsigned_mask_module() -> Module {
 
 ///|
 fn gen_valid_pick_load_signs_i64_direct_body(
-  load_bits : Int,
+  load_bits : Int32,
 ) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
   let (load, extension) = if load_bits == 8 {
@@ -26350,7 +26546,7 @@ fn gen_valid_pick_load_signs_i64_direct_body(
 
 ///|
 fn gen_valid_pick_load_signs_i64_signed_shift_body(
-  load_bits : Int,
+  load_bits : Int32,
 ) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
   let (load, shift) = if load_bits == 8 {
@@ -26421,7 +26617,7 @@ fn gen_valid_pick_load_signs_i64_watch_module() -> Module {
 
 ///|
 fn gen_valid_pick_load_signs_unsigned_shift_i32_body(
-  load_bits : Int,
+  load_bits : Int32,
 ) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
   let (load, shift) = if load_bits == 8 {
@@ -26443,7 +26639,7 @@ fn gen_valid_pick_load_signs_unsigned_shift_i32_body(
 
 ///|
 fn gen_valid_pick_load_signs_unsigned_shift_i64_body(
-  load_bits : Int,
+  load_bits : Int32,
 ) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
   let (load, shift) = if load_bits == 8 {
@@ -27675,12 +27871,28 @@ fn gen_valid_tuple_optimization_profile_module(
     TupleOptimizationTeeProfile => gen_valid_tuple_optimization_tee_body()
     _ => gen_valid_tuple_optimization_spill_body()
   }
-  let func_type = gen_valid_precompute_void_func_type()
+  // Retain the original carrier/drop triggers, then expose both final lanes.
+  // Exportless void fixtures only tested instantiation in the runtime oracle.
+  let first_local = if kind == TupleOptimizationCopyChainProfile {
+    2U
+  } else {
+    0U
+  }
+  body.append([
+    Instruction::local_get(LocalIdx::new(first_local)),
+    Instruction::local_get(LocalIdx::new(first_local + 1U)),
+  ])
+  let func_type = gen_valid_tuple_optimization_multivalue_type()
   Module::new()
   .with_type_sec(
     TypeSec::new([func_type, gen_valid_tuple_optimization_multivalue_type()]),
   )
   .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
   .with_code_sec(
     CodeSec::new([
       Func::new(
@@ -27698,7 +27910,9 @@ fn gen_valid_tuple_optimization_profile_module(
 }
 
 ///|
-fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
+fn gen_valid_oi_trigger_profile_case_modulus(
+  profile : GenValidProfile,
+) -> Int32 {
   match profile {
     PassOiMemoryBulkProfile => 49
     PassOiGcAggregateProfile => 15
@@ -27712,7 +27926,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
 }
 
 ///|
-fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 1
     0x5eeeUL => 2
@@ -27819,7 +28033,7 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
-fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 1
     0x5eeeUL => 2
@@ -27849,7 +28063,7 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
-fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 1
     0x5eeeUL => 2
@@ -27871,7 +28085,7 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
-fn gen_valid_oi_boolean_select_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_boolean_select_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 0
     0x5eeeUL => 1
@@ -27882,7 +28096,7 @@ fn gen_valid_oi_boolean_select_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
-fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 1
     0x5eeeUL => 2
@@ -27899,7 +28113,7 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
-fn gen_valid_oi_gc_aggregate_case_for_seed(seed : UInt64) -> Int {
+fn gen_valid_oi_gc_aggregate_case_for_seed(seed : UInt64) -> Int32 {
   match seed {
     0x5eedUL => 0
     0x5eeeUL => 1
@@ -27924,7 +28138,7 @@ fn gen_valid_oi_gc_aggregate_case_for_seed(seed : UInt64) -> Int {
 fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   profile : GenValidProfile,
   seed : UInt64,
-) -> Int {
+) -> Int32 {
   match profile {
     PassOiMemoryBulkProfile => gen_valid_oi_memory_bulk_case_for_seed(seed)
     PassOiTupleProfile => gen_valid_oi_tuple_case_for_seed(seed)
@@ -27964,7 +28178,7 @@ fn gen_valid_oi_trigger_profile_for_config(
 }
 
 ///|
-fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
+fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int32 {
   let profile = gen_valid_oi_trigger_profile_for_config(ctx.config)
   match profile {
     PassOiMemoryBulkProfile
@@ -27988,7 +28202,7 @@ fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
 }
 
 ///|
-pub fn gen_valid_oi_trigger_profile_case_for_seed(seed : UInt64) -> Int {
+pub fn gen_valid_oi_trigger_profile_case_for_seed(seed : UInt64) -> Int32 {
   (seed % 3UL).to_int()
 }
 
@@ -28167,7 +28381,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
 }
 
 ///|
-fn gen_valid_oi_default_scalar_profile_body(case : Int) -> Array[Instruction] {
+fn gen_valid_oi_default_scalar_profile_body(case : Int32) -> Array[Instruction] {
   let direct = [
     Instruction::i32_const(I32(7)),
     Instruction::i32_const(I32(0)),
@@ -28224,7 +28438,7 @@ fn gen_valid_oi_default_scalar_profile_body(case : Int) -> Array[Instruction] {
 }
 
 ///|
-fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
+fn gen_valid_oi_local_facts_profile_body(case : Int32) -> Array[Instruction] {
   let direct_sign_ext = [
     Instruction::i32_const(I32(0x7f)),
     Instruction::local_set(LocalIdx::new(0U)),
@@ -28828,7 +29042,7 @@ fn gen_valid_oi_memory_bulk_multi_memory_body() -> Array[Instruction] {
 }
 
 ///|
-fn gen_valid_oi_memory_bulk_random_address(seed : UInt64) -> Int {
+fn gen_valid_oi_memory_bulk_random_address(seed : UInt64) -> Int32 {
   ((seed * 1103515245UL + 12345UL) % 65519UL + 17UL).to_int()
 }
 
@@ -28953,7 +29167,7 @@ fn gen_valid_oi_memory_bulk_memory64_cross_memory_restore_body(
 ///|
 fn gen_valid_oi_memory_bulk_runtime_restore_addresses(
   seed : UInt64,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let src_addr = gen_valid_oi_memory_bulk_random_address(seed)
   let dst_addr = if src_addr < 65000 { src_addr + 16 } else { src_addr - 16 }
   (src_addr, dst_addr)
@@ -28986,7 +29200,7 @@ fn gen_valid_oi_memory_bulk_runtime_restore_body(
 }
 
 ///|
-fn gen_valid_oi_memory_bulk_fill_restore_address(seed : UInt64) -> Int {
+fn gen_valid_oi_memory_bulk_fill_restore_address(seed : UInt64) -> Int32 {
   gen_valid_oi_memory_bulk_random_address(seed ^ 0x51UL)
 }
 
@@ -29319,7 +29533,9 @@ fn gen_valid_oi_memory_bulk_shared_atomic_xchg_restore_body() -> Array[
 }
 
 ///|
-fn gen_valid_oi_memory_bulk_shared_atomic_random_address(seed : UInt64) -> Int {
+fn gen_valid_oi_memory_bulk_shared_atomic_random_address(
+  seed : UInt64,
+) -> Int32 {
   let raw = gen_valid_oi_memory_bulk_random_address(seed ^ 0xa7UL)
   raw % 8000 * 8 + 64
 }
@@ -29645,8 +29861,8 @@ fn gen_valid_oi_memory_bulk_shared_atomic_call_add_restore_body() -> Array[
 
 ///|
 fn gen_valid_oi_memory_bulk_shared_atomic_select_add_address(
-  addr : Int,
-  alt_addr : Int,
+  addr : Int32,
+  alt_addr : Int32,
 ) -> Array[Instruction] {
   [
     Instruction::i32_const(I32(addr)),
@@ -30764,7 +30980,7 @@ fn gen_valid_oi_memory_bulk_runtime_call_restore_copy_module(
 }
 
 ///|
-fn gen_valid_oi_ref_gc_profile_body(case : Int) -> Array[Instruction] {
+fn gen_valid_oi_ref_gc_profile_body(case : Int32) -> Array[Instruction] {
   let any = HeapType::abs(AbsHeapType::any())
   let eq = HeapType::abs(AbsHeapType::eq())
   let out : Array[Instruction] = []
@@ -31198,7 +31414,7 @@ fn gen_valid_oi_tuple_result_types() -> Array[ValType] {
 }
 
 ///|
-fn gen_valid_oi_tuple_seeded_i32(seed : UInt64) -> Int {
+fn gen_valid_oi_tuple_seeded_i32(seed : UInt64) -> Int32 {
   ((seed * 1664525UL + 1013904223UL) % 4093UL + 3UL).to_int()
 }
 
@@ -31213,7 +31429,7 @@ fn gen_valid_oi_tuple_seeded_f64(seed : UInt64) -> Double {
 }
 
 ///|
-fn gen_valid_oi_tuple_block_body(case : Int, seed : UInt64) -> Expr {
+fn gen_valid_oi_tuple_block_body(case : Int32, seed : UInt64) -> Expr {
   let body = if case == 2 {
     [
       Instruction::local_get(LocalIdx::new(0U)),
@@ -31297,7 +31513,7 @@ fn gen_valid_oi_tuple_block_body(case : Int, seed : UInt64) -> Expr {
 
 ///|
 fn gen_valid_oi_tuple_selected_lane_prefix(
-  case : Int,
+  case : Int32,
   seed : UInt64,
   block_type_idx : TypeIdx,
 ) -> Array[Instruction] {
@@ -31806,7 +32022,7 @@ fn gen_valid_oi_tuple_runtime_all_results_module(seed : UInt64) -> Module {
 }
 
 ///|
-fn gen_valid_oi_tuple_profile_module(case : Int, seed : UInt64) -> Module {
+fn gen_valid_oi_tuple_profile_module(case : Int32, seed : UInt64) -> Module {
   if case == 14 {
     return gen_valid_oi_tuple_runtime_selected_module(seed)
   }
@@ -32029,7 +32245,7 @@ fn gen_valid_oi_boolean_select_value_if_body() -> Array[Instruction] {
 }
 
 ///|
-fn gen_valid_oi_boolean_select_profile_module(case : Int) -> Module {
+fn gen_valid_oi_boolean_select_profile_module(case : Int32) -> Module {
   let void_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let main_body = match case {
     1 => gen_valid_oi_boolean_select_effectful_body()
@@ -32074,7 +32290,7 @@ fn gen_valid_oi_boolean_select_profile_module(case : Int) -> Module {
 }
 
 ///|
-fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
+fn gen_valid_oi_call_ref_profile_module(case : Int32) -> Module {
   let run_type = if case == 5 {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
   } else {
@@ -32251,7 +32467,7 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
 }
 
 ///|
-fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
+fn gen_valid_oi_descriptor_gc_profile_module(case : Int32) -> Module {
   let described_idx = TypeIdx::new(0U)
   let descriptor_idx = TypeIdx::new(1U)
   let primary_func_type_idx = TypeIdx::new(2U)
@@ -32417,7 +32633,7 @@ fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
 }
 
 ///|
-fn gen_valid_oi_gc_aggregate_effect_body(value : Int) -> Array[Instruction] {
+fn gen_valid_oi_gc_aggregate_effect_body(value : Int32) -> Array[Instruction] {
   [
     Instruction::global_get(GlobalIdx::new(0U)),
     Instruction::i32_const(I32(1)),
@@ -32429,7 +32645,7 @@ fn gen_valid_oi_gc_aggregate_effect_body(value : Int) -> Array[Instruction] {
 
 ///|
 fn gen_valid_oi_gc_aggregate_profile_body(
-  case : Int,
+  case : Int32,
   struct_idx : TypeIdx,
   array_idx : TypeIdx,
 ) -> Array[Instruction] {
@@ -32571,7 +32787,7 @@ fn gen_valid_oi_gc_aggregate_profile_body(
 }
 
 ///|
-fn gen_valid_oi_gc_aggregate_profile_module(case : Int) -> Module {
+fn gen_valid_oi_gc_aggregate_profile_module(case : Int32) -> Module {
   let run_type = TypeIdx::new(0U)
   let effect_type = TypeIdx::new(1U)
   let struct_idx = TypeIdx::new(2U)
@@ -34769,6 +34985,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if config == gen_valid_heap2local_owner_updates_config() {
+    return gen_valid_heap2local_owner_updates_module(ctx.root_seed)
+  }
   if gen_valid_is_engine_tiering_config(config) {
     return gen_valid_engine_tiering_profile_module(ctx)
   }
@@ -34924,6 +35143,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_tuple_optimization_profile_config(config) {
     return gen_valid_tuple_optimization_profile_module(config)
+  }
+  if config == gen_valid_tuple_alias_captures_config() {
+    return gen_valid_tuple_alias_captures_module(ctx.root_seed)
   }
   if gen_valid_is_dead_code_elimination_profile_config(config) {
     return gen_valid_dead_code_elimination_profile_module(config)
@@ -35169,7 +35391,20 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   } else {
     gen_valid_clamp_non_negative(config.max_type_defs)
   }
-  let reserved_gc_slots = if ctx.config.mode == Natural &&
+  let reserved_gc_slots = if config.features.allow_heap2local_body_generator &&
+    (
+      config == GenValidConfig::for_profile(Heap2LocalArrayProfile) ||
+      config == GenValidConfig::for_profile(Heap2LocalAllProfile)
+    ) {
+    // The first array follows the normal struct and packed struct definitions.
+    3
+  } else if config.features.allow_heap2local_body_generator &&
+    (
+      config == GenValidConfig::for_profile(Heap2LocalStructProfile) ||
+      config == GenValidConfig::for_profile(Heap2LocalRefProfile)
+    ) {
+    1
+  } else if ctx.config.mode == Natural &&
     config.features.allow_ref_types &&
     max_type_defs > 1 {
     gen_valid_min_int(3, max_type_defs - 1)
@@ -36581,13 +36816,13 @@ fn gen_valid_module_once_with_stream_seed(
 }
 
 ///|
-fn gen_valid_instruction_count_expr(expr : Expr) -> Int {
+fn gen_valid_instruction_count_expr(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   gen_valid_instruction_count_instrs(instrs)
 }
 
 ///|
-fn gen_valid_instruction_count_instrs(instrs : Array[Instruction]) -> Int {
+fn gen_valid_instruction_count_instrs(instrs : Array[Instruction]) -> Int32 {
   let mut total = 0
   for instr in instrs {
     total += gen_valid_instruction_count_instr(instr)
@@ -36596,7 +36831,7 @@ fn gen_valid_instruction_count_instrs(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
-fn gen_valid_instruction_count_instr(instr : Instruction) -> Int {
+fn gen_valid_instruction_count_instr(instr : Instruction) -> Int32 {
   match instr {
     Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
       1 + gen_valid_instruction_count_expr(body)
@@ -36612,13 +36847,13 @@ fn gen_valid_instruction_count_instr(instr : Instruction) -> Int {
 }
 
 ///|
-fn gen_valid_label_count_expr(expr : Expr) -> Int {
+fn gen_valid_label_count_expr(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   gen_valid_label_count_instrs(instrs)
 }
 
 ///|
-fn gen_valid_label_count_instrs(instrs : Array[Instruction]) -> Int {
+fn gen_valid_label_count_instrs(instrs : Array[Instruction]) -> Int32 {
   let mut total = 0
   for instr in instrs {
     total += gen_valid_label_count_instr(instr)
@@ -36627,7 +36862,7 @@ fn gen_valid_label_count_instrs(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
-fn gen_valid_label_count_instr(instr : Instruction) -> Int {
+fn gen_valid_label_count_instr(instr : Instruction) -> Int32 {
   match instr {
     Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
       1 + gen_valid_label_count_expr(body)
@@ -36643,7 +36878,7 @@ fn gen_valid_label_count_instr(instr : Instruction) -> Int {
 }
 
 ///|
-fn gen_valid_module_instruction_count(mod_ : Module) -> Int {
+fn gen_valid_module_instruction_count(mod_ : Module) -> Int32 {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut total = 0
@@ -36658,13 +36893,13 @@ fn gen_valid_module_instruction_count(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_expr_depth_expr(expr : Expr) -> Int {
+fn gen_valid_expr_depth_expr(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   gen_valid_expr_depth_instrs(instrs)
 }
 
 ///|
-fn gen_valid_expr_depth_instrs(instrs : Array[Instruction]) -> Int {
+fn gen_valid_expr_depth_instrs(instrs : Array[Instruction]) -> Int32 {
   let mut max_depth = 0
   for instr in instrs {
     let depth = gen_valid_expr_depth_instr(instr)
@@ -36676,7 +36911,7 @@ fn gen_valid_expr_depth_instrs(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
-fn gen_valid_expr_depth_instr(instr : Instruction) -> Int {
+fn gen_valid_expr_depth_instr(instr : Instruction) -> Int32 {
   match instr {
     Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
       1 + gen_valid_expr_depth_expr(body)
@@ -36697,7 +36932,7 @@ fn gen_valid_expr_depth_instr(instr : Instruction) -> Int {
 }
 
 ///|
-fn gen_valid_module_expression_depth(mod_ : Module) -> Int {
+fn gen_valid_module_expression_depth(mod_ : Module) -> Int32 {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut max_depth = 0
@@ -36715,7 +36950,7 @@ fn gen_valid_module_expression_depth(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_module_segment_payload_size(mod_ : Module) -> Int {
+fn gen_valid_module_segment_payload_size(mod_ : Module) -> Int32 {
   let mut total = 0
   match mod_.data_sec {
     Some(DataSec(datas)) =>
@@ -36733,7 +36968,7 @@ fn gen_valid_module_segment_payload_size(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_rec_group_size(rec_type : RecType) -> Int {
+fn gen_valid_rec_group_size(rec_type : RecType) -> Int32 {
   match rec_type {
     SingleRecType(_) => 1
     GroupRecType(sub_types) => sub_types.length()
@@ -36741,7 +36976,7 @@ fn gen_valid_rec_group_size(rec_type : RecType) -> Int {
 }
 
 ///|
-fn gen_valid_module_max_rec_group_size(mod_ : Module) -> Int {
+fn gen_valid_module_max_rec_group_size(mod_ : Module) -> Int32 {
   match mod_.type_sec {
     Some(TypeSec(types)) => {
       let mut max_size = 0
@@ -36758,7 +36993,7 @@ fn gen_valid_module_max_rec_group_size(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_module_section_count(mod_ : Module) -> Int {
+fn gen_valid_module_section_count(mod_ : Module) -> Int32 {
   let mut total = mod_.custom_secs.length()
   match mod_.type_sec {
     Some(_) => total += 1
@@ -36824,7 +37059,7 @@ fn gen_valid_module_section_count(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_module_byte_size_estimate(mod_ : Module) -> Int {
+fn gen_valid_module_byte_size_estimate(mod_ : Module) -> Int32 {
   let mut total = 8
   match mod_.type_sec {
     Some(TypeSec(types)) => total += types.length() * 8
@@ -39024,7 +39259,7 @@ fn gen_valid_expr_local_has_write(expr : Expr, wanted : LocalIdx) -> Bool {
 fn gen_valid_module_typeidx_arities(
   mod : Module,
   wanted : TypeIdx,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   match mod.type_sec {
     Some(TypeSec(rec_types)) => {
       let mut cursor = 0U
@@ -39062,7 +39297,10 @@ fn gen_valid_module_typeidx_arities(
 }
 
 ///|
-fn gen_valid_module_typeidx_result_count(mod : Module, wanted : TypeIdx) -> Int {
+fn gen_valid_module_typeidx_result_count(
+  mod : Module,
+  wanted : TypeIdx,
+) -> Int32 {
   match gen_valid_module_typeidx_arities(mod, wanted) {
     Some((_, results)) => results
     None => 0
@@ -39070,7 +39308,10 @@ fn gen_valid_module_typeidx_result_count(mod : Module, wanted : TypeIdx) -> Int 
 }
 
 ///|
-fn gen_valid_module_typeidx_param_count(mod : Module, wanted : TypeIdx) -> Int {
+fn gen_valid_module_typeidx_param_count(
+  mod : Module,
+  wanted : TypeIdx,
+) -> Int32 {
   match mod.type_sec {
     Some(TypeSec(rec_types)) => {
       let mut cursor = 0U
@@ -39109,7 +39350,7 @@ fn gen_valid_module_typeidx_param_count(mod : Module, wanted : TypeIdx) -> Int {
 
 ///|
 fn gen_valid_func_local_layout_facts(
-  param_count : Int,
+  param_count : Int32,
   locals : Locals,
   expr : Expr,
 ) -> (Bool, Bool) {
@@ -39701,7 +39942,7 @@ pub fn gen_valid_feature_facts(
       }
     None => ()
   }
-  let defined_func_param_counts : Array[Int] = []
+  let defined_func_param_counts : Array[Int32] = []
   let mod_defined_type_idxs : Array[TypeIdx] = []
   match mod.func_sec {
     Some(FuncSec(type_idxs)) =>

@@ -1,5 +1,5 @@
 ///|
-fn gen_valid_dae2_family(profile : GenValidProfile) -> Int {
+fn gen_valid_dae2_family(profile : GenValidProfile) -> Int32 {
   match profile {
     Dae2CyclesProfile => 1
     Dae2ControlFlowProfile => 2
@@ -104,6 +104,7 @@ fn gen_valid_dae2_profile_module(ctx : GenValidContext) -> Module {
   if family == 3 && (seed & 1UL) != 0UL {
     return gen_valid_dae2_pending_memory_module(seed)
   }
+  let loop_effect = family == 2 && (seed & 3UL) == 0UL
   let literal = (seed ^ (seed >> 32)).to_int()
   let i32 = ValType::i32()
   let i64 = ValType::i64()
@@ -126,7 +127,7 @@ fn gen_valid_dae2_profile_module(ctx : GenValidContext) -> Module {
   }
   let mut module_ = Module::new()
   let counter = GlobalIdx::new(0U)
-  let effect = fn(amount : Int) {
+  let effect = fn(amount : Int32) {
     [
       Instruction::global_get(counter),
       Instruction::i32_const(I32(amount)),
@@ -134,7 +135,7 @@ fn gen_valid_dae2_profile_module(ctx : GenValidContext) -> Module {
       Instruction::global_set(counter),
     ]
   }
-  if family == 4 || family == 11 {
+  if family == 4 || family == 11 || loop_effect {
     module_ = module_.with_global_sec(
       GlobalSec::new([
         Global::new(
@@ -350,6 +351,53 @@ fn gen_valid_dae2_profile_module(ctx : GenValidContext) -> Module {
         Instruction::drop(),
       ])
     }
+    2 if loop_effect => {
+      // The unused load argument must retain its trap, while the call stored
+      // by the void loop must still execute once after result promotion.
+      let producer = effect(1 + ((seed >> 5) & 3UL).to_int())
+      producer.append([
+        get0,
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::i32_add(),
+      ])
+      add([i32, i32, i32, i64], [i32], [], producer)
+      add([], [i32], [], [constant])
+      let memarg = @lib.MemArg::new(2U, None, 0UL)
+      let held = (seed & 8UL) != 0UL
+      let caller : Array[Instruction] = []
+      if held {
+        // Keep an earlier load on the stack across the whole loop. The
+        // initial memory has one page, so 65536 traps before the callee runs.
+        caller.append([
+          Instruction::i32_const(
+            I32(if (seed & 16UL) == 0UL { 0 } else { 65536 }),
+          ),
+          Instruction::i32_load(memarg),
+        ])
+      }
+      caller.append([
+        Instruction::loop_(
+          BlockType::void_(),
+          Expr::new([
+            get0,
+            Instruction::local_get(LocalIdx::new(1U)),
+            Instruction::i32_load(memarg),
+            Instruction::local_get(LocalIdx::new(2U)),
+            Instruction::i64_const(I64(seed.reinterpret_as_int64())),
+            Instruction::call(FuncIdx::new(0U)),
+            Instruction::local_set(LocalIdx::new(3U)),
+          ]),
+        ),
+        Instruction::local_get(LocalIdx::new(3U)),
+      ])
+      if held {
+        caller.push(Instruction::i32_add())
+      }
+      add([i32, i32, i32], [i32], [i32], caller)
+      module_ = module_.with_mem_sec(
+        MemSec::new([MemType::new(Limits::i32(1U, None))]),
+      )
+    }
     2 => {
       add([i32, i32], [i32], [], [
         get0,
@@ -559,9 +607,14 @@ fn gen_valid_dae2_profile_module(ctx : GenValidContext) -> Module {
       ExternIdx::func(FuncIdx::new(if family == 13 { 3U } else { 2U })),
     ),
   ]
-  if family == 3 || family == 4 || family == 11 {
+  if family == 3 || family == 4 || family == 11 || loop_effect {
     exports.push(
       Export::new(Name::from_string("effects"), ExternIdx::global(counter)),
+    )
+  }
+  if loop_effect {
+    exports.push(
+      Export::new(Name::from_string("memory"), ExternIdx::mem(MemIdx::new(0U))),
     )
   }
   module_
@@ -630,8 +683,8 @@ fn gen_valid_dae2_pending_memory_module(seed : UInt64) -> Module {
 ///|
 fn gen_valid_dae2_local_state_module(seed : UInt64, capture : Bool) -> Module {
   let i32 = ValType::i32()
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let number = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let number = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let initial = (seed.to_uint() ^ 0x1234U).reinterpret_as_int()
   let ma = MemArg::new(2U, None, 0UL)
   let body = if capture {
@@ -701,9 +754,9 @@ fn gen_valid_dae2_local_state_module(seed : UInt64, capture : Bool) -> Module {
 fn gen_valid_dae2_overlap_module(seed : UInt64, named : Bool) -> Module {
   let i32 = ValType::i32()
   let literal = (seed ^ (seed >> 32)).to_int()
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let set = fn(index : UInt) { Instruction::local_set(LocalIdx::new(index)) }
-  let constant = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let set = fn(index : UInt32) { Instruction::local_set(LocalIdx::new(index)) }
+  let constant = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let producer = [
     Instruction::global_get(GlobalIdx::new(0U)),
     constant(1),
@@ -806,8 +859,8 @@ fn gen_valid_dae2_overlap_module(seed : UInt64, named : Bool) -> Module {
 ///|
 fn gen_valid_dae2_inserted_control_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let number = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let number = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let state = GlobalIdx::new(0U)
   let observed = GlobalIdx::new(1U)
   let signature = TypeIdx::new(0U)
@@ -903,9 +956,9 @@ fn gen_valid_dae2_inserted_control_module(seed : UInt64) -> Module {
 ///|
 fn gen_valid_dae2_derived_pointer_module(seed : UInt64) -> Module {
   let i32 = ValType::i32()
-  let get = fn(index : UInt) { Instruction::local_get(LocalIdx::new(index)) }
-  let set = fn(index : UInt) { Instruction::local_set(LocalIdx::new(index)) }
-  let number = fn(value : Int) { Instruction::i32_const(I32(value)) }
+  let get = fn(index : UInt32) { Instruction::local_get(LocalIdx::new(index)) }
+  let set = fn(index : UInt32) { Instruction::local_set(LocalIdx::new(index)) }
+  let number = fn(value : Int32) { Instruction::i32_const(I32(value)) }
   let base = ((seed >> 32) % 256UL).to_int() + 32
   Module::new()
   .with_type_sec(

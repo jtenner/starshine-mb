@@ -62,7 +62,7 @@ fn gen_valid_rub_test_module_any(
 }
 
 ///|
-fn gen_valid_rub_test_defined_func_count(mod_ : Module) -> Int {
+fn gen_valid_rub_test_defined_func_count(mod_ : Module) -> Int32 {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => funcs.length()
     None => 0

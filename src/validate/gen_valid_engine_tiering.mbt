@@ -13,7 +13,7 @@ fn gen_valid_engine_tiering_profiles() -> Array[GenValidProfile] {
 }
 
 ///|
-fn gen_valid_engine_tiering_ordinal(profile : GenValidProfile) -> Int {
+fn gen_valid_engine_tiering_ordinal(profile : GenValidProfile) -> Int32 {
   match profile {
     EngineTieringLoopProfile => 0
     EngineTieringLargeFunctionProfile => 1
@@ -66,7 +66,7 @@ fn gen_valid_engine_tiering_profile_kind(
 }
 
 ///|
-fn gen_valid_engine_tiering_scale(seed : UInt64) -> Int {
+fn gen_valid_engine_tiering_scale(seed : UInt64) -> Int32 {
   match (seed % 4UL).to_int() {
     0 => 256
     1 => 1024
@@ -114,7 +114,7 @@ pub fn gen_valid_engine_tiering_profile_case_label(
 }
 
 ///|
-fn gen_valid_engine_tiering_start(workload : FuncIdx, event : Int) -> Func {
+fn gen_valid_engine_tiering_start(workload : FuncIdx, event : Int32) -> Func {
   let start : Array[Instruction] = []
   gen_valid_engine_state_append(start, gen_valid_engine_state_mark(event))
   gen_valid_engine_state_append(

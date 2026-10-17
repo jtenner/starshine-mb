@@ -8,10 +8,10 @@ fn gen_valid_is_simplify_locals_family_profile_config(
 ///|
 fn gen_valid_simplify_locals_profile_family_ids(
   profile : GenValidProfile,
-) -> Array[Int] {
+) -> Array[Int32] {
   match profile {
     SimplifyLocalsFamilyCoverageProfile => {
-      let ids : Array[Int] = []
+      let ids : Array[Int32] = []
       for id = 1; id <= 35; id = id + 1 {
         ids.push(id)
       }

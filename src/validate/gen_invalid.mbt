@@ -55,9 +55,9 @@ pub fn gen_invalid_coverage_seed_generator_config() -> GenValidConfig {
 ///|
 pub fn GenInvalidAstParams::new(
   strategy : ValidateInvalidAstStrategyId,
-  seed_mode? : GenInvalidSeedMode = RandomValidSeed,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  seed_mode~ : GenInvalidSeedMode = RandomValidSeed,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -71,8 +71,8 @@ pub fn GenInvalidAstParams::new(
 ///|
 pub fn GenInvalidAstParams::natural_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -86,8 +86,8 @@ pub fn GenInvalidAstParams::natural_seed(
 ///|
 pub fn GenInvalidAstParams::coverage_forced_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -101,8 +101,8 @@ pub fn GenInvalidAstParams::coverage_forced_seed(
 ///|
 pub fn GenInvalidAstParams::small_natural_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -116,8 +116,8 @@ pub fn GenInvalidAstParams::small_natural_seed(
 ///|
 pub fn GenInvalidAstParams::small_coverage_forced_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -131,8 +131,8 @@ pub fn GenInvalidAstParams::small_coverage_forced_seed(
 ///|
 pub fn GenInvalidAstParams::repro_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -146,8 +146,8 @@ pub fn GenInvalidAstParams::repro_seed(
 ///|
 pub fn GenInvalidAstParams::minimal_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -161,8 +161,8 @@ pub fn GenInvalidAstParams::minimal_seed(
 ///|
 pub fn GenInvalidAstParams::rich_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidAstParams {
   {
     strategy,
@@ -645,7 +645,7 @@ fn gen_invalid_ast_strategy_label(
 }
 
 ///|
-fn gen_invalid_max_int(left : Int, right : Int) -> Int {
+fn gen_invalid_max_int(left : Int32, right : Int32) -> Int32 {
   if left >= right {
     left
   } else {
@@ -654,7 +654,7 @@ fn gen_invalid_max_int(left : Int, right : Int) -> Int {
 }
 
 ///|
-fn gen_invalid_min_int(left : Int, right : Int) -> Int {
+fn gen_invalid_min_int(left : Int32, right : Int32) -> Int32 {
   if left <= right {
     left
   } else {

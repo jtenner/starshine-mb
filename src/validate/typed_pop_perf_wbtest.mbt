@@ -32,7 +32,7 @@ fn typed_pop_consumer_reference(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
-fn typed_pop_bench(it : @bench.T, kind : Int, before : Bool) -> Unit raise {
+fn typed_pop_bench(it : @bench.T, kind : Int32, before : Bool) -> Unit raise {
   let width = if kind == 1 { 32 } else if kind == 0 { 0 } else { 2 }
   let expected = if kind == 2 { ValType::anyref() } else { ValType::i32() }
   let actual = match kind {

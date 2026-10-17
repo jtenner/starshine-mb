@@ -1,5 +1,5 @@
 ///|
-fn typecheck_probe_bench(it : @bench.T, width : Int, invalid : Bool) -> Unit {
+fn typecheck_probe_bench(it : @bench.T, width : Int32, invalid : Bool) -> Unit {
   let body : Array[Instruction] = []
   for _ in 0..<width {
     body.push(Instruction::nop())

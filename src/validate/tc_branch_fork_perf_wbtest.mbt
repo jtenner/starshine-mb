@@ -1,10 +1,10 @@
 ///|
 fn tc_fork_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   writes : Bool,
   reference : Bool,
-  body_count? : Int = 2,
+  body_count~ : Int32 = 2,
 ) -> Unit {
   let mask = Array::make(width, true)
   mask[0] = false

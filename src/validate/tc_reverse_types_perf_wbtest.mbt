@@ -14,8 +14,8 @@ fn tc_reverse_types_reference(st : TcState, ts : Array[ValType]) -> TcResult {
 ///|
 fn tc_reverse_types_bench(
   it : @bench.T,
-  width : Int,
-  kind : Int,
+  width : Int32,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let expected = if kind == 1 { ValType::anyref() } else { ValType::i32() }

@@ -39,7 +39,7 @@ pub struct ValidationDiagnostic {
 ///|
 pub fn ValidationDiagnostic::new(
   issue : ValidationIssue,
-  func_idx? : FuncIdx? = None,
+  func_idx~ : FuncIdx? = None,
 ) -> ValidationDiagnostic {
   ValidationDiagnostic::{ issue, func_idx, }
 }
@@ -121,28 +121,28 @@ pub fn validation_error_func_idx(err : ValidationError) -> FuncIdx? {
 ///|
 priv struct ValidateHelperTimingSnapshot {
   validate_func_body_us : UInt64
-  validate_func_body_calls : Int
+  validate_func_body_calls : Int32
 }
 
 ///|
 priv struct ValidateHotspotEntry {
-  ordinal : Int
+  ordinal : Int32
   body_ticks : UInt64
-  locals : Int
-  top_instrs : Int
+  locals : Int32
+  top_instrs : Int32
 }
 
 ///|
-const VALIDATE_HOTSPOT_SUMMARY_LIMIT : Int = 8
+const VALIDATE_HOTSPOT_SUMMARY_LIMIT : Int32 = 8
 
 ///|
-const VALIDATE_REF_FUNC_DECL_TRACE_HEARTBEAT : Int = 256
+const VALIDATE_REF_FUNC_DECL_TRACE_HEARTBEAT : Int32 = 256
 
 ///|
 let validate_helper_timing_validate_func_body_us : Ref[UInt64] = Ref::new(0UL)
 
 ///|
-let validate_helper_timing_validate_func_body_calls : Ref[Int] = Ref::new(0)
+let validate_helper_timing_validate_func_body_calls : Ref[Int32] = Ref::new(0)
 
 ///|
 let validate_hotspot_entries : Ref[Array[ValidateHotspotEntry]] = Ref::new([])
@@ -151,7 +151,7 @@ let validate_hotspot_entries : Ref[Array[ValidateHotspotEntry]] = Ref::new([])
 let validate_phase_totals_ms : Ref[Map[String, UInt64]] = Ref::new(Map::new())
 
 ///|
-let validate_phase_totals_calls : Ref[Map[String, Int]] = Ref::new(Map::new())
+let validate_phase_totals_calls : Ref[Map[String, Int32]] = Ref::new(Map::new())
 
 ///|
 fn validate_trace_noop(_ : String) -> Unit {
@@ -184,7 +184,7 @@ fn validate_trace_delta_us_to_ms(delta_us : UInt64) -> UInt64 {
 }
 
 ///|
-fn validate_trace_log_enabled(ordinal : Int, trace_all_funcs : Bool) -> Bool {
+fn validate_trace_log_enabled(ordinal : Int32, trace_all_funcs : Bool) -> Bool {
   ignore(ordinal)
   trace_all_funcs
 }
@@ -240,7 +240,7 @@ fn validate_phase_timing_total_ms(phase : String) -> UInt64 {
 }
 
 ///|
-fn validate_phase_timing_total_calls(phase : String) -> Int {
+fn validate_phase_timing_total_calls(phase : String) -> Int32 {
   validate_phase_totals_calls.val.get(phase).unwrap_or(0)
 }
 
@@ -274,7 +274,7 @@ fn validate_helper_timing_reset() -> Unit {
 fn validate_helper_timing_commit(
   enabled : Bool,
   elapsed_us : Ref[UInt64],
-  calls : Ref[Int],
+  calls : Ref[Int32],
   start_us : UInt64,
 ) -> Unit {
   if !enabled {
@@ -331,7 +331,7 @@ fn validate_helper_timing_has_nonzero(
 ///|
 fn validate_trace_emit_helper_timing(
   trace : (String) -> Unit,
-  ordinal : Int,
+  ordinal : Int32,
   timing : ValidateHelperTimingSnapshot,
 ) -> Unit {
   if !validate_helper_timing_has_nonzero(timing) {
@@ -360,10 +360,10 @@ fn validate_hotspot_reset() -> Unit {
 
 ///|
 fn validate_hotspot_record(
-  ordinal : Int,
+  ordinal : Int32,
   body_ticks : UInt64,
-  locals : Int,
-  top_instrs : Int,
+  locals : Int32,
+  top_instrs : Int32,
 ) -> Unit {
   let entries = validate_hotspot_entries.val
   entries.push({ ordinal, body_ticks, locals, top_instrs, })
@@ -425,14 +425,14 @@ fn validate_hotspot_summary_line() -> String? {
 }
 
 ///|
-fn validate_func_trace_locals_count(func : Func) -> Int {
+fn validate_func_trace_locals_count(func : Func) -> Int32 {
   match func {
     Func(decls, _) => decls.length()
   }
 }
 
 ///|
-fn validate_func_trace_top_instrs(func : Func) -> Int {
+fn validate_func_trace_top_instrs(func : Func) -> Int32 {
   match func {
     Func(_, Expr(instrs)) => instrs.length()
   }
@@ -591,7 +591,7 @@ pub impl Validate for StorageType with fn validate(self, env) {
 }
 
 ///|
-fn validate_rectype_base(rt : RecType, env : Env) -> Int {
+fn validate_rectype_base(rt : RecType, env : Env) -> Int32 {
   let group = match env.rec_stack.get(env.rec_stack.length() - 1) {
     Some(group) => group
     None => return env.global_types.length()
@@ -628,9 +628,9 @@ pub impl Validate for RecType with fn validate(self, env) {
 ///|
 fn descriptor_target_absolute_index(
   target : TypeIdx,
-  base : Int,
-  group_len : Int,
-) -> Int? {
+  base : Int32,
+  group_len : Int32,
+) -> Int32? {
   match target {
     TypeIdx(idx) => Some(idx.reinterpret_as_int())
     RecIdx(idx) => {
@@ -645,7 +645,7 @@ fn descriptor_target_lookup_subtype(
   target : TypeIdx,
   sts : Array[SubType],
   env : Env,
-  base : Int,
+  base : Int32,
 ) -> SubType? {
   let target_abs = match
     descriptor_target_absolute_index(target, base, sts.length()) {
@@ -662,7 +662,7 @@ fn descriptor_target_lookup_subtype(
 ///|
 fn validate_rectype_parent_order(
   sts : Array[SubType],
-  base : Int,
+  base : Int32,
 ) -> Result[Unit, String] {
   for i in 0..<sts.length() {
     match sts[i] {
@@ -691,7 +691,7 @@ fn validate_rectype_parent_order(
 fn validate_descriptor_metadata_group(
   sts : Array[SubType],
   env : Env,
-  base : Int,
+  base : Int32,
 ) -> Result[Unit, String] {
   let mut i = 0
   while i < sts.length() {
@@ -1450,9 +1450,9 @@ fn validate_codesec_diag(
   codesec : CodeSec?,
   funcsec : FuncSec?,
   env : Env,
-  trace? : (String) -> Unit = validate_trace_noop,
-  trace_all_funcs? : Bool = false,
-  helper_timing_enabled? : Bool = false,
+  trace~ : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs~ : Bool = false,
+  helper_timing_enabled~ : Bool = false,
 ) -> Result[Unit, ValidationDiagnostic] {
   match (codesec, funcsec) {
     (None, None) => Ok(())
@@ -2075,8 +2075,8 @@ pub fn validate_typesec(typesec : TypeSec?, env0 : Env) -> Result[Env, String] {
 ///|
 fn normalize_rectype_typeidx_for_global_env(
   idx : TypeIdx,
-  base : Int,
-  group_len : Int,
+  base : Int32,
+  group_len : Int32,
 ) -> TypeIdx {
   match idx {
     TypeIdx(_) => idx
@@ -2096,8 +2096,8 @@ fn normalize_rectype_typeidx_for_global_env(
 ///|
 fn normalize_subtype_for_global_env(
   st : SubType,
-  base : Int,
-  group_len : Int,
+  base : Int32,
+  group_len : Int32,
 ) -> SubType {
   let metadata = st.metadata()
   let normalized_metadata = TypeMetadata::new(
@@ -2128,7 +2128,7 @@ fn normalize_subtype_for_global_env(
 }
 
 ///|
-fn normalize_rectype_for_global_env(rt : RecType, base : Int) -> RecType {
+fn normalize_rectype_for_global_env(rt : RecType, base : Int32) -> RecType {
   match rt {
     SingleRecType(st) =>
       RecType::new(normalize_subtype_for_global_env(st, base, 1))
@@ -2151,7 +2151,7 @@ pub fn validate_datacnt(
   match datacnt_opt {
     None => Ok(())
     Some(DataCntSec(U32(n))) => {
-      let actual : UInt = match datasec_opt {
+      let actual : UInt32 = match datasec_opt {
         None =>
           if n == 0U {
             0U
@@ -2250,7 +2250,7 @@ fn func_uses_bulk_memory_data_count(func : Func) -> Bool {
 fn validate_bulk_memory_data_count_requirement(
   codesec_opt : CodeSec?,
   datacnt_opt : DataCntSec?,
-  imported_func_count : Int,
+  imported_func_count : Int32,
 ) -> Result[Unit, ValidationDiagnostic] {
   if datacnt_opt is Some(_) {
     return Ok(())
@@ -2312,9 +2312,9 @@ fn validate_exportsec_unique(
 fn validate_name_sec_total_locals(
   m : Module,
   env : Env,
-  imported_func_count : Int,
-  func_idx : UInt,
-) -> Int? {
+  imported_func_count : Int32,
+  func_idx : UInt32,
+) -> Int32? {
   let func_idx_int = func_idx.reinterpret_as_int()
   let params_len = match env.get_functype_by_funcidx(FuncIdx::new(func_idx)) {
     Some(FuncType(params, _)) => params.length()
@@ -2335,7 +2335,7 @@ fn validate_name_sec_total_locals(
 }
 
 ///|
-fn validate_name_sec_instrs_label_count(instrs : Array[Instruction]) -> Int {
+fn validate_name_sec_instrs_label_count(instrs : Array[Instruction]) -> Int32 {
   let mut total = 0
   for instr in instrs {
     total += validate_name_sec_instr_label_count(instr)
@@ -2344,7 +2344,7 @@ fn validate_name_sec_instrs_label_count(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
-fn validate_name_sec_instr_label_count(instr : Instruction) -> Int {
+fn validate_name_sec_instr_label_count(instr : Instruction) -> Int32 {
   match instr {
     Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
       1 + validate_name_sec_expr_label_count(body)
@@ -2370,7 +2370,7 @@ fn validate_name_sec_instr_label_count(instr : Instruction) -> Int {
 }
 
 ///|
-fn validate_name_sec_expr_label_count(expr : Expr) -> Int {
+fn validate_name_sec_expr_label_count(expr : Expr) -> Int32 {
   let Expr(instrs) = expr
   validate_name_sec_instrs_label_count(instrs)
 }
@@ -2379,9 +2379,9 @@ fn validate_name_sec_expr_label_count(expr : Expr) -> Int {
 fn validate_name_sec_total_labels(
   m : Module,
   env : Env,
-  imported_func_count : Int,
-  func_idx : UInt,
-) -> Int? {
+  imported_func_count : Int32,
+  func_idx : UInt32,
+) -> Int32? {
   if !env.has_func(FuncIdx::new(func_idx)) {
     return None
   }
@@ -2402,10 +2402,32 @@ fn validate_name_sec_total_labels(
 }
 
 ///|
+/// Check name-section references against the module's type and index spaces.
+/// This narrow check does not establish validity of function bodies or other
+/// sections; callers must retain their full module-validation boundary.
+pub fn validate_module_name_section(m : Module) -> Result[Unit, String] {
+  if m.name_sec is None {
+    return validate_name_sec(m, Env::new(), 0)
+  }
+  // Name bounds need signatures and resource counts, but no inferred types.
+  // Disable descriptor detection to avoid an unrelated full body scan.
+  let env = Env::new().with_exact_reference_inference(false).with_module(m)
+  let mut imported_func_count = 0
+  if m.import_sec is Some(ImportSec(imports)) {
+    for import_ in imports {
+      if import_ is Import(_, _, FuncExternType(_)) {
+        imported_func_count += 1
+      }
+    }
+  }
+  validate_name_sec(m, env, imported_func_count)
+}
+
+///|
 fn validate_name_sec(
   m : Module,
   env : Env,
-  imported_func_count : Int,
+  imported_func_count : Int32,
 ) -> Result[Unit, String] {
   for custom in m.custom_secs {
     let CustomSec(name, _) = custom
@@ -2851,11 +2873,11 @@ fn validate_ref_func_declarations_in_expr(
 fn validate_ref_func_declarations_in_module(
   mod : Module,
   env : Env,
-  imported_func_count : Int,
+  imported_func_count : Int32,
   declared : @bitset.BitSet,
-  trace? : (String) -> Unit = validate_trace_noop,
-  trace_all_funcs? : Bool = false,
-  trace_enabled? : Bool = false,
+  trace~ : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs~ : Bool = false,
+  trace_enabled~ : Bool = false,
 ) -> Result[Unit, ValidationDiagnostic] {
   let globals_count = match mod.global_sec {
     Some(GlobalSec(globals)) => globals.length()
@@ -3055,9 +3077,9 @@ fn validate_trace_module_error(
 /// Validates a whole module from an empty context, building its Env incrementally.
 fn validate_module_impl(
   m : Module,
-  trace? : (String) -> Unit = validate_trace_noop,
-  trace_all_funcs? : Bool = false,
-  trace_enabled? : Bool = false,
+  trace~ : (String) -> Unit = validate_trace_noop,
+  trace_all_funcs~ : Bool = false,
+  trace_enabled~ : Bool = false,
 ) -> Result[Unit, ValidationDiagnostic] {
   if trace_enabled {
     validate_helper_timing_reset()
@@ -3496,8 +3518,8 @@ fn validate_module_feature_policy(
 pub fn validate_module_with_trace(
   m : Module,
   trace : (String) -> Unit,
-  trace_all_funcs? : Bool = false,
-  disabled_features? : Array[ProposalFeature] = [],
+  trace_all_funcs~ : Bool = false,
+  disabled_features~ : Array[ProposalFeature] = [],
 ) -> Result[Unit, ValidationError] {
   match validate_module_feature_policy(m, disabled_features) {
     Ok(_) => ()
@@ -3512,7 +3534,7 @@ pub fn validate_module_with_trace(
 ///|
 pub fn validate_module(
   m : Module,
-  disabled_features? : Array[ProposalFeature] = [],
+  disabled_features~ : Array[ProposalFeature] = [],
 ) -> Result[Unit, ValidationError] {
   match validate_module_feature_policy(m, disabled_features) {
     Ok(_) => ()
@@ -3540,7 +3562,7 @@ fn validate_fuzz_ascii_lower(input : String) -> String {
 ///|
 pub struct ValidateValidRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, Debug)
@@ -3822,7 +3844,7 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
 ///|
 pub struct ValidateValidFeatureFloor {
   key : ValidateValidFeatureKey
-  min_count : Int
+  min_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -3837,8 +3859,8 @@ pub impl Show for ValidateValidFeatureFloor with fn output(self, logger) {
 ///|
 pub struct ValidateValidFeatureFloorFailure {
   key : ValidateValidFeatureKey
-  min_count : Int
-  actual_count : Int
+  min_count : Int32
+  actual_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -3861,8 +3883,8 @@ pub impl Show for ValidateValidFeatureLedgerStatus with fn output(self, logger) 
 pub struct ValidateValidFeatureLedgerEntry {
   key : ValidateValidFeatureKey
   label : String
-  actual_count : Int
-  required_min : Int
+  actual_count : Int32
+  required_min : Int32
   status : ValidateValidFeatureLedgerStatus
 } derive(Eq, Debug)
 
@@ -3881,8 +3903,8 @@ pub impl Show for ValidateValidFeatureFloorFailure with fn output(self, logger) 
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  validated : Int
+  attempts : Int32
+  validated : Int32
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
   feature_floors : Array[ValidateValidFeatureFloor]
@@ -3910,7 +3932,7 @@ pub impl Show for ValidateValidFuzzStats with fn output(self, logger) {
 ///|
 pub fn validate_valid_feature_floor(
   key : ValidateValidFeatureKey,
-  min_count : Int,
+  min_count : Int32,
 ) -> ValidateValidFeatureFloor {
   { key, min_count, }
 }
@@ -3919,7 +3941,7 @@ pub fn validate_valid_feature_floor(
 pub fn validate_valid_feature_actual_count(
   stats : GenValidFeatureStats,
   key : ValidateValidFeatureKey,
-) -> Int {
+) -> Int32 {
   match key {
     Imports => stats.imports
     FuncExports => stats.func_exports
@@ -4178,7 +4200,7 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
 fn validate_valid_feature_required_min(
   key : ValidateValidFeatureKey,
   floors : Array[ValidateValidFeatureFloor],
-) -> Int {
+) -> Int32 {
   for floor in floors {
     if floor.key == key {
       return floor.min_count
@@ -4502,7 +4524,7 @@ fn validate_valid_feature_key_from_label(
 ///|
 pub fn validate_valid_feature_floor_by_label(
   label : String,
-  min_count : Int,
+  min_count : Int32,
 ) -> Result[ValidateValidFeatureFloor, String] {
   match validate_valid_feature_key_from_label(label) {
     Some(key) => Ok(validate_valid_feature_floor(key, min_count))
@@ -4514,7 +4536,7 @@ pub fn validate_valid_feature_floor_by_label(
 pub fn validate_valid_feature_actual_count_by_label(
   stats : GenValidFeatureStats,
   label : String,
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   match validate_valid_feature_key_from_label(label) {
     Some(key) => Ok(validate_valid_feature_actual_count(stats, key))
     None => Err("unknown validate-valid feature label '\{label}'")
@@ -4542,7 +4564,7 @@ fn validate_valid_feature_floor_failures_message(
 
 ///|
 fn validate_valid_fzg_feature_floors(
-  min_count : Int,
+  min_count : Int32,
 ) -> Array[ValidateValidFeatureFloor] {
   [
     validate_valid_feature_floor(NumericFullOps, min_count),
@@ -4919,14 +4941,14 @@ fn gen_valid_body_surface_facts_module(
 
 ///|
 priv struct GenValidCoverageSurfaceFacts {
-  import_funcs : Int
-  import_tables : Int
-  import_mems : Int
-  import_globals : Int
-  import_tags : Int
-  passive_elems : Int
-  declarative_elems : Int
-  passive_datas : Int
+  import_funcs : Int32
+  import_tables : Int32
+  import_mems : Int32
+  import_globals : Int32
+  import_tags : Int32
+  passive_elems : Int32
+  declarative_elems : Int32
+  passive_datas : Int32
   has_memory_init : Bool
   has_data_drop : Bool
   has_memory_copy : Bool
@@ -5118,16 +5140,16 @@ fn gen_valid_coverage_surface_facts_module(
 
 ///|
 priv struct GenValidGcSurfaceFacts {
-  struct_types : Int
-  array_types : Int
-  descriptor_types : Int
-  rec_groups : Int
-  typed_ref_globals : Int
-  typed_ref_tables : Int
-  typed_ref_locals : Int
-  exact_typed_ref_globals : Int
-  exact_typed_ref_locals : Int
-  exact_typed_ref_results : Int
+  struct_types : Int32
+  array_types : Int32
+  descriptor_types : Int32
+  rec_groups : Int32
+  typed_ref_globals : Int32
+  typed_ref_tables : Int32
+  typed_ref_locals : Int32
+  exact_typed_ref_globals : Int32
+  exact_typed_ref_locals : Int32
+  exact_typed_ref_results : Int32
   has_struct_new : Bool
   has_struct_get : Bool
   has_struct_set : Bool
@@ -5268,7 +5290,7 @@ fn gen_valid_gc_surface_facts_merge(
 }
 
 ///|
-fn gen_valid_gc_surface_ref_score(rt : RefType) -> Int {
+fn gen_valid_gc_surface_ref_score(rt : RefType) -> Int32 {
   match rt.get_heap_type() {
     HeapType(_) => 1
     AbsHeapTypeHeapType(abs) =>
@@ -5288,7 +5310,7 @@ fn gen_valid_gc_surface_ref_score(rt : RefType) -> Int {
 }
 
 ///|
-fn gen_valid_gc_surface_val_score(vt : ValType) -> Int {
+fn gen_valid_gc_surface_val_score(vt : ValType) -> Int32 {
   match vt {
     RefTypeValType(rt) => gen_valid_gc_surface_ref_score(rt)
     _ => 0
@@ -5296,7 +5318,7 @@ fn gen_valid_gc_surface_val_score(vt : ValType) -> Int {
 }
 
 ///|
-fn gen_valid_gc_surface_exact_val_score(vt : ValType) -> Int {
+fn gen_valid_gc_surface_exact_val_score(vt : ValType) -> Int32 {
   match vt {
     RefTypeValType(rt) =>
       if rt.is_exact() {
@@ -5717,7 +5739,7 @@ test "validate_valid_run_config returns profile attempts and generator config" {
 fn validate_valid_test_floor_min(
   floors : Array[ValidateValidFeatureFloor],
   key : ValidateValidFeatureKey,
-) -> Int {
+) -> Int32 {
   for floor in floors {
     if floor.key == key {
       return floor.min_count
@@ -6689,7 +6711,7 @@ fn validate_test_expr_has_gc_const(expr : Expr) -> Bool {
 }
 
 ///|
-fn validate_test_imported_global_count(mod : Module) -> Int {
+fn validate_test_imported_global_count(mod : Module) -> Int32 {
   match mod.import_sec {
     Some(ImportSec(imports)) => {
       let mut count = 0
@@ -6709,7 +6731,7 @@ fn validate_test_imported_global_count(mod : Module) -> Int {
 ///|
 fn validate_test_expr_has_imported_global_get(
   expr : Expr,
-  imported_global_count : Int,
+  imported_global_count : Int32,
 ) -> Bool {
   let Expr(instrs) = expr
   for instr in instrs {
@@ -6729,7 +6751,7 @@ fn validate_test_expr_has_imported_global_get(
 ///|
 fn validate_test_expr_has_prior_global_get(
   expr : Expr,
-  upper_bound : Int,
+  upper_bound : Int32,
 ) -> Bool {
   let Expr(instrs) = expr
   for instr in instrs {
@@ -7652,7 +7674,7 @@ fn validate_test_simd_phase3_forms_module(
 }
 
 ///|
-fn validate_test_atomic_load_form(instr : Instruction) -> Int? {
+fn validate_test_atomic_load_form(instr : Instruction) -> Int32? {
   match instr {
     I32AtomicLoad(_, _) => Some(0)
     I64AtomicLoad(_, _) => Some(1)
@@ -7666,7 +7688,7 @@ fn validate_test_atomic_load_form(instr : Instruction) -> Int? {
 }
 
 ///|
-fn validate_test_atomic_store_form(instr : Instruction) -> Int? {
+fn validate_test_atomic_store_form(instr : Instruction) -> Int32? {
   match instr {
     I32AtomicStore(_, _) => Some(0)
     I64AtomicStore(_, _) => Some(1)
@@ -7680,7 +7702,7 @@ fn validate_test_atomic_store_form(instr : Instruction) -> Int? {
 }
 
 ///|
-fn validate_test_atomic_rmw_form(op : AtomicRmwOp) -> Int {
+fn validate_test_atomic_rmw_form(op : AtomicRmwOp) -> Int32 {
   match op {
     I32AtomicRmwAddOp => 0
     I64AtomicRmwAddOp => 1
@@ -7728,7 +7750,7 @@ fn validate_test_atomic_rmw_form(op : AtomicRmwOp) -> Int {
 }
 
 ///|
-fn validate_test_atomic_cmpxchg_form(op : AtomicCmpxchgOp) -> Int {
+fn validate_test_atomic_cmpxchg_form(op : AtomicCmpxchgOp) -> Int32 {
   match op {
     I32AtomicRmwCmpxchgOp => 0
     I64AtomicRmwCmpxchgOp => 1
@@ -8104,23 +8126,23 @@ test "gen_valid coverage-forced emits rich GC field plans" {
 
 ///|
 priv struct ValidateTestExceptionMatrixFacts {
-  imported_tags : Int
-  defined_tags : Int
-  param_tag_types : Int
-  catch_tags : Int
-  catch_ref_tags : Int
-  catch_all : Int
-  catch_all_ref : Int
-  catch_label_depth_gt0 : Int
-  max_catches : Int
-  try_tables : Int
-  nested_try_tables : Int
-  numeric_result_try_tables : Int
-  ref_result_try_tables : Int
-  throws : Int
-  throw_refs : Int
-  block_sourced_throw_refs : Int
-  local_sourced_throw_refs : Int
+  imported_tags : Int32
+  defined_tags : Int32
+  param_tag_types : Int32
+  catch_tags : Int32
+  catch_ref_tags : Int32
+  catch_all : Int32
+  catch_all_ref : Int32
+  catch_label_depth_gt0 : Int32
+  max_catches : Int32
+  try_tables : Int32
+  nested_try_tables : Int32
+  numeric_result_try_tables : Int32
+  ref_result_try_tables : Int32
+  throws : Int32
+  throw_refs : Int32
+  block_sourced_throw_refs : Int32
+  local_sourced_throw_refs : Int32
 }
 
 ///|
@@ -8182,7 +8204,7 @@ fn validate_test_exception_matrix_merge(
 ///|
 fn validate_test_exception_matrix_facts_expr(
   expr : Expr,
-  inside_try? : Bool = false,
+  inside_try~ : Bool = false,
 ) -> ValidateTestExceptionMatrixFacts {
   let Expr(instrs) = expr
   let mut facts = validate_test_exception_matrix_empty()
@@ -8341,7 +8363,7 @@ fn validate_test_exception_matrix_facts_expr(
 ///|
 fn validate_test_exception_matrix_subtype_at(
   types : Array[RecType],
-  idx : Int,
+  idx : Int32,
 ) -> SubType? {
   let mut cursor = 0
   for rec_type in types {

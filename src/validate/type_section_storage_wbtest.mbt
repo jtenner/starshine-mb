@@ -23,7 +23,7 @@ fn typesec_storage_reference(
 }
 
 ///|
-fn typesec_storage_section(count : Int, width : Int) -> TypeSec {
+fn typesec_storage_section(count : Int32, width : Int32) -> TypeSec {
   TypeSec::new(
     Array::makei(count, fn(_) {
       let st = SubType::comp_type(

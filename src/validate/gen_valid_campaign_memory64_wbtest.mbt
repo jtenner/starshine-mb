@@ -1,5 +1,5 @@
 ///|
-fn gen_valid_campaign_memory64_test_index(ma : MemArg) -> Int {
+fn gen_valid_campaign_memory64_test_index(ma : MemArg) -> Int32 {
   let MemArg(_, memory, _) = ma
   match memory {
     Some(MemIdx(index)) => index.reinterpret_as_int()

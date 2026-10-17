@@ -144,3 +144,92 @@ test "heap-store-optimization closeout leaves generate valid dedicated fixtures"
     }
   }
 }
+
+///|
+fn hso_test_module_has_descriptor_metadata(mod_ : Module) -> Bool {
+  match mod_.type_sec {
+    Some(TypeSec(types)) =>
+      for rec_type in types {
+        let group = match rec_type {
+          SingleRecType(subtype) => [subtype]
+          GroupRecType(subtypes) => subtypes
+        }
+        for subtype in group {
+          let metadata = match subtype {
+            SubType(_, _, metadata, _) | CompTypeSubType(metadata, _) =>
+              metadata
+          }
+          if metadata.descriptor is Some(_) || metadata.describes is Some(_) {
+            return true
+          }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+test "heap-store-optimization keeps descriptors in the descriptor leaf only" {
+  let ordinary_leaves = [
+    HsoTeeProfile,
+    HsoChainProfile,
+    HsoDefaultProfile,
+    HsoSideEffectsProfile,
+    HsoControlFlowProfile,
+    HsoSwapProfile,
+    HsoSharedOrderingProfile,
+    HsoBoundariesProfile,
+  ]
+  for idx, profile in ordinary_leaves {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x48534F80UL + idx.to_uint64(),
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    assert_false(
+      hso_test_module_has_descriptor_metadata(generated.wasm_module),
+      msg="ordinary HSO leaf unexpectedly requires descriptor runtime support: \{gen_valid_profile_name(profile)}",
+    )
+  }
+
+  let descriptor = match
+    gen_valid_module_result_from_seed(
+      0x48534FFFUL,
+      GenValidConfig::for_profile(HsoDescriptorProfile),
+    ) {
+    Ok(value) => value
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(hso_test_module_has_descriptor_metadata(descriptor.wasm_module))
+}
+
+///|
+test "heap-store-optimization leaves omit unrelated active segments" {
+  let leaves = [
+    HsoTeeProfile,
+    HsoChainProfile,
+    HsoDefaultProfile,
+    HsoSideEffectsProfile,
+    HsoDescriptorProfile,
+    HsoControlFlowProfile,
+    HsoSwapProfile,
+    HsoSharedOrderingProfile,
+    HsoBoundariesProfile,
+  ]
+  for idx, profile in leaves {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x48535080UL + idx.to_uint64(),
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    assert_eq(generated.wasm_module.elem_sec, None)
+    assert_eq(generated.wasm_module.data_sec, None)
+  }
+}

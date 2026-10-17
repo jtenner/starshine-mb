@@ -3706,7 +3706,7 @@ fn gen_valid_test_to_module_has_typeidx_block(mod_ : Module) -> Bool {
 }
 
 ///|
-fn gen_valid_test_to_count_local_writes(instrs : Array[Instruction]) -> Int {
+fn gen_valid_test_to_count_local_writes(instrs : Array[Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += match instr {
@@ -3727,7 +3727,7 @@ fn gen_valid_test_to_count_local_writes(instrs : Array[Instruction]) -> Int {
 }
 
 ///|
-fn gen_valid_test_to_module_local_write_count(mod_ : Module) -> Int {
+fn gen_valid_test_to_module_local_write_count(mod_ : Module) -> Int32 {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut count = 0
@@ -4412,7 +4412,24 @@ test "tuple-optimization aggregate profile records deterministic trigger-family 
   )
   @debug.assert_eq(
     gen_valid_profile_members(TupleOptimizationAllProfile).length(),
-    3,
+    4,
+  )
+  let members = gen_valid_profile_members(TupleOptimizationAllProfile)
+  @debug.assert_eq(
+    members[0],
+    GenValidProfileMember::new(TupleOptimizationSpillProfile, 3),
+  )
+  @debug.assert_eq(
+    members[1],
+    GenValidProfileMember::new(TupleOptimizationCopyChainProfile, 2),
+  )
+  @debug.assert_eq(
+    members[2],
+    GenValidProfileMember::new(TupleOptimizationTeeProfile, 1),
+  )
+  @debug.assert_eq(
+    members[3],
+    GenValidProfileMember::new(TupleOptimizationAliasCapturesProfile, 3),
   )
   @debug.assert_eq(
     gen_valid_tuple_optimization_trigger_profile_case_label(
@@ -4435,6 +4452,20 @@ test "tuple-optimization aggregate profile records deterministic trigger-family 
     ),
     Some("tuple-optimization:tee"),
   )
+  for
+    (seed, label) in [
+      (0UL, "tuple-optimization:alias-captures-prefix"),
+      (1UL, "tuple-optimization:alias-captures-trailing"),
+      (2UL, "tuple-optimization:alias-captures-chain"),
+    ] {
+    @debug.assert_eq(
+      gen_valid_tuple_optimization_trigger_profile_case_label(
+        TupleOptimizationAliasCapturesProfile,
+        seed,
+      ),
+      Some(label),
+    )
+  }
 }
 
 ///|
@@ -5268,7 +5299,7 @@ test "OI-F boolean-select trigger-smoke profile selects source-backed cases" {
 ///|
 fn gen_valid_test_instrs_count_memory_bulk_ops(
   instrs : Array[Instruction],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut copies = 0
   let mut fills = 0
   for instr in instrs {
@@ -7101,7 +7132,7 @@ fn gen_valid_test_tuple_sibling_signature(mod_ : Module) -> String {
 }
 
 ///|
-fn gen_valid_test_tuple_first_block_i32_const(mod_ : Module) -> Int? raise {
+fn gen_valid_test_tuple_first_block_i32_const(mod_ : Module) -> Int32? raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
   if instrs.length() == 0 {
     return None
@@ -9524,7 +9555,7 @@ test "gen_valid segment payload cap bounds generated data payloads" {
 }
 
 ///|
-fn gen_valid_test_die_duplicate_func_import_count(mod_ : Module) -> Int {
+fn gen_valid_test_die_duplicate_func_import_count(mod_ : Module) -> Int32 {
   let expected_module = Name::from_string("env")
   let expected_base = Name::from_string("die.dup")
   match mod_.import_sec {
@@ -9546,7 +9577,7 @@ fn gen_valid_test_die_duplicate_func_import_count(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_test_die_duplicate_nonfunc_import_count(mod_ : Module) -> Int {
+fn gen_valid_test_die_duplicate_nonfunc_import_count(mod_ : Module) -> Int32 {
   let expected_module = Name::from_string("env")
   let expected_base = Name::from_string("die.global")
   match mod_.import_sec {
@@ -9584,7 +9615,7 @@ fn gen_valid_test_has_elem_sec(mod_ : Module) -> Bool {
 }
 
 ///|
-fn gen_valid_test_total_func_count(mod_ : Module) -> Int {
+fn gen_valid_test_total_func_count(mod_ : Module) -> Int32 {
   let import_funcs = match mod_.import_sec {
     Some(ImportSec(imports)) => {
       let mut count = 0
@@ -9607,7 +9638,7 @@ fn gen_valid_test_total_func_count(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_test_import_module_count(mod_ : Module) -> Int {
+fn gen_valid_test_import_module_count(mod_ : Module) -> Int32 {
   let modules : Array[Name] = []
   match mod_.import_sec {
     Some(ImportSec(imports)) =>
@@ -9629,7 +9660,7 @@ fn gen_valid_test_import_module_count(mod_ : Module) -> Int {
 }
 
 ///|
-fn gen_valid_test_distinct_export_name_count(mod_ : Module) -> Int {
+fn gen_valid_test_distinct_export_name_count(mod_ : Module) -> Int32 {
   match mod_.export_sec {
     Some(ExportSec(exports)) => {
       let seen : Array[Name] = []
@@ -9884,7 +9915,7 @@ fn gen_valid_test_has_passive_elem_drop(mod_ : Module) -> Bool {
 }
 
 ///|
-fn gen_valid_test_non_name_custom_count(mod_ : Module) -> Int {
+fn gen_valid_test_non_name_custom_count(mod_ : Module) -> Int32 {
   let mut count = 0
   for custom in mod_.custom_secs {
     let CustomSec(name, _) = custom
@@ -10085,7 +10116,7 @@ fn gen_valid_test_has_simd_memory_over_nonzero_mem(mod_ : Module) -> Bool {
 ///|
 fn gen_valid_test_instr_has_simd_lane(
   instr : Instruction,
-  lane_count : Int,
+  lane_count : Int32,
   expected : LaneIdx,
 ) -> Bool {
   match instr {
@@ -10118,7 +10149,7 @@ fn gen_valid_test_instr_has_simd_lane(
 ///|
 fn gen_valid_test_instrs_have_simd_lane(
   instrs : Array[Instruction],
-  lane_count : Int,
+  lane_count : Int32,
   expected : LaneIdx,
 ) -> Bool {
   for instr in instrs {
@@ -10150,7 +10181,7 @@ fn gen_valid_test_instrs_have_simd_lane(
 ///|
 fn gen_valid_test_has_simd_lane(
   mod_ : Module,
-  lane_count : Int,
+  lane_count : Int32,
   expected : LaneIdx,
 ) -> Bool {
   match mod_.code_sec {
@@ -10196,17 +10227,17 @@ fn gen_valid_test_flat_func_types(mod_ : Module) -> Array[FuncType] {
 }
 
 ///|
-fn gen_valid_test_typeidx_to_int(idx : TypeIdx) -> Int {
+fn gen_valid_test_typeidx_to_int(idx : TypeIdx) -> Int32 {
   match idx {
     TypeIdx(i) | RecIdx(i) => i.reinterpret_as_int()
   }
 }
 
 ///|
-fn gen_valid_test_defined_func_type_idxs(mod_ : Module) -> Array[Int] {
+fn gen_valid_test_defined_func_type_idxs(mod_ : Module) -> Array[Int32] {
   match mod_.func_sec {
     Some(FuncSec(type_idxs)) => {
-      let out : Array[Int] = []
+      let out : Array[Int32] = []
       for type_idx in type_idxs {
         out.push(gen_valid_test_typeidx_to_int(type_idx))
       }
@@ -10235,7 +10266,7 @@ fn gen_valid_test_defined_func_locals(mod_ : Module) -> Array[Locals] {
 fn gen_valid_test_defined_func_type_from_indices(
   func_types : Array[FuncType],
   func_type_idxs : Array[TypeIdx],
-  defined_idx : Int,
+  defined_idx : Int32,
 ) -> FuncType? {
   match func_type_idxs.get(defined_idx) {
     Some(type_idx) => func_types.get(gen_valid_test_typeidx_to_int(type_idx))
@@ -10835,7 +10866,7 @@ test "gen_valid_module_with_config remains deterministic compatibility wrapper" 
 }
 
 ///|
-fn gen_valid_test_count_local_set_instrs(instrs : Array[Instruction]) -> Int {
+fn gen_valid_test_count_local_set_instrs(instrs : Array[Instruction]) -> Int32 {
   let mut count = 0
   for instr in instrs {
     count += match instr {
@@ -11318,7 +11349,7 @@ fn gen_valid_test_has_nested_return(instrs : Array[Instruction]) -> Bool {
 }
 
 ///|
-fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int {
+fn gen_valid_test_module_local_set_count(mod_ : Module) -> Int32 {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
       let mut count = 0
@@ -12208,8 +12239,8 @@ fn gen_valid_test_module_elem_has_ref_func(
 fn gen_valid_test_append_i32_const_call_args(
   instrs : Array[Instruction],
   target : FuncIdx,
-  arg_index : Int,
-  out : Array[Int],
+  arg_index : Int32,
+  out : Array[Int32],
 ) -> Unit {
   for i = 0; i + 2 < instrs.length(); i = i + 1 {
     match (instrs[i], instrs[i + 1], instrs[i + 2]) {
@@ -12583,9 +12614,9 @@ fn gen_valid_test_instrs_have_block_call_i32_const_call_sequence(
 fn gen_valid_test_i32_const_call_args(
   mod_ : Module,
   target : FuncIdx,
-  arg_index : Int,
-) -> Array[Int] {
-  let out : Array[Int] = []
+  arg_index : Int32,
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
       for func in funcs {
@@ -12684,7 +12715,7 @@ fn gen_valid_test_module_has_non_direct_or_tail_call_boundary(
 ///|
 fn gen_valid_test_instrs_read_imported_global(
   instrs : Array[Instruction],
-  imported_global_count : Int,
+  imported_global_count : Int32,
 ) -> Bool {
   if imported_global_count == 0 {
     return false
@@ -12719,7 +12750,7 @@ fn gen_valid_test_instrs_read_imported_global(
 }
 
 ///|
-fn gen_valid_test_imported_func_count(mod_ : Module) -> Int {
+fn gen_valid_test_imported_func_count(mod_ : Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(ImportSec(imports)) =>
@@ -12791,7 +12822,10 @@ fn gen_valid_test_module_struct_type_is_final(
 }
 
 ///|
-fn gen_valid_test_defined_func_type(mod_ : Module, def_idx : Int) -> FuncType? {
+fn gen_valid_test_defined_func_type(
+  mod_ : Module,
+  def_idx : Int32,
+) -> FuncType? {
   let type_idx = match mod_.func_sec {
     Some(FuncSec(type_idxs)) if def_idx >= 0 && def_idx < type_idxs.length() =>
       type_idxs[def_idx]
@@ -12817,7 +12851,7 @@ fn gen_valid_test_defined_func_type(mod_ : Module, def_idx : Int) -> FuncType? {
 }
 
 ///|
-fn gen_valid_test_imported_global_count(mod_ : Module) -> Int {
+fn gen_valid_test_imported_global_count(mod_ : Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(ImportSec(imports)) =>
@@ -12836,7 +12870,7 @@ fn gen_valid_test_imported_global_count(mod_ : Module) -> Int {
 ///|
 fn gen_valid_test_expr_is_imported_global_get(
   expr : Expr,
-  imported_global_count : Int,
+  imported_global_count : Int32,
 ) -> Bool {
   match expr {
     Expr([GlobalGet(GlobalIdx(idx))]) =>
@@ -13010,7 +13044,7 @@ fn gen_valid_test_has_memory64_active_data_imported_global_offset(
 }
 
 ///|
-fn gen_valid_test_i32_is_boundary_active_offset(value : Int) -> Bool {
+fn gen_valid_test_i32_is_boundary_active_offset(value : Int32) -> Bool {
   value == -1 || value == 65535 || value == 65536 || value == 2147483647
 }
 
@@ -13087,7 +13121,7 @@ fn gen_valid_test_has_memory64_active_data_i64_boundary_offset(
 fn gen_valid_test_has_const_index_call_indirect(
   instrs : Array[Instruction],
   table_idx : TableIdx,
-  index : Int,
+  index : Int32,
 ) -> Bool {
   for i = 0; i + 1 < instrs.length(); i = i + 1 {
     match (instrs[i], instrs[i + 1]) {
@@ -16024,7 +16058,7 @@ fn gen_valid_test_first_func(mod : Module) -> Func raise {
 }
 
 ///|
-fn gen_valid_test_defined_global_count(mod : Module) -> Int {
+fn gen_valid_test_defined_global_count(mod : Module) -> Int32 {
   match mod.global_sec {
     Some(GlobalSec(globals)) => globals.length()
     None => 0
@@ -16055,7 +16089,7 @@ test "heap2local gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, Heap2LocalAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 3)
+      @debug.assert_eq(members.length(), 4)
       @debug.assert_eq(members[0].profile, Heap2LocalStructProfile)
     }
     Err(msg) => fail(msg)
@@ -16067,7 +16101,7 @@ test "heap2local gen-valid profiles resolve and expose replayable aggregate" {
 }
 
 ///|
-test "heap2local aggregate profile samples struct array and ref families" {
+test "heap2local aggregate profile samples struct array ref and owner update families" {
   let seen : Array[GenValidProfile] = []
   let mut index = 1
   while index <= 64 {
@@ -16084,6 +16118,7 @@ test "heap2local aggregate profile samples struct array and ref families" {
   assert_true(seen.contains(Heap2LocalStructProfile))
   assert_true(seen.contains(Heap2LocalArrayProfile))
   assert_true(seen.contains(Heap2LocalRefProfile))
+  assert_true(seen.contains(Heap2LocalOwnerUpdatesProfile))
 }
 
 ///|
@@ -17310,7 +17345,7 @@ test "optimize-instructions aggregate profile samples every OI family" {
 ///|
 fn gen_valid_test_flatten_multivalue_branch_mask(
   instrs : Array[Instruction],
-) -> Int {
+) -> Int32 {
   let mut mask = 0
   for instr in instrs {
     let nested = match instr {
@@ -17341,7 +17376,7 @@ fn gen_valid_test_flatten_multivalue_branch_mask(
 }
 
 ///|
-fn gen_valid_test_flatten_module_multivalue_branch_mask(mod_ : Module) -> Int {
+fn gen_valid_test_flatten_module_multivalue_branch_mask(mod_ : Module) -> Int32 {
   let mut mask = 0
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
@@ -18904,7 +18939,7 @@ test "vacuum dropped-parent profile varies trigger opcode by seed" {
 ///|
 fn gen_valid_wbtest_singleton_void_block_leaf(
   instrs : Array[Instruction],
-) -> (Int, Array[Instruction]) {
+) -> (Int32, Array[Instruction]) {
   let mut current = instrs
   let mut depth = 0
   while current.length() == 1 {

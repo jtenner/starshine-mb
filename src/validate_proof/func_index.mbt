@@ -1,8 +1,8 @@
 ///|
 pub fn defined_func_body_index(
-  imported_func_count : Int,
-  func_idx : Int,
-) -> Int? where {
+  imported_func_count : Int32,
+  func_idx : Int32,
+) -> Int32? where {
   proof_require: 0 <= imported_func_count,
   proof_ensure: result => {
     defined_func_body_index_post(imported_func_count, func_idx, result)
@@ -17,9 +17,9 @@ pub fn defined_func_body_index(
 
 ///|
 pub fn defined_func_absolute_index(
-  imported_func_count : Int,
-  body_idx : Int,
-) -> Int where {
+  imported_func_count : Int32,
+  body_idx : Int32,
+) -> Int32 where {
   proof_require: 0 <= imported_func_count,
   proof_require: 0 <= body_idx,
   proof_ensure: result => {
@@ -31,10 +31,10 @@ pub fn defined_func_absolute_index(
 
 ///|
 pub fn defined_body_func_index(
-  imported_func_count : Int,
-  body_count : Int,
-  body_idx : Int,
-) -> Int? where {
+  imported_func_count : Int32,
+  body_count : Int32,
+  body_idx : Int32,
+) -> Int32? where {
   proof_require: 0 <= imported_func_count,
   proof_require: 0 <= body_count,
   proof_ensure: result => {

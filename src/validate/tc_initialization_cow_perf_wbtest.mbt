@@ -1,8 +1,8 @@
 ///|
 fn tc_initialization_cow_bench(
   it : @bench.T,
-  width : Int,
-  writes : Int,
+  width : Int32,
+  writes : Int32,
   unset : Bool,
   reference : Bool,
 ) -> Unit {

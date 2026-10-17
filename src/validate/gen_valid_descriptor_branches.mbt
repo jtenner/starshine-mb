@@ -74,7 +74,7 @@ fn gen_valid_descriptor_branches_module(ctx : GenValidContext) -> Module {
     body.push(Instruction::unreachable_())
   }
   let block_type = BlockType::val_type(ValType::ref_type(source))
-  let increment = fn(amount : Int) {
+  let increment = fn(amount : Int32) {
     [
       Instruction::global_get(GlobalIdx::new(0U)),
       Instruction::i32_const(I32(amount)),

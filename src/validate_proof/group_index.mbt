@@ -1,9 +1,9 @@
 ///|
 pub fn group_relative_absolute_index(
-  base : Int,
-  group_len : Int,
-  rel : Int,
-) -> Int? where {
+  base : Int32,
+  group_len : Int32,
+  rel : Int32,
+) -> Int32? where {
   proof_require: 0 <= group_len,
   proof_ensure: result => {
     group_relative_absolute_index_post(base, group_len, rel, result)
@@ -18,10 +18,10 @@ pub fn group_relative_absolute_index(
 
 ///|
 pub fn group_member_relative_index(
-  base : Int,
-  group_len : Int,
-  abs_idx : Int,
-) -> Int? where {
+  base : Int32,
+  group_len : Int32,
+  abs_idx : Int32,
+) -> Int32? where {
   proof_require: 0 <= group_len,
   proof_ensure: result => {
     group_member_relative_index_post(base, group_len, abs_idx, result)

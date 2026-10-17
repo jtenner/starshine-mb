@@ -3,7 +3,7 @@
 ///|
 pub enum TcEscape {
   NoTcEscape
-  BranchTcEscape(Int)
+  BranchTcEscape(Int32)
   TerminalTcEscape
 } derive(Eq, Debug)
 
@@ -24,7 +24,7 @@ pub struct TcState {
   reachable : Bool
   polymorphic : Bool
   escape : TcEscape
-  reachable_escape_depths : Array[Int]
+  reachable_escape_depths : Array[Int32]
   initialized_locals : Array[Bool]
 }
 
@@ -70,7 +70,7 @@ fn TcState::set_unreachable(st : TcState) -> TcState {
 }
 
 ///|
-fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
+fn TcState::set_branch_escape(st : TcState, depth : Int32) -> TcState {
   st.stack.clear()
   if !st.reachable {
     return TcState::{ ..st, polymorphic: true, }
@@ -84,13 +84,13 @@ fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
 }
 
 ///|
-fn tc_escape_depths_has(depths : Array[Int], depth : Int) -> Bool {
+fn tc_escape_depths_has(depths : Array[Int32], depth : Int32) -> Bool {
   depths.any(fn(d) { d == depth })
 }
 
 ///|
-fn tc_escape_depths_shift_to_parent(depths : Array[Int]) -> Array[Int] {
-  let out : Array[Int] = []
+fn tc_escape_depths_shift_to_parent(depths : Array[Int32]) -> Array[Int32] {
+  let out : Array[Int32] = []
   for depth in depths {
     if depth > 0 {
       out.push(depth - 1)
@@ -100,7 +100,10 @@ fn tc_escape_depths_shift_to_parent(depths : Array[Int]) -> Array[Int] {
 }
 
 ///|
-fn tc_escape_depths_merge(left : Array[Int], right : Array[Int]) -> Array[Int] {
+fn tc_escape_depths_merge(
+  left : Array[Int32],
+  right : Array[Int32],
+) -> Array[Int32] {
   if left.length() == 0 {
     return right
   }
@@ -115,10 +118,35 @@ fn tc_escape_depths_merge(left : Array[Int], right : Array[Int]) -> Array[Int] {
 }
 
 ///|
+fn tc_escape_depths_merge_children(
+  left : Array[Int32],
+  right : Array[Int32],
+  output_arrays~ : Array[Int32]? = None,
+) -> Array[Int32] {
+  // The child observations are borrowed. Keep their order and duplicates in
+  // one owned result instead of making and then merging two shifted arrays.
+  let out : Array[Int32] = []
+  if output_arrays is Some(count) {
+    count[0] += 1
+  }
+  for depth in left {
+    if depth > 0 {
+      out.push(depth - 1)
+    }
+  }
+  for depth in right {
+    if depth > 0 {
+      out.push(depth - 1)
+    }
+  }
+  out
+}
+
+///|
 fn TcState::record_reachable_escape_depth(
   st : TcState,
   was_reachable : Bool,
-  depth : Int,
+  depth : Int32,
 ) -> TcState {
   if !was_reachable {
     return st
@@ -163,7 +191,7 @@ fn TcState::push1(st : TcState, vt : ValType) -> TcState {
 fn tc_initialized_intersection(
   left : Array[Bool],
   right : Array[Bool],
-  element_checks? : Array[Int]? = None,
+  element_checks~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   if physical_equal(left, right) {
     // A read-only control fork can share its mask with both arms. The merged
@@ -198,12 +226,12 @@ fn tc_initialized_join(left : Array[Bool], right : Array[Bool]) -> Array[Bool] {
 ///|
 priv struct TcInitializationOwner {
   mut mask : Array[Bool]?
-  copy_count : Array[Int]?
+  copy_count : Array[Int32]?
 }
 
 ///|
 fn TcInitializationOwner::new(
-  copy_count? : Array[Int]? = None,
+  copy_count~ : Array[Int32]? = None,
 ) -> TcInitializationOwner {
   { mask: None, copy_count, }
 }
@@ -212,7 +240,7 @@ fn TcInitializationOwner::new(
 fn TcState::mark_local_initialized(
   st : TcState,
   idx : LocalIdx,
-  initialization_owner? : TcInitializationOwner? = None,
+  initialization_owner~ : TcInitializationOwner? = None,
 ) -> TcState {
   let LocalIdx(raw) = idx
   let local_id = raw.reinterpret_as_int()
@@ -286,7 +314,7 @@ fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
 fn TcState::pop_expect(
   st : TcState,
   expected : ValType,
-  operand_pairs? : Array[Int]? = None,
+  operand_pairs~ : Array[Int32]? = None,
 ) -> TcResult {
   ignore(operand_pairs)
   match st.pop_expect_error(expected) {
@@ -344,11 +372,23 @@ fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
 }
 
 ///|
+// Direct callers retain this state and need only an operand error. Keep the
+// public Result-returning pop_types contract unchanged.
+fn TcState::pop_types_error(st : TcState, ts : Array[ValType]) -> String? {
+  for i = ts.length() - 1; i >= 0; i = i - 1 {
+    if st.pop_expect_error(ts[i]) is Some(error) {
+      return Some(error)
+    }
+  }
+  None
+}
+
+///|
 fn check_pop_types_from_top(
   st : TcState,
   ts : Array[ValType],
-  count : Int,
-) -> Result[Int, String] {
+  count : Int32,
+) -> Result[Int32, String] {
   let mut stack_i = match latest_stack_index(st.stack.length()) {
     Some(idx) => idx
     None => -1
@@ -388,7 +428,7 @@ fn TcState::check_pop_types(
 fn TcState::retype_label_prefix(
   st : TcState,
   ts : Array[ValType],
-  prefix_len : Int,
+  prefix_len : Int32,
 ) -> TcResult {
   for i = prefix_len - 1; i >= 0; i = i - 1 {
     if st.pop_expect_error(ts[i]) is Some(error) {
@@ -448,7 +488,7 @@ priv struct TcIfBranchExit {
 fn TcIfBranchExit::new(
   reachable : Bool,
   escape : TcEscape,
-  error? : String? = None,
+  error~ : String? = None,
 ) -> TcIfBranchExit {
   { reachable, escape, error, }
 }
@@ -694,7 +734,7 @@ fn typecheck_local_get_error(st : TcState, idx : LocalIdx) -> String? {
 fn typecheck_local_set(
   st : TcState,
   idx : LocalIdx,
-  initialization_owner? : TcInitializationOwner? = None,
+  initialization_owner~ : TcInitializationOwner? = None,
 ) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
@@ -712,7 +752,7 @@ fn typecheck_local_set(
 fn typecheck_local_tee(
   st : TcState,
   idx : LocalIdx,
-  initialization_owner? : TcInitializationOwner? = None,
+  initialization_owner~ : TcInitializationOwner? = None,
 ) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
@@ -1005,9 +1045,9 @@ pub fn tc_state_finish_if(
     tc_escape_depths_has(st_then.reachable_escape_depths, 0)
   let else_reach = else_exit.reachable ||
     tc_escape_depths_has(st_else.reachable_escape_depths, 0)
-  let merged_child_depths = tc_escape_depths_merge(
-    tc_escape_depths_shift_to_parent(st_then.reachable_escape_depths),
-    tc_escape_depths_shift_to_parent(st_else.reachable_escape_depths),
+  let merged_child_depths = tc_escape_depths_merge_children(
+    st_then.reachable_escape_depths,
+    st_else.reachable_escape_depths,
   )
 
   if then_reach || else_reach {
@@ -1139,11 +1179,10 @@ fn typecheck_call(st : TcState, fidx : FuncIdx) -> TcResult {
     None => return Err("invalid function index")
     Some(ft) => ft
   }
-  let st1 = match st.pop_types(params) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  if st.pop_types_error(params) is Some(error) {
+    return Err(error)
   }
-  Ok(st1.push_types(results))
+  Ok(st.push_types(results))
 }
 
 ///|
@@ -1850,7 +1889,9 @@ fn typecheck_try_table(
     polymorphic: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
-    initialized_locals: st1.initialized_locals.copy(),
+    // The body expression owns its first initialization write. Borrowing here
+    // preserves the entry mask for catches and the parent control frame.
+    initialized_locals: st1.initialized_locals,
   }
 
   // body must typecheck under extended env
@@ -2002,67 +2043,94 @@ fn typecheck_elem_drop(st : TcState, y : ElemIdx) -> TcResult {
   }
 }
 
-// validates memarg and returns the chosen memory + its limits
+// Check memory selection, alignment and offset before any operand-stack pop.
+
+///|
+#valtype
+priv struct TcMemargCheck {
+  error : String?
+  address64 : Bool
+}
+
+///|
+fn TcMemargCheck::success(address64 : Bool) -> TcMemargCheck {
+  { error: None, address64, }
+}
+
+///|
+fn TcMemargCheck::failure(error : String) -> TcMemargCheck {
+  { error: Some(error), address64: false, }
+}
+
+///|
+fn TcMemargCheck::address_type(self : TcMemargCheck) -> ValType {
+  if self.address64 {
+    ValType::i64()
+  } else {
+    ValType::i32()
+  }
+}
 
 ///|
 fn memarg_check(
   st : TcState,
   ma : MemArg,
   default_mem : MemIdx,
-  nbits : Int,
-) -> Result[(MemIdx, Limits), String] {
+  nbits : Int32,
+) -> TcMemargCheck {
   let MemArg(U32(align_pow_u), mem_opt, U64(offset)) = ma
   let mem = match mem_opt {
     None => default_mem
     Some(m) => m
   }
   let MemType(lim, _) = match st.env.get_memtype(mem) {
-    None => return Err("invalid memory index in memarg")
+    None => return TcMemargCheck::failure("invalid memory index in memarg")
     Some(mt) => mt
   }
 
   // (1) alignment: 2^n <= N/8
   let max_align_bytes = nbits / 8
   if max_align_bytes <= 0 {
-    return Err("invalid access width")
+    return TcMemargCheck::failure("invalid access width")
   }
   let align_pow = align_pow_u.reinterpret_as_int()
   if align_pow < 0 {
-    return Err("negative alignment power")
+    return TcMemargCheck::failure("negative alignment power")
   }
   if align_pow >= 64 {
-    return Err("alignment too large")
+    return TcMemargCheck::failure("alignment too large")
   }
   let align_bytes : UInt64 = 1 << align_pow
   if align_bytes > max_align_bytes.to_uint64() {
-    return Err("memarg alignment too large for access width")
+    return TcMemargCheck::failure("memarg alignment too large for access width")
   }
 
   // (2) offset: m < 2^|at|
   let bits = lim.mem_addr_bits()
   if bits == 32 {
     if offset >= 1 << 32 {
-      return Err("memarg offset out of range for i32 memory")
+      return TcMemargCheck::failure("memarg offset out of range for i32 memory")
     }
   } else {
     // i64 memory: offset is UInt64 so always < 2^64
     ()
   }
-  Ok((mem, lim))
+  TcMemargCheck::success(bits == 64)
 }
 
 ///|
 fn typecheck_load(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   result : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2075,31 +2143,39 @@ fn memarg_check_atomic(
   st : TcState,
   ma : MemArg,
   default_mem : MemIdx,
-  nbits : Int,
-) -> Result[(MemIdx, Limits), String] {
-  let (mem, lim) = match memarg_check(st, ma, default_mem, nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  nbits : Int32,
+) -> TcMemargCheck {
+  let checked = memarg_check(st, ma, default_mem, nbits)
+  if checked.error is Some(_) {
+    return checked
+  }
+  // Preserve the existing second lookup. The immutable index selection is
+  // repeated only here, keeping the common result to two value-type fields.
+  let MemArg(_, mem_opt, _) = ma
+  let mem = match mem_opt {
+    None => default_mem
+    Some(mem) => mem
   }
   match st.env.get_memtype(mem) {
-    None => return Err("invalid memory index in memarg")
+    None => return TcMemargCheck::failure("invalid memory index in memarg")
     Some(_) => ()
   }
-  Ok((mem, lim))
+  checked
 }
 
 ///|
 fn typecheck_atomic_load(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   result : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2111,14 +2187,15 @@ fn typecheck_atomic_load(
 fn typecheck_store(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   value : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
 
   // pop value first (top of stack)
   let st1 = match st.pop_expect(value) {
@@ -2138,14 +2215,15 @@ fn typecheck_store(
 fn typecheck_atomic_store(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   value : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(value) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2159,11 +2237,12 @@ fn typecheck_atomic_store(
 
 ///|
 fn typecheck_atomic_notify(st : TcState, ma : MemArg) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), 32) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), 32)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(ValType::i32()) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2179,14 +2258,15 @@ fn typecheck_atomic_notify(st : TcState, ma : MemArg) -> TcResult {
 fn typecheck_atomic_wait(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   expected : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(ValType::i64()) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2206,14 +2286,15 @@ fn typecheck_atomic_wait(
 fn typecheck_atomic_rmw(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   ty : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(ty) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2229,14 +2310,15 @@ fn typecheck_atomic_rmw(
 fn typecheck_atomic_cmpxchg(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   ty : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check_atomic(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(ty) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -2804,7 +2886,7 @@ fn typecheck_struct_get(
   st : TcState,
   x : TypeIdx,
   i : U32,
-  atomic? : Bool = false,
+  atomic~ : Bool = false,
 ) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
@@ -2896,8 +2978,8 @@ fn typecheck_struct_atomic_get_u(
 fn aggregate_atomic_value_type(
   stor : StorageType,
   env : Env,
-  references? : Bool = false,
-  equality? : Bool = false,
+  references~ : Bool = false,
+  equality~ : Bool = false,
 ) -> Result[ValType, String] {
   if stor.is_packed() {
     return Err("aggregate atomic RMW/cmpxchg requires non-packed field")
@@ -3044,7 +3126,7 @@ fn typecheck_struct_set(
   st : TcState,
   x : TypeIdx,
   i : U32,
-  atomic? : Bool = false,
+  atomic~ : Bool = false,
 ) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
@@ -3219,12 +3301,17 @@ fn typecheck_v128_const(st : TcState) -> TcResult {
 }
 
 ///|
-fn typecheck_v128_mem_load(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+fn typecheck_v128_mem_load(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int32,
+) -> TcResult {
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
   let st1 = match st.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -3233,12 +3320,17 @@ fn typecheck_v128_mem_load(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
 }
 
 ///|
-fn typecheck_v128_mem_store(st : TcState, ma : MemArg, nbits : Int) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+fn typecheck_v128_mem_store(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int32,
+) -> TcResult {
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
 
   // pop value first
   let st1 = match st.pop_expect(ValType::v128()) {
@@ -3258,7 +3350,7 @@ fn typecheck_v128_mem_store(st : TcState, ma : MemArg, nbits : Int) -> TcResult 
 fn typecheck_v128_mem_load_zero(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
 ) -> TcResult {
   typecheck_v128_mem_load(st, ma, nbits)
 }
@@ -3267,7 +3359,7 @@ fn typecheck_v128_mem_load_zero(
 fn typecheck_v128_load_lane(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   lane : LaneIdx,
   lane_count : Byte,
 ) -> TcResult {
@@ -3275,11 +3367,12 @@ fn typecheck_v128_load_lane(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
 
   // pop existing vector (top of stack)
   let st1 = match st.pop_expect(ValType::v128()) {
@@ -3299,7 +3392,7 @@ fn typecheck_v128_load_lane(
 fn typecheck_v128_store_lane(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
   lane : LaneIdx,
   lane_count : Byte,
 ) -> TcResult {
@@ -3307,11 +3400,12 @@ fn typecheck_v128_store_lane(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let checked = memarg_check(st, ma, MemIdx::new(0), nbits)
+  match checked.error {
+    Some(error) => return Err(error)
+    None => ()
   }
-  let at = lim.addr_valtype()
+  let at = checked.address_type()
 
   // pop vector (top of stack)
   let st1 = match st.pop_expect(ValType::v128()) {
@@ -3331,7 +3425,7 @@ fn typecheck_v128_store_lane(
 fn typecheck_v128_mem_load_splat(
   st : TcState,
   ma : MemArg,
-  nbits : Int,
+  nbits : Int32,
 ) -> TcResult {
   typecheck_v128_mem_load(st, ma, nbits)
 }
@@ -3630,7 +3724,7 @@ fn typecheck_array_new_fixed(st : TcState, x : TypeIdx, n : U32) -> TcResult {
 fn typecheck_array_get(
   st : TcState,
   x : TypeIdx,
-  atomic? : Bool = false,
+  atomic~ : Bool = false,
 ) -> TcResult {
   let FieldType(sto, _) = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
@@ -3690,7 +3784,7 @@ fn typecheck_array_get_u(st : TcState, x : TypeIdx) -> TcResult {
 fn typecheck_array_set(
   st : TcState,
   x : TypeIdx,
-  atomic? : Bool = false,
+  atomic~ : Bool = false,
 ) -> TcResult {
   let ft = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
@@ -5610,7 +5704,7 @@ fn non_nullable_externref() -> ValType {
 ///|
 fn tc_state_all_locals_initialized(
   env : Env,
-  expanded_slot_visits? : Array[Int]? = None,
+  expanded_slot_visits~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   ignore(expanded_slot_visits)
   Array::make(env.locals.length(), true)
@@ -5774,7 +5868,7 @@ pub fn tc_state_validate_end_stack(
 fn typecheck_expr_with_escape_summary_for_test(
   expr : Expr,
   state : TcState,
-) -> Result[(TcState, Array[Int]), String] {
+) -> Result[(TcState, Array[Int32]), String] {
   match Typecheck::typecheck(expr, state) {
     Ok(out) => Ok((out, out.reachable_escape_depths))
     Err(err) => Err(err)
@@ -12272,7 +12366,7 @@ test "Typecheck I32x4RelaxedDotI8x16I7x16AddS" {
 ///|
 fn typecheck_array_memory_argument(
   ma : MemArg,
-  maximum : UInt,
+  maximum : UInt32,
 ) -> Result[Unit, String] {
   let MemArg(U32(align), memory, U64(offset)) = ma
   if memory is Some(_) {
@@ -12288,7 +12382,7 @@ fn typecheck_array_memory_argument(
 }
 
 ///|
-fn typecheck_array_load_alignment(op : @lib.LoadOp) -> UInt {
+fn typecheck_array_load_alignment(op : @lib.LoadOp) -> UInt32 {
   match op {
     @lib.I32Load8SOp | @lib.I32Load8UOp | @lib.I64Load8SOp | @lib.I64Load8UOp =>
       0U
@@ -12305,7 +12399,7 @@ fn typecheck_array_load_alignment(op : @lib.LoadOp) -> UInt {
 }
 
 ///|
-fn typecheck_array_store_alignment(op : @lib.StoreOp) -> UInt {
+fn typecheck_array_store_alignment(op : @lib.StoreOp) -> UInt32 {
   match op {
     @lib.I32Store8Op | @lib.I64Store8Op => 0U
     @lib.I32Store16Op | @lib.I64Store16Op => 1U

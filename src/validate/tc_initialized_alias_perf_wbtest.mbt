@@ -14,7 +14,7 @@ fn tc_alias_intersection_reference(
 ///|
 fn tc_alias_intersection_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   alias : Bool,
   reference : Bool,
 ) -> Unit {

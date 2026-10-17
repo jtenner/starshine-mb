@@ -42,7 +42,7 @@ fn gen_valid_campaign_memory64_config() -> GenValidConfig {
 }
 
 ///|
-fn gen_valid_campaign_memory64_is_64(seed : UInt64, index : Int) -> Bool {
+fn gen_valid_campaign_memory64_is_64(seed : UInt64, index : Int32) -> Bool {
   let first_is_64 = (seed & 2UL) != 0UL
   match index {
     0 => first_is_64

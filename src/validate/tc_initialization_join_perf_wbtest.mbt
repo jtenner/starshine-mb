@@ -1,7 +1,7 @@
 ///|
 fn tc_borrowed_join_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   alias : Bool,
   reference : Bool,
 ) -> Unit {

@@ -51,7 +51,7 @@ fn gen_valid_is_global_refining_profile_config(config : GenValidConfig) -> Bool 
 ///|
 fn gen_valid_gr_construct(
   type_idx : TypeIdx,
-  value : Int,
+  value : Int32,
   extra_field : Bool,
 ) -> Array[Instruction] {
   let body = [Instruction::i32_const(I32(value))]

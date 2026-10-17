@@ -16,7 +16,7 @@ fn tc_pop_expect_reference(st : TcState, expected : ValType) -> TcResult {
 }
 
 ///|
-fn tc_pop_expect_bench(it : @bench.T, count : Int, reference : Bool) -> Unit {
+fn tc_pop_expect_bench(it : @bench.T, count : Int32, reference : Bool) -> Unit {
   let state = make_state(empty_env(), [])
   state.stack.push(ValType::i32())
   let actual = state.pop_expect(ValType::i32()).unwrap()

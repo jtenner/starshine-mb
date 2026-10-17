@@ -4,8 +4,8 @@ test "precompute GC atomic boundary uses independently supported load orders" {
     GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile),
   )
   let body = match input.code_sec {
-    Some(CodeSec([Func(_, Expr(body))])) => body
-    _ => fail("expected one precompute GC atomic boundary function")
+    Some(CodeSec([Func(_, Expr(body)), Func(_, Expr(_))])) => body
+    _ => fail("expected the precompute GC atomic trigger and wrapper")
   }
   let mut seq_cst_loads = 0
   let mut acq_rel_loads = 0

@@ -154,7 +154,7 @@ test "constraint loop GenValid includes values carried by stack parameters" {
 }
 
 ///|
-fn constraint_gen_has_branch(body : Array[Instruction], form : Int) -> Bool {
+fn constraint_gen_has_branch(body : Array[Instruction], form : Int32) -> Bool {
   for instruction in body {
     match instruction {
       BrIf(_) if form == 1 => return true

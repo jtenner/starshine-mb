@@ -3,7 +3,7 @@ fn local_write_pop_reference(
   state : TcState,
   index : LocalIdx,
   tee : Bool,
-  owner? : TcInitializationOwner? = None,
+  owner~ : TcInitializationOwner? = None,
 ) -> TcResult {
   match state.env.get_local_type(index) {
     None => Err("invalid local index")
@@ -26,7 +26,7 @@ fn local_write_pop_current(
   state : TcState,
   index : LocalIdx,
   tee : Bool,
-  owner? : TcInitializationOwner? = None,
+  owner~ : TcInitializationOwner? = None,
 ) -> TcResult {
   if tee {
     typecheck_local_tee(state, index, initialization_owner=owner)

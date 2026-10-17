@@ -358,7 +358,7 @@ pub struct ValidateInvalidAstStrategySpec {
 ///|
 pub struct ValidateInvalidAstRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
   seed_profiles : Array[GenInvalidNamedSeedProfile]
@@ -379,27 +379,27 @@ pub struct ValidateInvalidAstStrategyStats {
   variant_id : String
   expected_family : ValidationIssueFamily
   expected_issue_kind : ValidationIssueFamily
-  attempted : Int
-  applicable : Int
-  mutated : Int
-  rejected : Int
-  rejected_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_mutated : Int
-  variant_rejected : Int
-  rejected_exact_issue : Int
+  attempted : Int32
+  applicable : Int32
+  mutated : Int32
+  rejected : Int32
+  rejected_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_mutated : Int32
+  variant_rejected : Int32
+  rejected_exact_issue : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct ValidateInvalidAstFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
   seed_profiles : Array[GenInvalidNamedSeedProfile]
-  seed_profile_attempts : Array[Int]
+  seed_profile_attempts : Array[Int32]
   strategy_stats : Array[ValidateInvalidAstStrategyStats]
 } derive(Eq, Debug)
 
@@ -409,8 +409,8 @@ fn validate_invalid_ast_strategy_spec(
   stable_id : String,
   display_name : String,
   expected_family : ValidationIssueFamily,
-  required_in_smoke? : Bool = true,
-  seed_prerequisites? : Array[ValidateInvalidAstSeedPrerequisite] = [],
+  required_in_smoke~ : Bool = true,
+  seed_prerequisites~ : Array[ValidateInvalidAstSeedPrerequisite] = [],
 ) -> ValidateInvalidAstStrategySpec {
   {
     id,
@@ -2274,13 +2274,13 @@ fn validate_invalid_ast_registry_entries() -> Array[
 ///|
 priv struct ValidateInvalidAstRegistryCache {
   entries : Array[ValidateInvalidAstStrategySpec]
-  stable_id_lookup : @hashmap.HashMap[String, Int]
+  stable_id_lookup : @hashmap.HashMap[String, Int32]
 }
 
 ///|
 fn ValidateInvalidAstRegistryCache::new() -> ValidateInvalidAstRegistryCache {
   let entries = validate_invalid_ast_registry_entries()
-  let stable_id_lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+  let stable_id_lookup : @hashmap.HashMap[String, Int32] = @hashmap.new(
     capacity=entries.length() * 2 + 1,
   )
   for idx, spec in entries {
@@ -2317,7 +2317,7 @@ pub fn validate_invalid_ast_strategy_by_stable_id(
 ///|
 fn validate_invalid_ast_strategy_index(
   id : ValidateInvalidAstStrategyId,
-) -> Int {
+) -> Int32 {
   match id {
     DuplicateExportName => 0
     InvalidStartSignature => 1
@@ -2741,7 +2741,7 @@ fn validate_invalid_ast_type_entries(mod : Module) -> Array[RecType] {
 }
 
 ///|
-fn validate_invalid_ast_flat_type_count(mod : Module) -> Int {
+fn validate_invalid_ast_flat_type_count(mod : Module) -> Int32 {
   let mut count = 0
   for entry in validate_invalid_ast_type_entries(mod) {
     match entry {
@@ -2833,7 +2833,7 @@ fn validate_invalid_ast_tag_entries(mod : Module) -> Array[TagType] {
 }
 
 ///|
-fn validate_invalid_ast_imported_func_count(mod : Module) -> Int {
+fn validate_invalid_ast_imported_func_count(mod : Module) -> Int32 {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
     let Import(_, _, et) = imp
@@ -2845,12 +2845,12 @@ fn validate_invalid_ast_imported_func_count(mod : Module) -> Int {
 }
 
 ///|
-fn validate_invalid_ast_defined_func_count(mod : Module) -> Int {
+fn validate_invalid_ast_defined_func_count(mod : Module) -> Int32 {
   validate_invalid_ast_func_type_entries(mod).length()
 }
 
 ///|
-fn validate_invalid_ast_imported_global_count(mod : Module) -> Int {
+fn validate_invalid_ast_imported_global_count(mod : Module) -> Int32 {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
     let Import(_, _, et) = imp
@@ -2862,7 +2862,7 @@ fn validate_invalid_ast_imported_global_count(mod : Module) -> Int {
 }
 
 ///|
-fn validate_invalid_ast_imported_table_count(mod : Module) -> Int {
+fn validate_invalid_ast_imported_table_count(mod : Module) -> Int32 {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
     let Import(_, _, et) = imp
@@ -2874,7 +2874,7 @@ fn validate_invalid_ast_imported_table_count(mod : Module) -> Int {
 }
 
 ///|
-fn validate_invalid_ast_imported_mem_count(mod : Module) -> Int {
+fn validate_invalid_ast_imported_mem_count(mod : Module) -> Int32 {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
     let Import(_, _, et) = imp
@@ -2886,7 +2886,7 @@ fn validate_invalid_ast_imported_mem_count(mod : Module) -> Int {
 }
 
 ///|
-fn validate_invalid_ast_imported_tag_count(mod : Module) -> Int {
+fn validate_invalid_ast_imported_tag_count(mod : Module) -> Int32 {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
     let Import(_, _, et) = imp
@@ -2898,31 +2898,31 @@ fn validate_invalid_ast_imported_tag_count(mod : Module) -> Int {
 }
 
 ///|
-fn validate_invalid_ast_total_func_count(mod : Module) -> Int {
+fn validate_invalid_ast_total_func_count(mod : Module) -> Int32 {
   validate_invalid_ast_imported_func_count(mod) +
   validate_invalid_ast_defined_func_count(mod)
 }
 
 ///|
-fn validate_invalid_ast_total_table_count(mod : Module) -> Int {
+fn validate_invalid_ast_total_table_count(mod : Module) -> Int32 {
   validate_invalid_ast_imported_table_count(mod) +
   validate_invalid_ast_table_entries(mod).length()
 }
 
 ///|
-fn validate_invalid_ast_total_global_count(mod : Module) -> Int {
+fn validate_invalid_ast_total_global_count(mod : Module) -> Int32 {
   validate_invalid_ast_imported_global_count(mod) +
   validate_invalid_ast_global_entries(mod).length()
 }
 
 ///|
-fn validate_invalid_ast_total_mem_count(mod : Module) -> Int {
+fn validate_invalid_ast_total_mem_count(mod : Module) -> Int32 {
   validate_invalid_ast_imported_mem_count(mod) +
   validate_invalid_ast_mem_entries(mod).length()
 }
 
 ///|
-fn validate_invalid_ast_total_tag_count(mod : Module) -> Int {
+fn validate_invalid_ast_total_tag_count(mod : Module) -> Int32 {
   validate_invalid_ast_imported_tag_count(mod) +
   validate_invalid_ast_tag_entries(mod).length()
 }
@@ -9471,8 +9471,8 @@ fn validate_invalid_ast_mutate_funcsec_without_codesec(
 
 ///|
 fn validate_invalid_ast_code_length_mismatch_module(
-  func_decl_count : Int,
-  code_body_count : Int,
+  func_decl_count : Int32,
+  code_body_count : Int32,
 ) -> Module {
   let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let type_idx = TypeIdx::new(0U)
@@ -11450,17 +11450,17 @@ fn validate_invalid_ast_empty_strategy_stats() -> Array[
 ///|
 fn validate_invalid_ast_update_strategy_stats(
   stats : Array[ValidateInvalidAstStrategyStats],
-  idx : Int,
-  attempted? : Int = stats[idx].attempted,
-  applicable? : Int = stats[idx].applicable,
-  mutated? : Int = stats[idx].mutated,
-  rejected? : Int = stats[idx].rejected,
-  rejected_expected? : Int = stats[idx].rejected_expected,
-  variant_attempted? : Int = stats[idx].variant_attempted,
-  variant_applicable? : Int = stats[idx].variant_applicable,
-  variant_mutated? : Int = stats[idx].variant_mutated,
-  variant_rejected? : Int = stats[idx].variant_rejected,
-  rejected_exact_issue? : Int = stats[idx].rejected_exact_issue,
+  idx : Int32,
+  attempted~ : Int32 = stats[idx].attempted,
+  applicable~ : Int32 = stats[idx].applicable,
+  mutated~ : Int32 = stats[idx].mutated,
+  rejected~ : Int32 = stats[idx].rejected,
+  rejected_expected~ : Int32 = stats[idx].rejected_expected,
+  variant_attempted~ : Int32 = stats[idx].variant_attempted,
+  variant_applicable~ : Int32 = stats[idx].variant_applicable,
+  variant_mutated~ : Int32 = stats[idx].variant_mutated,
+  variant_rejected~ : Int32 = stats[idx].variant_rejected,
+  rejected_exact_issue~ : Int32 = stats[idx].rejected_exact_issue,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {

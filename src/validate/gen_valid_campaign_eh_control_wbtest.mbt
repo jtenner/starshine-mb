@@ -9,7 +9,7 @@ fn gen_valid_campaign_eh_control_test_body(
 }
 
 ///|
-fn gen_valid_campaign_eh_control_test_shape(mod_ : Module) -> Int? {
+fn gen_valid_campaign_eh_control_test_shape(mod_ : Module) -> Int32? {
   let body = match gen_valid_campaign_eh_control_test_body(mod_) {
     Some(body) => body
     None => return None

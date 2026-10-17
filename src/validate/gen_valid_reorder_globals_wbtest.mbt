@@ -1,5 +1,5 @@
 ///|
-fn gen_valid_rg_test_global_count(mod_ : Module) -> Int {
+fn gen_valid_rg_test_global_count(mod_ : Module) -> Int32 {
   let mut count = 0
   match mod_.import_sec {
     Some(ImportSec(imports)) =>

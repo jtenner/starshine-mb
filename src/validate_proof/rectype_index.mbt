@@ -1,9 +1,9 @@
 ///|
 pub fn rectype_suffix_member_index(
-  total_len : Int,
-  suffix_len : Int,
-  relative_idx : Int,
-) -> Int? where {
+  total_len : Int32,
+  suffix_len : Int32,
+  relative_idx : Int32,
+) -> Int32? where {
   proof_require: 0 <= total_len,
   proof_require: 0 <= suffix_len,
   proof_ensure: result => {

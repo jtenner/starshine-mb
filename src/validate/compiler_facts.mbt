@@ -16,7 +16,7 @@ fn[T : Validate] validate_compiler_fact_option(
 
 ///|
 fn validate_compiler_fact_function_index(
-  index : UInt,
+  index : UInt32,
   env : Env,
 ) -> Result[Unit, String] {
   if env.has_func(FuncIdx::new(index)) {
@@ -30,7 +30,7 @@ fn validate_compiler_fact_function_index(
 
 ///|
 fn validate_compiler_fact_type_index(
-  index : UInt,
+  index : UInt32,
   env : Env,
 ) -> Result[Unit, String] {
   if index < env.global_types.length().reinterpret_as_uint() {
@@ -44,7 +44,7 @@ fn validate_compiler_fact_type_index(
 
 ///|
 fn validate_compiler_fact_global_index(
-  index : UInt,
+  index : UInt32,
   env : Env,
 ) -> Result[Unit, String] {
   if env.get_global_type(GlobalIdx::new(index)) is Some(_) {
@@ -58,7 +58,7 @@ fn validate_compiler_fact_global_index(
 
 ///|
 fn validate_compiler_fact_memory_index(
-  index : UInt,
+  index : UInt32,
   env : Env,
 ) -> Result[Unit, String] {
   if env.get_memtype(MemIdx::new(index)) is Some(_) {
@@ -72,7 +72,7 @@ fn validate_compiler_fact_memory_index(
 
 ///|
 fn validate_compiler_fact_table_index(
-  index : UInt,
+  index : UInt32,
   env : Env,
 ) -> Result[Unit, String] {
   if env.get_table_type(TableIdx::new(index)) is Some(_) {
@@ -86,11 +86,11 @@ fn validate_compiler_fact_table_index(
 
 ///|
 fn validate_compiler_fact_closed_uint_set(
-  values : Array[UInt],
-  validate_index : (UInt) -> Result[Unit, String],
+  values : Array[UInt32],
+  validate_index : (UInt32) -> Result[Unit, String],
   label : String,
 ) -> Result[Unit, String] {
-  let mut previous : UInt? = None
+  let mut previous : UInt32? = None
   for value in values {
     match previous {
       Some(prev) if value <= prev =>
@@ -134,7 +134,7 @@ fn compiler_fact_value_is_integer_zero(value : FactValue) -> Bool {
 }
 
 ///|
-fn compiler_fact_value_family(value : FactValue) -> Int {
+fn compiler_fact_value_family(value : FactValue) -> Int32 {
   match value {
     IntegerValue(_) => 0
     F32Bits(_) | F64Bits(_) => 1
@@ -418,7 +418,7 @@ pub impl Validate for ClosedValueSet with fn validate(value, env) {
       "compiler facts closed value set must be sorted and duplicate-free",
     )
   }
-  let mut family : Int? = None
+  let mut family : Int32? = None
   for fact_value in values {
     if Validate::validate(fact_value, env) is Err(err) {
       return Err(err)
@@ -521,7 +521,7 @@ pub impl Validate for FloatWidth with fn validate(_, _) {
 
 ///|
 pub impl Validate for FloatClassMask with fn validate(value, _) {
-  let unknown = value.bits() & UInt::lnot(0x1FFU)
+  let unknown = value.bits() & UInt32::lnot(0x1FFU)
   if unknown == 0U {
     Ok(())
   } else {
@@ -1051,7 +1051,7 @@ pub impl Validate for FieldUsageFacts with fn validate(_, _) {
 }
 
 ///|
-fn compiler_fact_type_view_index(view : TypeView) -> UInt {
+fn compiler_fact_type_view_index(view : TypeView) -> UInt32 {
   match view {
     ExactTypeView(type_) | SubtypeClosureView(type_) => type_
   }
@@ -1209,7 +1209,7 @@ pub impl Validate for TableFacts with fn validate(value, env) {
 }
 
 ///|
-fn compiler_fact_allocation_type(value : AllocationKind) -> UInt {
+fn compiler_fact_allocation_type(value : AllocationKind) -> UInt32 {
   match value {
     StructAllocation(type_)
     | ArrayAllocation(type_)
@@ -1597,14 +1597,14 @@ fn module_has_compiler_fact_metadata(module_ : Module) -> Bool {
 
 ///|
 priv struct CompilerFactOpcodeIndex {
-  imported_functions : Int
-  defined_sites : Array[Array[(UInt, Instruction)]]
+  imported_functions : Int32
+  defined_sites : Array[Array[(UInt32, Instruction)]]
 }
 
 ///|
 fn compiler_fact_opcode_index(
   module_ : Module,
-  imported_functions : Int,
+  imported_functions : Int32,
 ) -> Result[CompilerFactOpcodeIndex, String] {
   match @binary.compiler_fact_module_opcode_sites(module_) {
     Ok(defined_sites) => Ok({ imported_functions, defined_sites, })
@@ -1638,7 +1638,10 @@ fn compiler_fact_instruction_at(
 }
 
 ///|
-fn compiler_fact_block_result_arity(block_type : BlockType, env : Env) -> UInt? {
+fn compiler_fact_block_result_arity(
+  block_type : BlockType,
+  env : Env,
+) -> UInt32? {
   match env.expand_blocktype(block_type) {
     Ok((_, results)) => Some(results.length().reinterpret_as_uint())
     Err(_) => None
@@ -1649,7 +1652,7 @@ fn compiler_fact_block_result_arity(block_type : BlockType, env : Env) -> UInt? 
 fn compiler_fact_instruction_result_arity(
   instr : Instruction,
   env : Env,
-) -> UInt? {
+) -> UInt32? {
   match instr {
     Call(function) =>
       match env.get_functype_by_funcidx(function) {
@@ -2064,7 +2067,7 @@ fn validate_compiler_fact_body_sites(
 fn validate_compiler_fact_module_section(
   module_ : Module,
   env : Env,
-  imported_functions : Int,
+  imported_functions : Int32,
 ) -> Result[Unit, String] {
   for custom in module_.custom_secs {
     let CustomSec(name, _) = custom

@@ -23,14 +23,14 @@ fn mass_audit_validate_function_module(
 }
 
 ///|
-fn mass_audit_validate_ref(idx : UInt, nullable? : Bool = true) -> ValType {
+fn mass_audit_validate_ref(idx : UInt32, nullable~ : Bool = true) -> ValType {
   ValType::ref_type(RefType::new(nullable, HeapType::new(TypeIdx::new(idx))))
 }
 
 ///|
 fn mass_audit_validate_field(
   vt : ValType,
-  mutable_? : Bool = false,
+  mutable_~ : Bool = false,
 ) -> FieldType {
   FieldType::new(
     StorageType::val_type(vt),

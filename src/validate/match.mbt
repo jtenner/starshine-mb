@@ -155,7 +155,7 @@ fn exact_heaptype_matches_fuel(
   h0 : HeapType,
   h1 : HeapType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if h0 == h1 {
@@ -175,8 +175,8 @@ fn exact_heaptype_matches_fuel(
 ///|
 fn exact_group_canonical_type_idx(
   idx : TypeIdx,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> TypeIdx {
   match idx {
     TypeIdx(i) => {
@@ -194,8 +194,8 @@ fn exact_group_canonical_type_idx(
 ///|
 fn exact_group_canonical_heap_type(
   heap_type : HeapType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> HeapType {
   match heap_type {
     AbsHeapTypeHeapType(_) | SharedAbsHeapTypeHeapType(_) => heap_type
@@ -216,8 +216,8 @@ fn exact_group_canonical_heap_type(
 ///|
 fn exact_group_canonical_ref_type(
   ref_type : RefType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> RefType {
   match ref_type {
     HeapTypeRefType(nullable, exact, heap_type) =>
@@ -233,8 +233,8 @@ fn exact_group_canonical_ref_type(
 ///|
 fn exact_group_canonical_val_type(
   value_type : ValType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> ValType {
   match value_type {
     RefTypeValType(ref_type) =>
@@ -248,8 +248,8 @@ fn exact_group_canonical_val_type(
 ///|
 fn exact_group_canonical_field_type(
   field : FieldType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> FieldType {
   let FieldType(storage, mutability) = field
   let storage = match storage {
@@ -265,8 +265,8 @@ fn exact_group_canonical_field_type(
 ///|
 fn exact_group_canonical_metadata(
   metadata : TypeMetadata,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> TypeMetadata {
   TypeMetadata::new(
     describes=metadata.describes.map(fn(idx) {
@@ -282,8 +282,8 @@ fn exact_group_canonical_metadata(
 ///|
 fn exact_group_canonical_comp_type(
   comp_type : CompType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> CompType {
   match comp_type {
     FuncCompType(params, results) =>
@@ -315,8 +315,8 @@ fn exact_group_canonical_comp_type(
 ///|
 fn exact_group_canonical_sub_type(
   sub_type : SubType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> SubType {
   match sub_type {
     SubType(final_, supers, metadata, comp_type) =>
@@ -345,8 +345,8 @@ fn exact_group_canonical_sub_type(
 ///|
 fn exact_group_canonical_rec_type(
   rec_type : RecType,
-  group_start : Int,
-  group_length : Int,
+  group_start : Int32,
+  group_length : Int32,
 ) -> RecType {
   match rec_type {
     SingleRecType(sub_type) =>
@@ -366,7 +366,7 @@ fn exact_group_canonical_rec_type(
 fn exact_global_type_rec_group_position(
   idx : TypeIdx,
   env : Env,
-) -> (Array[SubType], Int, Int, Int)? {
+) -> (Array[SubType], Int32, Int32, Int32)? {
   let flat_index = match idx {
     TypeIdx(i) => i.reinterpret_as_int()
     RecIdx(_) => return None
@@ -387,7 +387,7 @@ fn exact_typeidx_matches_fuel(
   t0 : TypeIdx,
   t1 : TypeIdx,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if t0 == t1 {
@@ -444,7 +444,7 @@ fn exact_subtype_matches_fuel(
   st0 : SubType,
   st1 : SubType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -487,7 +487,7 @@ fn exact_comptype_matches_fuel(
   ct0 : CompType,
   ct1 : CompType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -521,7 +521,7 @@ fn exact_resulttype_matches_fuel(
   rt0 : ResultType,
   rt1 : ResultType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -543,7 +543,7 @@ fn exact_field_matches_fuel(
   f0 : FieldType,
   f1 : FieldType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -559,7 +559,7 @@ fn exact_storage_matches_fuel(
   st0 : StorageType,
   st1 : StorageType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -578,7 +578,7 @@ fn exact_valtype_matches_fuel(
   v0 : ValType,
   v1 : ValType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -596,7 +596,7 @@ fn exact_reftype_matches_fuel(
   r0 : RefType,
   r1 : RefType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if fuel <= 0 {
@@ -678,7 +678,7 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
 
 ///|
 // Base domains are any, func, extern, exn, cont, and waitqueue (0 through 5).
-fn absheaptype_validation_domain(abs : AbsHeapType) -> Int {
+fn absheaptype_validation_domain(abs : AbsHeapType) -> Int32 {
   match abs {
     AnyAbsHeapType
     | EqAbsHeapType
@@ -696,7 +696,7 @@ fn absheaptype_validation_domain(abs : AbsHeapType) -> Int {
 
 ///|
 // Shared domains add 8. Unresolved defined types return -1.
-fn heaptype_validation_domain(ht : HeapType, env : Env) -> Int {
+fn heaptype_validation_domain(ht : HeapType, env : Env) -> Int32 {
   match ht {
     AbsHeapTypeHeapType(abs) => absheaptype_validation_domain(abs)
     SharedAbsHeapTypeHeapType(abs) => absheaptype_validation_domain(abs) + 8
@@ -730,7 +730,7 @@ fn heaptype_matches_fuel(
   h1 : HeapType,
   h2 : HeapType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if h1 == h2 {
     return true
@@ -789,7 +789,7 @@ fn subtype_as_heap_fuel(
   st : SubType,
   target : HeapType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -852,7 +852,7 @@ fn heap_vs_typeidx_fuel(
   h : HeapType,
   target : TypeIdx,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -899,7 +899,7 @@ fn abs_vs_typeidx_fuel(
   abs : AbsHeapType,
   target : TypeIdx,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -922,7 +922,7 @@ fn deftype_matches_abs_fuel(
   dt : DefType,
   abs : AbsHeapType,
   _env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -997,7 +997,7 @@ fn deftype_matches_fuel(
   dt1 : DefType,
   dt2 : DefType,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   // clos_C(dt1) == clos_C(dt2)
   if dt1 == dt2 {
@@ -1092,7 +1092,7 @@ fn typeidx_leq_typeidx_with_fuel(
   a : TypeIdx,
   b : TypeIdx,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
 ) -> Bool {
   let visited : Array[TypeIdx] = []
   typeidx_leq_typeidx_fuel(a, b, env, fuel, visited)
@@ -1103,7 +1103,7 @@ fn typeidx_leq_typeidx_fuel(
   a : TypeIdx,
   b : TypeIdx,
   env : Env,
-  fuel : Int,
+  fuel : Int32,
   visited : Array[TypeIdx],
 ) -> Bool {
   if a == b {
