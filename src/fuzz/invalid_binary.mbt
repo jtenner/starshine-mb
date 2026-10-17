@@ -561,7 +561,7 @@ pub struct ValidateInvalidBinaryStrategySpec {
 ///|
 pub struct ValidateInvalidBinaryRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
   seed_profiles : Array[String]
@@ -590,9 +590,9 @@ pub fn gen_invalid_binary_coverage_seed_generator_config() -> GenValidConfig {
 ///|
 pub fn GenInvalidBinaryParams::new(
   strategy : ValidateInvalidBinaryStrategyId,
-  seed_mode? : GenInvalidBinarySeedMode = RandomValidSeed,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  seed_mode~ : GenInvalidBinarySeedMode = RandomValidSeed,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -606,8 +606,8 @@ pub fn GenInvalidBinaryParams::new(
 ///|
 pub fn GenInvalidBinaryParams::natural_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -621,8 +621,8 @@ pub fn GenInvalidBinaryParams::natural_seed(
 ///|
 pub fn GenInvalidBinaryParams::coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -636,8 +636,8 @@ pub fn GenInvalidBinaryParams::coverage_forced_seed(
 ///|
 pub fn GenInvalidBinaryParams::small_natural_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -653,8 +653,8 @@ pub fn GenInvalidBinaryParams::small_natural_seed(
 ///|
 pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -670,8 +670,8 @@ pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
 ///|
 pub fn GenInvalidBinaryParams::repro_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -687,8 +687,8 @@ pub fn GenInvalidBinaryParams::repro_seed(
 ///|
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -702,8 +702,8 @@ pub fn GenInvalidBinaryParams::minimal_seed(
 ///|
 pub fn GenInvalidBinaryParams::rich_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
-  require_strategy_prereqs? : Bool = true,
+  generator_config~ : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
+  require_strategy_prereqs~ : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -749,29 +749,29 @@ pub struct ValidateInvalidBinaryStrategyStats {
   variant_id : String
   expected_result : ValidateInvalidBinaryExpectedResult
   expected_issue_kind : String?
-  attempted : Int
-  applicable : Int
-  mutated : Int
-  decode_rejected : Int
-  validate_rejected : Int
-  rejected_expected : Int
-  accepted : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_mutated : Int
-  variant_rejected : Int
-  rejected_exact_issue : Int
+  attempted : Int32
+  applicable : Int32
+  mutated : Int32
+  decode_rejected : Int32
+  validate_rejected : Int32
+  rejected_expected : Int32
+  accepted : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_mutated : Int32
+  variant_rejected : Int32
+  rejected_exact_issue : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct ValidateInvalidBinaryFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
   seed_profiles : Array[String]
-  seed_profile_attempts : Array[Int]
+  seed_profile_attempts : Array[Int32]
   strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
 } derive(Eq, Debug)
 
@@ -783,11 +783,11 @@ pub struct GenInvalidBinaryGenerated {
 
 ///|
 struct ValidateInvalidBinarySectionSpan {
-  id : Int
-  header_start : Int
-  payload_start : Int
-  payload_len : Int
-  end : Int
+  id : Int32
+  header_start : Int32
+  payload_start : Int32
+  payload_len : Int32
+  end : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -1586,8 +1586,8 @@ fn validate_invalid_binary_strategy_spec(
   stable_id : String,
   display_name : String,
   expected_result : ValidateInvalidBinaryExpectedResult,
-  required_in_smoke? : Bool = true,
-  seed_prerequisites? : Array[String] = [],
+  required_in_smoke~ : Bool = true,
+  seed_prerequisites~ : Array[String] = [],
 ) -> ValidateInvalidBinaryStrategySpec {
   let expected_issue_kind = match expected_result {
     DecodeRejected => None
@@ -5157,13 +5157,13 @@ fn validate_invalid_binary_registry_entries() -> Array[
 ///|
 priv struct ValidateInvalidBinaryRegistryCache {
   entries : Array[ValidateInvalidBinaryStrategySpec]
-  lookup : @hashmap.HashMap[String, Int]
+  lookup : @hashmap.HashMap[String, Int32]
 }
 
 ///|
 fn ValidateInvalidBinaryRegistryCache::new() -> ValidateInvalidBinaryRegistryCache {
   let entries = validate_invalid_binary_registry_entries()
-  let lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+  let lookup : @hashmap.HashMap[String, Int32] = @hashmap.new(
     capacity=entries.length() * 2 + 1,
   )
   let mut idx = 0
@@ -5197,7 +5197,7 @@ pub fn validate_invalid_binary_strategy_by_stable_id(
 ///|
 fn validate_invalid_binary_strategy_index(
   id : ValidateInvalidBinaryStrategyId,
-) -> Int {
+) -> Int32 {
   match
     validate_invalid_binary_registry_cache.lookup.get(
       validate_invalid_binary_strategy_label(id),
@@ -5384,9 +5384,9 @@ fn validate_invalid_binary_ensure_defined_func(mod : Module) -> Module {
 ///|
 fn validate_invalid_binary_decode_uleb(
   bytes : Bytes,
-  start : Int,
-  limit : Int,
-) -> Result[(Int, Int), String] {
+  start : Int32,
+  limit : Int32,
+) -> Result[(Int32, Int32), String] {
   let mut acc = 0
   let mut shift = 0
   let mut i = start
@@ -5410,7 +5410,7 @@ fn validate_invalid_binary_decode_uleb(
 }
 
 ///|
-fn validate_invalid_binary_encode_uleb(value : Int) -> Array[Byte] {
+fn validate_invalid_binary_encode_uleb(value : Int32) -> Array[Byte] {
   let out : Array[Byte] = []
   let mut x = value
   while true {
@@ -5461,7 +5461,7 @@ fn validate_invalid_binary_scan_sections(
 ///|
 fn validate_invalid_binary_find_section(
   spans : Array[ValidateInvalidBinarySectionSpan],
-  section_id : Int,
+  section_id : Int32,
 ) -> ValidateInvalidBinarySectionSpan? {
   for span in spans {
     if span.id == section_id {
@@ -5475,8 +5475,8 @@ fn validate_invalid_binary_find_section(
 fn validate_invalid_binary_append_range(
   out : Array[Byte],
   source : Array[Byte],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   let mut i = start
   while i < end {
@@ -5488,8 +5488,8 @@ fn validate_invalid_binary_append_range(
 ///|
 fn validate_invalid_binary_replace_range(
   bytes : Bytes,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   replacement : Array[Byte],
 ) -> Bytes {
   let source = bytes.to_array()
@@ -5585,7 +5585,7 @@ fn validate_invalid_binary_mutate_truncated_module(
 fn validate_invalid_binary_mutate_duplicate_section(
   mod : Module,
   strategy : ValidateInvalidBinaryStrategyId,
-  section_id : Int,
+  section_id : Int32,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
   let encoded = match validate_invalid_binary_encode_seed_module(mod) {
     Ok(v) => v
@@ -11538,7 +11538,7 @@ fn validate_invalid_binary_module_with_overwide_name_section_tag_name_length_ule
 
 ///|
 fn validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(
-  subsection_id : Int,
+  subsection_id : Int32,
 ) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -11567,7 +11567,7 @@ fn validate_invalid_binary_module_with_invalid_name_section_name_map_utf8(
 
 ///|
 fn validate_invalid_binary_module_with_malformed_name_section_name_map_length_uleb(
-  subsection_id : Int,
+  subsection_id : Int32,
 ) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -11749,7 +11749,7 @@ fn validate_invalid_binary_module_with_overwide_name_section_module_name_length_
 
 ///|
 fn validate_invalid_binary_module_with_malformed_name_section_name_map_count_uleb(
-  subsection_id : Int,
+  subsection_id : Int32,
 ) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -11779,7 +11779,7 @@ fn validate_invalid_binary_module_with_malformed_name_section_name_map_count_ule
 
 ///|
 fn validate_invalid_binary_module_with_overwide_name_section_name_map_count_uleb(
-  subsection_id : Int,
+  subsection_id : Int32,
 ) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -11880,7 +11880,7 @@ fn validate_invalid_binary_module_with_overwide_name_section_elem_name_count_ule
 
 ///|
 fn validate_invalid_binary_module_with_overwide_name_section_name_map_length_uleb(
-  subsection_id : Int,
+  subsection_id : Int32,
 ) -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -12849,7 +12849,7 @@ fn validate_invalid_binary_mutate_overwide_code_local_run_count_uleb(
 
 ///|
 fn validate_invalid_binary_module_with_malformed_section_count_uleb(
-  section_id : Int,
+  section_id : Int32,
 ) -> Bytes {
   let out : Array[Byte] = [
     (0x00).to_byte(),
@@ -12883,7 +12883,7 @@ fn validate_invalid_binary_module_with_malformed_code_section_count_uleb() -> By
 
 ///|
 fn validate_invalid_binary_module_with_overwide_section_count_uleb(
-  section_id : Int,
+  section_id : Int32,
 ) -> Bytes {
   let out : Array[Byte] = [
     (0x00).to_byte(),
@@ -19190,19 +19190,19 @@ fn validate_invalid_binary_empty_strategy_stats() -> Array[
 ///|
 fn validate_invalid_binary_update_strategy_stats(
   stats : Array[ValidateInvalidBinaryStrategyStats],
-  idx : Int,
-  attempted? : Int = stats[idx].attempted,
-  applicable? : Int = stats[idx].applicable,
-  mutated? : Int = stats[idx].mutated,
-  decode_rejected? : Int = stats[idx].decode_rejected,
-  validate_rejected? : Int = stats[idx].validate_rejected,
-  rejected_expected? : Int = stats[idx].rejected_expected,
-  accepted? : Int = stats[idx].accepted,
-  variant_attempted? : Int = stats[idx].variant_attempted,
-  variant_applicable? : Int = stats[idx].variant_applicable,
-  variant_mutated? : Int = stats[idx].variant_mutated,
-  variant_rejected? : Int = stats[idx].variant_rejected,
-  rejected_exact_issue? : Int = stats[idx].rejected_exact_issue,
+  idx : Int32,
+  attempted~ : Int32 = stats[idx].attempted,
+  applicable~ : Int32 = stats[idx].applicable,
+  mutated~ : Int32 = stats[idx].mutated,
+  decode_rejected~ : Int32 = stats[idx].decode_rejected,
+  validate_rejected~ : Int32 = stats[idx].validate_rejected,
+  rejected_expected~ : Int32 = stats[idx].rejected_expected,
+  accepted~ : Int32 = stats[idx].accepted,
+  variant_attempted~ : Int32 = stats[idx].variant_attempted,
+  variant_applicable~ : Int32 = stats[idx].variant_applicable,
+  variant_mutated~ : Int32 = stats[idx].variant_mutated,
+  variant_rejected~ : Int32 = stats[idx].variant_rejected,
+  rejected_exact_issue~ : Int32 = stats[idx].rejected_exact_issue,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {

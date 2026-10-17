@@ -39,7 +39,7 @@ pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind {
 ///|
 pub fn build_fuz1026_two_fault_ast_stress_report(
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
 ) -> InvalidFuzzFailureReport {
   InvalidFuzzFailureReport::new(
     "validate-invalid-ast-multifault",
@@ -71,7 +71,7 @@ pub fn build_fuz1026_two_fault_ast_stress_report(
 ///|
 pub fn build_fuz1026_binary_text_multifault_stress_report(
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
 ) -> InvalidFuzzFailureReport {
   InvalidFuzzFailureReport::new(
     "validate-invalid-binary-text-multifault",
@@ -151,7 +151,7 @@ fn fuz1055b4_unlinkable_metadata(
 ///|
 pub fn build_fuz1055b4_unlinkable_failure_report(
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
 ) -> InvalidFuzzFailureReport {
   let case = gen_unlinkable_multi_module_wast_case(seed)
   let (
@@ -257,8 +257,8 @@ pub struct FuzzReductionPredicate {
 pub fn FuzzReductionPredicate::new(
   kind : FuzzReductionFailureKind,
   expected_stage : String,
-  expected_family? : String? = None,
-  property? : String? = None,
+  expected_family~ : String? = None,
+  property~ : String? = None,
 ) -> FuzzReductionPredicate {
   { kind, expected_stage, expected_family, property, }
 }
@@ -274,9 +274,9 @@ pub struct FuzzReductionReplayResult {
 ///|
 pub fn FuzzReductionReplayResult::new(
   stage : String,
-  family? : String? = None,
-  property? : String? = None,
-  message? : String? = None,
+  family~ : String? = None,
+  property~ : String? = None,
+  message~ : String? = None,
 ) -> FuzzReductionReplayResult {
   { stage, family, property, message, }
 }
@@ -374,19 +374,19 @@ pub fn InvalidFuzzArtifact::new(
 ///|
 pub struct InvalidFuzzReductionStep {
   kind : String
-  start : Int
-  len : Int
-  before_size : Int
-  after_size : Int
+  start : Int32
+  len : Int32
+  before_size : Int32
+  after_size : Int32
 } derive(Eq, Debug)
 
 ///|
 pub fn InvalidFuzzReductionStep::new(
   kind : String,
-  start : Int,
-  len : Int,
-  before_size : Int,
-  after_size : Int,
+  start : Int32,
+  len : Int32,
+  before_size : Int32,
+  after_size : Int32,
 ) -> InvalidFuzzReductionStep {
   { kind, start, len, before_size, after_size, }
 }
@@ -396,7 +396,7 @@ pub struct InvalidFuzzFailureReport {
   suite : String
   profile : String
   seed : UInt64
-  attempt : Int
+  attempt : Int32
   strategy_id : String
   source_kind : InvalidFuzzSourceKind
   expected_stage : String
@@ -404,7 +404,7 @@ pub struct InvalidFuzzFailureReport {
   actual_stage : String
   actual_diagnostic_family : String?
   actual_diagnostic_location : String?
-  timeout_budget_ms : Int?
+  timeout_budget_ms : Int32?
   seed_profile : String?
   seed_mode : String?
   seed_require_strategy_prereqs : Bool?
@@ -425,9 +425,9 @@ pub struct InvalidFuzzFailureReport {
   multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
-  reduction_original_size : Int?
-  reduction_final_size : Int?
-  reduction_predicate_evaluations : Int?
+  reduction_original_size : Int32?
+  reduction_final_size : Int32?
+  reduction_predicate_evaluations : Int32?
   reduction_steps : Array[InvalidFuzzReductionStep]
 } derive(Eq, Debug)
 
@@ -436,39 +436,39 @@ pub fn InvalidFuzzFailureReport::new(
   suite : String,
   profile : String,
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
   strategy_id : String,
   source_kind : InvalidFuzzSourceKind,
   expected_stage : String,
-  expected_diagnostic_family? : String? = None,
-  actual_stage? : String = expected_stage,
-  actual_diagnostic_family? : String? = expected_diagnostic_family,
-  actual_diagnostic_location? : String? = None,
-  timeout_budget_ms? : Int? = None,
-  seed_profile? : String? = None,
-  seed_mode? : String? = None,
-  seed_require_strategy_prereqs? : Bool? = None,
-  stream_label? : String? = None,
-  stream_seed? : UInt64? = None,
-  attempt_seed? : UInt64? = None,
-  source_path? : String? = None,
-  valid_before_link? : Bool? = None,
-  unlinkable_reason? : String? = None,
-  registered_module_name? : String? = None,
-  import_module_name? : String? = None,
-  import_name? : String? = None,
-  expected_import_type? : String? = None,
-  provider_export_type? : String? = None,
-  pre_link_validation_status? : String? = None,
-  source_feature_facts? : Array[String] = [],
-  multi_fault_mutation_ids? : Array[String] = [],
-  multi_fault_broad_outcomes? : Array[String] = [],
-  artifacts? : Array[InvalidFuzzArtifact] = [],
-  reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
-  reduction_original_size? : Int? = None,
-  reduction_final_size? : Int? = None,
-  reduction_predicate_evaluations? : Int? = None,
-  reduction_steps? : Array[InvalidFuzzReductionStep] = [],
+  expected_diagnostic_family~ : String? = None,
+  actual_stage~ : String = expected_stage,
+  actual_diagnostic_family~ : String? = expected_diagnostic_family,
+  actual_diagnostic_location~ : String? = None,
+  timeout_budget_ms~ : Int32? = None,
+  seed_profile~ : String? = None,
+  seed_mode~ : String? = None,
+  seed_require_strategy_prereqs~ : Bool? = None,
+  stream_label~ : String? = None,
+  stream_seed~ : UInt64? = None,
+  attempt_seed~ : UInt64? = None,
+  source_path~ : String? = None,
+  valid_before_link~ : Bool? = None,
+  unlinkable_reason~ : String? = None,
+  registered_module_name~ : String? = None,
+  import_module_name~ : String? = None,
+  import_name~ : String? = None,
+  expected_import_type~ : String? = None,
+  provider_export_type~ : String? = None,
+  pre_link_validation_status~ : String? = None,
+  source_feature_facts~ : Array[String] = [],
+  multi_fault_mutation_ids~ : Array[String] = [],
+  multi_fault_broad_outcomes~ : Array[String] = [],
+  artifacts~ : Array[InvalidFuzzArtifact] = [],
+  reduced_artifacts~ : Array[InvalidFuzzArtifact] = [],
+  reduction_original_size~ : Int32? = None,
+  reduction_final_size~ : Int32? = None,
+  reduction_predicate_evaluations~ : Int32? = None,
+  reduction_steps~ : Array[InvalidFuzzReductionStep] = [],
 ) -> InvalidFuzzFailureReport {
   {
     suite,
@@ -513,12 +513,12 @@ pub fn InvalidFuzzFailureReport::new(
 ///|
 fn invalid_fuzz_failure_report_copy(
   report : InvalidFuzzFailureReport,
-  source_path? : String? = report.source_path,
-  reduced_artifacts? : Array[InvalidFuzzArtifact] = report.reduced_artifacts,
-  reduction_original_size? : Int? = report.reduction_original_size,
-  reduction_final_size? : Int? = report.reduction_final_size,
-  reduction_predicate_evaluations? : Int? = report.reduction_predicate_evaluations,
-  reduction_steps? : Array[InvalidFuzzReductionStep] = report.reduction_steps,
+  source_path~ : String? = report.source_path,
+  reduced_artifacts~ : Array[InvalidFuzzArtifact] = report.reduced_artifacts,
+  reduction_original_size~ : Int32? = report.reduction_original_size,
+  reduction_final_size~ : Int32? = report.reduction_final_size,
+  reduction_predicate_evaluations~ : Int32? = report.reduction_predicate_evaluations,
+  reduction_steps~ : Array[InvalidFuzzReductionStep] = report.reduction_steps,
 ) -> InvalidFuzzFailureReport {
   InvalidFuzzFailureReport::new(
     report.suite,
@@ -571,9 +571,9 @@ pub struct InvalidFuzzReplayResult {
 ///|
 pub fn InvalidFuzzReplayResult::new(
   stage : String,
-  diagnostic_family? : String? = None,
-  diagnostic_location? : String? = None,
-  message? : String? = None,
+  diagnostic_family~ : String? = None,
+  diagnostic_location~ : String? = None,
+  message~ : String? = None,
 ) -> InvalidFuzzReplayResult {
   { stage, diagnostic_family, diagnostic_location, message, }
 }
@@ -586,10 +586,10 @@ pub struct InvalidFuzzPersistIO {
 
 ///|
 pub fn InvalidFuzzPersistIO::new(
-  ensure_dir? : (String) -> Result[Unit, String] = fn(path) {
+  ensure_dir~ : (String) -> Result[Unit, String] = fn(path) {
     Err("ensure_dir not configured: \{path}")
   },
-  write_file? : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
+  write_file~ : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
     Err("write_file not configured: \{path}")
   },
 ) -> InvalidFuzzPersistIO {
@@ -956,7 +956,7 @@ fn invalid_fuzz_report_allows_partial_artifacts(
 pub fn persist_invalid_fuzz_failure_report(
   report : InvalidFuzzFailureReport,
   io : InvalidFuzzPersistIO,
-  corpus_dir? : String = "fuzz-corpus/invalid",
+  corpus_dir~ : String = "fuzz-corpus/invalid",
 ) -> Result[(String, Array[String]), String] {
   let root = corpus_dir.trim().to_owned()
   let corpus_root = if root.length() == 0 {
@@ -1095,7 +1095,10 @@ fn invalid_fuzz_parse_uint64(
 }
 
 ///|
-fn invalid_fuzz_parse_int(raw : String, field : String) -> Result[Int, String] {
+fn invalid_fuzz_parse_int(
+  raw : String,
+  field : String,
+) -> Result[Int32, String] {
   let text = raw.trim().to_owned()
   if text.length() == 0 {
     return Err("missing \{field}")
@@ -1193,7 +1196,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut suite : String? = None
   let mut profile : String? = None
   let mut seed : UInt64? = None
-  let mut attempt : Int? = None
+  let mut attempt : Int32? = None
   let mut strategy_id : String? = None
   let mut source_kind : InvalidFuzzSourceKind? = None
   let mut expected_stage : String? = None
@@ -1201,7 +1204,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut actual_stage : String? = None
   let mut actual_diagnostic_family : String? = None
   let mut actual_diagnostic_location : String? = None
-  let mut timeout_budget_ms : Int? = None
+  let mut timeout_budget_ms : Int32? = None
   let mut seed_profile : String? = None
   let mut seed_mode : String? = None
   let mut seed_require_strategy_prereqs : Bool? = None
@@ -1222,9 +1225,9 @@ pub fn parse_invalid_fuzz_failure_report(
   let multi_fault_broad_outcomes : Array[String] = []
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
-  let mut reduction_original_size : Int? = None
-  let mut reduction_final_size : Int? = None
-  let mut reduction_predicate_evaluations : Int? = None
+  let mut reduction_original_size : Int32? = None
+  let mut reduction_final_size : Int32? = None
+  let mut reduction_predicate_evaluations : Int32? = None
   let reduction_steps : Array[InvalidFuzzReductionStep] = []
   for raw_line in meta_text.split("\n") {
     let line = raw_line.trim().to_owned()
@@ -1456,8 +1459,8 @@ pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
   suite : String,
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
+  attempt : Int32,
+  profile~ : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
   let normalized = invalid_fuzz_ascii_lower(suite.trim().to_owned())
   if normalized == "validate-invalid-text-dynamic" ||
@@ -1517,9 +1520,9 @@ pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
 pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
-  params? : @validate.GenInvalidAstParams? = None,
+  attempt : Int32,
+  profile~ : String = "smoke",
+  params~ : @validate.GenInvalidAstParams? = None,
 ) -> Result[InvalidFuzzFailureReport, String] {
   let spec = match
     @validate.validate_invalid_ast_strategy_by_stable_id(strategy_id) {
@@ -1604,9 +1607,9 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
 pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
-  params? : GenInvalidBinaryParams? = None,
+  attempt : Int32,
+  profile~ : String = "smoke",
+  params~ : GenInvalidBinaryParams? = None,
 ) -> Result[InvalidFuzzFailureReport, String] {
   let spec = match validate_invalid_binary_strategy_by_stable_id(strategy_id) {
     Some(v) => v
@@ -1691,8 +1694,8 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
 pub fn build_invalid_fuzz_text_failure_report_by_stable_id(
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
+  attempt : Int32,
+  profile~ : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
   ignore(seed)
   let spec = match validate_invalid_text_strategy_by_stable_id(strategy_id) {
@@ -1744,8 +1747,8 @@ pub fn build_invalid_fuzz_text_failure_report_by_stable_id(
 pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
+  attempt : Int32,
+  profile~ : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
   let attempt_seed = validate_invalid_text_dynamic_attempt_seed(
     seed, strategy_id, attempt,
@@ -1811,8 +1814,8 @@ pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(
 pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
-  profile? : String = "smoke",
+  attempt : Int32,
+  profile~ : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
   ignore(seed)
   let spec = match validate_invalid_spec_seed_by_stable_id(strategy_id) {
@@ -1933,7 +1936,7 @@ fn invalid_fuzz_spec_seed_reduce(
 ///|
 fn invalid_fuzz_first_artifact_size(
   artifacts : Array[InvalidFuzzArtifact],
-) -> Int? {
+) -> Int32? {
   if artifacts.length() == 0 {
     None
   } else {
@@ -1942,12 +1945,12 @@ fn invalid_fuzz_first_artifact_size(
 }
 
 ///|
-fn invalid_fuzz_text_is_space(c : Int) -> Bool {
+fn invalid_fuzz_text_is_space(c : Int32) -> Bool {
   c == 0x20 || c == 0x0a || c == 0x0d || c == 0x09
 }
 
 ///|
-fn invalid_fuzz_text_slice(text : String, start : Int, end : Int) -> String {
+fn invalid_fuzz_text_slice(text : String, start : Int32, end : Int32) -> String {
   let len = end - start
   let chars : Array[Char] = Array::make(len, '\u{00}')
   for i = 0; i < len; i = i + 1 {
@@ -1993,8 +1996,8 @@ fn invalid_fuzz_text_join_tokens(tokens : Array[String]) -> String {
 ///|
 fn invalid_fuzz_without_text_token_range(
   tokens : Array[String],
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
 ) -> Array[String] {
   let out : Array[String] = []
   let end = start + len
@@ -2015,7 +2018,7 @@ fn invalid_fuzz_clone_text_tokens(tokens : Array[String]) -> Array[String] {
 fn reduce_fuzz_text_tokens_by_deletion(
   text : String,
   reproduces : (String) -> Bool,
-) -> (String, Int, Int, Int, Array[InvalidFuzzReductionStep]) {
+) -> (String, Int32, Int32, Int32, Array[InvalidFuzzReductionStep]) {
   let tokens = invalid_fuzz_text_tokens(text)
   let mut predicate_evaluations = 1
   let steps : Array[InvalidFuzzReductionStep] = []
@@ -2066,8 +2069,8 @@ fn reduce_fuzz_text_tokens_by_deletion(
 ///|
 fn invalid_fuzz_without_module_field_range(
   fields : Array[ModuleField],
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
 ) -> Array[ModuleField] {
   let out : Array[ModuleField] = []
   let end = start + len
@@ -2169,7 +2172,7 @@ fn invalid_fuzz_first_inline_assertion_fields(
 fn reduce_fuzz_module_fields_by_deletion(
   fields : Array[ModuleField],
   reproduces : (Array[ModuleField]) -> Bool,
-) -> (Array[ModuleField], Int, Int, Int, Array[InvalidFuzzReductionStep]) {
+) -> (Array[ModuleField], Int32, Int32, Int32, Array[InvalidFuzzReductionStep]) {
   let mut predicate_evaluations = 1
   let steps : Array[InvalidFuzzReductionStep] = []
   if !reproduces(fields) {
@@ -2357,7 +2360,7 @@ fn invalid_fuzz_report_with_text_token_reduction(
 fn invalid_fuzz_report_with_reduction(
   report : InvalidFuzzFailureReport,
   reduced : InvalidFuzzArtifact,
-  source_path? : String? = report.source_path,
+  source_path~ : String? = report.source_path,
 ) -> InvalidFuzzFailureReport {
   let original_size = invalid_fuzz_first_artifact_size(report.artifacts)
   let final_size = Some(reduced.bytes.length())
@@ -2584,7 +2587,7 @@ fn invalid_fuzz_choose_replay_artifact(
 ///|
 pub fn replay_invalid_fuzz_failure_report(
   report : InvalidFuzzFailureReport,
-  prefer_reduced? : Bool = true,
+  prefer_reduced~ : Bool = true,
 ) -> Result[InvalidFuzzReplayResult, String] {
   let candidates = if prefer_reduced && !report.reduced_artifacts.is_empty() {
     report.reduced_artifacts

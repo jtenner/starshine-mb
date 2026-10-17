@@ -1,8 +1,8 @@
 ///|
 pub struct FuzzCmdHarnessFailureReport {
   seed : UInt64
-  attempt : Int
-  generated_valid : Int
+  attempt : Int32
+  generated_valid : Int32
   stage : String
   message : String
   generator_profile : String
@@ -17,8 +17,8 @@ pub struct FuzzCmdHarnessFailureReport {
 ///|
 pub fn FuzzCmdHarnessFailureReport::new(
   seed : UInt64,
-  attempt : Int,
-  generated_valid : Int,
+  attempt : Int32,
+  generated_valid : Int32,
   stage : String,
   message : String,
   generator_profile : String,
@@ -27,7 +27,7 @@ pub fn FuzzCmdHarnessFailureReport::new(
   original_wasm : Bytes,
   first_output : Bytes,
   second_output : Bytes,
-  minimized_passes? : Array[String] = optimize_passes,
+  minimized_passes~ : Array[String] = optimize_passes,
 ) -> FuzzCmdHarnessFailureReport {
   {
     seed,
@@ -63,8 +63,8 @@ fn fuzz_cmd_harness_failure_message(
 ///|
 fn fuzz_cmd_harness_without_pass_range(
   passes : Array[String],
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
 ) -> Array[String] {
   let out : Array[String] = []
   let end = start + len
@@ -289,17 +289,17 @@ fn fuzz_cmd_harness_bytes_equal(lhs : Bytes, rhs : Bytes) -> Bool {
 
 ///|
 fn run_fuzz_cmd_harness(
-  valid_target : Int,
+  valid_target : Int32,
   seed : UInt64,
-  optimize_passes? : Array[String] = [],
-  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
-  check_optimize_idempotence? : Bool = false,
-  check_encode_decode_idempotence? : Bool = false,
-  check_optimizer_determinism? : Bool = false,
-  generator_profile? : String = "natural-wide",
-  pass_profile? : String = "custom",
-  on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
-) -> Result[Int, String] {
+  optimize_passes~ : Array[String] = [],
+  generator_config~ : GenValidConfig = GenValidConfig::natural_default(),
+  check_optimize_idempotence~ : Bool = false,
+  check_encode_decode_idempotence~ : Bool = false,
+  check_optimizer_determinism~ : Bool = false,
+  generator_profile~ : String = "natural-wide",
+  pass_profile~ : String = "custom",
+  on_failure~ : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
+) -> Result[Int32, String] {
   if valid_target < 0 {
     return Err("valid_target must be non-negative")
   }
@@ -579,8 +579,8 @@ fn fuzz_cmd_harness_pass_profile(
 fn run_fuzz_cmd_harness_profile(
   profile : String,
   seed : UInt64,
-  on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
-) -> Result[Int, String] {
+  on_failure~ : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
+) -> Result[Int32, String] {
   let parts : Array[String] = []
   for part in profile.trim().to_owned().split("+") {
     parts.push(part.to_owned())

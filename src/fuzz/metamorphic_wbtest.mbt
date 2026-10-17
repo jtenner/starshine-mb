@@ -24,7 +24,7 @@ fn assert_metamorphic_roundtrip_valid(
 }
 
 ///|
-fn metamorphic_wbtest_flat_type_count(rec_types : Array[@lib.RecType]) -> Int {
+fn metamorphic_wbtest_flat_type_count(rec_types : Array[@lib.RecType]) -> Int32 {
   let mut count = 0
   for rec_type in rec_types {
     match rec_type {
@@ -6636,7 +6636,7 @@ test "OI live nonzero second-memory atomic transform guards varied private-memor
 ///|
 fn test_oi_atomic_rmw_expected_i32_op(
   expected_then : Array[@lib.Instruction],
-  addr : Int,
+  addr : Int32,
   value : @lib.Instruction,
   op : @lib.AtomicRmwOp,
   memarg : @lib.MemArg,
@@ -10919,7 +10919,9 @@ test "metamorphic SIMD bitwise binary computed-drop transforms preserve validati
         ),
       ]),
     )
-  let cases : Array[(MetamorphicValidTransform, String, @lib.Instruction, Int)] = [
+  let cases : Array[
+    (MetamorphicValidTransform, String, @lib.Instruction, Int32),
+  ] = [
     (
       AddLeadingV128AndDropToDefinedFunctions,
       "add-leading-v128-and-drop-to-defined-functions",

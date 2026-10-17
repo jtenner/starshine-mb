@@ -32,7 +32,7 @@ test("records the intentional Node shared-GC cross-worker unsupported boundary",
     (type $F (shared (func (result i32))))
     (global $g (shared (ref $S)) (struct.new $S (i32.const 0)))
     (func $run (type $F) (result i32)
-      (struct.atomic.rmw.add seq_cst $S 0
+      (struct.atomic.rmw.add seqcst $S 0
         (global.get $g)
         (i32.const 1)))
     (export "run" (func $run)))`);
@@ -54,7 +54,7 @@ function compileSharedGcRmw(addend: number): string {
     (func (export "make") (result (ref $S))
       (struct.new $S (i32.const 0)))
     (func (export "add") (param (ref $S)) (result i32)
-      (struct.atomic.rmw.add seq_cst $S 0
+      (struct.atomic.rmw.add seqcst $S 0
         (local.get 0)
         (i32.const ${addend}))))`);
 }

@@ -136,3 +136,23 @@ test("custom-descriptor configuration composes with stack switching and rejects 
     else process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = previousCustomDescriptors;
   }
 });
+
+test("shared-GC configuration composes with descriptor support and rejects other values", () => {
+  const previousSharedGc = process.env.STARSHINE_NODE_SHARED_GC;
+  const previousCustomDescriptors = process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+  try {
+    process.env.STARSHINE_NODE_SHARED_GC = "1";
+    process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = "1";
+    expect(nodeObservationArguments()).toEqual([
+      "--experimental-wasm-custom-descriptors",
+      "--experimental-wasm-shared",
+    ]);
+    process.env.STARSHINE_NODE_SHARED_GC = "enabled";
+    expect(() => nodeObservationArguments()).toThrow("STARSHINE_NODE_SHARED_GC must be 0 or 1");
+  } finally {
+    if (previousSharedGc === undefined) delete process.env.STARSHINE_NODE_SHARED_GC;
+    else process.env.STARSHINE_NODE_SHARED_GC = previousSharedGc;
+    if (previousCustomDescriptors === undefined) delete process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+    else process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = previousCustomDescriptors;
+  }
+});

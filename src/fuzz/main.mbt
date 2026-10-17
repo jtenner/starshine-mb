@@ -11,9 +11,9 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   report_json_path : String?
   out_dir : String?
 } derive(Eq, Debug)
@@ -25,8 +25,8 @@ pub struct FuzzRecipe {
   profile : String
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -90,7 +90,7 @@ pub struct FuzzCorpusReplayCommandMetadata {
   suite : String
   profile : String
   seed : UInt64
-  seed_index : Int
+  seed_index : Int32
   strategy_or_artifact : String
   expected_outcome : String
   classification : String
@@ -99,9 +99,9 @@ pub struct FuzzCorpusReplayCommandMetadata {
 
 ///|
 pub struct FuzzCorpusReplayAllPlan {
-  planned_count : Int
-  skipped_count : Int
-  malformed_count : Int
+  planned_count : Int32
+  skipped_count : Int32
+  malformed_count : Int32
   commands : Array[FuzzCorpusReplayCommandMetadata]
 } derive(Eq, Debug)
 
@@ -132,9 +132,9 @@ pub struct FuzzCorpusDedupDryRunDecision {
 
 ///|
 pub struct FuzzCorpusDedupDryRunPlan {
-  duplicate_count : Int
-  compress_count : Int
-  keep_count : Int
+  duplicate_count : Int32
+  compress_count : Int32
+  keep_count : Int32
   decisions : Array[FuzzCorpusDedupDryRunDecision]
 } derive(Eq, Debug)
 
@@ -215,7 +215,7 @@ fn fuzz_join_sorted_feature_facts(feature_facts : Array[String]) -> String {
 ///|
 pub fn build_fuzz_corpus_hash_metadata(
   raw_artifact : Bytes,
-  reduced_artifact? : Bytes? = None,
+  reduced_artifact~ : Bytes? = None,
   predicate : String,
   feature_facts : Array[String],
   interestingness_label : String,
@@ -248,12 +248,12 @@ pub fn FuzzCorpusPromotionMetadata::new(
   artifacts : Array[String],
   owner_or_task : String,
   notes : String,
-  raw_artifact_hash? : String = "",
-  reduced_artifact_hash? : String = "",
-  normalized_shape_hash? : String = "",
-  predicate_hash? : String = "",
-  feature_fact_hash? : String = "",
-  interestingness_label? : String = "unclassified",
+  raw_artifact_hash~ : String = "",
+  reduced_artifact_hash~ : String = "",
+  normalized_shape_hash~ : String = "",
+  predicate_hash~ : String = "",
+  feature_fact_hash~ : String = "",
+  interestingness_label~ : String = "unclassified",
 ) -> FuzzCorpusPromotionMetadata {
   {
     id,
@@ -301,7 +301,7 @@ pub fn FuzzCorpusReplayCommandMetadata::new(
   suite : String,
   profile : String,
   seed : UInt64,
-  seed_index : Int,
+  seed_index : Int32,
   strategy_or_artifact : String,
   expected_outcome : String,
   classification : String,
@@ -353,9 +353,9 @@ pub fn FuzzCorpusDedupDryRunDecision::new(
 
 ///|
 pub fn FuzzCorpusDedupDryRunPlan::new(
-  duplicate_count : Int,
-  compress_count : Int,
-  keep_count : Int,
+  duplicate_count : Int32,
+  compress_count : Int32,
+  keep_count : Int32,
   decisions : Array[FuzzCorpusDedupDryRunDecision],
 ) -> FuzzCorpusDedupDryRunPlan {
   { duplicate_count, compress_count, keep_count, decisions, }
@@ -406,9 +406,9 @@ pub fn FuzzRecipe::new(
   suite : String,
   profile : String,
   seed_i64 : Int64,
-  output_mode? : FuzzOutputMode = FuzzOutputMode::Text,
-  seed_count? : Int = 1,
-  shard_count? : Int = 1,
+  output_mode~ : FuzzOutputMode = FuzzOutputMode::Text,
+  seed_count~ : Int32 = 1,
+  shard_count~ : Int32 = 1,
 ) -> FuzzRecipe {
   { name, suite, profile, seed_i64, output_mode, seed_count, shard_count, }
 }
@@ -420,9 +420,9 @@ pub struct FuzzShardWorkItem {
   profile : String
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   out_dir : String?
 } derive(Eq, Debug)
 
@@ -599,28 +599,28 @@ pub fn fuzz_standard_recipe_by_name(name : String) -> FuzzRecipe? {
 
 ///|
 pub struct EmitGenValidBatchArgs {
-  count : Int
+  count : Int32
   seed : UInt64
   out_dir : String
   profile : String
   required_features : Array[ValidateValidFeatureFloor]
   excluded_features : Array[ValidateValidFeatureKey]
-  max_attempts : Int
+  max_attempts : Int32
   manifest_path : String?
   metamorphic_transform_ids : Array[String]
 } derive(Eq, Debug)
 
 ///|
 pub fn EmitGenValidBatchArgs::new(
-  count : Int,
+  count : Int32,
   seed : UInt64,
   out_dir : String,
-  profile? : String = "binaryen-oracle-portable",
-  required_features? : Array[ValidateValidFeatureFloor] = [],
-  excluded_features? : Array[ValidateValidFeatureKey] = [],
-  max_attempts? : Int = count,
-  manifest_path? : String? = None,
-  metamorphic_transform_ids? : Array[String] = [],
+  profile~ : String = "binaryen-oracle-portable",
+  required_features~ : Array[ValidateValidFeatureFloor] = [],
+  excluded_features~ : Array[ValidateValidFeatureKey] = [],
+  max_attempts~ : Int32 = count,
+  manifest_path~ : String? = None,
+  metamorphic_transform_ids~ : Array[String] = [],
 ) -> EmitGenValidBatchArgs {
   {
     count,
@@ -640,7 +640,7 @@ pub struct EmitInvalidReproArgs {
   suite : String
   strategy_id : String
   seed : UInt64
-  attempt : Int
+  attempt : Int32
   profile : String
   out_dir : String
 } derive(Eq, Debug)
@@ -650,9 +650,9 @@ pub fn EmitInvalidReproArgs::new(
   suite : String,
   strategy_id : String,
   seed : UInt64,
-  attempt : Int,
+  attempt : Int32,
   out_dir : String,
-  profile? : String = "smoke",
+  profile~ : String = "smoke",
 ) -> EmitInvalidReproArgs {
   { suite, strategy_id, seed, attempt, profile, out_dir, }
 }
@@ -679,10 +679,10 @@ pub struct FuzzRunOutputIO {
 
 ///|
 pub fn FuzzRunOutputIO::new(
-  ensure_dir? : (String) -> Result[Unit, String] = fn(path) {
+  ensure_dir~ : (String) -> Result[Unit, String] = fn(path) {
     Err("ensure_dir not configured: \{path}")
   },
-  write_file? : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
+  write_file~ : (String, Bytes) -> Result[Unit, String] = fn(path, _) {
     Err("write_file not configured: \{path}")
   },
 ) -> FuzzRunOutputIO {
@@ -694,12 +694,12 @@ pub struct FuzzSuiteResult {
   suite : String
   profile : String
   seed : Int64
-  attempts : Int
+  attempts : Int32
   elapsed_ms : UInt64
-  seed_index : Int
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_index : Int32
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   total_run_budget_ms : UInt64?
   total_run_budget_exceeded : Bool
   run_budget_classification : String
@@ -711,12 +711,12 @@ pub struct FuzzGoldenSeedSmokeCase {
   suite : String
   profile : String
   seed : Int64
-  seed_index : Int
-  attempts : Int
+  seed_index : Int32
+  attempts : Int32
   details_required : Bool
   details_json : String?
   catalog_entry_id : String?
-  expected_counter_count : Int
+  expected_counter_count : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -724,12 +724,12 @@ pub fn FuzzGoldenSeedSmokeCase::new(
   suite : String,
   profile : String,
   seed : Int64,
-  seed_index : Int,
-  attempts : Int,
+  seed_index : Int32,
+  attempts : Int32,
   details_required : Bool,
-  details_json? : String? = None,
-  catalog_entry_id? : String? = None,
-  expected_counter_count? : Int = 0,
+  details_json~ : String? = None,
+  catalog_entry_id~ : String? = None,
+  expected_counter_count~ : Int32 = 0,
 ) -> FuzzGoldenSeedSmokeCase {
   {
     suite,
@@ -778,7 +778,7 @@ pub struct FuzzReplayCommand {
   suite : String
   profile : String
   seed : Int64
-  seed_index : Int
+  seed_index : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -857,45 +857,45 @@ pub fn fuzz_usage_text() -> String {
 pub struct WastValidateRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  printed : Int
-  print_failures : Int
-  parsed : Int
-  parse_failures : Int
-  lowered : Int
-  lower_failures : Int
-  validated : Int
-  validation_failures : Int
+  attempts : Int32
+  printed : Int32
+  print_failures : Int32
+  parsed : Int32
+  parse_failures : Int32
+  lowered : Int32
+  lower_failures : Int32
+  validated : Int32
+  validation_failures : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct GenValidWatValidateRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  generated : Int
-  printed : Int
-  print_failures : Int
-  parsed : Int
-  parse_failures : Int
-  lowered : Int
-  lower_failures : Int
-  validated : Int
-  validation_failures : Int
+  attempts : Int32
+  generated : Int32
+  printed : Int32
+  print_failures : Int32
+  parsed : Int32
+  parse_failures : Int32
+  lowered : Int32
+  lower_failures : Int32
+  validated : Int32
+  validation_failures : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct TextDifferentialFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  local_parse_ok : Int
-  local_print_ok : Int
-  local_reparse_lower_ok : Int
-  local_lower_mismatch : Int
-  adapter_unavailable : Int
-  adapter_unavailable_classifications : Int
-  accepted_classifications : Int
+  attempts : Int32
+  local_parse_ok : Int32
+  local_print_ok : Int32
+  local_reparse_lower_ok : Int32
+  local_lower_mismatch : Int32
+  adapter_unavailable : Int32
+  adapter_unavailable_classifications : Int32
+  accepted_classifications : Int32
   external_adapters : Array[String]
 } derive(Eq, Debug)
 
@@ -922,15 +922,15 @@ pub enum MultiModuleWastClassification {
 pub struct ValidMultiModuleLinkingFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  generated : Int
-  parsed_scripts : Int
-  parse_failures : Int
-  single_module_validated : Int
-  single_module_validation_failures : Int
-  link_passed : Int
-  link_failed : Int
-  link_skipped : Int
+  attempts : Int32
+  generated : Int32
+  parsed_scripts : Int32
+  parse_failures : Int32
+  single_module_validated : Int32
+  single_module_validation_failures : Int32
+  link_passed : Int32
+  link_failed : Int32
+  link_skipped : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -980,7 +980,7 @@ pub fn gen_valid_multi_module_wast_case(
 ///|
 pub fn gen_valid_multi_module_wast_cases(
   seed : UInt64,
-  count : Int,
+  count : Int32,
 ) -> Array[ValidMultiModuleWastCase] {
   let cases : Array[ValidMultiModuleWastCase] = []
   if count <= 0 {
@@ -1010,7 +1010,7 @@ fn gen_unlinkable_multi_module_provider_prefix(suffix : String) -> String {
 
 ///|
 fn gen_unlinkable_multi_module_wast_case_body(
-  variant : Int,
+  variant : Int32,
   suffix : String,
 ) -> (String, String, Array[String]) {
   let prefix = gen_unlinkable_multi_module_provider_prefix(suffix)
@@ -1111,7 +1111,7 @@ pub fn gen_unlinkable_multi_module_wast_case(
 ///|
 pub fn gen_unlinkable_multi_module_wast_cases(
   seed : UInt64,
-  count : Int,
+  count : Int32,
 ) -> Array[ValidMultiModuleWastCase] {
   let cases : Array[ValidMultiModuleWastCase] = []
   if count <= 0 {
@@ -1255,7 +1255,9 @@ pub fn classify_multi_module_wast_case(
 }
 
 ///|
-fn valid_multi_module_linking_attempts(profile : String) -> Result[Int, String] {
+fn valid_multi_module_linking_attempts(
+  profile : String,
+) -> Result[Int32, String] {
   let normalized = fuzz_ascii_lower(profile.trim().to_owned())
   match normalized {
     "smoke" => Ok(4)
@@ -1460,7 +1462,7 @@ pub fn run_gen_valid_wat_validate_roundtrip_fuzz(
 }
 
 ///|
-fn text_differential_case(seed : UInt64, attempt : Int) -> String {
+fn text_differential_case(seed : UInt64, attempt : Int32) -> String {
   let value = ((seed + attempt.to_uint64()) % 1000UL).to_int()
   "(module (func (export \"answer\") (result i32) i32.const \{value}))"
 }
@@ -1661,7 +1663,7 @@ pub fn run_wast_validate_roundtrip_fuzz(
 ///|
 fn validate_valid_text_companion_requirements(
   normalized : String,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   match normalized {
     "smoke" => (0, 0)
     "ci" => (20, 2)
@@ -1674,7 +1676,7 @@ fn validate_valid_text_companion_requirements(
 fn run_validate_valid_suite_detailed(
   profile : String,
   seed : UInt64,
-) -> Result[(Int, String?), String] {
+) -> Result[(Int32, String?), String] {
   let run_config = match validate_valid_run_config(profile) {
     Ok(config) => config
     Err(e) => return Err(e)
@@ -1725,7 +1727,7 @@ fn run_validate_valid_suite_detailed(
 }
 
 ///|
-fn fuzz_seed_digit(c : UInt16, base : Int) -> Int? {
+fn fuzz_seed_digit(c : UInt16, base : Int32) -> Int32? {
   let digit = if c >= '0' && c <= '9' {
     c.to_int() - 0x30
   } else if base == 16 && c >= 'a' && c <= 'f' {
@@ -1862,7 +1864,7 @@ fn fuzz_has_prefix_text(arg : String, prefix : String) -> Bool {
 }
 
 ///|
-fn fuzz_tail_string(input : String, start : Int) -> String {
+fn fuzz_tail_string(input : String, start : Int32) -> String {
   let out = StringBuilder::new()
   let mut i = start
   while i < input.length() {
@@ -1889,14 +1891,52 @@ fn fuzz_parse_output_or_abort(raw : String) -> FuzzOutputMode {
 }
 
 ///|
+fn fuzz_parse_uint64(raw : String) -> Result[UInt64, String] {
+  let text = raw.trim().to_owned()
+  if text.length() == 0 {
+    return Err("seed must not be empty")
+  }
+  let negative = text[0] == '-'
+  let mut i = if negative || text[0] == '+' { 1 } else { 0 }
+  let mut base = 10
+  if i + 1 < text.length() &&
+    text[i] == '0' &&
+    (text[i + 1] == 'x' || text[i + 1] == 'X') {
+    base = 16
+    i += 2
+  }
+  let base_u = base.to_uint64()
+  let mut value = 0UL
+  let mut saw_digit = false
+  while i < text.length() {
+    if text[i] == '_' {
+      i += 1
+      continue
+    }
+    let digit = match fuzz_seed_digit(text[i], base) {
+      Some(v) => v.to_uint64()
+      None => return Err("invalid seed '\{raw}'")
+    }
+    if value > (0xffffffffffffffffUL - digit) / base_u {
+      return Err("seed '\{raw}' is out of range for uint64")
+    }
+    value = value * base_u + digit
+    saw_digit = true
+    i += 1
+  }
+  if !saw_digit {
+    return Err("invalid seed '\{raw}'")
+  }
+  if negative && value != 0UL {
+    return Err("seed must be non-negative")
+  }
+  Ok(value)
+}
+
+///|
 fn fuzz_parse_uint64_or_abort(raw : String) -> UInt64 {
-  match fuzz_parse_seed(raw) {
-    Ok(v) =>
-      if v < 0L {
-        abort("seed must be non-negative")
-      } else {
-        v.reinterpret_as_uint64()
-      }
+  match fuzz_parse_uint64(raw) {
+    Ok(v) => v
     Err(e) => abort(e)
   }
 }
@@ -1905,7 +1945,7 @@ fn fuzz_parse_uint64_or_abort(raw : String) -> UInt64 {
 fn fuzz_parse_non_negative_decimal_or_abort(
   label : String,
   raw : String,
-) -> Int {
+) -> Int32 {
   let text = raw.trim().to_owned()
   if text.length() == 0 {
     abort("\{label} must not be empty")
@@ -1965,13 +2005,13 @@ fn fuzz_parse_feature_key_or_abort(raw : String) -> ValidateValidFeatureKey {
 fn fuzz_parse_emit_gen_valid_batch_args(
   args : Array[String],
 ) -> EmitGenValidBatchArgs {
-  let mut count : Int? = None
+  let mut count : Int32? = None
   let mut seed : UInt64? = None
   let mut out_dir : String? = None
   let mut profile : String? = None
   let required_features : Array[ValidateValidFeatureFloor] = []
   let excluded_features : Array[ValidateValidFeatureKey] = []
-  let mut max_attempts : Int? = None
+  let mut max_attempts : Int32? = None
   let mut manifest_path : String? = None
   let metamorphic_transform_ids : Array[String] = []
   let mut i = 1
@@ -2195,7 +2235,7 @@ fn fuzz_parse_emit_invalid_repro_args(
   let mut suite : String? = None
   let mut strategy_id : String? = None
   let mut seed : UInt64? = None
-  let mut attempt : Int? = None
+  let mut attempt : Int32? = None
   let mut profile : String? = None
   let mut out_dir : String? = None
   let mut i = 1
@@ -2459,8 +2499,8 @@ pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
   let mut profile : String? = None
   let mut seed : Int64? = None
   let mut output_mode : FuzzOutputMode? = None
-  let mut seed_count : Int? = None
-  let mut shard_count : Int? = None
+  let mut seed_count : Int32? = None
+  let mut shard_count : Int32? = None
   for raw_line in text.split("\n") {
     let line = raw_line.trim().to_owned()
     if line.length() == 0 || line[0] == '#' {
@@ -2604,9 +2644,9 @@ pub fn parse_fuzz_cli_args_with_recipe(
   let positional : Array[String] = []
   let mut flag_seed : Int64? = None
   let mut output_mode : FuzzOutputMode? = None
-  let mut seed_count : Int? = None
-  let mut shard_index : Int? = None
-  let mut shard_count : Int? = None
+  let mut seed_count : Int32? = None
+  let mut shard_index : Int32? = None
+  let mut shard_count : Int32? = None
   let mut report_json_path : String? = None
   let mut out_dir : String? = None
   let mut flag_suite : String? = None
@@ -2957,7 +2997,7 @@ fn run_single_suite(
   suite : String,
   profile : String,
   seed_i64 : Int64,
-  cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[
+  cmd_harness_on_failure~ : ((FuzzCmdHarnessFailureReport) -> Result[
     Unit,
     String,
   ])? = None,
@@ -3104,7 +3144,7 @@ fn run_single_suite(
 }
 
 ///|
-fn fuzz_zero_pad_decimal(value : Int, width : Int) -> String {
+fn fuzz_zero_pad_decimal(value : Int32, width : Int32) -> String {
   let raw = value.to_string()
   if raw.length() >= width {
     return raw
@@ -3142,13 +3182,13 @@ pub struct GenValidBatchManifestEntry {
   file_name : String
   seed : UInt64
   case_seed : UInt64
-  index : Int
+  index : Int32
   wasm_hash : String
-  static_instruction_count : Int
+  static_instruction_count : Int32
   config_label : String
   selected_profile : String
   profile_case_label : String?
-  attempts : Int
+  attempts : Int32
   validated : Bool
   validation_error_message : String?
   facts : GenValidFeatureFacts
@@ -3158,14 +3198,14 @@ pub struct GenValidBatchManifestEntry {
 } derive(Eq, Debug)
 
 ///|
-fn gen_valid_metamorphic_base_file_name(index : Int) -> String {
+fn gen_valid_metamorphic_base_file_name(index : Int32) -> String {
   "gen-valid-\{fuzz_zero_pad_decimal(index, 6)}-base.wasm"
 }
 
 ///|
 fn gen_valid_metamorphic_relation_group_id(
   seed : UInt64,
-  index : Int,
+  index : Int32,
   transform_id : String,
 ) -> String {
   "metamorphic:\{seed}:\{index}:\{transform_id}"
@@ -3183,9 +3223,9 @@ pub struct GenValidCoverageSelection {
   manifest : Array[GenValidBatchManifestEntry]
   feature_stats : GenValidFeatureStats
   floor_failures : Array[ValidateValidFeatureFloorFailure]
-  selected : Int
-  attempts : Int
-  skipped_candidates : Int
+  selected : Int32
+  attempts : Int32
+  skipped_candidates : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -3198,13 +3238,13 @@ pub enum GoldenSeedCounterKind {
 pub struct GoldenSeedExpectedCounter {
   name : String
   kind : GoldenSeedCounterKind
-  value : Int
+  value : Int32
 } derive(Eq, Debug)
 
 ///|
 pub fn GoldenSeedExpectedCounter::exact(
   name : String,
-  value : Int,
+  value : Int32,
 ) -> GoldenSeedExpectedCounter {
   { name, kind: GoldenSeedCounterKind::Exact, value, }
 }
@@ -3212,7 +3252,7 @@ pub fn GoldenSeedExpectedCounter::exact(
 ///|
 pub fn GoldenSeedExpectedCounter::minimum(
   name : String,
-  value : Int,
+  value : Int32,
 ) -> GoldenSeedExpectedCounter {
   { name, kind: GoldenSeedCounterKind::Minimum, value, }
 }
@@ -3235,10 +3275,10 @@ pub fn GoldenSeedCatalogEntry::new(
   suite : String,
   profile : String,
   seed : UInt64,
-  expected_counters? : Array[GoldenSeedExpectedCounter] = [],
-  covered_surfaces? : Array[String] = [],
-  artifacts? : Array[String] = [],
-  notes? : String = "",
+  expected_counters~ : Array[GoldenSeedExpectedCounter] = [],
+  covered_surfaces~ : Array[String] = [],
+  artifacts~ : Array[String] = [],
+  notes~ : String = "",
 ) -> GoldenSeedCatalogEntry {
   {
     id,
@@ -3595,7 +3635,7 @@ fn gen_valid_coverage_contributes(
 }
 
 ///|
-fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int) -> UInt64 {
+fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int32) -> UInt64 {
   @validate.gen_valid_case_seed(seed, index)
 }
 
@@ -3714,13 +3754,13 @@ fn gen_valid_coverage_candidate_transform_applicable(
 
 ///|
 pub fn emit_gen_valid_batch_artifacts_until_features(
-  count : Int,
+  count : Int32,
   seed : UInt64,
   config : GenValidConfig,
   required_floors : Array[ValidateValidFeatureFloor],
   excluded_features : Array[ValidateValidFeatureKey],
-  max_attempts : Int,
-  metamorphic_transform_ids? : Array[String] = [],
+  max_attempts : Int32,
+  metamorphic_transform_ids~ : Array[String] = [],
 ) -> Result[GenValidCoverageSelection, String] {
   if gen_valid_config_label(config).starts_with("engine-state-") &&
     !metamorphic_transform_ids.is_empty() {
@@ -3883,13 +3923,13 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
 
 ///|
 pub fn emit_gen_valid_batch_artifacts_until_profile_features(
-  count : Int,
+  count : Int32,
   seed : UInt64,
   profile : GenValidProfile,
   required_floors : Array[ValidateValidFeatureFloor],
   excluded_features : Array[ValidateValidFeatureKey],
-  max_attempts : Int,
-  metamorphic_transform_ids? : Array[String] = [],
+  max_attempts : Int32,
+  metamorphic_transform_ids~ : Array[String] = [],
 ) -> Result[GenValidCoverageSelection, String] {
   if gen_valid_profile_name(profile).starts_with("engine-state-") &&
     !metamorphic_transform_ids.is_empty() {
@@ -4074,7 +4114,7 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
 
 ///|
 pub fn emit_gen_valid_batch_artifacts_with_manifest(
-  count : Int,
+  count : Int32,
   seed : UInt64,
 ) -> Result[GenValidBatchArtifacts, String] {
   if count < 0 {
@@ -4141,7 +4181,7 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
 
 ///|
 pub fn emit_gen_valid_batch_artifacts(
-  count : Int,
+  count : Int32,
   seed : UInt64,
 ) -> Result[Array[(String, Bytes)], String] {
   if count < 0 {
@@ -4211,7 +4251,7 @@ pub struct GenValidStreamDerivation {
 } derive(Eq, Debug)
 
 ///|
-fn fuzz_find_text_from(text : String, needle : String, start : Int) -> Int {
+fn fuzz_find_text_from(text : String, needle : String, start : Int32) -> Int32 {
   if needle.length() == 0 {
     return start
   }
@@ -4235,7 +4275,11 @@ fn fuzz_find_text_from(text : String, needle : String, start : Int) -> Int {
 }
 
 ///|
-fn fuzz_find_text_last_from(text : String, needle : String, start : Int) -> Int {
+fn fuzz_find_text_last_from(
+  text : String,
+  needle : String,
+  start : Int32,
+) -> Int32 {
   if needle.length() == 0 {
     return text.length()
   }
@@ -4253,7 +4297,10 @@ fn fuzz_find_text_last_from(text : String, needle : String, start : Int) -> Int 
 }
 
 ///|
-fn fuzz_parse_uint64_decimal_at(text : String, start : Int) -> (UInt64, Int)? {
+fn fuzz_parse_uint64_decimal_at(
+  text : String,
+  start : Int32,
+) -> (UInt64, Int32)? {
   let mut i = start
   let mut value = 0UL
   let mut digits = 0
@@ -4276,8 +4323,8 @@ fn fuzz_parse_uint64_decimal_at(text : String, start : Int) -> (UInt64, Int)? {
 ///|
 fn fuzz_parse_simple_json_string_at(
   text : String,
-  start : Int,
-) -> (String, Int)? {
+  start : Int32,
+) -> (String, Int32)? {
   if start >= text.length() || text[start] != '"' {
     return None
   }
@@ -4450,8 +4497,8 @@ pub fn format_fuzz_corpus_promotion_metadata_json(
 ///|
 fn fuzz_parse_json_string_with_escapes_at(
   text : String,
-  start : Int,
-) -> (String, Int)? {
+  start : Int32,
+) -> (String, Int32)? {
   if start >= text.length() || text[start] != '"' {
     return None
   }
@@ -4946,7 +4993,7 @@ fn fuzz_corpus_case_index_entry_pos(
   entries : Array[FuzzCorpusCaseIndexEntry],
   hash_kind : String,
   hash : String,
-) -> Int {
+) -> Int32 {
   let mut i = 0
   while i < entries.length() {
     if entries[i].hash_kind == hash_kind && entries[i].hash == hash {
@@ -5257,7 +5304,11 @@ pub fn parse_fuzz_corpus_case_index_json(
 }
 
 ///|
-fn fuzz_find_json_object_end(text : String, start : Int, limit : Int) -> Int? {
+fn fuzz_find_json_object_end(
+  text : String,
+  start : Int32,
+  limit : Int32,
+) -> Int32? {
   if start >= limit || text[start] != '{' {
     return None
   }
@@ -5293,9 +5344,9 @@ fn fuzz_find_json_object_end(text : String, start : Int, limit : Int) -> Int? {
 ///|
 fn fuzz_skip_manifest_ws_and_commas(
   text : String,
-  pos : Int,
-  limit : Int,
-) -> Int {
+  pos : Int32,
+  limit : Int32,
+) -> Int32 {
   let mut i = pos
   while i < limit &&
         (
@@ -5456,7 +5507,7 @@ fn format_gen_valid_batch_transform_ids_json(ids : Array[String]) -> String {
 }
 
 ///|
-fn gen_valid_engine_state_static_instruction_count(mod_ : @lib.Module) -> Int {
+fn gen_valid_engine_state_static_instruction_count(mod_ : @lib.Module) -> Int32 {
   @validate.gen_valid_engine_state_static_instruction_count(mod_)
 }
 
@@ -5523,7 +5574,7 @@ fn gen_valid_engine_state_selection_contract_error(
 }
 
 ///|
-fn gen_valid_profile_weighted_cycle_cases(profile_name : String) -> Int {
+fn gen_valid_profile_weighted_cycle_cases(profile_name : String) -> Int32 {
   let profile = match @validate.gen_valid_profile_by_name(profile_name) {
     Ok(value) => value
     Err(_) => return 0
@@ -6286,7 +6337,7 @@ fn emit_invalid_repro_report(
 ///|
 fn emit_invalid_repro_to_dir(
   args : EmitInvalidReproArgs,
-) -> Result[(String, Int), String] {
+) -> Result[(String, Int32), String] {
   let report = match emit_invalid_repro_report(args) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -6489,7 +6540,7 @@ pub fn run_fuzz_golden_seed_smoke() -> Result[FuzzGoldenSeedSmokeReport, String]
 }
 
 ///|
-fn fuzz_seed_add(base : Int64, offset : Int) -> Int64 {
+fn fuzz_seed_add(base : Int64, offset : Int32) -> Int64 {
   (base.reinterpret_as_uint64() + offset.to_uint64()).reinterpret_as_int64()
 }
 
@@ -6757,10 +6808,10 @@ fn format_invalid_spec_seed_details_json(
 ///|
 fn fuzz_suite_result_with_sweep_metadata(
   result : FuzzSuiteResult,
-  seed_index : Int,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
+  seed_index : Int32,
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
 ) -> FuzzSuiteResult {
   FuzzSuiteResult::{
     suite: result.suite,
@@ -6855,10 +6906,10 @@ pub fn run_fuzz_suite_sweep(
   suite : String,
   profile : String,
   seed_i64 : Int64,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
-  cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
+  cmd_harness_on_failure~ : ((FuzzCmdHarnessFailureReport) -> Result[
     Unit,
     String,
   ])? = None,
@@ -7157,9 +7208,9 @@ pub fn format_fuzz_run_report_json(
   suite : String,
   profile : String,
   base_seed : Int64,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
   let out = StringBuilder::new()
@@ -7203,9 +7254,9 @@ fn format_fuzz_suite_ledger_json(
   suite : String,
   profile : String,
   base_seed : Int64,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
   let out = StringBuilder::new()
@@ -7237,9 +7288,9 @@ fn format_fuzz_replay_manifest_json(
   suite : String,
   profile : String,
   base_seed : Int64,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
   let out = StringBuilder::new()
@@ -7267,9 +7318,9 @@ pub fn persist_fuzz_run_output(
   suite : String,
   profile : String,
   base_seed : Int64,
-  seed_count : Int,
-  shard_index : Int,
-  shard_count : Int,
+  seed_count : Int32,
+  shard_index : Int32,
+  shard_count : Int32,
   results : Array[FuzzSuiteResult],
   io : FuzzRunOutputIO,
 ) -> Result[Unit, String] {

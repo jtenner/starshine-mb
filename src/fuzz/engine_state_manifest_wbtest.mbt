@@ -1,7 +1,7 @@
 ///|
 fn engine_state_manifest_test_selection(
   profile : String,
-  count : Int,
+  count : Int32,
   seed : UInt64,
 ) -> (EmitGenValidBatchArgs, GenValidCoverageSelection) raise {
   let args = EmitGenValidBatchArgs::new(

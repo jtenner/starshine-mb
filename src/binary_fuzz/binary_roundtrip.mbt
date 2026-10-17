@@ -42,7 +42,7 @@ fn[T : Encode + Decode + Eq + Show + @debug.Debug] roundtrip(
 
 ///|
 fn[T : Encode + Decode + Eq + Show + @debug.Debug + @quickcheck.Arbitrary] roundtrip_arbitrary_with_state(
-  count : Int,
+  count : Int32,
   st : @splitmix.RandomState,
 ) -> Array[T] raise {
   let a = Array::new(capacity=count)
@@ -73,24 +73,24 @@ fn binary_fuzz_ascii_lower(input : String) -> String {
 pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  arbitrary_roundtrips : Int
-  gen_valid_modules : Int
-  gen_valid_validated : Int
-  byte_fuzz_cases : Int
-  byte_fuzz_decode_rejections : Int
-  byte_fuzz_decode_accepts : Int
-  byte_fuzz_validate_rejections : Int
-  byte_fuzz_stable_roundtrips : Int
-  boundary_roundtrips : Int
-  instruction_roundtrips : Int
-  section_roundtrips : Int
-  immediate_roundtrips : Int
+  attempts : Int32
+  arbitrary_roundtrips : Int32
+  gen_valid_modules : Int32
+  gen_valid_validated : Int32
+  byte_fuzz_cases : Int32
+  byte_fuzz_decode_rejections : Int32
+  byte_fuzz_decode_accepts : Int32
+  byte_fuzz_validate_rejections : Int32
+  byte_fuzz_stable_roundtrips : Int32
+  boundary_roundtrips : Int32
+  instruction_roundtrips : Int32
+  section_roundtrips : Int32
+  immediate_roundtrips : Int32
 } derive(Eq, Debug)
 
 ///|
 fn binary_roundtrip_gen_valid_module(
-  index : Int,
+  index : Int32,
   st : @splitmix.RandomState,
   config : GenValidConfig,
 ) -> Result[Unit, String] {
@@ -165,7 +165,7 @@ fn binary_roundtrip_gen_valid_module(
 fn run_binary_roundtrip_gen_valid_fuzz(
   normalized : String,
   seed : UInt64,
-  count : Int,
+  count : Int32,
   config : GenValidConfig,
 ) -> Result[BinaryRoundtripFuzzStats, String] {
   let st = @splitmix.new(seed~)
@@ -202,7 +202,7 @@ fn binary_roundtrip_boundary_corpus(
   seed : UInt64,
 ) -> Result[BinaryRoundtripFuzzStats, String] {
   let mut count = 0
-  let idx_values : Array[UInt] = [0U, 1U, 127U, 128U, 624485U, 0xffffffffU]
+  let idx_values : Array[UInt32] = [0U, 1U, 127U, 128U, 624485U, 0xffffffffU]
   for v in idx_values {
     roundtrip(TypeIdx::new(v)) catch {
       _ => return Err("boundary corpus failed TypeIdx \{v}")
@@ -308,7 +308,7 @@ fn binary_roundtrip_boundary_corpus(
 fn binary_byte_fuzz_rand_index(
   bytes : Bytes,
   st : @splitmix.RandomState,
-) -> Int {
+) -> Int32 {
   if bytes.length() == 0 {
     0
   } else {
@@ -319,7 +319,7 @@ fn binary_byte_fuzz_rand_index(
 ///|
 fn binary_byte_fuzz_corrupt(
   bytes : Bytes,
-  case_index : Int,
+  case_index : Int32,
   st : @splitmix.RandomState,
 ) -> Bytes {
   let mutated = bytes.to_array()
@@ -353,7 +353,7 @@ fn binary_byte_fuzz_corrupt(
 
 ///|
 fn binary_byte_fuzz_seed_bytes(
-  index : Int,
+  index : Int32,
   st : @splitmix.RandomState,
 ) -> Result[Bytes, String] {
   let generated = match
@@ -382,7 +382,7 @@ fn binary_byte_fuzz_seed_bytes(
 fn run_binary_byte_fuzz(
   normalized : String,
   seed : UInt64,
-  count : Int,
+  count : Int32,
 ) -> Result[BinaryRoundtripFuzzStats, String] {
   let st = @splitmix.new(seed~)
   let mut decode_rejections = 0

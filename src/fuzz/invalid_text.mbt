@@ -79,7 +79,7 @@ fn validate_invalid_text_extract_assertion(
   source : String,
   path : String,
   expected_kind : ValidateInvalidTextAssertionKind,
-  occurrence : Int,
+  occurrence : Int32,
 ) -> Result[WastCommand, String] {
   if occurrence < 0 {
     return Err("assertion occurrence must be non-negative")
@@ -114,8 +114,8 @@ fn validate_invalid_text_assertion_keyword(
 ///|
 fn validate_invalid_text_slice(
   source : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
 ) -> String {
   let out = StringBuilder::new()
   let mut i = start
@@ -131,7 +131,7 @@ fn validate_invalid_text_extract_assertion_source_from_spec(
   source : String,
   path : String,
   expected_kind : ValidateInvalidTextAssertionKind,
-  occurrence : Int,
+  occurrence : Int32,
 ) -> Result[String, String] {
   let keyword = validate_invalid_text_assertion_keyword(expected_kind)
   let mut found = 0
@@ -295,7 +295,7 @@ pub struct ValidateInvalidTextStrategySpec {
 ///|
 pub struct ValidateInvalidTextRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   required_strategies : Array[ValidateInvalidTextStrategyId]
 } derive(Eq, Debug)
 
@@ -305,22 +305,22 @@ pub struct ValidateInvalidTextStrategyStats {
   stable_id : String
   variant_id : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  applicable : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_matched_expected : Int
+  attempted : Int32
+  applicable : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_matched_expected : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct ValidateInvalidTextFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   required_strategies : Array[ValidateInvalidTextStrategyId]
   strategy_stats : Array[ValidateInvalidTextStrategyStats]
 } derive(Eq, Debug)
@@ -331,7 +331,7 @@ fn validate_invalid_text_strategy_spec(
   stable_id : String,
   display_name : String,
   expected_stage : ValidateInvalidTextStage,
-  required_in_smoke? : Bool = true,
+  required_in_smoke~ : Bool = true,
 ) -> ValidateInvalidTextStrategySpec {
   {
     id,
@@ -595,7 +595,7 @@ pub fn validate_invalid_text_registry() -> Array[
 ///|
 fn validate_invalid_text_strategy_index(
   id : ValidateInvalidTextStrategyId,
-) -> Int {
+) -> Int32 {
   match id {
     MalformedQuoteMissingParen => 0
     InvalidResultStack => 1
@@ -1015,16 +1015,16 @@ fn validate_invalid_text_empty_strategy_stats() -> Array[
 ///|
 fn validate_invalid_text_update_strategy_stats(
   stats : Array[ValidateInvalidTextStrategyStats],
-  idx : Int,
-  attempted? : Int = stats[idx].attempted,
-  applicable? : Int = stats[idx].applicable,
-  parse_or_lower_rejected? : Int = stats[idx].parse_or_lower_rejected,
-  validate_rejected? : Int = stats[idx].validate_rejected,
-  valid_before_link? : Int = stats[idx].valid_before_link,
-  matched_expected? : Int = stats[idx].matched_expected,
-  variant_attempted? : Int = stats[idx].variant_attempted,
-  variant_applicable? : Int = stats[idx].variant_applicable,
-  variant_matched_expected? : Int = stats[idx].variant_matched_expected,
+  idx : Int32,
+  attempted~ : Int32 = stats[idx].attempted,
+  applicable~ : Int32 = stats[idx].applicable,
+  parse_or_lower_rejected~ : Int32 = stats[idx].parse_or_lower_rejected,
+  validate_rejected~ : Int32 = stats[idx].validate_rejected,
+  valid_before_link~ : Int32 = stats[idx].valid_before_link,
+  matched_expected~ : Int32 = stats[idx].matched_expected,
+  variant_attempted~ : Int32 = stats[idx].variant_attempted,
+  variant_applicable~ : Int32 = stats[idx].variant_applicable,
+  variant_matched_expected~ : Int32 = stats[idx].variant_matched_expected,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
@@ -1171,13 +1171,13 @@ pub struct ValidateInvalidTextDynamicStrategyStats {
   stable_id : String
   variant_id : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  generated : Int
-  mutated : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
+  attempted : Int32
+  generated : Int32
+  mutated : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
   source_feature_facts : Array[String]
 } derive(Eq, Debug)
 
@@ -1187,13 +1187,13 @@ pub struct ValidateInvalidTextDynamicFuzzStats {
   seed : UInt64
   stream_label : String
   stream_seed : UInt64
-  attempts : Int
-  generated : Int
-  mutated : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
+  attempts : Int32
+  generated : Int32
+  mutated : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
   strategy_stats : Array[ValidateInvalidTextDynamicStrategyStats]
 } derive(Eq, Debug)
 
@@ -1391,7 +1391,7 @@ pub fn validate_invalid_text_dynamic_stream_seed(seed : UInt64) -> UInt64 {
 pub fn validate_invalid_text_dynamic_attempt_seed(
   seed : UInt64,
   stable_id : String,
-  attempt : Int,
+  attempt : Int32,
 ) -> UInt64 {
   validate_invalid_text_dynamic_stream_seed(seed) ^
   validate_invalid_text_stable_string_salt(stable_id) ^
@@ -1728,7 +1728,7 @@ pub fn run_validate_invalid_text_dynamic_case(
 ///|
 fn validate_invalid_text_dynamic_run_attempts(
   profile : String,
-) -> Result[Int, String] {
+) -> Result[Int32, String] {
   match validate_invalid_text_ascii_lower(profile.trim().to_owned()) {
     "smoke" => Ok(4)
     "ci" => Ok(32)
@@ -1904,7 +1904,7 @@ pub struct ValidateInvalidSpecSeedSpec {
   layer : String
   path : String
   assertion_kind : ValidateInvalidTextAssertionKind
-  assertion_occurrence : Int
+  assertion_occurrence : Int32
   expected_stage : ValidateInvalidTextStage
   required_in_smoke : Bool
 } derive(Eq, Debug)
@@ -1912,7 +1912,7 @@ pub struct ValidateInvalidSpecSeedSpec {
 ///|
 pub struct ValidateInvalidSpecSeedRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   required_seeds : Array[ValidateInvalidSpecSeedId]
 } derive(Eq, Debug)
 
@@ -1923,30 +1923,30 @@ pub struct ValidateInvalidSpecSeedStats {
   variant_id : String
   path : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  applicable : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_matched_expected : Int
+  attempted : Int32
+  applicable : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_matched_expected : Int32
 } derive(Eq, Debug)
 
 ///|
 pub struct ValidateInvalidSpecSeedFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   required_seeds : Array[ValidateInvalidSpecSeedId]
   seed_stats : Array[ValidateInvalidSpecSeedStats]
-  dynamic_scanned : Int
-  dynamic_attempted : Int
-  dynamic_matched_expected : Int
-  dynamic_malformed_matched : Int
-  dynamic_invalid_matched : Int
-  dynamic_unlinkable_matched : Int
+  dynamic_scanned : Int32
+  dynamic_attempted : Int32
+  dynamic_matched_expected : Int32
+  dynamic_malformed_matched : Int32
+  dynamic_invalid_matched : Int32
+  dynamic_unlinkable_matched : Int32
   dynamic_feature_families_matched : Array[String]
 } derive(Eq, Debug)
 
@@ -1956,7 +1956,7 @@ pub struct ValidateInvalidDynamicSpecSeed {
   path : String
   feature_family : String
   assertion_kind : ValidateInvalidTextAssertionKind
-  assertion_occurrence : Int
+  assertion_occurrence : Int32
   expected_stage : ValidateInvalidTextStage
   assertion_source : String
 } derive(Eq, Debug)
@@ -2123,10 +2123,10 @@ pub fn validate_invalid_spec_seed_scan_directory(
 ///|
 pub fn validate_invalid_spec_seed_select(
   scanned : Array[ValidateInvalidDynamicSpecSeed],
-  path_filter? : String = "",
-  assertion_kind_filter? : ValidateInvalidTextAssertionKind? = None,
-  occurrence_filter? : Int? = None,
-  feature_family_filter? : String = "",
+  path_filter~ : String = "",
+  assertion_kind_filter~ : ValidateInvalidTextAssertionKind? = None,
+  occurrence_filter~ : Int32? = None,
+  feature_family_filter~ : String = "",
 ) -> Array[ValidateInvalidDynamicSpecSeed] {
   scanned.filter(fn(item) {
     if path_filter.length() > 0 && item.path != path_filter {
@@ -2158,9 +2158,9 @@ fn validate_invalid_spec_seed_spec(
   display_name : String,
   path : String,
   assertion_kind : ValidateInvalidTextAssertionKind,
-  assertion_occurrence : Int,
+  assertion_occurrence : Int32,
   expected_stage : ValidateInvalidTextStage,
-  required_in_smoke? : Bool = true,
+  required_in_smoke~ : Bool = true,
 ) -> ValidateInvalidSpecSeedSpec {
   {
     id,
@@ -2548,7 +2548,7 @@ pub fn validate_invalid_spec_seed_by_stable_id(
 }
 
 ///|
-fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
+fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int32 {
   match id {
     ConstMalformedQuote1 => 0
     F32InvalidTypeMismatch1 => 1
@@ -2714,16 +2714,16 @@ fn validate_invalid_spec_seed_empty_stats() -> Array[
 ///|
 fn validate_invalid_spec_seed_update_stats(
   stats : Array[ValidateInvalidSpecSeedStats],
-  idx : Int,
-  attempted? : Int = stats[idx].attempted,
-  applicable? : Int = stats[idx].applicable,
-  parse_or_lower_rejected? : Int = stats[idx].parse_or_lower_rejected,
-  validate_rejected? : Int = stats[idx].validate_rejected,
-  valid_before_link? : Int = stats[idx].valid_before_link,
-  matched_expected? : Int = stats[idx].matched_expected,
-  variant_attempted? : Int = stats[idx].variant_attempted,
-  variant_applicable? : Int = stats[idx].variant_applicable,
-  variant_matched_expected? : Int = stats[idx].variant_matched_expected,
+  idx : Int32,
+  attempted~ : Int32 = stats[idx].attempted,
+  applicable~ : Int32 = stats[idx].applicable,
+  parse_or_lower_rejected~ : Int32 = stats[idx].parse_or_lower_rejected,
+  validate_rejected~ : Int32 = stats[idx].validate_rejected,
+  valid_before_link~ : Int32 = stats[idx].valid_before_link,
+  matched_expected~ : Int32 = stats[idx].matched_expected,
+  variant_attempted~ : Int32 = stats[idx].variant_attempted,
+  variant_applicable~ : Int32 = stats[idx].variant_applicable,
+  variant_matched_expected~ : Int32 = stats[idx].variant_matched_expected,
 ) -> Unit {
   let current = stats[idx]
   stats[idx] = {
@@ -2784,9 +2784,9 @@ fn validate_invalid_spec_seed_dynamic_family_push_unique(
 
 ///|
 fn validate_invalid_spec_seed_dynamic_floors_met(
-  malformed : Int,
-  invalid : Int,
-  unlinkable : Int,
+  malformed : Int32,
+  invalid : Int32,
+  unlinkable : Int32,
   families : Array[String],
 ) -> Bool {
   malformed > 0 && invalid > 0 && unlinkable > 0 && families.length() >= 3
@@ -2796,8 +2796,8 @@ fn validate_invalid_spec_seed_dynamic_floors_met(
 fn run_validate_invalid_dynamic_spec_seed_fuzz(
   normalized : String,
   seed : UInt64,
-  attempts : Int,
-) -> Result[(Int, Int, Int, Int, Int, Int, Array[String]), String] {
+  attempts : Int32,
+) -> Result[(Int32, Int32, Int32, Int32, Int32, Int32, Array[String]), String] {
   if !validate_invalid_spec_seed_profile_uses_dynamic_scan(normalized) {
     return Ok((0, 0, 0, 0, 0, 0, []))
   }

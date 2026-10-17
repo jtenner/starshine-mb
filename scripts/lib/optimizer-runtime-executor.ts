@@ -1565,9 +1565,14 @@ export function nodeObservationArguments(): string[] {
   if (customDescriptors !== undefined && customDescriptors !== "0" && customDescriptors !== "1") {
     throw new Error("STARSHINE_NODE_CUSTOM_DESCRIPTORS must be 0 or 1");
   }
+  const sharedGc = process.env.STARSHINE_NODE_SHARED_GC;
+  if (sharedGc !== undefined && sharedGc !== "0" && sharedGc !== "1") {
+    throw new Error("STARSHINE_NODE_SHARED_GC must be 0 or 1");
+  }
   const args: string[] = [];
   if (wasmfx === "1") args.push("--experimental-wasm-wasmfx");
   if (customDescriptors === "1") args.push("--experimental-wasm-custom-descriptors");
+  if (sharedGc === "1") args.push("--experimental-wasm-shared");
   return args;
 }
 

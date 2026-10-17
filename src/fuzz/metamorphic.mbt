@@ -1482,10 +1482,10 @@ pub struct MetamorphicValidTransformResult {
 ///|
 pub struct ValidateValidMetamorphicFuzzStats {
   profile : String
-  attempts : Int
-  generated : Int
-  transformed : Int
-  validated : Int
+  attempts : Int32
+  generated : Int32
+  transformed : Int32
+  validated : Int32
   transform_ids : Array[String]
 } derive(Eq, Debug)
 
@@ -1874,7 +1874,7 @@ fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn metamorphic_total_func_count(mod : @lib.Module) -> Int {
+fn metamorphic_total_func_count(mod : @lib.Module) -> Int32 {
   let mut count = 0
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -1894,7 +1894,7 @@ fn metamorphic_total_func_count(mod : @lib.Module) -> Int {
 }
 
 ///|
-fn metamorphic_defined_func_count(mod : @lib.Module) -> Int {
+fn metamorphic_defined_func_count(mod : @lib.Module) -> Int32 {
   match (mod.func_sec, mod.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
       if type_idxs.length() < funcs.length() {
@@ -1944,7 +1944,7 @@ fn metamorphic_flatten_types(mod : @lib.Module) -> Array[@lib.SubType] {
 fn metamorphic_func_param_count(
   subtypes : Array[@lib.SubType],
   type_idx : @lib.TypeIdx,
-) -> Int {
+) -> Int32 {
   match type_idx {
     @lib.TypeIdx(i) =>
       match subtypes.get(i.reinterpret_as_int()) {
@@ -2160,7 +2160,7 @@ fn metamorphic_add_field_names_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn metamorphic_instr_label_count(instr : @lib.Instruction) -> Int {
+fn metamorphic_instr_label_count(instr : @lib.Instruction) -> Int32 {
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
       1 + metamorphic_expr_label_count(body)
@@ -2176,7 +2176,7 @@ fn metamorphic_instr_label_count(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn metamorphic_instrs_label_count(instrs : Array[@lib.Instruction]) -> Int {
+fn metamorphic_instrs_label_count(instrs : Array[@lib.Instruction]) -> Int32 {
   let mut total = 0
   for instr in instrs {
     total += metamorphic_instr_label_count(instr)
@@ -2185,7 +2185,7 @@ fn metamorphic_instrs_label_count(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
-fn metamorphic_expr_label_count(expr : @lib.Expr) -> Int {
+fn metamorphic_expr_label_count(expr : @lib.Expr) -> Int32 {
   let @lib.Expr(instrs) = expr
   metamorphic_instrs_label_count(instrs)
 }
@@ -2701,7 +2701,7 @@ fn metamorphic_add_duplicate_equivalent_mutable_v128_global(
 }
 
 ///|
-fn metamorphic_count_flat_types(rec_types : Array[@lib.RecType]) -> Int {
+fn metamorphic_count_flat_types(rec_types : Array[@lib.RecType]) -> Int32 {
   let mut count = 0
   for rec_type in rec_types {
     match rec_type {
@@ -4395,7 +4395,7 @@ fn metamorphic_add_ref_eq_i31_drop_to_defined_functions(
 }
 
 ///|
-fn metamorphic_type_sec_flat_count(type_sec : @lib.TypeSec?) -> UInt {
+fn metamorphic_type_sec_flat_count(type_sec : @lib.TypeSec?) -> UInt32 {
   let mut count = 0U
   match type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -5325,7 +5325,7 @@ fn metamorphic_add_unary_drop_to_defined_functions(
 ///|
 fn metamorphic_add_if_to_defined_functions(
   mod : @lib.Module,
-  condition : Int,
+  condition : Int32,
   leading : Bool,
 ) -> @lib.Module {
   let funcs = []
@@ -5530,7 +5530,7 @@ fn metamorphic_add_loop_wrapped_numeric_const_drops_to_defined_functions(
 }
 
 ///|
-fn metamorphic_total_memory_count(mod : @lib.Module) -> Int {
+fn metamorphic_total_memory_count(mod : @lib.Module) -> Int32 {
   let mut count = 0
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -5550,7 +5550,7 @@ fn metamorphic_total_memory_count(mod : @lib.Module) -> Int {
 }
 
 ///|
-fn metamorphic_total_table_count(mod : @lib.Module) -> Int {
+fn metamorphic_total_table_count(mod : @lib.Module) -> Int32 {
   let mut count = 0
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -6841,7 +6841,7 @@ fn metamorphic_oi_live_nonzero_memory_copy_boundary_i32_then_instrs(
 ///|
 fn metamorphic_oi_live_nonzero_memory_const_copy_i32_then_instrs(
   mem_idx : @lib.MemIdx,
-  addr : Int,
+  addr : Int32,
 ) -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(addr),
@@ -7795,7 +7795,7 @@ fn metamorphic_push_oi_live_nonzero_memory_atomic_rmw_all_noop_ops(
 ///|
 fn metamorphic_push_oi_live_nonzero_memory_atomic_rmw_boundary_i32_addr_instrs(
   instrs : Array[@lib.Instruction],
-  addr : Int,
+  addr : Int32,
   memarg8 : @lib.MemArg,
   memarg16 : @lib.MemArg,
   memarg32 : @lib.MemArg,
@@ -7993,7 +7993,7 @@ fn metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i64_then_instrs(
 ///|
 fn metamorphic_oi_atomic_module_derived_addr_from_func_count(
   mod : @lib.Module,
-) -> Int {
+) -> Int32 {
   let count = metamorphic_defined_func_count(mod)
   if count <= 0 {
     257
@@ -8009,7 +8009,7 @@ fn metamorphic_oi_atomic_module_derived_addr_from_func_count(
 ///|
 fn metamorphic_oi_atomic_module_derived_addr_from_memory_count(
   mod : @lib.Module,
-) -> Int {
+) -> Int32 {
   let count = metamorphic_total_memory_count(mod)
   if count <= 1 {
     2049
@@ -8294,7 +8294,7 @@ fn metamorphic_oi_live_nonzero_memory_fill_restore_boundary_i32_then_instrs(
 ///|
 fn metamorphic_oi_live_nonzero_memory_const_fill_restore_i32_then_instrs(
   mem_idx : @lib.MemIdx,
-  addr : Int,
+  addr : Int32,
 ) -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(addr),
@@ -9516,7 +9516,7 @@ fn metamorphic_add_kind_export_aliases(
 }
 
 ///|
-fn metamorphic_imported_function_count(mod : @lib.Module) -> UInt {
+fn metamorphic_imported_function_count(mod : @lib.Module) -> UInt32 {
   let mut count = 0U
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9532,7 +9532,7 @@ fn metamorphic_imported_function_count(mod : @lib.Module) -> UInt {
 }
 
 ///|
-fn metamorphic_imported_global_count(mod : @lib.Module) -> UInt {
+fn metamorphic_imported_global_count(mod : @lib.Module) -> UInt32 {
   let mut count = 0U
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9548,7 +9548,7 @@ fn metamorphic_imported_global_count(mod : @lib.Module) -> UInt {
 }
 
 ///|
-fn metamorphic_imported_memory_count(mod : @lib.Module) -> UInt {
+fn metamorphic_imported_memory_count(mod : @lib.Module) -> UInt32 {
   let mut count = 0U
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9564,7 +9564,7 @@ fn metamorphic_imported_memory_count(mod : @lib.Module) -> UInt {
 }
 
 ///|
-fn metamorphic_imported_table_count(mod : @lib.Module) -> UInt {
+fn metamorphic_imported_table_count(mod : @lib.Module) -> UInt32 {
   let mut count = 0U
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9580,7 +9580,7 @@ fn metamorphic_imported_table_count(mod : @lib.Module) -> UInt {
 }
 
 ///|
-fn metamorphic_imported_tag_count(mod : @lib.Module) -> UInt {
+fn metamorphic_imported_tag_count(mod : @lib.Module) -> UInt32 {
   let mut count = 0U
   match mod.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -9598,7 +9598,7 @@ fn metamorphic_imported_tag_count(mod : @lib.Module) -> UInt {
 ///|
 fn metamorphic_function_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
-  imported_count : UInt,
+  imported_count : UInt32,
   imported : Bool,
 ) -> Bool {
   match extern_idx {
@@ -9648,7 +9648,7 @@ fn metamorphic_add_imported_or_defined_function_export_aliases(
 ///|
 fn metamorphic_global_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
-  imported_count : UInt,
+  imported_count : UInt32,
   imported : Bool,
 ) -> Bool {
   match extern_idx {
@@ -9698,7 +9698,7 @@ fn metamorphic_add_imported_or_defined_global_export_aliases(
 ///|
 fn metamorphic_memory_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
-  imported_count : UInt,
+  imported_count : UInt32,
   imported : Bool,
 ) -> Bool {
   match extern_idx {
@@ -9748,7 +9748,7 @@ fn metamorphic_add_imported_or_defined_memory_export_aliases(
 ///|
 fn metamorphic_table_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
-  imported_count : UInt,
+  imported_count : UInt32,
   imported : Bool,
 ) -> Bool {
   match extern_idx {
@@ -9798,7 +9798,7 @@ fn metamorphic_add_imported_or_defined_table_export_aliases(
 ///|
 fn metamorphic_tag_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
-  imported_count : UInt,
+  imported_count : UInt32,
   imported : Bool,
 ) -> Bool {
   match extern_idx {
@@ -9887,8 +9887,8 @@ fn metamorphic_function_body_block_type(
 ///|
 fn metamorphic_shift_outer_label(
   label : @lib.LabelIdx,
-  control_depth : Int,
-  added_outer_depth : Int,
+  control_depth : Int32,
+  added_outer_depth : Int32,
 ) -> @lib.LabelIdx {
   let @lib.LabelIdx(slot) = label
   let depth = slot.reinterpret_as_int()
@@ -9902,8 +9902,8 @@ fn metamorphic_shift_outer_label(
 ///|
 fn metamorphic_shift_outer_catches(
   catches : Array[@lib.Catch],
-  control_depth : Int,
-  added_outer_depth : Int,
+  control_depth : Int32,
+  added_outer_depth : Int32,
 ) -> Array[@lib.Catch] {
   let shifted : Array[@lib.Catch] = []
   for catch_ in catches {
@@ -9950,8 +9950,8 @@ fn metamorphic_shift_outer_catches(
 ///|
 fn metamorphic_shift_outer_branches(
   instrs : Array[@lib.Instruction],
-  added_outer_depth : Int,
-  control_depth? : Int = 0,
+  added_outer_depth : Int32,
+  control_depth~ : Int32 = 0,
 ) -> Array[@lib.Instruction] {
   let shifted : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -10129,7 +10129,7 @@ fn metamorphic_shift_outer_branches(
 ///|
 fn metamorphic_wrap_defined_function_bodies_in_identity_blocks(
   mod : @lib.Module,
-  depth : Int,
+  depth : Int32,
 ) -> @lib.Module {
   let subtypes = metamorphic_flatten_types(mod)
   let type_idxs = match mod.func_sec {
@@ -10187,7 +10187,7 @@ fn metamorphic_wrap_defined_function_bodies_in_nested_identity_blocks(
 ///|
 fn metamorphic_wrap_defined_function_bodies_in_identity_loops(
   mod : @lib.Module,
-  depth : Int,
+  depth : Int32,
 ) -> @lib.Module {
   let subtypes = metamorphic_flatten_types(mod)
   let type_idxs = match mod.func_sec {
@@ -13031,7 +13031,7 @@ fn metamorphic_profile_config(
 }
 
 ///|
-fn metamorphic_profile_case_count(profile : String) -> Result[Int, String] {
+fn metamorphic_profile_case_count(profile : String) -> Result[Int32, String] {
   match profile {
     "smoke" => Ok(1)
     "ci" => Ok(10)

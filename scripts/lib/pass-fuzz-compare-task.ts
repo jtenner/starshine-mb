@@ -1662,6 +1662,19 @@ function comparisonProjectionFlags(passFlags: string[]): string[] {
   ];
 }
 
+function binaryenOracleFeatureFlags(
+  options: Pick<PassFuzzCompareOptions, "semanticOracle" | "runtimeExecution">,
+): string[] {
+  // --all-features also permits compact import encoding in Binaryen's writer.
+  // Node cannot execute that encoding; retain all other proposal features.
+  return [
+    "--all-features",
+    ...(options.semanticOracle === "node-v2" || options.runtimeExecution === "node"
+      ? ["--disable-compact-imports"]
+      : []),
+  ];
+}
+
 export async function canonicalizeWasm(
   wasmOptBin: string,
   inputPath: string,
@@ -3081,7 +3094,7 @@ async function runBinaryenOracle(
   try {
     await runOrThrowAsync(
       options.wasmOptBin,
-      [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
+      [inputPath, ...binaryenOracleFeatureFlags(options), ...binaryenPassFlags, "-o", binaryenRawPath],
       { cwd: repoRoot, env: repoTmpEnv, timeoutMs: options.subprocessTimeoutMs },
     );
     await canonicalizeWasm(
@@ -3258,11 +3271,15 @@ function semanticV2IsStarshineFailure(report: NodeThreeWaySemanticOracleV2Report
 }
 
 function semanticV2HasDifference(report: NodeThreeWaySemanticOracleV2Report | null): boolean {
-  return report !== null && [
-    report.originalVsStarshine,
-    report.originalVsBinaryen,
-    report.starshineVsBinaryen,
-  ].some(comparison => comparison?.classification === "semantic-mismatch");
+  // A Binaryen-only runtime block still needs its exact module and report
+  // for classification; the ordinary structural artifact cap must not hide it.
+  return report !== null && (
+    report.classification.pattern === "binaryen-discrepancy" || [
+      report.originalVsStarshine,
+      report.originalVsBinaryen,
+      report.starshineVsBinaryen,
+    ].some(comparison => comparison?.classification === "semantic-mismatch")
+  );
 }
 
 function persistSemanticV2Report(
@@ -3729,7 +3746,7 @@ function candidateStillHasPassFuzzMismatch(
     if (!runSyncOk(options.wasmToolsBin, ["validate", "--features", "all", starshineRawPath], repoRoot, repoTmpEnv)) {
       return false;
     }
-    if (!runSyncOk(options.wasmOptBin, [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath], repoRoot, repoTmpEnv)) {
+    if (!runSyncOk(options.wasmOptBin, [inputPath, ...binaryenOracleFeatureFlags(options), ...binaryenPassFlags, "-o", binaryenRawPath], repoRoot, repoTmpEnv)) {
       return false;
     }
     if (!canonicalizeWasmSync(
