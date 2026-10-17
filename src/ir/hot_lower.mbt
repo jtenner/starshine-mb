@@ -5663,57 +5663,77 @@ fn hot_lower_impl_count_local_gets_in_body(
 }
 
 ///|
+// These middle passes consume private emitted/canonicalized rows. A later
+// canonicalization still supplies the public lower result's owned containers.
+fn hot_lower_impl_changed_body_prefix(
+  body : Array[Instruction],
+  end : Int32,
+  reserve_tail~ : Bool = true,
+) -> Array[Instruction] {
+  let copy = Array::new(capacity=if reserve_tail { body.length() } else { end })
+  for index in 0..<end {
+    copy.push(body[index])
+  }
+  copy
+}
+
+///|
 fn hot_lower_impl_prune_dead_local_tees_in_instr(
   instr : Instruction,
   counts : Array[Int32],
   options : HotLowerOptions,
-) -> Instruction? {
+) -> Instruction {
   match instr {
-    Block(bt, Expr(body)) =>
-      Some(
-        Instruction::block(
-          bt,
-          Expr::new(
-            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
-          ),
-        ),
+    Block(bt, Expr(body)) => {
+      let next = hot_lower_impl_prune_dead_local_tees_in_body(
+        body, counts, options,
       )
-    Loop(bt, Expr(body)) =>
-      Some(
-        Instruction::loop_(
-          bt,
-          Expr::new(
-            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
-          ),
-        ),
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::block(bt, Expr::new(next))
+      }
+    }
+    Loop(bt, Expr(body)) => {
+      let next = hot_lower_impl_prune_dead_local_tees_in_body(
+        body, counts, options,
       )
-    If(bt, then_, else_) =>
-      Some(
-        Instruction::if_(
-          bt,
-          hot_lower_impl_prune_dead_local_tees_in_body(then_, counts, options),
-          match else_ {
-            Some(else_body) =>
-              Some(
-                hot_lower_impl_prune_dead_local_tees_in_body(
-                  else_body, counts, options,
-                ),
-              )
-            None => None
-          },
-        ),
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::loop_(bt, Expr::new(next))
+      }
+    }
+    If(bt, then_, else_) => {
+      let next_then = hot_lower_impl_prune_dead_local_tees_in_body(
+        then_, counts, options,
       )
-    TryTable(bt, catches, Expr(body)) =>
-      Some(
-        Instruction::try_table(
-          bt,
-          catches,
-          Expr::new(
-            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
-          ),
-        ),
+      let mut next_else = else_
+      if else_ is Some(body) {
+        let next = hot_lower_impl_prune_dead_local_tees_in_body(
+          body, counts, options,
+        )
+        if !physical_equal(next, body) {
+          next_else = Some(next)
+        }
+      }
+      if physical_equal(next_then, then_) && physical_equal(next_else, else_) {
+        instr
+      } else {
+        Instruction::if_(bt, next_then, next_else)
+      }
+    }
+    TryTable(bt, catches, Expr(body)) => {
+      let next = hot_lower_impl_prune_dead_local_tees_in_body(
+        body, counts, options,
       )
-    _ => Some(instr)
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::try_table(bt, catches, Expr::new(next))
+      }
+    }
+    _ => instr
   }
 }
 
@@ -5723,36 +5743,40 @@ fn hot_lower_impl_prune_dead_local_tees_in_body(
   counts : Array[Int32],
   options : HotLowerOptions,
 ) -> Array[Instruction] {
-  let pruned : Array[Instruction] = []
+  let mut pruned : Array[Instruction]? = None
   for i = 0; i < body.length(); i = i + 1 {
-    match body[i] {
-      LocalTee(li) => {
-        let @lib.LocalIdx(raw) = li
-        let idx = raw.reinterpret_as_int()
-        let dead = idx >= 0 && idx < counts.length() && counts[idx] == 0
-        let mut preserve_dead_drop = false
-        if dead &&
-          options.preserve_dead_local_tee_drops &&
-          i + 1 < body.length() {
-          match body[i + 1] {
-            Drop => preserve_dead_drop = true
-            _ => ()
-          }
+    let instr = body[i]
+    if instr is LocalTee(li) {
+      let @lib.LocalIdx(raw) = li
+      let idx = raw.reinterpret_as_int()
+      let dead = idx >= 0 && idx < counts.length() && counts[idx] == 0
+      let preserve_dead_drop = dead &&
+        options.preserve_dead_local_tee_drops &&
+        i + 1 < body.length() &&
+        body[i + 1] is Drop
+      if dead && !preserve_dead_drop {
+        if pruned is None {
+          pruned = Some(
+            hot_lower_impl_changed_body_prefix(body, i, reserve_tail=false),
+          )
         }
-        if dead && !preserve_dead_drop {
-          continue
-        }
-        pruned.push(body[i])
+        continue
       }
-      instr =>
-        match
-          hot_lower_impl_prune_dead_local_tees_in_instr(instr, counts, options) {
-          Some(rewritten) => pruned.push(rewritten)
-          None => ()
+    }
+    let next = hot_lower_impl_prune_dead_local_tees_in_instr(
+      instr, counts, options,
+    )
+    match pruned {
+      Some(rows) => rows.push(next)
+      None =>
+        if !physical_equal(next, instr) {
+          let rows = hot_lower_impl_changed_body_prefix(body, i)
+          rows.push(next)
+          pruned = Some(rows)
         }
     }
   }
-  pruned
+  pruned.unwrap_or(body)
 }
 
 ///|
@@ -5965,7 +5989,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Array[Instruction] {
-  let rewritten : Array[Instruction] = []
+  let mut output : Array[Instruction]? = None
   let mut idx = 0
   while idx < body.length() {
     if idx + 2 < body.length() {
@@ -6012,6 +6036,16 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                                   let wrapped_body = hot_lower_impl_expand_branch_depths_above(
                                     wrapped_body, -1,
                                   )
+                                  let rewritten = match output {
+                                    Some(rows) => rows
+                                    None => {
+                                      let rows = hot_lower_impl_changed_body_prefix(
+                                        body, idx,
+                                      )
+                                      output = Some(rows)
+                                      rows
+                                    }
+                                  }
                                   rewritten.push(
                                     Instruction::block(
                                       BlockType::val_type(local_ty),
@@ -6069,6 +6103,16 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                               wrapper_body.push(
                                 Instruction::local_get(scratch_local),
                               )
+                              let rewritten = match output {
+                                Some(rows) => rows
+                                None => {
+                                  let rows = hot_lower_impl_changed_body_prefix(
+                                    body, idx,
+                                  )
+                                  output = Some(rows)
+                                  rows
+                                }
+                              }
                               rewritten.push(
                                 Instruction::block(
                                   BlockType::val_type(local_ty),
@@ -6103,10 +6147,13 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
         _ => ()
       }
     }
-    rewritten.push(body[idx])
+    match output {
+      Some(rows) => rows.push(body[idx])
+      None => ()
+    }
     idx = idx + 1
   }
-  rewritten
+  output.unwrap_or(body)
 }
 
 ///|
@@ -6117,42 +6164,55 @@ fn hot_lower_impl_stackify_nested_instr(
   options : HotLowerOptions,
 ) -> Instruction {
   match instr {
-    Block(bt, Expr(body)) =>
-      Instruction::block(
-        bt,
-        Expr::new(
-          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
-        ),
+    Block(bt, Expr(body)) => {
+      let next = hot_lower_impl_stackify_nested_body(
+        func, body, extra_locals, options,
       )
-    Loop(bt, Expr(body)) =>
-      Instruction::loop_(
-        bt,
-        Expr::new(
-          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
-        ),
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::block(bt, Expr::new(next))
+      }
+    }
+    Loop(bt, Expr(body)) => {
+      let next = hot_lower_impl_stackify_nested_body(
+        func, body, extra_locals, options,
       )
-    If(bt, then_, else_) =>
-      Instruction::if_(
-        bt,
-        hot_lower_impl_stackify_nested_body(func, then_, extra_locals, options),
-        match else_ {
-          Some(else_body) =>
-            Some(
-              hot_lower_impl_stackify_nested_body(
-                func, else_body, extra_locals, options,
-              ),
-            )
-          None => None
-        },
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::loop_(bt, Expr::new(next))
+      }
+    }
+    If(bt, then_, else_) => {
+      let next_then = hot_lower_impl_stackify_nested_body(
+        func, then_, extra_locals, options,
       )
-    TryTable(bt, catches, Expr(body)) =>
-      Instruction::try_table(
-        bt,
-        catches,
-        Expr::new(
-          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
-        ),
+      let mut next_else = else_
+      if else_ is Some(body) {
+        let next = hot_lower_impl_stackify_nested_body(
+          func, body, extra_locals, options,
+        )
+        if !physical_equal(next, body) {
+          next_else = Some(next)
+        }
+      }
+      if physical_equal(next_then, then_) && physical_equal(next_else, else_) {
+        instr
+      } else {
+        Instruction::if_(bt, next_then, next_else)
+      }
+    }
+    TryTable(bt, catches, Expr(body)) => {
+      let next = hot_lower_impl_stackify_nested_body(
+        func, body, extra_locals, options,
       )
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::try_table(bt, catches, Expr::new(next))
+      }
+    }
     _ => instr
   }
 }
@@ -6164,14 +6224,27 @@ fn hot_lower_impl_stackify_nested_body(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Array[Instruction] {
-  let rewritten_children : Array[Instruction] = []
-  for instr in body {
-    rewritten_children.push(
-      hot_lower_impl_stackify_nested_instr(func, instr, extra_locals, options),
+  let mut rewritten : Array[Instruction]? = None
+  for index in 0..<body.length() {
+    let instr = body[index]
+    let next = hot_lower_impl_stackify_nested_instr(
+      func, instr, extra_locals, options,
     )
+    match rewritten {
+      Some(rows) => rows.push(next)
+      None =>
+        if !physical_equal(next, instr) {
+          let rows = hot_lower_impl_changed_body_prefix(body, index)
+          rows.push(next)
+          rewritten = Some(rows)
+        }
+    }
   }
   hot_lower_impl_stackify_wrapped_struct_set_prefixes(
-    func, rewritten_children, extra_locals, options,
+    func,
+    rewritten.unwrap_or(body),
+    extra_locals,
+    options,
   )
 }
 
@@ -6187,29 +6260,43 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_instr(
         Some(rewritten) => rewritten
         None => fixed_body
       }
-      Instruction::block(bt, Expr::new(fixed_body))
+      if physical_equal(fixed_body, body) {
+        instr
+      } else {
+        Instruction::block(bt, Expr::new(fixed_body))
+      }
     }
-    Loop(bt, Expr(body)) =>
-      Instruction::loop_(
-        bt,
-        Expr::new(hot_lower_impl_fix_split_payload_wrappers_in_body(body)),
-      )
-    If(bt, then_, else_) =>
-      Instruction::if_(
-        bt,
-        hot_lower_impl_fix_split_payload_wrappers_in_body(then_),
-        match else_ {
-          Some(else_body) =>
-            Some(hot_lower_impl_fix_split_payload_wrappers_in_body(else_body))
-          None => None
-        },
-      )
-    TryTable(bt, catches, Expr(body)) =>
-      Instruction::try_table(
-        bt,
-        catches,
-        Expr::new(hot_lower_impl_fix_split_payload_wrappers_in_body(body)),
-      )
+    Loop(bt, Expr(body)) => {
+      let next = hot_lower_impl_fix_split_payload_wrappers_in_body(body)
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::loop_(bt, Expr::new(next))
+      }
+    }
+    If(bt, then_, else_) => {
+      let next_then = hot_lower_impl_fix_split_payload_wrappers_in_body(then_)
+      let mut next_else = else_
+      if else_ is Some(body) {
+        let next = hot_lower_impl_fix_split_payload_wrappers_in_body(body)
+        if !physical_equal(next, body) {
+          next_else = Some(next)
+        }
+      }
+      if physical_equal(next_then, then_) && physical_equal(next_else, else_) {
+        instr
+      } else {
+        Instruction::if_(bt, next_then, next_else)
+      }
+    }
+    TryTable(bt, catches, Expr(body)) => {
+      let next = hot_lower_impl_fix_split_payload_wrappers_in_body(body)
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::try_table(bt, catches, Expr::new(next))
+      }
+    }
     _ => instr
   }
 }
@@ -6218,11 +6305,21 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_instr(
 fn hot_lower_impl_fix_split_payload_wrappers_in_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
-  let fixed : Array[Instruction] = []
-  for instr in body {
-    fixed.push(hot_lower_impl_fix_split_payload_wrappers_in_instr(instr))
+  let mut fixed : Array[Instruction]? = None
+  for index in 0..<body.length() {
+    let instr = body[index]
+    let next = hot_lower_impl_fix_split_payload_wrappers_in_instr(instr)
+    match fixed {
+      Some(rows) => rows.push(next)
+      None =>
+        if !physical_equal(next, instr) {
+          let rows = hot_lower_impl_changed_body_prefix(body, index)
+          rows.push(next)
+          fixed = Some(rows)
+        }
+    }
   }
-  fixed
+  fixed.unwrap_or(body)
 }
 
 ///|
@@ -6537,4 +6634,57 @@ pub fn hot_lower_func_unverified_with_options(
 ///|
 pub fn hot_lower_func_unverified(func : HotFunc) -> @lib.Func {
   hot_lower_func_unverified_with_options(func, HotLowerOptions::new())
+}
+
+///|
+test "lower private nested stackify retains unchanged owned rows" {
+  let body = [Instruction::i32_const(I32(7)), Instruction::drop()]
+  let output = hot_lower_impl_stackify_nested_body(
+    HotFunc::new(),
+    body,
+    [],
+    HotLowerOptions::new(),
+  )
+  assert_eq(output, body)
+  assert_true(physical_equal(output, body))
+}
+
+///|
+test "lower private struct prefix stackify retains unchanged owned rows" {
+  let body = [Instruction::i32_const(I32(7)), Instruction::drop()]
+  let output = hot_lower_impl_stackify_wrapped_struct_set_prefixes(
+    HotFunc::new(),
+    body,
+    [],
+    HotLowerOptions::new(),
+  )
+  assert_eq(output, body)
+  assert_true(physical_equal(output, body))
+}
+
+///|
+test "lower private split payload fix retains unchanged owned rows" {
+  let body = [Instruction::i32_const(I32(7)), Instruction::drop()]
+  let output = hot_lower_impl_fix_split_payload_wrappers_in_body(body)
+  assert_eq(output, body)
+  assert_true(physical_equal(output, body))
+}
+
+///|
+test "lower private dead tee cleanup retains unchanged owned rows" {
+  let local = LocalIdx::new(0U)
+  let body = [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_tee(local),
+    Instruction::drop(),
+    Instruction::local_get(local),
+    Instruction::drop(),
+  ]
+  let output = hot_lower_impl_prune_dead_local_tees_in_body(
+    body,
+    [1],
+    HotLowerOptions::new(),
+  )
+  assert_eq(output, body)
+  assert_true(physical_equal(output, body))
 }
