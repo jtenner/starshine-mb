@@ -1,8 +1,8 @@
 ///|
 fn encoded_string_free_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
+  count : Int32,
+  width : Int32,
   strings : Bool,
 ) -> Unit {
   let funcs = Array::makei(count, fn(_) {

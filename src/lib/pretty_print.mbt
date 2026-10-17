@@ -16,20 +16,20 @@ pub fn TabsOrSpaces::spaces() -> TabsOrSpaces {
 
 ///|
 pub struct PrettyPrintContext {
-  max_line_width : UInt
+  max_line_width : UInt32
   tabs_or_spaces : TabsOrSpaces
-  tab_width : UInt
-  continuation_indent : UInt
-  source_indent_width : UInt
+  tab_width : UInt32
+  continuation_indent : UInt32
+  source_indent_width : UInt32
 } derive(Eq, Debug)
 
 ///|
 pub fn PrettyPrintContext::new(
-  max_line_width? : UInt = 100U,
-  tabs_or_spaces? : TabsOrSpaces = Spaces,
-  tab_width? : UInt = 2U,
-  continuation_indent? : UInt = 1U,
-  source_indent_width? : UInt = 2U,
+  max_line_width~ : UInt32 = 100U,
+  tabs_or_spaces~ : TabsOrSpaces = Spaces,
+  tab_width~ : UInt32 = 2U,
+  continuation_indent~ : UInt32 = 1U,
+  source_indent_width~ : UInt32 = 2U,
 ) -> PrettyPrintContext {
   PrettyPrintContext::{
     max_line_width,
@@ -54,7 +54,7 @@ pub fn PrettyPrintContext::indent_unit(self : PrettyPrintContext) -> String {
 ///|
 pub fn PrettyPrintContext::indent(
   self : PrettyPrintContext,
-  level : UInt,
+  level : UInt32,
 ) -> String {
   let out = StringBuilder::new()
   let unit = self.indent_unit()
@@ -179,7 +179,7 @@ pub(open) trait PrettyPrint {
 #callsite(autofill(args_loc, loc))
 pub fn inspect_debug(
   obj : &Debug,
-  content? : String = "",
+  content~ : String = "",
   loc~ : SourceLoc,
   args_loc~ : ArgsLoc,
 ) -> Unit raise InspectError {
@@ -190,8 +190,8 @@ pub fn inspect_debug(
 #callsite(autofill(args_loc, loc))
 pub fn[T : PrettyPrint] inspect_pretty_print(
   obj : T,
-  content? : String = "",
-  ctx? : PrettyPrintContext = PrettyPrintContext::new(),
+  content~ : String = "",
+  ctx~ : PrettyPrintContext = PrettyPrintContext::new(),
   loc~ : SourceLoc,
   args_loc~ : ArgsLoc,
 ) -> Unit raise InspectError {

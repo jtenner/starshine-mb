@@ -2,8 +2,8 @@
 // Sequence cursors retain O(depth) work, including for wide instruction lists.
 priv enum ControlEncodeWork {
   ControlInstruction(Instruction)
-  ControlSequence(Array[Instruction], Int)
-  ControlCatches(Array[@lib.LegacyCatch], Int)
+  ControlSequence(Array[Instruction], Int32)
+  ControlCatches(Array[@lib.LegacyCatch], Int32)
   ControlDelegate(@lib.LabelIdx)
   ControlByte(Byte)
 }
@@ -12,7 +12,7 @@ priv enum ControlEncodeWork {
 fn encode_control_work(
   work : Array[ControlEncodeWork],
   buf : @buffer.Buffer,
-  work_items? : Array[Int]? = None,
+  work_items~ : Array[Int32]? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   while work.pop() is Some(task) {
     match work_items {

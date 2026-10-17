@@ -13,7 +13,7 @@ fn[T : Encode + Decode + Eq + @debug.Debug] compiler_facts_test_roundtrip(
 ) -> Unit raise {
   let bytes = compiler_facts_test_encode(value)
   let (decoded, next) = match
-    (Decode::decode(bytes, 0) : Result[(T, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(T, Int32), BinaryDecodeError]) {
     Ok(result) => result
     Err(err) => fail("compiler facts decode failed: \{err}")
   }
@@ -322,7 +322,7 @@ test "compiler facts final v1 discriminator table is explicit" {
 
 ///|
 test "compiler facts decoders reject malformed enum and option tags" {
-  let enum_result : Result[(@representation.IntWidth, Int), BinaryDecodeError] = Decode::decode(
+  let enum_result : Result[(@representation.IntWidth, Int32), BinaryDecodeError] = Decode::decode(
     b"\xff", 0,
   )
   @debug.assert_eq(
@@ -330,7 +330,7 @@ test "compiler facts decoders reject malformed enum and option tags" {
     Err(BinaryDecodeError::InvalidCompilerFactsEnumTag),
   )
   let option_result : Result[
-    (@representation.ValueFacts, Int),
+    (@representation.ValueFacts, Int32),
     BinaryDecodeError,
   ] = Decode::decode(b"\xff", 0)
   @debug.assert_eq(

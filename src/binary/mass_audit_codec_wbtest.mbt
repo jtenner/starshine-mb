@@ -2,13 +2,13 @@
 test "mass codec rejects intentionally invalid function body size prefixes" {
   let canonical : Bytes = b"\x02\x00\x0b"
   let (func, next) = (
-    Decode::decode(canonical, 0) : Result[(Func, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(canonical, 0) : Result[(Func, Int32), BinaryDecodeError]).unwrap()
   assert_eq(func, Func::new(Locals::new([]), Expr::new([])))
   assert_eq(next, canonical.length())
   for bytes in [b"\x00\x00\x0b", b"\x01\x00\x0b", b"\x03\x00\x0b"] {
     // The body has two bytes. A zero, short, or long frame is invalid.
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(Func, Int), BinaryDecodeError])
+      (Decode::decode(bytes, 0) : Result[(Func, Int32), BinaryDecodeError])
       is Err(_),
     )
   }
@@ -26,12 +26,12 @@ test "mass codec rejects intentionally invalid global mutability bytes" {
   assert_eq(
     (
       Decode::decode(b"\x7f\x00", 0) :
-      Result[(GlobalType, Int), BinaryDecodeError]),
+      Result[(GlobalType, Int32), BinaryDecodeError]),
     Ok((GlobalType::new(ValType::i32(), false), 2)),
   )
   for bytes in [b"\x7f", b"\x7f\x41"] {
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(GlobalType, Int), BinaryDecodeError])
+      (Decode::decode(bytes, 0) : Result[(GlobalType, Int32), BinaryDecodeError])
       is Err(_),
     )
   }
@@ -47,7 +47,7 @@ test "mass codec rejects intentionally invalid i32 limit overflow encodings" {
   assert_eq(
     (
       Decode::decode(b"\x00\xff\xff\xff\xff\x0f", 0) :
-      Result[(Limits, Int), BinaryDecodeError]),
+      Result[(Limits, Int32), BinaryDecodeError]),
     Ok((Limits::i32(0xffffffffU, None), 6)),
   )
   for
@@ -56,7 +56,7 @@ test "mass codec rejects intentionally invalid i32 limit overflow encodings" {
     ] {
     // An i32 limit is a u32 LEB. A high value or a sixth byte is invalid.
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(Limits, Int), BinaryDecodeError])
+      (Decode::decode(bytes, 0) : Result[(Limits, Int32), BinaryDecodeError])
       is Err(_),
     )
   }
@@ -65,7 +65,7 @@ test "mass codec rejects intentionally invalid i32 limit overflow encodings" {
       b"\x00\x80\x80\x80\x80\x10", b"\x01\x00\x80\x80\x80\x80\x10", b"\x03\x00\x80\x80\x80\x80\x10",
     ] {
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(MemType, Int), BinaryDecodeError])
+      (Decode::decode(bytes, 0) : Result[(MemType, Int32), BinaryDecodeError])
       is Err(_),
     )
   }
@@ -75,7 +75,8 @@ test "mass codec rejects intentionally invalid i32 limit overflow encodings" {
 test "mass codec rejects intentionally invalid atomic memarg reserved bits" {
   let canonical : Bytes = b"\xfe\x10\x02\x00"
   let (instr, next) = (
-    Decode::decode(canonical, 0) : Result[(Instruction, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(canonical, 0) :
+    Result[(Instruction, Int32), BinaryDecodeError]).unwrap()
   assert_eq(next, canonical.length())
   let buf = @buffer.new()
   Encode::encode(instr, buf).unwrap()
@@ -83,7 +84,9 @@ test "mass codec rejects intentionally invalid atomic memarg reserved bits" {
   for bytes in [b"\xfe\x10\x82\x01\x00", b"\xfe\x10\x82\x02\x00"] {
     // Bit 7 and higher do not belong to the released memarg flag set.
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError])
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError])
       is Err(_),
     )
   }
@@ -95,7 +98,7 @@ test "mass codec rejects intentionally invalid byte-vector span overflow" {
   assert_eq(
     (
       Decode::decode(b"\xff\xff\xff\xff\x0f", 0) :
-      Result[(Bytes, Int), BinaryDecodeError]),
+      Result[(Bytes, Int32), BinaryDecodeError]),
     Err(BinaryDecodeError::InvalidOffset),
   )
 }
@@ -106,13 +109,13 @@ test "mass codec rejects intentionally invalid name-map count overflow" {
   assert_true(
     (
       Decode::decode(b"\xff\xff\xff\xff\x0f", 0) :
-      Result[(NameMap, Int), BinaryDecodeError])
+      Result[(NameMap, Int32), BinaryDecodeError])
     is Err(_),
   )
   assert_true(
     (
       Decode::decode(b"\xff\xff\xff\xff\x0f", 0) :
-      Result[(IndirectNameMap, Int), BinaryDecodeError])
+      Result[(IndirectNameMap, Int32), BinaryDecodeError])
     is Err(_),
   )
 }

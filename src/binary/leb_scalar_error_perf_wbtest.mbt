@@ -2,7 +2,7 @@
 // Common buffer construction/consumption remains inside both measured paths.
 fn leb_scalar_error_bench(
   it : @bench.T,
-  kind : Int,
+  kind : Int32,
   before : Bool,
 ) -> Unit raise {
   let expected = @buffer.new()

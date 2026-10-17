@@ -1,8 +1,8 @@
 ///|
-pub(all) struct S33(UInt) derive(Eq, Hash, Debug)
+pub(all) struct S33(UInt32) derive(Eq, Hash, Debug)
 
 ///|
-pub(all) struct I32(Int) derive(Eq, Arbitrary, Hash, Debug)
+pub(all) struct I32(Int32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub(all) struct I64(Int64) derive(Eq, Arbitrary, Hash, Debug)
@@ -14,7 +14,7 @@ pub(all) struct F32(Float) derive(Eq, Arbitrary, Hash, Debug)
 pub(all) struct F64(Double) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub(all) struct U32(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub(all) struct U32(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub(all) struct U64(UInt64) derive(Eq, Arbitrary, Hash, Debug)
@@ -101,36 +101,36 @@ pub(all) enum Mut {
 
 ///|
 pub enum TypeIdx {
-  TypeIdx(UInt)
-  RecIdx(UInt)
+  TypeIdx(UInt32)
+  RecIdx(UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
-pub struct FuncIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct FuncIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TableIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct TableIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct MemIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct MemIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct GlobalIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct GlobalIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct TagIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct TagIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct ElemIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct ElemIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct DataIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct DataIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct LocalIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct LocalIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct LabelIdx(UInt) derive(Eq, Arbitrary, Hash, Debug)
+pub struct LabelIdx(UInt32) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub struct LaneIdx(Byte) derive(Eq, Hash, Debug)
@@ -163,11 +163,11 @@ pub enum RecType {
 } derive(Hash, Debug)
 
 ///|
-pub struct DefType(RecType, UInt) derive(Eq, Hash, Debug)
+pub struct DefType(RecType, UInt32) derive(Eq, Hash, Debug)
 
 ///|
 pub enum Limits {
-  I32Limits(UInt, UInt?)
+  I32Limits(UInt32, UInt32?)
   I64Limits(UInt64, UInt64?)
 } derive(Eq, Hash, Debug)
 
@@ -235,14 +235,14 @@ pub struct Export(Name, ExternIdx) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub struct LocalRun {
-  count : UInt
+  count : UInt32
   vt : ValType
 } derive(Eq, Hash, Debug)
 
 ///|
 pub struct Locals {
   mut runs : Array[LocalRun]
-  mut indices : Array[Int]?
+  mut indices : Array[Int32]?
 } derive(Debug)
 
 ///|
@@ -258,10 +258,10 @@ pub struct Data(DataMode, Bytes) derive(Eq, Hash, Debug)
 pub struct Name(StringView) derive(Eq, Hash, Debug)
 
 ///|
-pub struct NameAssoc(UInt, Name) derive(Eq, Hash, Debug)
+pub struct NameAssoc(UInt32, Name) derive(Eq, Hash, Debug)
 
 ///|
-pub fn NameAssoc::new(idx : UInt, name : Name) -> NameAssoc {
+pub fn NameAssoc::new(idx : UInt32, name : Name) -> NameAssoc {
   NameAssoc(idx, name)
 }
 
@@ -274,10 +274,13 @@ pub fn NameMap::new(entries : Array[NameAssoc]) -> NameMap {
 }
 
 ///|
-pub struct IndirectNameAssoc(UInt, NameMap) derive(Eq, Hash, Debug)
+pub struct IndirectNameAssoc(UInt32, NameMap) derive(Eq, Hash, Debug)
 
 ///|
-pub fn IndirectNameAssoc::new(idx : UInt, names : NameMap) -> IndirectNameAssoc {
+pub fn IndirectNameAssoc::new(
+  idx : UInt32,
+  names : NameMap,
+) -> IndirectNameAssoc {
   IndirectNameAssoc(idx, names)
 }
 
@@ -309,18 +312,18 @@ pub struct NameSec {
 
 ///|
 pub fn NameSec::new(
-  module_name? : Name? = None,
-  func_names? : NameMap? = None,
-  local_names? : IndirectNameMap? = None,
-  label_names? : IndirectNameMap? = None,
-  type_names? : NameMap? = None,
-  table_names? : NameMap? = None,
-  memory_names? : NameMap? = None,
-  global_names? : NameMap? = None,
-  elem_names? : NameMap? = None,
-  data_names? : NameMap? = None,
-  field_names? : IndirectNameMap? = None,
-  tag_names? : NameMap? = None,
+  module_name~ : Name? = None,
+  func_names~ : NameMap? = None,
+  local_names~ : IndirectNameMap? = None,
+  label_names~ : IndirectNameMap? = None,
+  type_names~ : NameMap? = None,
+  table_names~ : NameMap? = None,
+  memory_names~ : NameMap? = None,
+  global_names~ : NameMap? = None,
+  elem_names~ : NameMap? = None,
+  data_names~ : NameMap? = None,
+  field_names~ : IndirectNameMap? = None,
+  tag_names~ : NameMap? = None,
 ) -> NameSec {
   NameSec::{
     module_name,
@@ -345,7 +348,7 @@ pub struct FuncAnnotation {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub struct FuncAnnotationAssoc(UInt, Array[FuncAnnotation]) derive (
+pub struct FuncAnnotationAssoc(UInt32, Array[FuncAnnotation]) derive (
   Eq,
   Hash,
   Debug,
@@ -379,25 +382,25 @@ pub struct Module {
 
 ///|
 pub fn Module::new(
-  custom_secs? : Array[CustomSec] = [],
-  type_sec? : TypeSec? = None,
-  import_sec? : ImportSec? = None,
-  func_annotation_sec? : FuncAnnotationSec? = None,
-  func_sec? : FuncSec? = None,
-  table_sec? : TableSec? = None,
-  mem_sec? : MemSec? = None,
-  tag_sec? : TagSec? = None,
-  stringrefs_sec? : StringRefsSec? = None,
-  global_sec? : GlobalSec? = None,
-  export_sec? : ExportSec? = None,
-  start_sec? : StartSec? = None,
-  elem_sec? : ElemSec? = None,
-  data_cnt_sec? : DataCntSec? = None,
-  code_sec? : CodeSec? = None,
-  data_sec? : DataSec? = None,
-  name_sec? : NameSec? = None,
-  raw_name_sec_payload? : Bytes? = None,
-  compiler_fact_custom_section? : @representation.CompilerFactCustomSection? = None,
+  custom_secs~ : Array[CustomSec] = [],
+  type_sec~ : TypeSec? = None,
+  import_sec~ : ImportSec? = None,
+  func_annotation_sec~ : FuncAnnotationSec? = None,
+  func_sec~ : FuncSec? = None,
+  table_sec~ : TableSec? = None,
+  mem_sec~ : MemSec? = None,
+  tag_sec~ : TagSec? = None,
+  stringrefs_sec~ : StringRefsSec? = None,
+  global_sec~ : GlobalSec? = None,
+  export_sec~ : ExportSec? = None,
+  start_sec~ : StartSec? = None,
+  elem_sec~ : ElemSec? = None,
+  data_cnt_sec~ : DataCntSec? = None,
+  code_sec~ : CodeSec? = None,
+  data_sec~ : DataSec? = None,
+  name_sec~ : NameSec? = None,
+  raw_name_sec_payload~ : Bytes? = None,
+  compiler_fact_custom_section~ : @representation.CompilerFactCustomSection? = None,
 ) -> Module {
   Module::{
     custom_secs,
@@ -1224,7 +1227,7 @@ pub enum Instruction {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn Limits::mem_addr_bits(lim : Limits) -> Int {
+pub fn Limits::mem_addr_bits(lim : Limits) -> Int32 {
   match lim {
     I32Limits(_, _) => 32
     I64Limits(_, _) => 64
@@ -1308,7 +1311,7 @@ pub fn SubType::descriptor_type(self : SubType) -> TypeIdx? {
 }
 
 ///|
-pub fn RecType::get_subtype(self : RecType, idx : UInt) -> SubType? {
+pub fn RecType::get_subtype(self : RecType, idx : UInt32) -> SubType? {
   match (self, idx) {
     (SingleRecType(st), 0) => Some(st)
     (GroupRecType(sts), i) => sts.get(i.reinterpret_as_int())
@@ -2783,22 +2786,22 @@ pub fn HeapType::is_shared(self : HeapType) -> Bool {
 }
 
 ///|
-pub fn TypeIdx::new(idx : UInt) -> TypeIdx {
+pub fn TypeIdx::new(idx : UInt32) -> TypeIdx {
   TypeIdx(idx)
 }
 
 ///|
-pub fn TypeIdx::rec(idx : UInt) -> TypeIdx {
+pub fn TypeIdx::rec(idx : UInt32) -> TypeIdx {
   RecIdx(idx)
 }
 
 ///|
-pub fn S33::new(value : UInt) -> S33 {
+pub fn S33::new(value : UInt32) -> S33 {
   S33(value)
 }
 
 ///|
-pub fn I32::new(value : Int) -> I32 {
+pub fn I32::new(value : Int32) -> I32 {
   I32(value)
 }
 
@@ -2818,7 +2821,7 @@ pub fn F64::new(value : Double) -> F64 {
 }
 
 ///|
-pub fn U32::new(value : UInt) -> U32 {
+pub fn U32::new(value : UInt32) -> U32 {
   U32(value)
 }
 
@@ -2841,7 +2844,7 @@ pub fn HeapType::def_type(dt : DefType) -> HeapType {
 pub fn RefType::new(
   nullable : Bool,
   ht : HeapType,
-  exact? : Bool = false,
+  exact~ : Bool = false,
 ) -> RefType {
   HeapTypeRefType(nullable, exact, ht)
 }
@@ -2902,7 +2905,7 @@ pub fn Catch::all_ref(li : LabelIdx) -> Catch {
 }
 
 ///|
-pub fn rec_idx(idx : UInt) -> TypeIdx {
+pub fn rec_idx(idx : UInt32) -> TypeIdx {
   RecIdx(idx)
 }
 
@@ -2923,9 +2926,9 @@ pub fn func_comp_type(props : ResultType, results : ResultType) -> CompType {
 
 ///|
 pub fn TypeMetadata::new(
-  describes? : TypeIdx? = None,
-  descriptor? : TypeIdx? = None,
-  shared? : Bool = false,
+  describes~ : TypeIdx? = None,
+  descriptor~ : TypeIdx? = None,
+  shared~ : Bool = false,
 ) -> TypeMetadata {
   { describes, descriptor, shared, }
 }
@@ -2948,7 +2951,7 @@ pub fn sub_type(
   f : Bool,
   supers : Array[TypeIdx],
   ct : CompType,
-  metadata? : TypeMetadata = TypeMetadata::new(),
+  metadata~ : TypeMetadata = TypeMetadata::new(),
 ) -> SubType {
   SubType(f, supers, metadata, ct)
 }
@@ -2956,7 +2959,7 @@ pub fn sub_type(
 ///|
 pub fn comp_type_sub_type(
   ct : CompType,
-  metadata? : TypeMetadata = TypeMetadata::new(),
+  metadata~ : TypeMetadata = TypeMetadata::new(),
 ) -> SubType {
   CompTypeSubType(metadata, ct)
 }
@@ -2972,7 +2975,7 @@ pub fn group_rec_type(sts : Array[SubType]) -> RecType {
 }
 
 ///|
-pub fn Limits::i32(min : UInt, max : UInt?) -> Limits {
+pub fn Limits::i32(min : UInt32, max : UInt32?) -> Limits {
   I32Limits(min, max)
 }
 
@@ -2992,7 +2995,7 @@ pub fn table_extern_type(tt : TableType) -> ExternType {
 }
 
 ///|
-pub fn mem_type(l : Limits, shared? : Bool = false) -> MemType {
+pub fn mem_type(l : Limits, shared~ : Bool = false) -> MemType {
   MemType(l, shared)
 }
 
@@ -3022,7 +3025,7 @@ pub fn tag_extern_type(tt : TagType) -> ExternType {
 }
 
 ///|
-pub fn func_idx(idx : UInt) -> FuncIdx {
+pub fn func_idx(idx : UInt32) -> FuncIdx {
   FuncIdx(idx)
 }
 
@@ -3032,7 +3035,7 @@ pub fn func_extern_idx(fi : FuncIdx) -> ExternIdx {
 }
 
 ///|
-pub fn table_idx(idx : UInt) -> TableIdx {
+pub fn table_idx(idx : UInt32) -> TableIdx {
   TableIdx(idx)
 }
 
@@ -3047,7 +3050,7 @@ pub fn mem_extern_idx(mi : MemIdx) -> ExternIdx {
 }
 
 ///|
-pub fn global_idx(idx : UInt) -> GlobalIdx {
+pub fn global_idx(idx : UInt32) -> GlobalIdx {
   GlobalIdx(idx)
 }
 
@@ -3102,7 +3105,7 @@ pub fn DataMode::passive() -> DataMode {
 }
 
 ///|
-pub fn LabelIdx::new(idx : UInt) -> LabelIdx {
+pub fn LabelIdx::new(idx : UInt32) -> LabelIdx {
   LabelIdx(idx)
 }
 
@@ -3266,7 +3269,7 @@ pub fn Instruction::drop() -> Instruction {
 }
 
 ///|
-pub fn Instruction::select(types? : Array[ValType]? = None) -> Instruction {
+pub fn Instruction::select(types~ : Array[ValType]? = None) -> Instruction {
   Select(types)
 }
 
@@ -3275,7 +3278,7 @@ pub fn Instruction::try_(
   bt : BlockType,
   body : Expr,
   catches : Array[LegacyCatch],
-  delegate? : LabelIdx? = None,
+  delegate~ : LabelIdx? = None,
 ) -> Instruction {
   Try(bt, body, catches, delegate)
 }
@@ -3466,7 +3469,7 @@ pub fn Instruction::memory_atomic_wait64(ma : MemArg) -> Instruction {
 
 ///|
 pub fn Instruction::atomic_fence(
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   AtomicFence(order)
 }
@@ -3474,7 +3477,7 @@ pub fn Instruction::atomic_fence(
 ///|
 pub fn Instruction::i32_atomic_load(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicLoad(order, ma)
 }
@@ -3482,7 +3485,7 @@ pub fn Instruction::i32_atomic_load(
 ///|
 pub fn Instruction::i64_atomic_load(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicLoad(order, ma)
 }
@@ -3490,7 +3493,7 @@ pub fn Instruction::i64_atomic_load(
 ///|
 pub fn Instruction::i32_atomic_load8_u(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicLoad8U(order, ma)
 }
@@ -3498,7 +3501,7 @@ pub fn Instruction::i32_atomic_load8_u(
 ///|
 pub fn Instruction::i32_atomic_load16_u(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicLoad16U(order, ma)
 }
@@ -3506,7 +3509,7 @@ pub fn Instruction::i32_atomic_load16_u(
 ///|
 pub fn Instruction::i64_atomic_load8_u(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicLoad8U(order, ma)
 }
@@ -3514,7 +3517,7 @@ pub fn Instruction::i64_atomic_load8_u(
 ///|
 pub fn Instruction::i64_atomic_load16_u(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicLoad16U(order, ma)
 }
@@ -3522,7 +3525,7 @@ pub fn Instruction::i64_atomic_load16_u(
 ///|
 pub fn Instruction::i64_atomic_load32_u(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicLoad32U(order, ma)
 }
@@ -3530,7 +3533,7 @@ pub fn Instruction::i64_atomic_load32_u(
 ///|
 pub fn Instruction::i32_atomic_store(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicStore(order, ma)
 }
@@ -3538,7 +3541,7 @@ pub fn Instruction::i32_atomic_store(
 ///|
 pub fn Instruction::i64_atomic_store(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicStore(order, ma)
 }
@@ -3546,7 +3549,7 @@ pub fn Instruction::i64_atomic_store(
 ///|
 pub fn Instruction::i32_atomic_store8(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicStore8(order, ma)
 }
@@ -3554,7 +3557,7 @@ pub fn Instruction::i32_atomic_store8(
 ///|
 pub fn Instruction::i32_atomic_store16(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I32AtomicStore16(order, ma)
 }
@@ -3562,7 +3565,7 @@ pub fn Instruction::i32_atomic_store16(
 ///|
 pub fn Instruction::i64_atomic_store8(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicStore8(order, ma)
 }
@@ -3570,7 +3573,7 @@ pub fn Instruction::i64_atomic_store8(
 ///|
 pub fn Instruction::i64_atomic_store16(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicStore16(order, ma)
 }
@@ -3578,7 +3581,7 @@ pub fn Instruction::i64_atomic_store16(
 ///|
 pub fn Instruction::i64_atomic_store32(
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   I64AtomicStore32(order, ma)
 }
@@ -3587,7 +3590,7 @@ pub fn Instruction::i64_atomic_store32(
 pub fn Instruction::atomic_rmw(
   op : AtomicRmwOp,
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   AtomicRmw(order, op, ma)
 }
@@ -3596,7 +3599,7 @@ pub fn Instruction::atomic_rmw(
 pub fn Instruction::atomic_cmpxchg(
   op : AtomicCmpxchgOp,
   ma : MemArg,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   AtomicCmpxchg(order, op, ma)
 }
@@ -4433,7 +4436,7 @@ pub fn Instruction::struct_atomic_rmw(
   op : AggregateAtomicRmwOp,
   ty : TypeIdx,
   fi : U32,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   StructAtomicRmw(order, op, ty, fi)
 }
@@ -4442,7 +4445,7 @@ pub fn Instruction::struct_atomic_rmw(
 pub fn Instruction::struct_atomic_cmpxchg(
   ty : TypeIdx,
   fi : U32,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   StructAtomicCmpxchg(order, ty, fi)
 }
@@ -4535,7 +4538,7 @@ pub fn Instruction::array_set(ti : TypeIdx) -> Instruction {
 pub fn Instruction::array_atomic_rmw(
   op : AggregateAtomicRmwOp,
   ti : TypeIdx,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   ArrayAtomicRmw(order, op, ti)
 }
@@ -4543,7 +4546,7 @@ pub fn Instruction::array_atomic_rmw(
 ///|
 pub fn Instruction::array_atomic_cmpxchg(
   ti : TypeIdx,
-  order? : AtomicOrder = AtomicOrder::seq_cst(),
+  order~ : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
   ArrayAtomicCmpxchg(order, ti)
 }
@@ -4552,7 +4555,7 @@ pub fn Instruction::array_atomic_cmpxchg(
 pub fn Instruction::array_load(
   op : LoadOp,
   ti : TypeIdx,
-  memarg? : MemArg = MemArg::new(0, None, 0),
+  memarg~ : MemArg = MemArg::new(0, None, 0),
 ) -> Instruction {
   ArrayLoad(op, ti, memarg)
 }
@@ -4561,7 +4564,7 @@ pub fn Instruction::array_load(
 pub fn Instruction::array_store(
   op : StoreOp,
   ti : TypeIdx,
-  memarg? : MemArg = MemArg::new(0, None, 0),
+  memarg~ : MemArg = MemArg::new(0, None, 0),
 ) -> Instruction {
   ArrayStore(op, ti, memarg)
 }
@@ -4660,8 +4663,8 @@ pub fn Instruction::br_on_cast(
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
-  source_exact? : Bool = false,
-  target_exact? : Bool = false,
+  source_exact~ : Bool = false,
+  target_exact~ : Bool = false,
 ) -> Instruction {
   BrOnCast(
     li,
@@ -4678,8 +4681,8 @@ pub fn Instruction::br_on_cast_fail(
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
-  source_exact? : Bool = false,
-  target_exact? : Bool = false,
+  source_exact~ : Bool = false,
+  target_exact~ : Bool = false,
 ) -> Instruction {
   BrOnCastFail(
     li,
@@ -8487,7 +8490,7 @@ pub fn V128StoreLaneOp::v128_store64_lane() -> V128StoreLaneOp {
 }
 
 ///|
-pub fn DefType::new(rec : RecType, idx : UInt) -> DefType {
+pub fn DefType::new(rec : RecType, idx : UInt32) -> DefType {
   DefType(rec, idx)
 }
 
@@ -8537,8 +8540,8 @@ pub fn HeapType::bottom() -> HeapType {
 pub fn CastOp::new(
   source_nullable : Bool,
   target_nullable : Bool,
-  source_exact? : Bool = false,
-  target_exact? : Bool = false,
+  source_exact~ : Bool = false,
+  target_exact~ : Bool = false,
 ) -> CastOp {
   CastOp(source_nullable, target_nullable, source_exact, target_exact)
 }
@@ -8606,14 +8609,14 @@ pub fn ImportSec::new(imports : Array[Import]) -> ImportSec {
 ///|
 pub fn FuncAnnotation::new(
   name : String,
-  args? : Array[String] = [],
+  args~ : Array[String] = [],
 ) -> FuncAnnotation {
   { name, args, }
 }
 
 ///|
 pub fn FuncAnnotationAssoc::new(
-  idx : UInt,
+  idx : UInt32,
   annotations : Array[FuncAnnotation],
 ) -> FuncAnnotationAssoc {
   FuncAnnotationAssoc(idx, annotations)
@@ -8712,7 +8715,7 @@ pub fn MemArg::new(align : U32, mem : MemIdx?, offset : U64) -> MemArg {
 }
 
 ///|
-pub fn LocalIdx::new(idx : UInt) -> LocalIdx {
+pub fn LocalIdx::new(idx : UInt32) -> LocalIdx {
   LocalIdx(idx)
 }
 
@@ -8742,7 +8745,7 @@ pub fn NumType::i64() -> NumType {
 }
 
 ///|
-pub fn TableIdx::new(i : UInt) -> TableIdx {
+pub fn TableIdx::new(i : UInt32) -> TableIdx {
   TableIdx(i)
 }
 
@@ -8752,32 +8755,32 @@ pub fn FieldType::new(st : StorageType, m : Mut) -> FieldType {
 }
 
 ///|
-pub fn FuncIdx::new(idx : UInt) -> FuncIdx {
+pub fn FuncIdx::new(idx : UInt32) -> FuncIdx {
   FuncIdx(idx)
 }
 
 ///|
-pub fn MemIdx::new(idx : UInt) -> MemIdx {
+pub fn MemIdx::new(idx : UInt32) -> MemIdx {
   MemIdx(idx)
 }
 
 ///|
-pub fn GlobalIdx::new(idx : UInt) -> GlobalIdx {
+pub fn GlobalIdx::new(idx : UInt32) -> GlobalIdx {
   GlobalIdx(idx)
 }
 
 ///|
-pub fn TagIdx::new(idx : UInt) -> TagIdx {
+pub fn TagIdx::new(idx : UInt32) -> TagIdx {
   TagIdx(idx)
 }
 
 ///|
-pub fn ElemIdx::new(idx : UInt) -> ElemIdx {
+pub fn ElemIdx::new(idx : UInt32) -> ElemIdx {
   ElemIdx(idx)
 }
 
 ///|
-pub fn DataIdx::new(idx : UInt) -> DataIdx {
+pub fn DataIdx::new(idx : UInt32) -> DataIdx {
   DataIdx(idx)
 }
 
@@ -8806,7 +8809,7 @@ pub fn SubType::new(
   f : Bool,
   supers : Array[TypeIdx],
   ct : CompType,
-  metadata? : TypeMetadata = TypeMetadata::new(),
+  metadata~ : TypeMetadata = TypeMetadata::new(),
 ) -> SubType {
   SubType(f, supers, metadata, ct)
 }
@@ -8814,7 +8817,7 @@ pub fn SubType::new(
 ///|
 pub fn SubType::comp_type(
   ct : CompType,
-  metadata? : TypeMetadata = TypeMetadata::new(),
+  metadata~ : TypeMetadata = TypeMetadata::new(),
 ) -> SubType {
   CompTypeSubType(metadata, ct)
 }
@@ -8840,7 +8843,7 @@ pub fn GlobalType::new(vt : ValType, nullable : Bool) -> GlobalType {
 }
 
 ///|
-pub fn MemType::new(lim : Limits, shared? : Bool = false) -> MemType {
+pub fn MemType::new(lim : Limits, shared~ : Bool = false) -> MemType {
   MemType(lim, shared)
 }
 
@@ -8915,12 +8918,12 @@ pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
 }
 
 ///|
-pub fn LocalRun::new(count : UInt, vt : ValType) -> LocalRun {
+pub fn LocalRun::new(count : UInt32, vt : ValType) -> LocalRun {
   { count, vt, }
 }
 
 ///|
-pub fn LocalRun::count(self : LocalRun) -> UInt {
+pub fn LocalRun::count(self : LocalRun) -> UInt32 {
   self.count
 }
 
@@ -8947,7 +8950,7 @@ pub fn Locals::empty() -> Locals {
 }
 
 ///|
-pub fn Locals::single(count : UInt, vt : ValType) -> Locals {
+pub fn Locals::single(count : UInt32, vt : ValType) -> Locals {
   Locals::new([LocalRun::new(count, vt)])
 }
 

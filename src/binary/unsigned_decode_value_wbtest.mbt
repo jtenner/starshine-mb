@@ -1,52 +1,54 @@
 ///|
 fn unsigned_decode_assert_indices(
   bytes : Bytes,
-  start : Int,
-  value : UInt,
-  end : Int,
+  start : Int32,
+  value : UInt32,
+  end : Int32,
 ) -> Unit raise {
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(U32, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(U32, Int32), BinaryDecodeError]),
     Ok((U32(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(TypeIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(TypeIdx, Int32), BinaryDecodeError]),
     Ok((TypeIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(FuncIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(FuncIdx, Int32), BinaryDecodeError]),
     Ok((FuncIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(TableIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(TableIdx, Int32), BinaryDecodeError]),
     Ok((TableIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(MemIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(MemIdx, Int32), BinaryDecodeError]),
     Ok((MemIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(GlobalIdx, Int), BinaryDecodeError]),
+    (
+      Decode::decode(bytes, start) :
+      Result[(GlobalIdx, Int32), BinaryDecodeError]),
     Ok((GlobalIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(TagIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(TagIdx, Int32), BinaryDecodeError]),
     Ok((TagIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(ElemIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(ElemIdx, Int32), BinaryDecodeError]),
     Ok((ElemIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(DataIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(DataIdx, Int32), BinaryDecodeError]),
     Ok((DataIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(LocalIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(LocalIdx, Int32), BinaryDecodeError]),
     Ok((LocalIdx::new(value), end)),
   )
   assert_eq(
-    (Decode::decode(bytes, start) : Result[(LabelIdx, Int), BinaryDecodeError]),
+    (Decode::decode(bytes, start) : Result[(LabelIdx, Int32), BinaryDecodeError]),
     Ok((LabelIdx::new(value), end)),
   )
 }
@@ -66,11 +68,11 @@ test "unsigned index decoders preserve offsets maximum values and permitted padd
   }
   let bytes = b"\x00\x80\x01\xff\x00\x7f"
   let (a, next) = (
-    Decode::decode(bytes, 0) : Result[(LocalIdx, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(bytes, 0) : Result[(LocalIdx, Int32), BinaryDecodeError]).unwrap()
   let (b, next) = (
-    Decode::decode(bytes, next) : Result[(FuncIdx, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(bytes, next) : Result[(FuncIdx, Int32), BinaryDecodeError]).unwrap()
   let (c, next) = (
-    Decode::decode(bytes, next) : Result[(TypeIdx, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(bytes, next) : Result[(TypeIdx, Int32), BinaryDecodeError]).unwrap()
   assert_eq(
     (a, b, c, next),
     (LocalIdx::new(0U), FuncIdx::new(128U), TypeIdx::new(127U), 5),
@@ -93,19 +95,19 @@ test "unsigned index decoders reject malformed input with unchanged first errors
       ),
     ] {
     assert_eq(
-      (Decode::decode(bytes, 0) : Result[(U32, Int), BinaryDecodeError]).unwrap_err(),
+      (Decode::decode(bytes, 0) : Result[(U32, Int32), BinaryDecodeError]).unwrap_err(),
       expected,
     )
     assert_eq(
-      (Decode::decode(bytes, 0) : Result[(LocalIdx, Int), BinaryDecodeError]).unwrap_err(),
+      (Decode::decode(bytes, 0) : Result[(LocalIdx, Int32), BinaryDecodeError]).unwrap_err(),
       expected,
     )
     assert_eq(
-      (Decode::decode(bytes, 0) : Result[(LabelIdx, Int), BinaryDecodeError]).unwrap_err(),
+      (Decode::decode(bytes, 0) : Result[(LabelIdx, Int32), BinaryDecodeError]).unwrap_err(),
       expected,
     )
     assert_eq(
-      (Decode::decode(bytes, 0) : Result[(TypeIdx, Int), BinaryDecodeError]).unwrap_err(),
+      (Decode::decode(bytes, 0) : Result[(TypeIdx, Int32), BinaryDecodeError]).unwrap_err(),
       expected,
     )
   }
@@ -126,14 +128,14 @@ test "unsigned 64-bit decode retains high bits padding and terminal checks" {
       (b"\x55\x81\x80\x80\x80\x80\x80\x80\x80\x80\x00\x66", 1UL, 11),
     ] {
     assert_eq(
-      (Decode::decode(bytes, 1) : Result[(U64, Int), BinaryDecodeError]),
+      (Decode::decode(bytes, 1) : Result[(U64, Int32), BinaryDecodeError]),
       Ok((U64(value), end)),
     )
   }
   assert_eq(
     (
       Decode::decode(b"\x80\x80\x80\x80\x80\x80\x80\x80\x80\x02", 0) :
-      Result[(U64, Int), BinaryDecodeError]).unwrap_err(),
+      Result[(U64, Int32), BinaryDecodeError]).unwrap_err(),
     BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits,
   )
 }

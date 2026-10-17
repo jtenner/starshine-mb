@@ -8,7 +8,7 @@ test "multibyte array accesses consume proposal memory arguments" {
       0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e,
     ] {
     let bytes = Bytes::from_array([opcode.to_byte(), 0x20, 0x91, 0x01, 0x02])
-    let (instr, next) : (Instruction, Int) = match Decode::decode(bytes, 0) {
+    let (instr, next) : (Instruction, Int32) = match Decode::decode(bytes, 0) {
       Ok(decoded) => decoded
       Err(err) => fail("array memory argument: \{err}")
     }
@@ -30,7 +30,7 @@ test "multibyte array accesses consume proposal memory arguments" {
 ///|
 test "array memory arguments reject simultaneous memory index flags" {
   // Both backing-array and explicit-memory flags are invalid together.
-  let result : Result[(Instruction, Int), BinaryDecodeError] = Decode::decode(
+  let result : Result[(Instruction, Int32), BinaryDecodeError] = Decode::decode(
     b"\x28\x60\x00\x00\x00", 0,
   )
   match result {
@@ -53,7 +53,7 @@ test "array v128 load and store preserve proposal memory arguments" {
       0xff,
       0x0f,
     ])
-    let (instr, next) : (Instruction, Int) = match Decode::decode(bytes, 0) {
+    let (instr, next) : (Instruction, Int32) = match Decode::decode(bytes, 0) {
       Ok(decoded) => decoded
       Err(err) => fail("v128 array memory argument: \{err}")
     }
@@ -79,7 +79,7 @@ test "array offsets reject values above u32 and invalid flags" {
     bytes in [
       b"\x28\x20\x00\x80\x80\x80\x80\x10", b"\x28\x30\x00\x00\x00", b"\x28\x29\x00\x00",
     ] {
-    let result : Result[(Instruction, Int), BinaryDecodeError] = Decode::decode(
+    let result : Result[(Instruction, Int32), BinaryDecodeError] = Decode::decode(
       bytes, 0,
     )
     match result {

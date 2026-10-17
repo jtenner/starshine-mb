@@ -21,8 +21,8 @@ fn string_index_before_lookup(
 ///|
 fn string_index_before_scope(
   strings : Array[Bytes],
-  f : () -> Result[Int, BinaryEncodeError],
-) -> Result[Int, BinaryEncodeError] {
+  f : () -> Result[Int32, BinaryEncodeError],
+) -> Result[Int32, BinaryEncodeError] {
   let saved = string_index_before_context.val
   string_index_before_context.val = Some(strings)
   let result = f()
@@ -33,8 +33,8 @@ fn string_index_before_scope(
 ///|
 fn string_index_bench(
   it : @bench.T,
-  width : Int,
-  mode : Int,
+  width : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let strings : Array[Bytes] = []
@@ -48,7 +48,7 @@ fn string_index_bench(
   } else {
     width * (width - 1) / 2
   }
-  fn query() -> Result[Int, BinaryEncodeError] {
+  fn query() -> Result[Int32, BinaryEncodeError] {
     let mut total = 0
     for index = 0; index < width; index = index + 1 {
       let pos = if mode == 0 {
@@ -70,7 +70,7 @@ fn string_index_bench(
     }
     Ok(total)
   }
-  fn run() -> Result[Int, BinaryEncodeError] {
+  fn run() -> Result[Int32, BinaryEncodeError] {
     if reference {
       string_index_before_scope(strings, query)
     } else {
@@ -176,7 +176,7 @@ test "bench string index width=4096 all indexed" (it : @bench.T) {
 ///|
 fn string_pool_index_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let strings : Array[Bytes] = []
@@ -184,7 +184,7 @@ fn string_pool_index_bench(
     strings.push(@utf8.encode("literal-\{index}"))
   }
   let mod_ = Module::new().with_stringrefs_sec(StringRefsSec::new(strings))
-  fn query() -> Result[Int, BinaryEncodeError] {
+  fn query() -> Result[Int32, BinaryEncodeError] {
     let mut total = 0
     for literal in strings {
       let result = if reference {
@@ -199,7 +199,7 @@ fn string_pool_index_bench(
     }
     Ok(total)
   }
-  fn run() -> Result[Int, BinaryEncodeError] {
+  fn run() -> Result[Int32, BinaryEncodeError] {
     if reference {
       string_index_before_scope(
         encode_module_stringrefs_before_index(mod_),

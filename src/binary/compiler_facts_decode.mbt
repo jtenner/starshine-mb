@@ -1,10 +1,10 @@
 ///|
 fn decode_compiler_fact_uint(
   bytes : Bytes,
-  index : Int,
-) -> Result[(UInt, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(UInt32, Int32), BinaryDecodeError] {
   match
-    (Decode::decode(bytes, index) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(@lib.U32, Int32), BinaryDecodeError]) {
     Ok((@lib.U32(value), next)) => Ok((value, next))
     Err(err) => Err(err)
   }
@@ -13,10 +13,10 @@ fn decode_compiler_fact_uint(
 ///|
 fn decode_compiler_fact_uint64(
   bytes : Bytes,
-  index : Int,
-) -> Result[(UInt64, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(UInt64, Int32), BinaryDecodeError] {
   match
-    (Decode::decode(bytes, index) : Result[(@lib.U64, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(@lib.U64, Int32), BinaryDecodeError]) {
     Ok((@lib.U64(value), next)) => Ok((value, next))
     Err(err) => Err(err)
   }
@@ -25,10 +25,10 @@ fn decode_compiler_fact_uint64(
 ///|
 fn decode_compiler_fact_int64(
   bytes : Bytes,
-  index : Int,
-) -> Result[(Int64, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(Int64, Int32), BinaryDecodeError] {
   match
-    (Decode::decode(bytes, index) : Result[(@lib.I64, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(@lib.I64, Int32), BinaryDecodeError]) {
     Ok((@lib.I64(value), next)) => Ok((value, next))
     Err(err) => Err(err)
   }
@@ -37,10 +37,12 @@ fn decode_compiler_fact_int64(
 ///|
 fn decode_compiler_fact_string(
   bytes : Bytes,
-  index : Int,
-) -> Result[(String, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(String, Int32), BinaryDecodeError] {
   match
-    (Decode::decode(bytes, index) : Result[(@lib.Name, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(@lib.Name, Int32), BinaryDecodeError]) {
     Ok((@lib.Name(value), next)) => Ok((value.to_owned(), next))
     Err(err) => Err(err)
   }
@@ -49,8 +51,8 @@ fn decode_compiler_fact_string(
 ///|
 fn[T : Decode] decode_compiler_fact_option(
   bytes : Bytes,
-  index : Int,
-) -> Result[(T?, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(T?, Int32), BinaryDecodeError] {
   match bytes.get(index) {
     Some(0x00) => Ok((None, index + 1))
     Some(0x01) =>
@@ -66,8 +68,8 @@ fn[T : Decode] decode_compiler_fact_option(
 ///|
 fn decode_compiler_fact_uint_option(
   bytes : Bytes,
-  index : Int,
-) -> Result[(UInt?, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(UInt32?, Int32), BinaryDecodeError] {
   match bytes.get(index) {
     Some(0x00) => Ok((None, index + 1))
     Some(0x01) =>
@@ -83,8 +85,8 @@ fn decode_compiler_fact_uint_option(
 ///|
 fn decode_compiler_fact_uint64_option(
   bytes : Bytes,
-  index : Int,
-) -> Result[(UInt64?, Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(UInt64?, Int32), BinaryDecodeError] {
   match bytes.get(index) {
     Some(0x00) => Ok((None, index + 1))
     Some(0x01) =>
@@ -100,13 +102,13 @@ fn decode_compiler_fact_uint64_option(
 ///|
 fn decode_compiler_fact_uint_array(
   bytes : Bytes,
-  index : Int,
-) -> Result[(Array[UInt], Int), BinaryDecodeError] {
+  index : Int32,
+) -> Result[(Array[UInt32], Int32), BinaryDecodeError] {
   let (count, decoded_start) = match decode_compiler_fact_uint(bytes, index) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  let values : Array[UInt] = []
+  let values : Array[UInt32] = []
   let mut next = decoded_start
   let mut remaining = count
   while remaining > 0U {
@@ -144,14 +146,14 @@ pub impl Decode for CompilerFactCustomSection with fn decode(bytes, index) {
   let (module_fingerprint, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(Bytes?, Int), BinaryDecodeError]) {
+      Result[(Bytes?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (facts, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(OptimizationFactsSec, Int), BinaryDecodeError]) {
+      Result[(OptimizationFactsSec, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -197,17 +199,19 @@ pub impl Decode for WorldMode with fn decode(bytes, index) {
 ///|
 pub impl Decode for WorldFacts with fn decode(bytes, index) {
   let (mode, next) = match
-    (Decode::decode(bytes, index) : Result[(WorldMode, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(WorldMode, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (host_can_call_exports, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (host_can_mutate_exported_state, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -226,63 +230,63 @@ pub impl Decode for OptimizationFactsSec with fn decode(bytes, index) {
   let (producer, next) = match
     (
       decode_compiler_fact_option(bytes, index) :
-      Result[(ProducerInfo?, Int), BinaryDecodeError]) {
+      Result[(ProducerInfo?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (world, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(WorldFacts?, Int), BinaryDecodeError]) {
+      Result[(WorldFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (functions, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[FunctionFacts], Int), BinaryDecodeError]) {
+      Result[(Array[FunctionFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (signatures, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[SignatureFacts], Int), BinaryDecodeError]) {
+      Result[(Array[SignatureFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (types, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[TypeFacts], Int), BinaryDecodeError]) {
+      Result[(Array[TypeFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (globals, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[GlobalFacts], Int), BinaryDecodeError]) {
+      Result[(Array[GlobalFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (tables, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[TableFacts], Int), BinaryDecodeError]) {
+      Result[(Array[TableFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (bodies, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[FunctionBodyFacts], Int), BinaryDecodeError]) {
+      Result[(Array[FunctionBodyFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (hints, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[OptimizationHint], Int), BinaryDecodeError]) {
+      Result[(Array[OptimizationHint], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -320,7 +324,7 @@ pub impl Decode for CodeSite with fn decode(bytes, index) {
 ///|
 pub impl Decode for ValueSite with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -392,7 +396,7 @@ pub impl Decode for IntWidth with fn decode(bytes, index) {
 ///|
 pub impl Decode for IntConstant with fn decode(bytes, index) {
   let (width, next) = match
-    (Decode::decode(bytes, index) : Result[(IntWidth, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(IntWidth, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -451,7 +455,7 @@ pub impl Decode for FactValue with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(IntConstant, Int), BinaryDecodeError]) {
+          Result[(IntConstant, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((FactValue::integer(v), n))
         Err(e) => Err(e)
       }
@@ -469,7 +473,7 @@ pub impl Decode for FactValue with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(V128Bits, Int), BinaryDecodeError]) {
+          Result[(V128Bits, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((FactValue::v128(v), n))
         Err(e) => Err(e)
       }
@@ -477,7 +481,7 @@ pub impl Decode for FactValue with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(FactHeapType, Int), BinaryDecodeError]) {
+          Result[(FactHeapType, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((FactValue::ref_null(v), n))
         Err(e) => Err(e)
       }
@@ -501,7 +505,7 @@ pub impl Decode for ClosedValueSet with fn decode(bytes, index) {
   match
     (
       Decode::decode(bytes, index) :
-      Result[(Array[FactValue], Int), BinaryDecodeError]) {
+      Result[(Array[FactValue], Int32), BinaryDecodeError]) {
     Ok((values, next)) => Ok((ClosedValueSet::new(values), next))
     Err(err) => Err(err)
   }
@@ -549,33 +553,33 @@ pub impl Decode for KnownBits with fn decode(bytes, index) {
 ///|
 pub impl Decode for IntegerFacts with fn decode(bytes, index) {
   let (width, next) = match
-    (Decode::decode(bytes, index) : Result[(IntWidth, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(IntWidth, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (unsigned_range, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(UnsignedRange?, Int), BinaryDecodeError]) {
+      Result[(UnsignedRange?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (signed_range, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SignedRange?, Int), BinaryDecodeError]) {
+      Result[(SignedRange?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (known_bits, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(KnownBits?, Int), BinaryDecodeError]) {
+      Result[(KnownBits?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (nonzero, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -614,14 +618,16 @@ pub impl Decode for FloatClassMask with fn decode(bytes, index) {
 ///|
 pub impl Decode for FloatFacts with fn decode(bytes, index) {
   let (width, next) = match
-    (Decode::decode(bytes, index) : Result[(FloatWidth, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(FloatWidth, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (possible_classes, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(FloatClassMask, Int), BinaryDecodeError]) {
+      Result[(FloatClassMask, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -643,7 +649,7 @@ pub impl Decode for ClosedHeapTypeSet with fn decode(bytes, index) {
   match
     (
       Decode::decode(bytes, index) :
-      Result[(Array[FactHeapType], Int), BinaryDecodeError]) {
+      Result[(Array[FactHeapType], Int32), BinaryDecodeError]) {
     Ok((values, next)) => Ok((ClosedHeapTypeSet::new(values), next))
     Err(err) => Err(err)
   }
@@ -660,7 +666,7 @@ pub impl Decode for HeapDomain with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(FactHeapType, Int), BinaryDecodeError]) {
+          Result[(FactHeapType, Int32), BinaryDecodeError]) {
         Ok((type_, next)) =>
           Ok(
             (
@@ -678,7 +684,7 @@ pub impl Decode for HeapDomain with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ClosedHeapTypeSet, Int), BinaryDecodeError]) {
+          Result[(ClosedHeapTypeSet, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((HeapDomain::closed_runtime_types(v), n))
         Err(e) => Err(e)
       }
@@ -691,21 +697,21 @@ pub impl Decode for ReferenceFacts with fn decode(bytes, index) {
   let (nullability, next) = match
     (
       decode_compiler_fact_option(bytes, index) :
-      Result[(NullabilityFacts?, Int), BinaryDecodeError]) {
+      Result[(NullabilityFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (heap, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(HeapDomain?, Int), BinaryDecodeError]) {
+      Result[(HeapDomain?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (function_targets, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedFunctionSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedFunctionSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -729,12 +735,12 @@ pub impl Decode for VectorLaneShape with fn decode(bytes, index) {
 ///|
 pub impl Decode for KnownV128Bits with fn decode(bytes, index) {
   let (known_zero, next) = match
-    (Decode::decode(bytes, index) : Result[(V128Bits, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(V128Bits, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (known_one, next) = match
-    (Decode::decode(bytes, next) : Result[(V128Bits, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(V128Bits, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -746,21 +752,21 @@ pub impl Decode for VectorFacts with fn decode(bytes, index) {
   let (known_bits, next) = match
     (
       decode_compiler_fact_option(bytes, index) :
-      Result[(KnownV128Bits?, Int), BinaryDecodeError]) {
+      Result[(KnownV128Bits?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (splat, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(FactValue?, Int), BinaryDecodeError]) {
+      Result[(FactValue?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (lane_shape, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(VectorLaneShape?, Int), BinaryDecodeError]) {
+      Result[(VectorLaneShape?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -772,35 +778,35 @@ pub impl Decode for ValueFacts with fn decode(bytes, index) {
   let (possible_values, next) = match
     (
       decode_compiler_fact_option(bytes, index) :
-      Result[(ClosedValueSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedValueSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (integer, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(IntegerFacts?, Int), BinaryDecodeError]) {
+      Result[(IntegerFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (float_, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(FloatFacts?, Int), BinaryDecodeError]) {
+      Result[(FloatFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (vector, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(VectorFacts?, Int), BinaryDecodeError]) {
+      Result[(VectorFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (reference, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ReferenceFacts?, Int), BinaryDecodeError]) {
+      Result[(ReferenceFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -845,7 +851,7 @@ pub impl Decode for ValueRef with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ValueSite, Int), BinaryDecodeError]) {
+          Result[(ValueSite, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((ValueRef::site(v), n))
         Err(e) => Err(e)
       }
@@ -853,7 +859,7 @@ pub impl Decode for ValueRef with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ParameterRef, Int), BinaryDecodeError]) {
+          Result[(ParameterRef, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((ValueRef::parameter(v), n))
         Err(e) => Err(e)
       }
@@ -861,7 +867,7 @@ pub impl Decode for ValueRef with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(FunctionResultRef, Int), BinaryDecodeError]) {
+          Result[(FunctionResultRef, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((ValueRef::function_result(v), n))
         Err(e) => Err(e)
       }
@@ -892,7 +898,7 @@ pub impl Decode for AliasSource with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ValueSite, Int), BinaryDecodeError]) {
+          Result[(ValueSite, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((AliasSource::site(v), n))
         Err(e) => Err(e)
       }
@@ -906,7 +912,7 @@ pub impl Decode for ClosedAliasSet with fn decode(bytes, index) {
   match
     (
       Decode::decode(bytes, index) :
-      Result[(Array[AliasSource], Int), BinaryDecodeError]) {
+      Result[(Array[AliasSource], Int32), BinaryDecodeError]) {
     Ok((values, next)) => Ok((ClosedAliasSet::new(values), next))
     Err(err) => Err(err)
   }
@@ -920,7 +926,7 @@ pub impl Decode for ResultIdentityFacts with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ClosedAliasSet, Int), BinaryDecodeError]) {
+          Result[(ClosedAliasSet, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((ResultIdentityFacts::closed_aliases(v), n))
         Err(e) => Err(e)
       }
@@ -938,21 +944,21 @@ pub impl Decode for ParameterFacts with fn decode(bytes, index) {
   let (value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (uses, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ParameterUseMask?, Int), BinaryDecodeError]) {
+      Result[(ParameterUseMask?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (escape_sinks, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(EscapeSinkMask?, Int), BinaryDecodeError]) {
+      Result[(EscapeSinkMask?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -968,14 +974,14 @@ pub impl Decode for ResultFacts with fn decode(bytes, index) {
   let (value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (identity, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ResultIdentityFacts?, Int), BinaryDecodeError]) {
+      Result[(ResultIdentityFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1049,70 +1055,72 @@ pub impl Decode for ClosedFunctionSet with fn decode(bytes, index) {
 ///|
 pub impl Decode for EffectFacts with fn decode(bytes, index) {
   let (may, next) = match
-    (Decode::decode(bytes, index) : Result[(EffectMask, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(EffectMask, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (read_globals, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedGlobalSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedGlobalSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (written_globals, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedGlobalSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedGlobalSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (read_memories, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedMemorySet?, Int), BinaryDecodeError]) {
+      Result[(ClosedMemorySet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (written_memories, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedMemorySet?, Int), BinaryDecodeError]) {
+      Result[(ClosedMemorySet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (read_tables, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedTableSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedTableSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (written_tables, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedTableSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedTableSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (read_heap_types, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedTypeViewSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedTypeViewSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (written_heap_types, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedTypeViewSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedTypeViewSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (direct_callees, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ClosedFunctionSet?, Int), BinaryDecodeError]) {
+      Result[(ClosedFunctionSet?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1138,17 +1146,17 @@ pub impl Decode for EffectFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for FunctionBoundaryFacts with fn decode(bytes, index) {
   let (all_call_sites_known, next) = match
-    (Decode::decode(bytes, index) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (address_taken, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (host_callable, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1172,7 +1180,7 @@ pub impl Decode for FunctionProfile with fn decode(bytes, index) {
   let (temperature, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(TemperatureHint?, Int), BinaryDecodeError]) {
+      Result[(TemperatureHint?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1188,7 +1196,7 @@ pub impl Decode for CallProfile with fn decode(bytes, index) {
   let (temperature, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(TemperatureHint?, Int), BinaryDecodeError]) {
+      Result[(TemperatureHint?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1255,42 +1263,42 @@ pub impl Decode for FunctionFacts with fn decode(bytes, index) {
   let (effects, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(EffectFacts?, Int), BinaryDecodeError]) {
+      Result[(EffectFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (parameters, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[ParameterFacts], Int), BinaryDecodeError]) {
+      Result[(Array[ParameterFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (results, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[ResultFacts], Int), BinaryDecodeError]) {
+      Result[(Array[ResultFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (boundary, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(FunctionBoundaryFacts?, Int), BinaryDecodeError]) {
+      Result[(FunctionBoundaryFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (profile, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(FunctionProfile?, Int), BinaryDecodeError]) {
+      Result[(FunctionProfile?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (inline_policy, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(InlinePolicy?, Int), BinaryDecodeError]) {
+      Result[(InlinePolicy?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1317,7 +1325,9 @@ pub impl Decode for IndexedValueFacts with fn decode(bytes, index) {
     Err(e) => return Err(e)
   }
   let (value, next) = match
-    (Decode::decode(bytes, next) : Result[(ValueFacts, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, next) :
+      Result[(ValueFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1333,19 +1343,19 @@ pub impl Decode for SignatureFacts with fn decode(bytes, index) {
   let (parameters, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[IndexedValueFacts], Int), BinaryDecodeError]) {
+      Result[(Array[IndexedValueFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (results, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[IndexedValueFacts], Int), BinaryDecodeError]) {
+      Result[(Array[IndexedValueFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (complete, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1395,7 +1405,7 @@ pub impl Decode for TypePopulation with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ClosedHeapTypeSet, Int), BinaryDecodeError]) {
+          Result[(ClosedHeapTypeSet, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((TypePopulation::closed(v), n))
         Err(e) => Err(e)
       }
@@ -1413,7 +1423,7 @@ pub impl Decode for WriteFacts with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(Array[CodeSite], Int), BinaryDecodeError]) {
+          Result[(Array[CodeSite], Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((WriteFacts::closed(v), n))
         Err(e) => Err(e)
       }
@@ -1425,12 +1435,12 @@ pub impl Decode for WriteFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for FieldUsageFacts with fn decode(bytes, index) {
   let (never_read, next) = match
-    (Decode::decode(bytes, index) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (never_written_after_initialization, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1445,7 +1455,7 @@ pub impl Decode for FieldUsageFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for FieldFacts with fn decode(bytes, index) {
   let (view, next) = match
-    (Decode::decode(bytes, index) : Result[(TypeView, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(TypeView, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1456,21 +1466,21 @@ pub impl Decode for FieldFacts with fn decode(bytes, index) {
   let (stored_contents, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (writes, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(WriteFacts?, Int), BinaryDecodeError]) {
+      Result[(WriteFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (usage, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(FieldUsageFacts?, Int), BinaryDecodeError]) {
+      Result[(FieldUsageFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1480,21 +1490,21 @@ pub impl Decode for FieldFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for ArrayElementFacts with fn decode(bytes, index) {
   let (view, next) = match
-    (Decode::decode(bytes, index) : Result[(TypeView, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(TypeView, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (stored_contents, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (writes, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(WriteFacts?, Int), BinaryDecodeError]) {
+      Result[(WriteFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1510,21 +1520,21 @@ pub impl Decode for TypeFacts with fn decode(bytes, index) {
   let (population, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(TypePopulation?, Int), BinaryDecodeError]) {
+      Result[(TypePopulation?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (fields, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[FieldFacts], Int), BinaryDecodeError]) {
+      Result[(Array[FieldFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (array_element, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ArrayElementFacts?, Int), BinaryDecodeError]) {
+      Result[(ArrayElementFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1547,14 +1557,14 @@ pub impl Decode for MutationFacts with fn decode(bytes, index) {
   let (latest_phase, next) = match
     (
       Decode::decode(bytes, index) :
-      Result[(MutationPhase, Int), BinaryDecodeError]) {
+      Result[(MutationPhase, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (sites, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(Array[CodeSite]?, Int), BinaryDecodeError]) {
+      Result[(Array[CodeSite]?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1570,21 +1580,21 @@ pub impl Decode for GlobalFacts with fn decode(bytes, index) {
   let (initial_value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (steady_state_value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (mutation, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(MutationFacts?, Int), BinaryDecodeError]) {
+      Result[(MutationFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1605,7 +1615,7 @@ pub impl Decode for TableEntryFacts with fn decode(bytes, index) {
   let (value, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(ReferenceFacts, Int), BinaryDecodeError]) {
+      Result[(ReferenceFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1621,33 +1631,33 @@ pub impl Decode for TableFacts with fn decode(bytes, index) {
   let (mutation, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(MutationFacts?, Int), BinaryDecodeError]) {
+      Result[(MutationFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (may_grow, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(Bool?, Int), BinaryDecodeError]) {
+      Result[(Bool?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (default_value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ReferenceFacts?, Int), BinaryDecodeError]) {
+      Result[(ReferenceFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (entries, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[TableEntryFacts], Int), BinaryDecodeError]) {
+      Result[(Array[TableEntryFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (contents_complete, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1700,14 +1710,14 @@ pub impl Decode for AllocationFieldFacts with fn decode(bytes, index) {
     Err(e) => return Err(e)
   }
   let (no_post_init_writes, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (stored_value, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(ValueFacts?, Int), BinaryDecodeError]) {
+      Result[(ValueFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1724,38 +1734,38 @@ pub impl Decode for AllocationFacts with fn decode(bytes, index) {
   let (kind, next) = match
     (
       Decode::decode(bytes, index) :
-      Result[(AllocationKind, Int), BinaryDecodeError]) {
+      Result[(AllocationKind, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (escape_sinks, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(EscapeSinkMask?, Int), BinaryDecodeError]) {
+      Result[(EscapeSinkMask?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (identity_unobserved, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (thread_confined, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (length, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(IntegerFacts?, Int), BinaryDecodeError]) {
+      Result[(IntegerFacts?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (fields, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[AllocationFieldFacts], Int), BinaryDecodeError]) {
+      Result[(Array[AllocationFieldFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1777,21 +1787,23 @@ pub impl Decode for AllocationFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for AllocationSiteFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(ValueSite, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(ValueSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (facts, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(AllocationFacts, Int), BinaryDecodeError]) {
+      Result[(AllocationFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1801,7 +1813,7 @@ pub impl Decode for AllocationSiteFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for AccessFacts with fn decode(bytes, index) {
   let (in_bounds, next) = match
-    (Decode::decode(bytes, index) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1816,19 +1828,21 @@ pub impl Decode for AccessFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for AccessSiteFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (facts, next) = match
-    (Decode::decode(bytes, next) : Result[(AccessFacts, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, next) :
+      Result[(AccessFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1838,17 +1852,17 @@ pub impl Decode for AccessSiteFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for NumericOperationFacts with fn decode(bytes, index) {
   let (signed_no_wrap, next) = match
-    (Decode::decode(bytes, index) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (unsigned_no_wrap, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (exact_division, next) = match
-    (Decode::decode(bytes, next) : Result[(Bool, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, next) : Result[(Bool, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1867,21 +1881,23 @@ pub impl Decode for NumericOperationFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for NumericOperationSiteFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(ValueSite, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(ValueSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (facts, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(NumericOperationFacts, Int), BinaryDecodeError]) {
+      Result[(NumericOperationFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1895,7 +1911,7 @@ pub impl Decode for FactOperand with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ValueRef, Int), BinaryDecodeError]) {
+          Result[(ValueRef, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((FactOperand::value(v), n))
         Err(e) => Err(e)
       }
@@ -1903,7 +1919,7 @@ pub impl Decode for FactOperand with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(FactValue, Int), BinaryDecodeError]) {
+          Result[(FactValue, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((FactOperand::constant(v), n))
         Err(e) => Err(e)
       }
@@ -1931,24 +1947,28 @@ pub impl Decode for RelationKind with fn decode(bytes, index) {
 ///|
 pub impl Decode for ScopedRelationFacts with fn decode(bytes, index) {
   let (at, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (left, next) = match
-    (Decode::decode(bytes, next) : Result[(FactOperand, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, next) :
+      Result[(FactOperand, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (kind, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(RelationKind, Int), BinaryDecodeError]) {
+      Result[(RelationKind, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (right, next) = match
-    (Decode::decode(bytes, next) : Result[(FactOperand, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, next) :
+      Result[(FactOperand, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1958,19 +1978,23 @@ pub impl Decode for ScopedRelationFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for ExpressionFact with fn decode(bytes, index) {
   let (value, next) = match
-    (Decode::decode(bytes, index) : Result[(ValueSite, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, index) :
+      Result[(ValueSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (facts, next) = match
-    (Decode::decode(bytes, next) : Result[(ValueFacts, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(bytes, next) :
+      Result[(ValueFacts, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1980,7 +2004,7 @@ pub impl Decode for ExpressionFact with fn decode(bytes, index) {
 ///|
 pub impl Decode for CallSiteFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -1992,21 +2016,21 @@ pub impl Decode for CallSiteFacts with fn decode(bytes, index) {
   let (profile, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(CallProfile?, Int), BinaryDecodeError]) {
+      Result[(CallProfile?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (inline_policy, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(InlinePolicy?, Int), BinaryDecodeError]) {
+      Result[(InlinePolicy?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -2027,28 +2051,28 @@ pub impl Decode for CallSiteFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for BranchFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (profile, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(BranchProfile?, Int), BinaryDecodeError]) {
+      Result[(BranchProfile?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (temperature, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(TemperatureHint?, Int), BinaryDecodeError]) {
+      Result[(TemperatureHint?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -2058,28 +2082,28 @@ pub impl Decode for BranchFacts with fn decode(bytes, index) {
 ///|
 pub impl Decode for LoopFacts with fn decode(bytes, index) {
   let (site, next) = match
-    (Decode::decode(bytes, index) : Result[(CodeSite, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, index) : Result[(CodeSite, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (profile, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(LoopProfile?, Int), BinaryDecodeError]) {
+      Result[(LoopProfile?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (temperature, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(TemperatureHint?, Int), BinaryDecodeError]) {
+      Result[(TemperatureHint?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (provenance, next) = match
     (
       decode_compiler_fact_option(bytes, next) :
-      Result[(SourceProvenance?, Int), BinaryDecodeError]) {
+      Result[(SourceProvenance?, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -2095,56 +2119,56 @@ pub impl Decode for FunctionBodyFacts with fn decode(bytes, index) {
   let (sites, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[ExpressionFact], Int), BinaryDecodeError]) {
+      Result[(Array[ExpressionFact], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (relations, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[ScopedRelationFacts], Int), BinaryDecodeError]) {
+      Result[(Array[ScopedRelationFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (calls, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[CallSiteFacts], Int), BinaryDecodeError]) {
+      Result[(Array[CallSiteFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (branches, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[BranchFacts], Int), BinaryDecodeError]) {
+      Result[(Array[BranchFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (loops, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[LoopFacts], Int), BinaryDecodeError]) {
+      Result[(Array[LoopFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (allocations, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[AllocationSiteFacts], Int), BinaryDecodeError]) {
+      Result[(Array[AllocationSiteFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (accesses, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[AccessSiteFacts], Int), BinaryDecodeError]) {
+      Result[(Array[AccessSiteFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
   let (numeric_operations, next) = match
     (
       Decode::decode(bytes, next) :
-      Result[(Array[NumericOperationSiteFacts], Int), BinaryDecodeError]) {
+      Result[(Array[NumericOperationSiteFacts], Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -2189,7 +2213,7 @@ pub impl Decode for HintTarget with fn decode(bytes, index) {
       match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(CodeSite, Int), BinaryDecodeError]) {
+          Result[(CodeSite, Int32), BinaryDecodeError]) {
         Ok((v, n)) => Ok((HintTarget::site(v), n))
         Err(e) => Err(e)
       }
@@ -2209,14 +2233,14 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (target, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(HintTarget, Int), BinaryDecodeError]) {
+          Result[(HintTarget, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
       let (temperature, next) = match
         (
           Decode::decode(bytes, next) :
-          Result[(TemperatureHint, Int), BinaryDecodeError]) {
+          Result[(TemperatureHint, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2226,14 +2250,14 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (target, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(HintTarget, Int), BinaryDecodeError]) {
+          Result[(HintTarget, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
       let (policy, next) = match
         (
           Decode::decode(bytes, next) :
-          Result[(InlinePolicy, Int), BinaryDecodeError]) {
+          Result[(InlinePolicy, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2243,14 +2267,14 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (target, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(HintTarget, Int), BinaryDecodeError]) {
+          Result[(HintTarget, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
       let (goal, next) = match
         (
           Decode::decode(bytes, next) :
-          Result[(OptimizationGoal, Int), BinaryDecodeError]) {
+          Result[(OptimizationGoal, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2260,7 +2284,7 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (site, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(CodeSite, Int), BinaryDecodeError]) {
+          Result[(CodeSite, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2274,7 +2298,7 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (site, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(CodeSite, Int), BinaryDecodeError]) {
+          Result[(CodeSite, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2288,7 +2312,7 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (site, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(CodeSite, Int), BinaryDecodeError]) {
+          Result[(CodeSite, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
@@ -2308,14 +2332,14 @@ pub impl Decode for OptimizationHint with fn decode(bytes, index) {
       let (site, next) = match
         (
           Decode::decode(bytes, index + 1) :
-          Result[(ValueSite, Int), BinaryDecodeError]) {
+          Result[(ValueSite, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
       let (type_, next) = match
         (
           Decode::decode(bytes, next) :
-          Result[(FactHeapType, Int), BinaryDecodeError]) {
+          Result[(FactHeapType, Int32), BinaryDecodeError]) {
         Ok(v) => v
         Err(e) => return Err(e)
       }

@@ -77,13 +77,13 @@ pub trait Encode {
 ///|
 priv struct BinaryEncodeStringRefsContext {
   strings : Array[Bytes]
-  mut index : @hashmap.HashMap[Bytes, Int]?
+  mut index : @hashmap.HashMap[Bytes, Int32]?
 }
 
 ///|
 fn BinaryEncodeStringRefsContext::new(
   strings : Array[Bytes],
-  index : @hashmap.HashMap[Bytes, Int]?,
+  index : @hashmap.HashMap[Bytes, Int32]?,
 ) -> BinaryEncodeStringRefsContext {
   { strings, index, }
 }
@@ -99,7 +99,7 @@ let binary_encode_stringrefs_context : Ref[BinaryEncodeStringRefsContext?] = Ref
 fn[T] with_binary_encode_stringrefs_context(
   stringrefs : Array[Bytes]?,
   f : () -> Result[T, BinaryEncodeError],
-  known_index? : @hashmap.HashMap[Bytes, Int]? = None,
+  known_index~ : @hashmap.HashMap[Bytes, Int32]? = None,
 ) -> Result[T, BinaryEncodeError] {
   let saved = binary_encode_stringrefs_context.val
   binary_encode_stringrefs_context.val = stringrefs.map(fn(strings) {
@@ -124,7 +124,7 @@ fn encode_string_const_index(
 #inline
 fn encode_string_const_index_impl(
   bytes : Bytes,
-  candidate_checks : Array[Int]?,
+  candidate_checks : Array[Int32]?,
 ) -> Result[@lib.U32, BinaryEncodeError] {
   match binary_encode_stringrefs_context.val {
     Some(context) => {
@@ -137,7 +137,7 @@ fn encode_string_const_index_impl(
         // A short prefix stays cheaper for sparse use of a large external
         // pool. A distant lookup builds one index for this encoding scope.
         if i == 32 {
-          let index : @hashmap.HashMap[Bytes, Int] = @hashmap.new(
+          let index : @hashmap.HashMap[Bytes, Int32] = @hashmap.new(
             capacity=stringrefs.length(),
           )
           for position = 0
@@ -170,9 +170,9 @@ fn encode_string_const_index_impl(
 
 ///|
 fn encode_string_index_lookup(
-  index : @hashmap.HashMap[Bytes, Int],
+  index : @hashmap.HashMap[Bytes, Int32],
   bytes : Bytes,
-  candidate_checks : Array[Int]?,
+  candidate_checks : Array[Int32]?,
 ) -> Result[@lib.U32, BinaryEncodeError] {
   if candidate_checks is Some(count) {
     count[0] += 1
@@ -508,8 +508,8 @@ pub impl Encode for ExternIdx with fn encode(val, buf) {
 ///|
 pub fn size_unsigned(
   val : UInt64,
-  nbits : Int,
-) -> Result[Int, BinaryEncodeError] {
+  nbits : Int32,
+) -> Result[Int32, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
@@ -532,7 +532,10 @@ pub fn size_unsigned(
 }
 
 ///|
-pub fn size_signed(val : Int64, nbits : Int) -> Result[Int, BinaryEncodeError] {
+pub fn size_signed(
+  val : Int64,
+  nbits : Int32,
+) -> Result[Int32, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryEncodeError::InvalidSignedLebBitWidth)
   }
@@ -562,7 +565,7 @@ pub fn size_signed(val : Int64, nbits : Int) -> Result[Int, BinaryEncodeError] {
 fn encode_unsigned(
   val : UInt64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> Result[Unit, BinaryEncodeError] {
   match encode_unsigned_error(val, buf, nbits) {
     None => Ok(())
@@ -574,7 +577,7 @@ fn encode_unsigned(
 fn encode_signed(
   val : Int64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> Result[Unit, BinaryEncodeError] {
   match encode_signed_error(val, buf, nbits) {
     None => Ok(())
@@ -586,7 +589,7 @@ fn encode_signed(
 fn encode_unsigned_error(
   val : UInt64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> BinaryEncodeError? {
   if nbits <= 0 || nbits > 64 {
     return Some(BinaryEncodeError::InvalidUnsignedLebBitWidth)
@@ -620,7 +623,7 @@ fn encode_unsigned_error(
 fn encode_signed_error(
   val : Int64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> BinaryEncodeError? {
   if nbits <= 0 || nbits > 64 {
     return Some(BinaryEncodeError::InvalidSignedLebBitWidth)
@@ -654,21 +657,21 @@ fn encode_signed_error(
 }
 
 ///|
-fn ceil_div(a : Int, b : Int) -> Int {
+fn ceil_div(a : Int32, b : Int32) -> Int32 {
   (a + b - 1) / b
 }
 
 ///|
-const MAX_LEB128_BYTES_32 : Int = 5
+const MAX_LEB128_BYTES_32 : Int32 = 5
 
 ///|
-const MAX_LEB128_BYTES_33 : Int = 5
+const MAX_LEB128_BYTES_33 : Int32 = 5
 
 ///|
-const MAX_LEB128_BYTES_64 : Int = 10
+const MAX_LEB128_BYTES_64 : Int32 = 10
 
 ///|
-fn max_leb_bytes(nbits : Int) -> Int {
+fn max_leb_bytes(nbits : Int32) -> Int32 {
   match nbits {
     32 => MAX_LEB128_BYTES_32
     33 => MAX_LEB128_BYTES_33
@@ -838,7 +841,7 @@ pub impl Encode for NameMap with fn encode(val, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   for entry in entries {
     let NameAssoc(idx, _) = entry
     match prev_idx {
@@ -871,7 +874,7 @@ pub impl Encode for IndirectNameMap with fn encode(val, buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
   }
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   for entry in entries {
     let IndirectNameAssoc(idx, _) = entry
     match prev_idx {
@@ -1048,7 +1051,7 @@ pub impl Encode for NameSec with fn encode(val, buf) {
 
 ///|
 fn write_section(
-  section_id : Int,
+  section_id : Int32,
   buf : @buffer.Buffer,
   write_payload : (@buffer.Buffer) -> Result[Unit, BinaryEncodeError],
 ) -> Result[Unit, BinaryEncodeError] {
@@ -1121,7 +1124,7 @@ fn encode_compact_import_section(
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   let ImportSec(imports) = sec
-  let groups : Array[(Int, Int, Byte)] = []
+  let groups : Array[(Int32, Int32, Byte)] = []
   let mut start = 0
   while start < imports.length() {
     let Import(module_name, _, ty) = imports[start]
@@ -1541,30 +1544,36 @@ pub impl Encode for DataSec with fn encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Data with fn encode(val, buf) {
-  match val {
-    Data(Active(MemIdx(0), e), bytes) => {
+fn encode_data_mode(
+  mode : @lib.DataMode,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match mode {
+    Active(MemIdx(0), expr) => {
       buf.write_byte(0x00)
-      if Encode::encode(e, buf) is Err(t) {
-        return Err(t)
-      }
-      Encode::encode(bytes, buf)
+      Encode::encode(expr, buf)
     }
-    Data(Passive, bytes) => {
+    Passive => {
       buf.write_byte(0x01)
-      Encode::encode(bytes, buf)
+      Ok(())
     }
-    Data(Active(idx, e), bytes) => {
+    Active(idx, expr) => {
       buf.write_byte(0x02)
-      if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+      if Encode::encode(idx, buf) is Err(err) {
+        return Err(err)
       }
-      if Encode::encode(e, buf) is Err(t) {
-        return Err(t)
-      }
-      Encode::encode(bytes, buf)
+      Encode::encode(expr, buf)
     }
   }
+}
+
+///|
+pub impl Encode for Data with fn encode(val, buf) {
+  let Data(mode, bytes) = val
+  if encode_data_mode(mode, buf) is Err(err) {
+    return Err(err)
+  }
+  Encode::encode(bytes, buf)
 }
 
 ///|
@@ -1616,13 +1625,13 @@ pub impl Encode for CastOp with fn encode(val, buf) {
 ///|
 priv struct EncodeStringRefsPool {
   values : Array[Bytes]
-  mut seen : @hashmap.HashMap[Bytes, Int]?
-  membership_work : Array[Int]?
+  mut seen : @hashmap.HashMap[Bytes, Int32]?
+  membership_work : Array[Int32]?
 }
 
 ///|
 fn EncodeStringRefsPool::new(
-  membership_work : Array[Int]?,
+  membership_work : Array[Int32]?,
 ) -> EncodeStringRefsPool {
   { values: [], seen: None, membership_work, }
 }
@@ -1633,7 +1642,7 @@ fn EncodeStringRefsPool::push_unique(
   bytes : Bytes,
 ) -> Unit {
   if self.seen is None && self.values.length() >= 32 {
-    let seen : @hashmap.HashMap[Bytes, Int] = @hashmap.new(capacity=64)
+    let seen : @hashmap.HashMap[Bytes, Int32] = @hashmap.new(capacity=64)
     for index = 0; index < self.values.length(); index = index + 1 {
       seen.set(self.values[index], index)
     }
@@ -1667,7 +1676,7 @@ fn EncodeStringRefsPool::push_unique(
 /// The membership index never determines output order and belongs to this call.
 fn encode_module_stringrefs(
   mod_ : Module,
-  membership_work? : Array[Int]? = None,
+  membership_work~ : Array[Int32]? = None,
 ) -> Array[Bytes] {
   encode_module_stringrefs_pool(mod_, membership_work~).values
 }
@@ -1675,8 +1684,8 @@ fn encode_module_stringrefs(
 ///|
 fn encode_module_stringrefs_pool(
   mod_ : Module,
-  membership_work? : Array[Int]? = None,
-  string_free_funcs? : Array[Func]? = None,
+  membership_work~ : Array[Int32]? = None,
+  string_free_funcs~ : Array[Func]? = None,
 ) -> EncodeStringRefsPool {
   /// Recurse through structured control instructions and collect string constants
   /// that can be reached in nested blocks for local declarations and exports.
@@ -1771,7 +1780,7 @@ fn encode_module_sections(
   val : Module,
   buf : @buffer.Buffer,
   compact_imports : Bool,
-  size_state? : EncodedModuleSizeState? = None,
+  size_state~ : EncodedModuleSizeState? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
@@ -1875,7 +1884,11 @@ fn encode_module_sections(
           }
           None => ()
         }
-        if Encode::encode(val.data_sec, buf) is Err(t) {
+        let data_encoded = match size_state {
+          Some(state) => measure_module_data(val.data_sec, state)
+          None => Encode::encode(val.data_sec, buf)
+        }
+        if data_encoded is Err(t) {
           return Err(t)
         }
         Ok(())
@@ -2061,7 +2074,7 @@ fn encode_atomic_memarg(
 }
 
 ///|
-fn encode_simd_error(id : UInt, buf : @buffer.Buffer) -> BinaryEncodeError? {
+fn encode_simd_error(id : UInt32, buf : @buffer.Buffer) -> BinaryEncodeError? {
   buf.write_byte(0xFD)
   if Encode::encode(@lib.U32(id), buf) is Err(t) {
     return Some(t)
@@ -2071,7 +2084,7 @@ fn encode_simd_error(id : UInt, buf : @buffer.Buffer) -> BinaryEncodeError? {
 
 ///|
 fn atomic_inst(
-  id : UInt,
+  id : UInt32,
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   buf.write_byte(0xFE)
@@ -2082,7 +2095,7 @@ fn atomic_inst(
 }
 
 ///|
-fn atomic_rmw_op_id(op : AtomicRmwOp) -> UInt {
+fn atomic_rmw_op_id(op : AtomicRmwOp) -> UInt32 {
   match op {
     I32AtomicRmwAddOp => 30
     I64AtomicRmwAddOp => 31
@@ -2130,7 +2143,7 @@ fn atomic_rmw_op_id(op : AtomicRmwOp) -> UInt {
 }
 
 ///|
-fn atomic_cmpxchg_op_id(op : AtomicCmpxchgOp) -> UInt {
+fn atomic_cmpxchg_op_id(op : AtomicCmpxchgOp) -> UInt32 {
   match op {
     I32AtomicRmwCmpxchgOp => 72
     I64AtomicRmwCmpxchgOp => 73

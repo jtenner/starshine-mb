@@ -42,7 +42,7 @@ fn[T : Encode + Decode + Eq + Show + @debug.Debug] roundtrip(
 
 ///|
 fn[T] assert_decode_err_contains(
-  result : Result[(T, Int), BinaryDecodeError],
+  result : Result[(T, Int32), BinaryDecodeError],
   expected : BinaryDecodeError,
 ) -> Unit raise {
   match result {
@@ -63,12 +63,12 @@ fn assert_encode_err_contains(
 }
 
 ///|
-fn binary_test_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
+fn binary_test_write_u32_leb(buf : @buffer.Buffer, value : Int32) -> Unit {
   encode_unsigned(value.to_uint64(), buf, 32).unwrap()
 }
 
 ///|
-fn binary_test_deep_nested_block_module_bytes(depth : Int) -> Bytes {
+fn binary_test_deep_nested_block_module_bytes(depth : Int32) -> Bytes {
   let type_payload = @buffer.new()
   binary_test_write_u32_leb(type_payload, 1)
   type_payload.write_byte(0x60)
@@ -763,7 +763,7 @@ test "encode elem active non-zero table func exprs includes explicit funcref ref
   let bytes = buf.to_bytes()
   @debug.assert_eq(bytes, b"\x06\x01\x41\x00\x0b\x70\x01\xd2\x00\x0b")
   let (decoded, i) = match
-    (Decode::decode(bytes, 0) : Result[(Elem, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Elem, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected elem decode success, got \{e}")
   }
@@ -790,7 +790,7 @@ test "encode elem supports active typed expr segments for header 6" {
   }
   let bytes = buf.to_bytes()
   let (decoded, i) = match
-    (Decode::decode(bytes, 0) : Result[(Elem, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Elem, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected active typed elem decode success, got \{e}")
   }
@@ -800,7 +800,7 @@ test "encode elem supports active typed expr segments for header 6" {
 
 ///|
 test "decode_module preserves trailing-byte diagnostics for section-order and duplicate-section invalid modules" {
-  let vectors : Array[(String, Bytes, Int, Int)] = [
+  let vectors : Array[(String, Bytes, Int32, Int32)] = [
     (
       "duplicate type section", b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x01\x00\x01\x01\x00",
       11, 3,
@@ -813,7 +813,7 @@ test "decode_module preserves trailing-byte diagnostics for section-order and du
   for vector in vectors {
     let (name, bytes, expected_offset, expected_len) = vector
     match
-      (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
+      (Decode::decode(bytes, 0) : Result[(Module, Int32), BinaryDecodeError]) {
       Ok(_) => fail("expected raw module decode failure for '\{name}'")
       Err(err) => @debug.assert_eq(err, BinaryDecodeError::InvalidModule)
     }
@@ -907,7 +907,7 @@ test "FUZ1057B3 section sizes and custom payloads encode canonically and roundtr
 test "FUZ1057B3 fixed-width NaN payload bytes are preserved" {
   let f32_nan_payload = b"\x01\x00\xc0\x7f"
   let (f32_value, f32_next) = (
-    Decode::decode(f32_nan_payload, 0) : Result[(F32, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(f32_nan_payload, 0) : Result[(F32, Int32), BinaryDecodeError]).unwrap()
   @debug.assert_eq(f32_next, f32_nan_payload.length())
   let f32_buf = @buffer.new()
   Encode::encode(f32_value, f32_buf).unwrap()
@@ -915,7 +915,7 @@ test "FUZ1057B3 fixed-width NaN payload bytes are preserved" {
 
   let f64_nan_payload = b"\x01\x00\x00\x00\x00\x00\xf8\x7f"
   let (f64_value, f64_next) = (
-    Decode::decode(f64_nan_payload, 0) : Result[(F64, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(f64_nan_payload, 0) : Result[(F64, Int32), BinaryDecodeError]).unwrap()
   @debug.assert_eq(f64_next, f64_nan_payload.length())
   let f64_buf = @buffer.new()
   Encode::encode(f64_value, f64_buf).unwrap()
@@ -1092,7 +1092,9 @@ test "decode S33 accepts full unsigned upper bound" {
   let buf = @buffer.new()
   encode_signed(max_u32_in_s33, buf, 33).unwrap()
   let bytes = buf.to_bytes()
-  let decoded : Result[(S33, Int), BinaryDecodeError] = Decode::decode(bytes, 0)
+  let decoded : Result[(S33, Int32), BinaryDecodeError] = Decode::decode(
+    bytes, 0,
+  )
   match decoded {
     Ok((S33(v), i)) => {
       @debug.assert_eq(v, 0xffffffff)
@@ -1137,12 +1139,12 @@ test "sleb rejects malformed sign-extension bits" {
 ///|
 test "optional decode fallthrough keeps cursor on decode failure" {
   let (none1, i1) = (
-    Decode::decode(b"\x02", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(b"\x02", 0) : Result[(Bool?, Int32), BinaryDecodeError]).unwrap()
   @debug.assert_eq(none1, None)
   @debug.assert_eq(i1, 0)
 
   let (none2, i2) = (
-    Decode::decode(b"", 0) : Result[(Bool?, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(b"", 0) : Result[(Bool?, Int32), BinaryDecodeError]).unwrap()
   @debug.assert_eq(none2, None)
   @debug.assert_eq(i2, 0)
 }
@@ -1150,13 +1152,15 @@ test "optional decode fallthrough keeps cursor on decode failure" {
 ///|
 test "numeric decoders reject out-of-bounds fixed-width loads" {
   assert_decode_err_contains(
-    (Decode::decode(b"\x00\x00\x00", 0) : Result[(F32, Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"\x00\x00\x00", 0) :
+      Result[(F32, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x00\x00\x00\x00\x00\x00\x00", 0) :
-      Result[(F64, Int), BinaryDecodeError]),
+      Result[(F64, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
 }
@@ -1197,22 +1201,24 @@ test "decode helpers reject invalid bit widths and truncated inputs" {
 
 ///|
 test "bool decode rejects invalid byte and out of bounds" {
-  let invalid : Result[(Bool, Int), BinaryDecodeError] = Decode::decode(
+  let invalid : Result[(Bool, Int32), BinaryDecodeError] = Decode::decode(
     b"\x02", 0,
   )
   assert_decode_err_contains(invalid, BinaryDecodeError::InvalidBoolByte)
-  let oob : Result[(Bool, Int), BinaryDecodeError] = Decode::decode(b"", 0)
+  let oob : Result[(Bool, Int32), BinaryDecodeError] = Decode::decode(b"", 0)
   assert_decode_err_contains(oob, BinaryDecodeError::IndexOutOfBounds)
 }
 
 ///|
 test "decode reports invalid bytes for instruction and lane index" {
   assert_decode_err_contains(
-    (Decode::decode(b"\xFF", 0) : Result[(Instruction, Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"\xFF", 0) :
+      Result[(Instruction, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidInstruction,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x10", 0) : Result[(LaneIdx, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x10", 0) : Result[(LaneIdx, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidLaneIndex,
   )
 }
@@ -1224,7 +1230,7 @@ test "decode i8x16.shuffle preserves all 16 lane indices in order" {
     0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
   ]
   match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok((instr, next)) => {
       @debug.assert_eq(
         instr,
@@ -1336,7 +1342,7 @@ test "relaxed SIMD instructions use exact 0xFD subopcode roundtrips" {
     match
       (
         Decode::decode(expected_bytes, 0) :
-        Result[(Instruction, Int), BinaryDecodeError]) {
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok((decoded, next)) => {
         @debug.assert_eq(decoded, expected_instr)
         @debug.assert_eq(next, expected_bytes.length())
@@ -1389,7 +1395,7 @@ test "struct atomic get instruction encode decode opcodes" {
     match
       (
         Decode::decode(expected_bytes, 0) :
-        Result[(Instruction, Int), BinaryDecodeError]) {
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok((decoded, next)) => {
         @debug.assert_eq(decoded, expected_instr)
         @debug.assert_eq(next, expected_bytes.length())
@@ -1451,7 +1457,7 @@ test "aggregate atomic rmw cmpxchg encode decode opcodes" {
     match
       (
         Decode::decode(expected_bytes, 0) :
-        Result[(Instruction, Int), BinaryDecodeError]) {
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok((decoded, next)) => {
         @debug.assert_eq(decoded, expected_instr)
         @debug.assert_eq(next, expected_bytes.length())
@@ -1479,7 +1485,7 @@ test "shared descriptor subtype uses v131 wrapper order" {
   match
     (
       Decode::decode(buf.to_bytes(), 0) :
-      Result[(SubType, Int), BinaryDecodeError]) {
+      Result[(SubType, Int32), BinaryDecodeError]) {
     Ok((decoded, next)) => {
       @debug.assert_eq(decoded, subtype)
       @debug.assert_eq(next, 7)
@@ -1493,7 +1499,7 @@ test "decode reports invalid atomic.fence memory order" {
   assert_decode_err_contains(
     (
       Decode::decode(b"\xFE\x03\x03", 0) :
-      Result[(Instruction, Int), BinaryDecodeError]),
+      Result[(Instruction, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidAtomicFenceImmediate,
   )
 }
@@ -1503,13 +1509,13 @@ test "type section decode reports payload EOF and trailing bytes" {
   assert_decode_err_contains(
     (
       Decode::decode(b"\x01\x03\x00", 0) :
-      Result[(TypeSec, Int), BinaryDecodeError]),
+      Result[(TypeSec, Int32), BinaryDecodeError]),
     BinaryDecodeError::SectionPayloadLengthOutOfRange,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x01\x02\x00\x00", 0) :
-      Result[(TypeSec, Int), BinaryDecodeError]),
+      Result[(TypeSec, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidSectionPayloadTrailingBytes,
   )
 }
@@ -1519,7 +1525,7 @@ test "section payload decoders consume exact spans from nonzero offsets" {
   match
     (
       Decode::decode(b"\xFF\xFF\x01\x01\x00", 2) :
-      Result[(TypeSec, Int), BinaryDecodeError]) {
+      Result[(TypeSec, Int32), BinaryDecodeError]) {
     Ok((sec, next)) => {
       @debug.assert_eq(sec, TypeSec::new([]))
       @debug.assert_eq(next, 5)
@@ -1530,7 +1536,7 @@ test "section payload decoders consume exact spans from nonzero offsets" {
   match
     (
       Decode::decode(b"\xFF\x0E\x06\x00\x01\x03abc", 1) :
-      Result[(StringRefsSec, Int), BinaryDecodeError]) {
+      Result[(StringRefsSec, Int32), BinaryDecodeError]) {
     Ok((sec, next)) => {
       @debug.assert_eq(sec, StringRefsSec::new([b"abc"]))
       @debug.assert_eq(next, 9)
@@ -1545,13 +1551,13 @@ test "module decode bubbles section errors instead of generic invalid module" {
   assert_decode_err_contains(
     (
       Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x00\x02\x00", 0) :
-      Result[(Module, Int), BinaryDecodeError]),
+      Result[(Module, Int32), BinaryDecodeError]),
     BinaryDecodeError::CustomSectionPayloadLengthOutOfRange,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x02\x01\xFF", 0) :
-      Result[(Module, Int), BinaryDecodeError]),
+      Result[(Module, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidCompType,
   )
 }
@@ -1569,7 +1575,7 @@ test "decode_module accepts deep nested block modules up to the nesting limit" {
 test "decode_module rejects deep nested block modules past the nesting limit" {
   let wasm = binary_test_deep_nested_block_module_bytes(10001)
   assert_decode_err_contains(
-    (Decode::decode(wasm, 0) : Result[(Module, Int), BinaryDecodeError]),
+    (Decode::decode(wasm, 0) : Result[(Module, Int32), BinaryDecodeError]),
     BinaryDecodeError::InstructionNestingLimitExceeded,
   )
   match decode_module(wasm) {
@@ -1590,13 +1596,13 @@ test "Decode I32 rejects invalid terminal signed LEB unused bits" {
   assert_decode_err_contains(
     (
       Decode::decode(b"\x80\x80\x80\x80\x1f", 0) :
-      Result[(I32, Int), BinaryDecodeError]),
+      Result[(I32, Int32), BinaryDecodeError]),
     BinaryDecodeError::SignedLebOutOfRangeForBitWidth,
   )
   match
     (
       Decode::decode(b"\xff\xff\xff\xff\x4f", 0) :
-      Result[(I32, Int), BinaryDecodeError]) {
+      Result[(I32, Int32), BinaryDecodeError]) {
     Ok(_) => fail("expected decode failure for invalid sign-extension bits")
     Err(_) => ()
   }
@@ -1629,7 +1635,7 @@ test "invalid decode vectors are table-driven across decoders" {
   for vector in module_vectors {
     let (name, bytes, expected) = vector
     match
-      (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
+      (Decode::decode(bytes, 0) : Result[(Module, Int32), BinaryDecodeError]) {
       Ok(_) => fail("expected module decode failure for vector '\{name}'")
       Err(err) => @debug.assert_eq(err, expected)
     }
@@ -1655,7 +1661,7 @@ test "invalid decode vectors are table-driven across decoders" {
   for vector in type_sec_vectors {
     let (name, bytes, expected) = vector
     match
-      (Decode::decode(bytes, 0) : Result[(TypeSec, Int), BinaryDecodeError]) {
+      (Decode::decode(bytes, 0) : Result[(TypeSec, Int32), BinaryDecodeError]) {
       Ok(_) => fail("expected TypeSec decode failure for vector '\{name}'")
       Err(err) => @debug.assert_eq(err, expected)
     }
@@ -1672,7 +1678,9 @@ test "invalid decode vectors are table-driven across decoders" {
   for vector in instruction_vectors {
     let (name, bytes, expected) = vector
     match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(_) => fail("expected Instruction decode failure for vector '\{name}'")
       Err(err) => @debug.assert_eq(err, expected)
     }
@@ -1682,63 +1690,65 @@ test "invalid decode vectors are table-driven across decoders" {
 ///|
 test "decode primitive error branches include oob and nested failures" {
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(NumType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(NumType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(AbsHeapType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(AbsHeapType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(RefType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x63", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x63", 0) : Result[(RefType, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInSignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x64", 0) : Result[(RefType, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x64", 0) : Result[(RefType, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInSignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(ValType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(ValType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(CompType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(CompType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(Mut, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(Mut, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofDecodingMut,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x02", 0) : Result[(Mut, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x02", 0) : Result[(Mut, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidMutByte,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x79", 0) : Result[(StorageType, Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"\x79", 0) :
+      Result[(StorageType, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidStorageType,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x79", 0) : Result[(PackType, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x79", 0) : Result[(PackType, Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidPackedType,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(RecType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(RecType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x4E", 0) : Result[(RecType, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x4E", 0) : Result[(RecType, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(SubType, Int), BinaryDecodeError]),
+    (Decode::decode(b"", 0) : Result[(SubType, Int32), BinaryDecodeError]),
     BinaryDecodeError::IndexOutOfBounds,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x4F", 0) : Result[(SubType, Int), BinaryDecodeError]),
+    (Decode::decode(b"\x4F", 0) : Result[(SubType, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
 }
@@ -1746,19 +1756,21 @@ test "decode primitive error branches include oob and nested failures" {
 ///|
 test "generic list decode and encode propagate nested failures" {
   assert_decode_err_contains(
-    (Decode::decode(b"", 0) : Result[(@list.List[Bool], Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"", 0) :
+      Result[(@list.List[Bool], Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x01\x02", 0) :
-      Result[(@list.List[Bool], Int), BinaryDecodeError]),
+      Result[(@list.List[Bool], Int32), BinaryDecodeError]),
     BinaryDecodeError::InvalidBoolByte,
   )
   match
     (
       Decode::decode(b"\x02\x00\x01", 0) :
-      Result[(@list.List[Bool], Int), BinaryDecodeError]) {
+      Result[(@list.List[Bool], Int32), BinaryDecodeError]) {
     Ok((decoded, i)) => {
       @debug.assert_eq(i, 3)
       @debug.assert_eq(decoded.to_array(), [false, true])
@@ -1979,7 +1991,7 @@ test "start code and data count sections decode canonical payload wrappers" {
   match
     (
       Decode::decode(b"\x08\x01\x00", 0) :
-      Result[(StartSec, Int), BinaryDecodeError]) {
+      Result[(StartSec, Int32), BinaryDecodeError]) {
     Ok((start, next)) => {
       @debug.assert_eq(start, StartSec::new(FuncIdx::new(0)))
       @debug.assert_eq(next, 3)
@@ -1990,7 +2002,7 @@ test "start code and data count sections decode canonical payload wrappers" {
   match
     (
       Decode::decode(b"\x0A\x01\x00", 0) :
-      Result[(CodeSec, Int), BinaryDecodeError]) {
+      Result[(CodeSec, Int32), BinaryDecodeError]) {
     Ok((code, next)) => {
       @debug.assert_eq(code, CodeSec::new([]))
       @debug.assert_eq(next, 3)
@@ -2001,7 +2013,7 @@ test "start code and data count sections decode canonical payload wrappers" {
   match
     (
       Decode::decode(b"\x0C\x01\x00", 0) :
-      Result[(DataCntSec, Int), BinaryDecodeError]) {
+      Result[(DataCntSec, Int32), BinaryDecodeError]) {
     Ok((data_count, next)) => {
       @debug.assert_eq(data_count, DataCntSec::new(U32(0)))
       @debug.assert_eq(next, 3)
@@ -2013,17 +2025,21 @@ test "start code and data count sections decode canonical payload wrappers" {
 ///|
 test "start code and data count sections reject legacy non-length encoding forms" {
   assert_decode_err_contains(
-    (Decode::decode(b"\x08\x00", 0) : Result[(StartSec, Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"\x08\x00", 0) :
+      Result[(StartSec, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
-    (Decode::decode(b"\x0A\x00", 0) : Result[(CodeSec, Int), BinaryDecodeError]),
+    (
+      Decode::decode(b"\x0A\x00", 0) :
+      Result[(CodeSec, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
   assert_decode_err_contains(
     (
       Decode::decode(b"\x0C\x00", 0) :
-      Result[(DataCntSec, Int), BinaryDecodeError]),
+      Result[(DataCntSec, Int32), BinaryDecodeError]),
     BinaryDecodeError::UnexpectedEofInUnsignedLeb,
   )
 }
@@ -2064,7 +2080,7 @@ test "Type Indexes" {
 ///|
 test "decode accepts bare stringref valtype" {
   match
-    (Decode::decode(b"\x67", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    (Decode::decode(b"\x67", 0) : Result[(ValType, Int32), BinaryDecodeError]) {
     Ok((vt, next)) => {
       @debug.assert_eq(vt, ValType::stringref())
       @debug.assert_eq(next, 1)
@@ -2077,7 +2093,7 @@ test "decode accepts bare stringref valtype" {
 ///|
 test "decode bare stringref valtype re-encodes canonical nullable form" {
   let (vt, next) = match
-    (Decode::decode(b"\x67", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    (Decode::decode(b"\x67", 0) : Result[(ValType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) =>
       fail("expected bare stringref valtype decode success, got \{err}")
@@ -2095,7 +2111,9 @@ test "decode bare stringref valtype re-encodes canonical nullable form" {
 ///|
 test "decode accepts explicit nullable stringref valtype" {
   let (vt, next) = match
-    (Decode::decode(b"\x63\x67", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(b"\x63\x67", 0) :
+      Result[(ValType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) =>
       fail(
@@ -2119,7 +2137,9 @@ test "decode accepts explicit non-null stringref valtype" {
     RefType::new(false, HeapType::abs(AbsHeapType::string_())),
   )
   let (vt, next) = match
-    (Decode::decode(b"\x64\x67", 0) : Result[(ValType, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(b"\x64\x67", 0) :
+      Result[(ValType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) =>
       fail(
@@ -2195,7 +2215,7 @@ test "encode ref.null uses heap-type immediate for abstract refs" {
   let bytes = buf.to_bytes()
   @debug.assert_eq(bytes, b"\xd0\x6f")
   let (decoded, i) = match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected ref.null extern decode success, got \{e}")
   }
@@ -2216,7 +2236,7 @@ test "encode ref.null exact type index uses heap-type immediate" {
   let bytes = buf.to_bytes()
   @debug.assert_eq(bytes, b"\xd0\x62\x00")
   let (decoded, i) = match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected exact typed ref.null decode success, got \{e}")
   }
@@ -2239,7 +2259,7 @@ test "encode exact ref.test, ref.cast, and ref.cast_desc_eq immediates" {
   let (decoded_test, test_i) = match
     (
       Decode::decode(test_bytes, 0) :
-      Result[(Instruction, Int), BinaryDecodeError]) {
+      Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected exact ref.test decode success, got \{e}")
   }
@@ -2259,7 +2279,7 @@ test "encode exact ref.test, ref.cast, and ref.cast_desc_eq immediates" {
   let (decoded_cast, cast_i) = match
     (
       Decode::decode(cast_bytes, 0) :
-      Result[(Instruction, Int), BinaryDecodeError]) {
+      Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected exact ref.cast decode success, got \{e}")
   }
@@ -2279,7 +2299,7 @@ test "encode exact ref.test, ref.cast, and ref.cast_desc_eq immediates" {
   let (decoded_desc, desc_i) = match
     (
       Decode::decode(desc_bytes, 0) :
-      Result[(Instruction, Int), BinaryDecodeError]) {
+      Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(e) => fail("expected exact ref.cast_desc_eq decode success, got \{e}")
   }
@@ -2367,7 +2387,7 @@ test "exact ref.test instruction roundtrip preserves exact heap immediate" {
   )
   let bytes = b"\xFB\x14\x62\x01"
   match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok((decoded, next)) => {
       @debug.assert_eq(decoded, expected)
       @debug.assert_eq(next, bytes.length())
@@ -2385,7 +2405,7 @@ test "exact ref.test instruction roundtrip preserves exact heap immediate" {
 test "exact ref.test rejects truncated exact heap immediate" {
   let bytes = b"\xFB\x14\x62"
   match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(_) => fail("expected truncated exact ref.test decode failure")
     Err(BinaryDecodeError::UnexpectedEofInSignedLeb) => ()
     Err(e) =>
@@ -2397,7 +2417,7 @@ test "exact ref.test rejects truncated exact heap immediate" {
 test "exact ref.test rejects exact marker before abstract heap immediate" {
   let bytes = b"\xFB\x14\x62\x6D"
   match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(_) => fail("expected invalid exact abstract ref.test decode failure")
     Err(BinaryDecodeError::InvalidS33Range) => ()
     Err(e) =>
@@ -2413,7 +2433,7 @@ test "exact ref.cast instruction roundtrip preserves exact heap immediate" {
   )
   let bytes = b"\xFB\x16\x62\x01"
   match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok((decoded, next)) => {
       @debug.assert_eq(decoded, expected)
       @debug.assert_eq(next, bytes.length())
@@ -2516,7 +2536,9 @@ test "exact ref.test and ref.cast module roundtrip preserves exactness" {
 ///|
 test "shared function heap and definition types roundtrip" {
   let (heap, heap_next) = match
-    (Decode::decode(b"\x65\x70", 0) : Result[(HeapType, Int), BinaryDecodeError]) {
+    (
+      Decode::decode(b"\x65\x70", 0) :
+      Result[(HeapType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) => fail("expected shared func heap decode, got \{err}")
   }
@@ -2532,7 +2554,7 @@ test "shared function heap and definition types roundtrip" {
   let (subtype, subtype_next) = match
     (
       Decode::decode(b"\x65\x60\x00\x00", 0) :
-      Result[(SubType, Int), BinaryDecodeError]) {
+      Result[(SubType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) => fail("expected shared func definition decode, got \{err}")
   }
@@ -2548,7 +2570,7 @@ test "shared function heap and definition types roundtrip" {
   let (shared_sub, shared_sub_next) = match
     (
       Decode::decode(b"\x50\x00\x65\x5f\x00", 0) :
-      Result[(SubType, Int), BinaryDecodeError]) {
+      Result[(SubType, Int32), BinaryDecodeError]) {
     Ok(v) => v
     Err(err) => fail("expected shared explicit subtype decode, got \{err}")
   }
@@ -2569,7 +2591,9 @@ test "exact regular branch cast instruction roundtrip" {
   ]
   for bytes in cases {
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(v) => v
       Err(err) => fail("expected exact regular branch cast decode, got \{err}")
     }
@@ -2600,7 +2624,9 @@ test "descriptor branch cast instruction roundtrip" {
   for pair in cases {
     let (bytes, expected) = pair
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(v) => v
       Err(err) => fail("expected descriptor branch decode, got \{err}")
     }
@@ -2630,7 +2656,9 @@ test "GC backing-array multibyte load and store roundtrip" {
   for pair in cases {
     let (bytes, expected) = pair
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(v) => v
       Err(err) => fail("expected backing-array memory op decode, got \{err}")
     }
@@ -2676,7 +2704,9 @@ test "shared GC atomic order roundtrip" {
   for pair in cases {
     let (bytes, expected) = pair
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(v) => v
       Err(err) => fail("expected shared atomic decode, got \{err}")
     }
@@ -2708,7 +2738,9 @@ test "acquire-release linear-memory atomic order roundtrip" {
   for pair in cases {
     let (bytes, expected) = pair
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(v) => v
       Err(err) => fail("expected relaxed linear atomic decode, got \{err}")
     }
@@ -3024,7 +3056,9 @@ test "stack switching instruction immediates roundtrip" {
   for case in cases {
     let (bytes, expected) = case
     let (decoded, next) = match
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]) {
       Ok(value) => value
       Err(err) => fail("expected stack-switching decode success, got \{err}")
     }
@@ -3043,7 +3077,7 @@ test "legacy rethrow instruction immediate roundtrips" {
   let bytes = b"\x09\x00"
   let expected = Instruction::rethrow(LabelIdx::new(0U))
   let (decoded, next) = match
-    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int32), BinaryDecodeError]) {
     Ok(value) => value
     Err(err) => fail("expected legacy rethrow decode success, got \{err}")
   }

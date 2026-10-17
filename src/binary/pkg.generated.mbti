@@ -26,6 +26,8 @@ pub fn encode_module(@lib.Module, compact_imports? : Bool) -> Result[Bytes, Enco
 
 pub fn encoded_module_sizes(@lib.Module, @lib.Module) -> Result[(Int, Int), EncodeError]
 
+pub fn encoded_type_compaction_is_strictly_smaller(@lib.Module, @lib.Module) -> Bool
+
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
 pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]

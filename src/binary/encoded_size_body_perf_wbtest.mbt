@@ -40,15 +40,15 @@ fn measure_module_code_reference(
     Ok(size) => size
     Err(error) => return Err(error)
   }
-  state.code_size = 1 + prefix + payload
+  state.code_size = (1 + prefix + payload).to_uint64()
   Ok(())
 }
 
 ///|
 fn encoded_body_measure_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
+  count : Int32,
+  width : Int32,
   reference : Bool,
 ) -> Unit {
   let funcs = Array::make(

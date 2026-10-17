@@ -1,5 +1,5 @@
 ///|
-fn locals_run_length(run : LocalRun) -> Int {
+fn locals_run_length(run : LocalRun) -> Int32 {
   run.count.reinterpret_as_int()
 }
 
@@ -21,8 +21,8 @@ fn locals_normalize_runs(runs : Array[LocalRun]) -> Array[LocalRun] {
 }
 
 ///|
-fn locals_build_indices(runs : Array[LocalRun]) -> Array[Int] {
-  let out : Array[Int] = []
+fn locals_build_indices(runs : Array[LocalRun]) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut next = 0
   for run in runs {
     out.push(next)
@@ -34,7 +34,7 @@ fn locals_build_indices(runs : Array[LocalRun]) -> Array[Int] {
 ///|
 fn locals_indices_match_runs(
   runs : Array[LocalRun],
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Bool {
   if indices.length() != runs.length() {
     return false
@@ -50,7 +50,7 @@ fn locals_indices_match_runs(
 }
 
 ///|
-fn locals_run_index(starts : Array[Int], idx : Int) -> Int {
+fn locals_run_index(starts : Array[Int32], idx : Int32) -> Int32 {
   let mut lo = 0
   let mut hi = starts.length() - 1
   let mut best = -1
@@ -83,12 +83,12 @@ pub fn Locals::runs(self : Locals) -> Array[LocalRun] {
 }
 
 ///|
-pub fn Locals::run_count(self : Locals) -> Int {
+pub fn Locals::run_count(self : Locals) -> Int32 {
   self.runs.length()
 }
 
 ///|
-pub fn Locals::ensure_index(self : Locals) -> Array[Int] {
+pub fn Locals::ensure_index(self : Locals) -> Array[Int32] {
   match self.indices {
     Some(indices) if locals_indices_match_runs(self.runs, indices) => indices
     _ => {
@@ -105,7 +105,7 @@ pub fn Locals::invalidate_indices(self : Locals) -> Unit {
 }
 
 ///|
-pub fn Locals::length(self : Locals) -> Int {
+pub fn Locals::length(self : Locals) -> Int32 {
   let starts = self.ensure_index()
   if starts.is_empty() {
     return 0
@@ -120,7 +120,7 @@ pub fn Locals::is_empty(self : Locals) -> Bool {
 }
 
 ///|
-pub fn Locals::at(self : Locals, idx : Int) -> ValType? {
+pub fn Locals::at(self : Locals, idx : Int32) -> ValType? {
   if idx < 0 {
     return None
   }
@@ -142,7 +142,7 @@ pub fn Locals::at(self : Locals, idx : Int) -> ValType? {
 }
 
 ///|
-pub fn Locals::unsafe_get(self : Locals, idx : Int) -> ValType {
+pub fn Locals::unsafe_get(self : Locals, idx : Int32) -> ValType {
   match self.at(idx) {
     Some(vt) => vt
     None => abort("locals index out of bounds")
@@ -151,7 +151,7 @@ pub fn Locals::unsafe_get(self : Locals, idx : Int) -> ValType {
 
 ///|
 #alias("_[_]")
-pub fn Locals::get(self : Locals, idx : Int) -> ValType {
+pub fn Locals::get(self : Locals, idx : Int32) -> ValType {
   self.unsafe_get(idx)
 }
 
@@ -212,7 +212,7 @@ pub fn Locals::append_types(self : Locals, types : Array[ValType]) -> Unit {
 }
 
 ///|
-pub fn Locals::without_prefix(self : Locals, count : Int) -> Locals {
+pub fn Locals::without_prefix(self : Locals, count : Int32) -> Locals {
   if count <= 0 {
     return self.copy()
   }
@@ -235,7 +235,11 @@ pub fn Locals::without_prefix(self : Locals, count : Int) -> Locals {
 }
 
 ///|
-pub fn Locals::insert_run(self : Locals, run_idx : Int, run : LocalRun) -> Unit {
+pub fn Locals::insert_run(
+  self : Locals,
+  run_idx : Int32,
+  run : LocalRun,
+) -> Unit {
   let bounded = if run_idx < 0 {
     0
   } else if run_idx > self.runs.length() {
@@ -256,7 +260,7 @@ pub fn Locals::insert_run(self : Locals, run_idx : Int, run : LocalRun) -> Unit 
 }
 
 ///|
-pub fn Locals::remove_run(self : Locals, run_idx : Int) -> LocalRun? {
+pub fn Locals::remove_run(self : Locals, run_idx : Int32) -> LocalRun? {
   if run_idx < 0 || run_idx >= self.runs.length() {
     return None
   }
@@ -275,8 +279,8 @@ pub fn Locals::remove_run(self : Locals, run_idx : Int) -> LocalRun? {
 ///|
 pub fn Locals::set_run_count(
   self : Locals,
-  run_idx : Int,
-  count : UInt,
+  run_idx : Int32,
+  count : UInt32,
 ) -> Bool {
   if run_idx < 0 || run_idx >= self.runs.length() {
     return false
@@ -294,7 +298,7 @@ pub fn Locals::merge_adjacent_runs(self : Locals) -> Unit {
 }
 
 ///|
-pub fn Locals::set(self : Locals, idx : Int, vt : ValType) -> Bool {
+pub fn Locals::set(self : Locals, idx : Int32, vt : ValType) -> Bool {
   if idx < 0 {
     return false
   }
@@ -332,16 +336,16 @@ pub fn Locals::set(self : Locals, idx : Int, vt : ValType) -> Bool {
 ///|
 #cfg(target="native")
 #borrow(tv)
-extern "c" fn trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+extern "c" fn trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int32 = "gettimeofday"
 
 ///|
 #cfg(target="llvm")
 #borrow(tv)
-extern "c" fn trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+extern "c" fn trace_native_gettimeofday(tv : Bytes, tz : UInt64) -> Int32 = "gettimeofday"
 
 ///|
 #cfg(target="native")
-fn trace_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+fn trace_read_u64_timeval(bytes : Bytes, start : Int32) -> UInt64 {
   let mut out = 0UL
   let mut i = 0
   while i < 8 {
@@ -353,7 +357,7 @@ fn trace_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
 
 ///|
 #cfg(target="llvm")
-fn trace_read_u64_timeval(bytes : Bytes, start : Int) -> UInt64 {
+fn trace_read_u64_timeval(bytes : Bytes, start : Int32) -> UInt64 {
   let mut out = 0UL
   let mut i = 0
   while i < 8 {
@@ -515,7 +519,7 @@ pub fn FunctionLocals::all_locals(self : FunctionLocals) -> Locals {
 }
 
 ///|
-pub fn FunctionLocals::param_count(self : FunctionLocals) -> Int {
+pub fn FunctionLocals::param_count(self : FunctionLocals) -> Int32 {
   self.params.length()
 }
 

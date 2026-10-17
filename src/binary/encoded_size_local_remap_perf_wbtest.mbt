@@ -1,9 +1,9 @@
 ///|
 fn encoded_local_remap_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
-  mode : Int,
+  count : Int32,
+  width : Int32,
+  mode : Int32,
   reference : Bool,
 ) -> Unit {
   let before = encoded_local_remap_fixture(width, 127U, mode == 2)

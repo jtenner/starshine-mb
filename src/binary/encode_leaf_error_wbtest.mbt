@@ -24,7 +24,7 @@ test "leaf error-only encoder preserves scalar SIMD and GC bytes" {
     expected in [
       b"\x43\x01\x00\xc0\x7f", b"\x44\x01\x00\x00\x00\x00\x00\xf8\x7f", b"\x44\x00\x00\x00\x00\x00\x00\x00\x80",
     ] {
-    let (instruction, end) : (Instruction, Int) = Decode::decode(expected, 0).unwrap()
+    let (instruction, end) : (Instruction, Int32) = Decode::decode(expected, 0).unwrap()
     assert_eq(end, expected.length())
     let buffer = @buffer.new()
     assert_eq(encode_leaf_instruction_error(instruction, buffer), None)

@@ -304,21 +304,21 @@ fn _md_format_mem_idx(ctx : ModuleDebugContext, idx : MemIdx) -> String {
 }
 
 ///|
-fn md_indent(out : StringBuilder, depth : Int) -> Unit {
+fn md_indent(out : StringBuilder, depth : Int32) -> Unit {
   for _ in 0..<depth {
     out.write_char(' ')
   }
 }
 
 ///|
-fn md_write_line(out : StringBuilder, depth : Int, line : String) -> Unit {
+fn md_write_line(out : StringBuilder, depth : Int32, line : String) -> Unit {
   md_indent(out, depth)
   out.write_string(line)
   out.write_char('\n')
 }
 
 ///|
-fn md_imported_func_count(ctx : ModuleDebugContext) -> Int {
+fn md_imported_func_count(ctx : ModuleDebugContext) -> Int32 {
   ctx.func_imports.length()
 }
 
@@ -347,7 +347,7 @@ pub fn Module::pretty_print_func(self : Module, func_idx : FuncIdx) -> String {
 ///|
 pub fn Module::pretty_print_defined_func(
   self : Module,
-  def_idx : UInt,
+  def_idx : UInt32,
 ) -> String {
   let ctx = md_build_context(self)
   let def_idx_i = def_idx.reinterpret_as_int()

@@ -3,7 +3,7 @@ fn measure_module_code_before_local_remap(
   funcs : Array[Func],
   strings : Array[Bytes],
   state : EncodedModuleSizeState,
-  body_buffers? : Array[Int]? = None,
+  body_buffers~ : Array[Int32]? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   state.strings = strings
   let can_reuse = match state.reuse {
@@ -54,6 +54,6 @@ fn measure_module_code_before_local_remap(
     Ok(size) => size
     Err(error) => return Err(error)
   }
-  state.code_size = 1 + prefix + payload
+  state.code_size = (1 + prefix + payload).to_uint64()
   Ok(())
 }

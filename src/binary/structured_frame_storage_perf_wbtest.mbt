@@ -1,8 +1,8 @@
 ///|
 fn structured_frame_storage_bench(
   it : @bench.T,
-  width : Int,
-  depth : Int,
+  width : Int32,
+  depth : Int32,
   legacy : Bool,
 ) -> Unit {
   let bt = BlockType::void_()
@@ -22,7 +22,9 @@ fn structured_frame_storage_bench(
   let bytes = buf.to_bytes()
   it.bench(fn() {
     it.keep(
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]),
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]),
     )
   })
 }

@@ -1,5 +1,5 @@
 ///|
-fn encoded_type_remap_fixture(index : UInt, width : Int) -> Func {
+fn encoded_type_remap_fixture(index : UInt32, width : Int32) -> Func {
   let bt = BlockType::type_idx(TypeIdx::new(index))
   let body = Array::make(width, Instruction::nop())
   Func::new(

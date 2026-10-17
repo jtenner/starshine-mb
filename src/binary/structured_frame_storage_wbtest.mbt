@@ -101,7 +101,7 @@ test "structured decoder keeps nested arms catches and delegates at byte boundar
   buf.write_byte(0x01)
   let bytes = buf.to_bytes()
   let (decoded, next) = (
-    Decode::decode(bytes, 1) : Result[(Instruction, Int), BinaryDecodeError]).unwrap()
+    Decode::decode(bytes, 1) : Result[(Instruction, Int32), BinaryDecodeError]).unwrap()
   @debug.assert_eq(decoded, nested)
   assert_eq(next, end)
   let encoded = @buffer.new()
@@ -117,7 +117,9 @@ test "structured decoder rejects intentionally malformed arm and catch delimiter
       b"\x06\x40\x19\x19\x0b",
     ] {
     assert_eq(
-      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]).unwrap_err(),
+      (
+        Decode::decode(bytes, 0) :
+        Result[(Instruction, Int32), BinaryDecodeError]).unwrap_err(),
       BinaryDecodeError::InvalidInstruction,
     )
   }

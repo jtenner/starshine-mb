@@ -7,7 +7,7 @@ test "Binaryen 132 compact imports expand both groups in logical order" {
      b"\x02\x0c\x01\x01m\x00\x7e\x00\x00\x02\x01a\x01b",
   ]
   for i, bytes in fixtures {
-    let (sec, next) : (ImportSec, Int) = match Decode::decode(bytes, 0) {
+    let (sec, next) : (ImportSec, Int32) = match Decode::decode(bytes, 0) {
       Ok(value) => value
       Err(err) => fail("expected compact import decode: \{err}")
     }
@@ -31,7 +31,7 @@ test "Binaryen 132 compact imports expand both groups in logical order" {
       Ok(_) => ()
       Err(err) => fail("expected logical import encode: \{err}")
     }
-    let (again, _) : (ImportSec, Int) = match
+    let (again, _) : (ImportSec, Int32) = match
       Decode::decode(buf.to_bytes(), 0) {
       Ok(value) => value
       Err(err) => fail("expected logical import re-decode: \{err}")
@@ -77,7 +77,7 @@ test "Binaryen 132 compact imports reject intentionally invalid truncated and ne
   ]
   for bytes in invalid {
     assert_true(
-      (Decode::decode(bytes, 0) : Result[(ImportSec, Int), BinaryDecodeError])
+      (Decode::decode(bytes, 0) : Result[(ImportSec, Int32), BinaryDecodeError])
       is Err(_),
     )
   }

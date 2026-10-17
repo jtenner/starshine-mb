@@ -5,7 +5,7 @@
 ///|
 /// chooses to trust semantic assertions after structural validation.
 pub struct CompilerFactCustomSection {
-  version : UInt
+  version : UInt32
   module_fingerprint : Bytes?
   facts : OptimizationFactsSec
 } derive(Eq, Hash, Debug)
@@ -13,8 +13,8 @@ pub struct CompilerFactCustomSection {
 ///|
 pub fn CompilerFactCustomSection::new(
   facts : OptimizationFactsSec,
-  version? : UInt = 1U,
-  module_fingerprint? : Bytes? = None,
+  version~ : UInt32 = 1U,
+  module_fingerprint~ : Bytes? = None,
 ) -> CompilerFactCustomSection {
   { version, module_fingerprint, facts, }
 }
@@ -30,7 +30,7 @@ pub struct ProducerInfo {
 pub fn ProducerInfo::new(
   name : String,
   version : String,
-  build_id? : String? = None,
+  build_id~ : String? = None,
 ) -> ProducerInfo {
   { name, version, build_id, }
 }
@@ -75,8 +75,8 @@ pub fn WorldFacts::new(
 
 ///|
 pub fn WorldFacts::open_world(
-  host_can_call_exports? : Bool = true,
-  host_can_mutate_exported_state? : Bool = true,
+  host_can_call_exports~ : Bool = true,
+  host_can_mutate_exported_state~ : Bool = true,
 ) -> WorldFacts {
   WorldFacts::new(
     WorldMode::open_world(),
@@ -87,8 +87,8 @@ pub fn WorldFacts::open_world(
 
 ///|
 pub fn WorldFacts::closed_module(
-  host_can_call_exports? : Bool = true,
-  host_can_mutate_exported_state? : Bool = true,
+  host_can_call_exports~ : Bool = true,
+  host_can_mutate_exported_state~ : Bool = true,
 ) -> WorldFacts {
   WorldFacts::new(
     WorldMode::closed_module(),
@@ -99,8 +99,8 @@ pub fn WorldFacts::closed_module(
 
 ///|
 pub fn WorldFacts::closed_program(
-  host_can_call_exports? : Bool = true,
-  host_can_mutate_exported_state? : Bool = false,
+  host_can_call_exports~ : Bool = true,
+  host_can_mutate_exported_state~ : Bool = false,
 ) -> WorldFacts {
   WorldFacts::new(
     WorldMode::closed_program(),
@@ -124,15 +124,15 @@ pub struct OptimizationFactsSec {
 
 ///|
 pub fn OptimizationFactsSec::new(
-  producer? : ProducerInfo? = None,
-  world? : WorldFacts? = None,
-  functions? : Array[FunctionFacts] = [],
-  signatures? : Array[SignatureFacts] = [],
-  types? : Array[TypeFacts] = [],
-  globals? : Array[GlobalFacts] = [],
-  tables? : Array[TableFacts] = [],
-  bodies? : Array[FunctionBodyFacts] = [],
-  hints? : Array[OptimizationHint] = [],
+  producer~ : ProducerInfo? = None,
+  world~ : WorldFacts? = None,
+  functions~ : Array[FunctionFacts] = [],
+  signatures~ : Array[SignatureFacts] = [],
+  types~ : Array[TypeFacts] = [],
+  globals~ : Array[GlobalFacts] = [],
+  tables~ : Array[TableFacts] = [],
+  bodies~ : Array[FunctionBodyFacts] = [],
+  hints~ : Array[OptimizationHint] = [],
 ) -> OptimizationFactsSec {
   {
     producer,
@@ -266,23 +266,23 @@ pub fn OptimizationFactsBuilder::finish(
 
 ///|
 pub struct CodeSite {
-  function : UInt
-  offset : UInt
+  function : UInt32
+  offset : UInt32
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn CodeSite::new(function : UInt, offset : UInt) -> CodeSite {
+pub fn CodeSite::new(function : UInt32, offset : UInt32) -> CodeSite {
   { function, offset, }
 }
 
 ///|
 pub struct ValueSite {
   site : CodeSite
-  result : UInt
+  result : UInt32
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn ValueSite::new(site : CodeSite, result? : UInt = 0U) -> ValueSite {
+pub fn ValueSite::new(site : CodeSite, result~ : UInt32 = 0U) -> ValueSite {
   { site, result, }
 }
 
@@ -298,12 +298,12 @@ pub struct SourceProvenance {
 
 ///|
 pub fn SourceProvenance::new(
-  module_id? : UInt64? = None,
-  declaration_id? : UInt64? = None,
-  body_id? : UInt64? = None,
-  expression_id? : UInt64? = None,
-  source_offset? : UInt64? = None,
-  specialization_id? : UInt64? = None,
+  module_id~ : UInt64? = None,
+  declaration_id~ : UInt64? = None,
+  body_id~ : UInt64? = None,
+  expression_id~ : UInt64? = None,
+  source_offset~ : UInt64? = None,
+  specialization_id~ : UInt64? = None,
 ) -> SourceProvenance {
   {
     module_id,
@@ -344,7 +344,7 @@ pub fn IntWidth::i64() -> IntWidth {
 }
 
 ///|
-pub fn IntWidth::bit_count(self : IntWidth) -> UInt {
+pub fn IntWidth::bit_count(self : IntWidth) -> UInt32 {
   match self {
     Int8 => 8U
     Int16 => 16U
@@ -377,7 +377,7 @@ pub fn V128Bits::new(low : UInt64, high : UInt64) -> V128Bits {
 
 ///|
 pub enum FactHeapType {
-  TypeIndex(UInt)
+  TypeIndex(UInt32)
   Any
   Eq
   Struct
@@ -396,7 +396,7 @@ pub enum FactHeapType {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn FactHeapType::type_index(index : UInt) -> FactHeapType {
+pub fn FactHeapType::type_index(index : UInt32) -> FactHeapType {
   TypeIndex(index)
 }
 
@@ -476,7 +476,7 @@ pub fn FactHeapType::no_cont() -> FactHeapType {
 }
 
 ///|
-fn fact_heap_type_rank(value : FactHeapType) -> UInt {
+fn fact_heap_type_rank(value : FactHeapType) -> UInt32 {
   match value {
     TypeIndex(_) => 0U
     Any => 1U
@@ -536,12 +536,12 @@ fn normalize_heap_types(values : Array[FactHeapType]) -> Array[FactHeapType] {
 ///|
 pub enum FactValue {
   IntegerValue(IntConstant)
-  F32Bits(UInt)
+  F32Bits(UInt32)
   F64Bits(UInt64)
   V128Value(V128Bits)
   RefNullValue(FactHeapType)
-  RefFuncValue(UInt)
-  ImmutableGlobalValue(UInt)
+  RefFuncValue(UInt32)
+  ImmutableGlobalValue(UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -550,7 +550,7 @@ pub fn FactValue::integer(value : IntConstant) -> FactValue {
 }
 
 ///|
-pub fn FactValue::f32_bits(bits : UInt) -> FactValue {
+pub fn FactValue::f32_bits(bits : UInt32) -> FactValue {
   F32Bits(bits)
 }
 
@@ -570,17 +570,17 @@ pub fn FactValue::ref_null(heap : FactHeapType) -> FactValue {
 }
 
 ///|
-pub fn FactValue::ref_func(function : UInt) -> FactValue {
+pub fn FactValue::ref_func(function : UInt32) -> FactValue {
   RefFuncValue(function)
 }
 
 ///|
-pub fn FactValue::immutable_global(global : UInt) -> FactValue {
+pub fn FactValue::immutable_global(global : UInt32) -> FactValue {
   ImmutableGlobalValue(global)
 }
 
 ///|
-fn int_width_rank(width : IntWidth) -> UInt {
+fn int_width_rank(width : IntWidth) -> UInt32 {
   match width {
     Int8 => 0U
     Int16 => 1U
@@ -590,7 +590,7 @@ fn int_width_rank(width : IntWidth) -> UInt {
 }
 
 ///|
-fn fact_value_rank(value : FactValue) -> UInt {
+fn fact_value_rank(value : FactValue) -> UInt32 {
   match value {
     IntegerValue(_) => 0U
     F32Bits(_) => 1U
@@ -703,10 +703,10 @@ pub struct IntegerFacts {
 ///|
 pub fn IntegerFacts::new(
   width : IntWidth,
-  unsigned_range? : UnsignedRange? = None,
-  signed_range? : SignedRange? = None,
-  known_bits? : KnownBits? = None,
-  nonzero? : Bool = false,
+  unsigned_range~ : UnsignedRange? = None,
+  signed_range~ : SignedRange? = None,
+  known_bits~ : KnownBits? = None,
+  nonzero~ : Bool = false,
 ) -> IntegerFacts {
   { width, unsigned_range, signed_range, known_bits, nonzero, }
 }
@@ -728,15 +728,15 @@ pub fn FloatWidth::f64() -> FloatWidth {
 }
 
 ///|
-pub struct FloatClassMask(UInt) derive(Eq, Hash, Debug)
+pub struct FloatClassMask(UInt32) derive(Eq, Hash, Debug)
 
 ///|
-pub fn FloatClassMask::from_bits(bits : UInt) -> FloatClassMask {
+pub fn FloatClassMask::from_bits(bits : UInt32) -> FloatClassMask {
   FloatClassMask(bits)
 }
 
 ///|
-pub fn FloatClassMask::bits(self : FloatClassMask) -> UInt {
+pub fn FloatClassMask::bits(self : FloatClassMask) -> UInt32 {
   self.0
 }
 
@@ -884,9 +884,9 @@ pub struct ReferenceFacts {
 
 ///|
 pub fn ReferenceFacts::new(
-  nullability? : NullabilityFacts? = None,
-  heap? : HeapDomain? = None,
-  function_targets? : ClosedFunctionSet? = None,
+  nullability~ : NullabilityFacts? = None,
+  heap~ : HeapDomain? = None,
+  function_targets~ : ClosedFunctionSet? = None,
 ) -> ReferenceFacts {
   { nullability, heap, function_targets, }
 }
@@ -954,9 +954,9 @@ pub struct VectorFacts {
 
 ///|
 pub fn VectorFacts::new(
-  known_bits? : KnownV128Bits? = None,
-  splat? : FactValue? = None,
-  lane_shape? : VectorLaneShape? = None,
+  known_bits~ : KnownV128Bits? = None,
+  splat~ : FactValue? = None,
+  lane_shape~ : VectorLaneShape? = None,
 ) -> VectorFacts {
   { known_bits, splat, lane_shape, }
 }
@@ -972,11 +972,11 @@ pub struct ValueFacts {
 
 ///|
 pub fn ValueFacts::new(
-  possible_values? : ClosedValueSet? = None,
-  integer? : IntegerFacts? = None,
-  float_? : FloatFacts? = None,
-  vector? : VectorFacts? = None,
-  reference? : ReferenceFacts? = None,
+  possible_values~ : ClosedValueSet? = None,
+  integer~ : IntegerFacts? = None,
+  float_~ : FloatFacts? = None,
+  vector~ : VectorFacts? = None,
+  reference~ : ReferenceFacts? = None,
 ) -> ValueFacts {
   { possible_values, integer, float_, vector, reference, }
 }
@@ -1000,7 +1000,7 @@ pub fn ValueFacts::exact_value(value : FactValue) -> ValueFacts {
 pub fn ValueFacts::unsigned_range(
   min : UInt64,
   max : UInt64,
-  width? : IntWidth = IntWidth::i64(),
+  width~ : IntWidth = IntWidth::i64(),
 ) -> ValueFacts {
   ValueFacts::new(
     integer=Some(
@@ -1016,7 +1016,7 @@ pub fn ValueFacts::unsigned_range(
 pub fn ValueFacts::signed_range(
   min : Int64,
   max : Int64,
-  width? : IntWidth = IntWidth::i64(),
+  width~ : IntWidth = IntWidth::i64(),
 ) -> ValueFacts {
   ValueFacts::new(
     integer=Some(
@@ -1047,7 +1047,7 @@ pub fn ValueFacts::nonnull_exact_ref(heap : FactHeapType) -> ValueFacts {
 }
 
 ///|
-pub fn ValueFacts::exact_ref_func(function : UInt) -> ValueFacts {
+pub fn ValueFacts::exact_ref_func(function : UInt32) -> ValueFacts {
   ValueFacts::new(
     possible_values=Some(ClosedValueSet::new([FactValue::ref_func(function)])),
     reference=Some(
@@ -1062,25 +1062,25 @@ pub fn ValueFacts::exact_ref_func(function : UInt) -> ValueFacts {
 
 ///|
 pub struct ParameterRef {
-  function : UInt
-  parameter : UInt
+  function : UInt32
+  parameter : UInt32
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn ParameterRef::new(function : UInt, parameter : UInt) -> ParameterRef {
+pub fn ParameterRef::new(function : UInt32, parameter : UInt32) -> ParameterRef {
   { function, parameter, }
 }
 
 ///|
 pub struct FunctionResultRef {
-  function : UInt
-  result : UInt
+  function : UInt32
+  result : UInt32
 } derive(Eq, Hash, Debug)
 
 ///|
 pub fn FunctionResultRef::new(
-  function : UInt,
-  result : UInt,
+  function : UInt32,
+  result : UInt32,
 ) -> FunctionResultRef {
   { function, result, }
 }
@@ -1090,7 +1090,7 @@ pub enum ValueRef {
   SiteValue(ValueSite)
   ParameterValue(ParameterRef)
   FunctionResultValue(FunctionResultRef)
-  GlobalValue(UInt)
+  GlobalValue(UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -1109,24 +1109,24 @@ pub fn ValueRef::function_result(result : FunctionResultRef) -> ValueRef {
 }
 
 ///|
-pub fn ValueRef::global(global : UInt) -> ValueRef {
+pub fn ValueRef::global(global : UInt32) -> ValueRef {
   GlobalValue(global)
 }
 
 ///|
 pub enum AliasSource {
-  ParameterAlias(UInt)
-  GlobalAlias(UInt)
+  ParameterAlias(UInt32)
+  GlobalAlias(UInt32)
   SiteAlias(ValueSite)
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn AliasSource::parameter(parameter : UInt) -> AliasSource {
+pub fn AliasSource::parameter(parameter : UInt32) -> AliasSource {
   ParameterAlias(parameter)
 }
 
 ///|
-pub fn AliasSource::global(global : UInt) -> AliasSource {
+pub fn AliasSource::global(global : UInt32) -> AliasSource {
   GlobalAlias(global)
 }
 
@@ -1136,7 +1136,7 @@ pub fn AliasSource::site(site : ValueSite) -> AliasSource {
 }
 
 ///|
-fn alias_source_rank(value : AliasSource) -> UInt {
+fn alias_source_rank(value : AliasSource) -> UInt32 {
   match value {
     ParameterAlias(_) => 0U
     GlobalAlias(_) => 1U
@@ -1206,14 +1206,14 @@ pub fn ResultIdentityFacts::fresh() -> ResultIdentityFacts {
 
 ///|
 pub fn ResultIdentityFacts::same_as_parameter(
-  parameter : UInt,
+  parameter : UInt32,
 ) -> ResultIdentityFacts {
   ClosedAliases(ClosedAliasSet::new([AliasSource::parameter(parameter)]))
 }
 
 ///|
 pub fn ResultIdentityFacts::same_as_global(
-  global : UInt,
+  global : UInt32,
 ) -> ResultIdentityFacts {
   ClosedAliases(ClosedAliasSet::new([AliasSource::global(global)]))
 }
@@ -1227,7 +1227,7 @@ pub fn ResultIdentityFacts::closed_aliases(
 
 ///|
 pub struct ParameterFacts {
-  parameter : UInt
+  parameter : UInt32
   value : ValueFacts?
   uses : ParameterUseMask?
   escape_sinks : EscapeSinkMask?
@@ -1235,26 +1235,26 @@ pub struct ParameterFacts {
 
 ///|
 pub fn ParameterFacts::new(
-  parameter : UInt,
-  value? : ValueFacts? = None,
-  uses? : ParameterUseMask? = None,
-  escape_sinks? : EscapeSinkMask? = None,
+  parameter : UInt32,
+  value~ : ValueFacts? = None,
+  uses~ : ParameterUseMask? = None,
+  escape_sinks~ : EscapeSinkMask? = None,
 ) -> ParameterFacts {
   { parameter, value, uses, escape_sinks, }
 }
 
 ///|
 pub struct ResultFacts {
-  result : UInt
+  result : UInt32
   value : ValueFacts?
   identity : ResultIdentityFacts?
 } derive(Eq, Hash, Debug)
 
 ///|
 pub fn ResultFacts::new(
-  result : UInt,
-  value? : ValueFacts? = None,
-  identity? : ResultIdentityFacts? = None,
+  result : UInt32,
+  value~ : ValueFacts? = None,
+  identity~ : ResultIdentityFacts? = None,
 ) -> ResultFacts {
   { result, value, identity, }
 }
@@ -1622,10 +1622,10 @@ pub fn EffectMask::control() -> EffectMask {
 }
 
 ///|
-fn normalize_uint_set(values : Array[UInt]) -> Array[UInt] {
+fn normalize_uint_set(values : Array[UInt32]) -> Array[UInt32] {
   let sorted = values.copy()
   sorted.sort()
-  let out : Array[UInt] = []
+  let out : Array[UInt32] = []
   for value in sorted {
     if out.is_empty() || out[out.length() - 1] != value {
       out.push(value)
@@ -1635,42 +1635,42 @@ fn normalize_uint_set(values : Array[UInt]) -> Array[UInt] {
 }
 
 ///|
-pub struct ClosedGlobalSet(Array[UInt]) derive(Eq, Hash, Debug)
+pub struct ClosedGlobalSet(Array[UInt32]) derive(Eq, Hash, Debug)
 
 ///|
-pub fn ClosedGlobalSet::new(values : Array[UInt]) -> ClosedGlobalSet {
+pub fn ClosedGlobalSet::new(values : Array[UInt32]) -> ClosedGlobalSet {
   ClosedGlobalSet(normalize_uint_set(values))
 }
 
 ///|
-pub struct ClosedMemorySet(Array[UInt]) derive(Eq, Hash, Debug)
+pub struct ClosedMemorySet(Array[UInt32]) derive(Eq, Hash, Debug)
 
 ///|
-pub fn ClosedMemorySet::new(values : Array[UInt]) -> ClosedMemorySet {
+pub fn ClosedMemorySet::new(values : Array[UInt32]) -> ClosedMemorySet {
   ClosedMemorySet(normalize_uint_set(values))
 }
 
 ///|
-pub struct ClosedTableSet(Array[UInt]) derive(Eq, Hash, Debug)
+pub struct ClosedTableSet(Array[UInt32]) derive(Eq, Hash, Debug)
 
 ///|
-pub fn ClosedTableSet::new(values : Array[UInt]) -> ClosedTableSet {
+pub fn ClosedTableSet::new(values : Array[UInt32]) -> ClosedTableSet {
   ClosedTableSet(normalize_uint_set(values))
 }
 
 ///|
-pub struct ClosedTypeViewSet(Array[UInt]) derive(Eq, Hash, Debug)
+pub struct ClosedTypeViewSet(Array[UInt32]) derive(Eq, Hash, Debug)
 
 ///|
-pub fn ClosedTypeViewSet::new(values : Array[UInt]) -> ClosedTypeViewSet {
+pub fn ClosedTypeViewSet::new(values : Array[UInt32]) -> ClosedTypeViewSet {
   ClosedTypeViewSet(normalize_uint_set(values))
 }
 
 ///|
-pub struct ClosedFunctionSet(Array[UInt]) derive(Eq, Hash, Debug)
+pub struct ClosedFunctionSet(Array[UInt32]) derive(Eq, Hash, Debug)
 
 ///|
-pub fn ClosedFunctionSet::new(values : Array[UInt]) -> ClosedFunctionSet {
+pub fn ClosedFunctionSet::new(values : Array[UInt32]) -> ClosedFunctionSet {
   ClosedFunctionSet(normalize_uint_set(values))
 }
 
@@ -1691,15 +1691,15 @@ pub struct EffectFacts {
 ///|
 pub fn EffectFacts::new(
   may : EffectMask,
-  read_globals? : ClosedGlobalSet? = None,
-  written_globals? : ClosedGlobalSet? = None,
-  read_memories? : ClosedMemorySet? = None,
-  written_memories? : ClosedMemorySet? = None,
-  read_tables? : ClosedTableSet? = None,
-  written_tables? : ClosedTableSet? = None,
-  read_heap_types? : ClosedTypeViewSet? = None,
-  written_heap_types? : ClosedTypeViewSet? = None,
-  direct_callees? : ClosedFunctionSet? = None,
+  read_globals~ : ClosedGlobalSet? = None,
+  written_globals~ : ClosedGlobalSet? = None,
+  read_memories~ : ClosedMemorySet? = None,
+  written_memories~ : ClosedMemorySet? = None,
+  read_tables~ : ClosedTableSet? = None,
+  written_tables~ : ClosedTableSet? = None,
+  read_heap_types~ : ClosedTypeViewSet? = None,
+  written_heap_types~ : ClosedTypeViewSet? = None,
+  direct_callees~ : ClosedFunctionSet? = None,
 ) -> EffectFacts {
   {
     may,
@@ -1739,8 +1739,8 @@ pub struct FunctionProfile {
 
 ///|
 pub fn FunctionProfile::new(
-  entry_count? : UInt64? = None,
-  temperature? : TemperatureHint? = None,
+  entry_count~ : UInt64? = None,
+  temperature~ : TemperatureHint? = None,
 ) -> FunctionProfile {
   { entry_count, temperature, }
 }
@@ -1753,8 +1753,8 @@ pub struct CallProfile {
 
 ///|
 pub fn CallProfile::new(
-  count? : UInt64? = None,
-  temperature? : TemperatureHint? = None,
+  count~ : UInt64? = None,
+  temperature~ : TemperatureHint? = None,
 ) -> CallProfile {
   { count, temperature, }
 }
@@ -1778,8 +1778,8 @@ pub struct LoopProfile {
 
 ///|
 pub fn LoopProfile::new(
-  backedge_count? : UInt64? = None,
-  estimated_trip_count? : UInt64? = None,
+  backedge_count~ : UInt64? = None,
+  estimated_trip_count~ : UInt64? = None,
 ) -> LoopProfile {
   { backedge_count, estimated_trip_count, }
 }
@@ -1837,7 +1837,7 @@ pub fn InlinePolicy::always() -> InlinePolicy {
 
 ///|
 pub struct FunctionFacts {
-  function : UInt
+  function : UInt32
   effects : EffectFacts?
   parameters : Array[ParameterFacts]
   results : Array[ResultFacts]
@@ -1848,26 +1848,26 @@ pub struct FunctionFacts {
 
 ///|
 pub fn FunctionFacts::new(
-  function : UInt,
-  effects? : EffectFacts? = None,
-  parameters? : Array[ParameterFacts] = [],
-  results? : Array[ResultFacts] = [],
-  boundary? : FunctionBoundaryFacts? = None,
-  profile? : FunctionProfile? = None,
-  inline_policy? : InlinePolicy? = None,
+  function : UInt32,
+  effects~ : EffectFacts? = None,
+  parameters~ : Array[ParameterFacts] = [],
+  results~ : Array[ResultFacts] = [],
+  boundary~ : FunctionBoundaryFacts? = None,
+  profile~ : FunctionProfile? = None,
+  inline_policy~ : InlinePolicy? = None,
 ) -> FunctionFacts {
   { function, effects, parameters, results, boundary, profile, inline_policy, }
 }
 
 ///|
 pub struct IndexedValueFacts {
-  index : UInt
+  index : UInt32
   value : ValueFacts
 } derive(Eq, Hash, Debug)
 
 ///|
 pub fn IndexedValueFacts::new(
-  index : UInt,
+  index : UInt32,
   value : ValueFacts,
 ) -> IndexedValueFacts {
   { index, value, }
@@ -1875,7 +1875,7 @@ pub fn IndexedValueFacts::new(
 
 ///|
 pub struct SignatureFacts {
-  signature : UInt
+  signature : UInt32
   parameters : Array[IndexedValueFacts]
   results : Array[IndexedValueFacts]
   call_sites_complete : Bool
@@ -1883,27 +1883,27 @@ pub struct SignatureFacts {
 
 ///|
 pub fn SignatureFacts::new(
-  signature : UInt,
-  parameters? : Array[IndexedValueFacts] = [],
-  results? : Array[IndexedValueFacts] = [],
-  call_sites_complete? : Bool = false,
+  signature : UInt32,
+  parameters~ : Array[IndexedValueFacts] = [],
+  results~ : Array[IndexedValueFacts] = [],
+  call_sites_complete~ : Bool = false,
 ) -> SignatureFacts {
   { signature, parameters, results, call_sites_complete, }
 }
 
 ///|
 pub enum TypeView {
-  ExactTypeView(UInt)
-  SubtypeClosureView(UInt)
+  ExactTypeView(UInt32)
+  SubtypeClosureView(UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn TypeView::exact(type_ : UInt) -> TypeView {
+pub fn TypeView::exact(type_ : UInt32) -> TypeView {
   ExactTypeView(type_)
 }
 
 ///|
-pub fn TypeView::subtype_closure(type_ : UInt) -> TypeView {
+pub fn TypeView::subtype_closure(type_ : UInt32) -> TypeView {
   SubtypeClosureView(type_)
 }
 
@@ -1982,8 +1982,8 @@ pub struct FieldUsageFacts {
 
 ///|
 pub fn FieldUsageFacts::new(
-  never_read? : Bool = false,
-  never_written_after_initialization? : Bool = false,
+  never_read~ : Bool = false,
+  never_written_after_initialization~ : Bool = false,
 ) -> FieldUsageFacts {
   { never_read, never_written_after_initialization, }
 }
@@ -1991,7 +1991,7 @@ pub fn FieldUsageFacts::new(
 ///|
 pub struct FieldFacts {
   view : TypeView
-  field : UInt
+  field : UInt32
   stored_contents : ValueFacts?
   writes : WriteFacts?
   usage : FieldUsageFacts?
@@ -2000,10 +2000,10 @@ pub struct FieldFacts {
 ///|
 pub fn FieldFacts::new(
   view : TypeView,
-  field : UInt,
-  stored_contents? : ValueFacts? = None,
-  writes? : WriteFacts? = None,
-  usage? : FieldUsageFacts? = None,
+  field : UInt32,
+  stored_contents~ : ValueFacts? = None,
+  writes~ : WriteFacts? = None,
+  usage~ : FieldUsageFacts? = None,
 ) -> FieldFacts {
   { view, field, stored_contents, writes, usage, }
 }
@@ -2018,15 +2018,15 @@ pub struct ArrayElementFacts {
 ///|
 pub fn ArrayElementFacts::new(
   view : TypeView,
-  stored_contents? : ValueFacts? = None,
-  writes? : WriteFacts? = None,
+  stored_contents~ : ValueFacts? = None,
+  writes~ : WriteFacts? = None,
 ) -> ArrayElementFacts {
   { view, stored_contents, writes, }
 }
 
 ///|
 pub struct TypeFacts {
-  type_ : UInt
+  type_ : UInt32
   population : TypePopulation?
   fields : Array[FieldFacts]
   array_element : ArrayElementFacts?
@@ -2034,10 +2034,10 @@ pub struct TypeFacts {
 
 ///|
 pub fn TypeFacts::new(
-  type_ : UInt,
-  population? : TypePopulation? = None,
-  fields? : Array[FieldFacts] = [],
-  array_element? : ArrayElementFacts? = None,
+  type_ : UInt32,
+  population~ : TypePopulation? = None,
+  fields~ : Array[FieldFacts] = [],
+  array_element~ : ArrayElementFacts? = None,
 ) -> TypeFacts {
   { type_, population, fields, array_element, }
 }
@@ -2073,7 +2073,7 @@ pub struct MutationFacts {
 ///|
 pub fn MutationFacts::new(
   latest_phase : MutationPhase,
-  sites? : Array[CodeSite]? = None,
+  sites~ : Array[CodeSite]? = None,
 ) -> MutationFacts {
   {
     latest_phase,
@@ -2086,7 +2086,7 @@ pub fn MutationFacts::new(
 
 ///|
 pub struct GlobalFacts {
-  global : UInt
+  global : UInt32
   initial_value : ValueFacts?
   steady_state_value : ValueFacts?
   mutation : MutationFacts?
@@ -2094,10 +2094,10 @@ pub struct GlobalFacts {
 
 ///|
 pub fn GlobalFacts::new(
-  global : UInt,
-  initial_value? : ValueFacts? = None,
-  steady_state_value? : ValueFacts? = None,
-  mutation? : MutationFacts? = None,
+  global : UInt32,
+  initial_value~ : ValueFacts? = None,
+  steady_state_value~ : ValueFacts? = None,
+  mutation~ : MutationFacts? = None,
 ) -> GlobalFacts {
   { global, initial_value, steady_state_value, mutation, }
 }
@@ -2139,7 +2139,7 @@ fn normalize_table_entries(
 
 ///|
 pub struct TableFacts {
-  table : UInt
+  table : UInt32
   mutation : MutationFacts?
   may_grow : Bool?
   default_value : ReferenceFacts?
@@ -2149,12 +2149,12 @@ pub struct TableFacts {
 
 ///|
 pub fn TableFacts::new(
-  table : UInt,
-  mutation? : MutationFacts? = None,
-  may_grow? : Bool? = None,
-  default_value? : ReferenceFacts? = None,
-  entries? : Array[TableEntryFacts] = [],
-  contents_complete? : Bool = false,
+  table : UInt32,
+  mutation~ : MutationFacts? = None,
+  may_grow~ : Bool? = None,
+  default_value~ : ReferenceFacts? = None,
+  entries~ : Array[TableEntryFacts] = [],
+  contents_complete~ : Bool = false,
 ) -> TableFacts {
   {
     table,
@@ -2168,50 +2168,50 @@ pub fn TableFacts::new(
 
 ///|
 pub enum AllocationKind {
-  StructAllocation(UInt)
-  ArrayAllocation(UInt)
-  ClosureAllocation(UInt)
-  BoxAllocation(UInt)
-  OtherGcAllocation(UInt)
+  StructAllocation(UInt32)
+  ArrayAllocation(UInt32)
+  ClosureAllocation(UInt32)
+  BoxAllocation(UInt32)
+  OtherGcAllocation(UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn AllocationKind::struct_(type_ : UInt) -> AllocationKind {
+pub fn AllocationKind::struct_(type_ : UInt32) -> AllocationKind {
   StructAllocation(type_)
 }
 
 ///|
-pub fn AllocationKind::array(type_ : UInt) -> AllocationKind {
+pub fn AllocationKind::array(type_ : UInt32) -> AllocationKind {
   ArrayAllocation(type_)
 }
 
 ///|
-pub fn AllocationKind::closure(type_ : UInt) -> AllocationKind {
+pub fn AllocationKind::closure(type_ : UInt32) -> AllocationKind {
   ClosureAllocation(type_)
 }
 
 ///|
-pub fn AllocationKind::box(type_ : UInt) -> AllocationKind {
+pub fn AllocationKind::box(type_ : UInt32) -> AllocationKind {
   BoxAllocation(type_)
 }
 
 ///|
-pub fn AllocationKind::other_gc(type_ : UInt) -> AllocationKind {
+pub fn AllocationKind::other_gc(type_ : UInt32) -> AllocationKind {
   OtherGcAllocation(type_)
 }
 
 ///|
 pub struct AllocationFieldFacts {
-  field : UInt
+  field : UInt32
   no_post_init_writes : Bool
   stored_value : ValueFacts?
 } derive(Eq, Hash, Debug)
 
 ///|
 pub fn AllocationFieldFacts::new(
-  field : UInt,
-  no_post_init_writes? : Bool = false,
-  stored_value? : ValueFacts? = None,
+  field : UInt32,
+  no_post_init_writes~ : Bool = false,
+  stored_value~ : ValueFacts? = None,
 ) -> AllocationFieldFacts {
   { field, no_post_init_writes, stored_value, }
 }
@@ -2229,11 +2229,11 @@ pub struct AllocationFacts {
 ///|
 pub fn AllocationFacts::new(
   kind : AllocationKind,
-  escape_sinks? : EscapeSinkMask? = None,
-  identity_unobserved? : Bool = false,
-  thread_confined? : Bool = false,
-  length? : IntegerFacts? = None,
-  fields? : Array[AllocationFieldFacts] = [],
+  escape_sinks~ : EscapeSinkMask? = None,
+  identity_unobserved~ : Bool = false,
+  thread_confined~ : Bool = false,
+  length~ : IntegerFacts? = None,
+  fields~ : Array[AllocationFieldFacts] = [],
 ) -> AllocationFacts {
   { kind, escape_sinks, identity_unobserved, thread_confined, length, fields, }
 }
@@ -2249,7 +2249,7 @@ pub struct AllocationSiteFacts {
 pub fn AllocationSiteFacts::new(
   site : ValueSite,
   facts : AllocationFacts,
-  provenance? : SourceProvenance? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> AllocationSiteFacts {
   { site, facts, provenance, }
 }
@@ -2257,13 +2257,13 @@ pub fn AllocationSiteFacts::new(
 ///|
 pub struct AccessFacts {
   in_bounds : Bool
-  alignment_log2 : UInt?
+  alignment_log2 : UInt32?
 } derive(Eq, Hash, Debug)
 
 ///|
 pub fn AccessFacts::new(
-  in_bounds? : Bool = false,
-  alignment_log2? : UInt? = None,
+  in_bounds~ : Bool = false,
+  alignment_log2~ : UInt32? = None,
 ) -> AccessFacts {
   { in_bounds, alignment_log2, }
 }
@@ -2279,7 +2279,7 @@ pub struct AccessSiteFacts {
 pub fn AccessSiteFacts::new(
   site : CodeSite,
   facts : AccessFacts,
-  provenance? : SourceProvenance? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> AccessSiteFacts {
   { site, facts, provenance, }
 }
@@ -2293,9 +2293,9 @@ pub struct NumericOperationFacts {
 
 ///|
 pub fn NumericOperationFacts::new(
-  signed_no_wrap? : Bool = false,
-  unsigned_no_wrap? : Bool = false,
-  exact_division? : Bool = false,
+  signed_no_wrap~ : Bool = false,
+  unsigned_no_wrap~ : Bool = false,
+  exact_division~ : Bool = false,
 ) -> NumericOperationFacts {
   { signed_no_wrap, unsigned_no_wrap, exact_division, }
 }
@@ -2311,7 +2311,7 @@ pub struct NumericOperationSiteFacts {
 pub fn NumericOperationSiteFacts::new(
   site : ValueSite,
   facts : NumericOperationFacts,
-  provenance? : SourceProvenance? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> NumericOperationSiteFacts {
   { site, facts, provenance, }
 }
@@ -2413,7 +2413,7 @@ pub struct ExpressionFact {
 pub fn ExpressionFact::new(
   value : ValueSite,
   facts : ValueFacts,
-  provenance? : SourceProvenance? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> ExpressionFact {
   { value, facts, provenance, }
 }
@@ -2421,7 +2421,7 @@ pub fn ExpressionFact::new(
 ///|
 pub struct CallSiteFacts {
   site : CodeSite
-  direct_target : UInt?
+  direct_target : UInt32?
   profile : CallProfile?
   inline_policy : InlinePolicy?
   provenance : SourceProvenance?
@@ -2430,10 +2430,10 @@ pub struct CallSiteFacts {
 ///|
 pub fn CallSiteFacts::new(
   site : CodeSite,
-  direct_target? : UInt? = None,
-  profile? : CallProfile? = None,
-  inline_policy? : InlinePolicy? = None,
-  provenance? : SourceProvenance? = None,
+  direct_target~ : UInt32? = None,
+  profile~ : CallProfile? = None,
+  inline_policy~ : InlinePolicy? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> CallSiteFacts {
   { site, direct_target, profile, inline_policy, provenance, }
 }
@@ -2449,9 +2449,9 @@ pub struct BranchFacts {
 ///|
 pub fn BranchFacts::new(
   site : CodeSite,
-  profile? : BranchProfile? = None,
-  temperature? : TemperatureHint? = None,
-  provenance? : SourceProvenance? = None,
+  profile~ : BranchProfile? = None,
+  temperature~ : TemperatureHint? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> BranchFacts {
   { site, profile, temperature, provenance, }
 }
@@ -2467,16 +2467,16 @@ pub struct LoopFacts {
 ///|
 pub fn LoopFacts::new(
   site : CodeSite,
-  profile? : LoopProfile? = None,
-  temperature? : TemperatureHint? = None,
-  provenance? : SourceProvenance? = None,
+  profile~ : LoopProfile? = None,
+  temperature~ : TemperatureHint? = None,
+  provenance~ : SourceProvenance? = None,
 ) -> LoopFacts {
   { site, profile, temperature, provenance, }
 }
 
 ///|
 pub struct FunctionBodyFacts {
-  function : UInt
+  function : UInt32
   sites : Array[ExpressionFact]
   relations : Array[ScopedRelationFacts]
   calls : Array[CallSiteFacts]
@@ -2489,15 +2489,15 @@ pub struct FunctionBodyFacts {
 
 ///|
 pub fn FunctionBodyFacts::new(
-  function : UInt,
-  sites? : Array[ExpressionFact] = [],
-  relations? : Array[ScopedRelationFacts] = [],
-  calls? : Array[CallSiteFacts] = [],
-  branches? : Array[BranchFacts] = [],
-  loops? : Array[LoopFacts] = [],
-  allocations? : Array[AllocationSiteFacts] = [],
-  accesses? : Array[AccessSiteFacts] = [],
-  numeric_operations? : Array[NumericOperationSiteFacts] = [],
+  function : UInt32,
+  sites~ : Array[ExpressionFact] = [],
+  relations~ : Array[ScopedRelationFacts] = [],
+  calls~ : Array[CallSiteFacts] = [],
+  branches~ : Array[BranchFacts] = [],
+  loops~ : Array[LoopFacts] = [],
+  allocations~ : Array[AllocationSiteFacts] = [],
+  accesses~ : Array[AccessSiteFacts] = [],
+  numeric_operations~ : Array[NumericOperationSiteFacts] = [],
 ) -> FunctionBodyFacts {
   {
     function,
@@ -2536,12 +2536,12 @@ pub fn OptimizationGoal::prefer_size() -> OptimizationGoal {
 
 ///|
 pub enum HintTarget {
-  FunctionHintTarget(UInt)
+  FunctionHintTarget(UInt32)
   SiteHintTarget(CodeSite)
 } derive(Eq, Hash, Debug)
 
 ///|
-pub fn HintTarget::function(function : UInt) -> HintTarget {
+pub fn HintTarget::function(function : UInt32) -> HintTarget {
   FunctionHintTarget(function)
 }
 
@@ -2556,10 +2556,10 @@ pub enum OptimizationHint {
   HotnessHint(HintTarget, TemperatureHint)
   InlineHint(HintTarget, InlinePolicy)
   GoalHint(HintTarget, OptimizationGoal)
-  BranchProbabilityHint(CodeSite, UInt)
+  BranchProbabilityHint(CodeSite, UInt32)
   EstimatedLoopTripsHint(CodeSite, UInt64)
-  LikelyCallTargetHint(CodeSite, UInt, UInt)
-  LikelyHeapTypeHint(ValueSite, FactHeapType, UInt)
+  LikelyCallTargetHint(CodeSite, UInt32, UInt32)
+  LikelyHeapTypeHint(ValueSite, FactHeapType, UInt32)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -2589,7 +2589,7 @@ pub fn OptimizationHint::goal(
 ///|
 pub fn OptimizationHint::branch_probability(
   site : CodeSite,
-  probability : UInt,
+  probability : UInt32,
 ) -> OptimizationHint {
   BranchProbabilityHint(site, probability)
 }
@@ -2605,8 +2605,8 @@ pub fn OptimizationHint::estimated_loop_trips(
 ///|
 pub fn OptimizationHint::likely_call_target(
   site : CodeSite,
-  function : UInt,
-  confidence : UInt,
+  function : UInt32,
+  confidence : UInt32,
 ) -> OptimizationHint {
   LikelyCallTargetHint(site, function, confidence)
 }
@@ -2615,7 +2615,7 @@ pub fn OptimizationHint::likely_call_target(
 pub fn OptimizationHint::likely_heap_type(
   site : ValueSite,
   type_ : FactHeapType,
-  confidence : UInt,
+  confidence : UInt32,
 ) -> OptimizationHint {
   LikelyHeapTypeHint(site, type_, confidence)
 }

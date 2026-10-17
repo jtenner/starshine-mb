@@ -1,8 +1,8 @@
 ///|
 fn encoded_type_remap_bench(
   it : @bench.T,
-  count : Int,
-  width : Int,
+  count : Int32,
+  width : Int32,
   changed : Bool,
 ) -> Unit {
   let before = Array::makei(count, fn(_) {

@@ -1,7 +1,7 @@
 ///|
 fn[T : Encode] compiler_fact_encoded_length(
   value : T,
-) -> Result[Int, BinaryEncodeError] {
+) -> Result[Int32, BinaryEncodeError] {
   let buf = @buffer.new()
   match Encode::encode(value, buf) {
     Ok(_) => Ok(buf.to_bytes().length())
@@ -12,8 +12,8 @@ fn[T : Encode] compiler_fact_encoded_length(
 ///|
 fn compiler_fact_collect_opcode_offsets(
   instructions : Array[Instruction],
-  offsets : Array[UInt],
-  cursor : Ref[Int],
+  offsets : Array[UInt32],
+  cursor : Ref[Int32],
 ) -> Result[Unit, BinaryEncodeError] {
   for instruction in instructions {
     offsets.push(cursor.val.reinterpret_as_uint())
@@ -162,11 +162,11 @@ fn compiler_fact_collect_opcode_offsets(
 /// are not instruction sites.
 pub fn compiler_fact_opcode_offsets(
   expression : Expr,
-  stringrefs? : Array[Bytes]? = None,
-) -> Result[Array[UInt], BinaryEncodeError] {
+  stringrefs~ : Array[Bytes]? = None,
+) -> Result[Array[UInt32], BinaryEncodeError] {
   with_binary_encode_stringrefs_context(stringrefs, fn() {
     let Expr(instructions) = expression
-    let offsets : Array[UInt] = []
+    let offsets : Array[UInt32] = []
     let cursor = Ref::new(0)
     match compiler_fact_collect_opcode_offsets(instructions, offsets, cursor) {
       Ok(_) => Ok(offsets)
@@ -212,8 +212,8 @@ fn compiler_fact_collect_instructions(
 /// Delimiters remain excluded, and offsets come only from the production encoder.
 pub fn compiler_fact_opcode_sites(
   expression : Expr,
-  stringrefs? : Array[Bytes]? = None,
-) -> Result[Array[(UInt, Instruction)], BinaryEncodeError] {
+  stringrefs~ : Array[Bytes]? = None,
+) -> Result[Array[(UInt32, Instruction)], BinaryEncodeError] {
   let offsets = match compiler_fact_opcode_offsets(expression, stringrefs~) {
     Ok(offsets) => offsets
     Err(err) => return Err(err)
@@ -224,7 +224,7 @@ pub fn compiler_fact_opcode_sites(
   if offsets.length() != flattened.length() {
     return Err(BinaryEncodeError::InvalidLegacyTryShape)
   }
-  let sites : Array[(UInt, Instruction)] = []
+  let sites : Array[(UInt32, Instruction)] = []
   for i = 0; i < offsets.length(); i = i + 1 {
     sites.push((offsets[i], flattened[i]))
   }
@@ -236,7 +236,7 @@ pub fn compiler_fact_opcode_sites(
 /// using the same synthesized string-reference pool as module encoding.
 pub fn compiler_fact_module_opcode_offsets(
   module_ : Module,
-) -> Result[Array[Array[UInt]], BinaryEncodeError] {
+) -> Result[Array[Array[UInt32]], BinaryEncodeError] {
   let string_pool = encode_module_stringrefs_pool(module_)
   let stringrefs = string_pool.values
   let context = if stringrefs.is_empty() { None } else { Some(stringrefs) }
@@ -247,10 +247,10 @@ pub fn compiler_fact_module_opcode_offsets(
         Some(CodeSec(functions)) => functions
         None => []
       }
-      let indexed : Array[Array[UInt]] = []
+      let indexed : Array[Array[UInt32]] = []
       for function in functions {
         let Func(_, Expr(instructions)) = function
-        let offsets : Array[UInt] = []
+        let offsets : Array[UInt32] = []
         let cursor = Ref::new(0)
         match
           compiler_fact_collect_opcode_offsets(instructions, offsets, cursor) {
@@ -268,14 +268,14 @@ pub fn compiler_fact_module_opcode_offsets(
 /// Return canonical `(offset, instruction)` maps for every defined function.
 pub fn compiler_fact_module_opcode_sites(
   module_ : Module,
-) -> Result[Array[Array[(UInt, Instruction)]], BinaryEncodeError] {
+) -> Result[Array[Array[(UInt32, Instruction)]], BinaryEncodeError] {
   let stringrefs = encode_module_stringrefs(module_)
   let context = if stringrefs.is_empty() { None } else { Some(stringrefs) }
   let functions = match module_.code_sec {
     Some(CodeSec(functions)) => functions
     None => []
   }
-  let indexed : Array[Array[(UInt, Instruction)]] = []
+  let indexed : Array[Array[(UInt32, Instruction)]] = []
   for function in functions {
     let Func(_, expression) = function
     match compiler_fact_opcode_sites(expression, stringrefs=context) {

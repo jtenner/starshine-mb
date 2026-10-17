@@ -11,7 +11,7 @@ test "multibyte array memarg decodes type index before offset" {
       0xac,
       0x02,
     ])
-    let (instr, next) : (Instruction, Int) = Decode::decode(bytes, 0).unwrap()
+    let (instr, next) : (Instruction, Int32) = Decode::decode(bytes, 0).unwrap()
     assert_eq(next, bytes.length())
     match instr {
       ArrayLoad(_, TypeIdx(129U), MemArg(U32(2U), None, U64(300UL)))
@@ -54,7 +54,7 @@ test "multibyte array memarg encodes exact proposal bytes" {
 ///|
 test "linear memory memargs keep offset after flags or memory index" {
   for bytes in [b"\x28\x02\xac\x02", b"\x28\x42\x81\x01\xac\x02"] {
-    let (instr, next) : (Instruction, Int) = Decode::decode(bytes, 0).unwrap()
+    let (instr, next) : (Instruction, Int32) = Decode::decode(bytes, 0).unwrap()
     assert_eq(next, bytes.length())
     let buf = @buffer.new()
     Encode::encode(instr, buf).unwrap()

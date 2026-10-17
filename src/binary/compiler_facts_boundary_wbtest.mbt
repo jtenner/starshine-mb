@@ -7,7 +7,7 @@ fn[T : Encode + Decode + Eq + @debug.Debug] compiler_facts_test_truncations(
   compiler_facts_test_roundtrip(value)
   let bytes = compiler_facts_test_encode(value)
   for end in 0..<bytes.length() {
-    let result : Result[(T, Int), BinaryDecodeError] = Decode::decode(
+    let result : Result[(T, Int32), BinaryDecodeError] = Decode::decode(
       bytes[:end].to_owned(),
       0,
     )

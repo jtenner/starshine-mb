@@ -15,7 +15,7 @@ fn encode_leaf_boxed_sequence(
 ///|
 fn encode_leaf_error_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   immediates : Bool,
   reference : Bool,
 ) -> Unit {

@@ -102,7 +102,7 @@ fn encode_control_work_reference(
 ///|
 fn encode_sequence_cursor_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   nested : Bool,
   reference : Bool,
 ) -> Unit {

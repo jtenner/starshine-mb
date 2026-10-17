@@ -149,15 +149,15 @@ pub impl Show for BinaryDecodeError with fn output(self, logger) {
 ///|
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
-  section_id : Int?
-  section_offset : Int?
-  section_len : Int?
-  trailing_offset : Int?
+  section_id : Int32?
+  section_offset : Int32?
+  section_len : Int32?
+  trailing_offset : Int32?
 } derive(Eq, Debug)
 
 ///|
 pub trait Decode {
-  fn decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
+  fn decode(Bytes, Int32) -> Result[(Self, Int32), BinaryDecodeError]
 }
 
 ///|
@@ -208,7 +208,7 @@ pub impl Decode for HeapType with fn decode(bytes, i) {
       match
         (
           Decode::decode(bytes, i + 1) :
-          Result[(AbsHeapType, Int), BinaryDecodeError]) {
+          Result[(AbsHeapType, Int32), BinaryDecodeError]) {
         Ok((abs, next)) => Ok((HeapType::shared_abs(abs), next))
         Err(err) => Err(err)
       }
@@ -252,8 +252,8 @@ pub impl Decode for AbsHeapType with fn decode(bytes, i) {
 ///|
 fn decode_ref_heap_type(
   bytes : Bytes,
-  i : Int,
-) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(Bool, HeapType, Int32), BinaryDecodeError] {
   match bytes.get(i) {
     Some(0x62) =>
       match Decode::decode(bytes, i + 1) {
@@ -422,8 +422,8 @@ pub impl Decode for AtomicOrder with fn decode(bytes, i) {
 ///|
 fn decode_aggregate_atomic_rmw_order(
   bytes : Bytes,
-  i : Int,
-) -> Result[(AtomicOrder, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(AtomicOrder, Int32), BinaryDecodeError] {
   match bytes.get(i) {
     Some(0x00) => Ok((AtomicOrder::seq_cst(), i + 1))
     Some(0x11) => Ok((AtomicOrder::acq_rel(), i + 1))
@@ -453,8 +453,8 @@ pub impl Decode for RecType with fn decode(buf, i) {
 ///|
 fn decode_descriptor_clauses(
   buf : Bytes,
-  i : Int,
-) -> Result[(TypeMetadata, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(TypeMetadata, Int32), BinaryDecodeError] {
   let mut cursor = i
   let mut describes : TypeIdx? = None
   let mut descriptor : TypeIdx? = None
@@ -467,7 +467,7 @@ fn decode_descriptor_clauses(
         cursor = match
           (
             Decode::decode(buf, cursor + 1) :
-            Result[(TypeIdx, Int), BinaryDecodeError]) {
+            Result[(TypeIdx, Int32), BinaryDecodeError]) {
           Ok((idx, next)) => {
             describes = Some(idx)
             next
@@ -482,7 +482,7 @@ fn decode_descriptor_clauses(
         cursor = match
           (
             Decode::decode(buf, cursor + 1) :
-            Result[(TypeIdx, Int), BinaryDecodeError]) {
+            Result[(TypeIdx, Int32), BinaryDecodeError]) {
           Ok((idx, next)) => {
             descriptor = Some(idx)
             next
@@ -499,9 +499,9 @@ fn decode_descriptor_clauses(
 ///|
 fn decode_shared_comptype(
   buf : Bytes,
-  i : Int,
+  i : Int32,
   metadata : TypeMetadata,
-) -> Result[(CompType, TypeMetadata, Int), BinaryDecodeError] {
+) -> Result[(CompType, TypeMetadata, Int32), BinaryDecodeError] {
   let (cursor, metadata) = if buf.get(i) == Some(0x65) {
     (i + 1, metadata.with_shared(true))
   } else {
@@ -516,8 +516,8 @@ fn decode_shared_comptype(
 ///|
 fn decode_subtype_tail(
   buf : Bytes,
-  i : Int,
-) -> Result[(CompType, TypeMetadata, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(CompType, TypeMetadata, Int32), BinaryDecodeError] {
   let (cursor, shared) = if buf.get(i) == Some(0x65) {
     (i + 1, true)
   } else {
@@ -540,7 +540,9 @@ pub impl Decode for SubType with fn decode(buf, i) {
     // Shared definition wrapper.
     Some(0x65) =>
       match
-        (Decode::decode(buf, i + 1) : Result[(SubType, Int), BinaryDecodeError]) {
+        (
+          Decode::decode(buf, i + 1) :
+          Result[(SubType, Int32), BinaryDecodeError]) {
         Ok((SubType(f, supers, meta, ct), next)) =>
           Ok(
             (SubType::new(f, supers, ct, metadata=meta.with_shared(true)), next),
@@ -592,7 +594,7 @@ pub impl Decode for SubType with fn decode(buf, i) {
 #valtype
 priv struct UnsignedDecodeValue {
   value : UInt64
-  next : Int
+  next : Int32
   error : BinaryDecodeError?
 }
 
@@ -600,7 +602,7 @@ priv struct UnsignedDecodeValue {
 #inline
 fn UnsignedDecodeValue::success(
   value : UInt64,
-  next : Int,
+  next : Int32,
 ) -> UnsignedDecodeValue {
   { value, next, error: None, }
 }
@@ -616,8 +618,8 @@ fn UnsignedDecodeValue::failure(
 ///|
 fn decode_unsigned_value(
   bytes : Bytes,
-  index : Int,
-  nbits : Int,
+  index : Int32,
+  nbits : Int32,
 ) -> UnsignedDecodeValue {
   if nbits <= 0 || nbits > 64 {
     return UnsignedDecodeValue::failure(
@@ -682,9 +684,9 @@ fn decode_unsigned_value(
 ///|
 fn decode_unsigned(
   bytes : Bytes,
-  index : Int,
-  nbits : Int,
-) -> Result[(UInt64, Int), BinaryDecodeError] {
+  index : Int32,
+  nbits : Int32,
+) -> Result[(UInt64, Int32), BinaryDecodeError] {
   let decoded = decode_unsigned_value(bytes, index, nbits)
   match decoded.error {
     Some(err) => Err(err)
@@ -695,9 +697,9 @@ fn decode_unsigned(
 ///|
 fn decode_signed(
   bytes : Bytes,
-  index : Int,
-  nbits : Int,
-) -> Result[(Int64, Int), BinaryDecodeError] {
+  index : Int32,
+  nbits : Int32,
+) -> Result[(Int64, Int32), BinaryDecodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryDecodeError::InvalidSignedLebBitWidth)
   }
@@ -818,7 +820,7 @@ pub impl Decode for @lib.U64 with fn decode(bytes, i) {
 ///|
 pub impl Decode for F32 with fn decode(bytes, i) {
   if i >= 0 && i <= bytes.length() && bytes.length() - i >= 4 {
-    let value : Int = (bytes.unsafe_get(i + 3).to_int() << 24) |
+    let value : Int32 = (bytes.unsafe_get(i + 3).to_int() << 24) |
       (bytes.unsafe_get(i + 2).to_int() << 16) |
       (bytes.unsafe_get(i + 1).to_int() << 8) |
       bytes.unsafe_get(i).to_int()
@@ -1003,11 +1005,13 @@ pub impl Decode for NameMap with fn decode(bytes, i) {
   }
   let entries : Array[NameAssoc] = []
   let mut next = i
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   let mut remaining = len_u
   while remaining > 0U {
     let (entry, decoded_next) = match
-      (Decode::decode(bytes, next) : Result[(NameAssoc, Int), BinaryDecodeError]) {
+      (
+        Decode::decode(bytes, next) :
+        Result[(NameAssoc, Int32), BinaryDecodeError]) {
       Ok(t) => t
       Err(err) => return Err(err)
     }
@@ -1046,13 +1050,13 @@ pub impl Decode for IndirectNameMap with fn decode(bytes, i) {
   }
   let entries : Array[IndirectNameAssoc] = []
   let mut next = i
-  let mut prev_idx : UInt? = None
+  let mut prev_idx : UInt32? = None
   let mut remaining = len_u
   while remaining > 0U {
     let (entry, decoded_next) = match
       (
         Decode::decode(bytes, next) :
-        Result[(IndirectNameAssoc, Int), BinaryDecodeError]) {
+        Result[(IndirectNameAssoc, Int32), BinaryDecodeError]) {
       Ok(t) => t
       Err(err) => return Err(err)
     }
@@ -1073,8 +1077,8 @@ pub impl Decode for IndirectNameMap with fn decode(bytes, i) {
 ///|
 fn[T : Decode] decode_name_subsection_payload(
   bytes : Bytes,
-  payload_start : Int,
-  payload_end : Int,
+  payload_start : Int32,
+  payload_end : Int32,
 ) -> Result[T, BinaryDecodeError] {
   let (decoded, consumed) = match Decode::decode(bytes, payload_start) {
     Ok(t) => t
@@ -1226,9 +1230,9 @@ pub impl Decode for NameSec with fn decode(bytes, i) {
 ///|
 fn[T : Decode] decode_section_vector_payload(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   section_id : Byte,
-) -> Result[(Array[T], Int), BinaryDecodeError] {
+) -> Result[(Array[T], Int32), BinaryDecodeError] {
   if bytes.get(i) != Some(section_id) {
     return Err(BinaryDecodeError::InvalidSectionHeader)
   }
@@ -1254,9 +1258,9 @@ fn[T : Decode] decode_section_vector_payload(
 ///|
 fn[T : Decode] decode_section_payload(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   section_id : Byte,
-) -> Result[(T, Int), BinaryDecodeError] {
+) -> Result[(T, Int32), BinaryDecodeError] {
   if bytes.get(i) != Some(section_id) {
     return Err(BinaryDecodeError::InvalidSectionHeader)
   }
@@ -1280,11 +1284,11 @@ fn[T : Decode] decode_section_payload(
 }
 
 ///|
-fn module_section_span(bytes : Bytes, section_start : Int) -> (Int, Int) {
+fn module_section_span(bytes : Bytes, section_start : Int32) -> (Int32, Int32) {
   if section_start < 0 || section_start >= bytes.length() {
     return (section_start, 0)
   }
-  let len_result : Result[(@lib.U32, Int), BinaryDecodeError] = Decode::decode(
+  let len_result : Result[(@lib.U32, Int32), BinaryDecodeError] = Decode::decode(
     bytes,
     section_start + 1,
   )
@@ -1305,10 +1309,10 @@ fn module_section_span(bytes : Bytes, section_start : Int) -> (Int, Int) {
 ///|
 fn module_decode_error(
   err : BinaryDecodeError,
-  section_id? : Int? = None,
-  section_offset? : Int? = None,
-  section_len? : Int? = None,
-  trailing_offset? : Int? = None,
+  section_id~ : Int32? = None,
+  section_offset~ : Int32? = None,
+  section_len~ : Int32? = None,
+  trailing_offset~ : Int32? = None,
 ) -> ModuleDecodeErrorDetail {
   { err, section_id, section_offset, section_len, trailing_offset, }
 }
@@ -1316,7 +1320,7 @@ fn module_decode_error(
 ///|
 fn module_section_decode_error(
   bytes : Bytes,
-  section_start : Int,
+  section_start : Int32,
   err : BinaryDecodeError,
 ) -> ModuleDecodeErrorDetail {
   let (offset, len) = module_section_span(bytes, section_start)
@@ -1332,11 +1336,11 @@ fn module_section_decode_error(
 ///|
 fn decode_custom_sections_with_detail(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   out : Array[CustomSec],
   name_out : Array[NameSec],
   name_payload_out : Array[Bytes],
-) -> Result[Int, ModuleDecodeErrorDetail] {
+) -> Result[Int32, ModuleDecodeErrorDetail] {
   let mut i = i
   while bytes.get(i) == Some(0) {
     let section_start = i
@@ -1386,7 +1390,7 @@ fn decode_custom_sections_with_detail(
           match
             (
               Decode::decode(payload, 0) :
-              Result[(CompilerFactCustomSection, Int), BinaryDecodeError]) {
+              Result[(CompilerFactCustomSection, Int32), BinaryDecodeError]) {
             Ok((_, consumed)) => {
               if consumed != payload.length() {
                 return Err(
@@ -1423,8 +1427,8 @@ fn decode_custom_sections_with_detail(
 ///|
 fn decode_custom_section_header(
   bytes : Bytes,
-  i : Int,
-) -> Result[(Name, Int, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(Name, Int32, Int32), BinaryDecodeError] {
   if bytes.get(i) != Some(0) {
     return Err(BinaryDecodeError::InvalidSectionHeader)
   }
@@ -1449,9 +1453,9 @@ fn decode_custom_section_header(
 ///|
 fn[T : Decode] decode_optional_section_with_detail(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   section_id : Byte,
-) -> Result[(T?, Int), ModuleDecodeErrorDetail] {
+) -> Result[(T?, Int32), ModuleDecodeErrorDetail] {
   if bytes.get(i) != Some(section_id) {
     return Ok((None, i))
   }
@@ -1465,8 +1469,8 @@ fn[T : Decode] decode_optional_section_with_detail(
 ///|
 pub fn decode_module_with_detail(
   bytes : Bytes,
-  i : Int,
-) -> Result[(Module, Int), ModuleDecodeErrorDetail] {
+  i : Int32,
+) -> Result[(Module, Int32), ModuleDecodeErrorDetail] {
   let mut i = i
   let custom = Array::new()
   let name_secs = Array::new()
@@ -1589,7 +1593,7 @@ pub fn decode_module_with_detail(
   let (stringrefs_sec, next) = match
     (
       decode_optional_section_with_detail(bytes, i, 14) :
-      Result[(StringRefsSec?, Int), ModuleDecodeErrorDetail]) {
+      Result[(StringRefsSec?, Int32), ModuleDecodeErrorDetail]) {
     Ok(t) => t
     Err(detail) => return Err(detail)
   }
@@ -1749,7 +1753,7 @@ pub fn decode_module_with_detail(
       match
         (
           Decode::decode(payload, 0) :
-          Result[(CompilerFactCustomSection, Int), BinaryDecodeError]) {
+          Result[(CompilerFactCustomSection, Int32), BinaryDecodeError]) {
         Ok((facts, _)) => mod = mod.with_compiler_fact_custom_section(facts)
         Err(err) => return Err(module_decode_error(err))
       }
@@ -1795,7 +1799,7 @@ pub impl Decode for Elem with fn decode(bytes, i) {
     rt == RefType::new(true, HeapType::abs(AbsHeapType::func()))
   }
   let (header, next) = match
-    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, i) : Result[(@lib.U32, Int32), BinaryDecodeError]) {
     Ok((@lib.U32(v), next)) => (v, next)
     Err(t) => return Err(t)
   }
@@ -1910,12 +1914,12 @@ pub impl Decode for Elem with fn decode(bytes, i) {
               match
                 (
                   Decode::decode(bytes, i) :
-                  Result[(RefType, Int), BinaryDecodeError]) {
+                  Result[(RefType, Int32), BinaryDecodeError]) {
                 Ok((rt, i)) =>
                   match
                     (
                       Decode::decode(bytes, i) :
-                      Result[(Array[Expr], Int), BinaryDecodeError]) {
+                      Result[(Array[Expr], Int32), BinaryDecodeError]) {
                     Ok((exprs, i)) => {
                       let kind = if is_funcref(rt) {
                         ElemKind::func_exprs(exprs)
@@ -1967,7 +1971,7 @@ pub impl Decode for DataCntSec with fn decode(bytes, i) {
   match
     (
       decode_section_payload(bytes, i, 12) :
-      Result[(@lib.U32, Int), BinaryDecodeError]) {
+      Result[(@lib.U32, Int32), BinaryDecodeError]) {
     Ok((count, i)) => Ok((DataCntSec::new(count), i))
     Err(t) => Err(t)
   }
@@ -1990,7 +1994,7 @@ pub impl Decode for Locals with fn decode(bytes, i) {
   match
     (
       Decode::decode(bytes, i) :
-      Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
+      Result[(Array[@lib.LocalRun], Int32), BinaryDecodeError]) {
     Ok((runs, i)) => Ok((Locals::new(runs), i))
     Err(t) => Err(t)
   }
@@ -2013,7 +2017,7 @@ pub impl Decode for Func with fn decode(bytes, i) {
   let (locals, expr_start) = match
     (
       Decode::decode(bytes, body_start) :
-      Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
+      Result[(Array[@lib.LocalRun], Int32), BinaryDecodeError]) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
@@ -2048,7 +2052,7 @@ pub impl Decode for CodeSec with fn decode(bytes, i) {
 ///|
 pub impl Decode for Data with fn decode(bytes, i) {
   let (header, next) = match
-    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
+    (Decode::decode(bytes, i) : Result[(@lib.U32, Int32), BinaryDecodeError]) {
     Ok((@lib.U32(v), next)) => (v, next)
     Err(t) => return Err(t)
   }
@@ -2113,7 +2117,7 @@ pub impl Decode for StringRefsSec with fn decode(bytes, i) {
   match
     (
       Decode::decode(bytes, payload_start + 1) :
-      Result[(Array[Bytes], Int), BinaryDecodeError]) {
+      Result[(Array[Bytes], Int32), BinaryDecodeError]) {
     Ok((strings, consumed)) =>
       if consumed == payload_end {
         Ok((StringRefsSec::new(strings), payload_end))
@@ -2357,12 +2361,12 @@ pub impl Decode for ImportSec with fn decode(bytes, i) {
   let imports : Array[Import] = []
   let mut next = after_count
   for _ in 0U..<count {
-    let (module_name, after_module) : (Name, Int) = match
+    let (module_name, after_module) : (Name, Int32) = match
       Decode::decode(payload, next) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
-    let (field_name, after_field) : (Name, Int) = match
+    let (field_name, after_field) : (Name, Int32) = match
       Decode::decode(payload, after_module) {
       Ok(value) => value
       Err(err) => return Err(err)
@@ -2387,7 +2391,7 @@ pub impl Decode for ImportSec with fn decode(bytes, i) {
       }
       next = after_group_count
       for _ in 0U..<group_count {
-        let (name, after_name) : (Name, Int) = match
+        let (name, after_name) : (Name, Int32) = match
           Decode::decode(payload, next) {
           Ok(value) => value
           Err(err) => return Err(err)
@@ -2445,14 +2449,14 @@ pub impl Decode for BlockType with fn decode(bytes, i) {
 }
 
 ///|
-const MAX_INSTRUCTION_NESTING_DEPTH : Int = 20000
+const MAX_INSTRUCTION_NESTING_DEPTH : Int32 = 20000
 
 ///|
 fn decode_expr_with_depth(
   bytes : Bytes,
-  i : Int,
-  depth : Int,
-) -> Result[(Expr, Int), BinaryDecodeError] {
+  i : Int32,
+  depth : Int32,
+) -> Result[(Expr, Int32), BinaryDecodeError] {
   if depth > MAX_INSTRUCTION_NESTING_DEPTH {
     return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
   }
@@ -2598,7 +2602,7 @@ pub impl Decode for StartSec with fn decode(bytes, i) {
   match
     (
       decode_section_payload(bytes, i, 8) :
-      Result[(FuncIdx, Int), BinaryDecodeError]) {
+      Result[(FuncIdx, Int32), BinaryDecodeError]) {
     Ok((idx, next)) => Ok((StartSec::new(idx), next))
     Err(t) => Err(t)
   }
@@ -2710,9 +2714,9 @@ pub impl Decode for MemArg with fn decode(bytes, i) {
 ///|
 fn decode_atomic_memarg(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   is_rmw : Bool,
-) -> Result[(@lib.AtomicOrder, MemArg, Int), BinaryDecodeError] {
+) -> Result[(@lib.AtomicOrder, MemArg, Int32), BinaryDecodeError] {
   let (@lib.U32(raw), decoded_next) = match Decode::decode(bytes, i) {
     Ok(decoded) => decoded
     Err(err) => return Err(err)
@@ -2768,8 +2772,8 @@ fn decode_atomic_memarg(
 ///|
 fn decode_i8x16_shuffle_lanes(
   bytes : Bytes,
-  i : Int,
-) -> Result[(FixedArray[LaneIdx], Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(FixedArray[LaneIdx], Int32), BinaryDecodeError] {
   let lanes : FixedArray[LaneIdx] = FixedArray::make(16, LaneIdx::new(0))
   let mut next = i
   for lane_i in 0..<16 {
@@ -2814,24 +2818,24 @@ priv enum LegacyCatchDecodeFrame {
 
 ///|
 priv enum StructuredDecodeFrame {
-  BlockFrame(BlockType, Int, Array[Instruction])
-  LoopFrame(BlockType, Int, Array[Instruction])
-  IfFrame(BlockType, Int, Array[Instruction], Array[Instruction]?)
+  BlockFrame(BlockType, Int32, Array[Instruction])
+  LoopFrame(BlockType, Int32, Array[Instruction])
+  IfFrame(BlockType, Int32, Array[Instruction], Array[Instruction]?)
   LegacyTryFrame(
     BlockType,
-    Int,
+    Int32,
     Array[Instruction],
     Array[@lib.LegacyCatch],
     LegacyCatchDecodeFrame?,
     LabelIdx?
   )
-  TryTableFrame(BlockType, Array[Catch], Int, Array[Instruction])
+  TryTableFrame(BlockType, Array[Catch], Int32, Array[Instruction])
 }
 
 ///|
 fn structured_frame_body_instruction_depth(
   frame : StructuredDecodeFrame,
-) -> Int {
+) -> Int32 {
   match frame {
     BlockFrame(_, body_depth, _) => body_depth
     LoopFrame(_, body_depth, _) => body_depth
@@ -2896,9 +2900,9 @@ fn structured_frame_finish(frame : StructuredDecodeFrame) -> Instruction {
 ///|
 fn decode_structured_frame_header(
   bytes : Bytes,
-  i : Int,
-  depth : Int,
-) -> Result[(StructuredDecodeFrame, Int), BinaryDecodeError] {
+  i : Int32,
+  depth : Int32,
+) -> Result[(StructuredDecodeFrame, Int32), BinaryDecodeError] {
   if depth + 1 > MAX_INSTRUCTION_NESTING_DEPTH {
     return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
   }
@@ -2942,9 +2946,9 @@ fn decode_structured_frame_header(
 ///|
 fn decode_structured_instruction_with_depth(
   bytes : Bytes,
-  i : Int,
-  depth : Int,
-) -> Result[(Instruction, Int), BinaryDecodeError] {
+  i : Int32,
+  depth : Int32,
+) -> Result[(Instruction, Int32), BinaryDecodeError] {
   let (initial_frame, next) = match
     decode_structured_frame_header(bytes, i, depth) {
     Ok(decoded) => decoded
@@ -3073,9 +3077,9 @@ fn decode_structured_instruction_with_depth(
 ///|
 fn decode_instruction_with_depth(
   bytes : Bytes,
-  i : Int,
-  depth : Int,
-) -> Result[(Instruction, Int), BinaryDecodeError] {
+  i : Int32,
+  depth : Int32,
+) -> Result[(Instruction, Int32), BinaryDecodeError] {
   if depth > MAX_INSTRUCTION_NESTING_DEPTH {
     return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
   }
@@ -3751,7 +3755,7 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) => {
-          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+          let castop : Result[(CastOp, Int32), BinaryDecodeError] = Decode::decode(
             bytes, i,
           )
           match castop {
@@ -3786,7 +3790,7 @@ fn decode_instruction_with_depth(
           }
         }
         Ok((U32(25), i)) => {
-          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+          let castop : Result[(CastOp, Int32), BinaryDecodeError] = Decode::decode(
             bytes, i,
           )
           match castop {
@@ -3821,7 +3825,7 @@ fn decode_instruction_with_depth(
           }
         }
         Ok((@lib.U32(id), i)) if id == 37U || id == 38U => {
-          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+          let castop : Result[(CastOp, Int32), BinaryDecodeError] = Decode::decode(
             bytes, i,
           )
           match castop {
@@ -4907,8 +4911,8 @@ pub impl[T : Decode] Decode for Array[T] with fn decode(bytes, i) {
 ///|
 fn decode_array_memory_argument(
   bytes : Bytes,
-  i : Int,
-) -> Result[(MemArg, @lib.TypeIdx, Int), BinaryDecodeError] {
+  i : Int32,
+) -> Result[(MemArg, @lib.TypeIdx, Int32), BinaryDecodeError] {
   let (@lib.U32(flags), next) = match Decode::decode(bytes, i) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -4916,7 +4920,7 @@ fn decode_array_memory_argument(
   if (flags & 0xfffffff0U) != 0x20U || (flags & 15U) > 8U {
     return Err(BinaryDecodeError::InvalidMemArg)
   }
-  let (ti, next) : (@lib.TypeIdx, Int) = match Decode::decode(bytes, next) {
+  let (ti, next) : (@lib.TypeIdx, Int32) = match Decode::decode(bytes, next) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
@@ -4930,10 +4934,10 @@ fn decode_array_memory_argument(
 ///|
 fn decode_memory_load(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   op : @lib.LoadOp,
   linear : (MemArg) -> Instruction,
-) -> Result[(Instruction, Int), BinaryDecodeError] {
+) -> Result[(Instruction, Int32), BinaryDecodeError] {
   let (@lib.U32(flags), _) = match Decode::decode(bytes, i) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -4955,10 +4959,10 @@ fn decode_memory_load(
 ///|
 fn decode_memory_store(
   bytes : Bytes,
-  i : Int,
+  i : Int32,
   op : @lib.StoreOp,
   linear : (MemArg) -> Instruction,
-) -> Result[(Instruction, Int), BinaryDecodeError] {
+) -> Result[(Instruction, Int32), BinaryDecodeError] {
   let (@lib.U32(flags), _) = match Decode::decode(bytes, i) {
     Ok(value) => value
     Err(err) => return Err(err)

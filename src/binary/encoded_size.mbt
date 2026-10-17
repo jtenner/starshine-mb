@@ -1,12 +1,13 @@
 ///|
 priv struct EncodedModuleSizeState {
   funcs : Array[Func]
-  sizes : Array[Int]
-  body_sizes : Array[Int]
-  local_sizes : Array[Int]
+  sizes : Array[Int32]
+  body_sizes : Array[Int32]
+  local_sizes : Array[Int32]
   reuse : EncodedModuleSizeState?
   mut strings : Array[Bytes]
-  mut code_size : Int
+  mut code_size : UInt64
+  mut data_size : UInt64
 }
 
 ///|
@@ -21,13 +22,17 @@ fn EncodedModuleSizeState::new(
     reuse,
     strings: [],
     code_size: 0,
+    data_size: 0,
   }
 }
 
 ///|
 // A u32 encoded as signed33 has width1..5. Five is an unsupported-shape
 // sentinel, outside every possible width delta, and needs no optional box.
-fn encoded_blocktype_remap_delta(before : BlockType, after : BlockType) -> Int {
+fn encoded_blocktype_remap_delta(
+  before : BlockType,
+  after : BlockType,
+) -> Int32 {
   if before == after {
     return 0
   }
@@ -47,7 +52,7 @@ fn encoded_blocktype_remap_delta(before : BlockType, after : BlockType) -> Int {
 fn encoded_local_remap_size_delta(
   before : Array[Instruction],
   after : Array[Instruction],
-) -> Int? {
+) -> Int32? {
   let work = [(before, after)]
   let mut delta = 0
   while work.pop() is Some((left, right)) {
@@ -127,8 +132,8 @@ fn measure_module_code(
   funcs : Array[Func],
   strings : Array[Bytes],
   state : EncodedModuleSizeState,
-  body_buffers? : Array[Int]? = None,
-  expression_encodes? : Array[Int]? = None,
+  body_buffers~ : Array[Int32]? = None,
+  expression_encodes~ : Array[Int32]? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   state.strings = strings
   let can_reuse = match state.reuse {
@@ -136,7 +141,7 @@ fn measure_module_code(
     None => false
   }
   let mut payload = match size_unsigned(funcs.length().to_uint64(), 32) {
-    Ok(size) => size
+    Ok(size) => size.to_uint64()
     Err(error) => return Err(error)
   }
   for index = 0; index < funcs.length(); index = index + 1 {
@@ -206,18 +211,70 @@ fn measure_module_code(
     state.sizes.push(size)
     state.body_sizes.push(body_size)
     state.local_sizes.push(local_size)
-    payload += size
+    payload += size.to_uint64()
   }
-  let prefix = match size_unsigned(payload.to_uint64(), 32) {
+  let prefix = match size_unsigned(payload, 32) {
     Ok(size) => size
     Err(error) => return Err(error)
   }
-  state.code_size = 1 + prefix + payload
+  state.code_size = 1UL + prefix.to_uint64() + payload
   Ok(())
 }
 
 ///|
+// Use the same mode/offset and ULEB encoders as Data::encode, but retain only
+// metadata bytes. Immutable payload bytes contribute their length directly.
+// This runs inside the module's stringref context, in ordinary section order.
+fn measure_module_data(
+  section : DataSec?,
+  state : EncodedModuleSizeState,
+) -> Result[Unit, BinaryEncodeError] {
+  let segments = match section {
+    Some(DataSec(segments)) => segments
+    None => return Ok(())
+  }
+  let metadata = @buffer.new()
+  if Encode::encode(U32(segments.length().reinterpret_as_uint()), metadata)
+    is Err(err) {
+    return Err(err)
+  }
+  let mut payload_bytes = 0UL
+  for Data(mode, bytes) in segments {
+    if encode_data_mode(mode, metadata) is Err(err) {
+      return Err(err)
+    }
+    if Encode::encode(U32(bytes.length().reinterpret_as_uint()), metadata)
+      is Err(err) {
+      return Err(err)
+    }
+    payload_bytes += bytes.length().to_uint64()
+  }
+  let payload_size = metadata.length().to_uint64() + payload_bytes
+  let prefix = match size_unsigned(payload_size, 32) {
+    Ok(prefix) => prefix
+    Err(err) => return Err(err)
+  }
+  state.data_size = 1UL + prefix.to_uint64() + payload_size
+  Ok(())
+}
+
+///|
+fn encoded_module_measured_size(
+  buffer : @buffer.Buffer,
+  state : EncodedModuleSizeState,
+) -> Result[Int32, BinaryEncodeError] {
+  let size = buffer.length().to_uint64() + state.code_size + state.data_size
+  // Public sizes use Int. Reject values outside that representation instead
+  // of wrapping a valid u32 section length into a negative module size.
+  if size > 0x7FFF_FFFFUL {
+    return Err(BinaryEncodeError::UnsignedLebValueOutOfRange)
+  }
+  Ok(size.to_int())
+}
+
+///|
 /// Return exact canonical binary sizes without assembling either code section.
+/// Data payloads contribute lengths without being copied into size buffers.
 /// Shared function bodies are measured once when their stringref pools agree.
 /// Local and supported type-index rewrites reuse exact expression LEB deltas.
 /// Other rewrites retain complete body encoding.
@@ -226,7 +283,7 @@ fn measure_module_code(
 pub fn encoded_module_sizes(
   before : Module,
   after : Module,
-) -> Result[(Int, Int), EncodeError] {
+) -> Result[(Int32, Int32), EncodeError] {
   let first = EncodedModuleSizeState::new(None)
   let first_buffer = @buffer.new()
   match
@@ -234,17 +291,19 @@ pub fn encoded_module_sizes(
     Err(error) => return Err(EncodeError::Encode(error))
     Ok(_) => ()
   }
+  let first_size = match encoded_module_measured_size(first_buffer, first) {
+    Ok(size) => size
+    Err(error) => return Err(EncodeError::Encode(error))
+  }
   let second = EncodedModuleSizeState::new(Some(first))
   let second_buffer = @buffer.new()
   match
     encode_module_sections(after, second_buffer, false, size_state=Some(second)) {
     Err(error) => Err(EncodeError::Encode(error))
     Ok(_) =>
-      Ok(
-        (
-          first_buffer.length() + first.code_size,
-          second_buffer.length() + second.code_size,
-        ),
-      )
+      match encoded_module_measured_size(second_buffer, second) {
+        Ok(second_size) => Ok((first_size, second_size))
+        Err(error) => Err(EncodeError::Encode(error))
+      }
   }
 }

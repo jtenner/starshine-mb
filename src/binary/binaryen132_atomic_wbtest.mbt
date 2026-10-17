@@ -7,7 +7,7 @@ test "Binaryen 132 relaxed atomic order decodes and preserves exact bytes" {
     b"\xfe\x6a\x01\x00", b"\xfe\x6a\x02\x00",
   ]
   for bytes in fixtures {
-    let (instr, next) : (Instruction, Int) = match Decode::decode(bytes, 0) {
+    let (instr, next) : (Instruction, Int32) = match Decode::decode(bytes, 0) {
       Ok(value) => value
       Err(err) => fail("expected released relaxed atomic decode: \{err}")
     }

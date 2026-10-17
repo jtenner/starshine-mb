@@ -99,8 +99,8 @@ pub impl @quickcheck.Arbitrary for Limits with fn arbitrary(_, state) {
     if (state.next_uint() & 1) == 1 {
       I32Limits(state.next_uint(), None)
     } else {
-      let a : UInt = state.next_uint()
-      let b : UInt = state.next_uint()
+      let a : UInt32 = state.next_uint()
+      let b : UInt32 = state.next_uint()
       let min = if a > b { b } else { a }
       let max = if a > b { a } else { b }
       I32Limits(min, Some(max))
@@ -1812,8 +1812,8 @@ pub impl @quickcheck.Arbitrary for Module with fn arbitrary(t, state) {
 
 ///|
 pub fn[T : Arbitrary] array_of_arbitrary(
-  max : UInt,
-  t : Int,
+  max : UInt32,
+  t : Int32,
   state : RandomState,
 ) -> Array[T] {
   let count = state.next_uint() % max + 1

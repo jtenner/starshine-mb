@@ -1,6 +1,6 @@
 ///|
 fn encode_compiler_fact_uint(
-  value : UInt,
+  value : UInt32,
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   Encode::encode(@lib.U32(value), buf)
@@ -49,7 +49,7 @@ fn[T : Encode] encode_compiler_fact_option(
 
 ///|
 fn encode_compiler_fact_uint_option(
-  value : UInt?,
+  value : UInt32?,
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   match value {
@@ -83,7 +83,7 @@ fn encode_compiler_fact_uint64_option(
 
 ///|
 fn encode_compiler_fact_uint_array(
-  values : Array[UInt],
+  values : Array[UInt32],
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   if encode_compiler_fact_uint(values.length().reinterpret_as_uint(), buf)

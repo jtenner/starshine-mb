@@ -1,7 +1,7 @@
 ///|
 fn encode_string_pool_bench(
   it : @bench.T,
-  width : Int,
+  width : Int32,
   unique : Bool,
   reference : Bool,
 ) -> Unit {

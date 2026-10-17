@@ -7,11 +7,11 @@ fn unsigned_decode_value_bench(
   it.bench(fn() {
     if wide {
       it.keep(
-        (Decode::decode(bytes, 0) : Result[(U64, Int), BinaryDecodeError]),
+        (Decode::decode(bytes, 0) : Result[(U64, Int32), BinaryDecodeError]),
       )
     } else {
       it.keep(
-        (Decode::decode(bytes, 0) : Result[(LocalIdx, Int), BinaryDecodeError]),
+        (Decode::decode(bytes, 0) : Result[(LocalIdx, Int32), BinaryDecodeError]),
       )
     }
   })

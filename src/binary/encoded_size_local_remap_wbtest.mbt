@@ -1,7 +1,7 @@
 ///|
 fn encoded_local_remap_fixture(
-  width : Int,
-  index : UInt,
+  width : Int32,
+  index : UInt32,
   nested : Bool,
 ) -> Func {
   let local = LocalIdx::new(index)

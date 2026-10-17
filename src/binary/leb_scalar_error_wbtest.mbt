@@ -5,7 +5,7 @@
 fn leb_scalar_original_encode_unsigned(
   val : UInt64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> Result[Unit, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryEncodeError::InvalidUnsignedLebBitWidth)
@@ -39,7 +39,7 @@ fn leb_scalar_original_encode_unsigned(
 fn leb_scalar_original_encode_signed(
   val : Int64,
   buf : @buffer.Buffer,
-  nbits : Int,
+  nbits : Int32,
 ) -> Result[Unit, BinaryEncodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryEncodeError::InvalidSignedLebBitWidth)
@@ -73,7 +73,7 @@ fn leb_scalar_original_encode_signed(
 }
 
 ///|
-fn leb_scalar_check_unsigned(val : UInt64, bits : Int) -> Unit raise {
+fn leb_scalar_check_unsigned(val : UInt64, bits : Int32) -> Unit raise {
   let old = @buffer.new()
   let current = @buffer.new()
   old.write_byte(0x55)
@@ -87,7 +87,7 @@ fn leb_scalar_check_unsigned(val : UInt64, bits : Int) -> Unit raise {
 }
 
 ///|
-fn leb_scalar_check_signed(val : Int64, bits : Int) -> Unit raise {
+fn leb_scalar_check_signed(val : Int64, bits : Int32) -> Unit raise {
   let old = @buffer.new()
   let current = @buffer.new()
   old.write_byte(0x55)

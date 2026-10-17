@@ -1,8 +1,8 @@
 ///|
 pub suberror DecodeError {
   Decode(BinaryDecodeError)
-  DecodeAt(BinaryDecodeError, Int, Int)
-  TrailingBytes(Int, Int)
+  DecodeAt(BinaryDecodeError, Int32, Int32)
+  TrailingBytes(Int32, Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -75,7 +75,7 @@ pub fn decode_module(bytes : Bytes) -> Result[@lib.Module, DecodeError] {
 ///|
 pub fn encode_module(
   mod : @lib.Module,
-  compact_imports? : Bool = false,
+  compact_imports~ : Bool = false,
 ) -> Result[Bytes, EncodeError] {
   let buf = @buffer.new()
   match encode_module_sections(mod, buf, compact_imports) {
