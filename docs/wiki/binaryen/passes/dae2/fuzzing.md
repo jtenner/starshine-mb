@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-17
 sources:
   - ./starshine-strategy.md
   - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
@@ -413,3 +413,15 @@ failures and zero canonical size losses. Existing input-validator and runtime
 limits remain unchanged.
 Current binary hashes, per-lane cache/profile counts and scoped judgments are
 in the [size follow-up report](../../../ir2/architecture-rules.md#september-16-further-oi-size-reductions).
+
+
+## October 17, 2026: visited-predecessor renewal
+
+The [performance follow-up](./starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) renews 10,000
+`dae2` aggregate cases for each variant in both worlds with native
+`15803023…0fb45`, verified Binaryen 133 and Node-v2 observations. Its table
+records exact matches, cleanup matches, residuals, larger outputs and blocked
+runtimes; the linked raw record includes every selected subprofile count.
+All 80 retained raw outputs match the pre-change CLI. Runtime-blocked
+continuations and structural/size gaps remain open. This renewal uses fresh
+generation and oracle work, with no external-generator lane.

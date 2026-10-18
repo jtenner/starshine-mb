@@ -899,6 +899,8 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
 
+- **October 17 follow-up:** [visited-predecessor reuse](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) removes 25% of large-input last-write lookups and 3.1% of read-source instruction work without new storage. Default tests pass, and four fresh 10,000-case lanes finish without validation or observed runtime failures; blocked runtimes and parity/size gaps remain. Large-command clocks remain near parity and small cohorts move both ways, so P03 stays open.
+
 - **Completed entry-source finalization:** use existing reverse DAG order to
   finalize rows after child propagation; no second arena scan or new storage.
   Preserve complete-flow fallbacks and caller-owned rows.

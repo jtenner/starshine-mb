@@ -1815,6 +1815,7 @@ fn local_graph_reverse_entry_sources_impl(
   writer_blocks : Array[Int32]?,
   membership_queries : Array[Int32]?,
   cache_slots : Array[Int32]?,
+  predecessor_queries~ : Array[Int32]? = None,
 ) -> Array[Int32] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
@@ -1837,6 +1838,15 @@ fn local_graph_reverse_entry_sources_impl(
       }
       has_predecessor = true
       let pred = transparent_predecessors[edge.block]
+      // A visited nonroot block either has no write for this query (and is
+      // already queued), or its unique writer has already contributed. The
+      // root is different: it starts seen but a backedge can expose its write.
+      if pred != block_id && seen[pred] {
+        continue
+      }
+      if predecessor_queries is Some(count) {
+        count[0] += 1
+      }
       match
         local_graph_reverse_indexed_last_write(
           write_local_ids, actions, pred, local_id, last_writes,

@@ -1,3 +1,8 @@
+### 2026-10-17 — Reuse visited predecessors in DAE2/O analysis
+
+- [The follow-up](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) records the red-first resource regression, exact source-row contract, native before/after profiles and all timing samples. Last-write lookups fall 25%; read-source instruction work falls 3.1%; enclosing gains are small. Large-command medians remain near parity; small cohorts move both ways.
+- All 15,151 default tests pass. Four fresh 10,000-case dedicated lanes complete against verified Binaryen 133 with independent validation and Node-v2 observations. Retained outputs match the frozen CLI; existing structural, size and runtime-blocked gaps remain open.
+
 ### 2026-10-17 — Qualify the 0.3.0 minor release
 
 - [The detailed 0.2.2–0.3.0 release notes](../releases/0.3.0.md) cover 78

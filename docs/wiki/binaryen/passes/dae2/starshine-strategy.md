@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-10-17
 sources:
+  - ../../../raw/tooling/2026-10-17-dae2-predecessor-reuse.json
+  - ../../../../../src/ir/local_graph_seen_predecessor_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dae2_cleanup_census_wbtest.mbt
@@ -12034,3 +12036,103 @@ in this round. The same search confirms that post-build graph contraction is a
 lower-priority target until construction and representation costs justify it;
 the old graph insertion and solver instruction counts are small and do not
 establish a current native saving.
+
+
+## October 17, 2026: reuse visited predecessors in read-source queries
+
+This follow-up starts from release source `17df23d874ca2e7db4e9c37c4a795dc93a7cfdd7`
+and native CLI `ac807a83…dc2fe`, the baseline of the
+[rough pass matrix](../../../tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes).
+The candidate is `15803023…0fb45`. It uses that matrix's 6,211,596-byte
+compiler input, 192,893-byte small input and 7,705-byte mixed fixture;
+earlier campaigns retain their own inputs and comparison scope.
+[Durable evidence](../../../raw/tooling/2026-10-17-dae2-predecessor-reuse.json)
+contains full hashes, raw timing samples, profile counts, commands and signoff
+summaries. Local full logs remain in `.tmp/dae2-push-20261017-next/`.
+
+[LocalGraph](../../../../../src/ir/local_graph.mbt) now checks its existing
+per-query visited marker before repeating a predecessor's last-write lookup.
+A seen nonroot block either had no write for this local and is already queued,
+or owns a writer already included by the unique-action source union. Repeating
+the immutable lookup cannot add a new source in either case. The query root
+is excluded because a backedge can expose its write even though it starts
+marked. Predecessor presence is recorded before the skip, preserving unknown
+closed cycles. Ordered rows, exceptional filtering, transparent predecessors,
+shared-action fallback and scratch clearing remain intact. No new graph cache
+or retained storage is added.
+
+The [bounded regression](../../../../../src/ir/local_graph_seen_predecessor_wbtest.mbt)
+checks exact ordered reference sources and scratch reset before requiring one
+lookup across parallel ordinary/exceptional entry edges. It failed with
+`8 != 1` before the implementation. Existing source-union tests cover root
+writes, shared writers, complete metadata and real control. `moon info`,
+`moon fmt` and all 15,151 default tests pass, using the existing
+compact-selection runner for the pass package's argument-size limit. Public
+`.mbti` files are unchanged; the fresh post-format native CLI matches the
+measured image.
+
+On the large plain DAE2 input, Callgrind records:
+
+| Work | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Last-write lookups | 2,394,694 | 1,791,721 | −25.18% |
+| Reverse-query instructions | 512,559,388 | 483,493,449 | −5.67% |
+| Read-source analysis instructions | 911,555,449 | 882,925,708 | −3.14% |
+| Enclosing DAE2 pass instructions | 20,915,271,771 | 20,876,859,748 | −0.184% |
+| Whole-command instructions | 26,958,278,280 | 26,920,253,113 | −0.141% |
+
+Large DAE2 optimizing whole-command instructions move from 45,622,293,675 to 45,591,795,000
+(-0.067%). Small/mixed controls change by less than 0.01%.
+These are instruction counts from the named images, not wall-clock speedups.
+CFG construction still costs about 2.36 billion instructions across 1,286
+calls in plain DAE2. In the optimizing baseline, the nested cleanup pipeline
+costs 16.25 billion instructions and the subsequent capture cleanup costs
+2.32 billion; these are separate enclosing call edges. They remain larger
+profiling targets. The predecessor loop still visits its edges; no global
+complexity improvement is claimed.
+
+The independent 21-pair quiet repeat, after one warmup per case, gives these
+whole-command medians in milliseconds. Tools alternate serially on CPU 6.
+
+| Input/pass | Before ms | After ms | After/before |
+| --- | ---: | ---: | ---: |
+| large-dae2 | 2413.972 | 2407.604 | 0.9974 |
+| large-dae2-optimizing | 4492.058 | 4490.601 | 0.9997 |
+| small-dae2 | 4.845 | 4.963 | 1.0244 |
+| small-dae2-optimizing | 8.793 | 8.795 | 1.0003 |
+| mixed-dae2 | 3.053 | 3.214 | 1.0526 |
+| mixed-dae2-optimizing | 7.654 | 7.612 | 0.9944 |
+
+All before/after outputs agree byte-for-byte, and the six candidate outputs
+pass independent wasm-tools validation. The separate seven-pair pilot moves
+small cases in the opposite direction. Its large plain median improves 1.38%
+and its optimizing median worsens 0.16%; the repeat is essentially flat.
+The three-pair traced optimizing pilot includes large adverse samples alongside
+unrelated Go compilation. Every sample remains in the evidence. No task-owned
+build, profile or fuzz work overlaps the clocks; other project workloads remain
+running. These cohorts establish no substantial or portable command speedup.
+Large RSS ranges overlap, and the small `wait4` peaks include the inherited
+parent-process floor; no heap or memory improvement is claimed.
+
+Fresh verified-v133 comparison completes 10,000 cases in each of four `dae2`
+aggregate lanes, with explicit prebuilt native binaries, `--jobs auto`, eight
+subprocesses, `BINARYEN_CORES=1`, both cleanup normalizers, independent
+wasm-tools validation and Node-v2 observations. No validation, generator,
+command or observed semantic failure is reported.
+
+| Lane | Canonical matches | Cleanup matches | Structural residuals | Canonically larger | Runtime matches / blocked |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| dae2-open | 2,879 | 667 | 6,454 | 0 | 9,312 / 688 |
+| dae2-optimizing-open | 2,233 | 1,313 | 6,454 | 0 | 9,312 / 688 |
+| dae2-closed | 0 | 100 | 9,900 | 706 | 9,312 / 688 |
+| dae2-optimizing-closed | 100 | 0 | 9,900 | 2,133 | 9,312 / 688 |
+
+The runtime-blocked continuation inputs remain unverified. Structural residuals
+remain agent-classified parity gaps, and larger canonical outputs remain
+size-losing gaps. The frozen before CLI reproduces all 80 retained raw
+outputs exactly; this does not cover suppressed structural bundles or justify
+the pre-existing output differences. The evidence records raw/canonical size
+totals and selected subprofile counts. These are 40,000 comparisons across four
+lanes using the same aggregate seed, not a claim of 40,000 distinct inputs.
+P03 and the broader performance, parity, size and runtime-coverage work remain
+open.
