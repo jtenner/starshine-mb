@@ -34,7 +34,7 @@ export function runCiWorkflowContractTest(): void {
     ["bun scripts/lib/generate-product-version.mjs --check", "synchronized product version drift check"],
     ["bun ffi check", "generated FFI freshness check"],
     ["git diff --exit-code", "format/interface cleanliness enforcement"],
-    ["moon test", "full MoonBit test suite"],
+    ["      - name: Run full MoonBit test suite\n        run: bun validate test --target wasm", "full Wasm MoonBit suite with explicit source file selection"],
     ["bun scripts/test/ci-workflow-contract.ts", "workflow self-contract"],
     ["  release-artifacts:", "release artifact job"],
     ["WIT_BINDGEN_VERSION: \"0.60.0\"", "pinned wit-bindgen version"],

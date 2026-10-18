@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
+import { discoverMoonTestFiles } from "../lib/moon-test-selection";
+
 function fail(message: string): never {
   throw new Error(message);
 }
@@ -143,6 +145,10 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) {
+  process.stdout.write("wasm-opt version 133\\n");
+  process.exit(0);
+}
 const outIndex = args.indexOf("-o");
 if (outIndex !== -1) {
   fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -182,16 +188,26 @@ process.exit(0);
   };
 
   fs.writeFileSync(logPath, "");
+  const selectedFiles = discoverMoonTestFiles(repoRoot);
+  const testJobs = Math.min(16, Math.max(1, os.availableParallelism()));
+  runBun(repoRoot, ["validate", "test", "--target", "wasm-gc"], env);
+  const actualTest = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualTest === ["test", "--target", "wasm-gc", "--jobs", String(testJobs), ...selectedFiles].join(" "),
+    "test-only validation must make one Moon call with every source file and no fuzz run",
+  );
+
+  fs.writeFileSync(logPath, "");
   runBun(repoRoot, ["validate", "full", "--profile", "ci", "--seed", "0x5eed", "--target", "native"], env);
   const expectedValidate = [
     "info",
     "fmt",
     "check --target native",
-    `test --target native --jobs ${Math.max(1, os.availableParallelism())}`,
+    ["test", "--target", "native", "--jobs", String(testJobs), ...selectedFiles].join(" "),
     "run --target native src/fuzz -- all ci --seed 0x5eed",
   ].join("\n");
   const actualValidate = fs.readFileSync(logPath, "utf8").trim();
-  assert(actualValidate === expectedValidate, `unexpected validate command log:\n${actualValidate}`);
+  assert(actualValidate === expectedValidate, "full validation must keep info/fmt/check/test/fuzz order and the complete source file selection");
 
   fs.writeFileSync(logPath, "");
   runBun(repoRoot, ["fuzz", "run", "--profile", "stress", "--suite", "cmd-harness", "--seed", "0xbeef", "--target", "wasm"], env);
@@ -312,6 +328,8 @@ process.exit(0);
       "0x5eed",
       "--pass",
       "remove-unused-brs",
+      "--require-binaryen-version",
+      "133",
       "--starshine-bin",
       fakeStarshinePath,
       "--out-dir",
@@ -335,6 +353,10 @@ process.exit(0);
 
   fs.writeFileSync(logPath, "");
   const coverageOutput = runBun(repoRoot, ["validate", "coverage", "--top", "2", "--baseline", baselinePath], env);
+  assert(
+    fs.readFileSync(logPath, "utf8").trim() === ["coverage", "analyze", ...selectedFiles.map(file => `--test-flag=${file}`)].join(" "),
+    "coverage must use one analyze call with the same complete source file selection",
+  );
   assert(coverageOutput.includes("Coverage summary: total uncovered lines=16, files=2"), `unexpected coverage summary:\n${coverageOutput}`);
   assert(coverageOutput.includes(`Coverage delta vs baseline (${baselinePath}): lines +6, files +1`), `unexpected coverage delta:\n${coverageOutput}`);
 

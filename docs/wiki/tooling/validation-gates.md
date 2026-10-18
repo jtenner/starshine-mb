@@ -1,8 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 sources:
+  - ../../../src/ir/hot_lower_scope_query_wbtest.mbt
+  - ../../../src/ir/hot_lower_value_stack.mbt
+  - ../raw/tooling/2026-10-18-master-ci.json
+  - ../../../scripts/lib/moon-test-selection.ts
+  - ../../../scripts/lib/moon-test-selection.test.ts
   - ../raw/tooling/2026-10-09-output-differences-v133.json
   - ../raw/tooling/2026-10-04-starshine-v133-review.json
   - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
@@ -82,6 +87,7 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `moon fmt` | MoonBit source formatting is normalized. | Starshine invokes mutating `moon fmt`, not `moon fmt --check`, so the gate can rewrite files; review the post-gate diff before commit. | Every source-changing slice before commit. |
 | `moon check --target <target>` | The workspace type-checks for the selected Moon target without running tests. | `bun validate full` defaults to `wasm-gc`; the local wrapper forwards only repo-whitelisted targets. Upstream path selectors and `moon check --fmt` are available for focused work but are not part of the full-gate command shape. | Full-gate pre-test typecheck and target-specific breakage triage. |
 | `moon test --target <target>` | Deterministic package tests pass for the selected target. | `bun validate full` defaults to `wasm-gc`; upstream supports path/package/doc/index/update controls for focused TDD, while the local full gate intentionally runs the workspace-level target test. | Required for behavior changes; prefer focused `moon test src/<pkg>` earlier in a TDD loop. |
+| `bun validate test [--target wasm-gc] [--moon path]` | Runs every default source-file test through Moon, using explicit file paths to keep its launch arguments bounded. | Defaults: target `wasm-gc`, at most 16 workers, all `.mbt` and `.mbt.md` files under `src/`; Moon retains test-kind, skip, expected-panic, and result semantics. | Complete test execution without fuzz; CI uses `--target wasm` to preserve its original backend. |
 | `bun validate full [--profile ci] [--seed <seed>] [--target wasm-gc]` | Runs the repo's local CI floor: `info`, `fmt`, `check`, `test`, then all fuzz suites through [`runFuzz(...)`](../../../scripts/lib/fuzz-task.ts). | Defaults: profile `ci`, target `wasm-gc`, random/time-derived fuzz seed when omitted, `moon` from `MOON_BIN` or `moon`. | Release-like local gate, broad validation before publishing, and high-risk behavior changes; use [`release-process.md`](release-process.md) for the full version/package/release-note checklist. |
 | `bun validate coverage [--top n] [--baseline path] [--update-baseline]` | Parses `moon coverage analyze`, reports uncovered-line totals, and optionally fails CI on uncovered-line regression versus a simple baseline file. | Default top count is `10`; no baseline means report-only. | Coverage reviews and CI coverage-regression checks. |
 | `bun validate readme-api-sync ...` | Verifies README/API synchronization through [`scripts/lib/readme-api-sync`](../../../scripts/lib/readme-api-sync.ts). | Arguments are owned by the readme-sync parser. | Public API or README surface changes. |
@@ -89,6 +95,40 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `bun validate self-opt-smoke [--wasm path] [--limit n|--file path]` | Validates an already-built self-optimized CLI artifact with `wasm-tools validate --features all`, executes the artifact under the Node-hosted WASI Preview 1 runner with `--help`, then runs a fast WAST spec workload. | Defaults to `tests/node/dist/starshine-self-optimized-wasi.wasm` and `--limit 1`; `--wasm` may point at a candidate artifact such as `.tmp/o4z-bench/starshine-o4z-candidate.wasm`. | Checking optimized-artifact safety without rebuilding the full self-opt pipeline; runner/Preview boundaries live in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md). |
 | `bun validate self-opt-full [--wasm path]` | Runs the same wasm-validity and Node-hosted WASI Preview 1 smoke checks as `self-opt-smoke`, then executes all checked-in `tests/spec/**/*.wast` files through the self-optimized CLI artifact. | Forwards to the self-opt check lane with `--full-spec`; ask before running because it is intentionally broader than the default smoke lane. | CI/full signoff that the optimized artifact remains runtime-safe and spec-workload-correct. |
 | `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers; solver/config flags are host-tooling controls, not semantic repo policy. | Changes to proved helper contracts or the validator proof kernel. |
+
+## October 18: complete Moon test selection
+
+Moon's package-wide selector repeats empty file entries across test classes.
+The pass package can exceed Linux's single-argument limit before its whitebox
+tests start. Required CI, full validation, and coverage share this failure.
+The source selector discovers all ordinary `.mbt` and `.mbt.md` files under
+`src/`, including inline tests and test helpers, and passes each path once.
+Moon selects and executes the tests; no generated test metadata or driver is
+rewritten, and no custom result interpreter replaces Moon.
+
+The same selection is used by the test-only lane, the test stage of full
+validation, and the single coverage analyze call. Explicit paths preserve
+Moon's default handling of skipped, unnamed, panic, asynchronous, and bench
+cases. A filename wildcard is not an alternative: Moon's file filter requires
+exact names. Full validation still runs its complete configured fuzz profile
+after successful tests. The required job retains its previous Wasm backend.
+
+The local red case fails before the pass whitebox driver starts: its default
+selection argument is 167,107 bytes, above Linux's 131,072-byte per-argument
+limit, and the kernel returns `E2BIG`. Explicit file selection reduces that
+argument to 50,230 bytes. Reconstructed default and explicit Wasm selections
+contain the same 15,167 case IDs, exclude the same 173 skipped normal cases
+and 3,439 bench cases, and have equal inventory hashes. This is selection
+evidence; execution results are recorded separately in the
+[CI repair record](../raw/tooling/2026-10-18-master-ci.json).
+
+Native debug tests have a separate compiler limitation: core `Array.map` on
+the mixed `HotLowerStackValue` record creates an uninitialized array which
+MoonBit v0.10.15 cannot lower. The scope-query fixture now accepts an
+initialized `FixedArray` and uses `hot_lower_value_stack_makei` for computed
+values. The existing stack and scope assertions remain active. This extends
+the initialized-storage rule already used by the native stack; it changes
+neither production behavior nor public interfaces.
 
 ## `bun validate full` Flow
 
@@ -98,7 +138,7 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 moon info
 moon fmt
 moon check --target <target>
-moon test --target <target>
+moon test --target <target> --jobs <bounded-workers> <all-source-files>
 bun fuzz run --suite all --profile <profile> --seed <seed> --target <target>
 ```
 
@@ -127,7 +167,7 @@ The three jobs and their exact local equivalents are:
    moon fmt
    bun ffi check
    git diff --exit-code
-   moon test
+   bun validate test --target wasm
    ```
 
    The FFI check closes the gap between public `.mbti` changes and the checked-in
@@ -150,7 +190,7 @@ The three jobs and their exact local equivalents are:
    bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
    ```
 
-3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid signoff against the current Binaryen `132` baseline:
+3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid check against its pinned legacy Binaryen `132` baseline:
 
    ```text
    moon update
@@ -160,7 +200,7 @@ The three jobs and their exact local equivalents are:
    bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --determinism --codec-idempotence --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --require-binaryen-version 132 --max-failures 1 --no-reduce-mismatches
    ```
 
-For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_132` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
+New dedicated pass evidence uses the verified Binaryen 133 target from `AGENTS.md`; the existing required differential job retains its explicit legacy 132 contract. For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_132` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
 
 Both CI compare-pass correctness lanes require fresh-run deterministic output and stable decode/encode bytes.
 
@@ -187,6 +227,11 @@ The pass-comparison harness has its own contract: freshly generated inputs and B
 12 uncovered line(s) in src/lib/module.mbt:
 Total: 16 uncovered line(s) in 2 file(s)
 ```
+
+The wrapper passes the same complete source-file list through repeated
+`--test-flag=<path>` arguments in one `coverage analyze` call. Moon still owns
+the clean/test/report cycle; running separate analyze calls for file batches
+would discard earlier coverage. No coverage baseline or failure policy changes.
 
 Then it sorts the top uncovered files, prints totals, and optionally compares only the total uncovered lines/files against a simple baseline:
 

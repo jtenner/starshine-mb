@@ -55,7 +55,10 @@ jobs:
           git diff --exit-code
 
       - name: Run full MoonBit test suite
-        run: moon test
+        run: bun validate test --target wasm
+
+      - name: Check MoonBit test selection
+        run: bun test scripts/lib/moon-test-selection.test.ts scripts/lib/validate-task.test.ts
 
   release-artifacts:
     runs-on: ubuntu-latest

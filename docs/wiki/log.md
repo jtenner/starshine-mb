@@ -1,3 +1,8 @@
+### 2026-10-18 — Repair complete test launches and native fixtures
+
+- [The validation gate](tooling/validation-gates.md#october-18-complete-moon-test-selection) uses every source path to keep Moon's test-selection argument below the Linux limit. Required CI retains Wasm; the full gate retains its configured target and all fuzz suites. Coverage uses one complete analyze cycle.
+- The native scope-query fixture uses initialized stack values, avoiding the qualified compiler's debug array-lowering failure while preserving all assertions. [The repair record](raw/tooling/2026-10-18-master-ci.json) separates local red/green results, exact selection evidence, review limits, and remote CI.
+
 ### 2026-10-18 — Bound DAE2/O cleanup work
 
 - [The cleanup follow-up](binaryen/passes/dae2/starshine-strategy.md#october-18-2026-bound-cleanup-predicates-and-defer-capture-copies) borrows read-only predicate rows, bounds exact-width scans, rejects pure-suffix probes early, and copies private capture bodies only after a change. All 15,165 default tests pass, with unchanged public interfaces and fixed output bytes.

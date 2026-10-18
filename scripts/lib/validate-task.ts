@@ -6,9 +6,21 @@ import process from "node:process";
 import { parseReadmeApiSyncArgs, verifyReadmeApiSync } from "./readme-api-sync";
 import { FuzzOptions, parseFuzzRunArgs, runFuzz } from "./fuzz-task";
 import { runSelfOptCheck } from "./self-opt-task";
+import { discoverMoonTestFiles } from "./moon-test-selection";
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
 export type FullOptions = Pick<FuzzOptions, "profile" | "seed" | "target" | "moonBin">;
+export type TestOptions = Pick<FullOptions, "target" | "moonBin">;
+
+export type ValidateRunDeps = {
+  repoRoot?: string;
+  parallelism?: number;
+  run?: typeof runOrThrow;
+};
+
+export type ValidateFullDeps = ValidateRunDeps & {
+  runFuzz?: typeof runFuzz;
+};
 
 export type CoverageOptions = {
   top: number;
@@ -35,6 +47,25 @@ const MAX_FULL_TEST_JOBS = 16;
 // than the host can use or the suite can sustain in memory.
 export function moonTestJobsForParallelism(parallelism: number): number {
   return Math.min(MAX_FULL_TEST_JOBS, Math.max(1, Math.floor(parallelism)));
+}
+
+export function parseValidateTestArgs(argv: string[]): TestOptions {
+  const options: TestOptions = { target: "wasm-gc", moonBin: resolveMoonBin() };
+  for (let i = 0; i < argv.length; i += 2) {
+    const token = argv[i];
+    switch (token) {
+      case "--target":
+        options.target = argv[i + 1] ?? fail("missing value for --target");
+        break;
+      case "--moon":
+        options.moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        break;
+      default:
+        fail(`unknown option: ${token}`);
+    }
+  }
+  assertTarget(options.target);
+  return options;
 }
 
 // Parse top-level validation defaults and enforce the requested MoonBit target.
@@ -196,25 +227,36 @@ export function parseCoverageOutput(report: string): { totalUncovered: number; f
   return { totalUncovered, fileCount, entries };
 }
 
-// Validate by running MoonBit's core quality gate exactly as the local minimum CI
-// path expects: info, format check, full check, and test before fuzz.
-export function runValidateFull(options: FullOptions): void {
-  const repoRoot = resolveWorkspaceRoot();
-  runOrThrow(options.moonBin, ["info"], { cwd: repoRoot });
-  runOrThrow(options.moonBin, ["fmt"], { cwd: repoRoot });
-  runOrThrow(options.moonBin, ["check", "--target", options.target], { cwd: repoRoot });
-  const testJobs = moonTestJobsForParallelism(availableParallelism());
-  runOrThrow(options.moonBin, ["test", "--target", options.target, "--jobs", String(testJobs)], { cwd: repoRoot });
+// Use explicit source paths while leaving all default test semantics to Moon.
+export function runValidateTest(options: TestOptions, deps: ValidateRunDeps = {}): void {
+  const repoRoot = deps.repoRoot ?? resolveWorkspaceRoot();
+  const testJobs = moonTestJobsForParallelism(deps.parallelism ?? availableParallelism());
+  (deps.run ?? runOrThrow)(options.moonBin, [
+    "test", "--target", options.target, "--jobs", String(testJobs), ...discoverMoonTestFiles(repoRoot),
+  ], { cwd: repoRoot });
+}
+
+// Run the core quality gate in order: info, format, check, test, then fuzz.
+export function runValidateFull(options: FullOptions, deps: ValidateFullDeps = {}): void {
+  const repoRoot = deps.repoRoot ?? resolveWorkspaceRoot();
+  const run = deps.run ?? runOrThrow;
+  run(options.moonBin, ["info"], { cwd: repoRoot });
+  run(options.moonBin, ["fmt"], { cwd: repoRoot });
+  run(options.moonBin, ["check", "--target", options.target], { cwd: repoRoot });
+  runValidateTest(options, { ...deps, repoRoot });
   const fuzzArgs = ["--suite", "all", "--profile", options.profile, "--target", options.target, "--moon", options.moonBin];
   if (options.seed !== null) {
     fuzzArgs.push("--seed", options.seed);
   }
-  runFuzz(parseFuzzRunArgs(fuzzArgs), repoRoot);
+  (deps.runFuzz ?? runFuzz)(parseFuzzRunArgs(fuzzArgs), repoRoot);
 }
 
-export function runValidateCoverage(options: CoverageOptions): void {
-  const repoRoot = resolveWorkspaceRoot();
-  const report = runOrThrow(options.moonBin, ["coverage", "analyze"], { cwd: repoRoot, stdio: "pipe" }).stdout;
+export function runValidateCoverage(options: CoverageOptions, deps: ValidateRunDeps = {}): void {
+  const repoRoot = deps.repoRoot ?? resolveWorkspaceRoot();
+  // One analyze call retains Moon's clean/test/report cycle. Repeated analyze
+  // calls would remove coverage collected by earlier file selections.
+  const args = ["coverage", "analyze", ...discoverMoonTestFiles(repoRoot).map(file => `--test-flag=${file}`)];
+  const report = (deps.run ?? runOrThrow)(options.moonBin, args, { cwd: repoRoot, stdio: "pipe" }).stdout;
   const parsed = parseCoverageOutput(report);
 
   // Emit top-N uncovered files as operator-readable diff context before
@@ -299,6 +341,9 @@ export async function runValidateSelfOptFull(argv: string[], deps: ValidateSelfO
 export async function main(argv: string[]): Promise<void> {
   const [subcommand, ...rest] = argv;
   switch (subcommand) {
+    case "test":
+      runValidateTest(parseValidateTestArgs(rest));
+      return;
     case "full":
       runValidateFull(parseValidateFullArgs(rest));
       return;
@@ -318,6 +363,6 @@ export async function main(argv: string[]): Promise<void> {
       await runValidateSelfOptFull(rest);
       return;
     default:
-      fail("usage: bun validate <full|coverage|readme-api-sync|trace-benchmark|self-opt-smoke|self-opt-full> [...]");
+      fail("usage: bun validate <test|full|coverage|readme-api-sync|trace-benchmark|self-opt-smoke|self-opt-full> [...]");
   }
 }

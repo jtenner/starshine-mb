@@ -1,0 +1,188 @@
+{
+  "date": "2026-10-18",
+  "baseline": "17df23d874ca2e7db4e9c37c4a795dc93a7cfdd7",
+  "performanceHead": "5e117dc68e880247f5c63488a7d3add400ce3213",
+  "baselineRuns": {
+    "required": "https://github.com/jtenner/starshine-mb/actions/runs/39060825326",
+    "fuzz": "https://github.com/jtenner/starshine-mb/actions/runs/39060825325",
+    "coverage": "https://github.com/jtenner/starshine-mb/actions/runs/39060825301",
+    "native": "https://github.com/jtenner/starshine-mb/actions/runs/39060825275"
+  },
+  "launcher": {
+    "upstreamAlgorithmCommit": "1af328fbbacb977b813a5c7b193a63b065b6f49e",
+    "attributionLimit": "Sources are a pinned upstream implementation matching the inspected algorithm, not proof of the installed Moon build's exact commit. Parent will capture the actual bare Moon failure separately.",
+    "metadataSha256": "47f8f036332e578ce7482a413847dcb11df4944b647d623ed18ad23b32018c83",
+    "payloads": {
+      "default": {
+        "bytes": 167107,
+        "entries": 3532,
+        "nonemptyEntries": 577
+      },
+      "explicitAllMetadataFiles": {
+        "bytes": 50230,
+        "entries": 883
+      },
+      "nonemptyCompact": {
+        "bytes": 36187,
+        "entries": 577
+      },
+      "nonemptySingletonNoArgs": {
+        "bytes": 95353,
+        "entries": 577
+      }
+    },
+    "osLaunch": {
+      "argumentBytesExcludingNul": 167107,
+      "linuxMaxArgStringBytesIncludingNul": 131072,
+      "errno": 7,
+      "errnoName": "E2BIG",
+      "message": "[Errno 7] Argument list too long: '/home/dev/.moon/bin/moonrun'",
+      "expected": true,
+      "testDriverStarted": false
+    },
+    "selection": {
+      "sourceFiles": 2175,
+      "defaultCaseCount": 15167,
+      "explicitCaseCount": 15167,
+      "caseIdsEqual": true,
+      "excludedSkippedNormalCases": 173,
+      "excludedBenchCases": 3439,
+      "defaultCaseIdsSha256": "b4f695a1a808f55e7217863a0ee669b0db9bea879f7abe9a3324e65908c36130",
+      "explicitCaseIdsSha256": "b4f695a1a808f55e7217863a0ee669b0db9bea879f7abe9a3324e65908c36130",
+      "limits": "Inventory equivalence, not a claim that these tests were executed. Native Moon retains failure/panic/async result semantics."
+    },
+    "limits": [
+      "Selection reconstruction is distinct from actual execution.",
+      "The earlier wasm-gc metadata lacks two current memory-packing tests; no inherent backend count difference is claimed.",
+      "Moon retains test selection and result semantics; no driver or generated metadata is rewritten."
+    ]
+  },
+  "red": [
+    {
+      "stage": "default-wasm-red",
+      "command": [
+        "moon",
+        "test",
+        "--package",
+        "jtenner/starshine/passes"
+      ],
+      "exit": 255,
+      "elapsed_s": 408.13326213300024
+    },
+    {
+      "stage": "native-red",
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "native",
+        "--package",
+        "jtenner/starshine/ir",
+        "--file",
+        "hot_lower_value_stack_wbtest.mbt"
+      ],
+      "exit": 1,
+      "elapsed_s": 8.65296698200109
+    }
+  ],
+  "validation": [
+    {
+      "stage": "moon-info",
+      "command": [
+        "moon",
+        "info"
+      ],
+      "exit": 0,
+      "elapsed_s": 4.560178052999618
+    },
+    {
+      "stage": "moon-fmt",
+      "command": [
+        "moon",
+        "fmt"
+      ],
+      "exit": 0,
+      "elapsed_s": 0.042080680999788456
+    },
+    {
+      "stage": "native-green-paths",
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "native",
+        "src/ir/hot_lower_value_stack_wbtest.mbt",
+        "src/ir/hot_lower_scope_query_wbtest.mbt"
+      ],
+      "exit": 0,
+      "elapsed_s": 7.491266983000969
+    },
+    {
+      "stage": "launcher-unit",
+      "command": [
+        "mise",
+        "exec",
+        "bun@1.4.2",
+        "--",
+        "bun",
+        "test",
+        "scripts/lib/moon-test-selection.test.ts",
+        "scripts/lib/validate-task.test.ts"
+      ],
+      "exit": 0,
+      "elapsed_s": 0.039303868999923
+    },
+    {
+      "stage": "workflow-contract",
+      "command": [
+        "mise",
+        "exec",
+        "bun@1.4.2",
+        "--",
+        "bun",
+        "scripts/test/ci-workflow-contract.ts"
+      ],
+      "exit": 0,
+      "elapsed_s": 0.01959169300062058
+    },
+    {
+      "stage": "task-family",
+      "command": [
+        "mise",
+        "exec",
+        "bun@1.4.2",
+        "--",
+        "bun",
+        "scripts/test/task-family-commands.ts"
+      ],
+      "exit": 0,
+      "elapsed_s": 1.595259920000899
+    }
+  ],
+  "review": {
+    "initialClaude": {
+      "exit": 0,
+      "scope": "baseline CI files and logs; concurrently changing launcher files were incomplete during review",
+      "confirmed": "native debug compiler failure",
+      "limit": "Launcher findings referred to partial edits; a frozen candidate review is separate."
+    },
+    "frozenCandidateClaude": {
+      "status": "running at commit",
+      "scope": "eight launcher/workflow/native fixture files, frozen at performance head plus repair changes",
+      "limits": "Local full-gate completion and remote runs occur after the evidence snapshot."
+    }
+  },
+  "remote": "pending after repair push",
+  "native": {
+    "error": "Machine_of_clam_lower.lower_array_make: uninitialized non-null GC ref arrays are not lowered",
+    "compiler": "v0.10.15+943464bfa",
+    "repair": "Use initialized FixedArray fixture input and hot_lower_value_stack_makei instead of Array.map. Preserve all assertions and debug compilation."
+  },
+  "executionObservation": {
+    "target": "wasm-gc",
+    "tests": 15165,
+    "passed": 15165,
+    "failed": 0,
+    "scope": "test stage of full gate completed; fuzz stage still active at commit"
+  }
+}
