@@ -209,7 +209,8 @@
       "passed": 27,
       "failed": 0,
       "target": "wasm",
-      "instrumented": true
+      "instrumented": true,
+      "scope": "original tests before independent review of their controls"
     },
     "incremental": {
       "totalUncovered": 28127,
@@ -286,13 +287,130 @@
         "elapsed_s": 6.927209266999853
       }
     ],
-    "freshAnalyze": "running; final result not yet in this candidate record",
-    "independentReview": "running on frozen two-file scope; GPT source review found no assertion defect.",
+    "freshAnalyze": {
+      "head": "80301e70104b276f592dbf0e55a6db59efbaefaa",
+      "scope": "before the later test-control strengthening",
+      "uncoveredTotal": 28128,
+      "files": 255,
+      "deltaFromBudget": -10,
+      "result": {
+        "stage": "coverage-fresh",
+        "command": [
+          "mise",
+          "exec",
+          "bun@1.4.2",
+          "--",
+          "bun",
+          "validate",
+          "coverage",
+          "--moon",
+          "/home/dev/Projects/starshine-mb/.tmp/master-ci-20261018/coverage-fresh-moon",
+          "--top",
+          "30",
+          "--baseline",
+          ".github/coverage-baseline.txt"
+        ],
+        "CI": "true",
+        "exit": 0,
+        "elapsed_s": 508.3738223440014
+      },
+      "differenceFromIncremental": {
+        "additionalUncoveredPoints": [
+          [
+            "src/validate/validate.mbt",
+            403
+          ]
+        ],
+        "limit": "The incremental estimate was one point lower; the fresh result is authoritative for this head."
+      }
+    },
+    "independentReview": {
+      "status": "complete",
+      "exit": 0,
+      "scope": "both original frozen test files and relevant production contracts",
+      "confirmedTestWeaknesses": [
+        "Void budget fixtures also failed from a result-count mismatch.",
+        "Intrinsic rejection also lacked required operands.",
+        "A later function branch masked the second frame epoch dependency."
+      ],
+      "additionalNotes": [
+        "Component test titles overstated top-level publication scope.",
+        "An incompatible-destination case used an out-of-range label."
+      ],
+      "productionDefects": "none confirmed in scope"
+    },
     "constraints": [
       "Coverage budget unchanged.",
       "No implementation, public interface, skip-list or fuzz-count change.",
       "Small fixed test tables; no fuzz or artifact-scale loops added to the default suite."
     ]
   },
-  "remoteAtInitialLauncherCommit": "pending after repair push"
+  "remoteAtInitialLauncherCommit": "pending after repair push",
+  "testControlStrengthening": {
+    "parent": "80301e70104b276f592dbf0e55a6db59efbaefaa",
+    "testFileSha256": "f913f735615bbaa1c96d3989a07bbb631b0f88d4599806fc4900b8ba95de0632",
+    "changes": [
+      "Use the correct result count and an accepted ample-budget control for each exhausted body.",
+      "Seed all intrinsic-call operands; compare an accepted unmasked call and unchanged rejected operands.",
+      "Assert frame edges before adding a distinct third-parameter function dependency.",
+      "Use in-range branch labels with different arities.",
+      "Add a valid and intentionally invalid top-level local-flow planner case, including the explicit valid-plan commit."
+    ],
+    "focused": {
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "target": "wasm",
+      "instrumented": true
+    },
+    "incrementalTotal": 28128,
+    "validation": [
+      {
+        "stage": "strengthened-info",
+        "command": [
+          "moon",
+          "info"
+        ],
+        "exit": 0,
+        "elapsed_s": 4.492301375999887
+      },
+      {
+        "stage": "strengthened-fmt",
+        "command": [
+          "moon",
+          "fmt"
+        ],
+        "exit": 0,
+        "elapsed_s": 0.045539703000031295
+      },
+      {
+        "stage": "strengthened-tests",
+        "command": [
+          "moon",
+          "test",
+          "--target",
+          "wasm",
+          "--enable-coverage",
+          "src/lib/proposal_type_format_wbtest.mbt",
+          "src/passes/dae2_raw_local_flow_boundary_wbtest.mbt"
+        ],
+        "exit": 0,
+        "elapsed_s": 19.37360051700125
+      },
+      {
+        "stage": "strengthened-incremental",
+        "command": [
+          "moon",
+          "coverage",
+          "report",
+          "-f",
+          "simp_caret"
+        ],
+        "exit": 0,
+        "elapsed_s": 6.801357766000365
+      }
+    ],
+    "independentVerification": "running on the corrected frozen file at commit",
+    "finalRemoteChecks": "pending after push; source behavior and coverage budget unchanged"
+  }
 }

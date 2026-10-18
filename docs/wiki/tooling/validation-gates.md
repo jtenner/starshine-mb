@@ -146,7 +146,17 @@ records all 54 existing production source maps and 33 original traces unchanged.
 This incremental result is an estimate before the separate fresh
 clean/test/report cycle and remote rerun;
 [the repair record](../raw/tooling/2026-10-18-master-ci.json) keeps those scopes
-separate. No optimizer implementation, public API, skip list or fuzz count changes.
+separate. The fresh cycle at `80301e701` passes with 28,128 uncovered lines,
+ten below budget. Its one additional uncovered point is in
+`src/validate/validate.mbt:403`; the fresh total supersedes the estimate.
+
+Independent review then identifies three weak DAE2 test controls. Corrected
+cases use accepted ample-budget bodies, complete intrinsic-call operands and
+separate frame/function dependencies. The label mismatch now uses in-range
+labels, and a wrapper case checks both plan rejection and explicit commitment
+of an accepted dependency plan. All 28 focused tests pass. The final master
+rerun verifies this later test version. No optimizer implementation, public
+API, skip list, fuzz count or coverage budget changes.
 
 ## `bun validate full` Flow
 

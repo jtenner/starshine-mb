@@ -54,7 +54,7 @@ fn dae2_raw_local_boundary_demands(
 }
 
 ///|
-test "DAE2 local flow intentionally rejects exhausted allocation and invalid edge boundaries without publishing a plan" {
+test "DAE2 local flow intentionally rejects exhausted allocation and invalid edge boundaries before commit" {
   let (graph, _, flow) = dae2_raw_local_boundary_fixture(0)
   let used = graph.used.copy()
   assert_eq(flow.block(), -1)
@@ -150,7 +150,7 @@ test "DAE2 local flow reuses a cached entry and resolves predecessor definitions
 }
 
 ///|
-test "DAE2 local flow intentionally discards unresolved plans when predecessor traversal exhausts the budget" {
+test "DAE2 local flow intentionally reports unresolved predecessor queries when its private budget is exhausted" {
   for budget in [0, 1] {
     let (graph, _, flow) = dae2_raw_local_boundary_fixture(100)
     let used = graph.used.copy()
@@ -192,12 +192,18 @@ test "DAE2 local flow repeated branch destinations preserve each epoch's payload
   flow.branch_epoch += 1
   flow.state.stack[0] = info.param_locations[1]
   assert_true(flow.branch(@lib.LabelIdx::new(0U), 0, 1))
+  assert_eq(flow.state.plan.consumers, [value, value])
+  assert_eq(flow.state.plan.sources, [
+    info.param_locations[0],
+    info.param_locations[1],
+  ])
   assert_eq(flow.blocks[target].predecessors, [0])
   ignore(flow.frames.pop())
+  flow.state.stack[0] = info.param_locations[2]
   assert_true(flow.branch(@lib.LabelIdx::new(0U), 0, 1))
   assert_true(flow.branch(@lib.LabelIdx::new(0U), 0, 1))
   assert_eq(dae2_raw_local_boundary_demands(graph, info, flow, value), [
-    true, true, false,
+    true, true, true,
   ])
 }
 
@@ -270,33 +276,31 @@ test "DAE2 local flow intentionally rejects malformed stack and structured contr
 }
 
 ///|
-test "DAE2 local flow intentionally rejects exhausted structured and branch bodies while keeping the graph private" {
+test "DAE2 local flow intentionally rejects exhausted structured and branch bodies accepted with sufficient work" {
   for
-    (budget, body) in [
+    (budget, result_count, body) in [
       (
+        0,
         0,
         [@lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new([]))],
       ),
       (
         1,
+        0,
         [@lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new([]))],
       ),
       (
         1,
+        0,
         [@lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new([]))],
       ),
       (
         2,
+        0,
         [@lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new([]))],
       ),
       (
         0,
-        [
-          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-        ],
-      ),
-      (
         1,
         [
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -304,6 +308,15 @@ test "DAE2 local flow intentionally rejects exhausted structured and branch bodi
         ],
       ),
       (
+        1,
+        1,
+        [
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        ],
+      ),
+      (
+        0,
         0,
         [
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -312,6 +325,7 @@ test "DAE2 local flow intentionally rejects exhausted structured and branch bodi
       ),
       (
         0,
+        1,
         [
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
           @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
@@ -320,6 +334,7 @@ test "DAE2 local flow intentionally rejects exhausted structured and branch bodi
       ),
       (
         1,
+        1,
         [
           @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
           @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
@@ -327,10 +342,15 @@ test "DAE2 local flow intentionally rejects exhausted structured and branch bodi
         ],
       ),
     ] {
-    let (graph, _, flow) = dae2_raw_local_boundary_fixture(budget)
+    let (graph, _, flow) = dae2_raw_local_boundary_fixture(
+      budget,
+      result_count~,
+    )
     let used = graph.used.copy()
-    assert_eq(flow.body(body, 0, 1), None)
+    assert_eq(flow.body(body, 0, result_count), None)
     dae2_raw_local_boundary_uncommitted(graph, used)
+    let (_, _, accepted) = dae2_raw_local_boundary_fixture(100, result_count~)
+    assert_eq(accepted.body(body, 0, result_count), Some(result_count == 0))
   }
   let (graph, _, flow) = dae2_raw_local_boundary_fixture(1)
   let used = graph.used.copy()
@@ -374,17 +394,21 @@ test "DAE2 local flow branch tables retain their selector and result while allow
 }
 
 ///|
-test "DAE2 local flow intentionally rejects incompatible branch table destinations" {
+test "DAE2 local flow intentionally rejects in-range branch table destinations with different payload arities" {
   let (graph, _, flow) = dae2_raw_local_boundary_fixture(100)
   let used = graph.used.copy()
+  let target = flow.block()
+  flow.frames.push(Dae2RawLocalFrame::new(target, target, -1, 0, 0, false))
+  assert_eq(flow.target_arity(@lib.LabelIdx::new(0U)), 0)
+  assert_eq(flow.target_arity(@lib.LabelIdx::new(1U)), 1)
   assert_eq(
     flow.body(
       [
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
         @lib.Instruction::br_table(
-          [@lib.LabelIdx::new(1U)],
-          @lib.LabelIdx::new(0U),
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(1U),
         ),
       ],
       0,
@@ -412,15 +436,31 @@ test "DAE2 raw control intentionally rejects missing signatures and insufficient
     assert_true(flow.state.stack.is_empty())
     dae2_raw_local_boundary_uncommitted(graph, used)
   }
-  let (graph, _, flow) = dae2_raw_local_boundary_fixture(
+  let (graph, info, flow) = dae2_raw_local_boundary_fixture(
     100,
     intrinsic_imports=Some([true]),
   )
   let used = graph.used.copy()
+  for location in info.param_locations {
+    flow.state.stack.push(location)
+  }
+  let operands = flow.state.stack.copy()
   assert_false(
     flow.state.leaf(@lib.Instruction::call(@lib.FuncIdx::new(0U)), 0),
   )
+  assert_eq(flow.state.stack, operands)
+  assert_true(flow.state.plan.sources.is_empty())
+  assert_true(flow.state.plan.observations.is_empty())
   dae2_raw_local_boundary_uncommitted(graph, used)
+  let (_, info, accepted) = dae2_raw_local_boundary_fixture(100)
+  for location in info.param_locations {
+    accepted.state.stack.push(location)
+  }
+  assert_true(
+    accepted.state.leaf(@lib.Instruction::call(@lib.FuncIdx::new(0U)), 0),
+  )
+  assert_eq(accepted.state.stack, [info.result_location])
+  assert_eq(accepted.state.plan.sources, info.param_locations)
 }
 
 ///|
@@ -543,4 +583,48 @@ test "DAE2 flat raw planning intentionally rejects invalid operands and unresolv
     is None,
   )
   dae2_raw_local_boundary_uncommitted(graph, used)
+}
+
+///|
+test "DAE2 local-flow planner returns a usable dependency plan and intentionally rejects an invalid return before commit" {
+  let (graph, info, _) = dae2_raw_local_boundary_fixture(100)
+  let used = graph.used.copy()
+  let invalid = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::return_()]),
+  )
+  // The configured function has one result, so this empty return is invalid.
+  assert_true(
+    dae2_raw_local_flow_dependency_plan(
+      graph,
+      [info],
+      0,
+      [],
+      invalid,
+      None,
+      None,
+    )
+    is None,
+  )
+  dae2_raw_local_boundary_uncommitted(graph, used)
+  let valid = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+  )
+  let plan = dae2_raw_local_flow_dependency_plan(
+    graph,
+    [info],
+    0,
+    [],
+    valid,
+    None,
+    None,
+  ).unwrap()
+  dae2_raw_local_boundary_uncommitted(graph, used)
+  plan.commit(graph)
+  graph.observe(info.result_location)
+  graph.solve()
+  assert_eq(info.param_locations.map(fn(location) { graph.used[location] }), [
+    false, true, false,
+  ])
 }

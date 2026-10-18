@@ -5,6 +5,8 @@
 
 - After complete test launches succeed, fresh coverage exposes a 125-line budget regression. Twenty-seven bounded DAE2 boundary and public-type diagnostic tests pass; incremental coverage reaches 28,127 against the retained 28,138 budget. Fresh coverage and the exact-head master rerun remain separate signoff.
 
+- The fresh clean coverage cycle passes at 28,128 uncovered lines. Independent review then strengthens budget, intrinsic-call and branch-epoch controls and adds a real planner boundary test; all 28 focused tests pass. The final master run checks this later test version.
+
 ### 2026-10-18 — Bound DAE2/O cleanup work
 
 - [The cleanup follow-up](binaryen/passes/dae2/starshine-strategy.md#october-18-2026-bound-cleanup-predicates-and-defer-capture-copies) borrows read-only predicate rows, bounds exact-width scans, rejects pure-suffix probes early, and copies private capture bodies only after a change. All 15,165 default tests pass, with unchanged public interfaces and fixed output bytes.
