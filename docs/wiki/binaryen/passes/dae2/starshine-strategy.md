@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 sources:
   - ../../../raw/tooling/2026-10-17-dae2-predecessor-reuse.json
   - ../../../../../src/ir/local_graph_seen_predecessor_wbtest.mbt
@@ -12136,3 +12136,112 @@ totals and selected subprofile counts. These are 40,000 comparisons across four
 lanes using the same aggregate seed, not a claim of 40,000 distinct inputs.
 P03 and the broader performance, parity, size and runtime-coverage work remain
 open.
+
+## October 17, 2026: demand-driven raw local flow
+
+This follow-up targets sub-second `dae2-optimizing` on the same 6,211,596-byte,
+12,904-function compiler benchmark. **The sub-second target remains open.**
+The baseline is the preceding visited-predecessor candidate `15803023…0fb45`.
+The [evidence record](../../../raw/tooling/2026-10-17-dae2-demand-local-flow.json)
+preserves binary/input hashes, samples, commands, output checks and validation;
+full local artifacts are under `.tmp/dae2-subsecond-20261017/`.
+
+The new [raw local-flow planner](../../../../../src/passes/dae2_raw_local_flow.mbt)
+replaces eager copying of complete local state with a CFG of frozen block
+exits. Reads request reaching definitions only for the locals they use. An
+edge or fork freezes its predecessor; a subsequent write creates a successor
+before modifying the last-write map. Thus reads before writes and earlier
+branch exits retain their original definitions. No-write arms share the frozen
+entry, and single-predecessor joins reuse that predecessor. Deferred entry
+queries resolve after all edges, including backedges, exist. One symbol per
+block/local makes cycles finite; the existing dependency solver computes their
+least fixed point.
+
+The leaf workspace never restores local values or installs synthetic phis.
+After the whole body is visited, a workspace entry below the plan's fresh-symbol
+base proves there was no source write anywhere. Such reads link directly to
+the parameter or default instead of expanding predecessor queries. This test
+must happen after traversal, including every loop and branch arm.
+
+The dispatcher retains the flat/branchless fast paths, existing scalar-control
+preflight and leaf contracts. Each local-flow attempt retains the `64 + 8N`
+work limit; unsuccessful attempts remain private and fall back to the existing
+eager planner, then HOT. The total cost of two attempts is not claimed to be
+`8N`. No validation, source-write provenance, cleanup stage or unsupported
+control/exception boundary is removed or widened.
+
+The [dedicated nested-state/join regressions](../../../../../src/passes/dae2_single_exit_wbtest.mbt)
+failed raw admission before implementation. The bounded
+[never-written query regression](../../../../../src/passes/dae2_raw_local_flow_wbtest.mbt)
+failed with three queries versus one, after checking demanded parameters and
+dead writers. Nine bounded differential shapes compare every boundary and
+source-write demand against both eager flow and HOT in both worlds. Eight
+additional shapes cover enclosing exits, loops, results, ownership and the
+optimizing composition; the [CLI regression](../../../../../src/cmd/dae2_single_exit_wbtest.mbt)
+checks retained and removed parameters for both variants. Existing eager-budget
+tests still assert eager rejection and atomicity; public admission advances
+because the new planner handles those inputs.
+
+`moon info`, `moon fmt` and all **15,155 default tests** pass, using the existing
+compact-selection gate for the pass package's argument-size limit. Public
+`.mbti` files are unchanged. The separate dedicated lane passes both synthetic
+budget cases and the full artifact differential: all **12,371 raw plans** have
+the same boundary and every-source-write demands as HOT, in both worlds.
+
+Two experiments were rejected. A single-exit eager-state handoff improved the
+large optimizing command only 1.4% in its three-pair pilot. Running capture
+cleanup before SimplifyLocals/Vacuum reduced raw bytes but moved its large
+optimizing median from 4,632.95 to 4,655.63 ms. The latter control used the
+pre-shortcut flow binary, so its plain-pass change is not evidence for cleanup
+reordering. Neither experiment remains in production; cleanup order is
+unchanged. Their measurements remain scoped to their own binaries.
+
+Seven serial alternating pairs after one warmup give these quiet whole-command
+medians; a separate three-pair traced cohort measures the enclosing pass. Both
+use CPU 6 and retain every sample. No task-owned heavy work overlaps clocks;
+unrelated host workloads are uncontrolled. These are local measurements.
+
+| Input/pass | Command before ms | Command after ms | After/before | Pass before ms | Pass after ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| large-dae2 | 2408.803 | 2105.861 | 0.8742 | 1768.647 | 1464.937 |
+| large-dae2-optimizing | 4512.010 | 4222.281 | 0.9358 | 3870.965 | 3587.422 |
+| small-dae2 | 4.881 | 4.872 | 0.9983 | 1.991 | 2.019 |
+| small-dae2-optimizing | 8.810 | 8.802 | 0.9990 | 6.216 | 6.366 |
+| mixed-dae2 | 3.051 | 3.145 | 1.0308 | 0.816 | 0.807 |
+| mixed-dae2-optimizing | 7.405 | 7.428 | 1.0030 | 7.714 | 7.872 |
+
+The large optimizing command improves 6.4% and its traced pass improves 7.3%;
+plain DAE2 improves 12.6% at command scope. Small/mixed controls move both ways.
+Large optimizing quiet samples include adverse outliers up to 5.08 s before
+and 5.81 s after; none are discarded. Plain median peak RSS rises from 206,852
+to 214,760 KiB; optimizing median falls from 260,224 to 256,744 KiB, with
+overlapping ranges. These `wait4` peaks do not establish a heap improvement;
+small-case peaks include the inherited parent-process floor.
+
+Final large outputs differ in four defined bodies (5720, 8166, 8169, 8689),
+with 15 fewer raw bytes for plain DAE2 and 27 fewer for optimizing. Their
+redundant control-wrapper differences disappear completely under verified-v133
+strip-debug canonicalization: the entire modules are byte-identical. The
+entire outputs are also identical after v133 Vacuum and O2. Final output
+hashes match the checked flow prototype; all four small/mixed outputs remain
+byte-identical to baseline. Independent wasm-tools validation covers all six
+final outputs. This fixed-input equivalence is grounded in canonical byte
+equality, not inferred solely from validation or smaller size.
+
+The nested SimplifyLocals/Vacuum pipeline alone has a traced median of
+1,824.083 ms after this change (1,805.674 ms before). This enclosing scope
+includes its representation and pipeline overhead; it must not be confused
+with only the inner pass timers. It already exceeds the entire one-second
+budget. Further raw-analysis improvements alone cannot meet the target on
+these measurements. The next work must reduce that cleanup pipeline's actual
+analysis/representation/validation costs while preserving its transforms and
+checks; skipping cleanup or validation is not an accepted shortcut.
+
+Callgrind confirms the attribution: whole-command instructions fall from
+45.592 to 40.803 billion, and the DAE2 module-pass edge falls from 20.884 to
+16.101 billion. HOT CFG/read-source construction falls from 1,286 functions
+to 529 (2.364→0.906 billion CFG instructions and 0.883→0.216 billion read-source
+instructions). New local flow handles 6,040 attempts; only 533 reach the eager
+forward fallback. The nested cleanup edge stays near 16.246 billion and final
+capture cleanup near 2.319 billion. These enclosing call edges are separate;
+recursive inclusive counts must not be summed as distinct work.

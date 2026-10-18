@@ -132,18 +132,18 @@ fn raw_forward_nested_target_locals(
 }
 
 ///|
-test "DAE2 raw resource guard intentionally delegates nested wide exit maps to HOT" {
+test "DAE2 eager exit maps stay bounded while local flow handles nested joins" {
   let small = raw_forward_nested_target_locals(2, 2)
   raw_conditional_compare_boundaries(small, 2)
   let input = raw_forward_nested_target_locals(32, 32)
   let (graph, info, plan) = raw_forward_resource_plan(input)
-  // This intentionally unsupported raw shape needs depth times width state.
-  // Qualification must stop atomically; HOT still performs the optimization.
+  // The eager representation still needs depth times width state and must
+  // stop atomically. Demand-driven local flow admits this shape without maps.
   assert_true(plan is None)
   assert_eq(graph.used.length(), info.params.length() + 1)
   assert_eq(graph.edges.length(), 0)
   assert_eq(graph.work.length(), 0)
-  raw_conditional_compare_boundaries(input, 1)
+  raw_conditional_compare_boundaries(input, 2)
   let output = dae2_run_module_pass(input, false).unwrap()
   let @lib.FuncType(params, _) = @ir.hot_module_resolve_func_type(
     @ir.hot_module_context_from_module(output),

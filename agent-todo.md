@@ -899,6 +899,8 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
 
+- **October 17–18 demand-flow follow-up:** [demand-driven raw local flow](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-17-2026-demand-driven-raw-local-flow) removes eager whole-local-state transport while preserving bounded eager/HOT fallbacks. Large DAE2O improves from 4.512 to 4.222 s at command scope and 3.871 to 3.587 s at pass scope; plain DAE2 command time improves 12.6%. All 15,155 default tests and full artifact demand checks pass. The **sub-second target stays open**: nested SimplifyLocals/Vacuum alone takes 1.824 s. Reduce its representation/analysis/validation work without skipping transforms or checks; preserve the exact canonical/downstream output evidence and track small-control/RSS costs.
+
 - **October 17 follow-up:** [visited-predecessor reuse](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) removes 25% of large-input last-write lookups and 3.1% of read-source instruction work without new storage. Default tests pass, and four fresh 10,000-case lanes finish without validation or observed runtime failures; blocked runtimes and parity/size gaps remain. Large-command clocks remain near parity and small cohorts move both ways, so P03 stays open.
 
 - **Completed entry-source finalization:** use existing reverse DAG order to

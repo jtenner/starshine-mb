@@ -5,6 +5,7 @@ fn raw_conditional_boundary_bits(
   input : @lib.Module,
   raw : Bool,
   closed_world~ : Bool = false,
+  forward_flow~ : Bool? = None,
   write_demands~ : Array[Array[(Int32, Bool)]]? = None,
 ) -> (Array[Bool], Int32) {
   let input = dae2_prepare_legacy_handlers(input).unwrap()
@@ -51,16 +52,39 @@ fn raw_conditional_boundary_bits(
       graph, infos, index, instructions, indices, type_infos, exposure,
     )
     if raw {
-      match
-        dae2_raw_dependency_plan(
-          graph,
-          infos,
-          index,
-          type_infos,
-          body,
-          intrinsic_imports,
-          module_context=Some(context),
-        ) {
+      let plan = match forward_flow {
+        Some(true) =>
+          dae2_raw_local_flow_dependency_plan(
+            graph,
+            infos,
+            index,
+            type_infos,
+            body,
+            intrinsic_imports,
+            Some(context),
+          )
+        Some(false) =>
+          dae2_raw_forward_dependency_plan(
+            graph,
+            infos,
+            index,
+            type_infos,
+            body,
+            intrinsic_imports,
+            Some(context),
+          )
+        None =>
+          dae2_raw_dependency_plan(
+            graph,
+            infos,
+            index,
+            type_infos,
+            body,
+            intrinsic_imports,
+            module_context=Some(context),
+          )
+      }
+      match plan {
         Some(plan) => {
           plan.commit(graph)
           source_writes[index] = plan.write_locations.unwrap_or([])

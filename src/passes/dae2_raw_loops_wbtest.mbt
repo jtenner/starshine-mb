@@ -102,13 +102,13 @@ fn raw_loop_nested_target_locals(depth : Int32, width : Int32) -> @lib.Module {
 }
 
 ///|
-test "DAE2 raw loop resource guard intentionally delegates nested wide phi state to HOT" {
+test "DAE2 local-flow handles nested loops while the eager planner stays bounded" {
   let input = raw_loop_nested_target_locals(32, 32)
   let (graph, info, plan) = raw_forward_resource_plan(input)
   assert_true(plan is None)
   assert_eq(graph.used.length(), info.params.length() + 1)
   assert_eq(graph.edges.length(), 0)
-  raw_conditional_compare_boundaries(input, 1)
+  raw_conditional_compare_boundaries(input, 2)
   let output = dae2_run_module_pass(input, false).unwrap()
   let @lib.FuncType(params, _) = @ir.hot_module_resolve_func_type(
     @ir.hot_module_context_from_module(output),

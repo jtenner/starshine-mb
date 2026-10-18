@@ -483,6 +483,13 @@ fn dae2_raw_conditional_dependency_plan(
     _ => ()
   }
   if !dae2_raw_conditional_qualified(instructions, context) {
+    match
+      dae2_raw_local_flow_dependency_plan(
+        graph, infos, index, type_infos, body, intrinsic_imports, context,
+      ) {
+      Some(plan) => return Some(plan)
+      None => ()
+    }
     return dae2_raw_forward_dependency_plan(
       graph, infos, index, type_infos, body, intrinsic_imports, context,
     )
