@@ -27842,3 +27842,7 @@ arrays/typecheck wrappers from the completed return packaging change.
   per-candidate timer and the adapter's child-process timer. Command-level
   regressions check both routes. The defaults remain unchanged; see
   [reduction backends](fuzzing/reduction-backends.md).
+
+### 2026-10-17 — Rough optimizer pass performance inventory
+
+- Renewed the [active-pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) from native source `17df23d87` against verified Binaryen 133 on three fixed inputs. One warmup and three serial alternating samples cover 61/61/59 standalone sequences, with StripDebug references. The record includes all 172 oracle flags, aliases, Starshine-only entries, pattern-policy exclusions and guarded large cases. Raw-path clocks are included without double-counting inclusive pass spans; whole-command and pipeline costs remain separate. Preserved samples, symmetric writer sizes and independent validation establish discovery evidence only: concurrent project workloads, unclassified output drift, quiet-host renewal and semantic/runtime signoff remain explicit. No optimizer implementation or release target changed.

@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.
+
 - [Starshine 0.3.0 release notes](../releases/0.3.0.md) — Detailed changes from the verified 0.2.2 source checkpoint, with API additions, optimizer repairs, performance limits, diagnostics, and the complete commit list.
 
 - [October 17 optimization-pass audit repairs](tooling/validation-gates.md#october-17-2026--optimization-pass-audit-redgreen-checkpoint) — Thirty-two red-first correctness repairs, all 1,854 source test files green in bounded shards, 240,000 complete current-tree v133 comparisons across 24 lanes, and an additional baseline-controlled MakeSharedObjects diagnostic with explicit external-tool limits.

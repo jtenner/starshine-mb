@@ -1775,6 +1775,8 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P14 — Remaining active coverage and unmeasured owners [IR2-PERF-COVERAGE]
 
+- **October 17 discovery refresh:** the [rough verified-v133 matrix](docs/wiki/tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) covers 61/61/59 standalone pass sequences on small/mixed/compiler inputs. Include raw-path work when prioritizing SSA/RSE/Vacuum; retain whole-command costs separately. Host contention and three-sample cohorts do not replace quiet owner signoff or the DAE 1× target. Large Flatten/MergeLocals remain guarded coverage gaps; four direct flags lack matching oracle contracts, and policy flags need pattern-specific fixtures. Use the evidence's changed/unchanged rows to target active fixtures and preserve unclassified size/parity drift.
+
 - **Owner / why:** [registry](src/passes/optimize.mbt),
   [performance sweep](scripts/lib/pass-performance-sweep.ts) and owner dossiers;
   guarded or unchanged paths cannot establish active transformation coverage.

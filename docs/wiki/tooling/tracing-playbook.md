@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-17
 sources:
+  - ../raw/tooling/2026-10-17-pass-performance-v133.json
+  - ../raw/tooling/2026-10-17-pass-performance-mixed.wat
+  - ../../../scripts/lib/pass-performance-sweep.ts
   - ../../../src/passes/constraint_lower.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/tc_try_table_initialization_wbtest.mbt
@@ -47,6 +50,122 @@ related:
 ---
 
 # Tracing Playbook
+
+## October 17, 2026 rough comparison across active passes
+
+The [complete evidence](../raw/tooling/2026-10-17-pass-performance-v133.json)
+records **61 paired pass sequences on each small/mixed input and
+59 on the large compiler**, plus bracketing StripDebug controls.
+This is discovery evidence under concurrent TinyGo/Go workloads, not quiet-host
+performance acceptance, semantic parity, or a release/owner closeout. Earlier
+campaigns retain their own source, oracle and scope. The stricter DAE-family
+1× target remains open; this rough readout does not replace its larger cohorts.
+
+Source is `17df23d874ca2e7db4e9c37c4a795dc93a7cfdd7`; explicit native release CLI SHA-256
+`ac807a83a45c1a0bb29e5b3e8f75e69360d5d39c8627509db277b051f75dc2fe`. Production source fingerprint
+`db371de68ad29e146d2fc501143785dc5b7d8dcb05f519e6c4fbe98deab3300e` covers 326 files.
+The verified Binaryen 133 oracle is
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`. Inputs are the existing
+192,893-byte / 45-function fixture, the 6,211,596-byte / 12,904-function
+compiler, and a 7,705-byte / 258-function
+[mixed GC/control fixture](../raw/tooling/2026-10-17-pass-performance-mixed.wat).
+The mixed fixture has 256 exported functions spanning eight patterns: fresh
+struct writes/reads, local copies/control, an unused call parameter, memory
+loads, loops, range predicates, dropped/constant expressions and global reads.
+Exact input hashes and the hardware/tool census are in the evidence.
+Build the mixed fixture with `wasm-tools parse`, then `wasm-tools strip --all` to
+remove its generated name section. The original mixed campaign is retained
+locally as superseded; only its stripped-input replacement is accepted here.
+
+The existing [campaign wrapper](../../../scripts/lib/pass-performance-sweep.ts)
+runs one warmup and three measured rounds with alternating pass order, serial on CPU 6 with
+`BINARYEN_CORES=1` and `--closed-world`. Tool order within a pair remains
+traced Starshine, untraced Starshine, then debug Binaryen. Each eight-pass batch has leading and
+trailing StripDebug references. Every sample is retained locally under
+`.tmp/pass-perf-20261017/`; the evidence retains median/MAD, all measured pass
+samples, phase attribution, sizes and hashes. Both raw outputs from the first
+measured sample are independently checked with wasm-tools 1.262.0 (e22db44da 2026-10-13);
+360 outputs validate. Both large MakeSharedObjects outputs hit wasm-tools’
+unsupported `ref.i31_shared` opcode (`0xfb/0x1f`), which
+[the local decoder](../../../src/binary/decode.mbt) identifies explicitly; this
+is an external-tool decoding limit, not a Starshine-only validation failure.
+Binaryen 133 reads both outputs successfully. Validation is distinct from
+runtime equivalence. Source and executable identities
+remain fixed across successful batches.
+
+**Timer correction for interpretation:** the wrapper's `starshinePassElapsedMs`
+contains `pass:*` clocks and can be zero for substantial raw SSA/RSE/Vacuum work.
+This report adds `raw:*` clocks outside inclusive pass spans, with nested clocks
+counted only once. Standalone RSE uses its dedicated cumulative
+`detail:rse:raw-func` clock; its generic pass/raw fields are both zero. The original fields remain in the evidence. This *timed
+transform work* still excludes shared setup, lifting/lowering, writeback and
+other pipeline costs. Whole-command Starshine measurements use the untraced
+control; Binaryen's command includes `--debug`. Traced work and untraced command
+times describe separate runs and must not be subtracted to infer a causal cost.
+
+Largest observed large-input time deficits are below. Times are median ms;
+S/B > 1 means Starshine took longer. These are prioritization leads on these
+fixtures, not equivalent-output performance wins/losses. The evidence labels
+changed/unchanged paths and independent validation for every row.
+
+| Pass | Starshine timed work | Binaryen pass | S/B | Starshine command | Binaryen command | Changed S/B |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `dae2-optimizing` | 4410.37 | 1681.76 | 2.62× | 4680.62 | 2687.74 | yes/yes |
+| `coalesce-locals` | 2604.04 | 1130.88 | 2.30× | 3341.78 | 1944.17 | yes/yes |
+| `dae2` | 1917.95 | 481.66 | 3.98× | 2576.13 | 1355.26 | yes/yes |
+| `ssa-nomerge` | 1845.42 | 638.50 | 2.89× | 2924.34 | 1512.84 | yes/yes |
+| `ssa` | 1672.39 | 635.49 | 2.63× | 2881.16 | 1534.51 | yes/yes |
+| `inlining` | 1725.12 | 838.15 | 2.06× | 2478.04 | 1769.07 | yes/yes |
+| `duplicate-function-elimination` | 433.32 | 73.58 | 5.89× | 1020.27 | 962.65 | yes/yes |
+| `reorder-globals` | 376.44 | 24.94 | 15.09× | 906.26 | 882.96 | yes/yes |
+
+The active mixed fixture also exposes SimplifyGlobalsOptimizing's nested work:
+Starshine 57.96 ms versus Binaryen
+1.81 ms (32.09×), with
+untraced Starshine / debug Binaryen command medians
+22.35 / 6.00 ms.
+On the large input, Starshine SGO leaves its reference output unchanged while
+Binaryen transforms it; that short Starshine time is a coverage/parity gap,
+not an active-throughput win. The large/compiler and mixed ratios differ substantially for several local
+passes, so neither artifact alone ranks all owners. The complete matrix also
+retains enclosing pipeline costs: a faster timed pass body can coexist with a
+slower complete command, as OptimizeInstructions demonstrates here.
+
+The registry has 74 active names: five duplicate oracle sequences, four without
+a matching direct v133 flag, three inlining-policy flags requiring pattern
+arguments, the StripDebug reference, and 61 paired standalone sequences.
+The four unmatched names are `i64-trunc-sat-float-lowering`,
+`coalesce-locals-cfg`, `duplicate-import-elimination-assume-stable-bindings`, and
+`apply-compiler-facts`. They are not silently paired with different contracts.
+`dae2-optimizing` is compared to the oracle sequence
+`--dae2 --simplify-locals --vacuum`, not a separate v133 flag.
+The oracle optimization catalog has 172 flags; 108 have no paired active
+Starshine entry under the harness mapping. The full catalog, aliases, 26
+boundary-only names, eight removed names and exclusions are in the evidence;
+this is an inventory, not 172 implemented-pass timing comparisons.
+
+Large Flatten and MergeLocals take the existing
+`large-typed-loop-module-interference` fallback in
+[the dispatcher](../../../src/passes/pass_manager.mbt); the timing parser
+cannot report a pass clock for that whole-module guard. Both are retained as
+coverage gaps, not zero-cost throughput. The three bare policy flags fail
+because a pattern value is required, and are excluded from standalone timing.
+No guard or implementation was changed to obtain measurements.
+
+Size comparisons use identical Binaryen `--all-features --strip-debug`
+writeback for both outputs, correcting the wrapper's default asymmetric
+Starshine projection versus raw Binaryen comparison. Small/large no-pass writer projections already differ by 83 / 14,312 bytes;
+inherited reference gaps are recorded separately and must not all be attributed
+to the requested pass. The evidence includes each tool’s size delta from its
+own reference. Changed-from-reference
+means a change relative to the same tool's StripDebug output after that
+writeback; it does not prove a useful transformation. Unchanged paths measure
+admission/analysis cost. Output drift remains **open parity debt**; size-losing
+rows are agent judgments from measurements, while transform-family semantics
+remain unclassified. Smaller output and independent validation alone do not
+establish semantic safety or justify an intentional divergence. Quiet-host
+repetitions, active trigger coverage, runtime replay and pass-specific size
+classification remain open for pass signoff.
 
 ## October 16 output-runtime and bounded candidate experiments
 
