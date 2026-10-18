@@ -71,7 +71,7 @@ fn fs_list_files_recursive_into(
   root : String,
   out : Array[String],
 ) -> Result[Unit, String] {
-  let entries = @xfs.read_dir(root) catch {
+  let entries = @xfs.read_dir(root).to_owned() catch {
     e => return Err("read_dir failed for \{root}: \{fs_error_message(e)}")
   }
   fs_sort_strings(entries)

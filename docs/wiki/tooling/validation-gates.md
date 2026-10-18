@@ -37,6 +37,7 @@ sources:
   - ../../../AGENTS.md
   - ../../../package.json
   - ../../../moon.mod
+  - ../../../src/fs/fs.mbt
   - ../../../scripts/validate.ts
   - ../../../scripts/lib/validate-task.ts
   - ../../../scripts/lib/task-runtime.ts
@@ -80,6 +81,13 @@ Starshine has three layers of validation:
 3. **Repository orchestration** (`bun validate ...`, `bun fuzz ...`, pass comparison scripts, and self-optimize comparison scripts) that chooses the target, ordering, profiles, seeds, and artifact/report conventions for Starshine.
 
 The important maintenance rule is: **do not blur tool capability with repo policy**. The official [Moon command manual](https://moonbitlang.github.io/moon/commands.html) establishes the upstream commands as building blocks, but Starshine's exact default target, target whitelist, fuzz profile, command order, and CI/reporting semantics live in [`scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts), and the command-shape tests in [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts). For the runtime `starshine` command itself, use the separate dispatcher contract in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md).
+
+## MoonBit x dependency
+
+[`moon.mod`](../../../moon.mod) requires `moonbitlang/x` 0.5.5. Its `read_dir`
+returns an array view. The [recursive file scan](../../../src/fs/fs.mbt) makes
+one owned copy before sorting the entries, keeping deterministic traversal.
+The public filesystem API is unchanged.
 
 ## Command Matrix
 
