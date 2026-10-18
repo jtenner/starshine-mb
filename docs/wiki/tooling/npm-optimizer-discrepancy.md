@@ -1,8 +1,10 @@
 ---
 kind: investigation
 status: working
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-18
 sources:
+  - ../../../src/ir/hot_lower_scope_query_wbtest.mbt
+  - ../../../src/ir/hot_lower_value_stack.mbt
   - ../../npm-beta-handoff.md
   - ./node-package-surface.md
   - ../../../src/passes/optimize.mbt
@@ -292,6 +294,22 @@ cost, not a speed win. Full source/package qualification is recorded separately
 in the npm handoff. The later GC canonicalization and memory-repair checkpoints
 remain isolated pending the owner's memory decision; their results are not
 attributed to this initialized-storage change.
+
+## October 18, 2026 — Native debug fixture follow-up
+
+The same array-lowering error remains in moonc v0.10.15+943464bfa.
+The scope-query test helper accepted `Array[HotLowerStackValue]`, and its
+`held.map` call allocated an uninitialized array of the mixed value record.
+Moon links this helper even when execution selects only the value-stack tests.
+The original native debug command failed with the compiler error before tests
+started.
+
+The fixture now accepts initialized `FixedArray` values and builds computed
+stacks with `hot_lower_value_stack_makei`. All five selected value-stack and
+scope-query tests pass with a 64 MiB stack limit in native debug mode.
+All existing assertions remain; production storage and public APIs are unchanged.
+This closes the observed fixture compilation failure, with complete master CI
+tracked separately by the [validation gate](validation-gates.md).
 
 ## Follow-up after the reviewed checkpoint
 

@@ -1,4 +1,4 @@
-// MoonBit v0.10.14 cannot lower native debug uninitialized arrays of this
+// MoonBit v0.10.14 and v0.10.15 cannot lower native debug uninitialized arrays of this
 // mixed value record (#1322). Native storage is always initialized. Other
 // targets keep core Array storage. Like Array, removals retain old slots until
 // overwrite/growth/drop so pre-existing iterators keep the same observations.
