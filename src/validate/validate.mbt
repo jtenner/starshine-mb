@@ -914,7 +914,14 @@ pub impl ValidateMax for Limits with fn validate_max(self, _, k) {
       if n <= k &&
         (
           m is None ||
-          (m is Some(m) && n <= m.to_uint64() && m.to_uint64() <= k)
+          (
+            m is Some(m) &&
+            ({
+              // The native backend can sign-extend an optional UInt32 on widening.
+              let maximum = m.to_uint64() & 0xffffffffUL
+              n <= maximum && maximum <= k
+            })
+          )
         ) {
         Ok(())
       } else {

@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-10-18
 sources:
   - https://webassembly.github.io/spec/core/binary/values.html
   - https://webassembly.github.io/spec/core/binary/conventions.html
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
   - ../../../src/binary/tests_wbtest.mbt
+  - ../../../src/binary/limits_u32_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
   - ../../../src/cmd/fuzz_harness.mbt
@@ -88,6 +89,14 @@ A decoder error is **not** a later validation error. `validate_module(...)` shou
 ## Encode and byte-size contract
 
 [`encode_unsigned(...)`](../../../src/binary/encode.mbt) and [`encode_signed(...)`](../../../src/binary/encode.mbt) reject out-of-range values and emit a compact representation. [`size_unsigned(...)`](../../../src/binary/encode.mbt) and [`size_signed(...)`](../../../src/binary/encode.mbt) return the matching compact byte count without allocating output bytes.
+
+`I32Limits` minima and optional maxima use the `U32` encoder in both `Limits`
+and `MemType`. Values at or above `0x80000000` must keep their unsigned bits and
+use at most five LEB bytes. `I64Limits` still use `U64`. The
+[boundary tests](../../../src/binary/limits_u32_wbtest.mbt) check exact bytes and
+decode consumption at `0x7fffffff`, `0x80000000`, and `0xffffffff`, with both
+memory-sharing flags. This also guards against native sign-extension when an
+optional maximum is widened.
 
 This is important for optimizer work:
 

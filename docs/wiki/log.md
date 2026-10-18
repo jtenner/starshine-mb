@@ -1,3 +1,8 @@
+### 2026-10-18 — Keep high I32 limits unsigned
+
+- [The codec contract](binary/leb128-and-integer-encoding.md#encode-and-byte-size-contract) uses U32 for I32 limit fields and keeps exact five-byte boundary coverage.
+- [The resource validator](validate/resource-sections-and-limits.md#current-local-caveats) keeps optional I32 maxima unsigned on native. The codec and validator regressions fail before their fixes and pass on native and WasmGC; full-gate results remain separate evidence. I64 paths are unchanged.
+
 ### 2026-10-18 — Repair complete test launches and native fixtures
 
 - [The validation gate](tooling/validation-gates.md#october-18-complete-moon-test-selection) uses every source path to keep Moon's test-selection argument below the Linux limit. Required CI retains Wasm; the full gate retains its configured target and all fuzz suites. Coverage uses one complete analyze cycle.

@@ -1249,15 +1249,15 @@ pub impl Encode for Limits with fn encode(val, buf) {
   match val {
     I32Limits(min, None) => {
       buf.write_byte(0x00)
-      Encode::encode(@lib.U64(min.to_uint64()), buf)
+      Encode::encode(@lib.U32(min), buf)
     }
     I32Limits(min, Some(max)) => {
       buf.write_byte(0x01)
-      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
+      match Encode::encode(@lib.U32(min), buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      Encode::encode(@lib.U64(max.to_uint64()), buf)
+      Encode::encode(@lib.U32(max), buf)
     }
     I64Limits(min, None) => {
       buf.write_byte(0x04)
@@ -1280,27 +1280,27 @@ pub impl Encode for MemType with fn encode(val, buf) {
   match (limits, shared) {
     (I32Limits(min, None), false) => {
       buf.write_byte(0x00)
-      Encode::encode(@lib.U64(min.to_uint64()), buf)
+      Encode::encode(@lib.U32(min), buf)
     }
     (I32Limits(min, Some(max)), false) => {
       buf.write_byte(0x01)
-      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
+      match Encode::encode(@lib.U32(min), buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      Encode::encode(@lib.U64(max.to_uint64()), buf)
+      Encode::encode(@lib.U32(max), buf)
     }
     (I32Limits(min, None), true) => {
       buf.write_byte(0x02)
-      Encode::encode(@lib.U64(min.to_uint64()), buf)
+      Encode::encode(@lib.U32(min), buf)
     }
     (I32Limits(min, Some(max)), true) => {
       buf.write_byte(0x03)
-      match Encode::encode(@lib.U64(min.to_uint64()), buf) {
+      match Encode::encode(@lib.U32(min), buf) {
         Err(err) => return Err(err)
         _ => ()
       }
-      Encode::encode(@lib.U64(max.to_uint64()), buf)
+      Encode::encode(@lib.U32(max), buf)
     }
     (I64Limits(min, None), false) => {
       buf.write_byte(0x04)

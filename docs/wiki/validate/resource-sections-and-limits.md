@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-10-18
 sources:
   - ../wasm-custom-page-sizes-boundary.md
   - ../wasm-linear-memory-threads-boundary.md
@@ -12,6 +12,7 @@ sources:
   - import-export-and-external-type-matching.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/validate/validate.mbt
+  - ../../../src/validate/limits_u32_test.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate/gen_valid.mbt
@@ -157,6 +158,8 @@ For an i32 memory, `Validate for DataMode` expects the active offset expression 
 `Validate for ElemKind` checks each payload expression against the element segment's declared reference type. Then `validate_elem_mode(...)` checks that the segment reference type matches the target table element type. If the selected table exists but expects an incompatible reference type, the failure is an `ElementSection` issue rather than a function-body stack error.
 
 ## Current Local Caveats
+
+- **I32 limit maxima remain unsigned.** `ValidateMax` masks an optional I32 maximum to 32 bits after widening, because the native backend can sign-extend the extracted value. A table32 maximum from `0x80000000` through `0xffffffff` is valid when `min <= max`. The checks still require `min <= k` and, when present, `min <= max <= k`, even when the public API receives a bound above U32. I64 limits are unchanged. [The public-API tests](../../../src/validate/limits_u32_test.mbt) cover high minima/maxima, table validation, reversed ranges, and exact bounds.
 
 - **WAST table/memory declarations are narrower than core/binary.** Current WAST lowering uses `Limits::i32(...)` for table and memory declarations. Use direct core, binary, or generator fixtures for memory64/table64 declaration validation until the text surface is widened.
 - **Shared memory is proposal/local-facing here.** Starshine rejects shared memories without maximum through `Validate for MemType`, matching the threads proposal's maximum requirement rather than stable Core 3.0 alone. Treat `0x02` / `0x06` shared-without-max memory-type bytes as decode-accepted invalid-validation fixtures.
