@@ -10,7 +10,7 @@
   },
   "launcher": {
     "upstreamAlgorithmCommit": "1af328fbbacb977b813a5c7b193a63b065b6f49e",
-    "attributionLimit": "Sources are a pinned upstream implementation matching the inspected algorithm, not proof of the installed Moon build's exact commit. Parent will capture the actual bare Moon failure separately.",
+    "attributionLimit": "Pinned upstream sources match the inspected algorithm but do not prove the installed Moon build's exact commit. The original package-wide Moon failure is recorded separately under red.",
     "metadataSha256": "47f8f036332e578ce7482a413847dcb11df4944b647d623ed18ad23b32018c83",
     "payloads": {
       "default": {
@@ -167,12 +167,16 @@
       "limit": "Launcher findings referred to partial edits; a frozen candidate review is separate."
     },
     "frozenCandidateClaude": {
-      "status": "running at commit",
-      "scope": "eight launcher/workflow/native fixture files, frozen at performance head plus repair changes",
-      "limits": "Local full-gate completion and remote runs occur after the evidence snapshot."
+      "status": "complete",
+      "exit": 0,
+      "scope": "all eight frozen launcher/workflow/native fixture files inspected",
+      "assessment": "No correctness or selection defect found; one confirmed low-severity issue is the long command text in failure diagnostics.",
+      "limits": [
+        "Large raw tuple inventories were unread; reconstruction, pinned sources and OS proof were inspected.",
+        "Full gate results and remote CI occurred after the review snapshot."
+      ]
     }
   },
-  "remote": "pending after repair push",
   "native": {
     "error": "Machine_of_clam_lower.lower_array_make: uninitialized non-null GC ref arrays are not lowered",
     "compiler": "v0.10.15+943464bfa",
@@ -184,5 +188,111 @@
     "passed": 15165,
     "failed": 0,
     "scope": "test stage of full gate completed; fuzz stage still active at commit"
-  }
+  },
+  "coverageFollowUp": {
+    "parent": "df55931a2292f52b9d799dc4add2287d2da731df",
+    "red": {
+      "run": "https://github.com/jtenner/starshine-mb/actions/runs/39093458602",
+      "actualTotal": 28263,
+      "actualFiles": 255,
+      "budgetTotal": 28138,
+      "baselineFilesInformational": 196,
+      "delta": 125,
+      "localAndRemoteCountsEqual": true
+    },
+    "testFiles": {
+      "src/lib/proposal_type_format_wbtest.mbt": "1c3cb9b41c295d0d1ddbdc38a90afa449ede234195a4ed3e9ff3ed6895d62697",
+      "src/passes/dae2_raw_local_flow_boundary_wbtest.mbt": "a97ec1fd279ac024a3f74d84dd3f4f20f2649ef1d52c44ac7560462c6c70a85a"
+    },
+    "focused": {
+      "tests": 27,
+      "passed": 27,
+      "failed": 0,
+      "target": "wasm",
+      "instrumented": true
+    },
+    "incremental": {
+      "totalUncovered": 28127,
+      "files": 255,
+      "deltaFromBudget": -11,
+      "reductionFromRed": 136,
+      "existingProductionSourceMapsChanged": [],
+      "existingProductionSourceMapsCount": 54,
+      "originalTracesRemovedOrChanged": [],
+      "originalTracesCount": 33,
+      "limit": "Incremental estimate, not a substitute for the full fresh analyze cycle.",
+      "traceAndMapPreservationVerifiedAtTotal": 28154,
+      "tracePreservationLimit": "The stored preservation receipt is from the first incremental stage; the final additional type tests produce 28127. The fresh analyze cycle cleans these original traces."
+    },
+    "validation": [
+      {
+        "stage": "full-green",
+        "command": [
+          "mise",
+          "exec",
+          "bun@1.4.2",
+          "--",
+          "bun",
+          "validate",
+          "full",
+          "--profile",
+          "ci",
+          "--target",
+          "wasm-gc",
+          "--seed",
+          "0x5eed"
+        ],
+        "exit": 0,
+        "elapsed_s": 296.6927559020005
+      },
+      {
+        "stage": "dae-boundary-tests",
+        "command": [
+          "moon",
+          "test",
+          "--target",
+          "wasm",
+          "--enable-coverage",
+          "src/passes/dae2_raw_local_flow_boundary_wbtest.mbt"
+        ],
+        "exit": 0,
+        "elapsed_s": 19.439906863000942
+      },
+      {
+        "stage": "proposal-format-tests-final",
+        "command": [
+          "moon",
+          "test",
+          "--target",
+          "wasm",
+          "--enable-coverage",
+          "src/lib/proposal_type_format_wbtest.mbt"
+        ],
+        "CI": "true",
+        "exit": 0,
+        "elapsed_s": 0.6808209139999235
+      },
+      {
+        "stage": "coverage-incremental-final",
+        "command": [
+          "moon",
+          "coverage",
+          "report",
+          "-f",
+          "simp_caret"
+        ],
+        "CI": "true",
+        "exit": 0,
+        "elapsed_s": 6.927209266999853
+      }
+    ],
+    "freshAnalyze": "running; final result not yet in this candidate record",
+    "independentReview": "running on frozen two-file scope; GPT source review found no assertion defect.",
+    "constraints": [
+      "Coverage budget unchanged.",
+      "No implementation, public interface, skip-list or fuzz-count change.",
+      "Small fixed test tables; no fuzz or artifact-scale loops added to the default suite."
+    ]
+  },
+  "remoteAtInitialLauncherCommit": "pending after repair push"
 }

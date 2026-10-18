@@ -3,6 +3,8 @@ kind: workflow
 status: supported
 last_reviewed: 2026-10-18
 sources:
+  - ../../../src/lib/proposal_type_format_wbtest.mbt
+  - ../../../src/passes/dae2_raw_local_flow_boundary_wbtest.mbt
   - ../../../src/ir/hot_lower_scope_query_wbtest.mbt
   - ../../../src/ir/hot_lower_value_stack.mbt
   - ../raw/tooling/2026-10-18-master-ci.json
@@ -129,6 +131,22 @@ initialized `FixedArray` and uses `hot_lower_value_stack_makei` for computed
 values. The existing stack and scope assertions remain active. This extends
 the initialized-storage rule already used by the native stack; it changes
 neither production behavior nor public interfaces.
+
+After the launch repair, complete local and remote tests run successfully.
+Fresh coverage then reports 28,263 uncovered lines in 255 files, exceeding the
+retained 28,138-line budget by 125. The budget remains unchanged. Bounded tests
+now check raw DAE2 plan rejection without graph publication, frozen and cached
+reaching definitions, branch payloads and indexed-loop carry. Separate public
+type tests check GC and descriptor identities, exact/shared references, wide
+memory/table limits, declaration order and diagnostic section formats.
+
+All 27 focused tests pass on instrumented Wasm. Adding their traces to the
+completed red run gives 28,127 uncovered lines. The earlier incremental stage
+records all 54 existing production source maps and 33 original traces unchanged.
+This incremental result is an estimate before the separate fresh
+clean/test/report cycle and remote rerun;
+[the repair record](../raw/tooling/2026-10-18-master-ci.json) keeps those scopes
+separate. No optimizer implementation, public API, skip list or fuzz count changes.
 
 ## `bun validate full` Flow
 
