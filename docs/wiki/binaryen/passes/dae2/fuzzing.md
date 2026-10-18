@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 sources:
+  - ../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json
   - ./starshine-strategy.md
   - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
   - ../../../../../src/cmd/dae2_typed_block_entry_wbtest.mbt
@@ -425,3 +426,37 @@ runtimes; the linked raw record includes every selected subprofile count.
 All 80 retained raw outputs match the pre-change CLI. Runtime-blocked
 continuations and structural/size gaps remain open. This renewal uses fresh
 generation and oracle work, with no external-generator lane.
+
+## October 18, 2026: cleanup allocation renewal
+
+The [cleanup follow-up](./starshine-strategy.md#october-18-2026-bound-cleanup-predicates-and-defer-capture-copies)
+uses fresh native `24c4b845…aab0e`, verified Binaryen 133 and the `dae2`
+aggregate profile. Each lane regenerates inputs and oracle outputs at seed
+`0x5eed`, with eight workers and at most eight subprocesses; lanes run serially.
+Both `drop-consts` and `unreachable-control-debris` normalizers are enabled.
+No external-generator lane is included.
+
+| Lane | Compared | Normalized | Cleanup-normalized | Residual | Canonical larger | Runtime matches / blocked |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| dae2-open | 10000 | 2879 | 667 | 6454 | 0 | 9312 / 688 |
+| dae2-optimizing-open | 10000 | 2233 | 1313 | 6454 | 0 | 9312 / 688 |
+| dae2-closed | 10000 | 0 | 100 | 9900 | 706 | 9312 / 688 |
+| dae2-optimizing-closed | 10000 | 100 | 0 | 9900 | 2133 | 9312 / 688 |
+
+All 40,000 comparisons complete with zero validation, generator, command
+or observed Node-v2 semantic failures. Continuation execution remains
+blocked in the counts above; those cases have no successful runtime proof.
+Determinism, codec-idempotence and convergence properties are not enabled in
+this campaign. Independent wasm-tools validation is required in every lane.
+All 80 retained raw Starshine outputs are byte-identical to the frozen
+pre-edit CLI. Retention is capped at 20 structural bundles per lane; this is
+not a comparison of every generated output with the old CLI.
+
+Residuals remain **agent-classified parity gaps**, and canonical larger outputs
+remain **size-losing gaps**. Smaller size or validator acceptance alone does not
+close either family. The existing runtime, size and shape gaps stay open.
+Exact commands, tool hashes, selected subprofiles, samples and replay outcomes
+are in [the raw record](../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json).
+The earlier intermediate cleanup campaign was interrupted after 6,669 case
+records to add bounded predicates; it has no completed signoff and is recorded
+separately from these final lanes.

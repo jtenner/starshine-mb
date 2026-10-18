@@ -1,3 +1,8 @@
+### 2026-10-18 — Bound DAE2/O cleanup work
+
+- [The cleanup follow-up](binaryen/passes/dae2/starshine-strategy.md#october-18-2026-bound-cleanup-predicates-and-defer-capture-copies) borrows read-only predicate rows, bounds exact-width scans, rejects pure-suffix probes early, and copies private capture bodies only after a change. All 15,165 default tests pass, with unchanged public interfaces and fixed output bytes.
+- The repeated large optimizing command improves 2.1% to 4.771 s on the current powersave cohort; the traced pass remains 4.174 s. Adverse controls, overlapping RSS ranges and the sub-second gap stay explicit. Four fresh 10,000-case verified-v133 lanes complete; retained outputs match baseline, while parity, canonical-size and blocked-runtime gaps remain open. The Claude Code review attempt reached its session usage limit; no assessment was returned.
+
 ### 2026-10-17 — Reuse visited predecessors in DAE2/O analysis
 
 - [The follow-up](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) records the red-first resource regression, exact source-row contract, native before/after profiles and all timing samples. Last-write lookups fall 25%; read-source instruction work falls 3.1%; enclosing gains are small. Large-command medians remain near parity; small cohorts move both ways.

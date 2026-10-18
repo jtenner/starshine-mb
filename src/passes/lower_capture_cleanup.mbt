@@ -96,15 +96,29 @@ fn pass_lower_remove_balanced_captures(
   writes : Array[Int32],
   stack_effects~ : ((@lib.Instruction) -> (Int32, Int32)?)? = None,
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = []
+  pass_lower_remove_balanced_captures_impl(
+    instrs, start, gets, writes, false, stack_effects,
+  )
+}
+
+///|
+fn pass_lower_remove_balanced_captures_impl(
+  instrs : Array[@lib.Instruction],
+  start : Int32,
+  gets : Array[Int32],
+  writes : Array[Int32],
+  borrow_unchanged : Bool,
+  stack_effects : ((@lib.Instruction) -> (Int32, Int32)?)?,
+) -> Array[@lib.Instruction] {
+  let mut out : Array[@lib.Instruction]? = if borrow_unchanged {
+    None
+  } else {
+    Some([])
+  }
   let removed = Array::make(instrs.length(), false)
   let visit_body = fn(body) {
-    pass_lower_remove_balanced_captures(
-      body,
-      start,
-      gets,
-      writes,
-      stack_effects~,
+    pass_lower_remove_balanced_captures_impl(
+      body, start, gets, writes, borrow_unchanged, stack_effects,
     )
   }
   let mut i = 0
@@ -170,6 +184,13 @@ fn pass_lower_remove_balanced_captures(
           }
         }
         if read_slot >= 0 {
+          if out is None {
+            let prefix = []
+            for slot in 0..<i {
+              prefix.push(instrs[slot])
+            }
+            out = Some(prefix)
+          }
           gets[index.to_int()] = 0
           writes[index.to_int()] = 0
           removed[read_slot] = true
@@ -179,10 +200,29 @@ fn pass_lower_remove_balanced_captures(
       }
       _ => ()
     }
-    out.push(pass_lower_map_children(instrs[i], visit_body))
+    let next = if borrow_unchanged {
+      pass_lower_map_children_borrow_unchanged(instrs[i], visit_body)
+    } else {
+      pass_lower_map_children(instrs[i], visit_body)
+    }
+    match out {
+      Some(out) => out.push(next)
+      None =>
+        if !physical_equal(next, instrs[i]) {
+          let prefix = []
+          for slot in 0..<i {
+            prefix.push(instrs[slot])
+          }
+          prefix.push(next)
+          out = Some(prefix)
+        }
+    }
     i += 1
   }
-  out
+  match out {
+    Some(out) => out
+    None => instrs
+  }
 }
 
 ///|
@@ -308,7 +348,14 @@ fn pass_lower_compact_captures_with_map(
   // otherwise block several smaller overlapping captures. The second pass
   // only deletes additional pairs from that already valid stack plan.
   let body = if has_capture {
-    pass_lower_remove_balanced_captures(body, start, gets, writes)
+    pass_lower_remove_balanced_captures_impl(
+      body,
+      start,
+      gets,
+      writes,
+      true,
+      None,
+    )
   } else {
     body
   }
@@ -322,12 +369,8 @@ fn pass_lower_compact_captures_with_map(
         }
       }
       if remaining {
-        pass_lower_remove_balanced_captures(
-          body,
-          start,
-          gets,
-          writes,
-          stack_effects~,
+        pass_lower_remove_balanced_captures_impl(
+          body, start, gets, writes, true, stack_effects,
         )
       } else {
         body

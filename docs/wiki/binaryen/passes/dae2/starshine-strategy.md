@@ -3,6 +3,12 @@ kind: entity
 status: working
 last_reviewed: 2026-10-18
 sources:
+  - ../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json
+  - ../../../../../src/passes/vacuum_predicate_rows.mbt
+  - ../../../../../src/passes/vacuum_predicate_rows_wbtest.mbt
+  - ../../../../../src/passes/capture_cleanup_borrow.mbt
+  - ../../../../../src/passes/capture_cleanup_borrow_wbtest.mbt
+  - ../../../../../src/passes/pure_suffix_producer_gate_wbtest.mbt
   - ../../../raw/tooling/2026-10-17-dae2-predecessor-reuse.json
   - ../../../../../src/ir/local_graph_seen_predecessor_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
@@ -12245,3 +12251,89 @@ instructions). New local flow handles 6,040 attempts; only 533 reach the eager
 forward fallback. The nested cleanup edge stays near 16.246 billion and final
 capture cleanup near 2.319 billion. These enclosing call edges are separate;
 recursive inclusive counts must not be summed as distinct work.
+
+## October 18, 2026: bound cleanup predicates and defer capture copies
+
+[The cleanup evidence](../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json)
+continues the demand-flow checkpoint above. It does not close the sub-second
+DAE2/O target.
+
+Read-only Vacuum predicates now borrow rows with no top-level Nop. Of 34
+callers, 25 have a proven maximum accepted width and stop when the next
+non-Nop exceeds that width. The other nine retain the full-row scan. The
+13-or-21 tag-cascade predicate uses 21; Nops do not count toward that bound.
+Successful filtered rows preserve instruction order and the old array-growth
+sequence. No caller may mutate a borrowed row or its child payloads.
+
+The pure local-store suffix worker rejects a non-leaf producer before building
+its type probe. Every admitted pure instruction produces one value and consumes
+none, so a one-value pure suffix contains one leaf. The effectful worker keeps
+its existing analysis. Capture compaction borrows unchanged private intermediate
+bodies and creates replacement storage only at a change. The public cleanup
+and final local remap keep independent mutable payloads and child arrays.
+
+The bounded regression fails before the scan limit (33 visits instead of one);
+the pure-suffix regression fails before the producer gate (six probes instead
+of zero). Both pass after the changes. Retained positive rewrites, padded
+13/21 shapes, input preservation, and mutable-payload ownership are checked in
+[the predicate tests](../../../../../src/passes/vacuum_predicate_rows_wbtest.mbt),
+[the producer tests](../../../../../src/passes/pure_suffix_producer_gate_wbtest.mbt),
+and [the capture tests](../../../../../src/passes/capture_cleanup_borrow_wbtest.mbt).
+All 15,165 default tests pass with unchanged public `.mbti` files. The exact
+source hashes match before and after the gate and native build.
+
+The final native CLI is `24c4b845…aab0e`; the frozen demand-flow baseline is
+`36ed7a42…cbed4`. Serial alternating pairs on CPU 6 retain every sample after
+one warmup. The large optimizing command has 21 measured pairs, the large
+plain command seven, and each small/mixed command 31. Pass times come from a
+separate three-pair traced cohort.
+
+| Input/pass | Command before ms | Command after ms | Pass before ms | Pass after ms |
+| --- | ---: | ---: | ---: | ---: |
+| large-dae2 | 2502.352 | 2480.241 | 1780.947 | 1789.756 |
+| large-dae2-optimizing | 4873.464 | 4770.969 | 4232.029 | 4173.520 |
+| small-dae2 | 6.955 | 6.865 | 2.310 | 2.657 |
+| small-dae2-optimizing | 11.102 | 11.050 | 7.520 | 7.276 |
+| mixed-dae2 | 4.583 | 4.589 | 0.933 | 0.931 |
+| mixed-dae2-optimizing | 9.825 | 9.770 | 8.672 | 9.019 |
+
+The large optimizing command median improves 2.1%; the traced pass improves
+1.4%. Its paired median command ratio is 0.9806, with a local bootstrap 95%
+interval of 0.9753–0.9918. Quiet small/mixed medians move between −1.3% and
++0.2%, with intervals that include one. The three-pair traced mixed optimizing
+command is 4.3% slower; that adverse cohort remains in the record. The separate
+bounded-only increment is 0.5% faster at median, but its interval includes one;
+it does not establish a standalone command-speed gain.
+
+This cohort uses the **powersave** governor; the preceding October 17 timings
+used **performance**. Absolute times from the two cohorts are not a matched
+comparison. Unrelated host workloads are uncontrolled. Large optimizing peak
+RSS medians are 257,220→255,076 KiB with overlapping ranges; no heap-byte
+improvement is established. GNU `size` text falls 3,408 bytes, while the whole
+ELF file grows 288 bytes; data and BSS are unchanged. The native release build
+takes 267.9 s without a matched baseline build-time control.
+
+All six fixed outputs are byte-identical to the frozen baseline and pass
+independent wasm-tools validation. This performance work changes no public API,
+cleanup order, supported transform, or validation boundary. The **one-second
+target remains unmet**: the current large optimizing command is 4.771 s and its
+traced pass is 4.174 s. These cleanup reductions are a measured increment;
+they do not close the remaining pipeline costs or Binaryen parity gaps.
+
+The final Callgrind run reduces whole-command instructions from 40.803 to
+40.179 billion (1.53%). The nested SimplifyLocals/Vacuum edge falls from
+16.246 to 15.961 billion (1.75%), and the separate final capture-cleanup edge
+falls from 2.319 to 1.989 billion (14.2%). DAE2 core remains near 16.1 billion.
+These inclusive edges must not be summed with their recursive children.
+Object destruction, allocator work and array copying remain major owners;
+instruction counts are not allocation bytes. The remaining core and nested
+cleanup costs require larger reductions than this follow-up provides.
+
+Four fresh 10,000-case aggregate lanes complete against verified Binaryen 133
+with independent validation and Node-v2 observations. The
+[comparison table](./fuzzing.md#october-18-2026-cleanup-allocation-renewal)
+retains every residual, canonical size loss and blocked runtime. All 80
+retained outputs match the old CLI exactly; capped retention does not prove
+byte identity for all generated outputs. The independent GPT review reports
+no confirmed defect. Claude Code reached its session usage limit before any
+review; no Claude assessment is claimed.

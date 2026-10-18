@@ -9708,6 +9708,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat_with
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   initialization_slots~ : Array[Int32]? = None,
+  producer_probe_instructions~ : Array[Int32]? = None,
 ) -> (Array[@lib.Instruction], Int32) {
   let rewritten : Array[@lib.Instruction] = []
   let mut cursor = 0
@@ -9715,21 +9716,19 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat_with
   let mut rewrite_count = 0
   let mut typed_seed : SlStatementTypeSeed? = None
   let wide_environment = env.locals.length() >= 128
-  let mut checked_compound_suffix = false
   while scan_idx < instrs.length() {
     let mut rewritten_here = false
     match instrs[scan_idx] {
       @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
-        let compound_suffix = wide_environment &&
-          scan_idx > 0 &&
+        // Every admitted pure instruction produces one value without inputs.
+        // A one-value pure suffix therefore consists of exactly one leaf.
+        // Compound producers cannot pass the pure-value check below.
+        if scan_idx == 0 ||
           !run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
             instrs[scan_idx - 1],
-          )
-        if compound_suffix &&
-          checked_compound_suffix &&
-          typed_seed is None &&
-          wide_environment {
-          typed_seed = Some(SlStatementTypeSeed::new(env))
+          ) {
+          scan_idx += 1
+          continue
         }
         let producer_suffix = sl_value_suffix_at_with_seed(
           instrs,
@@ -9737,10 +9736,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat_with
           1,
           env,
           typed_seed,
-          None,
+          producer_probe_instructions,
           None,
         )
-        checked_compound_suffix = checked_compound_suffix || compound_suffix
         let producer_start = scan_idx - producer_suffix.length()
         if producer_suffix.length() > 0 &&
           producer_start >= cursor &&
@@ -49452,13 +49450,7 @@ fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descen
 fn run_hot_pipeline_raw_vacuum_body_has_empty_block_call_prefix_shape_ignoring_nops(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
     non_nops,
   ) ||
@@ -49790,12 +49782,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
 fn run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 5) {
+    Some(row) => row
+    None => return false
   }
   non_nops.length() == 5 &&
   non_nops[0] is @lib.LocalGet(_) &&
@@ -49809,12 +49798,9 @@ fn run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
 fn run_hot_pipeline_raw_vacuum_two_arg_call_result_local_set_release_target(
   body : Array[@lib.Instruction],
 ) -> Int32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != 6 {
     return None
@@ -49844,12 +49830,9 @@ fn run_hot_pipeline_raw_vacuum_two_arg_call_result_local_set_release_target(
 fn run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_release(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   non_nops.length() == 6 &&
   non_nops[0] is @lib.LocalGet(_) &&
@@ -49864,12 +49847,9 @@ fn run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set
 fn run_hot_pipeline_raw_vacuum_prefix_block_starts_two_arg_call_result_local_set_double_release(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 8) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != 8 {
     return false
@@ -49923,13 +49903,7 @@ fn run_hot_pipeline_raw_vacuum_condition_prefix_has_call(
 fn run_hot_pipeline_raw_vacuum_prefix_block_has_direct_call_local_set_and_later_call(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   for idx = 1; idx < non_nops.length(); idx = idx + 1 {
     match non_nops[idx] {
       @lib.LocalSet(_) if non_nops[idx - 1] is @lib.Call(_) =>
@@ -49961,12 +49935,9 @@ fn run_hot_pipeline_raw_vacuum_instr_is_prefix_call_arg(
 fn run_hot_pipeline_raw_vacuum_prefix_block_starts_five_arg_call_result_local_set_release_triple(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 13) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != 13 {
     return false
@@ -50042,13 +50013,7 @@ fn run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
 fn run_hot_pipeline_raw_vacuum_body_is_f3083_loop_body_release_update_prefix_if_preserve_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   if non_nops.length() < 14 {
     return false
   }
@@ -50108,13 +50073,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f3317_singleton_retain_allocation_loop_wr
     @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => child_body
     _ => return false
   }
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in child_body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(child_body)
   if non_nops.length() < 22 {
     return false
   }
@@ -51303,13 +51262,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5138_outer_singleton_parent(
 fn run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_candidate(
       non_nops,
@@ -51365,12 +51318,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1383_dual_i64_probe_prefix_if_preserve_c
 fn run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserve_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 3) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f1346_local_set_release_prefix_if_preserve_candidate(
@@ -51422,12 +51372,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_local_release_pair(
 fn run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_if_preserve_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 7) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f3469_const_arg_local_set_release_prefix_if_preserve_candidate(
@@ -51540,12 +51487,9 @@ fn run_hot_pipeline_raw_vacuum_f3561_branch_if_cleanup_local(
 fn run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
   body : Array[@lib.Instruction],
 ) -> Int32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 16) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_f3561_load_retain_branch_if_cleanup_local(
@@ -51648,12 +51592,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f3561_load_retain_prefix_before_terminal_
 fn run_hot_pipeline_raw_vacuum_body_is_f364_four_field_tag_cascade_body(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 21) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != 21 {
     return false
@@ -52246,12 +52187,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_f3841_deep_release_pair(
 fn run_hot_pipeline_raw_vacuum_body_f3841_selected_local(
   body : Array[@lib.Instruction],
 ) -> Int32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 15) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_f3841_selected_local(non_nops)
@@ -57395,13 +57333,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1940_cleanup_else(
   body : Array[@lib.Instruction],
   probe_raw : UInt32,
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   if non_nops.length() < 7 {
     return false
   }
@@ -57431,12 +57363,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1940_cleanup_else(
 fn run_hot_pipeline_raw_vacuum_body_is_f1940_call_tee_br_table_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f1940_call_tee_br_table_wrapper(
@@ -57610,13 +57539,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
   body : Array[@lib.Instruction],
   probe_raw : UInt32,
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   if non_nops.length() < 3 {
     return false
   }
@@ -57638,12 +57561,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f1956_cleanup_else(
 fn run_hot_pipeline_raw_vacuum_body_is_f1956_call_tee_br_table_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f1956_call_tee_br_table_wrapper(
@@ -57699,12 +57619,9 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_befor
 fn run_hot_pipeline_raw_vacuum_body_is_f2054_call_tee_br_table_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2054_call_tee_br_table_wrapper(
@@ -57819,12 +57736,9 @@ fn run_hot_pipeline_raw_vacuum_f2321_selector_tagged_local(
 fn run_hot_pipeline_raw_vacuum_body_is_f2321_call_arg_tee_br_table_release_ladder_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 7) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2321_call_arg_tee_br_table_release_ladder_wrapper(
@@ -57946,12 +57860,9 @@ fn run_hot_pipeline_raw_vacuum_body_count_f2334_simple_release_branches(
 fn run_hot_pipeline_raw_vacuum_f2334_child_source(
   body : Array[@lib.Instruction],
 ) -> UInt32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 11) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_f2334_child_source(non_nops)
@@ -58512,12 +58423,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_f2696_release_ladder(
 fn run_hot_pipeline_raw_vacuum_body_is_f2696_tee_br_table_release_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 4) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2696_tee_br_table_release_wrapper(
@@ -59212,12 +59120,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2775_branch_or_cleanup_else(
 fn run_hot_pipeline_raw_vacuum_body_is_f2775_call_tee_cleanup_return_if_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2775_call_tee_cleanup_return_if_wrapper(
@@ -59382,12 +59287,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_f2823_branch_or_release_else(
 fn run_hot_pipeline_raw_vacuum_body_is_f2823_call_tee_branch_cleanup_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2823_call_tee_branch_cleanup_wrapper(
@@ -59666,12 +59568,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_f2297_then_terminal_release(
 fn run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2297_call_tee_br_table_release_ladder_wrapper(
@@ -60015,12 +59914,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_f2320_double_update_ladder(
 fn run_hot_pipeline_raw_vacuum_body_is_f2320_call_tee_br_table_double_update_wrapper(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2320_call_tee_br_table_double_update_wrapper(
@@ -60425,13 +60321,7 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
 fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
   body : Array[@lib.Instruction],
 ) -> UInt32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(body)
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
       non_nops,
@@ -61663,12 +61553,9 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_appen
 fn run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
   body : Array[@lib.Instruction],
 ) -> Int32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 11) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_f2130_tag42_tag43_dispatch(
@@ -61966,12 +61853,9 @@ fn run_hot_pipeline_raw_vacuum_body_has_f996_tag_dispatch_parent_continuation(
 fn run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 21) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() < 13 {
     return false
@@ -62228,12 +62112,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_indexed_call_local_set_tag_cascade_if_wra
 fn run_hot_pipeline_raw_vacuum_body_is_load_linked_local_set_call_prefix_if_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 11) {
+    Some(row) => row
+    None => return false
   }
   if non_nops.length() != body.length() {
     return run_hot_pipeline_raw_vacuum_body_is_load_linked_local_set_call_prefix_if_wrapper_candidate(
@@ -62334,12 +62215,9 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_singleton_load_linked_local_set_call_
 fn run_hot_pipeline_raw_vacuum_two_arg_local_set_release_prefix_target(
   body : Array[@lib.Instruction],
 ) -> Int32? {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 6) {
+    Some(row) => row
+    None => return None
   }
   if non_nops.length() != 6 {
     return None
@@ -63809,12 +63687,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_local_copy_child(
 fn run_hot_pipeline_raw_vacuum_if_body_is_f7138_i32_div_counter_branch(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_predicate_non_nops_at_most(body, 9) {
+    Some(row) => row
+    None => return false
   }
   match non_nops {
     [
@@ -63993,13 +63868,7 @@ fn run_hot_pipeline_raw_vacuum_instr_is_noop_ladder_condition_piece(
 fn run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in instrs {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
-  }
+  let non_nops = vacuum_predicate_non_nops(instrs)
   if non_nops.length() == 0 {
     return true
   }
