@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-19
 sources:
   - ../late-pipeline-dispatch.md
   - ../reorder-globals/index.md
@@ -13,6 +13,7 @@ sources:
   - ../../../../../src/cmd/o4z_string_gathering_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/string_gathering_table_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
@@ -155,11 +156,11 @@ Match Binaryen's exact-slot mental model closely enough that later rewrites cann
 ### Acceptance criteria
 
 - collect every direct `Instruction::StringConst(bytes)` in defined function bodies;
-- collect direct `StringConst` sites inside table initializers, defined global initializers, element expressions, data offsets, and function bodies reached by the current raw module walker;
+- collect direct `StringConst` sites inside defined global initializers, element expressions, data offsets, and function bodies reached by the current raw module walker;
 - deduplicate by literal bytes, not by textual spelling or generated section index;
 - preserve the original literal payloads exactly.
 
-These direct-site criteria are covered by `src/passes/string_gathering_test.mbt` for functions, globals, table initializers, and typed element expressions. Data-offset string collection remains source-covered but not a meaningful focused fixture because valid data offsets are numeric; data-offset global-index remapping after inserted strings is covered separately. Existing-global reuse for immutable non-null direct string globals is now part of the direct pass contract rather than a deferred follow-up.
+These direct-site criteria are covered by `src/passes/string_gathering_test.mbt` for functions, globals, and typed element expressions. Table initializer string literals stay in place: table validation occurs before defined globals become visible, so a gathered local string global cannot initialize a table. Existing table initializer `global.get` indices must still follow the global remap; the tests check this structurally for defined references and preserve imported references through the command dispatcher in `src/cmd/string_gathering_table_wbtest.mbt`. A table initializer that reads a defined global is not a valid whole-module fixture: independent `wasm-tools 1.262.0 validate --features all` also rejects it with `unknown global 0`. The new remap is a defensive repair of the raw module rebuild, not a reproduced valid-input semantic failure. Data-offset string collection remains source-covered but not a meaningful focused fixture because valid data offsets are numeric; data-offset global-index remapping after inserted strings is covered separately. Existing-global reuse for immutable non-null direct string globals is now part of the direct pass contract rather than a deferred follow-up.
 
 ### Caveat
 

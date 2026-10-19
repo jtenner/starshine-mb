@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-19
 sources:
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/string_gathering.mbt
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/string_gathering_table_wbtest.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../../../strings/string-const-surface.md
@@ -113,7 +114,7 @@ invariant is checked in `src/passes/string_gathering_index_wbtest.mbt`.
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
-- Focused edge tests now also lock that imported string globals are never reused as defining globals, that a nested global initializer containing `string.const` is collected/replaced but not treated as the canonical definition, that table initializer / typed element expression constants are structurally rewritten to the canonical string global, and that module-expression global references are remapped after inserted string globals shift existing defined globals. Treat the table-initializer part as validation-sensitive after the 2026-06-04 constant-expression refresh: optional core table initializers cannot see newly defined local globals in Starshine's current validator.
+- Focused edge tests lock that imported string globals are never reused as defining globals, that a nested global initializer containing `string.const` is collected/replaced but not treated as the canonical definition, and that typed element expression constants are rewritten to the canonical string global. Module-expression global references, including table initializer `global.get` indices, follow the remap after inserted string globals shift existing defined globals. Table initializer string constants stay in place because optional core table initializers cannot see newly defined local globals in Starshine's current validator. [`string_gathering_test.mbt`](../../../../../src/passes/string_gathering_test.mbt) checks defined table references structurally; [`string_gathering_table_wbtest.mbt`](../../../../../src/cmd/string_gathering_table_wbtest.mbt) checks valid imported table references through the command dispatcher.
 - Nullable string global non-reuse remains a local representation caveat: `ValType::stringref()` is currently represented as `AbsHeapTypeRefType(String)`, whose `RefType::is_nullable()` reports nullable, so Starshine cannot yet write a meaningful focused test that distinguishes Binaryen's nullable-vs-exact-non-null string global eligibility.
 - Binary wasm inputs with string proposal result types previously exposed decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`). The first decoder-breadth fix now accepts bare `0x64` stringref value types when the explicit non-null-reference form cannot be completed, so standalone stringref result-type modules can reach later passes. Broader proposal encoding coverage may still need future tests as new fixtures appear.
 - Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; the regenerated debug-artifact replay is semantically/canonically green, with a combined-tail performance follow-up candidate (`62.619ms` Starshine pass runtime vs `28.215ms` Binaryen).

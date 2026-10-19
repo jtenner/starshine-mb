@@ -897,6 +897,57 @@ fn sg_rewrite_code_sec(
 }
 
 ///|
+fn sg_rewrite_table_sec(
+  table_sec : @lib.TableSec?,
+  plan : SgRewritePlan,
+  imported_globals : Int32,
+) -> @lib.TableSec? {
+  match table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let mut out : Array[@lib.Table]? = None
+      for index, table in tables {
+        let @lib.Table(table_type, init) = table
+        if init is Some(@lib.Expr(instrs)) {
+          let mut rewritten : Array[@lib.Instruction]? = None
+          // Table initializers are flat constant expressions. Remap existing
+          // globals, but keep string.const: table validation runs before local
+          // globals exist, so a gathered string global cannot initialize one.
+          for instr_index, instr in instrs {
+            if instr is @lib.GlobalGet(idx) {
+              let next_idx = sg_remap_existing_global_idx(
+                idx, imported_globals, plan,
+              )
+              if next_idx != idx {
+                if rewritten is None {
+                  rewritten = Some(instrs.copy())
+                }
+                rewritten.unwrap()[instr_index] = @lib.Instruction::global_get(
+                  next_idx,
+                )
+              }
+            }
+          }
+          if rewritten is Some(next_instrs) {
+            if out is None {
+              out = Some(tables.copy())
+            }
+            out.unwrap()[index] = @lib.Table::new(
+              table_type,
+              Some(@lib.Expr::new(next_instrs)),
+            )
+          }
+        }
+      }
+      match out {
+        Some(rewritten) => Some(@lib.TableSec::new(rewritten))
+        None => table_sec
+      }
+    }
+    None => None
+  }
+}
+
+///|
 pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) ||
     pass_module_has_offset_sensitive_metadata(mod_) {
@@ -914,7 +965,7 @@ pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     import_sec=mod_.import_sec,
     func_annotation_sec=mod_.func_annotation_sec,
     func_sec=mod_.func_sec,
-    table_sec=mod_.table_sec,
+    table_sec=sg_rewrite_table_sec(mod_.table_sec, plan, imported_globals),
     mem_sec=mod_.mem_sec,
     tag_sec=mod_.tag_sec,
     stringrefs_sec=mod_.stringrefs_sec,

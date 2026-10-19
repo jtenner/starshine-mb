@@ -420,6 +420,86 @@ test "string-gathering preserves table initializer string constants" {
 }
 
 ///|
+test "string-gathering remaps table initializer global refs after inserted strings" {
+  // A table initializer cannot read defined globals: this is intentionally
+  // invalid module input. Check the raw rewrite contract directly; this is
+  // a structural remap regression, not a valid-Wasm behavior regression.
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (import "env" "ref" (global funcref))
+      #|   (global funcref (ref.null func))
+      #|   (func (result stringref) (string.const "shift")))
+    ),
+  ).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        Some(
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(1U))]),
+        ),
+      ),
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        Some(
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+      ),
+    ]),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  match optimized.table_sec {
+    Some(
+      @lib.TableSec(
+        [
+          @lib.Table(_, Some(@lib.Expr([@lib.GlobalGet(defined_idx)]))),
+          @lib.Table(_, Some(@lib.Expr([@lib.GlobalGet(imported_idx)]))),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(defined_idx, @lib.GlobalIdx::new(2U))
+      @debug.assert_eq(imported_idx, @lib.GlobalIdx::new(0U))
+    }
+    other =>
+      fail("expected table global initializers, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+test "string-gathering preserves table literals when gathering function strings" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result stringref) (string.const \"body\")))",
+  ).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::string_()),
+          @lib.Limits::i32(1U, None),
+        ),
+        Some(@lib.Expr::new([@lib.Instruction::string_const(b"table")])),
+      ),
+    ]),
+  )
+  @validate.validate_module(input).unwrap()
+  let optimized = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "string-gathering",
+  ]).unwrap()
+  @debug.assert_eq(optimized.table_sec, input.table_sec)
+  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  let @lib.Func(_, @lib.Expr(instrs)) = sg_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  @validate.validate_module(optimized).unwrap()
+}
+
+///|
 test "string-gathering rewrites typed element expression constants" {
   let input = @lib.Module::new(
     elem_sec=Some(
