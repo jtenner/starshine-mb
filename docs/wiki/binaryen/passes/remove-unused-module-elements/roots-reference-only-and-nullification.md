@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-19
 sources:
   - ../../../../../src/rume/host_roots.mbt
   - ../../../../../src/rume/host_roots_wbtest.mbt
   - ../../../../../src/passes/host_roots_test.mbt
+  - ../../../../../src/passes/remove_unused_module_elements_reference_policy_test.mbt
+  - ../../../../../src/cmd/rume_reference_policy_wbtest.mbt
+  - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/RemoveUnusedModuleElements.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_133/src/tools/wasm-metadce.cpp
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -210,6 +213,36 @@ In closed-world mode Starshine now preserves that distinction:
 - when one `ref.func` keeps an indivisible composite declaration expression, sibling `ref.func`s in that same expression remain reference-only instead of being remapped through deleted function indices
 
 So `call_ref` can keep a function body live even when there is no direct named `call`; plain declaration reachability need not. Composite GC constructors do not weaken that rule merely because the `ref.func` is not the expression's sole instruction.
+
+### V133 check of reference-only body removal
+
+The October 19, 2026 check confirms that replacing an uncalled reference-only
+body with `unreachable` is the intended v133 closed-world rule. It does not
+permit removing a body that an indirect call can execute. The v133 owner uses
+separate callable and referenced sets; Starshine makes the same distinction in
+`rume_note_ref_func_liveness`, `rume_use_indirect_call`, and
+`rume_note_table_runtime_modification` in
+[`remove_unused_module_elements.mbt`](../../../../../src/rume/remove_unused_module_elements.mbt).
+
+Four bounded fixtures use a callback that returns 42: a dropped `ref.func`, a
+static element target, and two runtime `table.set` cases with opposite function
+declaration orders. The verified oracle reports `wasm-opt version 133
+(version_133)` and has SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+With `--all-features --remove-unused-module-elements`, both open-world and
+`--closed-world` outputs retain the callable body in the three table cases.
+Only the closed-world dropped-reference case gets an `unreachable` body.
+Node execution of each original and both oracle outputs agrees: 0 for the
+dropped-reference export and 42 for the three indirect-call exports, after
+calling the installer where present.
+
+The [pass tests](../../../../../src/passes/remove_unused_module_elements_reference_policy_test.mbt)
+assert the retained callback instructions for static tables and both runtime
+discovery orders. The [command test](../../../../../src/cmd/rume_reference_policy_wbtest.mbt)
+checks a runtime write followed by an indirect call with closed-world mode.
+The existing `closed world empties uncalled ref.func targets` test covers the
+reference-only control. These checks resolve the policy question; they are not
+a new broad RUME parity or performance signoff.
 
 ## Why GC field types matter here
 
