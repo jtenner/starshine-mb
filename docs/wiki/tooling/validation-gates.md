@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-19
 sources:
+  - ../raw/tooling/2026-10-19-pass-review-corrections.json
   - ../../../src/lib/proposal_type_format_wbtest.mbt
   - ../../../src/passes/dae2_raw_local_flow_boundary_wbtest.mbt
   - ../../../src/ir/hot_lower_scope_query_wbtest.mbt
@@ -1467,3 +1468,125 @@ The maintained contracts are [stack typing](../validate/stack-polymorphism-and-b
 [descriptor branches](../wast/reference-instruction-authoring.md),
 [tag feature policy](../wast/exception-tag-authoring.md) and
 [structured versus opaque metadata](../wast/code-metadata-and-function-annotations.md).
+
+
+## October 19, 2026 — Pass review corrections
+
+The review starts at `a4237ca0336d665137622490ffe6f348f6e49176`.
+The reported cases have different contracts:
+
+| Area | Confirmed result and repair |
+| --- | --- |
+| DAE2 family arity | Function subtypes require equal parameter and result arities. Direct unvalidated `Module` input could still reach a bounds error. The new preflight returns an error before family graph construction and identity rewriting. |
+| DAE2 indirect demand | The targeted signature split did not reproduce. Existing bidirectional family edges retain shared demand. Equal-arity contravariant and unequal-demand controls preserve compatible dispatch types. |
+| String table initializers | Defined-global reads are invalid in table initializers; wasm-tools also rejects the proposed input. The raw module rebuild now remaps table `global.get` indices and preserves inline table strings. |
+| MergeLocals ordering | Rebuilt IDs can differ from source positions. Both order guards and the carried-read preflight now use `HotNode.order`. Tests establish a missed hazard check and a missed optimization; no old semantic miscompile was proved. |
+| HOT loop demotion | Block entry-prefix and label result arities now preserve scalar and tuple loop operands. The caller must still prove there is no continue to the old loop label. |
+| DFE field names | Shifted owners are remapped, deleted owners are dropped, and merged owners keep only canonical field names. Inner field indices remain unchanged. |
+| RUME reference-only bodies | Nullification is the intended verified v133 closed-world policy. Static and runtime-written indirect callees retain their executable bodies. |
+
+Sources and bounded regressions are in the existing
+[DAE2](../binaryen/passes/dae2/implementation-structure-and-tests.md#function-family-arity-and-indirect-targets),
+[StringGathering](../binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md),
+[MergeLocals](../binaryen/passes/merge-locals/starshine-strategy.md#rebuilt-hot-nodes-retain-source-positions),
+[HOT](../ir2/architecture-rules.md#loop-demotion-preserves-entry-operands),
+[DFE](../binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md#field-name-ownership-during-type-compaction),
+and [RUME](../binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#v133-check-of-reference-only-body-removal)
+pages.
+
+`moon info`, `moon fmt`, and `bun validate readme-api-sync` pass without public
+`.mbti` changes. The repository's `bun validate test` gate passes
+**15,213/15,213** tests on its default `wasm-gc` target. Plain `moon test`
+first hit the OS per-argument limit while spawning the passes whitebox runner;
+the existing explicit-file gate avoids the empty filename selection entries.
+No tests were disabled.
+
+Fresh native baseline/candidate and v133 runs validate 36 optimized modules,
+plus six original modules. All 56 observed calls match the fixed fixture
+results; each of the 12 baseline/candidate output pairs is byte-identical.
+These controls cover shared and contravariant DAE2 dispatch in both DAE2
+modes, and reference-only/static/runtime-written RUME targets in both worlds.
+They do not establish general runtime equivalence.
+
+An independent GPT source review found no defect in the final repairs.
+Claude Code was invoked from the repository root with normal authentication
+and read-only tools, but returned its session limit (exit 1) before reading
+source. It supplied no review assessment.
+
+
+### Scoped comparison and replay results
+
+The [raw record](../raw/tooling/2026-10-19-pass-review-corrections.json)
+contains exact executable hashes, commands, profile counts, size totals, all
+retained baseline replays, native samples and reproducible benchmark recipes.
+Every large lane uses seed `0x5eed`, a fresh prebuilt native command and
+GenValid executable, verified Binaryen 133, `--jobs auto`, eight subprocesses,
+20 mismatch bundles, and a 20,000 failure budget so residuals cannot truncate
+the requested 10,000 comparisons. Automatic reduction is off; the initial
+interrupted reduction run retains its bundles and pending inputs.
+
+| Pass / profile / world | Compared | Canonical match | Cleanup match | Residual | Canonically larger |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| StringGathering / ordinary portable / open | 10,000 | 0 | 0 | 10,000 | 0 |
+| MergeLocals / `merge-locals-all` / open | 10,000 | 9,353 | 0 | 647 | 0 |
+| DFE / `duplicate-function-elimination` / open | 10,000 | 5,000 | 0 | 5,000 | 0 |
+| DAE2 / `dae2` / open | 10,000 | 2,879 | 667 | 6,454 | 0 |
+| DAE2-optimizing / `dae2` / closed | 10,000 | 100 | 0 | 9,900 | 2,133 |
+
+All validation, generator, property and command failure counts are zero.
+Both DAE2 lanes use `drop-consts` and `unreachable-control-debris`.
+**All five strict comparison commands exit 1 on structural residuals.** They
+are not clean whole-pass parity signoffs. The full 100,000-case general and
+10,000-case random-all-profile closeout lanes were not repeated for these
+scoped repairs; an external-generator lane was not requested.
+
+Twenty retained outputs per lane, 100 total, match the freshly built baseline
+raw bytes. This proves sample provenance, not equality of every unsaved output.
+The 647 MergeLocals unread-tee and 5,000 DFE fixed-point-caller residuals keep
+their existing source-backed size-win classifications. The portable string
+lane has no strings: all 20 inspected canonical diffs are empty-else nops,
+but 3,844 cases are raw-larger and aggregate raw bytes grow 2,768 despite
+29,981 canonical bytes saved. Keep those writer and unretained parity gaps
+open. DAE2 residuals and the 2,133 closed optimizing canonical size losses
+also remain open; baseline replay alone does not make them acceptable.
+These classifications are review judgments, not harness conclusions.
+
+Bounded Node-v2 replays attempt all 100 retained cases: 87 report all-equal
+original/Starshine/v133 observations, 13 report `original-runtime-blocked`,
+and none reports a semantic mismatch. Twelve blocked cases are portable
+string-lane inputs and one is from closed DAE2-optimizing. They remain
+unverified. The DFE profile exports no functions, so its 20 matching reports
+do not demonstrate function-body execution. Runtime checks are off in the
+50,000-case lanes.
+
+### Native footprint limits
+
+Two warmup processes and 11 measured processes per tool/input alternate tools
+serially after builds and fuzzing stop, under the shared Moon and heavy-work
+locks. The inputs have 10,000 dropped local reads inside a result block, which
+forces the changed HOT MergeLocals path, and 2,000 final function types for
+DAE2. The latter does not measure subtype-heavy artifacts. A native C `wait4`
+helper excludes the Python launcher from child peak RSS. The first cohort's
+Python-floor RSS values are retained but excluded from memory claims.
+
+| Input / build | Pass median / MAD (us) | Pass range (us) | Peak RSS median / range (KiB) |
+| --- | ---: | ---: | ---: |
+| MergeLocals / baseline | 5,843 / 251 | 5,350–7,704 | 20,496 / 20,268–20,608 |
+| MergeLocals / repaired | 5,855 / 239 | 5,374–7,155 | 20,448 / 20,248–20,696 |
+| DAE2 / baseline | 927 / 20 | 860–966 | 11,556 / 11,420–11,692 |
+| DAE2 / repaired | 945 / 21 | 920–1,225 | 11,512 / 11,336–11,732 |
+
+Point medians add 0.2% and 1.9% pass time with overlapping spread and RSS
+ranges. They do not prove a universal speed or memory gain. The v133 medians
+are 2,098.1 and 282.25 us; these synthetic inputs do not close the existing
+relative-speed goals. Native command size grows 5,280 bytes (15,571,704 to
+15,576,984). Both benchmark outputs remain byte-identical to baseline, and
+traced/plain output identity and stable output hashes pass. Baseline, repaired
+and oracle benchmark calls return 2 and 42 as expected.
+
+MergeLocals reuses existing source-order fields, maps and traversal. DAE2 adds
+one linear type/parent read without new arrays. Table copies are lazy; DFE
+canonical metadata maps are created only when field names exist. Those are
+source-level allocation bounds. Whole-process RSS is not allocated-byte,
+retained-heap or leak evidence. Compiler time, general artifacts, metadata
+allocation volume and other architectures were not measured.

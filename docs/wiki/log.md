@@ -27865,3 +27865,20 @@ arrays/typecheck wrappers from the completed return packaging change.
 ### 2026-10-17 — Rough optimizer pass performance inventory
 
 - Renewed the [active-pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) from native source `17df23d87` against verified Binaryen 133 on three fixed inputs. One warmup and three serial alternating samples cover 61/61/59 standalone sequences, with StripDebug references. The record includes all 172 oracle flags, aliases, Starshine-only entries, pattern-policy exclusions and guarded large cases. Raw-path clocks are included without double-counting inclusive pass spans; whole-command and pipeline costs remain separate. Preserved samples, symmetric writer sizes and independent validation establish discovery evidence only: concurrent project workloads, unclassified output drift, quiet-host renewal and semantic/runtime signoff remain explicit. No optimizer implementation or release target changed.
+
+
+### 2026-10-19 — Pass review corrections
+
+- Filed the [scoped repair record](tooling/validation-gates.md#october-19-2026--pass-review-corrections)
+  and [raw evidence](raw/tooling/2026-10-19-pass-review-corrections.json).
+  DAE2 rejects invalid family arities; table rebuilds remap global references;
+  MergeLocals uses source positions; loop demotion preserves typed entries;
+  DFE remaps field-name owners. Valid indirect-family controls and verified
+  v133 RUME policy checks require no corresponding production rewrite.
+- The explicit-file gate passes 15,213 tests. Five 10,000-case comparisons
+  preserve strict structural residuals, all 100 saved outputs match baseline,
+  and bounded runtime replays report 87 all-equal / 13 blocked. The native
+  cohorts bound repair overhead without claiming broad performance closure.
+  Raw writer and DAE2 size/parity work remain active. Claude's session limit
+  prevented its source review; the independent GPT review and evidence limits
+  are explicit.

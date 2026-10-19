@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 17, 2026. Follow
+Active unreleased work only, reviewed October 19, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -2229,6 +2229,12 @@ keep those results separate from verified release-v133 signoff.
   common-Oz equality; retain them as parity gaps pending fresh measurement or a
   demonstrated benefit. Do not normalize away semantic, validation, size or
   scheduler/fallback differences.
+  The October 19 portable v133 lane also leaves 3,844 raw-larger cases and
+  +2,768 total raw bytes, despite 29,981 canonical bytes saved. Reduce the
+  writer losses and classify the unsaved differences; the 20 retained
+  empty-else samples match baseline bytes. The
+  [scoped repair record](docs/wiki/tooling/validation-gates.md#october-19-2026--pass-review-corrections)
+  preserves this current encoding work and the separate DAE2 size gaps.
 - **[STRIP-DEBUG]001 — final artifact measurements:** measure custom-section size,
   validation and runtime effects on final large/generated artifacts. Report
   strip-debug separately from optimizer transformations.
