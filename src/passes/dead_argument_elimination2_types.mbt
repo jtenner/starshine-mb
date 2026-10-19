@@ -399,6 +399,49 @@ fn dae2_type_field_edges(
 }
 
 ///|
+fn dae2_check_type_family_arities(
+  mod_ : @lib.Module,
+  context : @ir.HotModuleContext,
+) -> Result[Unit, String] {
+  guard mod_.type_sec is Some(@lib.TypeSec(groups)) else { return Ok(()) }
+  let mut base = 0
+  for group in groups {
+    let size = match group {
+      @lib.SingleRecType(_) => 1
+      @lib.GroupRecType(members) => members.length()
+    }
+    for slot = 0; slot < size; slot = slot + 1 {
+      let subtype = context.subtypes[base + slot]
+      guard subtype is @lib.SubType(_, parents, _, _) else { continue }
+      if parents.is_empty() {
+        continue
+      }
+      guard subtype.get_comptype() is @lib.FuncCompType(params, results) else {
+        continue
+      }
+      for super_type in parents {
+        let parent = dae2_type_slot(super_type, base)
+        if parent < 0 || parent >= context.subtypes.length() {
+          return Err("dae2: invalid function supertype index")
+        }
+        guard context.subtypes[parent].get_comptype()
+          is @lib.FuncCompType(parent_params, parent_results) else {
+          return Err("dae2: function supertype is not a function type")
+        }
+        if params.length() != parent_params.length() ||
+          results.length() != parent_results.length() {
+          return Err(
+            "dae2: function subtype and supertype have unequal arities",
+          )
+        }
+      }
+    }
+    base += size
+  }
+  Ok(())
+}
+
+///|
 fn dae2_prepare_type_locations(
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-19
 sources:
   - ../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json
   - ./starshine-strategy.md
@@ -19,6 +19,23 @@ sources:
 ---
 
 # DAE2 GenValid coverage
+
+## October 19 scoped family-arity repair
+
+Fresh native source checks complete 10,000 `dae2` aggregate cases per mode
+against verified Binaryen 133. Open `dae2` has 2,879 canonical matches,
+667 cleanup-normalized matches and 6,454 residuals, with no canonical size
+loss. Closed `dae2-optimizing` has 100 canonical matches and 9,900 residuals,
+including 2,133 canonically larger outputs. Both use `drop-consts` and
+`unreachable-control-debris`; all validation, generator, property and command
+failure counts are zero. Runtime checking is off in these large lanes.
+The 40 retained outputs are byte-identical to the fresh starting baseline.
+
+This checks the invalid-input arity preflight without closing the existing
+valid-module transformation or size gaps. Exact counters, sample runtime
+replays, footprints and scope limits are in the
+[repair record](../../../tooling/validation-gates.md#october-19-2026--pass-review-corrections).
+
 
 ## October 16 loop-effect coverage
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-19
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -10,6 +10,8 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
   - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
+  - ../../../../../src/cmd/dae2_family_dispatch_wbtest.mbt
+  - ../../../../../src/validate/match.mbt
   - ../../../../../tests/optimizer/regressions/round2-correctness.test.ts
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
@@ -97,6 +99,51 @@ unused-type pruning removes the unreferenced duplicate. Public-pipeline and
 command tests assert index reuse; a native reproducer failed before the change.
 Fresh validation and size measurements are recorded in the
 [upgrade ledger](../../version-132-upgrade.md).
+
+## Function-family arity and indirect targets
+
+Function subtyping requires equal parameter and result arities. Parameter
+contravariance changes the accepted types, not the number of arguments.
+The validator's `Match for Array[T]` enforces equal lengths before the
+function-type variance check in
+[`match.mbt`](../../../../../src/validate/match.mbt). Thus the reported
+one-parameter parent / two-parameter child is invalid. Independent
+`wasm-tools 1.262.0 validate --features all` rejects an open-parent version
+with `sub type must match super type`; an implicit final parent is also
+invalid. Unrelated function members in a recursive group may have different
+arities, but `dae2_prepare_type_locations` shares locations only along
+declared supertype families.
+
+An element target on the ordinary family path has bidirectional graph edges
+between each own parameter/result location and its family location. A live
+sibling therefore retains that location in an otherwise unused target too.
+The separate private-element path rejects subtyping, recursive groups, and
+shared signature keys, and requires scalar bodies without indirect calls,
+before it can allocate a distinct signature. These
+conditions prevent the reported own-signature / indirect-family split.
+
+The bounded controls in
+[`dead_argument_elimination2.mbt`](../../../../../src/passes/dead_argument_elimination2.mbt)
+and
+[`dae2_family_dispatch_wbtest.mbt`](../../../../../src/cmd/dae2_family_dispatch_wbtest.mbt)
+check a shared indirect type with unequal target demand, and a recursive
+`eqref` / `anyref` contravariant family that drops a dead second argument.
+They assert each surviving member signature and the indirect-call type.
+The command controls also require both DAE2 modes to reject unequal-arity
+subtypes as invalid input. The valid-family controls pass on the previous
+implementation. However, direct `Module` optimization does not require prior
+validation: the invalid unequal-parameter-arity command control reached
+`dae2_parameter_plan` during identity preservation and failed with a bounds
+error. This is an invalid-input robustness defect, rather than the reported
+valid-Wasm failure.
+
+`dae2_check_type_family_arities` now rejects unequal parameter or result arities
+before allocating family graph locations or running identity preservation.
+It scans existing recursive-group members and declared supertypes without
+allocating parameter or member arrays. The direct pass and both command modes
+require an error for these intentionally invalid modules. Valid-module family
+rewriting and indirect-dispatch demand propagation retain their previous
+behavior.
 
 ## Runtime type identity preservation
 
