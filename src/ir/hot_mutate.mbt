@@ -1191,6 +1191,7 @@ pub fn hot_replace_child_spans_and_control_result_type(
 }
 
 ///|
+// The caller must prove that no continue targets the loop label.
 pub fn hot_control_demote_loop_to_block(
   func : HotFunc,
   loop_id : NodeId,
@@ -1211,8 +1212,14 @@ pub fn hot_control_demote_loop_to_block(
     ..node,
     op: HotOp::Block,
     flags: hot_default_flags_for_op(HotOp::Block),
+    // Preserve the loop header operands outside the block body region.
+    imm1: label.branch_arity,
   }
-  func.labels[label_id] = { ..label, kind: HotLabelKind::BlockLabel, }
+  func.labels[label_id] = {
+    ..label,
+    kind: HotLabelKind::BlockLabel,
+    branch_arity: hot_type_result_arity(func, node.ty),
+  }
   hot_revision_bump(func)
 }
 

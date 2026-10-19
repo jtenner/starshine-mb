@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-19
 sources:
+  - ../../../src/ir/hot_mutate.mbt
+  - ../../../src/ir/hot_loop_demotion_wbtest.mbt
   - ../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
   - ../../../src/passes/lower_capture_cleanup.mbt
   - ../../../src/ir/local_graph_read_flow_wbtest.mbt
@@ -4533,3 +4535,14 @@ cover 8, 32, 128, 256 and 512 sources plus asymmetric subsets. Sources:
 [helper](../../../src/ir/local_graph_indexed_join.mbt) and
 [solver](../../../src/ir/local_graph.mbt). Local evidence:
 `.tmp/pass-perf-reuse-20260927/local-join-{threshold-pinned,final-bench,contiguous-red}.log`.
+
+## Loop demotion preserves entry operands
+
+`hot_control_demote_loop_to_block` transfers the loop entry count to the
+block's `imm1` prefix and changes the label's branch arity to its result count.
+The entry operands remain outside the body region and run once before the
+body, including tuple producers. Callers must still prove that no continue
+uses the loop label before demotion. This preserves the existing public API.
+The [loop-demotion fixtures](../../../src/ir/hot_loop_demotion_wbtest.mbt)
+check scalar and tuple entries, body ownership, label arity, exact entry calls,
+HOT verification, and validation after lowering.
