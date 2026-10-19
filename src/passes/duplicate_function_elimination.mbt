@@ -3851,7 +3851,7 @@ fn dfe_rewrite_name_map_filtered(
 }
 
 ///|
-fn _dfe_rewrite_local_name_map_filtered(
+fn dfe_rewrite_indirect_name_map_filtered(
   names : @lib.IndirectNameMap,
   remap : Map[UInt32, UInt32],
   drop_unmapped : Bool,
@@ -3913,7 +3913,11 @@ fn dfe_rewrite_type_name_sec(
     global_names~,
     elem_names~,
     data_names~,
-    field_names~,
+    field_names=match field_names {
+      Some(names) =>
+        Some(dfe_rewrite_indirect_name_map_filtered(names, type_remap, true))
+      None => None
+    },
     tag_names~,
   )
 }

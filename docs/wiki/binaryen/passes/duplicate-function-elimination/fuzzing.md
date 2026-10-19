@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-19
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,6 +9,21 @@ sources:
 ---
 
 # `duplicate-function-elimination` Fuzzing Profile
+
+## October 19 field-name ownership repair
+
+The owned `duplicate-function-elimination` profile completes 10,000 cases
+against verified Binaryen 133: 5,000 canonical matches and 5,000 fixed-point
+caller residuals, with zero validation, generator, property or command
+failures. Raw and canonical output each save 30,000 total bytes, with no larger
+outputs. All 20 retained outputs match the fresh starting baseline byte for
+byte. The existing private-caller size-win contract remains the scoped
+classification; the profile has no exported functions and cannot prove body
+execution. It does not cover field-name metadata; the new focused tests do.
+
+See the [repair record](../../../tooling/validation-gates.md#october-19-2026--pass-review-corrections)
+for exact identities, commands and the limits of this repair validation.
+
 
 ## October 10 immutable-wrapper sharing renewal
 

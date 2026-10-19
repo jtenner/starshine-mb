@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-19
 sources:
+  - ../../../../../src/passes/dfe_field_names_wbtest.mbt
+  - ../../../../../src/cmd/dfe_field_names_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
   - ./index.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
@@ -337,3 +339,14 @@ and string-context restoration. The [DFE gate controls](../../../../../src/passe
 require exact smaller output, source ownership, and the full-comparison fallback
 for a body string pool. Runtime and memory gains require separate native
 measurements; this contract alone makes no performance claim.
+
+## Field-name ownership during type compaction
+
+Type remapping also remaps the outer type index in each `field_names` entry.
+The inner field indices and names stay unchanged. Entries for removed types
+are dropped; merged types retain only the canonical owner's field map. This
+applies while names still exist inside the shared DFE type canonicalizer and pruning helpers; the public DFE pass still removes the full
+name section afterward. The exact metadata regressions are
+[`dfe_field_names_wbtest.mbt`](../../../../../src/passes/dfe_field_names_wbtest.mbt),
+and the CLI fixture is
+[`src/cmd/dfe_field_names_wbtest.mbt`](../../../../../src/cmd/dfe_field_names_wbtest.mbt).
