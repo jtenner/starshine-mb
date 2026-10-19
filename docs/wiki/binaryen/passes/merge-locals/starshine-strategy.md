@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-19
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
@@ -113,3 +113,20 @@ and branch-join dispatcher coverage are documented in the
 Build before/after local graphs from full flow and operand-expanded CFGs. A copy which is not executed on an exceptional path cannot replace that path's saved local.
 
 Evidence: [merge_locals.mbt](../../../../../src/passes/merge_locals.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+## Rebuilt HOT nodes retain source positions
+
+The copy-order guards use `HotNode.order`, which the shared mutation API
+preserves when a replacement keeps its original evaluation position. Node IDs
+only identify arena slots. The forward and reverse orientation guards and the
+stack-carried-copy preflight must compare source positions, including the two
+earliest distinct reads tracked for each local. The full-flow before/after
+local graphs still prove the single reaching write across control flow.
+
+The [HOT regressions](../../../../../src/passes/merge_locals_source_order_wbtest.mbt)
+rebuild an earlier carried read with a later ID and rebuild a copy after its
+later reads were allocated. Both failed before the repair. The second fixture
+also checks that the supported retarget occurs and that the lowered result
+stays 14. No semantic miscompile was established for the old guards; the tests
+confirm a missed hazard check and a missed optimization. The repair reuses the
+existing order field, maps, and traversal without new allocation or analysis.

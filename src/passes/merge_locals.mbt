@@ -123,14 +123,15 @@ fn merge_locals_gets_are_single_source(
 
 ///|
 fn merge_locals_gets_follow_copy(
+  func : @ir.HotFunc,
   gets : Array[@ir.NodeId],
   copy_id : @ir.NodeId,
 ) -> Bool {
+  let copy_order = @ir.hot_node_get(func, copy_id).order
   for get_id in gets {
-    if get_id <= copy_id {
-      // A source-older get can remain stack-carried until after this write.
-      // Retargeting it from the graph's region order would change the value
-      // already evaluated before the copy.
+    if @ir.hot_node_get(func, get_id).order <= copy_order {
+      // Rebuilt nodes can have fresh IDs but retain an earlier source position.
+      // A carried read must not change to a local assigned by a later copy.
       return false
     }
   }
@@ -212,7 +213,7 @@ fn merge_locals_optimize_copies(
       copy.trivial_id,
     )
     let can_optimize_to_copy = trivial_influences.length() > 0 &&
-      merge_locals_gets_follow_copy(trivial_influences, copy.copy_id) &&
+      merge_locals_gets_follow_copy(func, trivial_influences, copy.copy_id) &&
       merge_locals_gets_are_single_source(
         graph,
         trivial_influences,
@@ -241,7 +242,7 @@ fn merge_locals_optimize_copies(
       copy.copy_id,
     )
     let can_optimize_to_trivial = copy_influences.length() > 0 &&
-      merge_locals_gets_follow_copy(copy_influences, copy.copy_id) &&
+      merge_locals_gets_follow_copy(func, copy_influences, copy.copy_id) &&
       merge_locals_gets_are_single_source(graph, copy_influences, copy.copy_id) &&
       merge_locals_gets_match_target_type(
         func,
@@ -811,13 +812,14 @@ fn merge_locals_collect_subtree_min_local_reads(
       @ir.HotOp::LocalGet =>
         match minima.get(node.imm0) {
           Some(previous) =>
-            if current != previous && current < previous {
+            if current != previous &&
+              node.order < @ir.hot_node_get(func, previous).order {
               second_minima.set(node.imm0, previous)
               minima.set(node.imm0, current)
             } else if current != previous {
               match second_minima.get(node.imm0) {
                 Some(second) =>
-                  if current < second {
+                  if node.order < @ir.hot_node_get(func, second).order {
                     second_minima.set(node.imm0, current)
                   }
                 None => second_minima.set(node.imm0, current)
@@ -873,7 +875,9 @@ fn merge_locals_region_has_stack_carried_copy(
                         None => -1
                       }
                     }
-                    if distinct_read_id >= 0 && distinct_read_id < root_id {
+                    if distinct_read_id >= 0 &&
+                      @ir.hot_node_get(func, distinct_read_id).order <
+                      root.order {
                       return true
                     }
                   }

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-19
 sources:
   - ../../../tooling/tracing-playbook.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
@@ -13,6 +13,22 @@ sources:
 ---
 
 # `merge-locals` fuzzing profiles
+
+## October 19 replacement-order repair
+
+The `merge-locals-all` aggregate completes 10,000 cases against verified
+Binaryen 133: 9,353 canonical matches and 647 residuals, with zero validation,
+generator, property or command failures. The residuals are the existing
+`trivial-confusion` family and save two raw and canonical bytes each; all
+20 retained outputs match the fresh starting baseline byte for byte. Other
+raw writer losses remain: 683 raw-larger cases and +2,804 total raw bytes,
+despite zero canonical-larger cases. These encoding gaps remain open.
+
+Direct-pass inputs start with lifted order metadata. They do not create the
+fresh-ID replacement states guarded by the new HOT tests. Exact counters,
+footprint samples and scope limits are in the
+[repair record](../../../tooling/validation-gates.md#october-19-2026--pass-review-corrections).
+
 
 ## September 27 follow-up allocation campaign renewal
 
