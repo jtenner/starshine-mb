@@ -5696,6 +5696,41 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_ir_cache_swap_scalar_operands",
+    "exportName": "ir::cache_swap_scalar_operands",
+    "packageAlias": "ir",
+    "owner": null,
+    "name": "cache_swap_scalar_operands",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@ir.HotAnalysisCache",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "@ir.HotFunc",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg2",
+        "type": "Int",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "instr",
+        "type": "@lib.Instruction?",
+        "optional": true,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Bool",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_ir_cfg_block_boundary_reasons",
     "exportName": "ir::cfg_block_boundary_reasons",
     "packageAlias": "ir",
@@ -6555,6 +6590,29 @@
     "packageAlias": "ir",
     "owner": null,
     "name": "effects_for_node",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@ir.HotFunc",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Int",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "UInt",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_ir_effects_for_node_subtree",
+    "exportName": "ir::effects_for_node_subtree",
+    "packageAlias": "ir",
+    "owner": null,
+    "name": "effects_for_node_subtree",
     "params": [
       {
         "name": "arg0",
@@ -75175,6 +75233,29 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_binary_Decode_lib_Instruction_option_decode",
+    "exportName": "Decode::Instruction?::decode",
+    "packageAlias": "binary",
+    "owner": null,
+    "name": "decode",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "Bytes",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Int",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Result[(@lib.Instruction?, Int), @binary.BinaryDecodeError]",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_binary_Decode_lib_ValType_option_decode",
     "exportName": "Decode::ValType?::decode",
     "packageAlias": "binary",
@@ -75379,29 +75460,6 @@
       }
     ],
     "returnType": "Result[(@lib.TagType?, Int), @binary.BinaryDecodeError]",
-    "effect": ""
-  },
-  {
-    "sourceName": "ffi_binary_Decode_lib_Instruction_option_decode",
-    "exportName": "Decode::Instruction?::decode",
-    "packageAlias": "binary",
-    "owner": null,
-    "name": "decode",
-    "params": [
-      {
-        "name": "arg0",
-        "type": "Bytes",
-        "optional": false,
-        "labelOnly": false
-      },
-      {
-        "name": "arg1",
-        "type": "Int",
-        "optional": false,
-        "labelOnly": false
-      }
-    ],
-    "returnType": "Result[(@lib.Instruction?, Int), @binary.BinaryDecodeError]",
     "effect": ""
   },
   {
@@ -78395,6 +78453,29 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_binary_Encode_lib_Instruction_option_encode",
+    "exportName": "Encode::Instruction?::encode",
+    "packageAlias": "binary",
+    "owner": null,
+    "name": "encode",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Instruction?",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "@buffer.Buffer",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Result[Unit, @binary.BinaryEncodeError]",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_binary_Encode_lib_ValType_option_encode",
     "exportName": "Encode::ValType?::encode",
     "packageAlias": "binary",
@@ -78588,29 +78669,6 @@
       {
         "name": "arg0",
         "type": "@lib.TagType?",
-        "optional": false,
-        "labelOnly": false
-      },
-      {
-        "name": "arg1",
-        "type": "@buffer.Buffer",
-        "optional": false,
-        "labelOnly": false
-      }
-    ],
-    "returnType": "Result[Unit, @binary.BinaryEncodeError]",
-    "effect": ""
-  },
-  {
-    "sourceName": "ffi_binary_Encode_lib_Instruction_option_encode",
-    "exportName": "Encode::Instruction?::encode",
-    "packageAlias": "binary",
-    "owner": null,
-    "name": "encode",
-    "params": [
-      {
-        "name": "arg0",
-        "type": "@lib.Instruction?",
         "optional": false,
         "labelOnly": false
       },

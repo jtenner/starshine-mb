@@ -2688,6 +2688,18 @@ pub fn ffi_ir_cache_invalidate_analyses(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_cache_swap_scalar_operands")
+pub fn ffi_ir_cache_swap_scalar_operands(
+  value0 : @ir.HotAnalysisCache,
+  value1 : @ir.HotFunc,
+  value2 : Int32,
+  instr : @lib.Instruction??,
+) -> Bool {
+  @ir.cache_swap_scalar_operands(value0, value1, value2, instr?)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_cfg_block_boundary_reasons")
 pub fn ffi_ir_cfg_block_boundary_reasons(
   value0 : @ir.HotFunc,
@@ -3053,6 +3065,16 @@ pub fn ffi_ir_effects_for_block(
 #export_name("ffi_ir_effects_for_node")
 pub fn ffi_ir_effects_for_node(value0 : @ir.HotFunc, value1 : Int32) -> UInt32 {
   @ir.effects_for_node(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_effects_for_node_subtree")
+pub fn ffi_ir_effects_for_node_subtree(
+  value0 : @ir.HotFunc,
+  value1 : Int32,
+) -> UInt32 {
+  @ir.effects_for_node_subtree(value0, value1)
 }
 
 ///|
@@ -36196,6 +36218,16 @@ pub fn ffi_binary_Decode_Bytes_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_lib_Instruction_option_decode")
+pub fn ffi_binary_Decode_lib_Instruction_option_decode(
+  value0 : Bytes,
+  value1 : Int32,
+) -> Result[(@lib.Instruction?, Int32), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_lib_ValType_option_decode")
 pub fn ffi_binary_Decode_lib_ValType_option_decode(
   value0 : Bytes,
@@ -36281,16 +36313,6 @@ pub fn ffi_binary_Decode_lib_TagType_option_decode(
   value0 : Bytes,
   value1 : Int32,
 ) -> Result[(@lib.TagType?, Int32), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_lib_Instruction_option_decode")
-pub fn ffi_binary_Decode_lib_Instruction_option_decode(
-  value0 : Bytes,
-  value1 : Int32,
-) -> Result[(@lib.Instruction?, Int32), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -37719,6 +37741,16 @@ pub fn ffi_binary_Encode_Bytes_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_lib_Instruction_option_encode")
+pub fn ffi_binary_Encode_lib_Instruction_option_encode(
+  receiver : @lib.Instruction?,
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_lib_ValType_option_encode")
 pub fn ffi_binary_Encode_lib_ValType_option_encode(
   receiver : @lib.ValType?,
@@ -37802,16 +37834,6 @@ pub fn ffi_binary_Encode_lib_TableType_option_encode(
 #export_name("ffi_binary_Encode_lib_TagType_option_encode")
 pub fn ffi_binary_Encode_lib_TagType_option_encode(
   receiver : @lib.TagType?,
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_lib_Instruction_option_encode")
-pub fn ffi_binary_Encode_lib_Instruction_option_encode(
-  receiver : @lib.Instruction?,
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)

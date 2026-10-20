@@ -3,6 +3,14 @@ kind: workflow
 status: supported
 last_reviewed: 2026-10-20
 sources:
+  - ../raw/tooling/2026-10-20-master-ci.json
+  - ../../../ffi/src/ffi/export-schema.generated.json
+  - ../../../.github/actions/setup-moonbit/action.yml
+  - ../../../.github/workflows/fuzz.yml
+  - ../../../ffi/src/npm/toolchain.json
+  - ../../../scripts/lib/npm-licenses.mjs
+  - ../../../scripts/lib/ci-optimizer-gates.test.ts
+  - ../../../src/wast/scalar_nan_payload_wbtest.mbt
   - ../raw/tooling/2026-10-19-pass-review-follow-up.json
   - ../../../src/passes/review_local_control_wbtest.mbt
   - ../../../src/passes/review_vacuum_arity_wbtest.mbt
@@ -1763,3 +1771,55 @@ losses and ReorderGlobals import-order gaps remain open. General inlining also
 has an open raw-byte gap despite canonical equality. The raw record owns exact
 per-lane counts, family judgments, source hashes and supersession of earlier
 pending replay statements.
+
+## October 20, 2026 — Pin the qualified CI compiler
+
+Master CI at `6d9aa96caacf4f5d9288c2a3220c1ab69418da8d` installed
+Moon `0.1.20261016` and compiler/Core `0.10.16+b1a0e846e` through `latest`.
+That compiler rejects the existing `Int.reinterpret_as_float` call and
+`Result.is_ok`/`is_err` test calls. These compile failures block later artifact
+checks. They are separate from the preceding pass review's qualified-toolchain
+results.
+
+The [shared setup action](../../../.github/actions/setup-moonbit/action.yml)
+now requests the full release identifier `0.10.15+943464bfa` through the official
+installer. It checks Moon `0.1.20261012 (748b63c 2026-10-12)`, compiler
+`v0.10.15+943464bfa (2026-10-12)` and the matching Core version. All 11 Moon
+setup steps in six workflows use this action. Both trigger filters in each of
+the five filtered workflows watch action changes; Required CI has no path
+filter. The [npm toolchain record](../../../ffi/src/npm/toolchain.json) and
+[Core license guard](../../../scripts/lib/npm-licenses.mjs) retain their
+qualified versions. A newer compiler requires separate qualification.
+
+The full-identifier Linux x86_64 toolchain and Core archive URLs return HTTP
+200. Downloaded `moon`, `moonc` and `moonrun` bytes match the qualified local
+tools; all 1,200 Core archive files match. This supersedes the provisioning
+limit in the [npm handoff](../../npm-beta-handoff.md#remaining-release-decisions).
+Earlier HTTP 403 results remain historical evidence; date-only and short
+version requests still return 403.
+
+The [workflow contract](../../../scripts/test/ci-workflow-contract.ts) fails
+before the pin and passes after it. Native-example and npm static contracts,
+workflow/action YAML parsing and action shell syntax checks pass. Expanded
+[float-bit parsing tests](../../../src/wast/scalar_nan_payload_wbtest.mbt)
+pass all four cases on the qualified compiler. Current comparison jobs also
+move from Binaryen 132 to verified 133, with separate red/green
+[optimizer contract tests](../../../scripts/lib/ci-optimizer-gates.test.ts).
+Counts, seeds, profiles, properties, normalizers and failure policy are
+unchanged. Historical oracle results keep their recorded versions.
+
+These local checks do not complete the repair. Fresh coverage reports 28,265
+uncovered lines across 260 files, against the unchanged budget of 28,138 lines
+across 196 files. The 127-line excess is an active blocker; bounded test repairs
+remain in progress. Product-version, `moon info` and `moon fmt` checks pass.
+The fresh `bun ffi check` exposed two missing generated IR exports,
+`cache_swap_scalar_operands` and `effects_for_node_subtree`. Regeneration
+updates their wrappers, names and schema; the check now passes with 4,377
+exports. The npm declaration generator produces no further change. Independent
+comparison confirms all 4,375 existing wrappers and schema entries are unchanged;
+38 generator contract tests pass with Bun 1.4.2 and Node 25.8.1. Artifact/consumer
+gates and the remote CI rerun remain pending. The [raw repair record](../raw/tooling/2026-10-20-master-ci.json)
+keeps the failed runs, archive identities and red/green results.
+Local evidence is retained outside production source under
+`/tmp/starshine-master-ci-20261020/compiler/` and `workflows/`, including archive
+identities, red/green logs and the independent workflow review.

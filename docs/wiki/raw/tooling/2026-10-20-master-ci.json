@@ -1,0 +1,282 @@
+{
+  "date": "2026-10-20",
+  "baseline": "6d9aa96caacf4f5d9288c2a3220c1ab69418da8d",
+  "scope": "Master CI compiler pin, generated FFI freshness, bounded behavioral tests, coverage budget and current Binaryen oracle policy.",
+  "failedRemoteRuns": [
+    {
+      "url": "https://github.com/jtenner/starshine-mb/actions/runs/39355657627",
+      "workflow": "Fuzz Suites",
+      "jobs": [
+        "fuzz-ci",
+        "semantic-optimizer-smoke"
+      ],
+      "observedFailure": "Compilation stops at src/wast/lower_to_lib.mbt:814."
+    },
+    {
+      "url": "https://github.com/jtenner/starshine-mb/actions/runs/39355657650",
+      "workflow": "Examples CLI Native",
+      "jobs": [
+        "examples-cli-native"
+      ],
+      "observedFailure": "Compilation stops at src/wast/lower_to_lib.mbt:814."
+    },
+    {
+      "url": "https://github.com/jtenner/starshine-mb/actions/runs/39355657661",
+      "workflow": "Node Package and Packed Consumers",
+      "jobs": [
+        "node-api-surface-tests"
+      ],
+      "observedFailure": "Pack preflight moon info fails; its retained output tail omits the compiler diagnostic."
+    },
+    {
+      "url": "https://github.com/jtenner/starshine-mb/actions/runs/39355657671",
+      "workflow": "Required CI",
+      "jobs": [
+        "format-and-tests",
+        "release-artifacts",
+        "dae-differential"
+      ],
+      "observedFailure": "Compilation stops at src/wast/lower_to_lib.mbt:814."
+    },
+    {
+      "url": "https://github.com/jtenner/starshine-mb/actions/runs/39355657693",
+      "workflow": "Coverage Report",
+      "jobs": [
+        "coverage-report"
+      ],
+      "observedFailure": "Recovered full job log contains the WAST method error and 49 missing Result methods in validation tests."
+    }
+  ],
+  "compilerCause": {
+    "installationBeforeRepair": "All 11 Moon setup steps installed moving latest.",
+    "remote": {
+      "moon": "0.1.20261016 (1af328f 2026-10-16)",
+      "moonc": "v0.10.16+b1a0e846e (2026-10-16)",
+      "moonrun": "0.1.20261016 (1af328f 2026-10-16)",
+      "core": "0.10.16+b1a0e846e"
+    },
+    "qualified": {
+      "moon": "0.1.20261012 (748b63c 2026-10-12)",
+      "moonc": "v0.10.15+943464bfa (2026-10-12)",
+      "moonrun": "0.1.20261012 (748b63c 2026-10-12)",
+      "core": "0.10.15+943464bfa"
+    },
+    "methodChanges": [
+      "The qualified compiler accepts bits.to_int().reinterpret_as_float(); the newer compiler reports Error 4015: Type Int has no method reinterpret_as_float.",
+      "The recovered coverage log contains 39 missing Result.is_err calls and 10 missing Result.is_ok calls in 17 validation test files."
+    ],
+    "additionalBlocker": "The npm license guard requires reviewed Core 0.10.15+943464bfa and would reject the newer Core after compilation. This is a source-verified later blocker, not the retained npm job diagnostic.",
+    "decision": "Pin the qualified compiler and Core pair. Keep the parser and license guard unchanged; qualify a newer compiler in separate work.",
+    "temporaryResultEdits": "All 49 temporary assertion substitutions were restored to their saved pre-edit hashes."
+  },
+  "qualifiedArchives": {
+    "platform": "linux-x86_64",
+    "installerArgument": "0.10.15+943464bfa",
+    "installerSource": "https://cli.moonbitlang.com/install/unix.sh",
+    "mechanism": "The official installer takes a positional compiler version and encodes + as %2B. A CLI date is not the archive release identifier.",
+    "binary": {
+      "url": "https://cli.moonbitlang.com/binaries/0.10.15%2B943464bfa/moonbit-linux-x86_64.tar.gz",
+      "httpStatus": 200,
+      "sha256": "24b93a5409d2a4fb8e3d1b84b473f27b63476cef4418094764df96cb26b03c09"
+    },
+    "core": {
+      "url": "https://cli.moonbitlang.com/cores/core-0.10.15%2B943464bfa.tar.gz",
+      "httpStatus": 200,
+      "sha256": "96d30f4dbcc6a9e1736ef26fbdd0e8fb0e97cb01d50e55d2a0072208b8061ae5"
+    },
+    "toolSha256": {
+      "moon": "a31026b83410607909ebae469fa19e46c32201cfe403be6099e1da961a5ebf0f",
+      "moonc": "fb950cbc125168c49523ef554d2649effd66499c596dafcb15c80b561d45fd8c",
+      "moonrun": "ba44070aa78d89c2c6da6524d2aa782e46b18cb4a42dd31cd13bf588107089cf"
+    },
+    "identityCheck": "All three archived tools and all 1200 regular Core files match the qualified local installation byte for byte.",
+    "limit": "These are observed archive identities. The action verifies installed versions; it does not enforce these archive hashes."
+  },
+  "workflowRepair": {
+    "action": ".github/actions/setup-moonbit/action.yml",
+    "behavior": "Pass the full version to the official installer; assert exact Moon and compiler dates and Core version; add the installed bin directory to GITHUB_PATH. The same-step version check uses an absolute Moon path.",
+    "jobsByWorkflow": {
+      "ci.yml": [
+        "format-and-tests",
+        "release-artifacts",
+        "dae-differential"
+      ],
+      "copilot-setup-steps.yml": [
+        "copilot-setup-steps"
+      ],
+      "coverage-report.yml": [
+        "coverage-report"
+      ],
+      "examples-cli-native.yml": [
+        "examples-cli-native"
+      ],
+      "fuzz.yml": [
+        "fuzz-ci",
+        "semantic-optimizer-smoke",
+        "external-generator-smoke",
+        "fuzz-stress-native"
+      ],
+      "node-wasm-tests.yml": [
+        "node-api-surface-tests"
+      ]
+    },
+    "jobCount": 11,
+    "pathFilters": "All five filtered workflows watch .github/actions/setup-moonbit/** in both push and pull_request filters. Required CI has no path filter.",
+    "licenseGuardUnchanged": "scripts/lib/npm-licenses.mjs",
+    "qualifiedManifestUnchanged": "ffi/src/npm/toolchain.json"
+  },
+  "oracleAlignment": {
+    "before": 132,
+    "after": 133,
+    "files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/fuzz.yml"
+    ],
+    "scope": "Update Binaryen version variables, installation directory and all four require-binaryen-version guards, with matching workflow and optimizer contracts.",
+    "preserved": "Programmatic comparison confirms unchanged counts, seeds, profiles, properties, normalizers and failure policy after accounting for the pin and version edits.",
+    "limit": "Historical version-132 results retain their original identity. Text and unit contracts do not establish fresh version-133 comparison results."
+  },
+  "tests": {
+    "scalarFixtures": {
+      "file": "src/wast/scalar_nan_payload_wbtest.mbt",
+      "sha256": "9239153bbec3f6d94bbff9c059388bc596fe1b18b86f019f044c9df04c6be72d",
+      "coverage": "Bounded f32/f64 encoded-bit cases include signed zero, 1.5, negative signaling NaN payload 1 and maximum negative NaN payload; existing payload and range checks remain.",
+      "qualifiedCompiler": {
+        "passed": 4,
+        "failed": 0,
+        "target": "wasm-gc"
+      },
+      "actualCiCompiler": {
+        "exit": 1,
+        "diagnostic": "Error 4015 at lower_to_lib.mbt:814",
+        "elapsedSeconds": 2.1020771210023668
+      },
+      "limit": "These fixtures passed on the qualified compiler before any parser change. No parser implementation change was made."
+    },
+    "tdd": [
+      {
+        "contract": "Shared qualified pin",
+        "redExit": 1,
+        "greenExit": 0
+      },
+      {
+        "contract": "Version-133 workflow guards",
+        "redExit": 1,
+        "greenExit": 0
+      },
+      {
+        "contract": "Version-133 optimizer unit expectations",
+        "redExit": 1,
+        "greenExit": 0
+      }
+    ],
+    "additionalPassed": [
+      "Native workflow contract",
+      "npm static contract",
+      "Optimizer contract tests",
+      "Workflow YAML parsing",
+      "Action Bash syntax"
+    ],
+    "contractRuntime": "Bun 1.4.2"
+  },
+  "independentReview": {
+    "status": "complete",
+    "kind": "Read-only GPT source and evidence review with temporary-copy contract mutations.",
+    "scope": "Shared action, six workflows, all 11 setup steps, both path filters per filtered workflow, exact archive identities, tool versions, PATH handling and unchanged license guard.",
+    "result": "No correctness or integration defect found in the reviewed pin patch.",
+    "mutationsRejected": [
+      "Wrong pin",
+      "Missing installer version argument",
+      "Wrong CLI date",
+      "Direct unpinned workflow install",
+      "Missing job action",
+      "Missing shared-action path filter"
+    ],
+    "limit": "The review did not execute a GitHub action, installer, compiler or full CI gate. It is not a completed Claude review."
+  },
+  "validationStatus": {
+    "freshCoverage": {
+      "status": "initial fresh run exceeds unchanged budget; repair pending",
+      "uncoveredLines": 28265,
+      "files": 260,
+      "budgetUncoveredLines": 28138,
+      "delta": 127,
+      "budgetChanged": false,
+      "limit": "Initial qualified-toolchain local result, not a numerical result from the failed remote compiler run."
+    },
+    "fullGates": "pending",
+    "nativeAndPackedArtifactGates": "pending",
+    "freshBinaryen133Comparisons": "pending",
+    "finalRemoteCi": "pending after repair push",
+    "limit": "Compilation blocked later checks in the failed runs. Local static checks and focused fixtures do not prove those unrun checks pass.",
+    "localSetupGates": {
+      "productVersion": "passed",
+      "moonInfo": "passed",
+      "moonFmt": "passed",
+      "ffiCheck": "passed after regeneration",
+      "bun": "1.4.3",
+      "moon": "qualified 20261012"
+    }
+  },
+  "sources": [
+    "scripts/test/ci-workflow-contract.ts",
+    "scripts/lib/ci-optimizer-gates.test.ts",
+    "src/wast/scalar_nan_payload_wbtest.mbt",
+    "ffi/src/npm/toolchain.json",
+    "scripts/lib/npm-licenses.mjs",
+    "ffi/src/ffi/exports.generated.mbt",
+    "ffi/src/ffi/export-names.generated.json",
+    "ffi/src/ffi/export-schema.generated.json"
+  ],
+  "localEvidence": {
+    "root": "/tmp/starshine-master-ci-20261020",
+    "files": [
+      "workflows/failed-job-map.json",
+      "coverage/job-api-log.txt",
+      "compiler/comparison.json",
+      "compiler/qualified-archive-identity.json",
+      "compiler/ci-red.json",
+      "compiler/local-before.log",
+      "workflows/pin-contract-red.json",
+      "workflows/pin-static-results.json",
+      "workflows/oracle-red-status.json",
+      "workflows/oracle-green-status.json",
+      "compiler/pin-independent-review.md",
+      "compiler/pin-independent-review-hashes.json",
+      "compiler/pin-review-contract-results.json",
+      "ffi-review/generated-diff-review.json",
+      "ffi-review/generator-contracts-status.json",
+      "ffi-review/generator-contracts.log"
+    ],
+    "limit": "Local logs are not committed. This record preserves key observations and identities; remote run links preserve the failed CI provenance."
+  },
+  "ffiRefresh": {
+    "initialCheck": "failed: stale generated FFI artifacts",
+    "repair": "Regenerate exports for two existing public IR helpers and reorder unchanged Instruction? codecs. npm generator produced no output change.",
+    "files": [
+      "ffi/src/ffi/exports.generated.mbt",
+      "ffi/src/ffi/export-names.generated.json",
+      "ffi/src/ffi/export-schema.generated.json"
+    ],
+    "addedExports": [
+      "ffi_ir_cache_swap_scalar_operands",
+      "ffi_ir_effects_for_node_subtree"
+    ],
+    "existingExportChanges": false,
+    "checkAfterGeneration": {
+      "status": "passed",
+      "exports": 4377,
+      "unsupported": 29
+    },
+    "independentReview": "All existing name-map entries, schema records and wrapper bodies are unchanged by identity comparison; only the two expected additions and codec ordering changed. No existing export ABI change found.",
+    "generatorContracts": {
+      "passed": 38,
+      "failed": 0,
+      "files": 7,
+      "bun": "1.4.2",
+      "node": "v25.8.1"
+    },
+    "consumerGates": "pending",
+    "limit": "The parent ran FFI generation and its green check; this review ran only source/schema comparisons and pure JavaScript contracts."
+  }
+}
