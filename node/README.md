@@ -154,7 +154,9 @@ Unsupported callback, raising or generic signatures remain explicit throwing pla
 
 ## Tested build, pack and install
 
-Build tools: Moon `0.1.20261012 (748b63c 2026-10-12)`, compiler `v0.10.15+943464bfa`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.262.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`. Preserve or provision the tested toolchain, or qualify a newer compiler using the drift and consumer gates. CI installs the available compiler and requires deterministic generated-file and packed-consumer checks.
+Build tools: Moon `0.1.20261012 (748b63c 2026-10-12)`, compiler `v0.10.15+943464bfa`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.262.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`.
+
+The [shared CI setup action](../.github/actions/setup-moonbit/action.yml) pins MoonBit to the full identifier `0.10.15+943464bfa` and checks the Moon, compiler and Core versions. Preserve or provision this tested toolchain, or qualify a newer compiler using the generated-file drift and packed-consumer gates. The [October 20 repair record](../docs/wiki/tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler) records archive identities, workflow checks and gate results.
 
 From the repository root with those tools installed:
 

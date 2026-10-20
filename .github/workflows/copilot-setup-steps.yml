@@ -8,9 +8,11 @@ on:
   push:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - ".github/actions/setup-moonbit/**"
   pull_request:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - ".github/actions/setup-moonbit/**"
 
 jobs:
   # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
@@ -30,9 +32,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Update MoonBit dependencies
         run: |

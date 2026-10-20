@@ -1,14 +1,20 @@
 ///|
-test "scalar f32 NaN literals preserve signed payload bits" {
+test "scalar f32 literals preserve signed zero and NaN payload bits" {
   for
     (text, expected) in [
+      ("0", 0x00000000),
+      ("+0", 0x00000000),
+      ("-0", 0x80000000),
+      ("1.5", 0x3fc00000),
       ("nan", 0x7fc00000),
       ("+nan", 0x7fc00000),
       ("-nan", 0xffc00000),
       ("nan:0x1", 0x7f800001),
+      ("-nan:0x1", 0xff800001),
       ("+nan:0x400001", 0x7fc00001),
       ("-nan:0x400001", 0xffc00001),
       ("nan:0x7fffff", 0x7fffffff),
+      ("-nan:0x7fffff", 0xffffffff),
       ("nan:0x40_0001", 0x7fc00001),
     ] {
     let mod_ = wast_to_binary_module(
@@ -36,16 +42,22 @@ test "scalar f32 NaN literals preserve signed payload bits" {
 }
 
 ///|
-test "scalar f64 NaN literals preserve signed payload bits" {
+test "scalar f64 literals preserve signed zero and NaN payload bits" {
   for
     (text, expected) in [
+      ("0", 0x0000000000000000L),
+      ("+0", 0x0000000000000000L),
+      ("-0", 0x8000000000000000L),
+      ("1.5", 0x3ff8000000000000L),
       ("nan", 0x7ff8000000000000L),
       ("+nan", 0x7ff8000000000000L),
       ("-nan", 0xfff8000000000000L),
       ("nan:0x1", 0x7ff0000000000001L),
+      ("-nan:0x1", 0xfff0000000000001L),
       ("+nan:0x8000000000001", 0x7ff8000000000001L),
       ("-nan:0x8000000000001", 0xfff8000000000001L),
       ("nan:0xfffffffffffff", 0x7fffffffffffffffL),
+      ("-nan:0xfffffffffffff", 0xffffffffffffffffL),
       ("nan:0x8_0000_0000_0001", 0x7ff8000000000001L),
     ] {
     let mod_ = wast_to_binary_module(

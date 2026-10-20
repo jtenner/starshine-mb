@@ -9,6 +9,7 @@ on:
       - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
+      - ".github/actions/setup-moonbit/**"
       - "moon.mod"
       - "**/moon.pkg"
       - "moon.mod.json"
@@ -22,6 +23,7 @@ on:
       - "package.json"
       - ".github/coverage-baseline.txt"
       - ".github/workflows/coverage-report.yml"
+      - ".github/actions/setup-moonbit/**"
       - "moon.mod"
       - "**/moon.pkg"
       - "moon.mod.json"
@@ -37,9 +39,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Set up Bun
         run: |

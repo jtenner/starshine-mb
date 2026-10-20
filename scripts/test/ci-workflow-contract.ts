@@ -14,6 +14,41 @@ function requireText(text: string, expected: string, label: string): void {
 export function runCiWorkflowContractTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const workflowDir = path.join(repoRoot, ".github", "workflows");
+  const moonActionPath = path.join(repoRoot, ".github", "actions", "setup-moonbit", "action.yml");
+  if (!fs.existsSync(moonActionPath)) {
+    fail("CI is missing the shared qualified MoonBit setup action");
+  }
+  const moonAction = fs.readFileSync(moonActionPath, "utf8");
+  for (const fragment of [
+    'MOONBIT_VERSION: "0.10.15+943464bfa"',
+    'bash "$RUNNER_TEMP/install-moonbit.sh" "$MOONBIT_VERSION"',
+    'echo "$HOME/.moon/bin" >> "$GITHUB_PATH"',
+    '[[ "$versions" == *"moon 0.1.20261012 (748b63c 2026-10-12)"* ]]',
+    '[[ "$versions" == *"moonc v0.10.15+943464bfa (2026-10-12)"* ]]',
+    '"$HOME/.moon/lib/core/moon.mod"',
+    'test "$core_version" = "$MOONBIT_VERSION"',
+  ]) {
+    requireText(moonAction, fragment, "qualified MoonBit setup identity");
+  }
+  for (const entry of fs.readdirSync(workflowDir)) {
+    if (!entry.endsWith(".yml") && !entry.endsWith(".yaml")) continue;
+    const contents = fs.readFileSync(path.join(workflowDir, entry), "utf8");
+    if (contents.includes("cli.moonbitlang.com")) {
+      fail(`${entry} must use the shared qualified MoonBit action instead of an unpinned installer`);
+    }
+    if (/\bmoon (?:update|info|build|test|version)\b/.test(contents)) {
+      requireText(contents, "uses: ./.github/actions/setup-moonbit", `${entry} qualified MoonBit setup`);
+      const setupCount = (contents.match(/- name: Set up MoonBit/g) ?? []).length;
+      const actionCount = (contents.match(/uses: \.\/\.github\/actions\/setup-moonbit\b/g) ?? []).length;
+      if (setupCount !== actionCount) {
+        fail(`${entry} must use the qualified action for every MoonBit setup step`);
+      }
+      if (contents.includes("    paths:") &&
+        (contents.match(/\.github\/actions\/setup-moonbit\/\*\*/g) ?? []).length !== 2) {
+        fail(`${entry} must watch the shared MoonBit action in both push and pull-request filters`);
+      }
+    }
+  }
   const workflowPath = path.join(workflowDir, "ci.yml");
   if (!fs.existsSync(workflowPath)) {
     fail("required CI workflow is missing: .github/workflows/ci.yml");
@@ -51,6 +86,8 @@ export function runCiWorkflowContractTest(): void {
     ["cmp .tmp/ci-roundtrip/roundtrip-1.wasm .tmp/ci-roundtrip/roundtrip-2.wasm", "stable encoded-byte roundtrip"],
     ["--suite binary-roundtrip --profile smoke --seed 0x5eed", "deterministic bounded binary roundtrip fuzz smoke"],
     ["  dae-differential:", "DAE differential job"],
+    ['BINARYEN_VERSION: "133"', "current Binaryen oracle version"],
+    ['BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_133', "current Binaryen installation directory"],
     ["*retained dropped-result graph*", "retained-versus-fresh focused tests"],
     ["*complete dead-suffix call removal reports topology change*", "topology-changing DAE boundary test"],
     ["--count 10000", "full GenValid signoff case count"],
@@ -60,7 +97,7 @@ export function runCiWorkflowContractTest(): void {
     ["--normalize unreachable-control-debris", "unreachable-debris normalization"],
     ["--starshine-bin _build/native/release/build/cmd/cmd.exe", "fresh native Starshine binary"],
     ["--wasm-opt-bin \"$BINARYEN_DIR/bin/wasm-opt\"", "pinned Binaryen oracle"],
-    ["--require-binaryen-version 132", "fail-closed Binaryen release guard"],
+    ["--require-binaryen-version 133", "fail-closed Binaryen release guard"],
     ["--no-reduce-mismatches", "bounded mismatch handling"],
   ];
   for (const [fragment, label] of requiredFragments) {
@@ -100,13 +137,14 @@ export function runCiWorkflowContractTest(): void {
   requireText(semanticJob, 'node-version: "26.10.0"', "semantic smoke Node version supporting proposal tests");
   for (const [fragment, label] of [
     ['WASM_TOOLS_VERSION: "1.251.0"', "pinned semantic wasm-tools"],
-    ['BINARYEN_VERSION: "132"', "pinned semantic Binaryen"],
+    ['BINARYEN_VERSION: "133"', "pinned semantic Binaryen"],
+    ['BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_133', "pinned semantic Binaryen directory"],
     ['Z3_VERSION: "4.13.3"', "pinned semantic Z3"],
     ['semantic-optimizer-smoke:', "semantic optimizer CI job"],
     ['moon build --target native --release src/fuzz', "prebuilt semantic GenValid command"],
     ['--gen-valid-bin _build/native/release/build/fuzz/fuzz.exe', "prebuilt semantic GenValid executable"],
     ['--gen-valid-profile semantic-optimizer-all', "semantic GenValid aggregate"],
-    ['--require-binaryen-version 132', "semantic Binaryen release guard"],
+    ['--require-binaryen-version 133', "semantic Binaryen release guard"],
     ['--require-feature semantic_effects:1', "semantic effects floor"],
     ['--semantic-oracle node-v2', "observation-v2 CI smoke"],
     ['--property semantic-idempotence', "semantic idempotence CI smoke"],
@@ -119,6 +157,11 @@ export function runCiWorkflowContractTest(): void {
   }
   if (fuzzWorkflow.includes("--report-only")) {
     fail("semantic optimizer CI must keep compare-pass fail-on-observed-failures semantics");
+  }
+  for (const contents of [workflow, fuzzWorkflow]) {
+    if (/binaryen-version_132|--require-binaryen-version 132\b/.test(contents)) {
+      fail("current CI comparisons must use the verified Binaryen 133 oracle");
+    }
   }
 
   const nodeWorkflow = fs.readFileSync(path.join(workflowDir, "node-wasm-tests.yml"), "utf8");
@@ -140,7 +183,7 @@ export function runCiWorkflowContractTest(): void {
     if (!entry.endsWith(".yml") && !entry.endsWith(".yaml")) continue;
     const contents = fs.readFileSync(path.join(workflowDir, entry), "utf8");
     if (/^\s*- main\s*$/m.test(contents)) staleMainTriggers.push(entry);
-    if (contents.includes("cli.moonbitlang.com") && !contents.includes("moon update")) {
+    if (contents.includes("uses: ./.github/actions/setup-moonbit") && !contents.includes("moon update")) {
       missingMoonUpdates.push(entry);
     }
     if (contents.includes("npm --prefix tests/node")) staleNodePrefixes.push(entry);

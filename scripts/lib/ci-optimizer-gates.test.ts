@@ -10,7 +10,7 @@ describe("CI optimizer correctness lanes", () => {
     expect(externalJob).toBeDefined();
     expect(externalJob).toContain("if: github.event_name == 'workflow_dispatch'");
     expect(externalJob).toContain("--wasm-smith");
-    expect(externalJob).toContain("--require-binaryen-version 132");
+    expect(externalJob).toContain("--require-binaryen-version 133");
     expect(externalJob).toContain("--require-independent-validator");
     expect(externalJob).not.toContain("--report-only");
   });

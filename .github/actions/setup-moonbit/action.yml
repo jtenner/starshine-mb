@@ -1,0 +1,21 @@
+name: Set up qualified MoonBit
+description: Install and verify the MoonBit snapshot qualified for Starshine.
+runs:
+  using: composite
+  steps:
+    - name: Install the qualified MoonBit snapshot
+      shell: bash
+      env:
+        MOONBIT_VERSION: "0.10.15+943464bfa"
+      run: |
+        set -euo pipefail
+        curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o "$RUNNER_TEMP/install-moonbit.sh"
+        bash "$RUNNER_TEMP/install-moonbit.sh" "$MOONBIT_VERSION"
+        echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        versions="$("$HOME/.moon/bin/moon" version --all)"
+        printf '%s\n' "$versions"
+        [[ "$versions" == *"moon 0.1.20261012 (748b63c 2026-10-12)"* ]]
+        [[ "$versions" == *"moonc v0.10.15+943464bfa (2026-10-12)"* ]]
+        core_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' "$HOME/.moon/lib/core/moon.mod")"
+        printf 'MoonBit Core %s\n' "$core_version"
+        test "$core_version" = "$MOONBIT_VERSION"

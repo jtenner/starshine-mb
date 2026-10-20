@@ -19,8 +19,8 @@ env:
   WASM_TOOLS_VERSION: "1.251.0"
   WIT_BINDGEN_VERSION: "0.60.0"
   JCO_VERSION: "1.28.1"
-  BINARYEN_VERSION: "132"
-  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_132
+  BINARYEN_VERSION: "133"
+  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_133
 
 jobs:
   format-and-tests:
@@ -31,9 +31,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Set up Bun
         run: |
@@ -68,9 +66,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Set up Bun
         run: |
@@ -164,9 +160,7 @@ jobs:
           node-version: "26.10.0"
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Set up Bun
         run: |
@@ -228,7 +222,7 @@ jobs:
             --jobs auto \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \
             --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
-            --require-binaryen-version 132 \
+            --require-binaryen-version 133 \
             --max-failures 1 \
             --no-reduce-mismatches
 
@@ -262,7 +256,7 @@ jobs:
             --no-reduce-mismatches \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \
             --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
-            --require-binaryen-version 132 \
+            --require-binaryen-version 133 \
             --out-dir .tmp/ci-semantic-optimizer
 
       - name: Preserve differential comparison evidence

@@ -222,12 +222,16 @@ recorded above and in the provenance dossier.
   limit before any future MIT-only relabeling.
 - Approve candidate version `0.1.2-beta.0`, the prepared public/beta metadata defaults and a publishing/
   provenance route. Current CI only validates; it never publishes.
-- Tested Moon snapshot archive requests returned HTTP 403, while `latest` is
-  available. Provision the documented snapshot or qualify a newer compiler with
-  drift and consumer gates. Bun, wasm-tools and TypeScript are pinned/documented;
-  CI installs the available Moon compiler and checks generated drift. The
-  successful October 10 cold build received the same documented Moon/moonc
-  snapshot through `latest`; no newer compiler was required for that result.
+- Earlier tested Moon snapshot archive requests returned HTTP 403. The
+  successful October 10 cold build received the documented Moon/moonc snapshot
+  through `latest`; no newer compiler was required for that result. The
+  [October 20 repair](wiki/tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler)
+  supersedes that provisioning limit: official archives for the full identifier
+  `0.10.15+943464bfa` return HTTP 200 and match the qualified local tools and Core
+  bytes. CI now pins that identifier through its shared setup action. Date-only
+  and short-version requests still return 403. A newer compiler still requires
+  qualification with drift and consumer gates. Fresh gate results are kept in
+  that repair record.
 - Initial package qualification was local. On pre-push `origin/master` at
   `f91f5ec3`, [Required CI](https://github.com/jtenner/starshine-mb/actions/runs/38014936990),
   [Fuzz Suites](https://github.com/jtenner/starshine-mb/actions/runs/38014937050)

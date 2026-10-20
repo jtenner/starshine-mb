@@ -32,6 +32,7 @@ on:
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
+      - ".github/actions/setup-moonbit/**"
   push:
     branches:
       - master
@@ -64,6 +65,7 @@ on:
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
+      - ".github/actions/setup-moonbit/**"
 
 jobs:
   node-api-surface-tests:
@@ -86,12 +88,7 @@ jobs:
           bun-version: 1.4.2
 
       - name: Set up MoonBit
-        run: |
-          # The exact locally tested snapshot is documented in toolchain.json.
-          # Qualify the available compiler with generated drift and consumer gates.
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/install-moon.sh
-          bash /tmp/install-moon.sh
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/setup-moonbit
 
       - name: Set up independent Wasm validator and TypeScript
         run: |
