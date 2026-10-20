@@ -1,8 +1,10 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-20
 sources:
+  - ../../../raw/tooling/2026-10-19-pass-review-follow-up.json
+  - ../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -13,6 +15,31 @@ sources:
 ---
 
 # `dead-argument-elimination` Fuzzing Profile
+
+## October 20 pass review renewal
+
+Native CLI `4aa2af1acc077a246e33f0fcecf8dbc52de16a38f1dcb2a98f77af5405e88d0a`
+and generator `31e07244139215a6ce2e76450d7dcfc018c2b99958e0b6a684446086778d459c`
+complete 10,000 cases per mode against verified Binaryen 133. Direct DAE has
+3,750 canonical matches and 6,250 differences. Optimizing DAE has 5,153
+canonical matches, 1,212 configured cleanup matches and 3,635 differences.
+Validation, generator, property and command failures are zero. Runtime checking
+is off in these large lanes; historical runtime results below retain their own
+scope.
+
+All 40 retained outputs reproduce byte-identical baseline outputs. Source
+review classifies their inspected families as scoped wins, with transform
+contracts and measured canonical sizes. All 40 bounded Node-v2 plans call
+exported functions and match original execution. This does not establish every
+suppressed difference as equivalent. Direct DAE still has 1,250 canonical
+matches with larger raw output: 625 localization cases add six bytes each and
+625 unseen-boundary cases add two bytes each, totaling 5,000 bytes. This raw
+quality gap remains open.
+
+The multi-value argument repair has separate direct regressions: the ambient
+stack example must return 101, with one producer evaluation and preserved
+effect order. The [joint record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+owns final source identities, counters, runtime limits and independent reviews.
 
 ## October 15 Binaryen 133 shared-work renewal
 

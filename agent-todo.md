@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 19, 2026. Follow
+Active unreleased work only, reviewed October 20, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -9,6 +9,36 @@ oracle versions and checkpoints do not sign current source.
 
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
+
+
+## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
+
+### Cast aggregate coverage [IR2-CAST-PROFILE]
+
+- **Goal / why:** repair a pre-existing generator configuration collapse; seven
+  cast profile labels currently select the later-reuse body.
+- **Deliverables / tasks:** give each intended leaf a distinct configuration
+  and assert its actual opcode/type shape, not only its label or any cast.
+- **APIs / invariants:** preserve valid generation, deterministic seeds and
+  exported runtime targets; do not weaken the repaired function/GC hierarchy.
+- **Dependencies / exit / tests:** red-first leaf-shape tests, native generator
+  renewal and the required 10,000-case verified-v133 aggregate with actual
+  family coverage. The current hierarchy repair has independent direct tests.
+  See the [review record](docs/wiki/tooling/validation-gates.md#october-19-2026--pass-review-follow-up).
+
+### Generic inlining raw output [IR2-INLINING-RAW-QUALITY]
+
+- **Goal / why:** reduce the general-profile raw-byte gap while preserving
+  canonical semantics. Each 10,000-case general lane adds 42,899,612 raw bytes
+  despite canonical equality; the dedicated optimizing aggregate is exact.
+- **Deliverables / tasks:** inspect retained unreachable code, type/local
+  declarations and cleanup placement; choose a measured smaller output without
+  losing the pass analysis gains.
+- **APIs / invariants:** preserve effects, traps, debug names, pass stop points
+  and explicit entry operands; smaller canonical output alone is insufficient.
+- **Dependencies / exit / tests:** direct bounded IR/byte regressions, exact
+  baseline provenance, paired size/runtime/allocator controls and renewed
+  documented aggregates. See the same review record for scope and samples.
 
 ## Missed-optimization follow-ups [IR2-MO-STATIC]
 
@@ -2142,7 +2172,6 @@ keep those results separate from verified release-v133 signoff.
   [index/validator contracts](docs/wiki/validate/type-section-and-subtyping.md).
 
 ## v0.1.1 — Pipeline, artifacts and tooling [IR2-SIGNOFF]
-
 
 ### Wago debug-artifact execution [IR2-WAGO-RUNTIME]
 

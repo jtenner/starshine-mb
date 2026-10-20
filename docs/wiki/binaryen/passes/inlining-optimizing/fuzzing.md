@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-20
 sources:
+  - ../../../raw/tooling/2026-10-19-pass-review-follow-up.json
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -14,6 +15,17 @@ related:
 ---
 
 # `inlining-optimizing` fuzzing and performance
+
+## October 20 pass review renewal
+
+The documented `inlining-optimizing-all` aggregate completes 10,000 cases with
+equal raw and canonical output against verified Binaryen 133, selecting all
+four wrapper, spill, tail-call and cleanup families. Failure counts are zero;
+runtime checking is off. The earlier general-profile optimizing run is
+supplemental and retains a large raw-size gap despite canonical equality.
+The [plain-page renewal](../inlining/fuzzing.md#october-20-pass-review-renewal)
+and [joint record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+separate those scopes and retain exact binary identities and provenance.
 
 ## September 27 follow-up allocation campaign renewal
 

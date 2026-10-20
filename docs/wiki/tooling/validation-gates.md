@@ -1,8 +1,12 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-20
 sources:
+  - ../raw/tooling/2026-10-19-pass-review-follow-up.json
+  - ../../../src/passes/review_local_control_wbtest.mbt
+  - ../../../src/passes/review_vacuum_arity_wbtest.mbt
+  - ../../../src/ir/hot_control_entry_preservation_wbtest.mbt
   - ../raw/tooling/2026-10-19-pass-review-corrections.json
   - ../../../src/lib/proposal_type_format_wbtest.mbt
   - ../../../src/passes/dae2_raw_local_flow_boundary_wbtest.mbt
@@ -1590,3 +1594,172 @@ canonical metadata maps are created only when field names exist. Those are
 source-level allocation bounds. Whole-process RSS is not allocated-byte,
 retained-heap or leak evidence. Compiler time, general artifacts, metadata
 allocation volume and other architectures were not measured.
+
+
+## October 19, 2026 — Pass review follow-up
+
+This investigation starts at `b6e158590b9d02b531146fe6582d09e7a65fbc17`.
+It is separate from the earlier October 19 repair record above. The
+[follow-up evidence](../raw/tooling/2026-10-19-pass-review-follow-up.json)
+records the reported correctness, metadata and performance leads, source
+identities, bounded regressions, native measurements and review limits.
+The final repository gate passes all 15,352 tests and all 14 CI fuzz suites.
+Native CLI compilation and README/API synchronization also pass. Generated
+comparisons and retained-case reviews are recorded separately below.
+
+The exact baseline reproduces the DAE multi-value error: an ambient `1`, a
+pair returning `5, 6`, and a constant-returning two-argument callee produce
+`105` after DAE instead of `101`. Operand recovery now rejects lane overshoot
+and uses one producer evaluation when it must retain selected lanes.
+CodeFolding also had a reproducible effect-order error when a moved nested
+exit invalidated a cached suffix. Cached tails now retain and check branch
+identity. CoalesceLocals changes negative zero to positive zero on both
+float widths in baseline execution; constant facts now preserve exact bits
+and recognize only positive zero as a default value. These are confirmed
+semantic defects, including the previously unconfirmed float concern.
+
+Control repairs cover legacy try local indices and first-use order, typed
+control entry operands, used If labels, delegate/catch/resume owner guards,
+all dropped result lanes, and non-defaultable local initialization across
+control frames. The shared HOT representation retains explicit scalar
+entry producers and evaluates try entry operands before entering handlers.
+The [architecture rule](../ir2/architecture-rules.md),
+[Vacuum contract](../binaryen/passes/vacuum/starshine-hot-ir-strategy.md) and
+[SSA contract](../binaryen/passes/ssa/starshine-strategy.md) describe these
+invariants and their direct tests.
+
+Metadata changes preserve field and local name ownership through index
+changes and handle valid raw-only name sections. A malformed raw-only payload
+does not stop the transform; changed output clears the stale cache and a no-op
+retains the original. The initial guard that stopped these transforms failed
+the existing StringGathering contract and was removed. Clearing compiler facts after a
+transform is required by their ownership contract; preserving stale facts
+is not a valid fix. Concrete function references remain in the function
+type hierarchy, outside `any`.
+
+Performance work targets shared analysis, unchanged-body checks, batched
+rewrites, exact cache ownership, sparse query storage, type interning and
+repeated control scans. Each family has before/after native controls, with
+raw samples and build identities retained in the evidence record. A
+source change alone does not establish a runtime or memory gain. Whole
+process peak RSS does not establish allocation or retained heap savings.
+Some reported scan counts were too broad; the final record distinguishes
+measured improvements from rejected claims and unchanged required work.
+
+The warmed instruction-query controls show one explicit tradeoff: a
+1,024-deep effect query takes 22.78 to 24.11 us while requested bytes fall
+from 4,312.5 to 228.5 per operation. Full-arena effect times overlap; deep
+and small rethrow queries improve. This is evidence for bounded scratch
+storage, not a claim that every query is faster.
+
+Claude Code completed a limited baseline source review. Its later immutable
+checkpoint review stopped at the session limit and returned no assessment.
+The evidence records that incomplete scope separately from the completed
+independent source checks; it does not claim a final Claude assessment.
+
+The first local-proof index rebuilt a small instruction tree for each pair.
+An equal-work allocator check exposed a 22-fold byte increase, so that
+version was removed. The final index stores row starts and original
+instruction offsets in two numeric arrays. It scans those rows directly.
+The 512-pair path control improves 52.5-fold and adds 12,556 bytes for one
+shared function index; 12,292 bytes are the two array payloads. Consume
+allocation falls, and the small-local fallback keeps identical allocation.
+The path control adds about 0.1 MiB peak RSS; this is not a general memory
+reduction claim.
+
+The full-pass Flatten control exposed a gap in the first helper-only
+measurements: rebuilding ownership facts after each mutation still made the
+512-control case slower. The final private proof keeps one ownership census
+and a complete prefix bound for a restricted operand tree. Matching native
+full-pass samples improve from 89,090 to 1,093 us; requested pass bytes fall
+from 101,925,244 to 799,592. Doubling controls from 256 to 512 now doubles time
+and requested bytes. These controls compare the prior tested native checkpoint
+with the final Flatten source under the same common sources.
+
+That change adds 24 bytes of cold state per function and 940 KiB of focused
+process peak RSS. It adds no graph arrays. Generic fallback and root insertion
+can still have quadratic worst cases; the result is not a universal complexity
+or memory claim. The [raw record](../raw/tooling/2026-10-19-pass-review-follow-up.json)
+contains 63 retained samples per side, allocator counts, all source/build
+identities, exact encoded-byte checks and 36 matching runtime observations.
+
+The final native CLI is `4aa2af1acc077a246e33f0fcecf8dbc52de16a38f1dcb2a98f77af5405e88d0a`.
+Forty-eight complete-command controls use two warmups and seven alternating
+samples for the original CLI, final CLI and verified Binaryen 133. Every command
+and independent output validation succeeds. On the 512-control Flatten fixture,
+original-to-final command time falls from 78.856 to 7.663 ms; Binaryen takes
+5.848 ms. Whole-command peak RSS falls from 15,668 to 13,968 KiB on this fixture.
+This does not supersede the focused pass process's 940 KiB RSS increase.
+
+Seven critical CLI regressions match original execution. Eighty additional
+Flatten observations compare original, baseline, final and Binaryen outputs,
+including distinct nested entry values and import effect order. Node cannot
+execute one Binaryen compact-import encoding. The runtime-only replay disables
+that encoding and verifies that every non-import, non-custom section remains
+byte-identical; the native timing samples retain the original oracle bytes.
+These Flatten functions return zero; import arguments, call order and call
+counts provide the additional runtime observations. Exact baseline/final
+encoded bytes and direct IR tests supply separate value-preservation evidence.
+
+Small controls do not all improve. CodeFolding's alternating small samples are
+253 to 258 us, and its mixed samples are 279 to 259 us; the earlier grouped
+27% small-case regression does not reproduce. Mixed CoalesceLocals takes 667
+to 721 us. Complete SimplifyLocals controls remain near parity despite a faster
+cleanup driver. The final CLI grows from 15,576,984 to 15,753,808 bytes (1.14%).
+No original cold compiler-time measurement exists, so there is no compiler-time
+gain claim.
+Twenty of the 48 command medians are higher after the repairs; every such
+before/after sample range overlaps. The evidence supports the stated pass
+improvements and costs, not a uniform whole-pipeline speedup. Missing pass
+timers remain unavailable measurements rather than zero-time results.
+
+Representative native controls use matching harnesses and common sources.
+These are fixture measurements, not complete-module speed guarantees:
+
+| Path | Before → after, us | Scope |
+| --- | ---: | --- |
+| DAE, 256 rewritten calls | 477 → 126 | Batched callsite reconstruction |
+| DAE, mutual-call analysis | 2,115 → 38.5 | Shared call-graph facts |
+| Manager, tuple interning | 2,749 → 44 | Large type workspace; tiny control also measured |
+| CodeFolding, 256 independent folds | 20,458 → 1,206 | Shared analysis and no full restart |
+| Instruction purity queries | 346 → 12.6 | Revision-owned query memo |
+| Flatten, 512 tuple controls | 89,090 → 1,093 | Full pass; restricted ownership proof |
+| CoalesceLocals, 512 pair proofs | 2,041 → 38.9 | Shared numeric index; extra bytes stated above |
+| GlobalStructInference, 256 distinct wrappers | 63,532 → 94.7 | Strong buckets; recursive cases retain exact fallback |
+| Precompute, immutable heap reads | 201 → 5 | Cached initializer values |
+| ReorderGlobals, equal-width candidates | 55.8 → 30.3 | Avoid repeated construction and byte buffers |
+
+The raw record retains all samples, controls, allocator counts and source/build
+identities, including neutral and adverse cases. Required semantic graph
+rebuilds, dense interference storage and conservative control fallbacks remain;
+the repairs do not remove their correctness requirements.
+
+Final generated verification completes 250,000 comparisons in 25 lanes across
+24 pass modes against verified Binaryen 133. There are 129,341 canonical
+matches, 8,064 configured cleanup matches and 112,595 structural differences.
+Validation, generator, property and command failures are zero. The required
+`inlining-optimizing-all` aggregate matches all 10,000 cases with equal raw and
+canonical sizes; its earlier general-profile run remains supplemental evidence.
+These lanes have runtime checking off. They do not close complete pass parity.
+
+All 400 retained differences reproduce byte-identical baseline outputs. Their
+independent source reviews distinguish scoped wins from raw-size, canonical-size
+and unverified gaps. Bounded Node-v2 replay matches original and Starshine in
+351 cases: 245 have function invocation plans, recording 1,510 steps; 106 only
+check compilation, instantiation and resources. Another 48 originals time out
+at one second and one requires stack-switching support. Binaryen has 28 further
+blocked observations from compact imports or custom descriptors. No Starshine
+or Binaryen semantic mismatch is observed in these bounded replays. Every
+runtime report is retained; blocked or unexecuted functions remain unverified.
+
+Coverage limits remain explicit. The cast aggregate has a pre-existing
+configuration defect: seven labels repeat the later-reuse body. Direct bounded
+tests cover the repaired function-reference hierarchy. Each Precompute lane
+repeats eleven fixed inputs. Ordinary GSI, GTO and StringGathering inputs contain
+no GC or string targets; focused tests provide the metadata and type evidence.
+Comparison counts therefore do not mean the same number of unique modules.
+Known DAE localization costs, DAE2 canonical losses, mixed RUB/SSA raw-size
+losses and ReorderGlobals import-order gaps remain open. General inlining also
+has an open raw-byte gap despite canonical equality. The raw record owns exact
+per-lane counts, family judgments, source hashes and supersession of earlier
+pending replay statements.

@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-20
 sources:
+  - ../../../raw/tooling/2026-10-19-pass-review-follow-up.json
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -14,6 +15,29 @@ related:
 ---
 
 # `inlining` fuzzing and signoff
+
+## October 20 pass review renewal
+
+Final native CLI `4aa2af1acc077a246e33f0fcecf8dbc52de16a38f1dcb2a98f77af5405e88d0a`
+completes 10,000 `pass-inlining` comparisons against verified Binaryen 133.
+All canonical outputs match, with no validation, generator, property or command
+failure. Runtime checking is off. Raw sizes do not match: Starshine has
+127,110,648 bytes versus 84,211,036, with larger output in all 10,000 cases.
+This is an open raw-output quality gap, not an accepted representation win.
+
+Three exact manifest inputs, the first, middle and largest, reproduce identical
+baseline/final raw bytes in both inlining modes. Their gap mainly comes from
+dead instruction tails after `unreachable`, with smaller type/encoding changes.
+An oracle no-pass write produces the same bytes as its pass output for these
+samples. This establishes earlier provenance on three samples, not every case.
+The actual general-profile manifest includes reference, SIMD and typed control
+traffic; requested config toggles alone do not describe generated coverage.
+
+The required optimizing profile is separately renewed with
+`inlining-optimizing-all`: 10,000 canonical and raw matches, 360,000 bytes per
+side, all four intended families selected. A general-profile optimizing run
+also completes but remains supplemental. The [joint record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+owns identities, source checks, samples and the active raw-quality gap.
 
 ## October 15 shared-work renewal
 

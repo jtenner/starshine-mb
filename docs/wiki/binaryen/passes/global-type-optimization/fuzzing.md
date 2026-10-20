@@ -1,8 +1,10 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-20
 sources:
+  - ../../../tooling/validation-gates.md
+  - ../../../../../src/passes/report_types_metadata_wbtest.mbt
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/global_type_optimization.mbt
@@ -13,6 +15,19 @@ related:
 ---
 
 # `global-type-optimization` Fuzzing Status
+
+## October 19 follow-up
+
+New comparisons require verified Binaryen 133. This supersedes the historical
+v132-only instruction below; recorded v132 measurements keep their original
+version. Descriptor placeholder removal now remaps structured field names
+along with field indices. The [follow-up validation record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+tracks the regression and renewed comparison. The final 10,000 ordinary
+closed-world cases have no GC/private-struct targets. All have canonical
+differences, and 7,118 have larger raw output. The 20 inspected retained pairs
+only differ through shared CLI nop cleanup. These generic inputs do not sign
+descriptor metadata coverage. Bounded direct tests provide that evidence, and
+existing hierarchy-aware GTO parity gaps remain open.
 
 ## Active partial implementation
 

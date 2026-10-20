@@ -1,3 +1,14 @@
+### 2026-10-20 — Complete the pass review repairs
+
+- The [final record](tooling/validation-gates.md#october-19-2026--pass-review-follow-up) completes the October 19 investigation: all 15,352 tests, all 14 CI fuzz suites, native compilation and README/API checks pass. Twenty-five lanes complete 250,000 verified-v133 comparisons with zero validation, generator, property or command failures; structural parity remains separate.
+- All 400 retained outputs reproduce exact baseline bytes. Independent source reviews and bounded Node replays preserve raw-size, unsupported-runtime and coverage limits. The 512-control Flatten command improves 78.856 to 7.663 ms; allocation controls and adverse small cases remain in the record.
+- The completed repair task leaves the active backlog. Separate cast-generator coverage and general inlining raw-output gaps stay active. Claude Code's later review reached its usage limit without an assessment; no final Claude approval is claimed.
+
+### 2026-10-19 — Repair the pass review findings
+
+- The [follow-up record](tooling/validation-gates.md#october-19-2026--pass-review-follow-up) separates this work from earlier October 19 repairs. Exact baseline execution confirms DAE multi-value, CodeFolding effect-order and both-width CoalesceLocals signed-zero errors.
+- Direct regressions cover legacy exception targets, local remapping, typed control inputs, non-defaultable scopes, debug names and cache ownership. Native controls measure the reported repeated scans and allocations. This initial checkpoint left final validation open; the October 20 entry above records its completion.
+
 ### 2026-10-18 — Repair complete test launches and native fixtures
 
 - [The validation gate](tooling/validation-gates.md#october-18-complete-moon-test-selection) uses every source path to keep Moon's test-selection argument below the Linux limit. Required CI retains Wasm; the full gate retains its configured target and all fuzz suites. Coverage uses one complete analyze cycle.
