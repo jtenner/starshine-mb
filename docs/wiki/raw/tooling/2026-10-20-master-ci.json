@@ -207,7 +207,7 @@
     "fullGates": "pending",
     "nativeAndPackedArtifactGates": "pending",
     "freshBinaryen133Comparisons": "pending",
-    "finalRemoteCi": "pending after repair push",
+    "finalRemoteCi": "Initial repair source 8ade82f2c has active runs; expanded v2 test source will supersede it.",
     "limit": "Compilation blocked later checks in the failed runs. Local static checks and focused fixtures do not prove those unrun checks pass.",
     "localSetupGates": {
       "productVersion": "passed",
@@ -247,7 +247,11 @@
       "compiler/pin-review-contract-results.json",
       "ffi-review/generated-diff-review.json",
       "ffi-review/generator-contracts-status.json",
-      "ffi-review/generator-contracts.log"
+      "ffi-review/generator-contracts.log",
+      "numeric-review/review-v2.md",
+      "numeric-review/v2-model-results.json",
+      "coverage/numeric-v2-source-ready.json",
+      "coverage/numeric-v2-focused.log"
     ],
     "limit": "Local logs are not committed. This record preserves key observations and identities; remote run links preserve the failed CI provenance."
   },
@@ -282,19 +286,22 @@
   },
   "coverageRepair": {
     "file": "src/passes/precompute_numeric_fold_contract_wbtest.mbt",
-    "sha256": "9a0a2bf663d96a12241c418a04e562cdab39ce2a726a4fa4037a5a2080da331b",
-    "tests": 3,
-    "constantFoldCases": 73,
+    "sha256": "c77da0397c990d4875ce886fd55145a9cd915bf54e9a4c53fc28f47f09007894",
+    "tests": 5,
+    "constantFoldCases": 103,
     "trapCases": 8,
     "passes": [
       "precompute",
       "precompute-propagate"
     ],
-    "contract": "Require exactly one expected constant with exact literal bits for folds; retain all original trap instructions and function counts; validate every output.",
-    "focusedTestResult": "3 passed, 0 failed before final function-count hardening; complete fresh run includes final assertion.",
-    "independentReview": "All expected numbers, float bits and trap inputs independently checked with a Python arithmetic model; no defect found. Final hardening adds explicit trap function-count assertion.",
+    "contract": "Require exactly one expected constant with exact bits for 103 folds; retain all 8 trap vectors and function counts; require exact operand order and selected arms for 5 dynamic-select functions; validate every output.",
+    "focusedTestResult": "5 passed, 0 failed on final formatted v2 source.",
+    "independentReview": "All 103 constant results, eight traps and five dynamic-select cases independently checked. Separate v2 review verifies saturation limits, NaN payload bits, SIMD lanes and select/subtraction order for five representative condition values. No defect found in final frozen source.",
     "baselineChanged": false,
-    "fullFreshCoverage": "running; no final line count claimed",
-    "estimateLimit": "A direct coverage report combined other local scopes and is not comparable to the analyze gate; discard its estimate."
+    "fullFreshCoverage": "v2 full CI=true run active on frozen source; final count pending",
+    "estimateLimit": "A direct coverage report combined other local scopes and is not comparable to the analyze gate; discard its estimate.",
+    "dynamicSelectCases": 5,
+    "totalFixedCases": 116,
+    "supersededLocalRun": "The v1 full rerun was stopped and reaped before edits. No completed coverage count is claimed for that partial run."
   }
 }
