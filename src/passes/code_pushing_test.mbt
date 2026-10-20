@@ -277,6 +277,21 @@ fn code_pushing_test_run_hot_func(
 }
 
 ///|
+fn code_pushing_test_build_unary_loop(
+  func : @ir.HotFunc,
+  value_type : @lib.ValType,
+) -> Int32 {
+  @ir.hot_build_resolved_loop(
+    func,
+    @lib.BlockType::val_type(value_type),
+    [value_type],
+    [value_type],
+    [@ir.hot_build_local_get(func, 0)],
+    [],
+  )
+}
+
+///|
 test "code-pushing keeps SIMD store after an earlier memory load" {
   let source =
     #|(module (memory 1)
@@ -2872,7 +2887,7 @@ fn code_pushing_br_on_non_null_loop_boundary_fixture() -> @ir.HotFunc {
     func,
     @ir.hot_type_intern_value(func, extern_ref),
   )
-  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::val_type(extern_ref), [])
+  let loop_id = code_pushing_test_build_unary_loop(func, extern_ref)
   let target = @ir.hot_control_node_label(func, loop_id)
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, loop_id), [
     @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
@@ -2924,11 +2939,7 @@ fn code_pushing_br_on_cast_loop_boundary_fixture() -> @ir.HotFunc {
     func,
     @ir.hot_type_intern_value(func, nullable_i31_val),
   )
-  let loop_id = @ir.hot_build_loop(
-    func,
-    @lib.BlockType::val_type(nullable_i31_val),
-    [],
-  )
+  let loop_id = code_pushing_test_build_unary_loop(func, nullable_i31_val)
   let target = @ir.hot_control_node_label(func, loop_id)
   let branch_payload = @ir.hot_alloc_instr_payload(
     func,
@@ -2993,7 +3004,7 @@ fn code_pushing_br_on_cast_fail_loop_boundary_fixture() -> @ir.HotFunc {
     locals=@ir.HotLocals::new(params=[any_ref], locals=[@lib.ValType::i32()]),
   )
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, any_ref))
-  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::val_type(any_ref), [])
+  let loop_id = code_pushing_test_build_unary_loop(func, any_ref)
   let target = @ir.hot_control_node_label(func, loop_id)
   let branch_payload = @ir.hot_alloc_instr_payload(
     func,

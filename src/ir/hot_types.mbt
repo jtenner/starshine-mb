@@ -109,6 +109,20 @@ pub fn hot_type_void(func : HotFunc) -> TypeId {
 
 ///|
 pub fn hot_type_get(func : HotFunc, type_id : TypeId) -> HotTypeInfo {
+  match func.types[type_id] {
+    HotTypeInfo::Results(values) => HotTypeInfo::Results(values.copy())
+    HotTypeInfo::BlockResultResolved(block_type, params, results) =>
+      HotTypeInfo::BlockResultResolved(
+        block_type,
+        params.copy(),
+        results.copy(),
+      )
+    info => info
+  }
+}
+
+///|
+fn hot_type_get_borrowed(func : HotFunc, type_id : TypeId) -> HotTypeInfo {
   func.types[type_id]
 }
 
@@ -139,7 +153,7 @@ fn hot_type_result_arity_impl(
   // Counting results does not require the owned arrays returned by
   // hot_type_results. Keep its unresolved-block error behavior unchanged.
   ignore(copied_values)
-  match hot_type_get(func, type_id) {
+  match hot_type_get_borrowed(func, type_id) {
     VoidType => 0
     Value(_) => 1
     BlockResult(block_type) =>
@@ -157,7 +171,7 @@ fn hot_type_result_arity_impl(
 
 ///|
 pub fn hot_type_is_void(func : HotFunc, type_id : TypeId) -> Bool {
-  match hot_type_get(func, type_id) {
+  match hot_type_get_borrowed(func, type_id) {
     VoidType => true
     _ => false
   }
@@ -165,7 +179,7 @@ pub fn hot_type_is_void(func : HotFunc, type_id : TypeId) -> Bool {
 
 ///|
 pub fn hot_type_results(func : HotFunc, type_id : TypeId) -> Array[ValType] {
-  match hot_type_get(func, type_id) {
+  match hot_type_get_borrowed(func, type_id) {
     VoidType => []
     BlockResult(block_type) => hot_type_block_result_values(block_type)
     BlockResultResolved(_, _, values) => values.copy()

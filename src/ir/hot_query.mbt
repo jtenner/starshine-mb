@@ -184,7 +184,10 @@ pub fn hot_nodes_match_simple_value(
   lhs : NodeId,
   rhs : NodeId,
 ) -> Bool {
-  hot_simple_value_key(func, lhs) == hot_simple_value_key(func, rhs)
+  match (hot_simple_value_key(func, lhs), hot_simple_value_key(func, rhs)) {
+    (Some(left), Some(right)) => left == right
+    _ => false
+  }
 }
 
 ///|

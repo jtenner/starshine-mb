@@ -788,7 +788,7 @@ fn hot_verify_explicit_block_prefix(
   if node.imm1 == 0 {
     return Ok(())
   }
-  let params = match hot_type_get(func, node.ty) {
+  let params = match hot_type_get_borrowed(func, node.ty) {
     BlockResultResolved(_, params, _) => params
     _ => return Err(HotVerifyError::InvalidNodeType(id, node.ty))
   }
@@ -910,7 +910,7 @@ fn hot_verify_control_impl(
         }
       }
       HotOp::If => {
-        let entry_count = match hot_type_get(func, node.ty) {
+        let entry_count = match hot_type_get_borrowed(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()
           _ => 0
         }
@@ -954,7 +954,7 @@ fn hot_verify_control_impl(
       }
       HotOp::Try => {
         needs_catch_layout = true
-        let entry_count = match hot_type_get(func, node.ty) {
+        let entry_count = match hot_type_get_borrowed(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()
           _ => 0
         }
@@ -975,6 +975,14 @@ fn hot_verify_control_impl(
           if !hot_verify_region_holder(func, child_id) {
             return Err(
               HotVerifyError::InvalidControlChild(node_id, slot, child_id),
+            )
+          }
+        }
+        for slot = 2; slot < node.child_count; slot = slot + 1 {
+          let entry = func.children[node.child_base + slot]
+          if entry == HOT_NONE_NODE || !hot_node_is_live(func, entry) {
+            return Err(
+              HotVerifyError::InvalidControlChild(node_id, slot, entry),
             )
           }
         }
@@ -1001,7 +1009,7 @@ fn hot_verify_control_impl(
       }
       HotOp::Catch => needs_catch_layout = true
       HotOp::TryTable => {
-        let entry_count = match hot_type_get(func, node.ty) {
+        let entry_count = match hot_type_get_borrowed(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()
           _ => 0
         }
@@ -1019,6 +1027,14 @@ fn hot_verify_control_impl(
           if !hot_verify_region_holder(func, child_id) {
             return Err(
               HotVerifyError::InvalidControlChild(node_id, slot, child_id),
+            )
+          }
+        }
+        for slot = 2; slot < node.child_count; slot = slot + 1 {
+          let entry = func.children[node.child_base + slot]
+          if entry == HOT_NONE_NODE || !hot_node_is_live(func, entry) {
+            return Err(
+              HotVerifyError::InvalidControlChild(node_id, slot, entry),
             )
           }
         }

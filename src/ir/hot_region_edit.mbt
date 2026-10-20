@@ -248,6 +248,9 @@ pub fn hot_region_result_arity(
     return hot_type_result_arity(func, hot_body_result_type(func))
   }
   let holder = hot_region_require_holder(func, region_ref)
+  if hot_node_op(func, holder) is HotOp::Loop {
+    return hot_type_result_arity(func, hot_node_get(func, holder).ty)
+  }
   let label_id = hot_control_node_label(func, holder)
   hot_label_branch_arity(func, label_id)
 }

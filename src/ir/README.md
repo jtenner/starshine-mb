@@ -8,6 +8,9 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `HotFunc` is the only owned optimizer body representation.
 - CFG, dominance, post-dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by `revision`; they do not own bodies.
 - Semantic mutation must go through public hot-IR mutation APIs and must bump `revision`.
+- Constructors own caller-provided local/type/payload arrays, and public getters
+  return protected copies. Internal borrowed reads keep these boundaries out of
+  hot analysis paths.
 - There is no compatibility surface for deleted recursive optimizer-body ownership layers.
 
 ## Pass Contract
@@ -30,7 +33,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 
 - `architecture.mbt`: shared IR2 architecture types that later pass-manager slices build on now, including revision reads and pass-descriptor metadata.
 - `bitset.mbt`: shared dense `UInt64`-backed mutable bitsets with strict bounds checks, in-place set algebra, and deterministic set-bit iteration for later dataflow overlays.
-- `cfg.mbt`: deterministic CFG overlay builder with synthetic entry/exit blocks, explicit edge lists, node and region-root block mappings, structured label-target resolution, and exceptional-exit tracking for later dominator and dataflow slices.
+- `cfg.mbt`: deterministic CFG overlay builder with synthetic entry/exit blocks, explicit edge lists, node and region-root block mappings, separate normal and legacy-exception label targets, tag-aware legacy catch routing, and exceptional-exit tracking for later dominator and dataflow slices.
 - `cfg_contract.mbt`: normative block-boundary, structured-control successor, terminator edge-kind, and exceptional-edge policy helpers so CFG construction and later analyses stop guessing hot-IR control-flow rules.
 - `cfg_order.mbt`: shared deterministic CFG preorder/postorder/reverse-postorder helpers, reverse-exit traversals, exceptional-edge-inclusive order variants, direct-region block ordering, and worklist seed policy so later analyses stop reimplementing block visitation order and unreachable-block handling.
 - `dominators.mbt`: reachable-block dominator overlay with immediate dominators, dominator-tree children, dominance frontiers, interval-based dominance queries, and a debug dump surface built over the normal-flow CFG edge policy.
@@ -41,15 +44,15 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `analysis_cache.mbt`: shared revision-keyed cache entries for CFG, traversal orders, dominators, post-dominators, loop info, use-def, liveness, effects, and local SSA, with typed `get_or_build` helpers and explicit cache reset for pass pipelines.
 - `ssa_policy.mbt`: local SSA overlay policy helpers covering SSA value and phi ids, entry-definition origins, overlay-only phi ownership, pruned dominance-frontier phi placement, and the locked rename/destruction/exclusion rules for SSA v1.
 - `ssa_local.mbt`: local SSA construction overlay with synthetic entry defs, block-entry phi placement/materialization, dominator-tree renaming for `LocalGet` / `LocalSet` / `LocalTee`, predecessor-aligned phi inputs, and direct def/use query helpers for later SSA-assisted rewrites.
-- `ssa_destroy.mbt`: local SSA destruction helpers that assign concrete locals, insert predecessor copies for block-entry phis, allocate temp locals for cyclic parallel copies, rewrite local ops back to plain hot locals, and drop dead local defs created by destruction.
+- `ssa_destroy.mbt`: local SSA destruction helpers that assign concrete locals, preserve phi sources evaluated inside predecessor branch operands, insert predecessor copies for block-entry phis, allocate temp locals for cyclic parallel copies, rewrite local ops back to plain hot locals, and drop dead local defs created by destruction.
 - `test_helpers.mbt`: shared IR2 fixture builders, verify-and-lower assertions, and deterministic CFG / dominance / liveness / SSA dump helpers for adjacent golden tests.
 - `use_def.mbt`: node-use and locals-only block def/use overlay with distinct root-slot vs child-slot tracking, local read/write node queries, and CFG-ordered per-block summaries for later liveness, DCE, and SSA work.
 - `hot_core.mbt`: owned dense storage model, storage counters, body-result accessors, and the minimal core debug dump surface. Deleted nodes are tracked as tombstones, and free-list reuse remains disabled for now.
 - `hot_flags.mbt`: canonical per-op raw flag table plus fast node classification helpers for control, branch, effect, trap, and exceptional-edge queries, including the conservative `Heap` family contract for GC/reference boundary ops that still preserve exact opcode identity through payload side tables.
 - `hot_types.mbt`: canonical keyed type interning plus result-arity, result-type, and local-metadata queries for later label, CFG, and SSA slices.
 - `hot_labels.mbt`: stable label ownership, branch-arity, and control-region slot metadata so later analyses stop decoding control immediates directly.
-- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, call signatures, and exact boundary instruction payloads; branch and catch arrays are copied on construction, allocation, and access so retained payload objects cannot mutate cached control flow without a revision bump.
-- `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly, including the `Heap` family helper used for boundary GC/reference instructions.
+- `hot_side_tables.mbt`: typed side-table alloc/get helpers for const payloads, memargs, branch tables, catches, call signatures, and exact boundary instruction payloads; branch, catch, typed-select, and continuation-handler arrays are copied on allocation and access so retained payload objects cannot mutate cached control flow without a revision bump.
+- `hot_builders.mbt`: canonical safe node constructors that allocate labels, region wrappers, and side-table payload ids without raw field assembly, including a resolved-loop builder that stores explicit entry operands before body roots and the `Heap` family helper used for boundary GC/reference instructions.
 - `hot_mutate.mbt`: canonical root, node, child-span, deletion, and revision-bump mutation helpers so later rewrites stop writing `HotFunc` storage directly.
 - `hot_query.mbt`: canonical read-only node-family, exact-instruction, type, branch, simple-value, single-root wrapper, wrapper-body unwrap, single-`if`, plain-branch arm, trailing-plain-branch split, single-exit arm, holder-block, repeated-root / repeated-child, repeated-wrapper, trailing-payload-split, span, local-metadata, and tombstone queries so analyses and passes stop decoding raw storage layout directly.
 - `hot_walk.mbt`: stable root, child, subtree, region, control-region, worklist, and rewrite-by-slot traversal helpers with explicit `Continue` / `Skip` / `Stop` / `Error` control flow.

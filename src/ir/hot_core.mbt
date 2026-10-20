@@ -188,8 +188,8 @@ pub fn HotLocals::new(
     } else {
       param_count
     },
-    params,
-    locals,
+    params: params.copy(),
+    locals: locals.copy(),
   }
 }
 
@@ -366,7 +366,11 @@ pub fn HotFunc::new(
     nodes: [],
     children: [],
     roots: [],
-    locals,
+    locals: HotLocals::new(
+      param_count=locals.param_count,
+      params=locals.params,
+      locals=locals.locals,
+    ),
     types: [HotTypeInfo::VoidType],
     type_ids,
     value_types: [],

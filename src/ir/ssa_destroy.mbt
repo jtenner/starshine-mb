@@ -301,10 +301,14 @@ pub fn ssa_rewrite_local_use(
 }
 
 ///|
-fn ssa_destroy_is_region_slot(node : HotNode, slot : Int32) -> Bool {
+fn ssa_destroy_is_region_slot(
+  func : HotFunc,
+  node : HotNode,
+  slot : Int32,
+) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
-    HotOp::Loop => true
+    HotOp::Loop => slot >= hot_label_branch_arity(func, node.imm0)
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -345,7 +349,7 @@ fn ssa_destroy_assign_node_order_node(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_destroy_is_region_slot(node, slot) {
+    if ssa_destroy_is_region_slot(func, node, slot) {
       continue
     }
     cursor = ssa_destroy_assign_node_order_node(
@@ -428,7 +432,7 @@ fn ssa_destroy_mark_reachable_node_tree(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_destroy_is_region_slot(node, slot) {
+    if ssa_destroy_is_region_slot(func, node, slot) {
       continue
     }
     ssa_destroy_mark_reachable_node_tree(
@@ -567,7 +571,7 @@ fn ssa_destroy_mark_block_node(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_destroy_is_region_slot(node, slot) {
+    if ssa_destroy_is_region_slot(func, node, slot) {
       continue
     }
     ssa_destroy_mark_block_node(
@@ -655,7 +659,7 @@ fn ssa_destroy_node_contains_terminator(
   }
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_destroy_is_region_slot(node, slot) {
+    if ssa_destroy_is_region_slot(func, node, slot) {
       continue
     }
     if ssa_destroy_node_contains_terminator(
@@ -769,7 +773,7 @@ fn ssa_destroy_mark_root_slot_node(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_destroy_is_region_slot(node, slot) {
+    if ssa_destroy_is_region_slot(func, node, slot) {
       continue
     }
     ssa_destroy_mark_root_slot_node(
@@ -947,7 +951,7 @@ fn ssa_destroy_has_live_parent(func : HotFunc, node_id : NodeId) -> Bool {
     }
     let parent = hot_node_get(func, parent_id)
     for slot = 0; slot < parent.child_count; slot = slot + 1 {
-      if ssa_destroy_is_region_slot(parent, slot) {
+      if ssa_destroy_is_region_slot(func, parent, slot) {
         continue
       }
       if hot_child_get(func, parent_id, slot) == node_id {
@@ -1296,6 +1300,70 @@ pub fn ssa_remove_dead_local_defs(
 }
 
 ///|
+fn ssa_destroy_queue_merge_operand_children(
+  func : HotFunc,
+  node_id : NodeId,
+  operands : @bitset.BitSet,
+  pending : Array[NodeId],
+) -> Unit {
+  let node = hot_node_get(func, node_id)
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(func, node, slot) {
+      continue
+    }
+    let child = hot_child_get(func, node_id, slot)
+    if child >= 0 && hot_node_is_live(func, child) && !operands[child] {
+      operands[child] = true
+      pending.push(child)
+    }
+  }
+}
+
+///|
+fn ssa_destroy_preserve_merge_operand_writes(
+  func : HotFunc,
+  cfg : HotCfg,
+  ssa : HotLocalSsa,
+  preserve_writes : @bitset.BitSet,
+) -> Unit {
+  if ssa.phis.is_empty() {
+    return
+  }
+  let operands = @bitset.BitSet::new(hot_node_count(func))
+  let pending : Array[NodeId] = []
+  for block in cfg.blocks {
+    match block.nodes.last() {
+      Some(last) =>
+        if hot_is_branch(func, last) ||
+          hot_is_control_node(func, last) ||
+          hot_is_terminator_node(func, last) {
+          ssa_destroy_queue_merge_operand_children(
+            func, last, operands, pending,
+          )
+        }
+      None => ()
+    }
+  }
+  while !pending.is_empty() {
+    let node = pending.pop().unwrap()
+    ssa_destroy_queue_merge_operand_children(func, node, operands, pending)
+  }
+  for inputs in ssa.phi_inputs {
+    for input in inputs {
+      match ssa.value_origins[input.value_id] {
+        HotSsaValueOrigin::LocalSetDef(write)
+        | HotSsaValueOrigin::LocalTeeDef(write) =>
+          if operands[write] && cfg.node_to_block[write] == input.predecessor {
+            preserve_writes[write] = true
+          }
+        _ => ()
+      }
+    }
+  }
+}
+
+///|
 pub fn ssa_destroy_into_hot(
   func : HotFunc,
   cfg : HotCfg,
@@ -1305,7 +1373,24 @@ pub fn ssa_destroy_into_hot(
 ) -> HotSsaConcreteLocals {
   ignore(policy)
   let original_local_count = hot_local_count(func)
-  let concrete = ssa_assign_concrete_locals(func, ssa, preserve_write_nodes~)
+  let preserve_writes = @bitset.BitSet::new(hot_node_count(func))
+  let preserved_count = if preserve_write_nodes.length() <
+    preserve_writes.length() {
+    preserve_write_nodes.length()
+  } else {
+    preserve_writes.length()
+  }
+  for node = 0; node < preserved_count; node = node + 1 {
+    if preserve_write_nodes[node] {
+      preserve_writes[node] = true
+    }
+  }
+  ssa_destroy_preserve_merge_operand_writes(func, cfg, ssa, preserve_writes)
+  let concrete = ssa_assign_concrete_locals(
+    func,
+    ssa,
+    preserve_write_nodes=preserve_writes,
+  )
   for ty in concrete.extra_local_types {
     ignore(hot_append_body_local(func, ty))
   }

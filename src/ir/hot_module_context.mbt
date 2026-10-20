@@ -532,7 +532,7 @@ pub fn hot_type_resolve_results(
   ctx : HotModuleContext,
   type_id : TypeId,
 ) -> Array[ValType]? {
-  match hot_type_get(func, type_id) {
+  match hot_type_get_borrowed(func, type_id) {
     VoidType => Some([])
     BlockResult(block_type) => hot_module_resolve_block_results(ctx, block_type)
     BlockResultResolved(_, _, values) => Some(values.copy())

@@ -912,12 +912,34 @@ pub fn hot_build_loop(
 ) -> NodeId {
   let ty = hot_type_intern_block_result(func, block_type)
   let id = hot_build_node(func, HotOp::Loop, ty, children=body)
+  let label_id = hot_label_alloc(func, HotLabelKind::LoopLabel, ty, id, 0)
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
+  id
+}
+
+///|
+pub fn hot_build_resolved_loop(
+  func : HotFunc,
+  block_type : BlockType,
+  params : Array[ValType],
+  results : Array[ValType],
+  entry_values : Array[NodeId],
+  body : Array[NodeId],
+) -> NodeId {
+  let ty = hot_type_intern_resolved_block_result(
+    func, block_type, params, results,
+  )
+  let children = entry_values.copy()
+  for root in body {
+    children.push(root)
+  }
+  let id = hot_build_node(func, HotOp::Loop, ty, children~)
   let label_id = hot_label_alloc(
     func,
     HotLabelKind::LoopLabel,
     ty,
     id,
-    hot_type_result_arity(func, ty),
+    params.length(),
   )
   hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id

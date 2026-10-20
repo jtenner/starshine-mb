@@ -262,7 +262,7 @@ pub fn ssa_simple_value_block_operand_allowed(
     hot_node_result_arity(func, block_id) != 1 {
     return false
   }
-  match hot_type_get(func, hot_node_get(func, block_id).ty) {
+  match hot_type_get_borrowed(func, hot_node_get(func, block_id).ty) {
     BlockResultResolved(_, params, _) =>
       if params.length() != 0 {
         return false

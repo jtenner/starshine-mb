@@ -272,10 +272,22 @@ pub fn[S, E] hot_walk_control_regions(
   visit : (S, NodeId, HotControlRegionSlotInfo, NodeId) -> HotVisitCtl[S, E],
 ) -> Result[S, E] {
   let mut state = initial
-  let slot_infos = hot_control_region_slot_info(
-    hot_node_get(func, control_id).op,
-  )
+  let control_op = hot_node_get(func, control_id).op
+  let slot_infos = hot_control_region_slot_info(control_op)
   for slot_info in slot_infos {
+    let owns_body_directly = match control_op {
+      HotOp::Block | HotOp::Loop => true
+      _ => false
+    }
+    if owns_body_directly {
+      match visit(state, control_id, slot_info, control_id) {
+        HotVisitCtl::Continue(next) => state = next
+        HotVisitCtl::Skip(next) => state = next
+        HotVisitCtl::Stop(next) => return Ok(next)
+        HotVisitCtl::Error(err) => return Err(err)
+      }
+      continue
+    }
     if slot_info.slot >= hot_child_count(func, control_id) {
       continue
     }

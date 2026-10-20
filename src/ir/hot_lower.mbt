@@ -248,7 +248,7 @@ fn hot_lower_impl_label_depth(
 
 ///|
 fn hot_lower_impl_control_block_type(func : HotFunc, id : NodeId) -> BlockType {
-  match hot_type_get(func, hot_node_get(func, id).ty) {
+  match hot_type_get_borrowed(func, hot_node_get(func, id).ty) {
     BlockResult(block_type) => block_type
     BlockResultResolved(block_type, _, _) => block_type
     _ => BlockType::void_()
@@ -260,7 +260,7 @@ fn hot_lower_impl_control_param_types(
   func : HotFunc,
   id : NodeId,
 ) -> Array[ValType] {
-  match hot_type_get(func, hot_node_get(func, id).ty) {
+  match hot_type_get_borrowed(func, hot_node_get(func, id).ty) {
     // Private read-only borrow: lowering never changes the interned signature.
     BlockResultResolved(_, params, _) => params
     _ => []
@@ -415,7 +415,7 @@ fn hot_lower_impl_input_info(
       let pop_count = if count == 0 {
         0
       } else {
-        match hot_type_get(func, node.ty) {
+        match hot_type_get_borrowed(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()
           _ => count
         }
@@ -528,7 +528,7 @@ fn hot_lower_impl_push_results(
 ) -> Unit {
   // Stack bookkeeping only reads interned result rows. Keep the public
   // hot_type_results query owned, but avoid its scalar arrays and tuple copies.
-  match hot_type_get(func, hot_node_type(func, id)) {
+  match hot_type_get_borrowed(func, hot_node_type(func, id)) {
     VoidType | BlockResult(VoidBlockType) => ()
     Value(val_type) | BlockResult(ValTypeBlockType(val_type)) =>
       stack.push({ node_id: id, val_type, })
@@ -1538,7 +1538,7 @@ fn hot_lower_impl_push_control_prefix(
     // The verifier and input emitter group consecutive producers. Partial
     // tuples use the suffix of their result row; a later run starts afresh.
     // Borrow interned rows instead of copying one row for each entry lane.
-    let input_type = hot_type_get(func, hot_node_type(func, input_id))
+    let input_type = hot_type_get_borrowed(func, hot_node_type(func, input_id))
     // Check the original node/type boundary before bitmap bookkeeping.
     // Catch and control inputs can lack an emit_root request of their own.
     match label_frames.requested_nodes {
@@ -1752,7 +1752,7 @@ fn hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
   match block_type {
     TypeIdxBlockType(type_idx) => {
       for type_id = 0; type_id < func.types.length(); type_id = type_id + 1 {
-        match hot_type_get(func, type_id) {
+        match hot_type_get_borrowed(func, type_id) {
           BlockResultResolved(TypeIdxBlockType(candidate_idx), params, _) =>
             if candidate_idx == type_idx && params.length() > 0 {
               return true
@@ -1797,7 +1797,7 @@ fn hot_lower_impl_result_only_block_type(
   results : Array[ValType],
 ) -> BlockType? {
   let body_result_ty = hot_body_result_type(func)
-  match hot_type_get(func, body_result_ty) {
+  match hot_type_get_borrowed(func, body_result_ty) {
     BlockResultResolved(block_type, params, body_results) =>
       match
         hot_lower_impl_result_only_block_type_candidate(
@@ -1819,7 +1819,7 @@ fn hot_lower_impl_result_only_block_type(
     if type_id == body_result_ty {
       continue
     }
-    match hot_type_get(func, type_id) {
+    match hot_type_get_borrowed(func, type_id) {
       BlockResultResolved(block_type, params, candidate_results) =>
         match
           hot_lower_impl_result_only_block_type_candidate(

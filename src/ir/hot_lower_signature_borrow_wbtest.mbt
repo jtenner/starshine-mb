@@ -10,7 +10,7 @@ test "HOT private lowering borrows control parameters without changing signature
   for id in 0..<hot_node_count(func) {
     let node = hot_node_get(func, id)
     if node.op is HotOp::If {
-      match hot_type_get(func, node.ty) {
+      match hot_type_get_borrowed(func, node.ty) {
         BlockResultResolved(_, params, _) => {
           assert_eq(params, [@lib.ValType::i32(), @lib.ValType::i64()])
           assert_true(

@@ -864,82 +864,6 @@ fn ssa_nomerge_needs_rewrite(func : @ir.HotFunc, ssa : @ir.HotLocalSsa) -> Bool 
 }
 
 ///|
-fn ssa_nomerge_queue_merge_operand_children(
-  func : @ir.HotFunc,
-  node_id : @ir.NodeId,
-  operands : @bitset.BitSet,
-  pending : Array[@ir.NodeId],
-) -> Unit {
-  let node = @ir.hot_node_get(func, node_id)
-  let operand_count = match node.op {
-    @ir.HotOp::Block => node.imm1
-    @ir.HotOp::Loop => @ir.hot_label_branch_arity(func, node.imm0)
-    _ => @ir.hot_child_count(func, node_id)
-  }
-  for slot = 0; slot < operand_count; slot = slot + 1 {
-    match node.op {
-      @ir.HotOp::If => if slot == 1 || slot == 2 { continue }
-      @ir.HotOp::Try | @ir.HotOp::TryTable =>
-        if slot == 0 || slot == 1 {
-          continue
-        }
-      _ => ()
-    }
-    let child = @ir.hot_child_get(func, node_id, slot)
-    if child >= 0 && @ir.hot_node_is_live(func, child) && !operands[child] {
-      operands[child] = true
-      pending.push(child)
-    }
-  }
-}
-
-///|
-fn ssa_nomerge_preserve_merge_operand_writes(
-  func : @ir.HotFunc,
-  cfg : @ir.HotCfg,
-  ssa : @ir.HotLocalSsa,
-  preserve_writes : @bitset.BitSet,
-) -> Unit {
-  if ssa.phis.is_empty() {
-    return
-  }
-  // Predecessor copies precede the whole terminator root. Its operand writes
-  // run later, so an input defined there must remain in the phi's local.
-  // One shared worklist visits each operand once and excludes region bodies.
-  let operands = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let pending : Array[@ir.NodeId] = []
-  for block in cfg.blocks {
-    match block.nodes.last() {
-      Some(last) =>
-        if @ir.hot_is_branch(func, last) ||
-          @ir.hot_is_control_node(func, last) ||
-          @ir.hot_is_terminator_node(func, last) {
-          ssa_nomerge_queue_merge_operand_children(
-            func, last, operands, pending,
-          )
-        }
-      None => ()
-    }
-  }
-  while !pending.is_empty() {
-    let node = pending.pop().unwrap()
-    ssa_nomerge_queue_merge_operand_children(func, node, operands, pending)
-  }
-  for inputs in ssa.phi_inputs {
-    for input in inputs {
-      match ssa.value_origins[input.value_id] {
-        @ir.HotSsaValueOrigin::LocalSetDef(write)
-        | @ir.HotSsaValueOrigin::LocalTeeDef(write) =>
-          if operands[write] && cfg.node_to_block[write] == input.predecessor {
-            preserve_writes[write] = true
-          }
-        _ => ()
-      }
-    }
-  }
-}
-
-///|
 fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !ssa_nomerge_has_local_writes(func) {
     return HotPassResult::unchanged()
@@ -963,7 +887,6 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let before_revision = @ir.hot_revision_current(func)
   let loop_carried_writes = ssa_nomerge_loop_carried_canonical_writes(func)
-  ssa_nomerge_preserve_merge_operand_writes(func, cfg, ssa, loop_carried_writes)
   let param_tee_facts = ssa_nomerge_param_tee_facts(func)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if node_id < loop_carried_writes.length() &&

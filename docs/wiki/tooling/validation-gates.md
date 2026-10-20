@@ -650,7 +650,8 @@ large output-quality gaps and the four 1× performance targets remain open.
   A single operand inventory also retains phi sources written inside a
   predecessor's branch operand. Those writes run after predecessor copies;
   independent writes still receive fresh locals. The
-  [direct fixture](../../../src/passes/p00_ssa_branch_operand_wbtest.mbt)
+  direct SSA destruction API and the
+  [public-pass fixture](../../../src/passes/p00_ssa_branch_operand_wbtest.mbt)
   checks the local fields and supplies native before/after runtime bytes.
 - A carried local tee before an escaping operand stays before that operand.
   [Source-order tests](../../../src/ir/hot_source_order_escape_wbtest.mbt) and

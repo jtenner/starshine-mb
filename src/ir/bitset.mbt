@@ -19,7 +19,7 @@ fn bitset_word_count(size : Int32) -> Int32 {
   if size == 0 {
     return 0
   }
-  (size + BITSET_WORD_BITS - 1) / BITSET_WORD_BITS
+  (size - 1) / BITSET_WORD_BITS + 1
 }
 
 ///|

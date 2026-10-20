@@ -655,7 +655,7 @@ fn local_graph_transfer_node(
   // Multiple stack lanes name one evaluation of their producer. Replaying
   // the producer per lane invents local definitions and expands tuple-valued
   // control trees exponentially. Keep this state per execution path.
-  let is_tuple = match hot_type_get(func, node.ty) {
+  let is_tuple = match hot_type_get_borrowed(func, node.ty) {
     Results(values) | BlockResultResolved(_, _, values) => values.length() > 1
     _ => false
   }

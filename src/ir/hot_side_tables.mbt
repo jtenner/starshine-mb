@@ -177,8 +177,23 @@ pub fn hot_alloc_instr_payload(
   payload : HotInstrPayload,
 ) -> SideTableId {
   let id = func.instr_payloads.length()
-  func.instr_payloads.push(payload)
+  func.instr_payloads.push({ instr: hot_owned_exact_instr(payload.instr), })
   id
+}
+
+///|
+fn hot_owned_exact_instr(instr : Instruction) -> Instruction {
+  match instr {
+    Instruction::Select(Some(types)) =>
+      Instruction::select(types=Some(types.copy()))
+    Instruction::Resume(type_idx, handlers) =>
+      Instruction::resume_(type_idx, handlers.copy())
+    Instruction::ResumeThrow(type_idx, tag_idx, handlers) =>
+      Instruction::resume_throw(type_idx, tag_idx, handlers.copy())
+    Instruction::ResumeThrowRef(type_idx, handlers) =>
+      Instruction::resume_throw_ref(type_idx, handlers.copy())
+    _ => instr
+  }
 }
 
 ///|
@@ -186,7 +201,7 @@ pub fn hot_instr_payload_get(
   func : HotFunc,
   id : SideTableId,
 ) -> HotInstrPayload {
-  func.instr_payloads[id]
+  { instr: hot_owned_exact_instr(func.instr_payloads[id].instr), }
 }
 
 ///|

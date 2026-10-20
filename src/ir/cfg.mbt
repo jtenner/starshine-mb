@@ -60,6 +60,7 @@ pub struct HotCfg {
 priv struct CfgBuilder {
   cfg : HotCfg
   label_targets : Array[BlockId]
+  exception_label_targets : Array[BlockId]
   conservative_exception_entries : Bool
   operand_seen : Array[Bool]?
   mut source_order : HotSourceOrderFacts?
@@ -169,6 +170,7 @@ fn cfg_builder_new(
       exceptional_exit_block: None,
     },
     label_targets,
+    exception_label_targets: Array::make(func.labels.length(), -1),
     conservative_exception_entries,
     operand_seen: if expand_operand_control {
       Some(Array::make(node_count, false))
@@ -256,6 +258,15 @@ fn cfg_builder_label_target_get(
 }
 
 ///|
+fn cfg_builder_exception_label_target_set(
+  builder : CfgBuilder,
+  label_id : LabelId,
+  block_id : BlockId,
+) -> Unit {
+  builder.exception_label_targets[label_id] = block_id
+}
+
+///|
 fn cfg_builder_exception_label_target_get(
   builder : CfgBuilder,
   label_id : LabelId,
@@ -263,7 +274,89 @@ fn cfg_builder_exception_label_target_get(
   if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
     return cfg_builder_exceptional_exit_block(builder)
   }
+  match builder.exception_label_targets.get(label_id) {
+    Some(block_id) if block_id >= 0 => return block_id
+    _ => ()
+  }
   cfg_builder_label_target_get(builder, label_id)
+}
+
+///|
+fn cfg_builder_remove_edge(
+  builder : CfgBuilder,
+  from : BlockId,
+  to : BlockId,
+  kind : CfgEdgeKind,
+) -> Unit {
+  let next_succs : Array[CfgEdge] = []
+  for edge in builder.cfg.blocks[from].succs {
+    if edge.block != to || edge.kind != kind {
+      next_succs.push(edge)
+    }
+  }
+  builder.cfg.blocks[from].succs.clear()
+  builder.cfg.blocks[from].succs.append(next_succs)
+  let next_preds : Array[CfgEdge] = []
+  for edge in builder.cfg.blocks[to].preds {
+    if edge.block != from || edge.kind != kind {
+      next_preds.push(edge)
+    }
+  }
+  builder.cfg.blocks[to].preds.clear()
+  builder.cfg.blocks[to].preds.append(next_preds)
+}
+
+///|
+fn cfg_builder_known_thrown_tag(func : HotFunc, block : HotBlockInfo) -> Int32? {
+  if block.nodes.is_empty() {
+    return None
+  }
+  let last = hot_node_get(func, block.nodes[block.nodes.length() - 1])
+  match last.op {
+    HotOp::Throw => Some(last.imm0)
+    _ => None
+  }
+}
+
+///|
+fn cfg_builder_route_legacy_typed_catch_misses(
+  builder : CfgBuilder,
+  func : HotFunc,
+  catch_entry : BlockId,
+  catch_tag : Int32,
+  handler_target : BlockId?,
+) -> Unit {
+  let incoming = builder.cfg.blocks[catch_entry].preds.copy()
+  let outward = cfg_builder_exception_target(builder, handler_target)
+  for edge in incoming {
+    if edge.kind != CfgEdgeKind::ExceptionalEdge {
+      continue
+    }
+    match cfg_builder_known_thrown_tag(func, builder.cfg.blocks[edge.block]) {
+      Some(tag) if tag == catch_tag => ()
+      Some(_) => {
+        cfg_builder_remove_edge(
+          builder,
+          edge.block,
+          catch_entry,
+          CfgEdgeKind::ExceptionalEdge,
+        )
+        cfg_builder_add_edge(
+          builder,
+          edge.block,
+          outward,
+          CfgEdgeKind::ExceptionalEdge,
+        )
+      }
+      None =>
+        cfg_builder_add_edge(
+          builder,
+          edge.block,
+          outward,
+          CfgEdgeKind::ExceptionalEdge,
+        )
+    }
+  }
 }
 
 ///|
@@ -1118,6 +1211,14 @@ fn cfg_builder_process_block(
           )
         None => None
       }
+      cfg_builder_exception_label_target_set(
+        builder,
+        hot_control_node_label(func, last_node),
+        match catch_build {
+          Some(build) => build.entry_block.unwrap()
+          None => cfg_builder_exception_target(builder, handler_target)
+        },
+      )
       let body_build = cfg_builder_build_region(
         builder,
         func,
@@ -1143,6 +1244,15 @@ fn cfg_builder_process_block(
               current_block,
               build.entry_block.unwrap(),
               CfgEdgeKind::ExceptionalEdge,
+            )
+          }
+          if node.imm1 > 0 {
+            cfg_builder_route_legacy_typed_catch_misses(
+              builder,
+              func,
+              build.entry_block.unwrap(),
+              node.imm1 - 1,
+              handler_target,
             )
           }
           cfg_builder_connect_exits(builder, build.exit_blocks, continuation)

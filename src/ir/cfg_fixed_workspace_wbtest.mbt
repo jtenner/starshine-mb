@@ -89,6 +89,7 @@ fn cfg_fixed_workspace_reference_new(
       exceptional_exit_block: None,
     },
     label_targets,
+    exception_label_targets: Array::make(func.labels.length(), -1),
     conservative_exception_entries,
     operand_seen: if expand_operand_control {
       Some(Array::make(hot_node_count(func), false))

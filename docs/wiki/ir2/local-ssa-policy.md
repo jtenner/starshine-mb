@@ -149,11 +149,15 @@ Destruction is a writeback step, not a persistent mode switch. [`ssa_destroy_int
 
 1. Map each SSA value to a concrete local: entry and phi values reuse their original local, while real local-set/local-tee definitions receive fresh body locals.
 2. Rewrite `LocalGet`, `LocalSet`, and `LocalTee` node operands to those concrete locals.
-3. For each phi input, insert predecessor copies that move the incoming value's concrete local into the phi target local.
-4. Insert copies before block terminators and preserve insertion order when multiple predecessor-copy groups land in the same region.
-5. Schedule parallel copies safely. A cycle like `0 -> 1` and `1 -> 0` allocates a temporary local first.
-6. Remove dead local definitions when it is safe to preserve the value expression as a `drop`; retain the local write when a later concrete read or unreachable/lowering rule still needs it.
-7. Trim unused trailing temporary locals introduced only for now-dead definitions.
+3. Inventory terminator and control operands once. If a phi input is written
+   inside its predecessor's operand tree, keep that write in the phi local
+   because the predecessor copy executes before the operand.
+4. For each remaining phi input, insert predecessor copies that move the
+   incoming value's concrete local into the phi target local.
+5. Insert copies before block terminators and preserve insertion order when multiple predecessor-copy groups land in the same region.
+6. Schedule parallel copies safely. A cycle like `0 -> 1` and `1 -> 0` allocates a temporary local first.
+7. Remove dead local definitions when it is safe to preserve the value expression as a `drop`; retain the local write when a later concrete read or unreachable/lowering rule still needs it.
+8. Trim unused trailing temporary locals introduced only for now-dead definitions.
 
 The destruction tests in [`ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt) lock predecessor copies for diamonds, loop preheaders/backedges, synthetic block continuations, copy-cycle temporaries, root-region copy order, duplicate dead-node tolerance, later-read preservation, dead-set trimming, Binaryen-compatible dead-tee behavior, and reduced `br_table` / unreachable-carrier regressions.
 
@@ -585,12 +589,13 @@ legacy catches and independent freshening. EH phi/copy placement remains open.
 
 Evidence: [ssa_local.mbt](../../../src/ir/ssa_local.mbt), [ssa_local_test.mbt](../../../src/ir/ssa_local_test.mbt), [ssa.mbt](../../../src/passes/ssa.mbt), [ssa_nomerge.mbt](../../../src/passes/ssa_nomerge.mbt), [pass_manager.mbt](../../../src/passes/pass_manager.mbt), [p00_flow_wbtest.mbt](../../../src/cmd/p00_flow_wbtest.mbt). See the [current checkpoint](../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
 
-The direct branch-operand repair also preserves only operand writes that
+The direct branch-operand repair in `ssa_destroy_into_hot(...)` preserves only operand writes that
 supply phi inputs in the same predecessor. Copies placed before a branch cannot
 read a fresh local defined by that branch condition. One operand bitset, work
 array, and phi-input scan retain independent local transformations. See
-[`ssa_nomerge.mbt`](../../../src/passes/ssa_nomerge.mbt) and
-[the direct regression](../../../src/passes/p00_ssa_branch_operand_wbtest.mbt).
+[`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt),
+[`ssa_destroy_corruption_regression_wbtest.mbt`](../../../src/ir/ssa_destroy_corruption_regression_wbtest.mbt),
+and [the public-pass regression](../../../src/passes/p00_ssa_branch_operand_wbtest.mbt).
 
 ## Cache ownership and repeated entries
 
