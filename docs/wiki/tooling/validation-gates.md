@@ -1808,24 +1808,58 @@ move from Binaryen 132 to verified 133, with separate red/green
 Counts, seeds, profiles, properties, normalizers and failure policy are
 unchanged. Historical oracle results keep their recorded versions.
 
-These local checks do not complete the repair. Fresh coverage reports 28,265
-uncovered lines across 260 files, against the unchanged budget of 28,138 lines
-across 196 files. The initial 127-line excess is an active blocker. Five bounded
+Fresh coverage first reported 28,265 uncovered lines, 127 above the unchanged
+28,138-line budget. Five bounded
 [numeric-folding tests](../../../src/passes/precompute_numeric_fold_contract_wbtest.mbt)
 check 103 fixed results, eight trap expressions and five dynamic selects through
-both Precompute variants. They compare exact opcodes/bits, validate outputs,
-preserve function counts and check right-operand subtraction order. All five
-focused tests pass. The v1 full run was stopped before source changes; the v2
-complete coverage rerun is active and the budget is unchanged. Product-version,
-`moon info` and `moon fmt` checks pass.
+both Precompute variants. Exact bits/opcodes, validation, function counts and
+right-operand subtraction order are checked. All five tests pass. The final
+uninterrupted local coverage cycle reaches 28,116 uncovered lines; actual remote
+coverage reaches 28,117 across 260 files. The budget stays 28,138; its stored
+196-file count is diagnostic. The one-line local/remote difference is not
+explained. The stopped v1 partial cycle is excluded.
+
 The fresh `bun ffi check` exposed two missing generated IR exports,
-`cache_swap_scalar_operands` and `effects_for_node_subtree`. Regeneration
-updates their wrappers, names and schema; the check now passes with 4,377
-exports. The npm declaration generator produces no further change. Independent
-comparison confirms all 4,375 existing wrappers and schema entries are unchanged;
-38 generator contract tests pass with Bun 1.4.2 and Node 25.8.1. Artifact/consumer
-gates and the remote CI rerun remain pending. The [raw repair record](../raw/tooling/2026-10-20-master-ci.json)
-keeps the failed runs, archive identities and red/green results.
-Local evidence is retained outside production source under
-`/tmp/starshine-master-ci-20261020/compiler/` and `workflows/`, including archive
-identities, red/green logs and the independent workflow review.
+`cache_swap_scalar_operands` and `effects_for_node_subtree`. Regeneration updates
+their wrappers, names and schema; freshness now passes with 4,377 exports.
+All 4,375 existing wrappers and schema entries retain their identity. The npm
+declaration generator needs no change. All 38 generator contracts pass, and
+pure generated output matches under Bun 1.4.2 and 1.4.3.
+
+All five triggered workflows pass at source
+`35af9faab8a3109bb35bd5a852a213ba8b293cda`: [Required CI](https://github.com/jtenner/starshine-mb/actions/runs/39362737846),
+[Coverage Report](https://github.com/jtenner/starshine-mb/actions/runs/39362737826),
+[Fuzz Suites](https://github.com/jtenner/starshine-mb/actions/runs/39362737865),
+[Examples CLI Native](https://github.com/jtenner/starshine-mb/actions/runs/39362737824)
+and [Node Package and Packed Consumers](https://github.com/jtenner/starshine-mb/actions/runs/39362737909).
+Required CI passes 15,359 Wasm tests; Fuzz Suites passes 15,357 Wasm-GC tests and
+all 14 CI fuzz suites. Native/component builds, runtime smokes, exact packed
+JavaScript/TypeScript consumers and source/README consumers pass. The semantic
+fuzz job passes on its configured Ubuntu 22.04 runner; most other jobs use
+Ubuntu latest. Manual external-generator and scheduled native-stress jobs are
+skipped; no external-generator run was requested.
+
+Verified Binaryen 133 comparisons complete 10,000 DAE cases with both configured
+cleanup normalizers, determinism and codec checks, and no reported failures.
+The 16-case semantic lane passes Node-v2 observations and its requested
+properties. These normalized matches are separate from raw-byte equality and
+universal runtime proof. A local fresh-native 10,000-case replay also passes,
+using the same seed/profile; it adds no unique-input claim. Effective local
+worker count is one. The separate fuzz semantic smoke repeats the 16-case lane.
+
+The final follow-up aligns the live CLI default/help and the
+[current oracle guide](pass-fuzz-compare.md) to 133. Two focused expectations
+fail before the default changes; 100 related tests and three bounded command
+checks pass after them. Explicit 131/132 replay remains supported and historical
+fixtures keep their versions. The README tested SDK text now matches the pin.
+These small follow-up checks are separate from the completed source-checkpoint
+runs above; the final pushed-head CI status is reported separately.
+
+Read-only Claude and GPT reviews check the pin, generated ABI additions and
+numeric expectations. The initial Core read denial is resolved in a narrow
+follow-up; a denied optional local wrapper glob and remaining evidence limits
+are recorded. Observed archive hashes are not enforced in CI, and not every SDK
+component was byte-compared. No compiler-time, allocation or runtime performance
+improvement is claimed. The [raw repair record](../raw/tooling/2026-10-20-master-ci.json)
+keeps failed and successful runs, exact identities, red/green results and review
+limits. Local logs remain under `/tmp/starshine-master-ci-20261020/`.

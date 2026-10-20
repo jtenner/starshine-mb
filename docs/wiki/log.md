@@ -1,7 +1,9 @@
-### 2026-10-20 — Pin the qualified compiler for master CI
+### 2026-10-20 — Repair master CI on the qualified compiler
 
-- The [repair record](tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler) records the newer compiler's API failures and the shared full-version pin for 11 jobs in six workflows. Official archives match the qualified tools and all 1,200 Core files; this supersedes the earlier archive provisioning limit without changing its history.
-- Red/green workflow and optimizer contracts pass; current comparison jobs require Binaryen 133. Product-version, interface and format checks pass. Fresh coverage exceeds the unchanged 28,138-line budget by 127 lines, and five bounded tests now check 103 numeric folds, eight traps and five dynamic selects through both Precompute variants. Focused tests, independent arithmetic review, FFI regeneration and 38 generator contracts pass. The full coverage rerun remains active. Later artifact/consumer gates and exact-head remote CI remain pending. This checkpoint does not claim repair completion.
+- The [repair record](tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler) identifies the moving compiler's API failures and pins all 11 Moon setup steps to the qualified compiler/Core pair. Archive observations and their limits remain explicit; the license guard stays unchanged.
+- Generated FFI exports are current. Five bounded tests check 116 numeric/trap/select cases. Complete local coverage reaches 28,116 uncovered lines; actual remote coverage reaches 28,117 against the unchanged 28,138 budget.
+- All five triggered workflows pass at source `35af9faab`: 15,359 Wasm and 15,357 Wasm-GC tests, all 14 CI fuzz suites, artifacts, examples and packed consumers. Verified-v133 DAE completes 10,000 cleanup-normalized comparisons; 16 semantic cases pass. Repeated local/CI seeds add no unique-input claim.
+- The final follow-up aligns the CLI default/help and current guide to 133 while preserving historical replay. Two red-first expectations, 100 related tests and three bounded command checks pass. The README names the qualified SDK. Completed read-only Claude/GPT reviews and unrun manual lanes remain distinct from final pushed-head CI status.
 
 ### 2026-10-20 — Complete the pass review repairs
 

@@ -24,7 +24,9 @@ Optimization does not always make a module smaller or faster.
 
 ## Prepare your computer
 
-1. Install [MoonBit](https://www.moonbitlang.com/download/).
+1. Install [MoonBit](https://www.moonbitlang.com/download/) with compiler release
+   `0.10.15+943464bfa`. The [CI setup action](https://github.com/jtenner/starshine-mb/blob/master/.github/actions/setup-moonbit/action.yml)
+   shows how to select this release.
 2. Run this command to check the installation:
 
    ```sh
@@ -47,8 +49,8 @@ Optimization does not always make a module smaller or faster.
 This limit applies to the current terminal and its child processes.
 It does not change the system configuration.
 
-The tested Moon version is `0.1.20260920`, with compiler `0.10.14+7d59c7ec9`.
-The tested `moonrun` version is `0.1.20260920`.
+The tested Moon version is `0.1.20261012`, with compiler `0.10.15+943464bfa`.
+The tested `moonrun` version is `0.1.20261012`.
 The WasmGC procedure uses `moonrun`, which is included in the MoonBit toolchain.
 It does not require Node.js. The native procedure was tested on Linux.
 

@@ -90,7 +90,7 @@
       "moonrun": "ba44070aa78d89c2c6da6524d2aa782e46b18cb4a42dd31cd13bf588107089cf"
     },
     "identityCheck": "All three archived tools and all 1200 regular Core files match the qualified local installation byte for byte.",
-    "limit": "These are observed archive identities. The action verifies installed versions; it does not enforce these archive hashes."
+    "limit": "Observed archive identities only. Three tools and all 1200 regular Core files were compared; other SDK tools, internal TCC and headers were not all compared. The action checks installed versions and does not enforce archive hashes. No CI byte-identity claim is made."
   },
   "workflowRepair": {
     "action": ".github/actions/setup-moonbit/action.yml",
@@ -123,18 +123,38 @@
     "jobCount": 11,
     "pathFilters": "All five filtered workflows watch .github/actions/setup-moonbit/** in both push and pull_request filters. Required CI has no path filter.",
     "licenseGuardUnchanged": "scripts/lib/npm-licenses.mjs",
-    "qualifiedManifestUnchanged": "ffi/src/npm/toolchain.json"
+    "qualifiedManifestUnchanged": "ffi/src/npm/toolchain.json",
+    "runners": "The semantic-optimizer-smoke and manual external-generator-smoke jobs use ubuntu-22.04; other Moon jobs use ubuntu-latest. The actual semantic job passed on 22.04. The manual external-generator and scheduled native-stress jobs were not run."
   },
   "oracleAlignment": {
     "before": 132,
     "after": 133,
     "files": [
       ".github/workflows/ci.yml",
-      ".github/workflows/fuzz.yml"
+      ".github/workflows/fuzz.yml",
+      "scripts/lib/pass-fuzz-compare-task.ts",
+      "docs/wiki/tooling/pass-fuzz-compare.md"
     ],
-    "scope": "Update Binaryen version variables, installation directory and all four require-binaryen-version guards, with matching workflow and optimizer contracts.",
+    "scope": "Update CI variables, installation directory and all four guards to 133; align the live CLI parser default, help and current guide. Preserve explicit historical overrides and version-specific fixtures.",
     "preserved": "Programmatic comparison confirms unchanged counts, seeds, profiles, properties, normalizers and failure policy after accounting for the pin and version edits.",
-    "limit": "Historical version-132 results retain their original identity. Text and unit contracts do not establish fresh version-133 comparison results."
+    "limit": "Historical version-131 and version-132 results keep their original identity. Fresh 133 evidence below is separate from those records; normalized comparisons do not establish raw-byte equality or universal runtime equivalence.",
+    "liveDefaultTests": {
+      "red": "Parser-default and help expectations both failed before the two production strings changed.",
+      "green": {
+        "tests": 100,
+        "assertions": 448,
+        "files": 8,
+        "boundedCommandEntrypoints": 3
+      },
+      "historicalReplay": "Explicit 131 and both split/equals 132 overrides pass; the historical 132 prebuilt/resume fixture now supplies its override consistently. Historical fixture bodies and resume records remain unchanged.",
+      "tools": {
+        "bun": "1.4.2",
+        "node": "26.11.1",
+        "wasm-tools": "1.262.0",
+        "binaryen": "133"
+      },
+      "scope": "No Moon, actual external generator, heavy fuzz run, comparison count, seed, normalizer or failure-policy change in this bounded test suite."
+    }
   },
   "tests": {
     "scalarFixtures": {
@@ -196,19 +216,23 @@
   },
   "validationStatus": {
     "freshCoverage": {
-      "status": "initial fresh run exceeds unchanged budget; repair pending",
-      "uncoveredLines": 28265,
+      "status": "passed on final bounded-test source",
+      "initialUncoveredLines": 28265,
+      "localUncoveredLines": 28116,
+      "remoteUncoveredLines": 28117,
       "files": 260,
       "budgetUncoveredLines": 28138,
-      "delta": 127,
+      "localDelta": -22,
+      "remoteDelta": -21,
       "budgetChanged": false,
-      "limit": "Initial qualified-toolchain local result, not a numerical result from the failed remote compiler run."
+      "baselineFilesDiagnostic": 196,
+      "fileCountIsEnforced": false,
+      "limit": "Keep local and remote totals separate; the one-line difference was not investigated. The stopped v1 partial run is excluded."
     },
-    "fullGates": "pending",
-    "nativeAndPackedArtifactGates": "pending",
-    "freshBinaryen133Comparisons": "pending",
-    "finalRemoteCi": "Initial repair source 8ade82f2c has active runs; expanded v2 test source will supersede it.",
-    "limit": "Compilation blocked later checks in the failed runs. Local static checks and focused fixtures do not prove those unrun checks pass.",
+    "fullGates": "Actual Required CI and Fuzz Suites pass at 35af9faab8a3109bb35bd5a852a213ba8b293cda: 15359 wasm tests and 15357 wasm-gc tests; all 14 CI fuzz suites and JS driver checks pass.",
+    "nativeAndPackedArtifactGates": "Actual release-artifacts, Node Package and Packed Consumers, and Examples CLI Native workflows pass: fresh native/wasm-gc CLI, component/Jco smoke, validator and runtime smokes, exact npm prepack/packed JS and TypeScript consumers, generated freshness, source archive, Mooncakes and README consumers.",
+    "freshBinaryen133Comparisons": "Actual CI completes 10000 DAE GenValid comparisons and 16 semantic optimizer comparisons with no reported failures; see comparisonEvidence.",
+    "limit": "The five completed workflows are source-checkpoint evidence, not a claim for a later unpushed follow-up. Manual external-generator and scheduled stress jobs were skipped; no wasm-smith run was requested or launched.",
     "localSetupGates": {
       "productVersion": "passed",
       "moonInfo": "passed",
@@ -216,6 +240,38 @@
       "ffiCheck": "passed after regeneration",
       "bun": "1.4.3",
       "moon": "qualified 20261012"
+    },
+    "remoteCi": {
+      "source": "35af9faab8a3109bb35bd5a852a213ba8b293cda",
+      "observedUtc": "2026-10-20T03:36:37.701329+00:00",
+      "runs": [
+        {
+          "workflow": "Coverage Report",
+          "url": "https://github.com/jtenner/starshine-mb/actions/runs/39362737826",
+          "conclusion": "success"
+        },
+        {
+          "workflow": "Node Package and Packed Consumers",
+          "url": "https://github.com/jtenner/starshine-mb/actions/runs/39362737909",
+          "conclusion": "success"
+        },
+        {
+          "workflow": "Fuzz Suites",
+          "url": "https://github.com/jtenner/starshine-mb/actions/runs/39362737865",
+          "conclusion": "success"
+        },
+        {
+          "workflow": "Examples CLI Native",
+          "url": "https://github.com/jtenner/starshine-mb/actions/runs/39362737824",
+          "conclusion": "success"
+        },
+        {
+          "workflow": "Required CI",
+          "url": "https://github.com/jtenner/starshine-mb/actions/runs/39362737846",
+          "conclusion": "success"
+        }
+      ],
+      "followup": "The small CLI-default and documentation follow-up has separate bounded local tests. Its final pushed-head CI status is reported separately from these completed source-checkpoint runs."
     }
   },
   "sources": [
@@ -251,9 +307,25 @@
       "numeric-review/review-v2.md",
       "numeric-review/v2-model-results.json",
       "coverage/numeric-v2-source-ready.json",
-      "coverage/numeric-v2-focused.log"
+      "coverage/numeric-v2-focused.log",
+      "coverage/final-coverage-receipt.json",
+      "ffi-review/bun-generation-identity.json",
+      "numeric-review/input-reuse-review.md",
+      "remote/35af-final-success.json",
+      "remote/35af-completed-receipts.json",
+      "remote/35af-final-job-receipts.json",
+      "remote/35af-differential-artifact/ci-dae-genvalid/summary.json",
+      "remote/35af-differential-artifact/ci-semantic-optimizer/summary.json",
+      "local-gates/dae-ci-10000.json",
+      "oracle-default/source-ready.json",
+      "oracle-default/green-status.json",
+      "oracle-default/report.md",
+      "claude/status.json",
+      "claude/stdout.txt",
+      "claude/followup/status.json",
+      "claude/followup/stdout.txt"
     ],
-    "limit": "Local logs are not committed. This record preserves key observations and identities; remote run links preserve the failed CI provenance."
+    "limit": "Local logs are not committed. This record preserves observations and identities; GitHub run links preserve remote provenance. Retention of remote logs/artifacts is finite."
   },
   "ffiRefresh": {
     "initialCheck": "failed: stale generated FFI artifacts",
@@ -281,8 +353,16 @@
       "bun": "1.4.2",
       "node": "v25.8.1"
     },
-    "consumerGates": "pending",
-    "limit": "The parent ran FFI generation and its green check; this review ran only source/schema comparisons and pure JavaScript contracts."
+    "consumerGates": "Actual release-artifacts and Node package/packed-consumer jobs pass at source35af9faab.",
+    "limit": "The parent ran FFI generation and its green check; this review ran only source/schema comparisons and pure JavaScript contracts.",
+    "bunGenerationIdentity": {
+      "versions": [
+        "1.4.2",
+        "1.4.3"
+      ],
+      "sha256": "5dae895590d4d2a9042b925972ebd63f7a6eeb68f26d2712a9125b111aac2bb4",
+      "result": "Full pure generation output matches across these local versions."
+    }
   },
   "coverageRepair": {
     "file": "src/passes/precompute_numeric_fold_contract_wbtest.mbt",
@@ -298,10 +378,91 @@
     "focusedTestResult": "5 passed, 0 failed on final formatted v2 source.",
     "independentReview": "All 103 constant results, eight traps and five dynamic-select cases independently checked. Separate v2 review verifies saturation limits, NaN payload bits, SIMD lanes and select/subtraction order for five representative condition values. No defect found in final frozen source.",
     "baselineChanged": false,
-    "fullFreshCoverage": "v2 full CI=true run active on frozen source; final count pending",
+    "fullFreshCoverage": "Final uninterrupted CI=true local cycle passes at 28116 uncovered lines; actual remote Coverage Report passes at 28117, both against the unchanged 28138 line budget.",
     "estimateLimit": "A direct coverage report combined other local scopes and is not comparable to the analyze gate; discard its estimate.",
     "dynamicSelectCases": 5,
     "totalFixedCases": 116,
-    "supersededLocalRun": "The v1 full rerun was stopped and reaped before edits. No completed coverage count is claimed for that partial run."
+    "supersededLocalRun": "The v1 full rerun was stopped and reaped before edits. No completed coverage count is claimed for that partial run.",
+    "inputReuseReview": "Source tracing confirms writeback copies the raw module/function arrays; the second pass receives unchanged fixture input. No reuse defect found."
+  },
+  "comparisonEvidence": {
+    "source": "35af9faab8a3109bb35bd5a852a213ba8b293cda",
+    "oracle": 133,
+    "ciDae": {
+      "count": 10000,
+      "seed": "0x5eed",
+      "profile": "binaryen-oracle-portable",
+      "cleanupNormalizedMatchCount": 10000,
+      "normalizers": [
+        "drop-consts",
+        "unreachable-control-debris"
+      ],
+      "determinismStable": 10000,
+      "codecIdempotenceMatched": 10000,
+      "failureCounts": {},
+      "runtimeExecution": "off"
+    },
+    "ciSemantic": {
+      "count": 16,
+      "seed": "0x5eed",
+      "pass": "vacuum",
+      "profiles": {
+        "trap-frontier": 6,
+        "resources": 7,
+        "import-events": 3
+      },
+      "nodeV2CheckedAndAllEqual": 16,
+      "semanticIdempotence": 16,
+      "convergenceFixedpoint": 16,
+      "commutator": 16,
+      "metamorphicEquivalence": 16,
+      "determinism": 16,
+      "codecIdempotence": 16,
+      "failureCounts": {}
+    },
+    "localDae": {
+      "count": 10000,
+      "seed": "0x5eed",
+      "exit": 0,
+      "comparisonElapsedSeconds": 564.1780063660117,
+      "effectiveJobs": 1,
+      "requestedJobs": "auto",
+      "maxSubprocesses": 8,
+      "freshCliSha256": "4aa2af1acc077a246e33f0fcecf8dbc52de16a38f1dcb2a98f77af5405e88d0a",
+      "freshGeneratorSha256": "29d88666793264f7082f84abc7d624d847754562ade8c32c09d10f1536a3367b",
+      "oracleSha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+      "tools": {
+        "bun": "1.4.3",
+        "node": "26.11.1 local substitute",
+        "moon": "qualified20261012"
+      },
+      "result": "All 10000 cleanup-normalized comparisons pass with zero reported failures."
+    },
+    "limits": [
+      "DAE results use the two configured cleanup normalizers and are not raw canonical matches or runtime proof.",
+      "The local DAE lane repeats the CI seed/profile; it does not add 10000 unique inputs.",
+      "The separate Fuzz Suites semantic smoke repeats the same 16-case seed/profile; do not count it as 32 unique modules.",
+      "No compiler-time, allocation, RSS or output-size improvement is claimed for these CI repairs."
+    ]
+  },
+  "claudeReview": {
+    "status": "completed read-only assessments on source35af9faab and focused follow-up",
+    "mode": "Normal authentication; Opus high; Read/Glob/Grep only; no shell, MCP or edits.",
+    "result": "No confirmed implementation defect in the pin, generated FFI additions or bounded numeric expectations. The live CLI default and old README SDK wording were identified and corrected in the final follow-up.",
+    "independentChecks": "GPT source/ABI comparison and arithmetic model checks also found no defect. The hypothetical fixture input-reuse concern was resolved by tracing module/function copies.",
+    "limits": [
+      "Initial usage limit returned no assessment; the later normal-auth review completed after reset.",
+      "The initial Core read denial was resolved with a narrow follow-up directory grant. An optional local wrapper-directory glob was denied; no credentials or permissions were changed.",
+      "Generated FFI changed hunks and supporting searches were inspected; unchanged ABI records were independently compared, not read in full by Claude.",
+      "Claude reviewed partial CI receipts while DAE was still running; the later completed run receipts are recorded separately above.",
+      "Version text is enforced in CI; observed archive hashes are not enforced and other SDK components were not all byte-compared.",
+      "The small final CLI-default review is retained separately under claude/oracle-default; only an actual completed assessment is review evidence."
+    ]
+  },
+  "tutorialUpdate": {
+    "file": "README.md",
+    "supersedes": "Old tested Moon20260920/compiler0.10.14 text",
+    "current": "Moon/moonrun0.1.20261012 and compiler/Core0.10.15+943464bfa; link to the shared setup action.",
+    "scope": "Tested-toolchain prose only; no executable example changed."
   }
 }
