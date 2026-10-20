@@ -22,7 +22,7 @@ function readJsonlLog(pathname: string): string[][] {
 
 function makeExecutable(basePath: string, source: string): string {
   if (path.basename(basePath) === "fake-wasm-opt" && !source.includes('"--version"')) {
-    source = 'if (process.argv.includes("--version")) { console.log("wasm-opt version 132"); process.exit(0); }\n' + source;
+    source = 'if (process.argv.includes("--version")) { console.log("wasm-opt version 133"); process.exit(0); }\n' + source;
   }
   if (process.platform === "win32") {
     const scriptPath = `${basePath}.js`;
@@ -343,7 +343,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "sta
 `);
   const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
 const fs = require("node:fs"); const path = require("node:path");
-const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 132"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 133"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
 fs.mkdirSync(path.dirname(out), { recursive: true });
 if (args.includes("-S")) {
   fs.writeFileSync(out, args[0].endsWith("binaryen.wasm")
@@ -396,7 +396,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "sta
 `);
   const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
 const fs = require("node:fs"); const path = require("node:path");
-const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 132"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 133"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
 fs.mkdirSync(path.dirname(out), { recursive: true });
 if (args.includes("-S")) {
   fs.writeFileSync(out, args[0].endsWith("binaryen.wasm")
@@ -434,7 +434,7 @@ fs.copyFileSync(args[args.length - 1], out);
 `);
   const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
 const fs = require("node:fs"); const path = require("node:path");
-const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 132"); process.exit(0); } const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true });
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 133"); process.exit(0); } const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true });
 if (args.includes("-S")) fs.writeFileSync(out, "(module)\\n"); else fs.copyFileSync(args[0], out);
 `);
   const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `
@@ -482,7 +482,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 if (outIndex === -1) process.exit(1);
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -622,7 +622,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 if (args.includes("-S")) {
@@ -786,7 +786,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -905,7 +905,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1023,7 +1023,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1669,7 +1669,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1916,7 +1916,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2163,7 +2163,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2410,7 +2410,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2674,7 +2674,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2943,7 +2943,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 const input = fs.readFileSync(args[0], "utf8");
@@ -3070,7 +3070,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module ;; replay matched)\\n" : "binary");
@@ -3301,7 +3301,7 @@ process.exit(1);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -3436,7 +3436,7 @@ process.exit(1);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -3630,7 +3630,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });

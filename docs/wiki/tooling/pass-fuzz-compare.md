@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-05
+last_reviewed: 2026-10-20
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
@@ -35,7 +35,7 @@ related:
 
 # Pass Fuzz Compare Harness
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 20, 2026:** new comparisons and the CLI default use [Binaryen 133](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff. Explicit version overrides remain available for historical replay.
 
 ## Overview
 
@@ -43,7 +43,7 @@ related:
 
 The oracle ladder is explicit and non-interchangeable: input validation; optional `semantic:self` execution of original input versus Starshine output; Starshine internal/external output validity; codec stability; fresh-run optimizer determinism; optimizer idempotence when requested; then `semantic:binaryen` runtime smoke and normalized Binaryen comparison. A green self-semantic result does not excuse unexplained Binaryen drift, and a normalized Binaryen match does not replace before/after execution.
 
-This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while both the former `version_131` baseline and current `version_132` target include the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so release-baseline evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
+This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the former `version_131` and `version_132` baselines and current `version_133` target include the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so release-baseline evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -68,7 +68,7 @@ bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin <official-version-132-wasm-opt> --require-binaryen-version 132 \
+  --wasm-opt-bin <official-version-133-wasm-opt> --require-binaryen-version 133 \
   [--wasm-smith] [--generator wasm-smith|gen-valid] \
   [--gen-valid-bin _build/native/release/build/fuzz/fuzz.exe] \
   [--gen-valid-profile <profile>] \
@@ -119,12 +119,12 @@ Run a long compare lane only when its pass is executable at **both** sides of th
 
 1. **Harness admission.** `bun fuzz compare-pass --list-passes` reports only names in `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts). An absent name is rejected during argument parsing, before input generation or Binaryen execution.
 2. **Starshine admission.** The same flag must reach an active Starshine dispatcher. A registry entry in [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) can intentionally be `BoundaryOnly`; such a request terminates with a boundary-only error rather than exercising a transform.
-3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag, and release signoff must use an explicit verified oracle. For the current baseline, pass the official executable through `--wasm-opt-bin <path> --require-binaryen-version 132`. The harness probes before input generation, rejects unavailable/malformed/wrong-version tools, hashes the resolved executable, writes `toolchain.json`, persists `requiredBinaryenVersion` and `binaryenTool` in `result.json`, stamps each case with `binaryenToolSha256`, and rejects resume under a different hash/version. Use `binaryenPassFlags` to verify aliases. A bare PATH lookup without the required-version guard is exploratory evidence only.
+3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag, and release signoff must use an explicit verified oracle. For the current baseline, pass the official executable through `--wasm-opt-bin <path> --require-binaryen-version 133`. The CLI default also requires 133; keep the explicit version and path in signoff commands. The harness probes before input generation, rejects unavailable/malformed/wrong-version tools, hashes the resolved executable, writes `toolchain.json`, persists `requiredBinaryenVersion` and `binaryenTool` in `result.json`, stamps each case with `binaryenToolSha256`, and rejects resume under a different hash/version. Use `binaryenPassFlags` to verify aliases. A bare PATH lookup without the required-version guard is exploratory evidence only.
 4. **Surface admission.** The selected generator/profile must create modules on which the pass can act, and the run must set a meaningful `--min-compared` threshold. A green process with zero compared cases is not parity signoff.
 
 A pass that fails any of these checks has a **planned fuzzing profile**, not a runnable smoke lane. Its wiki page should document the status test and future command template, but must not label parser rejection, command failure, or zero comparisons as Binaryen-parity evidence. This is especially important for boundary-only registry entries: a Binaryen pass can be real while Starshine deliberately has no active implementation yet.
 
-Binaryen oracle path note: release evidence must state the exact `--wasm-opt-bin`, include `--require-binaryen-version 132`, and retain `toolchain.json`. Bare PATH resolution is acceptable only for exploratory work; it is never locked-v132 signoff without the guard even if an operator checked the version manually. Older v131 commands and results remain historical evidence.
+Binaryen oracle path note: release evidence must state the exact `--wasm-opt-bin`, include `--require-binaryen-version 133`, and retain `toolchain.json`. Bare PATH resolution is acceptable only for exploratory work; it is never locked-v133 signoff without a verified oracle even if an operator checked the version manually. Older v131 and v132 commands and results remain historical evidence.
 
 Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation.
 
@@ -209,7 +209,7 @@ bun fuzz compare-pass \
   --out-dir .tmp/dae-random-all-10000 \
   --resume --no-reduce-mismatches \
   --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin <official-version-132-wasm-opt> --require-binaryen-version 132 \
+  --wasm-opt-bin <official-version-133-wasm-opt> --require-binaryen-version 133 \
   --max-failures 10000 --keep-going-after-command-failures
 ```
 

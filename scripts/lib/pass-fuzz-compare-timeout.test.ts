@@ -51,7 +51,7 @@ if (args.includes("--version")) {
   if (process.env.HANG_SURFACE === "binaryen-version") {
     setInterval(() => {}, 1000);
   } else {
-    console.log("wasm-opt version 132 (version_132)");
+    console.log("wasm-opt version 133 (version_133)");
     process.exit(0);
   }
 } else {

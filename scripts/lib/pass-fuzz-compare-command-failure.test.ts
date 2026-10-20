@@ -53,7 +53,7 @@ const fs = require("node:fs");
 const cp = require("node:child_process");
 const args = process.argv.slice(2);
 if (args.includes("--version")) {
-  console.log("wasm-opt version 132 (version_132)");
+  console.log("wasm-opt version 133 (version_133)");
   process.exit(0);
 }
 if (process.env.RECOVER_BINARYEN === "1") {

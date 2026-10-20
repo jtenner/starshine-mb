@@ -636,7 +636,7 @@ const HELP_TEXT = [
   "                       Run P(Q(M)) versus Q(P(M)) under node-v2; both operands are required",
   "  --wasm-opt-bin <path> Binaryen wasm-opt executable. Default: wasm-opt",
   "  --require-binaryen-version <n>",
-  "                       Fail before generation unless wasm-opt reports this exact release (default: 132)",
+  "                       Fail before generation unless wasm-opt reports this exact release (default: 133)",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -4492,7 +4492,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let moonBin = resolveMoonBin();
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
-  let requiredBinaryenVersion: string | null = "132";
+  let requiredBinaryenVersion: string | null = "133";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let primaryValidator: "wasm-tools" | "binaryen" = "wasm-tools";
   let requireIndependentValidator = false;

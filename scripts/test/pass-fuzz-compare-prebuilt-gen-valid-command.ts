@@ -93,6 +93,7 @@ process.exit(0);
       "--count", "1", "--min-compared", "1", "--out-dir", primaryOut,
       "--moon", fakeMoon, "--gen-valid-bin", fakeGenerator,
       "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
+      "--require-binaryen-version", "132",
       "--wasm-tools-bin", fakeWasmTools, "--primary-validator", "binaryen",
       "--pass", "vacuum", "--no-reduce-mismatches",
     ], {
@@ -119,6 +120,7 @@ process.exit(0);
     "--count", "1", "--out-dir", path.join(tmpdir, "binaryen-primary"), "--resume",
     "--moon", fakeMoon, "--gen-valid-bin", fakeGenerator, "--starshine-bin", fakeStarshine,
     "--wasm-opt-bin", fakeWasmOpt, "--wasm-tools-bin", fakeWasmTools,
+    "--require-binaryen-version", "132",
     "--primary-validator", "wasm-tools", "--pass", "vacuum",
   ], { cwd: repoRoot, encoding: "utf8" });
   assert(changedValidator.status !== 0 && changedValidator.stderr.includes("primary validator differs"), "resume must reject a changed primary validation oracle");

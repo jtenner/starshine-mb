@@ -117,16 +117,21 @@ describe("pass-fuzz command options", () => {
     ])).toThrow();
   });
 
-  test("defaults to Binaryen 132 and permits explicit historical replay", () => {
+  test("defaults to Binaryen 133 and permits explicit historical replay", () => {
     const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
     const required = parsePassFuzzCompareArgs([
       "--pass", "vacuum", "--require-binaryen-version", "131",
     ]);
 
     expect(defaults.kind).toBe("run");
-    if (defaults.kind === "run") expect(defaults.options.requiredBinaryenVersion).toBe("132");
+    if (defaults.kind === "run") expect(defaults.options.requiredBinaryenVersion).toBe("133");
     expect(required.kind).toBe("run");
     if (required.kind === "run") expect(required.options.requiredBinaryenVersion).toBe("131");
+    for (const flags of [["--require-binaryen-version", "132"], ["--require-binaryen-version=132"]]) {
+      const historical = parsePassFuzzCompareArgs(["--pass", "vacuum", ...flags]);
+      expect(historical.kind).toBe("run");
+      if (historical.kind === "run") expect(historical.options.requiredBinaryenVersion).toBe("132");
+    }
     expect(parseBinaryenVersionOutputForTest("wasm-opt version 131 (version_131)\n")).toBe("131");
     expect(() => parseBinaryenVersionOutputForTest("Binaryen unknown\n")).toThrow(
       "unrecognized Binaryen version output",
@@ -134,6 +139,14 @@ describe("pass-fuzz command options", () => {
     expect(() => parsePassFuzzCompareArgs([
       "--pass", "vacuum", "--require-binaryen-version", "version_131",
     ])).toThrow("require-binaryen-version must be a decimal release number");
+  });
+
+  test("advertises Binaryen 133 as the default version in command help", () => {
+    const result = spawnSync(process.execPath, [
+      path.resolve(import.meta.dir, "..", "pass-fuzz-compare.ts"), "--help",
+    ], { encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("exact release (default: 133)");
   });
 
   test("has no persistent cache configuration", () => {

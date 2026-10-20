@@ -42,7 +42,7 @@ if (args[0] === "--version") {
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 if (args.includes("--version")) {
-  console.log("wasm-opt version 132 (version_132)");
+  console.log("wasm-opt version 133 (version_133)");
   process.exit(0);
 }
 const output = args[args.indexOf("-o") + 1];

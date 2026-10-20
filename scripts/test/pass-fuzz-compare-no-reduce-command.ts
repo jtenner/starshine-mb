@@ -68,7 +68,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-if (args.includes("--version")) { process.stdout.write("wasm-opt version 132\\n"); process.exit(0); }
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 133\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 if (outIndex === -1) process.exit(1);
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
