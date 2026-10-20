@@ -1268,8 +1268,7 @@ fn dae2_rewrite_node(
               Some(index) => index
               None => {
                 let (types, index) = dae_append_new_func_type(types, kept, [])
-                lower_state.next_type_sec = Some(types)
-                lower_state.type_sec_changed = true
+                lower_state.adopt_rewritten_types(types)
                 index
               }
             }
@@ -1830,10 +1829,9 @@ fn dae2_run_module_pass(
       if @ir.hot_node_count(func) != info.node_count {
         return Err("dae2: analysis relift changed node identities")
       }
-      let lower_state : HotPipelineLowerState = {
-        next_type_sec: Some(type_workspace.types),
-        type_sec_changed: false,
-      }
+      let lower_state : HotPipelineLowerState = HotPipelineLowerState::new(
+        Some(type_workspace.types),
+      )
       dae2_preserve_control_types(
         func, context, rewrite_graph, infos, type_infos, lower_state, control_types,
       )

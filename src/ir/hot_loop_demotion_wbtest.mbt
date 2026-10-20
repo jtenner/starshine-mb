@@ -56,7 +56,28 @@ test "HOT loop demotion preserves an effectful scalar entry consumed by a void b
   hot_verify_all_or_abort(func)
   let lowered = hot_lower_func(func)
   @validate.validate_module(module_.with_code_sec(@lib.CodeSec::new([lowered]))).unwrap()
-  let @lib.Func(_, @lib.Expr(instrs)) = lowered
+  let @lib.Func(locals, @lib.Expr(instrs)) = lowered
   @debug.assert_eq(instrs[0], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
-  assert_true(instrs[1] is @lib.Block(_, @lib.Expr([@lib.Drop])))
+  @debug.assert_eq(locals, @lib.Locals::empty())
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let framed = @lib.Func::new(
+    locals,
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::block(
+        hot_lower_impl_control_block_type(func, loop_id),
+        @lib.Expr::new([@lib.Instruction::drop()]),
+      ),
+    ]),
+  )
+  let smaller = @binary.encode_module(
+    module_.with_code_sec(@lib.CodeSec::new([lowered])),
+  ).unwrap()
+  let larger = @binary.encode_module(
+    module_.with_code_sec(@lib.CodeSec::new([framed])),
+  ).unwrap()
+  assert_eq(smaller.length() + 3, larger.length())
 }

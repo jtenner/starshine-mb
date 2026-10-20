@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/control_review_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
   - ../../../../../src/passes/ssa.mbt
@@ -165,3 +166,18 @@ The direct HOT pass timer is zero because the active implementation runs in raw 
 Use one pass-local expanded CFG and full-flow local graph. Operand-local actions are renamed exactly once. The descriptor no longer asks for an unused root-only cached CFG. Conservative try-entry source drift remains open.
 
 Evidence: [ssa.mbt](../../../../../src/passes/ssa.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+## October 19, 2026 — Non-defaultable locals across frames
+
+Fresh SSA names must remain initialized at each read, including reads after a
+write's control frame has ended. The full and no-merge HOT passes and SSA
+destruction repair non-defaultable local scopes. Raw SSA writers perform the
+same scope check before writeback. Locals whose initialization cannot dominate
+the read become nullable storage with explicit non-null assertions at reads;
+the heap type and exactness remain intact.
+
+The [direct and dispatcher regressions](../../../../../src/passes/control_review_wbtest.mbt)
+cover block, if and loop writes followed by outer reads. They require valid
+lowered functions and retained SSA changes, so batch-validator rollback cannot
+hide an invalid direct result. Local remapping and wrapper-branch walkers also
+visit legacy try bodies and catches.

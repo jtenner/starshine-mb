@@ -1822,7 +1822,7 @@ test "hot lower canonicalizes typed loop entry values without redundant tees" {
 }
 
 ///|
-test "hot lower spills transparent typed single-param drop-leading result blocks through a second scratch local" {
+test "hot lower keeps scalar block entry drops without scratch locals" {
   let module_ = hot_lower_test_block_param_module()
   let body = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(4)),
@@ -1843,18 +1843,11 @@ test "hot lower spills transparent typed single-param drop-leading result blocks
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
-      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::drop(),
       @lib.Instruction::i32_const(@lib.I32(1)),
     ]),
@@ -1862,7 +1855,7 @@ test "hot lower spills transparent typed single-param drop-leading result blocks
 }
 
 ///|
-test "hot lower spills transparent typed single-param drop-leading result block if-arm carriers through second scratch locals" {
+test "hot lower keeps scalar block entry drops in if arms without scratch locals" {
   let body = @lib.Expr::new([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::if_(
@@ -1898,15 +1891,7 @@ test "hot lower spills transparent typed single-param drop-leading result block 
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
@@ -1915,19 +1900,11 @@ test "hot lower spills transparent typed single-param drop-leading result block 
         @lib.BlockType::val_type(@lib.ValType::i32()),
         [
           @lib.Instruction::i32_const(@lib.I32(4)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
           @lib.Instruction::drop(),
           @lib.Instruction::i32_const(@lib.I32(1)),
         ],
         Some([
           @lib.Instruction::i32_const(@lib.I32(8)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-          @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
           @lib.Instruction::drop(),
           @lib.Instruction::i32_const(@lib.I32(2)),
         ]),
@@ -1937,7 +1914,7 @@ test "hot lower spills transparent typed single-param drop-leading result block 
 }
 
 ///|
-test "hot lower spills transparent typed single-param void blocks through a second scratch local" {
+test "hot lower keeps scalar void block entry drops without scratch locals" {
   let module_ = hot_lower_test_void_block_param_module()
   let body = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(4)),
@@ -1954,18 +1931,11 @@ test "hot lower spills transparent typed single-param void blocks through a seco
   let lowered = hot_lower_func(hot)
   let @lib.Func(locals, lowered_body) = lowered
 
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(
     lowered_body,
     @lib.Expr::new([
       @lib.Instruction::i32_const(@lib.I32(4)),
-      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
       @lib.Instruction::drop(),
     ]),
   )

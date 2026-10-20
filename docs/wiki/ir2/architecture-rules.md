@@ -1,8 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-20
 sources:
+  - ../../../src/ir/effects_subtree_query.mbt
+  - ../../../src/ir/analysis_cache_operand_swap.mbt
+  - ../../../src/passes/instruction_cache_review_wbtest.mbt
+  - ../../../src/ir/hot_control_entry_preservation_wbtest.mbt
   - ../../../src/ir/hot_mutate.mbt
   - ../../../src/ir/hot_loop_demotion_wbtest.mbt
   - ../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
@@ -170,11 +174,23 @@ that evaluation order rather than physical slot order.
 When constant folding demotes such an `If` to `Block`, the block keeps the entry
 operands as a prefix whose length is `imm1`. Region edits exclude that prefix;
 lowering and analyses treat it as the control header's operands. Lifted blocks with multiple
-entry parameters use the same prefix contract as of October 4. Single-parameter
-blocks retain their established carrier/spill lowering and `imm1 == 0`;
-blocks without entry parameters also retain `imm1 == 0`. This prevents an empty selected arm from losing an effectful
-entry producer and keeps its use-def edge visible. No public function signature
-changes are required.
+entry parameters use the same prefix contract as of October 4. The October 19
+repair supersedes the old `imm1 == 0` rule for scalar producers: a single scalar
+entry now also remains in the header, even when a branch discards its value.
+Partial lanes of a multi-result producer retain the carrier path; controls with
+no parameters keep `imm1 == 0`. This preserves entry effects and their use-def
+edges. Branchless scalar blocks with an unused label can lower directly after
+their header, without scratch locals or an extra block frame.
+
+Lifted `Try` and `TryTable` keep body and catch-region slots 0 and 1, followed by
+entry operands in slots 2 onward. Entries execute before the handler is active;
+only the protected body receives their values. Catch bodies start with their own
+exception payload. Verification, CFG, local-flow, SSA and pass operand visitors
+must use this evaluation order and must treat only slots 0 and 1 as regions.
+The [entry-preservation tests](../../../src/ir/hot_control_entry_preservation_wbtest.mbt)
+cover exact scalar roundtrips, whole and partial tuple producers, exceptional
+edges and non-defaultable local initialization. Legacy try body/catch reads
+also participate in lower's dead-tee and read/write hazard checks.
 
 The previous representation omitted the entry operands. Bounded regressions
 first reproduced invalid lowering, reversed CFG call order and lost folded-block
@@ -4546,3 +4562,19 @@ uses the loop label before demotion. This preserves the existing public API.
 The [loop-demotion fixtures](../../../src/ir/hot_loop_demotion_wbtest.mbt)
 check scalar and tuple entries, body ownership, label arity, exact entry calls,
 HOT verification, and validation after lowering.
+
+## October 19, 2026 — Exact effects and operand-swap cache ownership
+
+`effects_for_node_subtree` returns the same complete subtree mask as the arena
+query. Leaf and shallow scalar trees need no scratch allocation; larger shared
+trees use scratch bounded by the queried subtree. It does not weaken trap,
+write, throw or control effects.
+
+`cache_swap_scalar_operands` is a narrow mutation API. Its caller must first
+prove that the operand rewrite preserves evaluation behavior. Supported scalar
+swaps retain exact effect facts and update direct use-site slots; unsupported
+control/throw/call shapes use normal invalidation. Other analyses still become
+stale after the mutation. The
+[cache regressions](../../../src/passes/instruction_cache_review_wbtest.mbt)
+compare retained effects and use-def facts against a complete rebuild, including
+compound operands and shared nodes.

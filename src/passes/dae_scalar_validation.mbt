@@ -166,10 +166,11 @@ fn dae_scalar_numeric_materialization(
 }
 
 ///|
-/// The actual plan actions must agree with the audited numeric producer.
+/// Numeric materialization and entry-dead removal share the checked-source gate.
 fn dae_scalar_numeric_plan(plan : DaeRewritePlan) -> Bool {
+  let @lib.FuncType(params, _) = plan.old_signature
   let mut any = false
-  for action in plan.parameter_actions {
+  for index, action in plan.parameter_actions {
     match action {
       DaeKeepParameter => ()
       DaeMaterializeConstantParameter(value) => {
@@ -178,6 +179,13 @@ fn dae_scalar_numeric_plan(plan : DaeRewritePlan) -> Bool {
         }
         any = true
       }
+      DaeRemovePureParameter
+      | DaeRemoveParameterReplayEffects
+      | DaeLocalizeParameterAndRetry =>
+        match params[index] {
+          @lib.NumTypeValType(_) | @lib.VecTypeValType => any = true
+          _ => return false
+        }
       _ => return false
     }
   }

@@ -1040,56 +1040,217 @@ fn gsi_build_closed_world_facts(
 }
 
 ///|
+// Admit the bounded reference-shape key only for a dense active reference
+// family. Sparse facts keep the cheaper existing path. Relative/defined heap
+// encodings can compare equal to global indices through Match's environment;
+// retain the original key for the whole family when either spelling occurs.
+fn gsi_can_refine_single_reference_shapes(
+  env : @validate.Env,
+  poisoned : Array[Bool],
+  candidates : Array[Array[@lib.GlobalIdx]],
+) -> Bool {
+  let mut active = 0
+  for slot in 0..<poisoned.length() {
+    if !poisoned[slot] && candidates[slot].is_empty() {
+      continue
+    }
+    let fields = match env.resolve_struct_fields(gsi_type_idx_from_slot(slot)) {
+      Ok(fields) => fields
+      Err(_) => continue
+    }
+    if fields.length() != 1 {
+      return false
+    }
+    match fields[0] {
+      @lib.FieldType(@lib.ValTypeStorageType(@lib.RefTypeValType(ref_type)), _) =>
+        match ref_type.get_heap_type() {
+          @lib.HeapType(@lib.TypeIdx(_) as index) =>
+            if env.resolve_comptype(index) is Some(@lib.StructCompType(_)) {
+              active += 1
+            } else {
+              return false
+            }
+          _ => return false
+        }
+      _ => return false
+    }
+  }
+  if active < 16 {
+    return false
+  }
+  for subtype in env.global_types {
+    match subtype.get_comptype() {
+      @lib.StructCompType(
+        [
+          @lib.FieldType(
+            @lib.ValTypeStorageType(@lib.RefTypeValType(ref_type)),
+            _
+          ),
+        ]
+      ) =>
+        match ref_type.get_heap_type() {
+          @lib.HeapType(@lib.RecIdx(_)) | @lib.DefTypeHeapType(_) =>
+            return false
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+// Canonically equal references have equal nullable/exact bits and referenced
+// struct field shapes. Hash at most nine shallow fields; nested references
+// stay coarse, so recursive groups need no unfolding or index normalization.
+// Hash collisions still require the existing mutual Match proof.
+fn gsi_single_reference_shape_key(
+  env : @validate.Env,
+  ref_type : @lib.RefType,
+) -> Int32 {
+  let mut key = (101 * 31 + ref_type.is_nullable().hash()) * 31 +
+    ref_type.is_exact().hash()
+  let (fields, shared) = match ref_type.get_heap_type() {
+    @lib.HeapType(@lib.TypeIdx(_) as index) =>
+      match env.resolve_subtype(index) {
+        Some(subtype) =>
+          match subtype.get_comptype() {
+            @lib.StructCompType(fields) =>
+              (fields, subtype.metadata().is_shared())
+            _ => return key
+          }
+        None => return key
+      }
+    _ => return key
+  }
+  key = (key * 31 + fields.length()) * 31 + shared.hash()
+  let prefix_length = if fields.length() < 8 { fields.length() } else { 8 }
+  for index in 0..<prefix_length {
+    let @lib.FieldType(storage, mutable) = fields[index]
+    let storage_key = match storage {
+      @lib.ValTypeStorageType(@lib.RefTypeValType(_)) => 101
+      _ => storage.hash()
+    }
+    key = (key * 31 + storage_key) * 31 + mutable.hash()
+  }
+  if fields.length() > 8 {
+    let @lib.FieldType(storage, mutable) = fields[fields.length() - 1]
+    let storage_key = match storage {
+      @lib.ValTypeStorageType(@lib.RefTypeValType(_)) => 101
+      _ => storage.hash()
+    }
+    key = (key * 31 + storage_key) * 31 + mutable.hash()
+  }
+  key
+}
+
+///|
 fn gsi_merge_equivalent_struct_type_facts(
   env : @validate.Env,
   poisoned_type_slots : Array[Bool],
   candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
 ) -> Unit {
-  let type_count = poisoned_type_slots.length()
-  for lhs = 0; lhs < type_count; lhs = lhs + 1 {
-    if env.resolve_struct_fields(gsi_type_idx_from_slot(lhs)) is Err(_) {
-      continue
+  if !poisoned_type_slots.any(fn(value) { value }) &&
+    candidates_by_type_slot.all(fn(values) { values.is_empty() }) {
+    return
+  }
+  let refine_reference_shapes = gsi_can_refine_single_reference_shapes(
+    env, poisoned_type_slots, candidates_by_type_slot,
+  )
+  let buckets : @hashmap.HashMap[Int32, Array[Array[Int32]]] = @hashmap.new()
+  let active_arities : @hashmap.HashMap[Int32, Bool] = @hashmap.new()
+  // Only active classes can contribute facts. Do not compare unrelated
+  // inactive types with each other in a coarse concrete-reference bucket.
+  for phase in 0..<2 {
+    for slot in 0..<poisoned_type_slots.length() {
+      let active = poisoned_type_slots[slot] ||
+        !candidates_by_type_slot[slot].is_empty()
+      if active != (phase == 0) {
+        continue
+      }
+      let fields = match
+        env.resolve_struct_fields(gsi_type_idx_from_slot(slot)) {
+        Ok(fields) => fields
+        Err(_) => continue
+      }
+      if active {
+        active_arities.set(fields.length(), true)
+      } else if !active_arities.contains(fields.length()) {
+        continue
+      }
+      // Concrete reference indices can name structurally equivalent recursive
+      // types. Keep them in the same coarse bucket and let Match prove equality.
+      let mut key = fields.length()
+      for field in fields {
+        let @lib.FieldType(storage, mutability) = field
+        let storage_key = match storage {
+          @lib.ValTypeStorageType(@lib.RefTypeValType(ref_type)) =>
+            if refine_reference_shapes {
+              gsi_single_reference_shape_key(env, ref_type)
+            } else {
+              101
+            }
+          _ => storage.hash()
+        }
+        key = (key * 31 + storage_key) * 31 + mutability.hash()
+      }
+      let groups = match buckets.get(key) {
+        Some(groups) => groups
+        None => {
+          if !active {
+            continue
+          }
+          let groups : Array[Array[Int32]] = []
+          buckets.set(key, groups)
+          groups
+        }
+      }
+      let value_type = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(gsi_type_idx_from_slot(slot)),
+        ),
+      )
+      let mut found = false
+      for group in groups {
+        let representative = @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(gsi_type_idx_from_slot(group[0])),
+          ),
+        )
+        if @validate.Match::matches(value_type, representative, env) &&
+          @validate.Match::matches(representative, value_type, env) {
+          group.push(slot)
+          found = true
+          break
+        }
+      }
+      if !found && active {
+        groups.push([slot])
+      }
     }
-    for rhs = lhs + 1; rhs < type_count; rhs = rhs + 1 {
-      if !poisoned_type_slots[lhs] &&
-        !poisoned_type_slots[rhs] &&
-        candidates_by_type_slot[lhs].is_empty() &&
-        candidates_by_type_slot[rhs].is_empty() {
+  }
+  for groups in buckets.values() {
+    for group in groups {
+      if group.length() <= 1 {
         continue
       }
-      if env.resolve_struct_fields(gsi_type_idx_from_slot(rhs)) is Err(_) {
-        continue
-      }
-      let lhs_type = @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(gsi_type_idx_from_slot(lhs)),
-        ),
-      )
-      let rhs_type = @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(gsi_type_idx_from_slot(rhs)),
-        ),
-      )
-      if !@validate.Match::matches(lhs_type, rhs_type, env) ||
-        !@validate.Match::matches(rhs_type, lhs_type, env) {
-        continue
-      }
-      let poisoned = poisoned_type_slots[lhs] || poisoned_type_slots[rhs]
-      poisoned_type_slots[lhs] = poisoned
-      poisoned_type_slots[rhs] = poisoned
-      let lhs_candidates = candidates_by_type_slot[lhs].copy()
-      let rhs_candidates = candidates_by_type_slot[rhs].copy()
-      for candidate in rhs_candidates {
-        if !gsi_candidate_list_contains(candidates_by_type_slot[lhs], candidate) {
-          candidates_by_type_slot[lhs].push(candidate)
+      let mut poisoned = false
+      let merged : Array[@lib.GlobalIdx] = []
+      let seen : @hashmap.HashMap[@lib.GlobalIdx, Bool] = @hashmap.new()
+      for slot in group {
+        poisoned = poisoned || poisoned_type_slots[slot]
+        for candidate in candidates_by_type_slot[slot] {
+          if !seen.contains(candidate) {
+            seen.set(candidate, true)
+            merged.push(candidate)
+          }
         }
       }
-      for candidate in lhs_candidates {
-        if !gsi_candidate_list_contains(candidates_by_type_slot[rhs], candidate) {
-          candidates_by_type_slot[rhs].push(candidate)
-        }
+      for slot in group {
+        poisoned_type_slots[slot] = poisoned
+        candidates_by_type_slot[slot] = merged.copy()
       }
     }
   }

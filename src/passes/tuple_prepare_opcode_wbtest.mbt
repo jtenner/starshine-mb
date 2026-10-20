@@ -35,10 +35,7 @@ test "tuple preparation preserves scalar nodes and promotes only multivalue tupl
       [@lib.ValType::i32(), @lib.ValType::i64()],
     ] {
     let (func, tuple) = tuple_prepare_opcode_fixture(4, results)
-    let state : HotPipelineLowerState = {
-      next_type_sec: None,
-      type_sec_changed: false,
-    }
+    let state : HotPipelineLowerState = HotPipelineLowerState::new(None)
     let before = @ir.hot_node_count(func)
     run_hot_pipeline_prepare_tuple_make_lowering(func, state)
     assert_eq(@ir.hot_node_count(func), before)

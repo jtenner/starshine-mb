@@ -18,14 +18,11 @@ fn dae_current_boundary_graph_refresh(
   dae_current_boundary_graph_refresh_full(graph, mod_, topology_walk_visits~)
 }
 
-///| Reuse immutable stable call paths for unchanged callers. The fused scanner
-
-///| still computes current aggregate calls and topology from every body, with
-
-///| callsite/path collection enabled only for changed or explicitly forced
-
 ///|
-/// callers. This preserves its exact nested-trap and inactive-tail rules.
+/// Replay immutable call records and topology for unchanged callers. Only
+/// changed or forced callers need the fused instruction scanner. A snapshot
+/// with body function references retains the complete exposure scan so removed
+/// references cannot leave stale visibility facts.
 fn dae_try_refresh_current_boundary_graph_incremental(
   graph : DaeCurrentBoundaryGraph,
   mod_ : @lib.Module,
@@ -73,7 +70,15 @@ fn dae_try_refresh_current_boundary_graph_incremental(
       body_changed[def_idx] ||
       signature_changed[def_idx]
   }
-  let exposure = dae_collect_original_exposure(mod_, total, type_indices)
+  // With no body ref.func exposure in the checked snapshot, unchanged bodies
+  // cannot add one. The changed-body scanner records any new references.
+  let rescan_body_exposure = previous.exposure.any(fn(row) { row.ref_func_body })
+  let exposure = dae_collect_original_exposure(
+    mod_,
+    total,
+    type_indices,
+    include_body=rescan_body_exposure,
+  )
   let escaped = dae_exposure_to_escaped(exposure)
   let refreshed_infos = dae_make_function_infos(total, escaped)
   let direct_calls = Array::make(total, 0)
@@ -82,7 +87,56 @@ fn dae_try_refresh_current_boundary_graph_incremental(
   let dropped_calls = Array::make(total, 0)
   let caller_seen_stamps = Array::make(total, -1)
   let topology = dae_empty_topology_extras(total)
+  // Stable call records retain active, dropped, tail, and caller facts. Replay
+  // unchanged edges instead of traversing every unchanged instruction tree.
+  for callee_abs in 0..<total {
+    for callsite in previous.function_infos[callee_abs].calls {
+      let caller = callsite.caller_def
+      if caller < 0 || caller >= defined || rescanned[caller] {
+        continue
+      }
+      if callsite.active {
+        direct_calls[callee_abs] += 1
+        if callsite.dropped {
+          dropped_calls[callee_abs] += 1
+        }
+        if callsite.tail {
+          tail_calls[callee_abs] = true
+        }
+      }
+      if caller_seen_stamps[callee_abs] != caller {
+        direct_callers[callee_abs].push(caller)
+        caller_seen_stamps[callee_abs] = caller
+      }
+    }
+  }
   for def_idx in 0..<defined {
+    let caller_abs = imported + def_idx
+    if !rescanned[def_idx] {
+      let before = graph.topology
+      topology.has_outgoing_call_indirect[caller_abs] = before.has_outgoing_call_indirect[caller_abs]
+      topology.has_outgoing_call_ref[caller_abs] = before.has_outgoing_call_ref[caller_abs]
+      topology.has_outgoing_return_call[caller_abs] = before.has_outgoing_return_call[caller_abs]
+      topology.has_outgoing_return_call_indirect[caller_abs] = before.has_outgoing_return_call_indirect[caller_abs]
+      topology.has_outgoing_return_call_ref[caller_abs] = before.has_outgoing_return_call_ref[caller_abs]
+      for callee in before.direct_return_callees_by_caller[caller_abs] {
+        dae_adjacency_add_unique(
+          topology.direct_return_callers,
+          callee,
+          caller_abs,
+          0,
+          topology.adjacency_membership,
+        )
+        dae_adjacency_add_unique(
+          topology.direct_return_callees_by_caller,
+          caller_abs,
+          callee,
+          1,
+          topology.adjacency_membership,
+        )
+      }
+      continue
+    }
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     ignore(
       dae_scan_current_call_facts_instrs(
@@ -103,6 +157,11 @@ fn dae_try_refresh_current_boundary_graph_incremental(
         caller_seen_stamps,
         true,
         topology_out=Some(topology),
+        body_exposure_out=if rescan_body_exposure {
+          None
+        } else {
+          Some(exposure)
+        },
         stable_path=if rescanned[def_idx] {
           Some(DaeStablePath::empty())
         } else {
@@ -110,6 +169,14 @@ fn dae_try_refresh_current_boundary_graph_incremental(
         },
       ),
     )
+  }
+  // The scanner visits changed callers after cached edges. Restore the full
+  // scanner's ascending caller order before equality checks and scheduling.
+  for row in direct_callers {
+    row.sort()
+  }
+  for row in topology.direct_return_callers {
+    row.sort()
   }
   let function_infos : Array[DaeFunctionInfo] = []
   for func_abs in 0..<total {
@@ -199,6 +266,16 @@ fn dae_try_refresh_current_boundary_graph_incremental(
     graph.module_epoch += 1
   }
   graph.dependency_cache = None
+  if graph.forwarding_syntax.length() != defined ||
+    graph.mod_.type_sec != mod_.type_sec {
+    graph.forwarding_syntax = []
+  } else {
+    for def_idx in 0..<defined {
+      if rescanned[def_idx] {
+        graph.forwarding_syntax[def_idx] = None
+      }
+    }
+  }
   graph.mod_ = mod_
   graph.snapshot = {
     imported,

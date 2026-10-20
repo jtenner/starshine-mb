@@ -538,7 +538,7 @@ fn hot_verify_scope_body_slot(
     HotOp::Block => slot >= node.imm1
     HotOp::Loop => slot >= hot_label_branch_arity(func, node.imm0)
     HotOp::If => slot == 1 || slot == 2
-    HotOp::Try | HotOp::TryTable => true
+    HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
   }
 }
@@ -954,12 +954,16 @@ fn hot_verify_control_impl(
       }
       HotOp::Try => {
         needs_catch_layout = true
-        if node.child_count != 2 {
+        let entry_count = match hot_type_get(func, node.ty) {
+          BlockResultResolved(_, params, _) => params.length()
+          _ => 0
+        }
+        if node.child_count != 2 + entry_count {
           return Err(
             HotVerifyError::InvalidControlChildCount(
               node_id,
               node.child_count,
-              2,
+              2 + entry_count,
             ),
           )
         }
@@ -997,12 +1001,16 @@ fn hot_verify_control_impl(
       }
       HotOp::Catch => needs_catch_layout = true
       HotOp::TryTable => {
-        if node.child_count != 2 {
+        let entry_count = match hot_type_get(func, node.ty) {
+          BlockResultResolved(_, params, _) => params.length()
+          _ => 0
+        }
+        if node.child_count != 2 + entry_count {
           return Err(
             HotVerifyError::InvalidControlChildCount(
               node_id,
               node.child_count,
-              2,
+              2 + entry_count,
             ),
           )
         }

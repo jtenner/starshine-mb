@@ -340,3 +340,26 @@ test "DAE incremental refresh rejects invalid producer masks without mutation" {
     assert_eq(graph.module_epoch, 0)
   }
 }
+
+///|
+test "DAE cached refresh adds and removes body function-reference exposure" {
+  let plain = pass_test_module_from_wat(
+    "(module (func $a) (elem declare func $a) (func nop))",
+  )
+  let referenced = pass_test_module_from_wat(
+    "(module (func $a) (elem declare func $a) (func ref.func $a drop))",
+  )
+  let graph = dae_current_boundary_graph_new(plain)
+  let reference = dae_current_boundary_graph_new(plain)
+  for next in [referenced, plain, referenced] {
+    dae_current_boundary_graph_refresh_full(reference, next)
+    assert_true(
+      dae_try_refresh_current_boundary_graph_incremental(
+        graph,
+        next,
+        forced_changed_defs=Some([false, true]),
+      ),
+    )
+    dae_refresh_assert_graphs(graph, reference)
+  }
+}

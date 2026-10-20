@@ -710,3 +710,19 @@ test "ssa concrete local assignment reuses entries but freshens writes" {
   @debug.assert_eq(hot_node_get(func, set_id).imm0, 1)
   @debug.assert_eq(hot_node_get(func, read).imm0, 1)
 }
+
+///|
+test "ssa destruction preserves non-null reads after a nested write scope" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param (ref extern)) (result (ref extern)) (local (ref extern)) local.get 0 local.set 1 block local.get 0 local.set 1 end local.get 1))",
+  )
+  let func = fixture.hot_func
+  let cfg = cfg_build(func, expand_operand_control=true)
+  let dom = dom_build(cfg)
+  let uses = use_def_build(func, cfg=Some(cfg))
+  let live = liveness_build(cfg, uses)
+  let ssa = ssa_build_local(func, cfg, dom, live, uses)
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+  assert_true(hot_local_count(func) > 2)
+  ignore(ir_test_assert_verify_and_lower(fixture))
+}

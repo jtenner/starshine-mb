@@ -32,6 +32,7 @@ pub fn code_folding_summary() -> String {
 priv struct CodeFoldingExitTail {
   region_ref : @ir.HotRegionRef
   end_idx : Int32
+  branch_id : Int32
 }
 
 ///|
@@ -47,7 +48,6 @@ priv struct CodeFoldingExitIndex {
   mut movement_visited_marks : Array[Int32]
   mut movement_epoch : Int32
   mut facts_epoch : Int32
-  mut invalidated : Bool
 }
 
 ///|
@@ -1612,7 +1612,7 @@ fn code_folding_try_fold_embedded_value_if_child(
     _ => return false
   }
   let condition = @ir.hot_child_get(func, if_id, 0)
-  if code_folding_node_always_exits(func, condition) {
+  if code_folding_node_always_exits(func, condition, label_used) {
     return false
   }
   let result_types = @ir.hot_type_results(func, if_node.ty)
@@ -1691,16 +1691,17 @@ fn code_folding_try_fold_embedded_value_if_child(
 }
 
 ///|
-fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
+fn code_folding_node_always_exits(
+  func : @ir.HotFunc,
+  node_id : Int32,
+  label_used : @bitset.BitSet,
+) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   if @ir.hot_is_control_node(func, node_id) &&
     !(@ir.hot_node_get(func, node_id).op is @ir.HotOp::Loop) &&
-    pass_label_is_used(
-      @ir.hot_control_node_label(func, node_id),
-      pass_compute_label_used(func),
-    ) {
+    pass_label_is_used(@ir.hot_control_node_label(func, node_id), label_used) {
     // A branch to this control's label resumes after it, even if a later
     // body root returns or traps on the non-branching path.
     return false
@@ -1716,7 +1717,11 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
     | @ir.HotOp::ThrowRef => true
     @ir.HotOp::Drop =>
       @ir.hot_child_count(func, node_id) == 1 &&
-      code_folding_node_always_exits(func, @ir.hot_child_get(func, node_id, 0))
+      code_folding_node_always_exits(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        label_used,
+      )
     @ir.HotOp::Try | @ir.HotOp::TryTable => false
     @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
@@ -1724,6 +1729,7 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
         if code_folding_node_always_exits(
             func,
             @ir.hot_region_get(func, body_ref, i),
+            label_used,
           ) {
           return true
         }
@@ -1746,6 +1752,7 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
           if code_folding_node_always_exits(
               func,
               @ir.hot_region_get(func, then_ref, i),
+              label_used,
             ) {
             then_exits = true
           }
@@ -1755,6 +1762,7 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int32) -> Bool {
           if code_folding_node_always_exits(
               func,
               @ir.hot_region_get(func, else_ref, i),
+              label_used,
             ) {
             else_exits = true
           }
@@ -1937,7 +1945,7 @@ fn code_folding_try_flatten_exiting_block_at_region(
   if unreachable_idx != 0 && unreachable_idx != body_count - 1 {
     return false
   }
-  if !code_folding_node_always_exits(func, block_id) {
+  if !code_folding_node_always_exits(func, block_id, label_used) {
     return false
   }
   let roots : Array[Int32] = []
@@ -2012,6 +2020,7 @@ fn code_folding_try_remove_unreachable_after_exit_at_region(
   region_ref : @ir.HotRegionRef,
   idx : Int32,
   preserve_bottom_tail : Bool,
+  label_used : @bitset.BitSet,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -2047,7 +2056,7 @@ fn code_folding_try_remove_unreachable_after_exit_at_region(
       _ => ()
     }
   }
-  if !code_folding_node_always_exits(func, prev_id) {
+  if !code_folding_node_always_exits(func, prev_id, label_used) {
     return false
   }
   ignore(pass_splice_region(ctx, func, region_ref, idx, 1, []))
@@ -2903,7 +2912,6 @@ fn CodeFoldingExitIndex::new(
     movement_visited_marks: [],
     movement_epoch: 0,
     facts_epoch: 1,
-    invalidated: false,
   }
 }
 
@@ -3027,7 +3035,11 @@ fn code_folding_index_block_exit_node(
       if final_region_root && node.child_count == 0 && region_idx > 0 {
         match region_ref {
           Some(ref_) =>
-            index.add_tail(node.imm0, { region_ref: ref_, end_idx: region_idx, })
+            index.add_tail(node.imm0, {
+              region_ref: ref_,
+              end_idx: region_idx,
+              branch_id: node_id,
+            })
           None => index.mark_unoptimizable(node.imm0)
         }
       } else {
@@ -3291,7 +3303,7 @@ fn code_folding_collect_block_exit_tails(
           if node.child_count != 0 || idx == 0 {
             return false
           }
-          tails.push({ region_ref, end_idx: idx, })
+          tails.push({ region_ref, end_idx: idx, branch_id: node_id, })
         } else if idx == @ir.hot_region_root_count(func, region_ref) - 1 {
           for slot = 0; slot < node.child_count; slot = slot + 1 {
             let child_id = @ir.hot_child_get(func, node_id, slot)
@@ -3483,9 +3495,20 @@ fn code_folding_try_fold_block_exit_at_region(
   }
   let mut indexed_tails_valid = true
   for tail in tails {
-    if tail.end_idx < 0 ||
-      tail.end_idx > @ir.hot_region_root_count(func, tail.region_ref) {
+    // Root offsets can shift while the function walk rewrites nested controls.
+    // Recheck the branch identity, target, and shape before using a cached tail.
+    if tail.end_idx <= 0 ||
+      tail.end_idx >= @ir.hot_region_root_count(func, tail.region_ref) ||
+      @ir.hot_region_get(func, tail.region_ref, tail.end_idx) != tail.branch_id ||
+      !@ir.hot_node_is_live(func, tail.branch_id) {
       indexed_tails_valid = false
+    } else {
+      let branch = @ir.hot_node_get(func, tail.branch_id)
+      if !(branch.op is @ir.HotOp::Br) ||
+        branch.imm0 != target_label ||
+        branch.child_count != 0 {
+        indexed_tails_valid = false
+      }
     }
   }
   if !indexed_tails_valid {
@@ -3502,7 +3525,7 @@ fn code_folding_try_fold_block_exit_at_region(
   if !code_folding_node_prevents_fallthrough_with_index(
       func, last_root, exit_index,
     ) {
-    tails.push({ region_ref: body_ref, end_idx: body_count, })
+    tails.push({ region_ref: body_ref, end_idx: body_count, branch_id: -1, })
   }
   if tails.length() < 2 || !code_folding_exit_tail_regions_are_unique(tails) {
     return false
@@ -3545,7 +3568,6 @@ fn code_folding_try_fold_block_exit_at_region(
     "mutated",
     payload="block-exit-common-suffix",
   )
-  exit_index.invalidated = true
   true
 }
 
@@ -4622,6 +4644,10 @@ fn code_folding_try_fold_if_then_fallthrough_terminal_at_region(
   )
   let wrapper = @ir.hot_build_block(func, @lib.BlockType::void_(), [if_id])
   let wrapper_label = @ir.hot_control_node_label(func, wrapper)
+  if wrapper_label >= label_used.length() {
+    label_used.grow((wrapper_label + 1) * 2)
+  }
+  label_used[wrapper_label] = true
   let branch = @ir.hot_build_br(func, wrapper_label)
   ignore(pass_splice_region(ctx, func, then_ref, then_start, 0, [branch]))
   let replacement = [wrapper]
@@ -4659,7 +4685,7 @@ fn code_folding_try_fold_if_at_region(
     _ => return false
   }
   let condition = @ir.hot_child_get(func, if_id, 0)
-  if code_folding_node_always_exits(func, condition) {
+  if code_folding_node_always_exits(func, condition, label_used) {
     return false
   }
   let result_arity = @ir.hot_type_result_arity(func, if_node.ty)
@@ -5081,7 +5107,7 @@ fn code_folding_visit_region(
           )
         @ir.HotOp::Unreachable =>
           code_folding_try_remove_unreachable_after_exit_at_region(
-            ctx, func, region_ref, idx, preserve_bottom_tail,
+            ctx, func, region_ref, idx, preserve_bottom_tail, label_used,
           )
         _ => false
       }
@@ -5111,19 +5137,14 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-          if exit_index.invalidated {
-            return true
-          }
           if code_folding_try_fold_value_block_exit_at_region(
               ctx, func, region_ref, idx, label_used, exit_index,
-            ) {
-            exit_index.invalidated = true
-            return true
-          }
-          if code_folding_try_fold_block_exit_at_region(
+            ) ||
+            code_folding_try_fold_block_exit_at_region(
               ctx, func, region_ref, idx, label_used, exit_index,
             ) {
-            return true
+            changed = true
+            exit_index.invalidate_facts()
           }
         }
         @ir.HotOp::Loop => {
@@ -5142,9 +5163,6 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-          if exit_index.invalidated {
-            return true
-          }
         }
         @ir.HotOp::If => {
           let control_preserve_bottom_tail = @ir.hot_node_result_arity(
@@ -5162,9 +5180,6 @@ fn code_folding_visit_region(
               ) {
               changed = true
             }
-            if exit_index.invalidated {
-              return true
-            }
             match @ir.hot_region_else_ref(func, current_id) {
               Some(else_ref) =>
                 if code_folding_visit_region(
@@ -5175,9 +5190,6 @@ fn code_folding_visit_region(
                 }
               None => ()
             }
-          }
-          if exit_index.invalidated {
-            return true
           }
           if code_folding_try_fold_if_at_region(
               ctx, func, region_ref, idx, label_used, exit_index,
@@ -5277,8 +5289,7 @@ pub fn code_folding_run(
       @ir.hot_region_result_arity(func, root_ref) > 0,
       exit_index,
     )
-    if !exit_index.invalidated &&
-      code_folding_try_fold_terminating_tails(ctx, func, label_used) {
+    if code_folding_try_fold_terminating_tails(ctx, func, label_used) {
       iteration_changed = true
     }
     if iteration_changed {

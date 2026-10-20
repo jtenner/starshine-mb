@@ -54,7 +54,8 @@ fn hot_local_scope_visit(
   }
   // If and exception arm holders are Block regions, so each arm restores
   // its entry state. Conditions and ordinary operands share the current frame.
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
     hot_local_scope_visit(func, hot_child_get(func, node_id, slot), frame, scan)
   }
   match node.op {
@@ -76,22 +77,26 @@ fn hot_local_scope_visit(
 /// control scope that initialized its non-defaultable reference storage.
 /// Call only after a semantics-preserving transform on a valid input.
 pub fn hot_repair_nondefaultable_local_scopes(func : HotFunc) -> Bool {
-  let initialized = Array::make(hot_local_count(func), true)
-  let mut has_nondefaultable = false
+  let mut initialized : Array[Bool]? = None
   for local_id = hot_local_param_count(func)
       local_id < hot_local_count(func)
       local_id = local_id + 1 {
     match hot_local_type(func, local_id) {
       Some(RefTypeValType(ref_type)) if ref_type.is_non_nullable() => {
-        initialized[local_id] = false
-        has_nondefaultable = true
+        let values = match initialized {
+          Some(values) => values
+          None => {
+            let values = Array::make(hot_local_count(func), true)
+            initialized = Some(values)
+            values
+          }
+        }
+        values[local_id] = false
       }
       _ => ()
     }
   }
-  if !has_nondefaultable {
-    return false
-  }
+  guard initialized is Some(initialized) else { return false }
   let node_count = hot_node_count(func)
   let scan : HotLocalScopeScan = {
     initialized,

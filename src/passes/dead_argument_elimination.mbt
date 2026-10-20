@@ -2198,6 +2198,7 @@ priv struct DaeCurrentBoundaryGraph {
   mut call_epoch : Int32
   mut type_epoch : Int32
   mut dependency_cache : DaeBoundaryDependencyGraph?
+  mut forwarding_syntax : Array[DaeForwardingSyntaxRow?]
 }
 
 ///|
@@ -3046,6 +3047,7 @@ fn dae_current_boundary_graph_new(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 
@@ -3069,6 +3071,7 @@ fn dae_typed_batch_boundary_graph_new(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 
@@ -3181,6 +3184,7 @@ fn dae_current_boundary_graph_refresh_full(
     graph.module_epoch += 1
   }
   graph.dependency_cache = None
+  graph.forwarding_syntax = []
   graph.mod_ = mod_
   graph.snapshot = next
   graph.topology = next_topology
@@ -4216,6 +4220,97 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
 }
 
 ///|
+/// Call locations are syntax facts. Signatures, epochs, and forwarding edges
+/// are recomputed for every dependency graph, including inactive tail calls.
+#valtype
+priv struct DaeForwardingSyntaxCall {
+  instrs : Array[@lib.Instruction]
+  call_idx : Int32
+  entry_stack_values : Int32
+}
+
+///|
+priv struct DaeForwardingSyntaxRow {
+  func : @lib.Func
+  calls : Array[DaeForwardingSyntaxCall]
+  complete : Bool
+}
+
+///|
+fn dae_collect_forwarding_syntax_calls(
+  instrs : Array[@lib.Instruction],
+  entry_stack_values : Int32,
+  mod_ : @lib.Module,
+  out : Array[DaeForwardingSyntaxCall],
+) -> Bool {
+  let mut complete = true
+  for idx in 0..<instrs.length() {
+    match instrs[idx] {
+      @lib.Call(_) | @lib.ReturnCall(_) =>
+        out.push({ instrs, call_idx: idx, entry_stack_values, })
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.If(_, _, _) =>
+        match dae_nested_control_children_evidence(instrs[idx], mod_) {
+          Some(children) => {
+            if !dae_collect_forwarding_syntax_calls(
+                children.primary_body,
+                children.entry_stack_values,
+                mod_,
+                out,
+              ) {
+              complete = false
+            }
+            match children.secondary_body {
+              Some(body) =>
+                if !dae_collect_forwarding_syntax_calls(
+                    body,
+                    children.entry_stack_values,
+                    mod_,
+                    out,
+                  ) {
+                  complete = false
+                }
+              None => ()
+            }
+          }
+          None => complete = false
+        }
+      _ => ()
+    }
+  }
+  complete
+}
+
+///|
+fn dae_forwarding_syntax_calls(
+  graph : DaeCurrentBoundaryGraph,
+  caller_def : Int32,
+) -> Array[DaeForwardingSyntaxCall] {
+  let defined = graph.snapshot.defined
+  if graph.forwarding_syntax.length() != defined {
+    graph.forwarding_syntax = Array::make(defined, None)
+  }
+  let func = graph.snapshot.funcs[caller_def]
+  match graph.forwarding_syntax[caller_def] {
+    Some(row) if physical_equal(row.func, func) => row.calls
+    _ => {
+      let calls : Array[DaeForwardingSyntaxCall] = []
+      let @lib.Func(_, @lib.Expr(body)) = func
+      let complete = dae_collect_forwarding_syntax_calls(
+        body,
+        0,
+        graph.mod_,
+        calls,
+      )
+      graph.forwarding_syntax[caller_def] = Some({ func, calls, complete, })
+      calls
+    }
+  }
+}
+
+///|
 fn dae_boundary_dependency_graph_new(
   graph : DaeCurrentBoundaryGraph,
   builds~ : Array[Int32]? = None,
@@ -4342,20 +4437,31 @@ fn dae_boundary_dependency_graph_build(
       Some(@lib.FuncType(params, _)) => params.length()
       None => 0
     }
-    let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[caller_def]
-    dae_collect_parameter_forwarding_dependencies_instrs(
-      body,
-      0,
-      graph.mod_,
-      caller_def,
-      caller_param_count,
-      graph.snapshot.type_indices,
-      graph.function_epochs,
-      parameter_forwarding_edges,
-      parameter_forwarders_by_def,
-      function_types=Some(graph.snapshot.function_types),
-      membership=Some(membership),
-    )
+    if caller_param_count > 0 {
+      for call in dae_forwarding_syntax_calls(graph, caller_def) {
+        let (target, direct_tail) = match call.instrs[call.call_idx] {
+          @lib.Call(target) => (target, false)
+          @lib.ReturnCall(target) => (target, true)
+          _ => continue
+        }
+        dae_record_parameter_forwarding_dependency(
+          call.instrs,
+          call.call_idx,
+          call.entry_stack_values,
+          graph.mod_,
+          caller_def,
+          caller_param_count,
+          graph.snapshot.type_indices,
+          dae_func_idx_slot(target),
+          direct_tail,
+          graph.function_epochs,
+          parameter_forwarding_edges,
+          parameter_forwarders_by_def,
+          membership,
+          function_types=Some(graph.snapshot.function_types),
+        )
+      }
+    }
     caller_def += 1
   }
   let (component_by_def, component_members) = dae_boundary_components(
@@ -5338,6 +5444,7 @@ fn dae_body_only_boundary_graph_new(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 
@@ -9236,6 +9343,7 @@ fn dae_find_value_slice(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   allow_stack_carried_void_effects~ : Bool = false,
+  shared_producer~ : Array[Bool]? = None,
 ) -> (DaeCallShape, Int32, Int32)? {
   let mut need = 1
   let mut idx = end - 1
@@ -9247,6 +9355,15 @@ fn dae_find_value_slice(
     }
     let ins = effect.inputs
     let outs = effect.outputs
+    // A scalar slice cannot own only the last lane of a multi-value producer.
+    // Keep its other lanes out of earlier argument slices and ambient values.
+    if outs > need {
+      match shared_producer {
+        Some(found) => found[0] = true
+        None => ()
+      }
+      return None
+    }
     if outs == 0 && need > 0 && !allow_stack_carried_void_effects {
       if need <= entry_stack_values {
         return Some(
@@ -12105,6 +12222,7 @@ fn dae_apply_callsite_rewrite_plan(
   plan : DaeCallsiteRewritePlan,
   first_scratch_local : Int32,
   existing_scratch_local_types~ : Array[@lib.ValType] = [],
+  include_context~ : Bool = true,
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if first_scratch_local < 0 ||
     !dae_callsite_rewrite_plan_is_consistent(plan) ||
@@ -12120,7 +12238,7 @@ fn dae_apply_callsite_rewrite_plan(
   let mut localized_params = plan.localized_params
   let mut localization_changed = false
   let mut idx = 0
-  while idx < plan.callsite.cursor {
+  while include_context && idx < plan.callsite.cursor {
     out.push(instrs[idx])
     idx += 1
   }
@@ -12173,7 +12291,7 @@ fn dae_apply_callsite_rewrite_plan(
   let new_call_idx = out.length()
   out.push(instrs[plan.callsite.call_idx])
   idx = plan.callsite.call_idx + 1
-  while idx < instrs.length() {
+  while include_context && idx < instrs.length() {
     out.push(instrs[idx])
     idx += 1
   }
@@ -12192,6 +12310,124 @@ fn dae_apply_callsite_rewrite_plan(
 }
 
 ///|
+/// Retry only the scalar recovery proof to identify a shared-producer failure.
+/// Other unsupported or invalid operand boundaries retain their rejection.
+fn dae_callsite_has_shared_producer(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int32,
+  arg_count : Int32,
+  entry_stack_values : Int32,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  allow_stack_carried_void_effects : Bool,
+) -> Bool {
+  let shared = [false]
+  let mut cursor = call_idx
+  let mut ambient = entry_stack_values
+  for _ in 0..<arg_count {
+    match
+      dae_find_value_slice(
+        instrs,
+        cursor,
+        ambient,
+        mod_,
+        func_type_indices,
+        allow_stack_carried_void_effects~,
+        shared_producer=Some(shared),
+      ) {
+      Some((_, next_cursor, next_ambient)) => {
+        cursor = next_cursor
+        ambient = next_ambient
+      }
+      None => return shared[0]
+    }
+  }
+  false
+}
+
+///|
+/// Shared multi-value producers cannot be split into scalar expression ranges.
+/// Preserve their evaluation, then remove lanes on the operand stack at the call.
+fn dae_rewrite_callsite_stack_lanes(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int32,
+  remove : Array[Bool],
+  param_types : Array[@lib.ValType],
+  first_scratch_local : Int32,
+  existing_scratch_local_types : Array[@lib.ValType],
+  include_context~ : Bool = true,
+) -> DaeCallsiteRewriteApplicationEvidence? {
+  if call_idx < 0 ||
+    call_idx >= instrs.length() ||
+    remove.length() != param_types.length() ||
+    first_scratch_local < 0 ||
+    !existing_scratch_local_types.all(fn(vt) { @lib.has_default(vt) }) {
+    return None
+  }
+  let out : Array[@lib.Instruction] = []
+  if include_context {
+    for idx in 0..<call_idx {
+      out.push(instrs[idx])
+    }
+  }
+  let scratch_local_types = existing_scratch_local_types.copy()
+  let slots = Array::make(remove.length(), -1)
+  let occupied = Array::make(existing_scratch_local_types.length(), false)
+  let mut first_removed = 0
+  while first_removed < remove.length() && !remove[first_removed] {
+    first_removed += 1
+  }
+  // Live lanes coexist until reload, so each needs a distinct scratch slot.
+  // Earlier retained arguments stay below this suffix without a local roundtrip.
+  for p = remove.length() - 1; p >= first_removed; p = p - 1 {
+    if remove[p] {
+      out.push(@lib.Instruction::drop())
+    } else {
+      let scratch_type = dae_localization_scratch_type(param_types[p]).unwrap()
+      let mut offset = 0
+      while offset < occupied.length() &&
+            (occupied[offset] || scratch_local_types[offset] != scratch_type) {
+        offset += 1
+      }
+      if offset == occupied.length() {
+        scratch_local_types.push(scratch_type)
+        occupied.push(true)
+      } else {
+        occupied[offset] = true
+      }
+      slots[p] = first_scratch_local + offset
+      out.push(
+        @lib.Instruction::local_set(@lib.LocalIdx::new(slots[p].to_uint())),
+      )
+    }
+  }
+  for p in first_removed..<remove.length() {
+    if !remove[p] {
+      out.push(
+        @lib.Instruction::local_get(@lib.LocalIdx::new(slots[p].to_uint())),
+      )
+      if !@lib.has_default(param_types[p]) {
+        out.push(@lib.Instruction::ref_as_non_null())
+      }
+    }
+  }
+  let new_call_idx = out.length()
+  out.push(instrs[call_idx])
+  if include_context {
+    for idx in (call_idx + 1)..<instrs.length() {
+      out.push(instrs[idx])
+    }
+  }
+  Some({
+    instrs: out,
+    new_call_idx,
+    scratch_local_types,
+    localized_params: Array::make(remove.length(), false),
+    localization_count: 0,
+  })
+}
+
+///|
 fn dae_rewrite_callsite_with_localization_at(
   instrs : Array[@lib.Instruction],
   call_idx : Int32,
@@ -12204,6 +12440,7 @@ fn dae_rewrite_callsite_with_localization_at(
   existing_scratch_local_types~ : Array[@lib.ValType] = [],
   allow_stack_carried_void_effects~ : Bool = false,
   traps_never_happen~ : Bool = false,
+  fragment_start~ : Array[Int32]? = None,
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if remove.length() != param_types.length() || first_scratch_local < 0 {
     return None
@@ -12219,7 +12456,32 @@ fn dae_rewrite_callsite_with_localization_at(
       allow_stack_carried_void_effects~,
     ) {
     Some(evidence) => evidence
-    None => return None
+    None => {
+      if !dae_callsite_has_shared_producer(
+          instrs,
+          call_idx,
+          remove.length(),
+          entry_stack_values,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects,
+        ) {
+        return None
+      }
+      match fragment_start {
+        Some(start) => start.push(call_idx)
+        None => ()
+      }
+      return dae_rewrite_callsite_stack_lanes(
+        instrs,
+        call_idx,
+        remove,
+        param_types,
+        first_scratch_local,
+        existing_scratch_local_types,
+        include_context=fragment_start is None,
+      )
+    }
   }
   let plan = match
     dae_callsite_rewrite_plan(
@@ -12231,11 +12493,16 @@ fn dae_rewrite_callsite_with_localization_at(
     Some(plan) => plan
     None => return None
   }
+  match fragment_start {
+    Some(start) => start.push(callsite.cursor)
+    None => ()
+  }
   dae_apply_callsite_rewrite_plan(
     instrs,
     plan,
     first_scratch_local,
     existing_scratch_local_types~,
+    include_context=fragment_start is None,
   )
 }
 
@@ -12336,6 +12603,7 @@ fn dae_rewrite_refined_gc_actuals_instr(
   next_params : Array[@lib.ValType],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  caller_locals~ : @lib.FunctionLocals? = None,
 ) -> (@lib.Instruction, Int32, Bool, Bool) {
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
@@ -12357,6 +12625,7 @@ fn dae_rewrite_refined_gc_actuals_instr(
     entry_stack_values,
     mod_,
     func_type_indices,
+    caller_locals~,
   )
   if !primary_ok {
     return (instr, primary_calls, false, primary_changed)
@@ -12366,7 +12635,14 @@ fn dae_rewrite_refined_gc_actuals_instr(
   let rewritten_secondary = match children.secondary_body {
     Some(body) => {
       let (next_body, secondary_calls, secondary_ok, secondary_changed) = dae_rewrite_refined_gc_actuals_instrs(
-        body, callee_abs, refine_params, next_params, entry_stack_values, mod_, func_type_indices,
+        body,
+        callee_abs,
+        refine_params,
+        next_params,
+        entry_stack_values,
+        mod_,
+        func_type_indices,
+        caller_locals~,
       )
       calls += secondary_calls
       changed = changed || secondary_changed
@@ -12398,6 +12674,7 @@ fn dae_rewrite_refined_gc_actuals_instrs(
   entry_stack_values : Int32,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  caller_locals~ : @lib.FunctionLocals? = None,
 ) -> (Array[@lib.Instruction], Int32, Bool, Bool) {
   let current = instrs.copy()
   let mut idx = 0
@@ -12424,7 +12701,35 @@ fn dae_rewrite_refined_gc_actuals_instrs(
             func_type_indices,
           ) {
           Some(result) => result
-          None => return ([], calls, false, changed)
+          None => {
+            let lane_types = match
+              dae_callsite_gc_actual_lane_types(
+                current, idx, next_params, mod_, func_type_indices, caller_locals,
+              ) {
+              Some(types) => types
+              None => return ([], calls, false, changed)
+            }
+            let module_ctx = @ir.hot_module_context_from_module(mod_)
+            for p in 0..<refine_params.length() {
+              if refine_params[p] {
+                match (lane_types[p], next_params[p]) {
+                  (
+                    Some(@lib.RefTypeValType(actual)),
+                    @lib.RefTypeValType(expected),
+                  ) =>
+                    if !ls_ref_is_subtype(module_ctx, actual, expected) {
+                      return ([], calls, false, changed)
+                    }
+                  _ => return ([], calls, false, changed)
+                }
+              }
+            }
+            // Declared lane types already satisfy the refined signature.
+            // Preserve every producer and stack lane without an operand edit.
+            calls += 1
+            idx += 1
+            continue
+          }
         }
         let mut p = 0
         while p < refine_params.length() {
@@ -12453,6 +12758,7 @@ fn dae_rewrite_refined_gc_actuals_instrs(
           next_params,
           mod_,
           func_type_indices,
+          caller_locals~,
         )
         if !ok {
           return ([], calls + nested_calls, false, changed || nested_changed)
@@ -16698,6 +17004,135 @@ fn dae_collect_direct_struct_default_actuals_instr(
 }
 
 ///|
+// Read one declared result lane without claiming ownership of its producer.
+// Candidates that need an operand rewrite stay on the scalar-slice path.
+fn dae_gc_actual_producer_lane_type(
+  instr : @lib.Instruction,
+  lane : Int32,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let results = match instr {
+    @lib.Block(bt, _)
+    | @lib.Loop(bt, _)
+    | @lib.If(bt, _, _)
+    | @lib.Try(bt, _, _, _)
+    | @lib.TryTable(bt, _, _) =>
+      dae_control_block_type_signature_evidence(bt, mod_).map(fn(sig) {
+        sig.results
+      })
+    @lib.Call(target) =>
+      dae_resolve_func_type(mod_, type_indices, dae_func_idx_slot(target)).map(fn(
+        sig,
+      ) {
+        let @lib.FuncType(_, results) = sig
+        results
+      })
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match mod_.type_sec {
+        Some(sec) =>
+          dae_type_sec_func_type(sec, type_idx).map(fn(sig) {
+            let @lib.FuncType(_, results) = sig
+            results
+          })
+        None => None
+      }
+    @lib.Select(Some(types)) => Some(types)
+    @lib.LocalGet(local_idx) =>
+      match caller_locals {
+        Some(locals) => locals.local_type(local_idx).map(fn(vt) { [vt] })
+        None => None
+      }
+    _ => None
+  }
+  match results {
+    Some(types) =>
+      if lane >= 0 && lane < types.length() {
+        Some(types[lane])
+      } else {
+        None
+      }
+    None => {
+      if lane != 0 {
+        return None
+      }
+      match dae_direct_gc_actual_candidate_type(instr, mod_, type_indices) {
+        Some(candidate) => Some(candidate)
+        None =>
+          match
+            dae_direct_gc_result_candidate_instr(
+              mod_, type_indices, caller_locals, instr, old_type,
+            ) {
+            Some((candidate, None)) => Some(candidate)
+            _ => None
+          }
+      }
+    }
+  }
+}
+
+///|
+// Track argument identities backward through stack lanes. -1 marks an input
+// consumed above a requested lane. A shared producer can supply several actuals
+// or leave earlier result lanes on the ambient stack; no code range is split.
+fn dae_callsite_gc_actual_lane_types(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int32,
+  params : Array[@lib.ValType],
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
+) -> Array[@lib.ValType?]? {
+  if call_idx < 0 || call_idx >= instrs.length() {
+    return None
+  }
+  let lanes = Array::makei(params.length(), fn(idx) { idx })
+  let candidates : Array[@lib.ValType?] = Array::make(params.length(), None)
+  let mut remaining = params.length()
+  let mut idx = call_idx - 1
+  while idx >= 0 && remaining > 0 {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      return None
+    }
+    let effect = match
+      dae_stack_effect_evidence(instrs[idx], mod_, type_indices) {
+      Some(effect) => effect
+      None => return None
+    }
+    let mut lane = effect.outputs - 1
+    while lane >= 0 && lanes.length() > 0 {
+      let argument = lanes.pop().unwrap()
+      if argument >= 0 {
+        candidates[argument] = dae_gc_actual_producer_lane_type(
+          instrs[idx],
+          lane,
+          mod_,
+          type_indices,
+          caller_locals,
+          params[argument],
+        )
+        remaining -= 1
+      }
+      lane -= 1
+    }
+    if remaining == 0 {
+      return Some(candidates)
+    }
+    for _ in 0..<effect.inputs {
+      lanes.push(-1)
+    }
+    idx -= 1
+  }
+  if remaining == 0 {
+    Some(candidates)
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_collect_direct_struct_default_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int32,
@@ -16723,17 +17158,23 @@ fn dae_collect_direct_struct_default_actuals_instrs(
         DaeTargetDirectCallOnly,
       ) {
       Some(_) => {
-        let evidence = match
-          dae_callsite_value_slice_evidence(
-            instrs,
-            idx,
-            params.length(),
-            entry_stack_values,
-            mod_,
-            func_type_indices,
-          ) {
-          Some(result) => result
-          None => return (calls, false)
+        let evidence = dae_callsite_value_slice_evidence(
+          instrs,
+          idx,
+          params.length(),
+          entry_stack_values,
+          mod_,
+          func_type_indices,
+        )
+        let lane_types = if evidence is None {
+          dae_callsite_gc_actual_lane_types(
+            instrs, idx, params, mod_, func_type_indices, caller_locals,
+          )
+        } else {
+          None
+        }
+        if evidence is None && lane_types is None {
+          return (calls, false)
         }
         let mut p = 0
         while p < params.length() {
@@ -16741,14 +17182,18 @@ fn dae_collect_direct_struct_default_actuals_instrs(
             match params[p] {
               @lib.RefTypeValType(_) =>
                 match
-                  dae_direct_gc_actual_candidate_type_for_value_slice(
-                    instrs,
-                    evidence.slices[p],
-                    mod_,
-                    params[p],
-                    func_type_indices,
-                    caller_locals,
-                  ) {
+                  (match evidence {
+                    Some(evidence) =>
+                      dae_direct_gc_actual_candidate_type_for_value_slice(
+                        instrs,
+                        evidence.slices[p],
+                        mod_,
+                        params[p],
+                        func_type_indices,
+                        caller_locals,
+                      )
+                    None => lane_types.unwrap()[p]
+                  }) {
                   Some(candidate) =>
                     match candidates[p] {
                       Some(prev) =>
@@ -21563,10 +22008,23 @@ fn dae_try_refine_direct_gc_types(
     }
     if parameter_evidence.changed {
       changed = true
-      let rewrite_caller = fn(caller_func, _) {
+      let rewrite_caller = fn(caller_func, caller_def) {
         let @lib.Func(caller_locals, @lib.Expr(caller_body)) = caller_func
+        let caller_func_locals = match
+          dae_resolve_func_type(mod_, type_indices, imported + caller_def) {
+          Some(@lib.FuncType(caller_params, _)) =>
+            Some(@lib.FunctionLocals::new(caller_params, caller_locals))
+          None => None
+        }
         let (rewritten_body, calls, ok, body_changed) = dae_rewrite_refined_gc_actuals_instrs(
-          caller_body, callee_abs, refined_params, next_params, 0, mod_, type_indices,
+          caller_body,
+          callee_abs,
+          refined_params,
+          next_params,
+          0,
+          mod_,
+          type_indices,
+          caller_locals=caller_func_locals,
         )
         let rewritten_func = if body_changed {
           @lib.Func::new(caller_locals, @lib.Expr::new(rewritten_body))
@@ -23232,6 +23690,7 @@ fn dae_current_boundary_graph_adopt_parameter_batch_lightweight(
     function_types[imported + def_idx] = defined_function_types[def_idx]
   }
   graph.dependency_cache = None
+  graph.forwarding_syntax = []
   graph.mod_ = mod_
   graph.snapshot = {
     imported,
@@ -23353,6 +23812,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
     escaped: graph.snapshot.call_facts.escaped,
   }
   graph.dependency_cache = None
+  graph.forwarding_syntax = []
   graph.mod_ = mod_
   graph.snapshot = {
     imported,
@@ -23417,6 +23877,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch(
     return false
   }
   graph.dependency_cache = None
+  graph.forwarding_syntax = []
   graph.mod_ = mod_
   graph.snapshot = {
     imported,
@@ -24206,6 +24667,105 @@ fn dae_stable_rewrite_selected_child(
 }
 
 ///|
+/// Build disjoint scalar rewrites once per scope. Nested or overlapping
+/// operand ownership keeps the existing recursive reconstruction path.
+fn dae_try_rewrite_flat_selected_calls(
+  instrs : Array[@lib.Instruction],
+  scope : Int32,
+  selection : DaeStableRewriteSelection,
+  callee_abs : Int32,
+  remove : Array[Bool],
+  entry_stack_values : Int32,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  localization : DaeCallsiteLocalizationContext,
+  traps_never_happen : Bool,
+  allow_stack_carried_void_effects : Bool,
+) -> DaeRewriteResult? {
+  let selected : Array[Int32] = []
+  for idx in 0..<instrs.length() {
+    match dae_stable_rewrite_selected_child(selection, scope, idx) {
+      Some(node) => {
+        if selection.workspace.call_stamps[node] != selection.generation {
+          return None
+        }
+        if dae_target_callsite_evidence(
+            instrs[idx],
+            callee_abs,
+            DaeTargetDirectOrReturnCall,
+          )
+          is None {
+          return None
+        }
+        selected.push(idx)
+      }
+      None => ()
+    }
+  }
+  if selected.length() < 2 {
+    return None
+  }
+  let fragments : Array[(Int32, Int32, Array[@lib.Instruction])] = []
+  let mut scratch = localization.scratch_local_types.copy()
+  let localized = localization.localized_params.copy()
+  let mut next_limit = instrs.length()
+  for index = selected.length() - 1; index >= 0; index = index - 1 {
+    let call_idx = selected[index]
+    if call_idx >= next_limit {
+      return None
+    }
+    let starts : Array[Int32] = []
+    let evidence = match
+      dae_rewrite_callsite_with_localization_at(
+        instrs,
+        call_idx,
+        remove,
+        localization.param_types,
+        entry_stack_values,
+        localization.first_scratch_local,
+        mod_,
+        func_type_indices,
+        existing_scratch_local_types=scratch,
+        allow_stack_carried_void_effects~,
+        traps_never_happen~,
+        fragment_start=Some(starts),
+      ) {
+      Some(evidence) if starts.length() == 1 => evidence
+      _ => return None
+    }
+    let start = starts[0]
+    if start < 0 || start > call_idx {
+      return None
+    }
+    fragments.push((start, call_idx + 1, evidence.instrs))
+    scratch = evidence.scratch_local_types
+    for p in 0..<localized.length() {
+      localized[p] = localized[p] || evidence.localized_params[p]
+    }
+    next_limit = start
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  for index = fragments.length() - 1; index >= 0; index = index - 1 {
+    let (start, end, replacement) = fragments[index]
+    for idx in cursor..<start {
+      out.push(instrs[idx])
+    }
+    out.append(replacement)
+    cursor = end
+  }
+  for idx in cursor..<instrs.length() {
+    out.push(instrs[idx])
+  }
+  localization.scratch_local_types.clear()
+  localization.scratch_local_types.append(scratch)
+  for p in 0..<localized.length() {
+    localization.localized_params[p] = localized[p]
+  }
+  Some({ instrs: out, calls_rewritten: selected.length(), ok: true, })
+}
+
+///|
 fn dae_rewrite_calls_from_stable_selection_scope(
   instrs : Array[@lib.Instruction],
   scope : Int32,
@@ -24222,6 +24782,20 @@ fn dae_rewrite_calls_from_stable_selection_scope(
 ) -> DaeRewriteResult {
   match stats {
     Some(value) => value.scopes += 1
+    None => ()
+  }
+  match
+    dae_try_rewrite_flat_selected_calls(
+      instrs, scope, selection, callee_abs, remove, entry_stack_values, mod_, func_type_indices,
+      localization, traps_never_happen, allow_stack_carried_void_effects,
+    ) {
+    Some(result) => {
+      match stats {
+        Some(value) => value.calls += result.calls_rewritten
+        None => ()
+      }
+      return result
+    }
     None => ()
   }
   let mut current = instrs.copy()
@@ -24590,7 +25164,16 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         allow_stack_carried_void_effects~,
       ) {
       Some(actions) => actions
-      None => return None
+      // Unknown scalar ownership can still remove entry-dead parameters by
+      // preserving the complete original stack evaluation at every call.
+      None =>
+        Array::makei(params.length(), fn(index) {
+          if requested_remove[index] && !active_entry_live[index] {
+            DaeRemoveParameterReplayEffects
+          } else {
+            DaeKeepParameter
+          }
+        })
     }
   }
   let const_params : Array[@lib.Instruction?] = match materialized_params {
@@ -25703,6 +26286,8 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   liveness_work~ : Array[Int32]? = None,
   traps_never_happen~ : Bool = false,
   allow_stack_carried_void_effects~ : Bool = false,
+  scalar_validation_chain~ : DaeScalarValidationChain? = None,
+  scalar_validation_work~ : DaeScalarValidationWork? = None,
 ) -> DaeRewritePlanApplication {
   match
     dae_build_scalar_unused_param_rewrite_plan(
@@ -25720,7 +26305,14 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
       traps_never_happen~,
       allow_stack_carried_void_effects~,
     ) {
-    Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan)
+    Some(plan) =>
+      dae_apply_rewrite_plan(
+        mod_,
+        graph,
+        plan,
+        scalar_validation_chain~,
+        scalar_validation_work~,
+      )
     None => dae_rewrite_plan_rejection(mod_, DaeActualValueSliceUnavailable)
   }
 }
@@ -29360,6 +29952,47 @@ fn dae_collect_module_call_counts_anywhere(
 }
 
 ///|
+/// Match the original all-direct-call scanner, including its inactive-tail
+/// and legacy-control rules. Unknown control arity keeps the original scanner.
+fn dae_collect_cached_module_call_counts(
+  graph : DaeCurrentBoundaryGraph,
+) -> Array[Int32] {
+  let imported = graph.snapshot.imported
+  let defined = graph.snapshot.defined
+  let counts = Array::make(defined, 0)
+  for caller_def in 0..<defined {
+    if caller_def >= graph.snapshot.funcs.length() {
+      break
+    }
+    let calls = dae_forwarding_syntax_calls(graph, caller_def)
+    if graph.forwarding_syntax[caller_def].unwrap().complete {
+      for call in calls {
+        match call.instrs[call.call_idx] {
+          @lib.Call(target) => {
+            let target_def = dae_func_idx_slot(target) - imported
+            if target_def >= 0 && target_def < defined {
+              counts[target_def] += 1
+            }
+          }
+          _ => ()
+        }
+      }
+    } else {
+      let targets : Array[Int32] = []
+      let undropped : Array[Int32] = []
+      let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[caller_def]
+      dae_scan_original_call_summary_instrs(
+        body, imported, defined, targets, undropped,
+      )
+      for target in targets {
+        counts[target] += 1
+      }
+    }
+  }
+  counts
+}
+
+///|
 fn dae_collect_original_call_summary_with_context(
   mod_ : @lib.Module,
   imported : Int32,
@@ -29519,22 +30152,32 @@ fn dae_collect_original_boundary_snapshot(
     call_summary.call_counts,
     escaped,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let private_result_same_operand_call_counts = dae_collect_original_private_result_same_operand_call_counts_with_escaped(
-    mod_, escaped,
+    mod_,
+    escaped,
+    known_type_indices=Some(type_indices),
+    first_roots~,
   )
   let dead_suffix_escaped_result_call_facts = dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     mod_,
     escaped,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let escaped_result_operand_call_facts = dae_collect_original_escaped_result_operand_call_facts_with_escaped(
-    mod_, escaped, dead_suffix_escaped_result_call_facts,
+    mod_,
+    escaped,
+    dead_suffix_escaped_result_call_facts,
+    known_type_indices=Some(type_indices),
+    first_roots~,
   )
   let private_result_dead_suffix_calls_from_escaped_operand_callees = dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_callees(
     mod_,
     escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let escaped_dead_suffix_call_counts = dae_collect_original_escaped_dead_suffix_call_counts_with_escaped(
     mod_,
@@ -29560,31 +30203,39 @@ fn dae_collect_original_boundary_snapshot(
   )
   let dead_suffix_block_undropped_self_calls = dae_collect_original_dead_suffix_block_undropped_self_calls(
     mod_,
+    first_roots~,
   )
   let dead_suffix_dropped_self_call_full_param_forwards = dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
     mod_,
+    known_type_indices=Some(type_indices),
+    first_roots~,
   )
   let dead_suffix_result_calls_from_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_with_escaped(
     mod_,
     call_summary.nonself_undropped_call_counts,
     escaped,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_result_calls_from_no_param_undropped_self_callers = dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_undropped_calls_from_parameterized_dropped_self_callers = dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_dropped_calls_from_parameterized_self_callers = dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_dropped_calls_from_no_param_result_callers = dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_mixed_dropped_undropped_call_counts = dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_escaped(
     mod_,
@@ -29594,6 +30245,7 @@ fn dae_collect_original_boundary_snapshot(
   let dead_suffix_dropped_earlier_result_calls = dae_collect_original_dead_suffix_dropped_earlier_result_calls(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let later_dead_suffix_dropped_call_counts = dae_collect_original_later_dead_suffix_dropped_call_counts(
     mod_,
@@ -29601,24 +30253,30 @@ fn dae_collect_original_boundary_snapshot(
   )
   let dead_suffix_same_self_result_operand_calls = dae_collect_original_dead_suffix_same_self_result_operand_calls(
     mod_,
+    known_type_indices=Some(type_indices),
+    first_roots~,
   )
   let dead_suffix_undropped_self_call_param_operands = dae_collect_original_dead_suffix_undropped_self_call_param_operands(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_result_other_calls = dae_collect_original_dead_suffix_result_other_calls_with_escaped(
     mod_,
     escaped,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_self_recursive_void_side_calls = dae_collect_original_dead_suffix_self_recursive_void_side_calls(
     mod_,
     first_roots~,
     original_self_call_counts=Some(call_summary.self_call_counts),
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_self_recursive_result_side_calls = dae_collect_original_dead_suffix_self_recursive_result_side_calls(
     mod_,
     first_roots~,
+    known_type_indices=Some(type_indices),
   )
   let dead_suffix_mutual_calls = dae_collect_original_dead_suffix_mutual_calls(
     mod_,
@@ -29927,6 +30585,7 @@ fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> DaeOriginalDeadSuffixEscapedResultCallFacts {
   let defined = dae_defined_func_count(mod_)
   let dropped_calls = Array::make(defined, false)
@@ -29935,7 +30594,10 @@ fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return { dropped_calls, undropped_calls, }
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let mut def_idx = 0
   while def_idx < defined {
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
@@ -29973,10 +30635,14 @@ fn dae_mark_dead_suffix_escaped_result_operand_targets(
   counts : Array[Int32],
   dropped_calls : Array[Bool],
   require_dropped : Bool,
+  known_first_root~ : Int32 = -2,
 ) -> Unit {
   let stack_from_escaped_call : Array[Bool] = []
   let mut in_suffix = false
-  let mut idx = 0
+  if known_first_root == -1 {
+    return
+  }
+  let mut idx = if known_first_root >= 0 { known_first_root } else { 0 }
   while idx < instrs.length() {
     let instr = instrs[idx]
     if !in_suffix {
@@ -30081,10 +30747,14 @@ fn dae_mark_dead_suffix_same_result_operand_targets(
   caller_stamps : Array[Int32],
   caller_def : Int32,
   counts : Array[Int32],
+  known_first_root~ : Int32 = -2,
 ) -> Unit {
   let stack_sources : Array[Int32] = []
   let mut in_suffix = false
-  let mut idx = 0
+  if known_first_root == -1 {
+    return
+  }
+  let mut idx = if known_first_root >= 0 { known_first_root } else { 0 }
   while idx < instrs.length() {
     let instr = instrs[idx]
     if !in_suffix {
@@ -30183,6 +30853,7 @@ fn dae_dead_suffix_call_to_has_same_result_operand(
   callee_abs : Int32,
   mod_ : @lib.Module,
   type_indices : Array[@lib.TypeIdx],
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
   let (param_count, result_count) = match
     dae_resolve_func_type(mod_, type_indices, callee_abs) {
@@ -30191,7 +30862,10 @@ fn dae_dead_suffix_call_to_has_same_result_operand(
   }
   let stack_from_target_call : Array[Bool] = []
   let mut in_suffix = false
-  let mut idx = 0
+  if known_first_root == -1 {
+    return false
+  }
+  let mut idx = if known_first_root >= 0 { known_first_root } else { 0 }
   while idx < instrs.length() {
     let instr = instrs[idx]
     if !in_suffix {
@@ -30273,6 +30947,8 @@ fn dae_dead_suffix_call_to_has_same_result_operand(
 fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30280,7 +30956,10 @@ fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   // A defined caller index is a unique nonnegative stamp in this invocation.
   // Allocate only at the first eligible caller; no row clear is needed later.
@@ -30304,7 +30983,17 @@ fn dae_collect_original_private_result_same_operand_call_counts_with_escaped(
         }
       }
       dae_mark_dead_suffix_same_result_operand_targets(
-        body, mod_, type_indices, imported, defined, stamps, caller_def, counts,
+        body,
+        mod_,
+        type_indices,
+        imported,
+        defined,
+        stamps,
+        caller_def,
+        counts,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
     }
     caller_def += 1
@@ -30318,6 +31007,7 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
   original_nonself_undropped_call_counts : Array[Int32],
   escaped : Array[Bool],
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30325,7 +31015,10 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -30386,6 +31079,7 @@ fn dae_collect_original_dead_suffix_result_calls_from_undropped_self_callers_wit
 fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_callers(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30393,7 +31087,10 @@ fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_ca
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -30438,6 +31135,7 @@ fn dae_collect_original_dead_suffix_result_calls_from_no_param_undropped_self_ca
 fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30445,7 +31143,10 @@ fn dae_collect_original_dead_suffix_undropped_calls_from_parameterized_dropped_s
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
@@ -30551,10 +31252,14 @@ fn dae_collect_original_dead_suffix_mixed_dropped_undropped_call_counts_with_esc
 fn dae_collect_original_dead_suffix_dropped_earlier_result_calls(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
@@ -30635,6 +31340,7 @@ fn dae_collect_original_later_dead_suffix_dropped_call_counts(
 fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_callers(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30642,7 +31348,10 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
@@ -30689,6 +31398,7 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_parameterized_self_caller
 fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30696,7 +31406,10 @@ fn dae_collect_original_dead_suffix_dropped_calls_from_no_param_result_callers(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let counted_stamp = Array::make(defined, -1)
   let mut caller_def = 0
@@ -30737,6 +31450,8 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
   dead_suffix_escaped_result_calls : DaeOriginalDeadSuffixEscapedResultCallFacts,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
+  first_roots~ : Array[Int32]? = None,
 ) -> DaeOriginalEscapedResultOperandCallFacts {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30750,7 +31465,10 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
         private_result_escaped_operand_call_counts,
       }
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   // A defined caller index is a unique nonnegative stamp in this invocation.
   // Allocate only at the first eligible caller; no row clear is needed later.
   let mut caller_stamps : Array[Int32]? = None
@@ -30792,6 +31510,9 @@ fn dae_collect_original_escaped_result_operand_call_facts_with_escaped(
         counts,
         dead_suffix_escaped_result_calls.dropped_calls,
         caller_is_private_result,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
       )
     }
     caller_def += 1
@@ -30807,6 +31528,7 @@ fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_ca
   mod_ : @lib.Module,
   escaped_operand_counts : Array[Int32],
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30814,7 +31536,10 @@ fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_ca
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -30853,10 +31578,15 @@ fn dae_collect_original_private_result_dead_suffix_calls_from_escaped_operand_ca
 ///|
 fn dae_collect_original_dead_suffix_same_self_result_operand_calls(
   mod_ : @lib.Module,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
@@ -30867,7 +31597,11 @@ fn dae_collect_original_dead_suffix_same_self_result_operand_calls(
     let callee_abs = imported + def_idx
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     flags[def_idx] = dae_dead_suffix_call_to_has_same_result_operand(
-      body, callee_abs, mod_, type_indices,
+      body,
+      callee_abs,
+      mod_,
+      type_indices,
+      known_first_root=dae_original_first_root_index(body, first_roots, def_idx),
     )
     def_idx += 1
   }
@@ -30880,6 +31614,7 @@ fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
   original_call_counts : Array[Int32],
   escaped : Array[Bool],
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Int32] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -30887,7 +31622,10 @@ fn dae_collect_original_private_result_dead_suffix_call_counts_with_escaped(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, 0)
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let counts = Array::make(defined, 0)
   let mut caller_def = 0
   while caller_def < funcs.length() {
@@ -31204,9 +31942,13 @@ fn dae_dead_suffix_has_undropped_self_call_param_operand(
 fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -31243,8 +31985,12 @@ fn dae_collect_original_dead_suffix_undropped_self_call_param_operands(
 fn dae_dead_suffix_has_block_undropped_direct_call_to(
   instrs : Array[@lib.Instruction],
   callee_abs : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
-  let mut idx = 0
+  if known_first_root == -1 {
+    return false
+  }
+  let mut idx = if known_first_root >= 0 { known_first_root } else { 0 }
   while idx < instrs.length() {
     if dae_instr_is_unreachable_root(instrs[idx]) {
       let mut suffix_idx = idx + 1
@@ -31272,6 +32018,7 @@ fn dae_dead_suffix_has_block_undropped_direct_call_to(
 ///|
 fn dae_collect_original_dead_suffix_block_undropped_self_calls(
   mod_ : @lib.Module,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
@@ -31286,6 +32033,9 @@ fn dae_collect_original_dead_suffix_block_undropped_self_calls(
       dae_dead_suffix_has_block_undropped_direct_call_to(
         body,
         imported + def_idx,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
       ),
     )
     def_idx += 1
@@ -31326,11 +32076,15 @@ fn dae_dead_suffix_has_dropped_self_call_full_param_forward(
   instrs : Array[@lib.Instruction],
   callee_abs : Int32,
   param_count : Int32,
+  known_first_root~ : Int32 = -2,
 ) -> Bool {
   if param_count == 0 {
     return false
   }
-  let mut idx = 0
+  if known_first_root == -1 {
+    return false
+  }
+  let mut idx = if known_first_root >= 0 { known_first_root } else { 0 }
   while idx < instrs.length() {
     if dae_instr_is_unreachable_root(instrs[idx]) {
       let mut suffix_idx = idx + 1
@@ -31360,9 +32114,14 @@ fn dae_dead_suffix_has_dropped_self_call_full_param_forward(
 ///|
 fn dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
   mod_ : @lib.Module,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
+  first_roots~ : Array[Int32]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -31379,7 +32138,12 @@ fn dae_collect_original_dead_suffix_dropped_self_call_full_param_forwards(
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     flags.push(
       dae_dead_suffix_has_dropped_self_call_full_param_forward(
-        body, callee_abs, param_count,
+        body,
+        callee_abs,
+        param_count,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, def_idx,
+        ),
       ),
     )
     def_idx += 1
@@ -31468,10 +32232,14 @@ fn dae_dead_suffix_has_private_result_call_other_than(
 fn dae_collect_original_dead_suffix_self_recursive_result_side_calls(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
@@ -31525,10 +32293,14 @@ fn dae_collect_original_dead_suffix_self_recursive_void_side_calls(
   mod_ : @lib.Module,
   first_roots~ : Array[Int32]? = None,
   original_self_call_counts~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Array::make(defined, false)
@@ -31578,9 +32350,13 @@ fn dae_collect_original_dead_suffix_result_other_calls_with_escaped(
   mod_ : @lib.Module,
   escaped : Array[Bool],
   first_roots~ : Array[Int32]? = None,
+  known_type_indices~ : Array[@lib.TypeIdx]? = None,
 ) -> Array[Bool] {
   let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match known_type_indices {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
@@ -31619,9 +32395,10 @@ fn dae_collect_original_dead_suffix_mutual_calls(
   }
   let flags = Array::make(defined, false)
   let counted_stamp = Array::make(defined, -1)
+  let loaded = Array::make(defined, false)
+  let edges : @hashmap.HashMap[DaeAdjacencyKey, Bool] = @hashmap.new()
   let mut def_idx = 0
   while def_idx < funcs.length() {
-    let callee_abs = imported + def_idx
     let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
     let targets : Array[Int32] = []
     dae_collect_dead_suffix_direct_targets(
@@ -31635,9 +32412,22 @@ fn dae_collect_original_dead_suffix_mutual_calls(
       if target != def_idx && counted_stamp[target] != def_idx {
         counted_stamp[target] = def_idx
         if target >= 0 && target < funcs.length() {
-          let @lib.Func(_, @lib.Expr(other_body)) = funcs[target]
-          if dae_count_direct_call_anywhere_to(other_body, callee_abs) > 0 {
+          // Each reverse-query body is scanned at most once, even when many
+          // dead suffixes ask about its outgoing direct calls.
+          if !loaded[target] {
+            loaded[target] = true
+            let @lib.Func(_, @lib.Expr(other_body)) = funcs[target]
+            let outgoing : Array[Int32] = []
+            dae_collect_direct_call_targets_anywhere(
+              other_body, imported, defined, outgoing,
+            )
+            for destination in outgoing {
+              edges.set(DaeAdjacencyKey::new(0, target, destination), true)
+            }
+          }
+          if edges.contains(DaeAdjacencyKey::new(0, target, def_idx)) {
             flags[def_idx] = true
+            break
           }
         }
       }
@@ -32469,19 +33259,20 @@ fn dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers
         original_dead_suffix_mutual_calls,
       ) {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let mut callee_def = 0
-      while callee_def < defined {
-        if callee_def != caller_def {
-          counts[callee_def] = counts[callee_def] +
-            dae_count_dead_suffix_direct_call_to(
-              body,
-              imported + callee_def,
-              known_first_root=dae_original_first_root_index(
-                body, first_roots, caller_def,
-              ),
-            )
+      let targets : Array[Int32] = []
+      dae_collect_dead_suffix_direct_targets(
+        body,
+        imported,
+        defined,
+        targets,
+        known_first_root=dae_original_first_root_index(
+          body, first_roots, caller_def,
+        ),
+      )
+      for target in targets {
+        if target != caller_def {
+          counts[target] += 1
         }
-        callee_def += 1
       }
     }
     caller_def += 1
@@ -33588,7 +34379,6 @@ fn dae_run_core_once(
             _ => None
           }
         }
-        dae_scalar_validation_barrier_opt(scalar_validation_chain)
         let planned = dae_try_rewrite_scalar_unused_param_candidate(
           mod_,
           original,
@@ -33602,6 +34392,8 @@ fn dae_run_core_once(
           entry_live=Some(entry_live),
           liveness_work~,
           traps_never_happen~,
+          scalar_validation_chain~,
+          scalar_validation_work~,
         )
         if planned.applied {
           dae_record_producer_effects(producer_effects_report, planned.effects)
@@ -51517,12 +52309,16 @@ fn dae_run_core(
   let mut has_current_dropped_result_candidate = dae_current_graph_has_dropped_result_candidate(
     original_boundary_snapshot, current_boundary_graph,
   )
-  let mut current_call_counts_anywhere = match current.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      dae_collect_module_call_counts_anywhere(
-        funcs, original_imported, original_defined,
-      )
-    None => Array::make(original_defined, 0)
+  let mut current_call_counts_anywhere = if scalar_plan_code_snapshot_current {
+    dae_collect_cached_module_call_counts(current_boundary_graph)
+  } else {
+    match current.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        dae_collect_module_call_counts_anywhere(
+          funcs, original_imported, original_defined,
+        )
+      None => Array::make(original_defined, 0)
+    }
   }
   let mut unprofitable_removal_iters = if single_caller_throttle_consumed {
     1
@@ -51738,12 +52534,16 @@ fn dae_run_core(
       touched = application.touched
       changed = application.changed
       effects = dae_commit_effects_merge(effects, application.effects)
-      current_call_counts_anywhere = match current.code_sec {
-        Some(@lib.CodeSec(funcs)) =>
-          dae_collect_module_call_counts_anywhere(
-            funcs, original_imported, original_defined,
-          )
-        None => Array::make(original_defined, 0)
+      current_call_counts_anywhere = if scalar_plan_code_snapshot_current {
+        dae_collect_cached_module_call_counts(current_boundary_graph)
+      } else {
+        match current.code_sec {
+          Some(@lib.CodeSec(funcs)) =>
+            dae_collect_module_call_counts_anywhere(
+              funcs, original_imported, original_defined,
+            )
+          None => Array::make(original_defined, 0)
+        }
       }
       diagnostics.candidate_requeues += dae_boundary_worklist_requeue(
         core_worklist, invalidated,

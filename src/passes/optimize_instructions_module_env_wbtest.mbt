@@ -26,7 +26,7 @@ test "OI tuple cleanup shares one validation snapshot across lowered functions" 
       @lib.FuncIdx::new(index),
       optimize_instructions_descriptor(),
       state,
-      { next_type_sec: input.type_sec, type_sec_changed: false, },
+      HotPipelineLowerState::new(input.type_sec),
       options,
     ).unwrap()
     outputs[index.to_int()] = result.func

@@ -1407,6 +1407,7 @@ pub fn run_hot_pipeline(
   // materialization and the consumed fact-section removal.
   let prepared_module = prepared.module_
   let mut current = prepared_module
+  let module_cache = HotPipelineModuleCache::new()
   let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
     mod_,
   )
@@ -1428,7 +1429,10 @@ pub fn run_hot_pipeline(
       pending_hot_passes.length() > 1 {
       match
         run_hot_pipeline_apply_hot_pass_stack(
-          current, pending_hot_passes, options,
+          current,
+          pending_hot_passes,
+          options,
+          module_cache=Some(module_cache),
         ) {
         Ok(next) => next
         Err(err) => return Err(err)
@@ -1437,7 +1441,12 @@ pub fn run_hot_pipeline(
       let mut next_current = current
       for pending in pending_hot_passes {
         next_current = match
-          run_hot_pipeline_apply_hot_pass(next_current, pending, options) {
+          run_hot_pipeline_apply_hot_pass(
+            next_current,
+            pending,
+            options,
+            module_cache=Some(module_cache),
+          ) {
           Ok(next) => next
           Err(err) => return Err(err)
         }
@@ -1543,7 +1552,12 @@ pub fn run_hot_pipeline(
             Err(err) => return Err(err)
           }
           current = match
-            run_hot_pipeline_apply_hot_pass(current, entry, options) {
+            run_hot_pipeline_apply_hot_pass(
+              current,
+              entry,
+              options,
+              module_cache=Some(module_cache),
+            ) {
             Ok(next) => next
             Err(err) => return Err(err)
           }
@@ -1555,7 +1569,12 @@ pub fn run_hot_pipeline(
         }
         let before_module_pass = current
         current = match
-          run_hot_pipeline_apply_module_pass(current, entry, options) {
+          run_hot_pipeline_apply_module_pass(
+            current,
+            entry,
+            options,
+            module_cache=Some(module_cache),
+          ) {
           Ok(next) => next
           Err(err) => return Err(err)
         }
@@ -1567,7 +1586,12 @@ pub fn run_hot_pipeline(
           hot_pipeline_has_late_passive_packing_candidate(current) {
           let packing = pass_registry_lookup_cached("memory-packing").unwrap()
           current = match
-            run_hot_pipeline_apply_module_pass(current, packing, options) {
+            run_hot_pipeline_apply_module_pass(
+              current,
+              packing,
+              options,
+              module_cache=Some(module_cache),
+            ) {
             Ok(next) => next
             Err(err) => return Err(err)
           }
@@ -1589,13 +1613,23 @@ pub fn run_hot_pipeline(
             current = match finish.category {
               HotPassRegistryCategory::HotPass =>
                 match
-                  run_hot_pipeline_apply_hot_pass(current, finish, options) {
+                  run_hot_pipeline_apply_hot_pass(
+                    current,
+                    finish,
+                    options,
+                    module_cache=Some(module_cache),
+                  ) {
                   Ok(next) => next
                   Err(err) => return Err(err)
                 }
               _ =>
                 match
-                  run_hot_pipeline_apply_module_pass(current, finish, options) {
+                  run_hot_pipeline_apply_module_pass(
+                    current,
+                    finish,
+                    options,
+                    module_cache=Some(module_cache),
+                  ) {
                   Ok(next) => next
                   Err(err) => return Err(err)
                 }
@@ -1607,7 +1641,12 @@ pub fn run_hot_pipeline(
             hot_pipeline_has_late_passive_packing_candidate(current) {
             let packing = pass_registry_lookup_cached("memory-packing").unwrap()
             current = match
-              run_hot_pipeline_apply_module_pass(current, packing, options) {
+              run_hot_pipeline_apply_module_pass(
+                current,
+                packing,
+                options,
+                module_cache=Some(module_cache),
+              ) {
               Ok(next) => next
               Err(err) => return Err(err)
             }

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/pass_review_locals_wbtest.mbt
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
   - ../../../../../src/passes/coalesce_locals_resume_handler_test.mbt
@@ -436,3 +437,25 @@ Evidence is in Dewdrop `.tmp/starshine-pass-repairs/`:
 `cfg-source-order-array-benchmark.json`, and
 `full-replay-regression-wave25/report.json`. Exact remote-baseline attribution
 is in `remote-baseline-selected/report.json`.
+
+## October 19, 2026 — Floating values require bit identities
+
+Constant identities use the complete f32/f64 bit pattern. Rendered floating
+text cannot distinguish all NaN payloads, and numeric equality cannot identify
+negative zero with the positive-zero local default. Only an all-zero floating
+bit pattern is an explicit default.
+
+The [focused tests](../../../../../src/passes/pass_review_locals_wbtest.mbt)
+cover distinct NaN payloads, signed zero, interference and public-pipeline
+execution. A native baseline also reproduced the signed-zero error: the XOR of
+a default f32 local and a negative-zero local returned 0 instead of
+-2147483648 after coalescing. The [command regression](../../../../../src/cmd/cmd.mbt)
+checks the result bits through the active dispatcher.
+
+The linear path uses current value identities and source-write/later-read guards
+in place of the structured path's plain-live edges. No additional defect was
+confirmed from that omission under its no-join contract. The old negative-zero
+default relaxation could remove even an edge from plain liveness; adding a
+plain-live scan before that relaxation would not repair the cause. The
+[review evidence](../../../raw/tooling/2026-10-19-pass-review-follow-up.json)
+records the source argument and exact float action trace.

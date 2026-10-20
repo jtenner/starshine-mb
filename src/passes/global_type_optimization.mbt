@@ -258,6 +258,54 @@ fn gto_rewrite_expr(
 }
 
 ///|
+fn gto_rewrite_descriptor_field_names(
+  names : @lib.NameSec,
+  plans : Array[Int32],
+) -> @lib.NameSec {
+  let field_names = names.field_names.map(fn(name_map) {
+    let @lib.IndirectNameMap(entries) = name_map
+    @lib.IndirectNameMap::new(
+      entries.map(fn(entry) {
+        let @lib.IndirectNameAssoc(owner, @lib.NameMap(fields)) = entry
+        let plan = gto_type_plan(plans, @lib.TypeIdx::new(owner))
+        let next_fields : Array[@lib.NameAssoc] = []
+        for @lib.NameAssoc(index, name) in fields {
+          if plan == 1 && index == 0U {
+            // The removed value's name must not label the synthetic placeholder.
+            continue
+          }
+          next_fields.push(
+            @lib.NameAssoc::new(
+              if plan == 2 {
+                index + 1U
+              } else {
+                index
+              },
+              name,
+            ),
+          )
+        }
+        @lib.IndirectNameAssoc::new(owner, @lib.NameMap::new(next_fields))
+      }),
+    )
+  })
+  @lib.NameSec::new(
+    module_name=names.module_name,
+    func_names=names.func_names,
+    local_names=names.local_names,
+    label_names=names.label_names,
+    type_names=names.type_names,
+    field_names~,
+    table_names=names.table_names,
+    memory_names=names.memory_names,
+    global_names=names.global_names,
+    elem_names=names.elem_names,
+    data_names=names.data_names,
+    tag_names=names.tag_names,
+  )
+}
+
+///|
 fn global_type_optimization_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
@@ -336,9 +384,14 @@ fn global_type_optimization_run_module_pass(
   if failed[0] {
     return mod_
   }
-  let candidate = mod_
+  let mut candidate = mod_
     .with_type_sec(@lib.TypeSec::new(rewritten_types))
     .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  if mod_.name_sec is Some(names) {
+    candidate = candidate.with_name_sec(
+      gto_rewrite_descriptor_field_names(names, plans),
+    )
+  }
   if @validate.validate_module(candidate).is_ok() {
     candidate
   } else {

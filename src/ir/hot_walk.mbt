@@ -71,12 +71,21 @@ fn hot_walk_push_live_node(
 ///|
 // If keeps its historical condition/then/else slots, followed by typed entry
 // operands. Execution order is entries, condition, then the selected region.
+// Try-like nodes keep body/catch in slots 0/1 and evaluate slots 2+ before EH.
 #inline
 fn hot_child_evaluation_slot(node : HotNode, index : Int32) -> Int32 {
   if node.op == HotOp::If && node.child_count > 3 {
     let entries = node.child_count - 3
     if index < entries {
       index + 3
+    } else {
+      index - entries
+    }
+  } else if (node.op == HotOp::Try || node.op == HotOp::TryTable) &&
+    node.child_count > 2 {
+    let entries = node.child_count - 2
+    if index < entries {
+      index + 2
     } else {
       index - entries
     }

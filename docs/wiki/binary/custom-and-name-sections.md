@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-20
 sources:
+  - ../../../src/passes/report_types_metadata_wbtest.mbt
+  - ../../../src/passes/pass_review_locals_wbtest.mbt
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
@@ -235,3 +237,31 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Validation and invalid generation: [`../../../src/validate/compiler_facts.mbt`](../../../src/validate/compiler_facts.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - CLI print selector implementation and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md)
 - Related docs: [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md)
+
+## October 19, 2026 — Remap known names and invalidate stale caches
+
+GTO descriptor-field shifts remap retained field indices under their type
+owner; replacement placeholders do not inherit a removed field's name.
+Inlining local compaction drops removed local names and remaps retained local
+indices. A structured name rewrite clears the raw name payload cache.
+
+For valid raw-only name sections, StringGathering and Precompute type cleanup
+decode the known name maps before their index changes. A malformed raw-only
+payload does not stop an existing transform: changed output clears that stale
+cache, while an unchanged result retains the original payload. Normal decoded
+modules already have structured maps and a raw cache; that cache is not a
+second independent source of names.
+
+StringGathering must invalidate compiler facts when it changes globals or
+code. Preserving facts tied to the old indices or instruction locations would
+be wrong. The review's blanket fact-preservation request conflicts with this
+existing module ownership contract. The
+[type/metadata tests](../../../src/passes/report_types_metadata_wbtest.mbt) and
+[local-name tests](../../../src/passes/pass_review_locals_wbtest.mbt) cover the
+supported remaps and the required invalidation.
+
+Unknown optional name subsection IDs are outside the structured name model.
+The decoder skips them. A transform that remaps indices clears the old raw
+payload rather than retain unknown names with stale ownership. This repair
+preserves known structured names; it does not add an opaque extension
+remapper. See `decode.mbt` and `mass_audit_codec_wbtest.mbt`.

@@ -133,8 +133,39 @@ fn precompute_type_cleanup_supported(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
-// Run only after writeback repair: pruning changes every surviving type index,
-// including functions outside the touched set. Byte equality avoids NaN != NaN.
+fn precompute_cleanup_code_changed(
+  original : @lib.Module,
+  mod_ : @lib.Module,
+) -> Bool {
+  let old_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  let new_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if old_funcs.length() != new_funcs.length() {
+    return true
+  }
+  for index, old_func in old_funcs {
+    let new_func = new_funcs[index]
+    if physical_equal(old_func, new_func) {
+      continue
+    }
+    let @lib.Func(old_locals, @lib.Expr(old_body)) = old_func
+    let @lib.Func(new_locals, @lib.Expr(new_body)) = new_func
+    if old_locals != new_locals ||
+      !pass_const_instruction_vectors_bits_equal(old_body, new_body) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+// Run only after writeback repair: pruning can remap types in untouched bodies.
+// Compare literal bits directly; IEEE NaN equality is unsuitable here.
 fn precompute_cleanup_unused_gc_types(
   original : @lib.Module,
   mod_ : @lib.Module,
@@ -142,21 +173,35 @@ fn precompute_cleanup_unused_gc_types(
   if !precompute_type_cleanup_supported(mod_) {
     return mod_
   }
-  let old_code = match original.code_sec {
-    Some(code) => @binary.encode_module(@lib.Module::new().with_code_sec(code))
-    None => return mod_
+  if !precompute_cleanup_code_changed(original, mod_) {
+    return mod_
   }
-  let new_code = match mod_.code_sec {
-    Some(code) => @binary.encode_module(@lib.Module::new().with_code_sec(code))
-    None => return mod_
+  let named = if mod_.name_sec is None {
+    match mod_.raw_name_sec_payload {
+      Some(payload) => {
+        let decoded : Result[(@lib.NameSec, Int32), @binary.BinaryDecodeError] = @binary.Decode::decode(
+          payload, 0,
+        )
+        match decoded {
+          Ok((names, end)) if end == payload.length() =>
+            mod_.with_name_sec(names)
+          // Prepare only the candidate without opaque names. If pruning does
+          // not commit, return the original module with its payload unchanged.
+          _ => mod_.without_name_sec()
+        }
+      }
+      None => mod_
+    }
+  } else {
+    mod_
   }
-  match (old_code, new_code) {
-    (Ok(old_bytes), Ok(new_bytes)) if old_bytes != new_bytes => ()
-    _ => return mod_
+  let pruned = dfe_prune_unused_simple_types(named)
+  if physical_equal(named, pruned) {
+    return mod_
   }
-  let pruned = dfe_prune_unused_simple_types(mod_)
-  match (@binary.encode_module(mod_), @binary.encode_module(pruned)) {
-    (Ok(before), Ok(after)) if after.length() < before.length() =>
+  // Raw-only input metadata must participate in both sides of the size test.
+  match @binary.encoded_module_sizes(named, pruned) {
+    Ok((before, after)) if after < before =>
       if @validate.validate_module(pruned) is Ok(_) {
         return pruned
       }

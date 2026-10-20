@@ -1579,6 +1579,40 @@ fn precompute_known_heap_pop_values(
 }
 
 ///|
+// Initializers and the module context are immutable for a pass invocation.
+// Keep depth in the key so the interpreter's recursion bound stays unchanged.
+fn precompute_known_heap_value_from_global_cached(
+  ctx : HotPassContext,
+  global_idx : @lib.GlobalIdx,
+  depth : Int32,
+) -> PrecomputeKnownHeapValue? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let cache = match ctx.precompute_global_values {
+    Some(cache) => cache
+    None => {
+      let cache : Map[(@lib.GlobalIdx, Int32), PrecomputeKnownHeapValue?] = Map([],
+      )
+      ctx.precompute_global_values = Some(cache)
+      cache
+    }
+  }
+  let key = (global_idx, depth)
+  match cache.get(key) {
+    Some(value) => value
+    None => {
+      let value = precompute_known_heap_value_from_global(
+        module_ctx, global_idx, depth,
+      )
+      cache[key] = value
+      value
+    }
+  }
+}
+
+///|
 fn precompute_known_heap_value_from_global(
   module_ctx : @ir.HotModuleContext,
   global_idx : @lib.GlobalIdx,
@@ -1884,9 +1918,9 @@ fn precompute_known_heap_value_for_plain_node(
       )
     @ir.HotOp::GlobalGet =>
       return match ctx.module_ctx {
-        Some(module_ctx) =>
-          precompute_known_heap_value_from_global(
-            module_ctx,
+        Some(_) =>
+          precompute_known_heap_value_from_global_cached(
+            ctx,
             @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
             depth + 1,
           )
@@ -9674,6 +9708,82 @@ fn precompute_raw_root_nop_cleanup_candidate(
 }
 
 ///|
+
+///|
+// Bits: hot-only work, dropped pure value, constant control, all-nop tree.
+// Collect the rewritten body's admission facts in one recursive walk.
+fn precompute_raw_admission_facts(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Int32 {
+  let mut facts = 8
+  for index, instr in instrs {
+    let mut nop_tree = instr is @lib.Nop
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body)) => {
+        let nested = precompute_raw_admission_facts(body, module_ctx)
+        facts = facts | (nested & 7)
+        nop_tree = block_type is @lib.VoidBlockType && (nested & 8) != 0
+      }
+      @lib.If(_, then_body, else_body) => {
+        facts = facts |
+          (precompute_raw_admission_facts(then_body, module_ctx) & 7)
+        if else_body is Some(body) {
+          facts = facts | (precompute_raw_admission_facts(body, module_ctx) & 7)
+        }
+        if index > 0 && precompute_raw_i32_const(instrs[index - 1]) is Some(_) {
+          facts = facts | 4
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        facts = facts | (precompute_raw_admission_facts(body, module_ctx) & 7)
+      @lib.Drop =>
+        if index == 0 ||
+          !precompute_raw_instr_is_preserved_dropped_effect(instrs[index - 1]) {
+          facts = facts | 2
+        }
+      @lib.Select(_) =>
+        if index > 0 && precompute_raw_i32_const(instrs[index - 1]) is Some(_) {
+          facts = facts | 4
+        }
+      @lib.BrTable(_, _)
+      | @lib.StructGet(_, _)
+      | @lib.StructGetS(_, _)
+      | @lib.StructGetU(_, _)
+      | @lib.StructAtomicGet(_, _, _)
+      | @lib.StructAtomicGetS(_, _, _)
+      | @lib.StructAtomicGetU(_, _, _)
+      | @lib.ArrayGet(_)
+      | @lib.ArrayGetS(_)
+      | @lib.ArrayGetU(_)
+      | @lib.ArrayAtomicGet(_, _)
+      | @lib.ArrayAtomicGetS(_, _)
+      | @lib.ArrayAtomicGetU(_, _)
+      | @lib.ArrayLen
+      | @lib.RefEq
+      | @lib.RefIsNull
+      | @lib.RefTest(_, _, _)
+      | @lib.StringMeasureWtf16
+      | @lib.StringConcat
+      | @lib.StringEq
+      | @lib.StringAsWtf16
+      | @lib.StringViewWtf16GetCodeunit
+      | @lib.StringViewWtf16Slice
+      | @lib.StringNewWtf16Array => return 1
+      _ => ()
+    }
+    if !nop_tree {
+      facts = facts & 7
+    }
+    if (facts & 1) != 0 {
+      return facts
+    }
+  }
+  facts
+}
+
+///|
 fn precompute_run_raw_func(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext?,
@@ -9687,7 +9797,8 @@ fn precompute_run_raw_func(
   )
   let changed = precompute_raw_trim_redundant_root_nops(rewritten) ||
     initial_changed
-  if precompute_raw_instrs_are_nop_trees(rewritten) && rewritten.length() > 1 {
+  let admission = precompute_raw_admission_facts(rewritten, module_ctx)
+  if (admission & 8) != 0 && rewritten.length() > 1 {
     return Some(
       (
         @lib.Func::new(locals, @lib.Expr::new([@lib.Instruction::nop()])),
@@ -9696,7 +9807,7 @@ fn precompute_run_raw_func(
       ),
     )
   }
-  if precompute_raw_instrs_have_hot_only_candidate(rewritten, module_ctx) {
+  if (admission & 1) != 0 {
     return None
   }
   let retains_raw_control_flow = changed &&
@@ -9704,11 +9815,7 @@ fn precompute_run_raw_func(
   if precompute_raw_root_nop_cleanup_candidate(rewritten) {
     return None
   }
-  if (
-      precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
-      precompute_raw_instrs_have_const_control_candidate(rewritten)
-    ) &&
-    !retains_raw_control_flow {
+  if (admission & 6) != 0 && !retains_raw_control_flow {
     return None
   }
   Some(
@@ -9728,6 +9835,57 @@ fn precompute_run_raw_func(
       },
     ),
   )
+}
+
+///|
+// Original-body dispatch bits: legacy try, stack switching, atomic fence,
+// global read, memory growth, local traffic, and unreachable suffix.
+// Legacy try has the first dispatch boundary and can stop this scan early.
+fn precompute_raw_gate_features(instrs : Array[@lib.Instruction]) -> Int32 {
+  let mut facts = 0
+  for index, instr in instrs {
+    match instr {
+      @lib.Try(_, _, _, _) => return 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let nested = precompute_raw_gate_features(body)
+        if (nested & 1) != 0 {
+          return 1
+        }
+        facts = facts | nested
+      }
+      @lib.If(_, then_body, else_body) => {
+        let nested = precompute_raw_gate_features(then_body)
+        if (nested & 1) != 0 {
+          return 1
+        }
+        facts = facts | nested
+        if else_body is Some(body) {
+          let nested = precompute_raw_gate_features(body)
+          if (nested & 1) != 0 {
+            return 1
+          }
+          facts = facts | nested
+        }
+      }
+      @lib.ContNew(_)
+      | @lib.ContBind(_, _)
+      | @lib.Suspend(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _) => facts = facts | 2
+      @lib.AtomicFence(_) => facts = facts | 4
+      @lib.GlobalGet(_) => facts = facts | 8
+      @lib.MemoryGrow(_) => facts = facts | 16
+      @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) =>
+        facts = facts | 32
+      @lib.Unreachable if index + 1 < instrs.length() => facts = facts | 64
+      _ => ()
+    }
+  }
+  facts
 }
 
 ///|
@@ -9921,9 +10079,10 @@ fn precompute_raw_instrs_have_memory_grow(
 fn precompute_run_raw_around_atomic_fence(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext?,
+  known_atomic_fence~ : Bool = false,
 ) -> (@lib.Func, Bool)? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  if !precompute_raw_instrs_have_atomic_fence(instrs) {
+  if !known_atomic_fence && !precompute_raw_instrs_have_atomic_fence(instrs) {
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
@@ -10303,9 +10462,11 @@ fn precompute_propagate_run_raw_unreachable_suffix(
   func : @lib.Func,
   params : Array[@lib.ValType],
   module_ctx : @ir.HotModuleContext?,
+  known_unreachable_suffix~ : Bool = false,
 ) -> (@lib.Func, Bool)? {
   let @lib.Func(_, @lib.Expr(original_instrs)) = func
-  if !precompute_raw_instrs_have_unreachable_suffix(original_instrs) {
+  if !known_unreachable_suffix &&
+    !precompute_raw_instrs_have_unreachable_suffix(original_instrs) {
     return None
   }
   let (propagated, propagated_changed) = match
@@ -11576,9 +11737,9 @@ fn precompute_propagate_known_heap_value_for_node(
       )
     @ir.HotOp::GlobalGet =>
       match ctx.module_ctx {
-        Some(module_ctx) =>
-          precompute_known_heap_value_from_global(
-            module_ctx,
+        Some(_) =>
+          precompute_known_heap_value_from_global_cached(
+            ctx,
             @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
             depth + 1,
           )

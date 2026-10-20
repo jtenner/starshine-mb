@@ -886,6 +886,25 @@ pub fn pass_mark_mutated(ctx : HotPassContext, func : @ir.HotFunc) -> Unit {
 }
 
 ///|
+fn pass_swap_scalar_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int32,
+  instr~ : @lib.Instruction? = None,
+) -> Bool {
+  if !@ir.cache_swap_scalar_operands(ctx.cache, func, node_id, instr~) {
+    return false
+  }
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="revision=\{@ir.hot_revision_current(func)}",
+  )
+  true
+}
+
+///|
 pub fn pass_replace_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -988,7 +1007,7 @@ fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int32) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block => node.imm1
-    @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+    @ir.HotOp::Try | @ir.HotOp::TryTable => node.child_count - 2
     @ir.HotOp::Loop =>
       @ir.hot_label_branch_arity(
         func,
@@ -1008,6 +1027,8 @@ fn pass_value_operand_slot(node : @ir.HotNode, index : Int32) -> Int32 {
     } else {
       0
     }
+  } else if node.op is @ir.HotOp::Try || node.op is @ir.HotOp::TryTable {
+    index + 2
   } else {
     index
   }

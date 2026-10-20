@@ -71,8 +71,7 @@ fn oc_comptype_matches_abs(ct : @lib.CompType, abs : @lib.AbsHeapType) -> Bool {
       abs == @lib.AbsHeapType::array() ||
       abs == @lib.AbsHeapType::eq() ||
       abs == @lib.AbsHeapType::any()
-    @lib.FuncCompType(_, _) =>
-      abs == @lib.AbsHeapType::func() || abs == @lib.AbsHeapType::any()
+    @lib.FuncCompType(_, _) => abs == @lib.AbsHeapType::func()
     @lib.ContCompType(_) => abs == @lib.AbsHeapType::cont()
   }
 }
@@ -83,6 +82,7 @@ fn oc_subtype_as_heap_matches(
   subtype : @lib.SubType,
   target : @lib.HeapType,
   fuel : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -122,6 +122,7 @@ fn oc_subtype_as_heap_matches(
         @lib.HeapType::new(super_idx),
         target,
         fuel - 1,
+        type_env~,
       ) {
       return true
     }
@@ -130,18 +131,45 @@ fn oc_subtype_as_heap_matches(
 }
 
 ///|
+priv struct OcTypeEnvironment {
+  mut value : @validate.Env?
+}
+
+///|
+fn OcTypeEnvironment::new() -> OcTypeEnvironment {
+  { value: None, }
+}
+
+///|
+fn oc_type_env(module_ctx : @ir.HotModuleContext) -> @validate.Env {
+  let base = @validate.Env::new().with_types(module_ctx.subtypes)
+  @validate.Env::{ ..base, rec_stack: module_ctx.type_groups, }
+}
+
+///|
 fn oc_heap_identical(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   if source == target {
     return true
   }
   match (source, target) {
     (@lib.HeapType(_), @lib.HeapType(_)) => {
-      let base = @validate.Env::new().with_types(module_ctx.subtypes)
-      let env = @validate.Env::{ ..base, rec_stack: module_ctx.type_groups, }
+      let env = match type_env {
+        Some(cache) =>
+          match cache.value {
+            Some(env) => env
+            None => {
+              let env = oc_type_env(module_ctx)
+              cache.value = Some(env)
+              env
+            }
+          }
+        None => oc_type_env(module_ctx)
+      }
       @validate.Match::matches(
         @lib.RefType::new(false, source, exact=true),
         @lib.RefType::new(false, target, exact=true),
@@ -158,8 +186,9 @@ fn oc_heap_matches(
   source : @lib.HeapType,
   target : @lib.HeapType,
   fuel : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
-  if oc_heap_identical(module_ctx, source, target) {
+  if oc_heap_identical(module_ctx, source, target, type_env~) {
     return true
   }
   if fuel <= 0 {
@@ -175,7 +204,13 @@ fn oc_heap_matches(
     (@lib.HeapType(source_idx), _) =>
       match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
         Some(subtype) =>
-          oc_subtype_as_heap_matches(module_ctx, subtype, target, fuel - 1)
+          oc_subtype_as_heap_matches(
+            module_ctx,
+            subtype,
+            target,
+            fuel - 1,
+            type_env~,
+          )
         None => false
       }
     (_, @lib.HeapType(target_idx)) =>
@@ -260,6 +295,7 @@ fn oc_ref_always_matches(
   module_ctx : @ir.HotModuleContext,
   source : @lib.RefType,
   target : @lib.RefType,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   if source.is_nullable() && !target.is_nullable() {
     return false
@@ -270,6 +306,7 @@ fn oc_ref_always_matches(
         module_ctx,
         source.get_heap_type(),
         target.get_heap_type(),
+        type_env~,
       )
   }
   oc_heap_matches(
@@ -277,6 +314,7 @@ fn oc_ref_always_matches(
     source.get_heap_type(),
     target.get_heap_type(),
     512,
+    type_env~,
   )
 }
 
@@ -296,8 +334,9 @@ fn oc_heap_never_matches(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
-  if oc_heap_matches(module_ctx, source, target, 512) {
+  if oc_heap_matches(module_ctx, source, target, 512, type_env~) {
     return false
   }
   match (source, target) {
@@ -338,6 +377,7 @@ fn oc_ref_never_matches(
   module_ctx : @ir.HotModuleContext,
   source : @lib.RefType,
   target : @lib.RefType,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   if source.is_nullable() && target.is_nullable() {
     return false
@@ -348,6 +388,7 @@ fn oc_ref_never_matches(
         module_ctx,
         source.get_heap_type(),
         target.get_heap_type(),
+        type_env~,
       )
   }
   if source.is_exact() &&
@@ -356,6 +397,7 @@ fn oc_ref_never_matches(
       source.get_heap_type(),
       target.get_heap_type(),
       512,
+      type_env~,
     ) {
     return true
   }
@@ -363,6 +405,7 @@ fn oc_ref_never_matches(
     module_ctx,
     source.get_heap_type(),
     target.get_heap_type(),
+    type_env~,
   )
 }
 
@@ -1129,6 +1172,7 @@ fn oc_indexed_refinement_blocks_retarget(
   best_cast : Int32,
   has_existing_fresh : Bool,
   moved_refinalized_refinements : Array[Int32],
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let mut at = refinement_heads[local_id]
   while at >= 0 {
@@ -1154,12 +1198,14 @@ fn oc_indexed_refinement_blocks_retarget(
         func,
         best_cast,
         refinement.1,
+        type_env~,
       )
     if !oc_best_cast_can_feed_refinement_source(
         module_ctx,
         func,
         best_cast,
         refinement.1,
+        type_env~,
       ) &&
       !can_feed_existing_equal &&
       !can_feed_refinalized_equal &&
@@ -1209,6 +1255,7 @@ fn oc_refinalize_marked_ref_cast_to_best(
   root_id : Int32,
   best_cast : Int32,
   moved_refinalized_refinements : Array[Int32],
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let cast_id = match oc_single_dropped_child(func, root_id) {
     Some(child_id) => child_id
@@ -1224,7 +1271,7 @@ fn oc_refinalize_marked_ref_cast_to_best(
   if @ir.hot_child_count(func, cast_id) != 1 {
     return false
   }
-  if !oc_cast_is_more_refined(module_ctx, func, best_cast, cast_id) {
+  if !oc_cast_is_more_refined(module_ctx, func, best_cast, cast_id, type_env~) {
     return false
   }
   let best_target = match oc_refinement_type_from_node(func, best_cast) {
@@ -1256,6 +1303,7 @@ fn oc_ref_cast_source_can_read_best_cast(
   func : @ir.HotFunc,
   candidate_id : Int32,
   current_id : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, current_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => ()
@@ -1278,8 +1326,8 @@ fn oc_ref_cast_source_can_read_best_cast(
     None => return false
   }
   candidate != source &&
-  oc_ref_always_matches(module_ctx, candidate, source) &&
-  !oc_ref_never_matches(module_ctx, candidate, target)
+  oc_ref_always_matches(module_ctx, candidate, source, type_env~) &&
+  !oc_ref_never_matches(module_ctx, candidate, target, type_env~)
 }
 
 ///|
@@ -1288,6 +1336,7 @@ fn oc_nullable_best_cast_feeds_ref_as_non_null(
   func : @ir.HotFunc,
   candidate_id : Int32,
   current_id : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, current_id) {
     Some(@lib.Instruction::RefAsNonNull) => ()
@@ -1306,7 +1355,12 @@ fn oc_nullable_best_cast_feeds_ref_as_non_null(
   }
   let candidate_after_as_non_null = oc_ref_type_as_non_null(candidate)
   candidate_after_as_non_null != current &&
-  oc_ref_always_matches(module_ctx, candidate_after_as_non_null, current)
+  oc_ref_always_matches(
+    module_ctx,
+    candidate_after_as_non_null,
+    current,
+    type_env~,
+  )
 }
 
 ///|
@@ -1315,6 +1369,7 @@ fn oc_cast_is_more_refined(
   func : @ir.HotFunc,
   candidate_id : Int32,
   current_id : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let candidate = match oc_refinement_type_from_node(func, candidate_id) {
     Some(ref_type) => ref_type
@@ -1324,7 +1379,8 @@ fn oc_cast_is_more_refined(
     Some(ref_type) => ref_type
     None => return true
   }
-  candidate != current && oc_ref_always_matches(module_ctx, candidate, current)
+  candidate != current &&
+  oc_ref_always_matches(module_ctx, candidate, current, type_env~)
 }
 
 ///|
@@ -1333,10 +1389,15 @@ fn oc_best_cast_can_feed_refinement_source(
   func : @ir.HotFunc,
   candidate_id : Int32,
   current_id : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
-  oc_cast_is_more_refined(module_ctx, func, candidate_id, current_id) ||
+  oc_cast_is_more_refined(module_ctx, func, candidate_id, current_id, type_env~) ||
   oc_nullable_best_cast_feeds_ref_as_non_null(
-    module_ctx, func, candidate_id, current_id,
+    module_ctx,
+    func,
+    candidate_id,
+    current_id,
+    type_env~,
   )
 }
 
@@ -1941,6 +2002,7 @@ fn oc_early_motion_scan_region(
   seen_refinements : Array[Bool],
   moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region)
@@ -1980,7 +2042,13 @@ fn oc_early_motion_scan_region(
             let pending_best = pending_get_best_refinements[local_id]
             if !seen_refinements[local_id] || pending_best >= 0 {
               if pending_best < 0 ||
-                oc_cast_is_more_refined(module_ctx, func, cast_id, pending_best) {
+                oc_cast_is_more_refined(
+                  module_ctx,
+                  func,
+                  cast_id,
+                  pending_best,
+                  type_env~,
+                ) {
                 pending_get_best_refinements[local_id] = cast_id
               } else if oc_existing_fresh_can_feed_refinement_source(
                   func, pending_best, cast_id,
@@ -1993,7 +2061,13 @@ fn oc_early_motion_scan_region(
           let pending_cast = pending_refinement_casts[local_id]
           if pending_cast >= 0 &&
             pending_refinement_gets[local_id] >= 0 &&
-            oc_cast_is_more_refined(module_ctx, func, cast_id, pending_cast) {
+            oc_cast_is_more_refined(
+              module_ctx,
+              func,
+              cast_id,
+              pending_cast,
+              type_env~,
+            ) {
             if oc_duplicate_refinement_at_get(
                 ctx,
                 func,
@@ -2010,7 +2084,13 @@ fn oc_early_motion_scan_region(
             }
           } else if pending_cast >= 0 &&
             pending_refinement_gets[local_id] >= 0 &&
-            oc_cast_is_more_refined(module_ctx, func, pending_cast, cast_id) {
+            oc_cast_is_more_refined(
+              module_ctx,
+              func,
+              pending_cast,
+              cast_id,
+              type_env~,
+            ) {
             match oc_direct_refinement_source_get(func, cast_id) {
               Some((_, source_get)) =>
                 if oc_duplicate_refinement_at_get(
@@ -2122,6 +2202,7 @@ fn oc_early_motion_scan_fresh_region(
   module_ctx : @ir.HotModuleContext,
   moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let pending_gets = Array::make(local_count, -1)
@@ -2130,9 +2211,18 @@ fn oc_early_motion_scan_fresh_region(
   let pending_refinement_gets = Array::make(local_count, -1)
   let seen_refinements = Array::make(local_count, false)
   oc_early_motion_scan_region(
-    ctx, func, module_ctx, local_count, pending_gets, pending_get_best_refinements,
-    pending_refinement_casts, pending_refinement_gets, seen_refinements, moved_refinalized_refinements,
+    ctx,
+    func,
+    module_ctx,
+    local_count,
+    pending_gets,
+    pending_get_best_refinements,
+    pending_refinement_casts,
+    pending_refinement_gets,
+    seen_refinements,
+    moved_refinalized_refinements,
     region,
+    type_env~,
   )
 }
 
@@ -2143,9 +2233,15 @@ fn oc_early_motion_scan_nested_regions(
   module_ctx : @ir.HotModuleContext,
   moved_refinalized_refinements : Array[Int32],
   region : @ir.HotRegionRef,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let mut changed = oc_early_motion_scan_fresh_region(
-    ctx, func, module_ctx, moved_refinalized_refinements, region,
+    ctx,
+    func,
+    module_ctx,
+    moved_refinalized_refinements,
+    region,
+    type_env~,
   )
   let root_count = @ir.hot_region_root_count(func, region)
   for idx = 0; idx < root_count; idx = idx + 1 {
@@ -2161,6 +2257,7 @@ fn oc_early_motion_scan_nested_regions(
             module_ctx,
             moved_refinalized_refinements,
             @ir.hot_region_body_ref(func, root_id),
+            type_env~,
           ) {
           changed = true
         }
@@ -2171,13 +2268,19 @@ fn oc_early_motion_scan_nested_regions(
             module_ctx,
             moved_refinalized_refinements,
             @ir.hot_region_then_ref(func, root_id),
+            type_env~,
           ) {
           changed = true
         }
         match @ir.hot_region_else_ref(func, root_id) {
           Some(else_ref) =>
             if oc_early_motion_scan_nested_regions(
-                ctx, func, module_ctx, moved_refinalized_refinements, else_ref,
+                ctx,
+                func,
+                module_ctx,
+                moved_refinalized_refinements,
+                else_ref,
+                type_env~,
               ) {
               changed = true
             }
@@ -2191,13 +2294,19 @@ fn oc_early_motion_scan_nested_regions(
             module_ctx,
             moved_refinalized_refinements,
             @ir.hot_region_body_ref(func, root_id),
+            type_env~,
           ) {
           changed = true
         }
         match @ir.hot_region_catch_ref(func, root_id) {
           Some(catch_ref) =>
             if oc_early_motion_scan_nested_regions(
-                ctx, func, module_ctx, moved_refinalized_refinements, catch_ref,
+                ctx,
+                func,
+                module_ctx,
+                moved_refinalized_refinements,
+                catch_ref,
+                type_env~,
               ) {
               changed = true
             }
@@ -2211,6 +2320,7 @@ fn oc_early_motion_scan_nested_regions(
             module_ctx,
             moved_refinalized_refinements,
             @ir.hot_region_body_ref(func, root_id),
+            type_env~,
           ) {
           changed = true
         }
@@ -2220,6 +2330,7 @@ fn oc_early_motion_scan_nested_regions(
             module_ctx,
             moved_refinalized_refinements,
             @ir.hot_region_catch_list_ref(func, root_id),
+            type_env~,
           ) {
           changed = true
         }
@@ -2236,6 +2347,7 @@ fn oc_early_motion_run(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   moved_refinalized_refinements : Array[Int32],
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   oc_early_motion_scan_nested_regions(
     ctx,
@@ -2243,6 +2355,7 @@ fn oc_early_motion_run(
     module_ctx,
     moved_refinalized_refinements,
     @ir.HotRegionRef::root(),
+    type_env~,
   )
 }
 
@@ -2363,6 +2476,7 @@ fn oc_later_reuse_scan_region(
   fresh_cast_ids : Array[Int32],
   region : @ir.HotRegionRef,
   inside_control_frame : Bool,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let mut changed = false
   let mut previous_flat_if = false
@@ -2399,6 +2513,7 @@ fn oc_later_reuse_scan_region(
               fresh_cast_ids,
               @ir.hot_region_body_ref(func, block_id),
               true,
+              type_env~,
             ) {
             changed = true
           }
@@ -2505,6 +2620,7 @@ fn oc_later_reuse_scan_region(
             best_cast,
             fresh_locals[local_id] >= 0,
             moved_refinalized_refinements,
+            type_env~,
           ) {
           let fresh_local = if fresh_locals[local_id] >= 0 {
             fresh_locals[local_id]
@@ -2560,6 +2676,7 @@ fn oc_later_reuse_scan_region(
               root_id,
               best_casts[local_id],
               moved_refinalized_refinements,
+              type_env~,
             ) {
             changed = true
           }
@@ -2585,6 +2702,7 @@ fn oc_later_reuse_scan_region(
             func,
             cast_id,
             best_casts[local_id],
+            type_env~,
           ) {
           best_casts[local_id] = cast_id
           fresh_locals[local_id] = -1
@@ -2607,6 +2725,7 @@ fn oc_later_reuse_scan_region(
             func,
             cast_id,
             best_casts[local_id],
+            type_env~,
           ) {
           best_casts[local_id] = cast_id
           fresh_locals[local_id] = -1
@@ -2626,6 +2745,7 @@ fn oc_later_reuse_run(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   moved_refinalized_refinements : Array[Int32],
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let best_casts = Array::make(local_count, -1)
@@ -2670,6 +2790,7 @@ fn oc_later_reuse_run(
     fresh_cast_ids,
     @ir.HotRegionRef::root(),
     false,
+    type_env~,
   )
 }
 
@@ -2679,6 +2800,7 @@ fn oc_rewrite_node(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   node_id : Int32,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2692,7 +2814,12 @@ fn oc_rewrite_node(
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
           let target_ref = oc_target_ref_type(nullable, exact, heap_type)
-          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_always_matches(
+              module_ctx,
+              source_ref,
+              target_ref,
+              type_env~,
+            ) {
             oc_replace_with_child(ctx, func, node_id)
             return true
           }
@@ -2714,7 +2841,12 @@ fn oc_rewrite_node(
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) =>
-          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_always_matches(
+              module_ctx,
+              source_ref,
+              target_ref,
+              type_env~,
+            ) {
             oc_replace_with_child(ctx, func, node_id)
             return true
           }
@@ -2731,11 +2863,16 @@ fn oc_rewrite_node(
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
           let target_ref = oc_target_ref_type(nullable, false, heap_type)
-          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_always_matches(
+              module_ctx,
+              source_ref,
+              target_ref,
+              type_env~,
+            ) {
             oc_replace_with_const_i32(ctx, func, node_id, 1)
             return true
           }
-          if oc_ref_never_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref, type_env~) {
             oc_replace_with_const_i32(ctx, func, node_id, 0)
             return true
           }
@@ -2763,11 +2900,16 @@ fn oc_rewrite_node(
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
           let target_ref = oc_target_ref_type(nullable, exact, heap_type)
-          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_always_matches(
+              module_ctx,
+              source_ref,
+              target_ref,
+              type_env~,
+            ) {
             oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
           }
-          if oc_ref_never_matches(module_ctx, source_ref, target_ref) &&
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref, type_env~) &&
             @ir.hot_child_count(func, node_id) == 1 {
             oc_replace_with_child(ctx, func, node_id)
             return true
@@ -2792,11 +2934,16 @@ fn oc_rewrite_node(
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
           let target_ref = oc_target_ref_type(nullable, exact, heap_type)
-          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_always_matches(
+              module_ctx,
+              source_ref,
+              target_ref,
+              type_env~,
+            ) {
             oc_replace_with_child(ctx, func, node_id)
             return true
           }
-          if oc_ref_never_matches(module_ctx, source_ref, target_ref) {
+          if oc_ref_never_matches(module_ctx, source_ref, target_ref, type_env~) {
             oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
           }
@@ -2814,11 +2961,12 @@ fn oc_static_fold_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
+  type_env~ : OcTypeEnvironment? = None,
 ) -> Bool {
   let mut changed = false
   let node_count = func.nodes.length()
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
-    if oc_rewrite_node(ctx, func, module_ctx, node_id) {
+    if oc_rewrite_node(ctx, func, module_ctx, node_id, type_env~) {
       changed = true
     }
   }
@@ -2834,18 +2982,31 @@ pub fn optimize_casts_run(
     Some(module_ctx) => module_ctx
     None => return HotPassResult::unchanged()
   }
+  let type_env = Some(OcTypeEnvironment::new())
   let mut changed = false
   let moved_refinalized_refinements : Array[Int32] = []
-  if oc_static_fold_run(ctx, func, module_ctx) {
+  if oc_static_fold_run(ctx, func, module_ctx, type_env~) {
     changed = true
   }
-  if oc_early_motion_run(ctx, func, module_ctx, moved_refinalized_refinements) {
+  if oc_early_motion_run(
+      ctx,
+      func,
+      module_ctx,
+      moved_refinalized_refinements,
+      type_env~,
+    ) {
     changed = true
-    if oc_static_fold_run(ctx, func, module_ctx) {
+    if oc_static_fold_run(ctx, func, module_ctx, type_env~) {
       changed = true
     }
   }
-  if oc_later_reuse_run(ctx, func, module_ctx, moved_refinalized_refinements) {
+  if oc_later_reuse_run(
+      ctx,
+      func,
+      module_ctx,
+      moved_refinalized_refinements,
+      type_env~,
+    ) {
     changed = true
   }
   if changed {

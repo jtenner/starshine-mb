@@ -8603,7 +8603,10 @@ fn remove_unused_brs_try_voidify_if_block_exit_unreachable_suffix(
     BranchTarget(label_id) => label_id
     _ => return false
   }
-  let _ = label_refs
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  if remove_unused_brs_label_is_used(label_refs, if_label) {
+    return false
+  }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
     Some(else_ref) => else_ref
@@ -8712,7 +8715,10 @@ fn remove_unused_brs_try_voidify_tail_value_if_block_exit(
     BranchTarget(label_id) => label_id
     _ => return false
   }
-  let _ = label_refs
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  if remove_unused_brs_label_is_used(label_refs, if_label) {
+    return false
+  }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
     Some(else_ref) => else_ref

@@ -27,6 +27,7 @@ fn dae_boundary_graph_before_topology_fusion(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 

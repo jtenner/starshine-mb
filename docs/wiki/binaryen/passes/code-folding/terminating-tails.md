@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/code_folding_exit_index_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ./index.md
 related:
@@ -278,3 +279,18 @@ Those are the real implementation contracts.
 - Binaryen `version_129` label helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/label-utils.h>
 - Binaryen `version_129` effects helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-folding.wast>
+
+## October 19, 2026 — Cached exit sites retain identity
+
+A cached exit tail stores its branch node identity as well as its root offset.
+After a region edit, the consumer rechecks the current node, target, opcode and
+operand count before using that offset. A stale site requires a fresh tail
+collection. A bounds check alone cannot establish that the cached suffix is
+still the intended one.
+
+The [exit-index regressions](../../../../../src/passes/code_folding_exit_index_wbtest.mbt)
+cover insertion before a saved branch and a natural nested-if case. In the
+latter, the old native CLI changed `b,a` to `a,b` on the taken path. The repair
+retains source call order. Independent exit folds continue in one walk, and
+recursive exit proofs share the current label-use facts. New wrapper labels
+must join those facts immediately.

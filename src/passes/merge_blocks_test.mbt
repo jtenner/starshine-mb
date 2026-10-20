@@ -29,6 +29,30 @@ fn merge_blocks_test_collect_control_types(
 }
 
 ///|
+// Binaryen 133 keeps two scalar carrier locals per straight body and four
+// per pair of If arms. Verified canonical encodings save 10 or 18 bytes when
+// the existing operand stack carries these values directly.
+fn merge_blocks_test_expect_scalar_header_win(
+  actual : @lib.Module,
+  expected_source : String,
+  binaryen_bytes : Int32,
+  saved_bytes : Int32,
+) -> Unit raise {
+  let expected = pass_test_module_from_wat(expected_source)
+  @validate.validate_module(actual).unwrap()
+  assert_eq(actual.code_sec, expected.code_sec)
+  assert_eq(actual.type_sec, expected.type_sec)
+  let canonical = @lib.Module::new()
+    .with_type_sec(actual.type_sec.unwrap())
+    .with_func_sec(actual.func_sec.unwrap())
+    .with_code_sec(actual.code_sec.unwrap())
+  let actual_bytes = @binary.encode_module(canonical).unwrap()
+  assert_eq(actual_bytes, @binary.encode_module(expected).unwrap())
+  assert_eq(actual_bytes.length(), binaryen_bytes - saved_bytes)
+  assert_true(saved_bytes > 0)
+}
+
+///|
 fn merge_blocks_test_count_substring(text : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return 0
@@ -1023,7 +1047,7 @@ test "merge-blocks preserves lowered drop local.tee roots on changed functions" 
 }
 
 ///|
-test "merge-blocks preserves outer typed param block lowering for single-result parity" {
+test "merge-blocks forwards typed scalar block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32)))
@@ -1039,19 +1063,14 @@ test "merge-blocks preserves outer typed param block lowering for single-result 
       fail("expected merge-blocks typed single-result success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (result i32) i32.const 4 i32.const 1 i32.add))", 40,
+    10,
   )
-  assert_true(pretty.contains("local.set"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_true(pretty.contains("i32.add"), msg=pretty)
 }
 
 ///|
-test "merge-blocks preserves drop-leading typed single-param single-result block lowering Binaryen-stable" {
+test "merge-blocks drops typed scalar block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32)))
@@ -1069,38 +1088,13 @@ test "merge-blocks preserves drop-leading typed single-param single-result block
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (result i32) i32.const 4 drop i32.const 1))", 40, 10,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    1,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.const"),
-    2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(1)"), msg=pretty)
 }
 
 ///|
-test "merge-blocks preserves typed single-param externref single-result block lowering Binaryen-stable" {
+test "merge-blocks drops typed externref block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param externref) (result externref)))
@@ -1118,31 +1112,9 @@ test "merge-blocks preserves typed single-param externref single-result block lo
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    1,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "ref.null"),
-    2,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (result externref) ref.null extern drop ref.null extern))",
+    40, 10,
   )
 }
 
@@ -1199,7 +1171,7 @@ test "merge-blocks preserves typed single-param externref single-result loop low
 }
 
 ///|
-test "merge-blocks preserves typed single-param void block carriers Binaryen-stable" {
+test "merge-blocks drops typed void block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32)))
@@ -1216,32 +1188,13 @@ test "merge-blocks preserves typed single-param void block carriers Binaryen-sta
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func i32.const 4 drop))", 37, 10,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    1,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
 }
 
 ///|
-test "merge-blocks preserves typed single-param void block if-arm carriers Binaryen-stable" {
+test "merge-blocks drops typed void if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32)))
@@ -1266,29 +1219,10 @@ test "merge-blocks preserves typed single-param void block if-arm carriers Binar
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (if (local.get 0) (then i32.const 4 drop) (else i32.const 8 drop))))",
+    55, 18,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(8)"), msg=pretty)
 }
 
 ///|
@@ -1566,7 +1500,7 @@ test "merge-blocks drops branch-free typed multi-param void loop if-arm carriers
 }
 
 ///|
-test "merge-blocks keeps typed single-result if-arm param block lowering Binaryen-stable" {
+test "merge-blocks forwards typed scalar if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32)))
@@ -1593,33 +1527,14 @@ test "merge-blocks keeps typed single-result if-arm param block lowering Binarye
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then i32.const 4 i32.const 1 i32.add) (else i32.const 8 i32.const 2 i32.add))))",
+    60, 18,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.add"),
-    2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(8)"), msg=pretty)
 }
 
 ///|
-test "merge-blocks keeps drop-leading typed single-param single-result if-arm lowering Binaryen-stable" {
+test "merge-blocks drops typed scalar-result if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32)))
@@ -1646,34 +1561,10 @@ test "merge-blocks keeps drop-leading typed single-param single-result if-arm lo
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then i32.const 4 drop i32.const 1) (else i32.const 8 drop i32.const 2))))",
+    60, 18,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.const"),
-    4,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(8)"), msg=pretty)
 }
 
 ///|
@@ -1723,7 +1614,7 @@ test "merge-blocks flattens typed multi-result branch-free if-arm blocks into tu
 }
 
 ///|
-test "merge-blocks preserves typed single-param externref single-result if-arm lowering Binaryen-stable" {
+test "merge-blocks drops typed externref if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param externref) (result externref)))
@@ -1750,36 +1641,14 @@ test "merge-blocks preserves typed single-param externref single-result if-arm l
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "ref.null"),
-    4,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (result externref) (if (result externref) (local.get 0) (then ref.null extern drop ref.null extern) (else ref.null extern drop ref.null extern))))",
+    60, 18,
   )
 }
 
 ///|
-test "merge-blocks preserves typed single-param funcref single-result block lowering Binaryen-stable" {
+test "merge-blocks drops typed funcref block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param funcref) (result funcref)))
@@ -1797,31 +1666,9 @@ test "merge-blocks preserves typed single-param funcref single-result block lowe
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    1,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "ref.null"),
-    2,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (result funcref) ref.null func drop ref.null func))",
+    40, 10,
   )
 }
 
@@ -1878,7 +1725,7 @@ test "merge-blocks preserves typed single-param funcref single-result loop lower
 }
 
 ///|
-test "merge-blocks preserves typed single-param funcref multi-result if-arm lowering Binaryen-stable" {
+test "merge-blocks drops typed funcref multi-result if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param funcref) (result funcref i32)))
@@ -1907,39 +1754,10 @@ test "merge-blocks preserves typed single-param funcref multi-result if-arm lowe
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (result funcref i32) (if (result funcref i32) (local.get 0) (then ref.null func drop ref.null func i32.const 7) (else ref.null func drop ref.null func i32.const 9))))",
+    70, 18,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "ref.null"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.const"),
-    2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(7)"), msg=pretty)
-  assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
 
 ///|
@@ -2448,7 +2266,7 @@ test "merge-blocks keeps typed multi-param multi-result block lowering Binaryen-
 }
 
 ///|
-test "merge-blocks keeps typed single-param multi-result block lowering Binaryen-stable" {
+test "merge-blocks drops typed multi-result block inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32 i64)))
@@ -2467,44 +2285,14 @@ test "merge-blocks keeps typed single-param multi-result block lowering Binaryen
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (result i32 i64) i32.const 4 drop i32.const 1 i64.const 2))",
+    43, 10,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    1,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.const"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i64.const"),
-    1,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(1)"), msg=pretty)
-  assert_true(pretty.contains("I64(2)"), msg=pretty)
 }
 
 ///|
-test "merge-blocks keeps typed single-param multi-result if-arm lowering Binaryen-stable" {
+test "merge-blocks drops typed multi-result if-arm inputs without scratch locals" {
   let source =
     #| (module
     #|   (type $t (func (param i32) (result i32 i64)))
@@ -2533,41 +2321,10 @@ test "merge-blocks keeps typed single-param multi-result if-arm lowering Binarye
       )
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
+  merge_blocks_test_expect_scalar_header_win(
+    optimized, "(module (func (param i32) (result i32 i64) (if (result i32 i64) (local.get 0) (then i32.const 4 drop i32.const 1 i64.const 2) (else i32.const 8 drop i32.const 3 i64.const 4))))",
+    70, 18,
   )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.set"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "local.get"),
-    5,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "drop"),
-    2,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.const"),
-    4,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i64.const"),
-    2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("I32(4)"), msg=pretty)
-  assert_true(pretty.contains("I32(8)"), msg=pretty)
-  assert_true(pretty.contains("I64(2)"), msg=pretty)
-  assert_true(pretty.contains("I64(4)"), msg=pretty)
 }
 
 ///|

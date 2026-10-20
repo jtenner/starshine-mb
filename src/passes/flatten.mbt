@@ -143,14 +143,39 @@ fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int32) -> Bool {
 fn flatten_operand_slot_count(func : @ir.HotFunc, node_id : Int32) -> Int32 {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+    @ir.HotOp::Block => if node.imm1 > 0 { node.imm1 } else { 0 }
+    @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      if node.child_count > 2 {
+        node.child_count - 2
+      } else {
+        0
+      }
     @ir.HotOp::Loop =>
       @ir.hot_label_branch_arity(
         func,
         @ir.hot_control_node_label(func, node_id),
       )
-    @ir.HotOp::If => 1
+    @ir.HotOp::If => if node.child_count > 3 { node.child_count - 2 } else { 1 }
     _ => @ir.hot_child_count(func, node_id)
+  }
+}
+
+///|
+fn flatten_operand_slot(
+  func : @ir.HotFunc,
+  node_id : Int32,
+  index : Int32,
+) -> Int32 {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Try | @ir.HotOp::TryTable => index + 2
+    @ir.HotOp::If if node.child_count > 3 =>
+      if index < node.child_count - 3 {
+        index + 3
+      } else {
+        0
+      }
+    _ => index
   }
 }
 
@@ -194,7 +219,11 @@ fn flatten_classify_live_node(
   for slot = 0
       slot < flatten_operand_slot_count(func, node_id)
       slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
+    let child_id = @ir.hot_child_get(
+      func,
+      node_id,
+      flatten_operand_slot(func, node_id, slot),
+    )
     if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
       let local_set_value_is_allowed = match node.op {
         @ir.HotOp::LocalSet =>
@@ -1072,110 +1101,123 @@ fn flatten_inputful_loop_support_entry_set(
 }
 
 ///|
-fn flatten_terminal_payload_lower_bound(
-  payloads : Array[Int32],
-  node_id : Int32,
-) -> Int32 {
-  let mut low = 0
-  let mut high = payloads.length()
-  while low < high {
-    let middle = low + (high - low) / 2
-    if payloads[middle] < node_id {
-      low = middle + 1
-    } else {
-      high = middle
-    }
+priv struct FlattenSparseMembership {
+  mut keys : FixedArray[UInt64]
+  mut size : Int32
+}
+
+///|
+fn FlattenSparseMembership::new() -> FlattenSparseMembership {
+  { keys: FixedArray::make(0, 0UL), size: 0, }
+}
+
+///|
+fn flatten_membership_bucket(key : UInt64, capacity : Int32) -> Int32 {
+  let mixed = (key ^ (key >> 32)) * 0x9e3779b97f4a7c15UL
+  ((mixed ^ (mixed >> 32)) & (capacity - 1).to_uint64()).to_int()
+}
+
+///|
+fn FlattenSparseMembership::contains(
+  self : FlattenSparseMembership,
+  key : UInt64,
+) -> Bool {
+  if self.keys.is_empty() {
+    return false
   }
-  low
+  let mask = self.keys.length() - 1
+  let mut slot = flatten_membership_bucket(key, self.keys.length())
+  while self.keys[slot] != 0UL {
+    if self.keys[slot] == key {
+      return true
+    }
+    slot = (slot + 1) & mask
+  }
+  false
+}
+
+///|
+fn FlattenSparseMembership::record(
+  self : FlattenSparseMembership,
+  key : UInt64,
+) -> Bool {
+  if self.contains(key) {
+    return false
+  }
+  if self.size >= self.keys.length() - self.keys.length() / 4 {
+    let capacity = if self.keys.is_empty() { 8 } else { self.keys.length() * 2 }
+    let grown = FixedArray::make(capacity, 0UL)
+    for old in self.keys {
+      if old != 0UL {
+        let mut slot = flatten_membership_bucket(old, capacity)
+        while grown[slot] != 0UL {
+          slot = (slot + 1) & (capacity - 1)
+        }
+        grown[slot] = old
+      }
+    }
+    self.keys = grown
+  }
+  let mut slot = flatten_membership_bucket(key, self.keys.length())
+  while self.keys[slot] != 0UL {
+    slot = (slot + 1) & (self.keys.length() - 1)
+  }
+  self.keys[slot] = key
+  self.size += 1
+  true
+}
+
+///|
+fn FlattenSparseMembership::length(self : FlattenSparseMembership) -> Int32 {
+  self.size
+}
+
+///|
+fn FlattenSparseMembership::capacity(self : FlattenSparseMembership) -> Int32 {
+  self.keys.length()
 }
 
 ///|
 fn flatten_terminal_payload_contains(
-  payloads : Array[Int32],
+  payloads : FlattenSparseMembership,
   node_id : Int32,
 ) -> Bool {
-  let index = flatten_terminal_payload_lower_bound(payloads, node_id)
-  index < payloads.length() && payloads[index] == node_id
+  node_id >= 0 && payloads.contains(node_id.to_uint64() + 1UL)
 }
 
 ///|
 fn flatten_terminal_payload_record(
-  payloads : Array[Int32],
+  payloads : FlattenSparseMembership,
   node_id : Int32,
 ) -> Bool {
-  if node_id < 0 {
-    return false
-  }
-  let index = flatten_terminal_payload_lower_bound(payloads, node_id)
-  if index < payloads.length() && payloads[index] == node_id {
-    return false
-  }
-  payloads.insert(index, node_id)
-  true
+  node_id >= 0 && payloads.record(node_id.to_uint64() + 1UL)
 }
 
 ///|
-fn flatten_sequenced_root_lower_bound(
-  holders : Array[Int32],
-  nodes : Array[Int32],
-  holder : Int32,
-  node_id : Int32,
-) -> Int32 {
-  let mut low = 0
-  let mut high = if holders.length() < nodes.length() {
-    holders.length()
-  } else {
-    nodes.length()
-  }
-  while low < high {
-    let middle = low + (high - low) / 2
-    if holders[middle] < holder ||
-      (holders[middle] == holder && nodes[middle] < node_id) {
-      low = middle + 1
-    } else {
-      high = middle
-    }
-  }
-  low
+fn flatten_sequenced_root_key(holder : Int32, node_id : Int32) -> UInt64 {
+  ((holder.to_uint64() << 32) | node_id.to_uint64()) + 1UL
 }
 
 ///|
 fn flatten_sequenced_root_contains(
-  holders : Array[Int32],
-  nodes : Array[Int32],
+  roots : FlattenSparseMembership,
   holder : Int32,
   node_id : Int32,
 ) -> Bool {
-  if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
-    return false
-  }
-  let index = flatten_sequenced_root_lower_bound(
-    holders, nodes, holder, node_id,
-  )
-  index < nodes.length() && holders[index] == holder && nodes[index] == node_id
+  holder >= 0 &&
+  node_id >= 0 &&
+  roots.contains(flatten_sequenced_root_key(holder, node_id))
 }
 
 ///|
 fn flatten_sequenced_root_record(
-  holders : Array[Int32],
-  nodes : Array[Int32],
+  roots : FlattenSparseMembership,
   holder : Int32,
   node_id : Int32,
 ) -> Bool {
-  if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
-    return false
-  }
-  let index = flatten_sequenced_root_lower_bound(
-    holders, nodes, holder, node_id,
-  )
-  if index < nodes.length() &&
-    holders[index] == holder &&
-    nodes[index] == node_id {
-    return false
-  }
-  holders.insert(index, holder)
-  nodes.insert(index, node_id)
-  true
+  holder >= 0 &&
+  node_id >= 0 &&
+  roots.record(flatten_sequenced_root_key(holder, node_id))
 }
 
 ///|
@@ -1219,11 +1261,176 @@ fn FlattenRegionFlowEntry::new(
 }
 
 ///|
+priv struct FlattenOwnershipIndex {
+  revision : Int32
+  sites : @hashmap.HashMap[Int32, Array[(Int32, Int32)]]
+}
+
+///|
+fn flatten_build_ownership_index(func : @ir.HotFunc) -> FlattenOwnershipIndex {
+  let sites : @hashmap.HashMap[Int32, Array[(Int32, Int32)]] = @hashmap.new(
+    capacity=0,
+  )
+  for node_id in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    if @ir.hot_node_result_arity(func, node_id) > 1 &&
+      @ir.hot_node_kind_is_control(func, node_id) {
+      sites[node_id] = []
+    } else if @ir.hot_node_get(func, node_id).op is @ir.HotOp::Drop &&
+      @ir.hot_child_count(func, node_id) == 1 &&
+      @ir.hot_node_result_arity(func, @ir.hot_child_get(func, node_id, 0)) > 1 {
+      sites[node_id] = []
+    }
+  }
+  if !sites.is_empty() {
+    for parent in 0..<@ir.hot_node_count(func) {
+      if !@ir.hot_node_is_live(func, parent) {
+        continue
+      }
+      for slot in 0..<@ir.hot_child_count(func, parent) {
+        match sites.get(@ir.hot_child_get(func, parent, slot)) {
+          Some(uses) => uses.push((parent, slot))
+          None => ()
+        }
+      }
+    }
+    for slot in 0..<@ir.hot_root_count(func) {
+      match sites.get(@ir.hot_root_get(func, slot)) {
+        Some(uses) => uses.push((-1, slot))
+        None => ()
+      }
+    }
+  }
+  { revision: @ir.hot_revision_current(func), sites, }
+}
+
+///|
+fn flatten_ownership_index(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState?,
+) -> FlattenOwnershipIndex {
+  match state {
+    Some(state) => {
+      if state.ownership_indices.is_empty() {
+        state.ownership_indices.push(flatten_build_ownership_index(func))
+      } else if !state.fixed_operand_ownership &&
+        state.ownership_indices[0].revision != @ir.hot_revision_current(func) {
+        state.ownership_indices[0] = flatten_build_ownership_index(func)
+      }
+      if state.rewrites_started && !state.ownership_certificate_checked {
+        state.ownership_certificate_checked = true
+        state.fixed_operand_ownership = flatten_prepare_fixed_operand_ownership(
+          func, state,
+        )
+      }
+      state.ownership_indices[0]
+    }
+    None => flatten_build_ownership_index(func)
+  }
+}
+
+///|
+// Only operand trees use this certificate, and only during the private rewrite.
+// The first ownership query must still see the original graph. Shared scalar
+// nodes, entry captures, tees and control transfers require the revision cache.
+// In the remaining postorder rewrite, spilling wraps a scalar node by its id;
+// it does not copy that node's children. Nested Block/If routing changes a
+// control to void and replaces its existing operand lanes with local reads.
+// Thus an unrewritten multi-value control keeps its original direct owner and
+// slots until that owner is visited. Body/root insertions cannot shift ordinary
+// operand slots. Current owner/span checks still precede every use of this fact.
+fn flatten_prepare_fixed_operand_ownership(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Bool {
+  if @ir.hot_revision_current(func) != state.initial_revision ||
+    state.flatness_report.value_control_count == 0 ||
+    state.flatness_report.local_tee_count != 0 ||
+    !state.loop_nodes.is_empty() ||
+    !state.try_nodes.is_empty() ||
+    state.label_branch_nodes.any(fn(row) { !row.is_empty() }) {
+    return false
+  }
+  for node_id in 0..<state.use_count_node_limit {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Block if node.imm1 == 0 => ()
+      @ir.HotOp::If if node.child_count == 3 => ()
+      @ir.HotOp::Block
+      | @ir.HotOp::If
+      | @ir.HotOp::Loop
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable
+      | @ir.HotOp::Continuation
+      | @ir.HotOp::Return
+      | @ir.HotOp::ReturnCall
+      | @ir.HotOp::ReturnCallIndirect
+      | @ir.HotOp::ReturnCallRef
+      | @ir.HotOp::Throw
+      | @ir.HotOp::ThrowRef
+      | @ir.HotOp::Rethrow
+      | @ir.HotOp::Delegate
+      | @ir.HotOp::Catch
+      | @ir.HotOp::CatchAll
+      | @ir.HotOp::Unreachable => return false
+      _ => if @ir.hot_node_kind_is_branch(func, node_id) { return false }
+    }
+    if @ir.hot_node_result_arity(func, node_id) <= 1 &&
+      @ir.hot_node_use_count(state.use_def, node_id) > 1 {
+      return false
+    }
+  }
+  if state.ownership_indices.is_empty() {
+    state.ownership_indices.push(flatten_build_ownership_index(func))
+  }
+  let index = state.ownership_indices[0]
+  if index.sites.is_empty() {
+    return false
+  }
+  for control, uses in index.sites {
+    let arity = @ir.hot_node_result_arity(func, control)
+    if !@ir.hot_node_kind_is_control(func, control) ||
+      uses.length() != arity ||
+      uses.is_empty() ||
+      uses[0].0 < 0 {
+      return false
+    }
+    let parent = uses[0].0
+    let first = uses[0].1
+    match @ir.hot_node_get(func, parent).op {
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::If
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable
+      | @ir.HotOp::Drop
+      | @ir.HotOp::TupleMake
+      | @ir.HotOp::TupleExtract => return false
+      _ => ()
+    }
+    for offset in 0..<arity {
+      if uses[offset] != (parent, first + offset) {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int32]]
-  terminal_payloads : Array[Int32]
-  sequenced_root_holders : Array[Int32]
-  sequenced_root_nodes : Array[Int32]
+  ownership_indices : Array[FlattenOwnershipIndex]
+  initial_revision : Int32
+  mut ownership_certificate_checked : Bool
+  mut fixed_operand_ownership : Bool
+  terminal_payloads : FlattenSparseMembership
+  sequenced_roots : FlattenSparseMembership
   eh_repair_requirement : FlattenEhRepairRequirement
   label_used : @bitset.BitSet
   label_branch_nodes : Array[Array[Int32]]
@@ -1238,6 +1445,8 @@ priv struct FlattenRewriteState {
   mut active_region_holder : Int32
   mut active_root_idx : Int32
   mut active_early_insertions : Int32
+  mut active_source_prefix_end : Int32
+  mut active_source_prefix_max : Int32
   type_result_cache : Array[Array[@lib.ValType]?]
   loop_nodes : Array[Int32]
   try_nodes : Array[Int32]
@@ -1279,9 +1488,12 @@ fn FlattenRewriteState::new(
   }
   {
     label_temps,
-    terminal_payloads: [],
-    sequenced_root_holders: [],
-    sequenced_root_nodes: [],
+    ownership_indices: [],
+    initial_revision: @ir.hot_revision_current(func),
+    ownership_certificate_checked: false,
+    fixed_operand_ownership: false,
+    terminal_payloads: FlattenSparseMembership::new(),
+    sequenced_roots: FlattenSparseMembership::new(),
     eh_repair_requirement: node_index.eh_repair_requirement,
     label_used,
     label_branch_nodes,
@@ -1296,6 +1508,8 @@ fn FlattenRewriteState::new(
     active_region_holder: -2,
     active_root_idx: -1,
     active_early_insertions: 0,
+    active_source_prefix_end: 0,
+    active_source_prefix_max: -1,
     type_result_cache: [],
     loop_nodes: node_index.loop_nodes,
     try_nodes: node_index.try_nodes,
@@ -1819,9 +2033,19 @@ fn flatten_region_effective_terminal_multivalue_branch_to_label(
 fn flatten_label_uses_are_routed_scalar_brs(
   func : @ir.HotFunc,
   label_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
+  if label_id < 0 || label_id >= func.labels.length() {
+    return false
+  }
+  // Flatten removes payloads from existing branch nodes; it does not create
+  // new branch nodes. Recheck the indexed nodes after each local rewrite.
+  let branches = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
   let mut saw_target = false
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+  for node_id in branches {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
@@ -2102,7 +2326,11 @@ fn flatten_try_route_multivalue_block(
   )
   let locals = if label_is_used {
     if !flatten_label_temps_match_types(func, state, label_id, result_types) ||
-      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      !flatten_label_uses_are_routed_scalar_brs(
+        func,
+        label_id,
+        state=Some(state),
+      ) {
       return None
     }
     state.label_temps[label_id]
@@ -2242,7 +2470,11 @@ fn flatten_try_route_multivalue_if(
   }
   let locals = if label_is_used {
     if !flatten_label_temps_match_types(func, state, label_id, result_types) ||
-      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      !flatten_label_uses_are_routed_scalar_brs(
+        func,
+        label_id,
+        state=Some(state),
+      ) {
       return None
     }
     state.label_temps[label_id]
@@ -4193,10 +4425,20 @@ fn flatten_multivalue_legacy_try_is_supported(
   if result_types.length() <= 1 ||
     flatten_legacy_try_has_deferred_eh_repair(func, state~) ||
     (
-      !flatten_multivalue_control_has_exclusive_consumer_span(func, try_id) &&
-      !flatten_multivalue_control_has_exclusive_region_tail_span(func, try_id) &&
+      !flatten_multivalue_control_has_exclusive_consumer_span(
+        func,
+        try_id,
+        state~,
+      ) &&
+      !flatten_multivalue_control_has_exclusive_region_tail_span(
+        func,
+        try_id,
+        state~,
+      ) &&
       !flatten_multivalue_control_has_exclusive_dropped_region_span(
-        func, try_id,
+        func,
+        try_id,
+        state~,
       )
     ) {
     return false
@@ -4485,34 +4727,59 @@ fn flatten_multivalue_control_use_span_is_exclusive(
   slot : Int32,
   child_id : Int32,
   result_count : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
-  if slot + result_count > @ir.hot_child_count(func, parent_id) {
+  if !@ir.hot_node_is_live(func, parent_id) ||
+    slot < 0 ||
+    slot + result_count > @ir.hot_child_count(func, parent_id) {
     return false
   }
-  for result_slot = 0; result_slot < result_count; result_slot = result_slot + 1 {
+  for result_slot in 0..<result_count {
     if @ir.hot_child_get(func, parent_id, slot + result_slot) != child_id {
       return false
     }
   }
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    for child_slot = 0
-        child_slot < @ir.hot_child_count(func, node_id)
-        child_slot = child_slot + 1 {
-      if @ir.hot_child_get(func, node_id, child_slot) == child_id &&
-        (
-          node_id != parent_id ||
-          child_slot < slot ||
-          child_slot >= slot + result_count
-        ) {
-        return false
-      }
-    }
+  let index = flatten_ownership_index(func, state)
+  let uses = match index.sites.get(child_id) {
+    Some(uses) => uses
+    None => return false
   }
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    if @ir.hot_root_get(func, root_idx) == child_id {
+  uses.length() == result_count &&
+  uses.all(fn(use_) {
+    use_.0 == parent_id && use_.1 >= slot && use_.1 < slot + result_count
+  })
+}
+
+///|
+fn flatten_multivalue_control_has_exclusive_consumer_span(
+  func : @ir.HotFunc,
+  child_id : Int32,
+  state~ : FlattenRewriteState? = None,
+) -> Bool {
+  let result_count = @ir.hot_node_result_arity(func, child_id)
+  if result_count <= 1 {
+    return false
+  }
+  let index = flatten_ownership_index(func, state)
+  let uses = match index.sites.get(child_id) {
+    Some(uses) => uses
+    None => return false
+  }
+  if uses.length() != result_count || uses[0].0 < 0 {
+    return false
+  }
+  let parent = uses[0].0
+  let first_slot = uses[0].1
+  if !@ir.hot_node_is_live(func, parent) ||
+    first_slot < 0 ||
+    first_slot + result_count > @ir.hot_child_count(func, parent) {
+    return false
+  }
+  for offset in 0..<result_count {
+    if @ir.hot_child_get(func, parent, first_slot + offset) != child_id {
+      return false
+    }
+    if uses[offset] != (parent, first_slot + offset) {
       return false
     }
   }
@@ -4520,237 +4787,131 @@ fn flatten_multivalue_control_use_span_is_exclusive(
 }
 
 ///|
-fn flatten_multivalue_control_has_exclusive_consumer_span(
+fn flatten_ownership_site_region(
   func : @ir.HotFunc,
-  child_id : Int32,
-) -> Bool {
-  let result_count = @ir.hot_node_result_arity(func, child_id)
-  if result_count <= 1 {
-    return false
+  parent : Int32,
+  slot : Int32,
+) -> (@ir.HotRegionRef, Int32)? {
+  if parent == -1 {
+    return Some((@ir.HotRegionRef::root(), slot))
   }
-  for parent_id = 0
-      parent_id < @ir.hot_node_count(func)
-      parent_id = parent_id + 1 {
-    if !@ir.hot_node_is_live(func, parent_id) {
-      continue
-    }
-    for slot = 0; slot < @ir.hot_child_count(func, parent_id); slot = slot + 1 {
-      if @ir.hot_child_get(func, parent_id, slot) == child_id {
-        return flatten_multivalue_control_use_span_is_exclusive(
-          func, parent_id, slot, child_id, result_count,
-        )
+  if !@ir.hot_node_is_live(func, parent) {
+    return None
+  }
+  match @ir.hot_node_get(func, parent).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let region = @ir.hot_region_body_ref(func, parent)
+      let base = @ir.hot_child_count(func, parent) -
+        @ir.hot_region_root_count(func, region)
+      if slot >= base {
+        Some((region, slot - base))
+      } else {
+        None
       }
     }
+    _ => None
   }
-  false
-}
-
-///|
-fn flatten_multivalue_region_control_ownership(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  child_id : Int32,
-  result_count : Int32,
-) -> Array[Int32] {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  let mut use_count = 0
-  for idx = 0; idx < root_count; idx = idx + 1 {
-    if @ir.hot_region_get(func, region_ref, idx) == child_id {
-      use_count = use_count + 1
-    }
-  }
-  if use_count != result_count || root_count < result_count {
-    return [use_count, 0]
-  }
-  let tail_start = root_count - result_count
-  for slot = 0; slot < result_count; slot = slot + 1 {
-    if @ir.hot_region_get(func, region_ref, tail_start + slot) != child_id {
-      return [use_count, 0]
-    }
-  }
-  [use_count, 1]
 }
 
 ///|
 fn flatten_multivalue_control_has_exclusive_region_tail_span(
   func : @ir.HotFunc,
   child_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
     return false
   }
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    for slot = 0
-        slot < flatten_operand_slot_count(func, node_id)
-        slot = slot + 1 {
-      if @ir.hot_child_get(func, node_id, slot) == child_id {
-        return false
-      }
+  let index = flatten_ownership_index(func, state)
+  let uses = match index.sites.get(child_id) {
+    Some(uses) => uses
+    None => return false
+  }
+  if uses.length() != result_count {
+    return false
+  }
+  let (region, first) = match
+    flatten_ownership_site_region(func, uses[0].0, uses[0].1) {
+    Some(site) => site
+    None => return false
+  }
+  if first + result_count != @ir.hot_region_root_count(func, region) {
+    return false
+  }
+  for offset in 0..<result_count {
+    if uses[offset].0 != uses[0].0 ||
+      uses[offset].1 != uses[0].1 + offset ||
+      @ir.hot_region_get(func, region, first + offset) != child_id {
+      return false
     }
   }
-  let mut total_uses = 0
-  let mut tail_spans = 0
-  let root_ownership = flatten_multivalue_region_control_ownership(
-    func,
-    @ir.HotRegionRef::root(),
-    child_id,
-    result_count,
-  )
-  total_uses = total_uses + root_ownership[0]
-  tail_spans = tail_spans + root_ownership[1]
-  for holder_id = 0
-      holder_id < @ir.hot_node_count(func)
-      holder_id = holder_id + 1 {
-    if !@ir.hot_node_is_live(func, holder_id) {
-      continue
-    }
-    match @ir.hot_node_get(func, holder_id).op {
-      @ir.HotOp::Block | @ir.HotOp::Loop => ()
-      _ => continue
-    }
-    let ownership = flatten_multivalue_region_control_ownership(
-      func,
-      @ir.hot_region_body_ref(func, holder_id),
-      child_id,
-      result_count,
-    )
-    total_uses = total_uses + ownership[0]
-    tail_spans = tail_spans + ownership[1]
-  }
-  total_uses == result_count && tail_spans == 1
-}
-
-///|
-fn flatten_multivalue_dropped_region_ownership(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  child_id : Int32,
-  result_count : Int32,
-) -> Array[Int32] {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  let mut drop_uses = 0
-  let mut direct_uses = 0
-  let mut spans = 0
-  for idx = 0; idx < root_count; idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if root_id == child_id {
-      direct_uses += 1
-    }
-    match @ir.hot_node_get(func, root_id).op {
-      @ir.HotOp::Drop =>
-        if @ir.hot_child_count(func, root_id) == 1 &&
-          @ir.hot_child_get(func, root_id, 0) == child_id {
-          drop_uses += 1
-        }
-      _ => ()
-    }
-    if idx + result_count <= root_count {
-      let mut exact = true
-      for offset = 0; offset < result_count; offset = offset + 1 {
-        let drop_id = @ir.hot_region_get(func, region_ref, idx + offset)
-        match @ir.hot_node_get(func, drop_id).op {
-          @ir.HotOp::Drop => ()
-          _ => {
-            exact = false
-            break
-          }
-        }
-        if @ir.hot_child_count(func, drop_id) != 1 ||
-          @ir.hot_child_get(func, drop_id, 0) != child_id {
-          exact = false
-          break
-        }
-      }
-      if exact {
-        spans += 1
-      }
-    }
-  }
-  [drop_uses, direct_uses, spans]
+  true
 }
 
 ///|
 fn flatten_multivalue_control_has_exclusive_dropped_region_span(
   func : @ir.HotFunc,
   child_id : Int32,
+  state~ : FlattenRewriteState? = None,
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 {
     return false
   }
-  let mut edge_uses = 0
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-      if @ir.hot_child_get(func, node_id, slot) != child_id {
-        continue
-      }
-      edge_uses += 1
-      match @ir.hot_node_get(func, node_id).op {
-        @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => ()
-        _ => return false
-      }
-    }
+  let index = flatten_ownership_index(func, state)
+  let uses = match index.sites.get(child_id) {
+    Some(uses) => uses
+    None => return false
   }
-  if edge_uses != result_count {
+  if uses.length() != result_count {
     return false
   }
-  let mut drop_uses = 0
-  let mut direct_uses = 0
-  let mut spans = 0
-  let root_ownership = flatten_multivalue_dropped_region_ownership(
-    func,
-    @ir.HotRegionRef::root(),
-    child_id,
-    result_count,
-  )
-  drop_uses += root_ownership[0]
-  direct_uses += root_ownership[1]
-  spans += root_ownership[2]
-  for holder_id = 0
-      holder_id < @ir.hot_node_count(func)
-      holder_id = holder_id + 1 {
-    if !@ir.hot_node_is_live(func, holder_id) {
-      continue
+  let mut holder = -2
+  let mut first = -1
+  let mut last = -1
+  for use_ in uses {
+    let drop_id = use_.0
+    if drop_id < 0 ||
+      !@ir.hot_node_is_live(func, drop_id) ||
+      !(@ir.hot_node_get(func, drop_id).op is @ir.HotOp::Drop) ||
+      @ir.hot_child_count(func, drop_id) != 1 ||
+      @ir.hot_child_get(func, drop_id, 0) != child_id {
+      return false
     }
-    let regions : Array[@ir.HotRegionRef] = match
-      @ir.hot_node_get(func, holder_id).op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        [@ir.hot_region_body_ref(func, holder_id)]
-      @ir.HotOp::If => {
-        let regions = [@ir.hot_region_then_ref(func, holder_id)]
-        match @ir.hot_region_else_ref(func, holder_id) {
-          Some(region_ref) => regions.push(region_ref)
-          None => ()
-        }
-        regions
-      }
-      @ir.HotOp::Try => {
-        let regions = [@ir.hot_region_body_ref(func, holder_id)]
-        match @ir.hot_region_catch_ref(func, holder_id) {
-          Some(region_ref) => regions.push(region_ref)
-          None => ()
-        }
-        regions
-      }
-      _ => continue
+    let drop_uses = match index.sites.get(drop_id) {
+      Some(uses) => uses
+      None => return false
     }
-    for region_ref in regions {
-      let ownership = flatten_multivalue_dropped_region_ownership(
-        func, region_ref, child_id, result_count,
-      )
-      drop_uses += ownership[0]
-      direct_uses += ownership[1]
-      spans += ownership[2]
+    if drop_uses.length() != 1 {
+      return false
+    }
+    let (region, slot) = match
+      flatten_ownership_site_region(func, drop_uses[0].0, drop_uses[0].1) {
+      Some(site) => site
+      None => return false
+    }
+    if slot < 0 ||
+      slot >= @ir.hot_region_root_count(func, region) ||
+      @ir.hot_region_get(func, region, slot) != drop_id {
+      return false
+    }
+    if holder == -2 {
+      holder = region.holder
+      first = slot
+      last = slot
+    } else if holder != region.holder {
+      return false
+    } else {
+      if slot < first {
+        first = slot
+      }
+      if slot > last {
+        last = slot
+      }
     }
   }
-  drop_uses == result_count && direct_uses == 0 && spans == 1
+  last - first + 1 == result_count
 }
 
 ///|
@@ -4765,6 +4926,8 @@ fn flatten_try_route_multivalue_dropped_region_span(
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 ||
+    !(@ir.hot_node_get(func, parent_id).op is @ir.HotOp::Drop) ||
+    @ir.hot_child_count(func, parent_id) != 1 ||
     child_id >= state.use_count_node_limit ||
     @ir.hot_node_use_count(state.use_def, child_id) != result_count {
     return false
@@ -4830,7 +4993,7 @@ fn flatten_try_route_multivalue_control_operand(
   preludes : Array[Int32],
 ) -> Bool {
   let result_count = @ir.hot_node_result_arity(func, child_id)
-  if result_count <= 1 {
+  if result_count <= 1 || !@ir.hot_node_kind_is_control(func, child_id) {
     return false
   }
   if flatten_try_route_multivalue_dropped_region_span(
@@ -4839,7 +5002,12 @@ fn flatten_try_route_multivalue_control_operand(
     return true
   }
   if !flatten_multivalue_control_use_span_is_exclusive(
-      func, parent_id, slot, child_id, result_count,
+      func,
+      parent_id,
+      slot,
+      child_id,
+      result_count,
+      state=Some(state),
     ) {
     return false
   }
@@ -4880,8 +5048,13 @@ fn flatten_try_route_multivalue_control_region_span(
 ) -> Int32? {
   let result_count = @ir.hot_node_result_arity(func, child_id)
   if result_count <= 1 ||
+    !@ir.hot_node_kind_is_control(func, child_id) ||
     root_idx + result_count > @ir.hot_region_root_count(func, region_ref) ||
-    !flatten_multivalue_control_has_exclusive_region_tail_span(func, child_id) {
+    !flatten_multivalue_control_has_exclusive_region_tail_span(
+      func,
+      child_id,
+      state=Some(state),
+    ) {
     return None
   }
   for slot = 0; slot < result_count; slot = slot + 1 {
@@ -4942,7 +5115,11 @@ fn flatten_try_route_scalar_block(
     if label_id < 0 ||
       label_id >= state.label_temps.length() ||
       state.label_temps[label_id].length() != 1 ||
-      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      !flatten_label_uses_are_routed_scalar_brs(
+        func,
+        label_id,
+        state=Some(state),
+      ) {
       return None
     }
     state.label_temps[label_id][0]
@@ -5690,7 +5867,11 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
   }
   if flatten_type_results(func, @ir.hot_node_get(func, nested_id).ty, state~) !=
     result_types ||
-    !flatten_multivalue_control_has_exclusive_region_tail_span(func, nested_id) {
+    !flatten_multivalue_control_has_exclusive_region_tail_span(
+      func,
+      nested_id,
+      state~,
+    ) {
     return false
   }
   let nested_label = @ir.hot_control_node_label(func, nested_id)
@@ -5958,9 +6139,21 @@ fn flatten_inputful_loop_is_supported_uncached(
     return @ir.hot_node_result_arity(func, tail_id) == 1
   }
   (
-    flatten_multivalue_control_has_exclusive_consumer_span(func, loop_id) ||
-    flatten_multivalue_control_has_exclusive_region_tail_span(func, loop_id) ||
-    flatten_multivalue_control_has_exclusive_dropped_region_span(func, loop_id)
+    flatten_multivalue_control_has_exclusive_consumer_span(
+      func,
+      loop_id,
+      state~,
+    ) ||
+    flatten_multivalue_control_has_exclusive_region_tail_span(
+      func,
+      loop_id,
+      state~,
+    ) ||
+    flatten_multivalue_control_has_exclusive_dropped_region_span(
+      func,
+      loop_id,
+      state~,
+    )
   ) &&
   flatten_inputful_multivalue_loop_tail_is_supported(
     func,
@@ -6385,7 +6578,11 @@ fn flatten_try_route_scalar_if(
     if label_id < 0 ||
       label_id >= state.label_temps.length() ||
       state.label_temps[label_id].length() != 1 ||
-      !flatten_label_uses_are_routed_scalar_brs(func, label_id) {
+      !flatten_label_uses_are_routed_scalar_brs(
+        func,
+        label_id,
+        state=Some(state),
+      ) {
       return None
     }
     state.label_temps[label_id][0]
@@ -7834,11 +8031,21 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
     return false
   }
   let owner_id = @ir.hot_label_owner(func, label_id)
-  if !flatten_multivalue_control_has_exclusive_consumer_span(func, owner_id) &&
-    !flatten_multivalue_control_has_exclusive_dropped_region_span(
-      func, owner_id,
+  if !flatten_multivalue_control_has_exclusive_consumer_span(
+      func,
+      owner_id,
+      state~,
     ) &&
-    !flatten_multivalue_control_has_exclusive_region_tail_span(func, owner_id) {
+    !flatten_multivalue_control_has_exclusive_dropped_region_span(
+      func,
+      owner_id,
+      state~,
+    ) &&
+    !flatten_multivalue_control_has_exclusive_region_tail_span(
+      func,
+      owner_id,
+      state~,
+    ) {
     return false
   }
   let regions : Array[@ir.HotRegionRef] = match
@@ -9204,8 +9411,7 @@ fn flatten_place_unreachable_control_placeholder(
     return false
   }
   let already_sequenced = flatten_sequenced_root_contains(
-    state.sequenced_root_holders,
-    state.sequenced_root_nodes,
+    state.sequenced_roots,
     owner_region.holder,
     child_id,
   )
@@ -9214,6 +9420,36 @@ fn flatten_place_unreachable_control_placeholder(
   }
   @ir.hot_child_set(func, parent_id, slot, @ir.hot_build_unreachable(func))
   true
+}
+
+///|
+fn flatten_root_first_source_effect(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  root_id : Int32,
+) -> Int32 {
+  let origin = if root_id >= 0 && root_id < state.use_count_node_limit {
+    root_id
+  } else if root_id >= 0 &&
+    @ir.hot_node_get(func, root_id).op is @ir.HotOp::LocalSet &&
+    @ir.hot_child_count(func, root_id) == 1 {
+    let value = @ir.hot_child_get(func, root_id, 0)
+    if @ir.hot_node_get(func, root_id).order ==
+      @ir.hot_node_get(func, value).order {
+      value
+    } else {
+      -1
+    }
+  } else {
+    -1
+  }
+  if origin >= 0 &&
+    origin < state.source_first_effect_orders.length() &&
+    state.source_first_effect_orders[origin] < state.use_count_node_limit {
+    state.source_first_effect_orders[origin]
+  } else {
+    -1
+  }
 }
 
 ///|
@@ -9231,27 +9467,33 @@ fn flatten_insert_early_source_preludes(
     owner_region.holder == state.active_region_holder &&
     state.active_root_idx >= 0 {
     let current_idx = state.active_root_idx + state.active_early_insertions
-    for idx = 0; idx < current_idx; idx = idx + 1 {
-      let root_id = @ir.hot_region_get(func, owner_region, idx)
-      let origin = if root_id >= 0 && root_id < state.use_count_node_limit {
-        root_id
-      } else if root_id >= 0 &&
-        @ir.hot_node_get(func, root_id).op is @ir.HotOp::LocalSet &&
-        @ir.hot_child_count(func, root_id) == 1 {
-        let value = @ir.hot_child_get(func, root_id, 0)
-        if @ir.hot_node_get(func, root_id).order ==
-          @ir.hot_node_get(func, value).order {
-          value
-        } else {
-          -1
+    if state.fixed_operand_ownership {
+      // In the certified tree, completed roots never change again. Scan each
+      // newly completed prefix slot once, including final spill wrappers.
+      // Early insertions below extend this bound explicitly. A high bound can
+      // cause an extra scan; only a complete low bound may skip the scan.
+      for idx = state.active_source_prefix_end; idx < current_idx; idx = idx + 1 {
+        let first_effect = flatten_root_first_source_effect(
+          func,
+          state,
+          @ir.hot_region_get(func, owner_region, idx),
+        )
+        if first_effect > state.active_source_prefix_max {
+          state.active_source_prefix_max = first_effect
         }
-      } else {
-        -1
       }
-      if origin >= 0 &&
-        origin < state.source_first_effect_orders.length() &&
-        state.source_first_effect_orders[origin] < state.use_count_node_limit &&
-        state.source_first_effect_orders[origin] > child.order {
+      state.active_source_prefix_end = current_idx
+      if state.active_source_prefix_max <= child.order {
+        return
+      }
+    }
+    for idx = 0; idx < current_idx; idx = idx + 1 {
+      let first_effect = flatten_root_first_source_effect(
+        func,
+        state,
+        @ir.hot_region_get(func, owner_region, idx),
+      )
+      if first_effect > child.order {
         // Capture before the next source effect, including already-spilled
         // operands of a later GC write. Synthetic control roots do not have
         // an original execution position and must not become such anchors.
@@ -9264,6 +9506,15 @@ fn flatten_insert_early_source_preludes(
     // Operand preludes can initialize locals consumed by this value (for
     // example a split tee feeding a cast). Move the dependency chain with it.
     let inserted = preludes.length()
+    if state.fixed_operand_ownership {
+      for root in preludes {
+        let first_effect = flatten_root_first_source_effect(func, state, root)
+        if first_effect > state.active_source_prefix_max {
+          state.active_source_prefix_max = first_effect
+        }
+      }
+      state.active_source_prefix_end = state.active_source_prefix_end + inserted
+    }
     ignore(
       pass_splice_region(ctx, func, owner_region, early_insert_idx, 0, preludes),
     )
@@ -9369,6 +9620,10 @@ fn flatten_rewrite_region_operands(
   let saved_region_holder = state.active_region_holder
   let saved_root_idx = state.active_root_idx
   let saved_early_insertions = state.active_early_insertions
+  let saved_source_prefix_end = state.active_source_prefix_end
+  let saved_source_prefix_max = state.active_source_prefix_max
+  state.active_source_prefix_end = 0
+  state.active_source_prefix_max = -1
   state.prelude_depth = state.prelude_depth + 1
   state.active_region_holder = region_ref.holder
   let mut changed = false
@@ -9401,8 +9656,7 @@ fn flatten_rewrite_region_operands(
     if flatten_root_needs_sequence_tracking(state, node_id) {
       ignore(
         flatten_sequenced_root_record(
-          state.sequenced_root_holders,
-          state.sequenced_root_nodes,
+          state.sequenced_roots,
           region_ref.holder,
           node_id,
         ),
@@ -9452,6 +9706,8 @@ fn flatten_rewrite_region_operands(
   state.active_region_holder = saved_region_holder
   state.active_root_idx = saved_root_idx
   state.active_early_insertions = saved_early_insertions
+  state.active_source_prefix_end = saved_source_prefix_end
+  state.active_source_prefix_max = saved_source_prefix_max
   changed
 }
 
@@ -9661,6 +9917,9 @@ fn flatten_stage_prior_operands_before_new_preludes(
   preludes : Array[Int32],
   insert_at : Int32,
 ) -> Bool {
+  if end_slot <= 0 {
+    return false
+  }
   let written_locals = flatten_new_prelude_local_writes(
     func, preludes, insert_at,
   )
@@ -9679,6 +9938,60 @@ fn flatten_stage_prior_operands_before_new_preludes(
 }
 
 ///|
+fn flatten_capture_control_entry(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
+  parent : Int32,
+  slot : Int32,
+  preludes : Array[Int32],
+) -> Bool {
+  let entry = @ir.hot_child_get(func, parent, slot)
+  if entry < 0 || flatten_node_is_simple_operand(func, entry) {
+    return false
+  }
+  let types = flatten_type_results(
+    func,
+    @ir.hot_node_get(func, entry).ty,
+    state=Some(state),
+  )
+  if types.length() != 1 {
+    return false
+  }
+  // The header and its body stack share this node id. Changing only the header
+  // edge would make the body evaluate the old producer again. Keep that id as
+  // the captured read and move the producer to one preceding definition.
+  let producer = @ir.hot_alloc_node(func, @ir.hot_node_get(func, entry))
+  @ir.hot_preserve_replacement_position(func, producer, entry)
+  if @ir.hot_node_kind_is_control(func, producer) {
+    let label = @ir.hot_control_node_label(func, producer)
+    if label >= 0 {
+      @ir.hot_label_owner_set(func, label, producer)
+    }
+  }
+  let local = @ir.hot_append_body_local(func, types[0])
+  let read = @ir.hot_build_local_get(func, local)
+  @ir.hot_replace_node_preserving_position(
+    func,
+    entry,
+    @ir.hot_node_get(func, read),
+  )
+  @ir.hot_delete_node(func, read)
+  let capture = @ir.hot_build_local_set_from_value(func, local, producer)
+  ignore(
+    flatten_rewrite_node_operands(
+      ctx, func, state, owner_region, capture, preludes,
+    ),
+  )
+  preludes.push(capture)
+  flatten_insert_early_source_preludes(
+    ctx, func, state, owner_region, entry, preludes,
+  )
+  true
+}
+
+///|
 fn flatten_rewrite_node_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -9693,13 +10006,22 @@ fn flatten_rewrite_node_operands(
   let node = @ir.hot_node_get(func, node_id)
   let mut changed = false
   match node.op {
-    @ir.HotOp::Block =>
+    @ir.HotOp::Block => {
+      for slot in 0..<node.imm1 {
+        if flatten_capture_control_entry(
+            ctx, func, state, owner_region, node_id, slot, preludes,
+          ) {
+          changed = true
+        }
+      }
       changed = flatten_rewrite_region_operands(
-        ctx,
-        func,
-        state,
-        @ir.hot_region_body_ref(func, node_id),
-      )
+          ctx,
+          func,
+          state,
+          @ir.hot_region_body_ref(func, node_id),
+        ) ||
+        changed
+    }
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       let input_count = @ir.hot_label_branch_arity(func, label_id)
@@ -9735,6 +10057,13 @@ fn flatten_rewrite_node_operands(
       }
     }
     @ir.HotOp::If => {
+      for slot in 3..<node.child_count {
+        if flatten_capture_control_entry(
+            ctx, func, state, owner_region, node_id, slot, preludes,
+          ) {
+          changed = true
+        }
+      }
       if flatten_rewrite_operand_slot(
           ctx, func, state, owner_region, node_id, 0, preludes,
         ) {
@@ -9757,6 +10086,13 @@ fn flatten_rewrite_node_operands(
       }
     }
     @ir.HotOp::Try => {
+      for slot in 2..<node.child_count {
+        if flatten_capture_control_entry(
+            ctx, func, state, owner_region, node_id, slot, preludes,
+          ) {
+          changed = true
+        }
+      }
       if flatten_rewrite_region_operands(
           ctx,
           func,
@@ -11495,23 +11831,23 @@ fn FlattenCarriedScalarAcrossGlobalWriteFact::from_func(
 ) -> FlattenCarriedScalarAcrossGlobalWriteFact {
   let root_ref = @ir.HotRegionRef::root()
   let root_count = @ir.hot_region_root_count(func, root_ref)
-  for later_idx = 1; later_idx < root_count; later_idx = later_idx + 1 {
+  // The largest earlier node id subsumes every earlier barrier: a source
+  // older than any earlier write is older than this maximum, and vice versa.
+  let mut latest_barrier_id = -1
+  for later_idx = 0; later_idx < root_count; later_idx = later_idx + 1 {
     let later_root = @ir.hot_region_get(func, root_ref, later_idx)
     match @ir.hot_node_get(func, later_root).op {
       @ir.HotOp::GlobalSet => ()
       _ => continue
     }
-    for earlier_idx = 0; earlier_idx < later_idx; earlier_idx = earlier_idx + 1 {
-      let earlier_root = @ir.hot_region_get(func, root_ref, earlier_idx)
-      match @ir.hot_node_get(func, earlier_root).op {
-        @ir.HotOp::GlobalSet =>
-          if flatten_subtree_has_source_older_rich_scalar(
-              func, later_root, earlier_root,
-            ) {
-            return { has_hazard: true, }
-          }
-        _ => ()
-      }
+    if latest_barrier_id >= 0 &&
+      flatten_subtree_has_source_older_rich_scalar(
+        func, later_root, latest_barrier_id,
+      ) {
+      return { has_hazard: true, }
+    }
+    if later_root > latest_barrier_id {
+      latest_barrier_id = later_root
     }
   }
   { has_hazard: false, }
@@ -11612,6 +11948,7 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if flatten_rewrite_region_operands(ctx, func, state, @ir.HotRegionRef::root()) {
     changed = true
   }
+  state.fixed_operand_ownership = false
   if flatten_materialize_multivalue_body_result(ctx, func, state) {
     changed = true
   } else if flatten_materialize_scalar_body_result(ctx, func, state) {

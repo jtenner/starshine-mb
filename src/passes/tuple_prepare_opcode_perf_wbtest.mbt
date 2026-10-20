@@ -33,14 +33,8 @@ fn tuple_prepare_opcode_bench(
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let (before, _) = tuple_prepare_opcode_fixture(width, result_types)
   let (after, _) = tuple_prepare_opcode_fixture(width, result_types)
-  let left : HotPipelineLowerState = {
-    next_type_sec: None,
-    type_sec_changed: false,
-  }
-  let right : HotPipelineLowerState = {
-    next_type_sec: None,
-    type_sec_changed: false,
-  }
+  let left : HotPipelineLowerState = HotPipelineLowerState::new(None)
+  let right : HotPipelineLowerState = HotPipelineLowerState::new(None)
   tuple_prepare_string_reference(before, left)
   run_hot_pipeline_prepare_tuple_make_lowering(after, right)
   if @ir.hot_lower_func(before) != @ir.hot_lower_func(after) ||
@@ -49,10 +43,7 @@ fn tuple_prepare_opcode_bench(
   }
   it.bench(fn() {
     let (func, tuple) = tuple_prepare_opcode_fixture(width, result_types)
-    let state : HotPipelineLowerState = {
-      next_type_sec: None,
-      type_sec_changed: false,
-    }
+    let state : HotPipelineLowerState = HotPipelineLowerState::new(None)
     if reference {
       tuple_prepare_string_reference(func, state)
     } else {

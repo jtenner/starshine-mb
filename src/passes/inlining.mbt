@@ -4909,8 +4909,8 @@ fn inl_remap_name_sec(
         module_name=sec.module_name,
         func_names=inl_remap_name_map(sec.func_names, remap, final_total),
         // Existing caller locals retain their indices because inlining appends
-        // spills and copied callee locals. Preserve those valid names while
-        // discarding entries only for functions removed by compaction.
+        // spills and copied callee locals. Later unused-local compaction applies
+        // its exact local-index remap; this stage only remaps function indices.
         local_names=inl_remap_indirect_name_map(
           sec.local_names,
           remap,
@@ -5702,6 +5702,75 @@ fn inl_reachability_reaches(
 }
 
 ///|
+fn inl_prediction_alive(
+  imports : Int32,
+  graph : Array[Array[Int32]],
+  used : Array[Bool],
+  exact_inlineable : Array[Bool],
+) -> Array[Bool] {
+  let total = graph.length()
+  let alive = Array::make(total, true)
+  // Adjacency rows are immutable. Share them until a source loses all calls;
+  // maintain incoming counts instead of copying/filtering every row each wave.
+  let calls = graph.copy()
+  let refs = Array::make(total, 0)
+  for edges in calls {
+    for target in edges {
+      if target >= 0 && target < total {
+        refs[target] += 1
+      }
+    }
+  }
+  let mut iteration = 0
+  while iteration < total + 1 {
+    let inlined_uses = Array::make(total, 0)
+    let inlined_into = Array::make(total, false)
+    let mut any = false
+    for source in 0..<total {
+      if alive[source] && inlined_uses[source] == 0 {
+        for target in calls[source] {
+          if target >= imports &&
+            target < total &&
+            alive[target] &&
+            target != source &&
+            !inlined_into[target] &&
+            (refs[target] == 1 || iteration > 0 || exact_inlineable[target]) &&
+            !(target < used.length() && used[target]) {
+            inlined_uses[target] += 1
+            inlined_into[source] = true
+            any = true
+          }
+        }
+      }
+    }
+    if !any {
+      break
+    }
+    // Removal decisions use this wave's original incoming counts.
+    for node in imports..<total {
+      if alive[node] &&
+        inlined_uses[node] > 0 &&
+        inlined_uses[node] == refs[node] &&
+        !(node < used.length() && used[node]) {
+        alive[node] = false
+      }
+    }
+    for source in 0..<total {
+      if (inlined_into[source] || !alive[source]) && calls[source].length() > 0 {
+        for target in calls[source] {
+          if target >= 0 && target < total && alive[target] {
+            refs[target] -= 1
+          }
+        }
+        calls[source] = []
+      }
+    }
+    iteration += 1
+  }
+  alive
+}
+
+///|
 fn inl_predict_alive_unreachable_counts(
   mod_ : @lib.Module,
   imports : Int32,
@@ -5709,7 +5778,6 @@ fn inl_predict_alive_unreachable_counts(
   used : Array[Bool],
 ) -> @hashmap.HashMap[String, Int32] {
   let total = graph.length()
-  let alive = Array::make(total, true)
   let exact_inlineable = Array::make(total, false)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -5724,88 +5792,7 @@ fn inl_predict_alive_unreachable_counts(
     }
     None => ()
   }
-  let calls : Array[Array[Int32]] = []
-  for edges in graph {
-    let copy : Array[Int32] = []
-    copy.append(edges)
-    calls.push(copy)
-  }
-  let max_iterations = total + 1
-  let mut iteration = 0
-  while iteration < max_iterations {
-    let refs = Array::make(total, 0)
-    let mut idx = 0
-    while idx < total {
-      if alive[idx] {
-        for target in calls[idx] {
-          if target >= 0 && target < total && alive[target] {
-            refs[target] += 1
-          }
-        }
-      }
-      idx += 1
-    }
-    let inlined_uses = Array::make(total, 0)
-    let inlined_into = Array::make(total, false)
-    let mut any = false
-    idx = 0
-    while idx < total {
-      if alive[idx] && inlined_uses[idx] == 0 {
-        for target in calls[idx] {
-          if target >= imports &&
-            target < total &&
-            alive[target] &&
-            target != idx &&
-            !inlined_into[target] &&
-            (refs[target] == 1 || exact_inlineable[target]) &&
-            !(target < used.length() && used[target]) {
-            inlined_uses[target] += 1
-            inlined_into[idx] = true
-            any = true
-          }
-        }
-      }
-      idx += 1
-    }
-    if !any {
-      break
-    }
-    idx = 0
-    while idx < total {
-      if inlined_into[idx] {
-        calls[idx] = []
-        if idx >= 0 && idx < exact_inlineable.length() {
-          exact_inlineable[idx] = true
-        }
-      }
-      idx += 1
-    }
-    idx = imports
-    while idx < total {
-      if alive[idx] &&
-        inlined_uses[idx] > 0 &&
-        inlined_uses[idx] == refs[idx] &&
-        !(idx < used.length() && used[idx]) {
-        alive[idx] = false
-      }
-      idx += 1
-    }
-    idx = 0
-    while idx < total {
-      if alive[idx] {
-        let filtered : Array[Int32] = []
-        for target in calls[idx] {
-          if target >= 0 && target < total && alive[target] {
-            filtered.push(target)
-          }
-        }
-        calls[idx] = filtered
-        exact_inlineable[idx] = true
-      }
-      idx += 1
-    }
-    iteration += 1
-  }
+  let alive = inl_prediction_alive(imports, graph, used, exact_inlineable)
   let counts : @hashmap.HashMap[String, Int32] = @hashmap.new()
   let types = inl_collect_func_type_indices(mod_)
   let mut abs = imports
@@ -6913,6 +6900,136 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
 }
 
 ///|
+fn inl_graph_reachable_from_roots(
+  graph : Array[Array[Int32]],
+  roots : Array[Bool],
+) -> Array[Bool] {
+  let reachable = Array::make(graph.length(), false)
+  let stack : Array[Int32] = []
+  for node in 0..<graph.length() {
+    if node < roots.length() && roots[node] {
+      reachable[node] = true
+      stack.push(node)
+    }
+  }
+  while stack.length() > 0 {
+    let node = stack.pop().unwrap()
+    for target in graph[node] {
+      if target >= 0 && target < graph.length() && !reachable[target] {
+        reachable[target] = true
+        stack.push(target)
+      }
+    }
+  }
+  reachable
+}
+
+///|
+fn inl_private_cycle_marks(
+  imports : Int32,
+  graph : Array[Array[Int32]],
+  reachability : InlGraphReachability,
+  used : Array[Bool],
+  reachable_from_root : Array[Bool],
+  signatures : Array[String],
+) -> (Array[Bool], Array[Int32]) {
+  let total = graph.length()
+  let scc_count = reachability.members_by_scc.length()
+  let reaches_root = Array::make(scc_count, false)
+  let root_edges = Array::make(scc_count, 0)
+  let orphan_signatures : @set.Set[String] = @set.Set([])
+  for node in 0..<total {
+    if used[node] {
+      reaches_root[reachability.scc_by_node[node]] = true
+      for target in graph[node] {
+        if target != node && target >= 0 && target < total {
+          root_edges[reachability.scc_by_node[target]] += 1
+        }
+      }
+    } else if node >= imports &&
+      !reachable_from_root[node] &&
+      graph[node].contains(node) {
+      orphan_signatures.add(signatures[node])
+    }
+  }
+  // Kosaraju numbers source SCCs before their successors. Propagate the
+  // existence of a path to any root once, in reverse component order.
+  for scc = scc_count - 1; scc >= 0; scc = scc - 1 {
+    if reaches_root[scc] {
+      continue
+    }
+    for node in reachability.members_by_scc[scc] {
+      for target in graph[node] {
+        if target >= 0 &&
+          target < total &&
+          reaches_root[reachability.scc_by_node[target]] {
+          reaches_root[scc] = true
+          break
+        }
+      }
+      if reaches_root[scc] {
+        break
+      }
+    }
+  }
+  let mark = Array::make(total, false)
+  let representative = Array::make(total, -1)
+  for scc in 0..<scc_count {
+    let members = reachability.members_by_scc[scc]
+    if !reachability.scc_has_cycle[scc] ||
+      members.length() == 0 ||
+      !reachable_from_root[members[0]] {
+      continue
+    }
+    let scc_signatures : @set.Set[String] = @set.Set([])
+    let mut first_private = -1
+    let mut has_self_loop = false
+    let mut has_orphan_signature = false
+    for node in members {
+      if node >= imports {
+        let sig = signatures[node]
+        scc_signatures.add(sig)
+        if orphan_signatures.contains(sig) {
+          has_orphan_signature = true
+        }
+        if !used[node] {
+          if first_private < 0 {
+            first_private = node
+          }
+          if graph[node].contains(node) {
+            has_self_loop = true
+          }
+        }
+      }
+    }
+    let size = members.length()
+    let returns_to_root = reaches_root[scc]
+    let edges = root_edges[scc]
+    let base_mark = (!returns_to_root && size <= 2 && edges > 0) ||
+      (size == 3 && (has_self_loop || edges > 1))
+    for node in members {
+      if node < imports {
+        continue
+      }
+      if !used[node] {
+        representative[node] = first_private
+      }
+      let has_orphan_same_signature = orphan_signatures.contains(
+        signatures[node],
+      )
+      mark[node] = base_mark &&
+        !(scc_signatures.length() == 1 && !has_orphan_same_signature) &&
+        !(returns_to_root &&
+        size == 3 &&
+        edges > 1 &&
+        !has_orphan_same_signature) &&
+        !(!returns_to_root && size <= 3 && !has_orphan_signature)
+    }
+  }
+  (mark, representative)
+}
+
+///|
 fn inl_original_reachable_private_cycle_funcs(
   mod_ : @lib.Module,
 ) -> InlOriginalGraphInfo {
@@ -6943,21 +7060,7 @@ fn inl_original_reachable_private_cycle_funcs(
   let predicted_unreachable_counts = inl_predict_alive_unreachable_counts(
     mod_, imports, graph, used,
   )
-  let reachable_from_root = Array::make(total, false)
-  idx = 0
-  while idx < total {
-    if idx < used.length() && used[idx] {
-      reachable_from_root[idx] = true
-      let mut target = 0
-      while target < total {
-        if inl_reachability_reaches(reachability, idx, target) {
-          reachable_from_root[target] = true
-        }
-        target += 1
-      }
-    }
-    idx += 1
-  }
+  let reachable_from_root = inl_graph_reachable_from_roots(graph, used)
   inl_prediction_retain_shadowed_void_cycle_result_helper(
     mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
@@ -6993,114 +7096,11 @@ fn inl_original_reachable_private_cycle_funcs(
     broadened_frontier_flags == 3
   let force_predicted_pad_on_retain_return = broadened_frontier_flags == 2 ||
     broadened_frontier_flags == 3
-  let mark = Array::make(total, false)
-  let public_scc_representative = Array::make(total, -1)
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
-  idx = imports
-  while idx < total {
-    if reachable_from_root[idx] &&
-      inl_reachability_reaches(reachability, idx, idx) {
-      let mut reaches_root = false
-      let mut root = 0
-      while root < total {
-        if used[root] && inl_reachability_reaches(reachability, idx, root) {
-          reaches_root = true
-          break
-        }
-        root += 1
-      }
-      let scc_members = inl_reachability_scc_members(reachability, idx)
-      let scc_size = scc_members.length()
-      if idx < used.length() && !used[idx] {
-        let mut representative = -1
-        for other in scc_members {
-          if other >= imports && other < used.length() && !used[other] {
-            representative = other
-            break
-          }
-        }
-        public_scc_representative[idx] = representative
-      }
-      let mut has_self_loop = false
-      for other in scc_members {
-        if other >= imports && !(other < used.length() && used[other]) {
-          for next in graph[other] {
-            if next == other {
-              has_self_loop = true
-              break
-            }
-          }
-        }
-        if has_self_loop {
-          break
-        }
-      }
-      let mut root_edges_to_scc = 0
-      root = 0
-      while root < total {
-        if used[root] {
-          for next in graph[root] {
-            if next != root &&
-              next >= 0 &&
-              next < total &&
-              inl_reachability_same_scc(reachability, idx, next) {
-              root_edges_to_scc += 1
-            }
-          }
-        }
-        root += 1
-      }
-      let sig = signatures[idx]
-      let mut scc_same_signature = true
-      let scc_signatures : @set.Set[String] = @set.Set([])
-      for other in scc_members {
-        if other >= imports {
-          scc_signatures.add(signatures[other])
-        }
-        if other >= imports && signatures[other] != sig {
-          scc_same_signature = false
-        }
-      }
-      let mut has_orphan_self_loop_same_signature = false
-      let mut has_orphan_self_loop_scc_signature = false
-      let mut other = imports
-      while other < total {
-        if !inl_reachability_same_scc(reachability, idx, other) &&
-          !(other < used.length() && used[other]) &&
-          !reachable_from_root[other] {
-          let other_sig = signatures[other]
-          let matches_scc_signature = scc_signatures.contains(other_sig)
-          for next in graph[other] {
-            if next == other {
-              if other_sig == sig {
-                has_orphan_self_loop_same_signature = true
-              }
-              if matches_scc_signature {
-                has_orphan_self_loop_scc_signature = true
-              }
-              break
-            }
-          }
-        }
-        if has_orphan_self_loop_same_signature &&
-          has_orphan_self_loop_scc_signature {
-          break
-        }
-        other += 1
-      }
-      let base_mark = (!reaches_root && scc_size <= 2 && root_edges_to_scc > 0) ||
-        (scc_size == 3 && (has_self_loop || root_edges_to_scc > 1))
-      mark[idx] = base_mark &&
-        !(scc_same_signature && !has_orphan_self_loop_same_signature) &&
-        !(reaches_root &&
-        scc_size == 3 &&
-        root_edges_to_scc > 1 &&
-        !has_orphan_self_loop_same_signature) &&
-        !(!reaches_root && scc_size <= 3 && !has_orphan_self_loop_scc_signature)
-    }
-    idx += 1
-  }
+  let (mark, public_scc_representative) = inl_private_cycle_marks(
+    imports, graph, reachability, used, reachable_from_root, signatures,
+  )
   {
     cycle_remove: mark,
     public_scc_representative,
@@ -7975,6 +7975,7 @@ fn inl_instrs_have_tail_call(instrs : Array[@lib.Instruction]) -> Bool {
 fn inl_compact_unused_locals_func(
   func : @lib.Func,
   param_count : Int32,
+  local_remap_out~ : Array[Int32]? = None,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
   // Fail closed around tail-call operands. The compact-local rewriter is purely
@@ -7993,7 +7994,7 @@ fn inl_compact_unused_locals_func(
     i += 1
   }
   inl_mark_local_uses_instrs(body, used)
-  let remap = Array::make(total, 0)
+  let remap = Array::make(total, -1)
   i = 0
   while i < param_count {
     remap[i] = i
@@ -8014,9 +8015,80 @@ fn inl_compact_unused_locals_func(
   if next_idx == total {
     return func
   }
+  if local_remap_out is Some(out) {
+    out.append(remap)
+  }
   @lib.Func::new(
     @lib.Locals::from_types(next_local_types),
     @lib.Expr::new(inl_rewrite_local_idxs_instrs(body, remap)),
+  )
+}
+
+///|
+fn inl_remap_compacted_local_names(
+  mod_ : @lib.Module,
+  local_remaps : Array[Array[Int32]?],
+) -> @lib.Module {
+  let names = match mod_.name_sec {
+    Some(names) => names
+    None => return mod_.without_name_sec()
+  }
+  let local_names = match names.local_names {
+    Some(@lib.IndirectNameMap(entries)) => {
+      let out : Array[@lib.IndirectNameAssoc] = []
+      for entry in entries {
+        let @lib.IndirectNameAssoc(raw_func, @lib.NameMap(locals)) = entry
+        let func = raw_func.reinterpret_as_int()
+        let remap = if func >= 0 && func < local_remaps.length() {
+          local_remaps[func]
+        } else {
+          None
+        }
+        match remap {
+          Some(remap) => {
+            let retained : Array[@lib.NameAssoc] = []
+            for local in locals {
+              let @lib.NameAssoc(raw_local, name) = local
+              let old = raw_local.reinterpret_as_int()
+              if old >= 0 && old < remap.length() && remap[old] >= 0 {
+                retained.push(@lib.NameAssoc::new(remap[old].to_uint(), name))
+              }
+            }
+            if retained.length() > 0 {
+              out.push(
+                @lib.IndirectNameAssoc::new(
+                  raw_func,
+                  @lib.NameMap::new(retained),
+                ),
+              )
+            }
+          }
+          None => out.push(entry)
+        }
+      }
+      if out.length() == 0 {
+        None
+      } else {
+        Some(@lib.IndirectNameMap::new(out))
+      }
+    }
+    None => None
+  }
+  mod_.with_name_sec(
+    @lib.NameSec::new(
+      module_name=names.module_name,
+      func_names=names.func_names,
+      local_names~,
+      label_names=names.label_names,
+      type_names=names.type_names,
+      table_names=names.table_names,
+      memory_names=names.memory_names,
+      global_names=names.global_names,
+      elem_names=names.elem_names,
+      data_names=names.data_names,
+      field_names=names.field_names,
+      tag_names=names.tag_names,
+    ),
   )
 }
 
@@ -8030,6 +8102,12 @@ fn inl_compact_unused_locals(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let out : Array[@lib.Func] = []
+      let local_remaps : Array[Array[Int32]?] = if mod_.name_sec is Some(names) &&
+        names.local_names is Some(_) {
+        Array::make(imports + funcs.length(), None)
+      } else {
+        []
+      }
       let mut changed = false
       let mut def_idx = 0
       for func in funcs {
@@ -8043,15 +8121,34 @@ fn inl_compact_unused_locals(
           Some(@lib.FuncType(params, _)) => params.length()
           None => 0
         }
-        let next = inl_compact_unused_locals_func(func, param_count)
-        if next != func {
+        let remap_out = if abs < local_remaps.length() {
+          Some([])
+        } else {
+          None
+        }
+        let next = inl_compact_unused_locals_func(
+          func,
+          param_count,
+          local_remap_out=remap_out,
+        )
+        let @lib.Func(old_locals, _) = func
+        let @lib.Func(next_locals, _) = next
+        // Compaction only changes a function when it removes a local. Avoid a
+        // full instruction comparison, which also treats NaN as unequal.
+        if old_locals.length() != next_locals.length() {
           changed = true
+          if remap_out is Some(remap) {
+            local_remaps[abs] = Some(remap)
+          }
         }
         out.push(next)
         def_idx += 1
       }
       if changed {
-        mod_.with_code_sec(@lib.CodeSec::new(out))
+        inl_remap_compacted_local_names(
+          mod_.with_code_sec(@lib.CodeSec::new(out)),
+          local_remaps,
+        )
       } else {
         mod_
       }
@@ -9761,6 +9858,7 @@ fn inl_run_module_pass_once(
   prepare_multivalue_block_types : Bool,
   trivial_mode_cache : Array[(Bool, Bool)?],
   body_measure_cache : InlBodyMeasureCache?,
+  original_graph_info_hint~ : InlOriginalGraphInfo? = None,
   perf~ : HotPerfSession? = None,
 ) -> (@lib.Module, Bool, Array[Int32], Array[Bool], Array[(Bool, Bool)?]) {
   let prepare_start_us = perf_start_timer_opt(
@@ -9849,7 +9947,10 @@ fn inl_run_module_pass_once(
   let original_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
   )
-  let original_graph_info = inl_original_graph_info_for_mode(mod_, optimize, [0])
+  let original_graph_info = match original_graph_info_hint {
+    Some(info) => info
+    None => inl_original_graph_info_for_mode(mod_, optimize, [0])
+  }
   perf_stop_timer_opt(
     perf, "detail:inlining:once:original-reachable-private-cycle-funcs", original_graph_start_us,
   )
@@ -10120,6 +10221,13 @@ fn inlining_run_module_pass_with_perf(
       ),
       trivial_mode_cache,
       body_measure_cache,
+      // The first iteration still reads the immutable original module. Reuse
+      // the exact graph facts already retained for final cleanup.
+      original_graph_info_hint=if iterations == 0 {
+        Some(initial_graph_info)
+      } else {
+        None
+      },
       perf~,
     )
     perf_stop_timer_opt(perf, "detail:inlining:iteration", iteration_start_us)

@@ -11269,8 +11269,14 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
     fn(_) { () },
   )
   assert_true(flatten_rewrite_region_operands(ctx, func, state, body_ref))
-  @debug.assert_eq(state.sequenced_root_holders, [body_ref.holder])
-  @debug.assert_eq(state.sequenced_root_nodes, [branch_id])
+  assert_eq(state.sequenced_roots.length(), 1)
+  assert_true(
+    flatten_sequenced_root_contains(
+      state.sequenced_roots,
+      body_ref.holder,
+      branch_id,
+    ),
+  )
   @debug.assert_eq(
     @ir.hot_node_get(func, @ir.hot_child_get(func, select_id, 2)).op.to_string(),
     "Unreachable",
@@ -11278,20 +11284,18 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
 }
 
 ///|
-test "flatten sequenced root cache keeps sparse pairs sorted" {
-  let holders : Array[Int32] = []
-  let nodes : Array[Int32] = []
-  assert_true(flatten_sequenced_root_record(holders, nodes, 4, 19))
-  assert_true(flatten_sequenced_root_record(holders, nodes, 1, 12))
-  assert_true(flatten_sequenced_root_record(holders, nodes, 4, 3))
-  assert_false(flatten_sequenced_root_record(holders, nodes, 4, 19))
-  @debug.assert_eq(holders, [1, 4, 4])
-  @debug.assert_eq(nodes, [12, 3, 19])
-  assert_true(flatten_sequenced_root_contains(holders, nodes, 1, 12))
-  assert_true(flatten_sequenced_root_contains(holders, nodes, 4, 3))
-  assert_true(flatten_sequenced_root_contains(holders, nodes, 4, 19))
-  assert_false(flatten_sequenced_root_contains(holders, nodes, 1, 19))
-  assert_false(flatten_sequenced_root_contains(holders, nodes, 4, 12))
+test "flatten sequenced root cache keeps exact sparse pairs" {
+  let roots = FlattenSparseMembership::new()
+  assert_true(flatten_sequenced_root_record(roots, 4, 19))
+  assert_true(flatten_sequenced_root_record(roots, 1, 12))
+  assert_true(flatten_sequenced_root_record(roots, 4, 3))
+  assert_false(flatten_sequenced_root_record(roots, 4, 19))
+  assert_eq(roots.length(), 3)
+  assert_true(flatten_sequenced_root_contains(roots, 1, 12))
+  assert_true(flatten_sequenced_root_contains(roots, 4, 3))
+  assert_true(flatten_sequenced_root_contains(roots, 4, 19))
+  assert_false(flatten_sequenced_root_contains(roots, 1, 19))
+  assert_false(flatten_sequenced_root_contains(roots, 4, 12))
 }
 
 ///|
@@ -11411,13 +11415,13 @@ test "flatten tuple flow slot marks preserve exact first positions" {
 }
 
 ///|
-test "flatten terminal payload cache keeps sparse entries sorted" {
-  let payloads : Array[Int32] = []
+test "flatten terminal payload cache keeps exact sparse entries" {
+  let payloads = FlattenSparseMembership::new()
   assert_true(flatten_terminal_payload_record(payloads, 19))
   assert_true(flatten_terminal_payload_record(payloads, 4))
   assert_true(flatten_terminal_payload_record(payloads, 12))
   assert_false(flatten_terminal_payload_record(payloads, 4))
-  @debug.assert_eq(payloads, [4, 12, 19])
+  assert_eq(payloads.length(), 3)
   assert_true(flatten_terminal_payload_contains(payloads, 4))
   assert_true(flatten_terminal_payload_contains(payloads, 12))
   assert_true(flatten_terminal_payload_contains(payloads, 19))

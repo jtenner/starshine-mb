@@ -28,10 +28,7 @@ fn dae2_live_control_fixture(
   dae2_analyze_function(graph, [info], 0, [], func)
   graph.observe(info.result_location)
   graph.solve()
-  let state : HotPipelineLowerState = {
-    next_type_sec: input.type_sec,
-    type_sec_changed: false,
-  }
+  let state : HotPipelineLowerState = HotPipelineLowerState::new(input.type_sec)
   (graph, [info], func, @ir.hot_root_get(func, 0), state)
 }
 

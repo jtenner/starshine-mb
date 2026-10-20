@@ -11286,3 +11286,116 @@ test "DAE command body exposure keeps unseen signatures and private candidate ef
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "DAE command preserves stack values below multi-value call arguments" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $pair (result i32 i32) i32.const 5 i32.const 6) (func $target (param i32 i32) (result i32) i32.const 100) (func (export \"run\") (result i32) i32.const 1 call $pair call $target i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for flag in ["dae", "dae-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let env = @validate.Env::new().with_module(output)
+    let funcs = output.code_sec.unwrap().0
+    let stack : Array[Int32] = []
+    let mut fuel = 100
+    fn invoke(index : UInt32) -> Unit raise {
+      let @lib.FuncType(params, _) = env
+        .get_functype_by_funcidx(@lib.FuncIdx::new(index))
+        .unwrap()
+      let @lib.Func(body_locals, @lib.Expr(body)) = funcs[index.to_int()]
+      let locals = Array::make(params.length() + body_locals.length(), 0)
+      for slot = params.length() - 1; slot >= 0; slot = slot - 1 {
+        locals[slot] = stack.pop().unwrap()
+      }
+      for instr in body {
+        fuel -= 1
+        assert_true(fuel >= 0)
+        match instr {
+          @lib.I32Const(@lib.I32(value)) => stack.push(value)
+          @lib.Call(@lib.FuncIdx(callee)) => invoke(callee)
+          @lib.LocalGet(@lib.LocalIdx(local)) =>
+            stack.push(locals[local.to_int()])
+          @lib.LocalSet(@lib.LocalIdx(local)) =>
+            locals[local.to_int()] = stack.pop().unwrap()
+          @lib.LocalTee(@lib.LocalIdx(local)) =>
+            locals[local.to_int()] = stack[stack.length() - 1]
+          @lib.Drop => ignore(stack.pop().unwrap())
+          @lib.I32Add => {
+            let right = stack.pop().unwrap()
+            let left = stack.pop().unwrap()
+            stack.push(left + right)
+          }
+          @lib.Nop => ()
+          @lib.Return => return
+          _ => fail("unexpected DAE fixture instruction: \{instr}")
+        }
+      }
+    }
+    invoke(2U)
+    @debug.assert_eq(stack, [101])
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "code-folding command preserves nested exit call order" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"env\" \"a\" (func $a)) (import \"env\" \"b\" (func $b)) (import \"env\" \"c\" (func $c)) (func (export \"run\") (param i32 i32) (block $out (if (local.get 0) (then (if (local.get 1) (then call $b call $a) (else call $c call $a)) br $out)) (if (local.get 1) (then call $b) (else call $c)))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["code-folding"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(roots)) = output.code_sec.unwrap().0[0]
+  match roots[0] {
+    @lib.Block(_, @lib.Expr([@lib.LocalGet(_), @lib.If(_, then_body, _), ..])) => {
+      assert_true(then_body[0] is @lib.LocalGet(_))
+      assert_true(then_body[1] is @lib.If(_, _, _))
+      assert_eq(then_body[2], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+    }
+    _ => fail("expected the nested exit calls to remain in their source scope")
+  }
+}
+
+///|
+test "coalesce-locals command preserves negative zero beside a default local" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (export \"run\") (result i32) (local f32 f32) f32.const -0 local.set 0 local.get 1 i32.reinterpret_f32 local.get 0 i32.reinterpret_f32 i32.xor))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["coalesce-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(local_types, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let locals = Array::make(local_types.length(), 0)
+  let bits : Array[Int32] = []
+  for instr in body {
+    match instr {
+      @lib.F32Const(@lib.F32(value)) => bits.push(value.reinterpret_as_int())
+      @lib.LocalGet(@lib.LocalIdx(local)) => bits.push(locals[local.to_int()])
+      @lib.LocalSet(@lib.LocalIdx(local)) =>
+        locals[local.to_int()] = bits.pop().unwrap()
+      @lib.LocalTee(@lib.LocalIdx(local)) =>
+        locals[local.to_int()] = bits[bits.length() - 1]
+      @lib.I32ReinterpretF32 | @lib.Nop => ()
+      @lib.Drop => ignore(bits.pop().unwrap())
+      @lib.I32Xor => {
+        let right = bits.pop().unwrap()
+        let left = bits.pop().unwrap()
+        bits.push(left ^ right)
+      }
+      _ => fail("unexpected signed-zero fixture instruction: \{instr}")
+    }
+  }
+  @debug.assert_eq(bits, [-2147483648])
+}

@@ -3,6 +3,7 @@ fn dae_incremental_refresh_bench(
   it : @bench.T,
   siblings : Int32,
   full : Bool,
+  before_review~ : Bool = false,
 ) -> Unit raise {
   let declarations = Array::makei(siblings, fn(index) {
     let calls = Array::make(64, "call $target drop").join(" ")
@@ -38,6 +39,14 @@ fn dae_incremental_refresh_bench(
     flip = !flip
     if full {
       dae_current_boundary_graph_refresh_full(graph, selected)
+    } else if before_review {
+      it.keep(
+        dae_refresh_reference_before_review(
+          graph,
+          selected,
+          forced_changed_defs=Some(changed_defs),
+        ),
+      )
     } else {
       it.keep(
         dae_try_refresh_current_boundary_graph_incremental(
@@ -74,4 +83,10 @@ test "bench DAE refresh 32 siblings full reference" (it : @bench.T) {
 #skip("paired native controls; dedicated performance lane")
 test "bench DAE refresh 32 siblings incremental" (it : @bench.T) {
   dae_incremental_refresh_bench(it, 32, false)
+}
+
+///|
+#skip("paired native controls; dedicated performance lane")
+test "bench DAE refresh 32 siblings pre-review reference" (it : @bench.T) {
+  dae_incremental_refresh_bench(it, 32, false, before_review=true)
 }

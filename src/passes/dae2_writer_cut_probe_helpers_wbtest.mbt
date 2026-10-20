@@ -89,10 +89,9 @@ fn dae2_writer_cut_probe_lower(
   func : @ir.HotFunc,
 ) -> @lib.Func {
   let info = probe.infos[probe.index]
-  let lower_state : HotPipelineLowerState = {
-    next_type_sec: input.type_sec,
-    type_sec_changed: false,
-  }
+  let lower_state : HotPipelineLowerState = HotPipelineLowerState::new(
+    input.type_sec,
+  )
   let controls : @hashmap.HashMap[Int32, @lib.TypeIdx] = @hashmap.new()
   dae2_preserve_control_types(
     func,

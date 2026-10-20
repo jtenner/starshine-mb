@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-20
 sources:
+  - ../../../tooling/validation-gates.md
+  - ../../../../../src/passes/report_type_perf_wbtest.mbt
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
   - ./index.md
   - ../../../../../src/passes/global_struct_inference.mbt
@@ -167,3 +169,28 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+
+
+## October 19 equivalence lookup
+
+Structural type equivalence now uses field-shape buckets for active types.
+Inactive types are compared only with active representatives and skip hashing
+when no active field count can match. This preserves original representative
+order and avoids the earlier mostly-inactive regression. The bounded
+reference tests and [follow-up native controls](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+cover both equivalent and mostly inactive type sections. The existing
+closed-world behavior and parity limits above remain in force.
+
+A separate active reference-field control exposed a remaining coarse bucket.
+For a dense family with at least 16 active single-field global struct
+references, a bounded key samples the referenced field shape. It reads at
+most the first eight fields and the last field, with nullability, exactness
+and shared-domain checks. Nested references remain coarse. Any relevant
+relative or embedded type encoding disables this refinement for the module:
+valid recursive types with different index spellings can match. The
+existing mutual type comparison still proves each merge.
+
+Tests compare the refined and coarse paths exactly, then compare the old
+quadratic implementation after the actual candidate-propagation step. Raw
+intermediate row order is not the consumer contract; propagation sorts it.
+Dense recursive/shared/exact cases and the mixed-index fallback pass.

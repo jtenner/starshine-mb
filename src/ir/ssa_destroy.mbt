@@ -1484,5 +1484,6 @@ pub fn ssa_destroy_into_hot(
   }
   ssa_remove_dead_local_defs(func, dead_nodes)
   ssa_trim_unused_trailing_temp_locals(func, original_local_count)
+  ignore(hot_repair_nondefaultable_local_scopes(func))
   concrete
 }

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/review_vacuum_arity_wbtest.mbt
+  - ../../../../../src/passes/review_local_control_wbtest.mbt
   - index.md
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -723,3 +725,26 @@ pass. [Targeted generation and actual runtime evidence](fuzzing.md#october-10-ta
 cover serial/fused controls and preserve remaining raw size and generator I/O
 gaps. Developer build-memory cost is a tradeoff, not evidence of output-runtime
 memory behavior. This is not a complete Vacuum audit closeout.
+
+## October 19, 2026 — Control operands and removed frames
+
+Dropped-control proofs visit every header operand through the shared value
+operand map, as well as each region. This includes Block prefixes, If entries
+and Try/TryTable entries. An unused result does not make the entry producer's
+call, write or trap removable.
+
+Raw pure self-branch removal resolves the complete block signature. It consumes
+one following drop per result, keeps the control if a result is still live, and
+emits one drop per input lane while retaining the already-evaluated inputs.
+The [arity regressions](../../../../../src/passes/review_vacuum_arity_wbtest.mbt)
+first produced a stray drop, an extra input value and a missing live result;
+all three invalid rewrites are now covered.
+
+Legacy delegate depths use the surrounding scope. Rebase decrements outer
+references and rejects removal when a delegate, catch or resume edge still
+targets that frame. Rethrow candidates retain their frame until a separate
+handler-depth proof exists. Shape-specific flattening uses the checked helper;
+its normal-branch contract remains the caller's responsibility. The
+[control regressions](../../../../../src/passes/review_local_control_wbtest.mbt)
+cover local remapping through legacy try/catches, entry effects and these
+exception/resume owner guards.

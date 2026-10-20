@@ -23,10 +23,9 @@ test "DAE2 type workspace appends private signatures without changing source gro
   assert_eq(workspace.flat_count, 4)
   assert_eq(original, saved)
   assert_eq(dae_type_sec_flattened_length(original), 3)
-  let lower : HotPipelineLowerState = {
-    next_type_sec: Some(workspace.types),
-    type_sec_changed: false,
-  }
+  let lower : HotPipelineLowerState = HotPipelineLowerState::new(
+    Some(workspace.types),
+  )
   assert_eq(
     run_hot_pipeline_lower_intern_block_result_type_idx(lower, [
       @lib.ValType::i32(),

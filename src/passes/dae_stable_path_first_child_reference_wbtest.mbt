@@ -119,6 +119,7 @@ fn dae_first_child_frozen_current_boundary_graph_new(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 
@@ -141,6 +142,7 @@ fn dae_first_child_frozen_typed_batch_boundary_graph_new(
     call_epoch: 0,
     type_epoch: 0,
     dependency_cache: None,
+    forwarding_syntax: [],
   }
 }
 

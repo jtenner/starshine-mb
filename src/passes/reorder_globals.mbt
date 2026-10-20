@@ -942,6 +942,40 @@ fn rg_rewrite_name_sec(
 }
 
 ///|
+
+///|
+fn rg_index_width(index : Int32) -> Int32 {
+  if index < 128 {
+    1
+  } else if index < 16384 {
+    2
+  } else if index < 2097152 {
+    3
+  } else if index < 268435456 {
+    4
+  } else {
+    5
+  }
+}
+
+///|
+// Every affected payload has the same length when each observed global index
+// keeps the same LEB width. Function/section framing then also stays unchanged.
+fn rg_equivalent_observed_widths(
+  remap : Array[Int32],
+  previous : Array[Int32],
+  counts : Array[Int32],
+) -> Bool {
+  for index, count in counts {
+    if count > 0 &&
+      rg_index_width(remap[index]) != rg_index_width(previous[index]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn reorder_globals_run_module_pass_with_threshold(
   mod_ : @lib.Module,
   enforce_public_threshold : Bool,
@@ -978,28 +1012,6 @@ fn reorder_globals_run_module_pass_with_threshold(
       None => return mod_
     }
   }
-  let mut best = mod_
-  let baseline = if enforce_public_threshold &&
-    mod_.compiler_fact_custom_section is Some(_) {
-    mod_.without_compiler_fact_custom_section()
-  } else {
-    mod_
-  }
-  let mut comparisons_left = 4
-  if !identity {
-    let greedy = rg_apply_order(mod_, globals, order, imported_globals)
-    if !enforce_public_threshold {
-      return greedy
-    }
-    match @binary.encoded_module_sizes(baseline, greedy) {
-      Ok((before, after)) if after < before => best = greedy
-      _ => ()
-    }
-    comparisons_left -= 1
-  }
-  // Try one traffic-ranked swap per index-width boundary. Names participate
-  // in the ranking and complete module framing participates in the decision.
-  // This is bounded (four boundaries for wasm u32), not an all-pairs search.
   let weighted = counts
   let mut has_name_traffic = false
   match mod_.name_sec {
@@ -1018,6 +1030,47 @@ fn reorder_globals_run_module_pass_with_threshold(
       }
     None => ()
   }
+  // Reordering string initializers can also reorder an implicit string pool.
+  // Keep the full comparator for that independent index space.
+  let stable_string_pool = globals.all(fn(global_) {
+    let @lib.Global(_, @lib.Expr(instrs)) = global_
+    !instrs.any(fn(instr) { instr is @lib.StringConst(_) })
+  })
+  let measured_widths : Array[Array[Int32]] = []
+  if mod_.raw_name_sec_payload is None && stable_string_pool {
+    measured_widths.push(rg_identity_order(total_globals))
+  }
+  let mut best = mod_
+  let baseline = if enforce_public_threshold &&
+    mod_.compiler_fact_custom_section is Some(_) {
+    mod_.without_compiler_fact_custom_section()
+  } else {
+    mod_
+  }
+  let mut comparisons_left = 4
+  if !identity {
+    if !enforce_public_threshold {
+      return rg_apply_order(mod_, globals, order, imported_globals)
+    }
+    let widths = rg_old_abs_to_new_abs(order)
+    if !stable_string_pool ||
+      !measured_widths.any(fn(previous) {
+        rg_equivalent_observed_widths(widths, previous, weighted)
+      }) {
+      let greedy = rg_apply_order(mod_, globals, order, imported_globals)
+      match @binary.encoded_module_sizes(baseline, greedy) {
+        Ok((before, after)) if after < before => best = greedy
+        _ => ()
+      }
+      if stable_string_pool {
+        measured_widths.push(widths)
+      }
+      comparisons_left -= 1
+    }
+  }
+  // Try one traffic-ranked swap per index-width boundary. Names participate
+  // in the ranking and complete module framing participates in the decision.
+  // This is bounded (four boundaries for wasm u32), not an all-pairs search.
   for boundary in [128, 16384, 2097152, 268435456] {
     if comparisons_left == 0 {
       break
@@ -1058,6 +1111,15 @@ fn reorder_globals_run_module_pass_with_threshold(
     if !legal {
       continue
     }
+    if stable_string_pool &&
+      measured_widths.any(fn(previous) {
+        rg_equivalent_observed_widths(remap, previous, weighted)
+      }) {
+      continue
+    }
+    if stable_string_pool {
+      measured_widths.push(remap)
+    }
     let candidate = rg_apply_order(mod_, globals, swap, imported_globals)
     comparisons_left -= 1
     let comparison = if physical_equal(best, mod_) { baseline } else { best }
@@ -1076,7 +1138,15 @@ fn reorder_globals_run_module_pass_with_threshold(
       rg_true_counts(weighted),
       imported_globals,
     )
-    if named_order != order && !rg_order_is_identity(named_order) {
+    let named_widths = rg_old_abs_to_new_abs(named_order)
+    if named_order != order &&
+      !rg_order_is_identity(named_order) &&
+      (
+        !stable_string_pool ||
+        !measured_widths.any(fn(previous) {
+          rg_equivalent_observed_widths(named_widths, previous, weighted)
+        })
+      ) {
       let candidate = rg_apply_order(
         mod_, globals, named_order, imported_globals,
       )

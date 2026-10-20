@@ -173,10 +173,33 @@ fn merge_blocks_node_contains_loop_memoized(
   if node_id >= scan.loop_states.length() {
     scan.loop_begin(func)
   }
+  // Block lifting rejects bodies containing loops. Other splices preserve
+  // each positive witness until one of the two loop-removal rewrites retires
+  // it. Negative facts cannot become positive during this pass.
+  if scan.loop_changes_are_removals {
+    if scan.loop_states[node_id] == 2 {
+      scan.last_loop_witness = -1
+      return false
+    }
+    if scan.loop_states[node_id] >= 3 {
+      let witness = scan.loop_states[node_id] - 3
+      if witness >= 0 && !scan.retired_loops[witness] {
+        scan.last_loop_witness = witness
+        return true
+      }
+      scan.loop_states[node_id] = 0
+    }
+  }
   if scan.loop_revisions[node_id] == scan.loop_revision {
     match scan.loop_states[node_id] {
-      1 | 3 => return true
-      2 => return false
+      state if state == 1 || state >= 3 => {
+        scan.last_loop_witness = if state >= 3 { state - 3 } else { -1 }
+        return true
+      }
+      2 => {
+        scan.last_loop_witness = -1
+        return false
+      }
       _ => ()
     }
   }
@@ -187,7 +210,10 @@ fn merge_blocks_node_contains_loop_memoized(
     None => ()
   }
   let contains = match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Loop => true
+    @ir.HotOp::Loop => {
+      scan.last_loop_witness = node_id
+      true
+    }
     @ir.HotOp::Block =>
       merge_blocks_region_contains_loop_memoized(
         func,
@@ -248,7 +274,15 @@ fn merge_blocks_node_contains_loop_memoized(
       )
     _ => false
   }
-  scan.loop_states[node_id] = if contains { 3 } else { 2 }
+  scan.loop_states[node_id] = if contains {
+    if scan.last_loop_witness >= 0 {
+      scan.last_loop_witness + 3
+    } else {
+      1
+    }
+  } else {
+    2
+  }
   contains
 }
 
@@ -807,13 +841,19 @@ priv struct MergeBlocksBranchScanWorkspace {
   epochs : Array[Int32]
   mut epoch : Int32
   mut initialized_cells : Int32
+  // 0: unknown; 1: visiting; 2: absent; >=3: witness node id plus three.
   loop_states : Array[Int32]
   loop_revisions : Array[Int32]
+  mut retired_loops : @bitset.BitSet
+  mut last_loop_witness : Int32
   mut loop_revision : Int32
+  loop_changes_are_removals : Bool
 }
 
 ///|
-fn MergeBlocksBranchScanWorkspace::new() -> MergeBlocksBranchScanWorkspace {
+fn MergeBlocksBranchScanWorkspace::new(
+  loop_changes_are_removals~ : Bool = false,
+) -> MergeBlocksBranchScanWorkspace {
   {
     states: [],
     epochs: [],
@@ -821,7 +861,10 @@ fn MergeBlocksBranchScanWorkspace::new() -> MergeBlocksBranchScanWorkspace {
     initialized_cells: 0,
     loop_states: [],
     loop_revisions: [],
+    retired_loops: @bitset.BitSet::new(0),
+    last_loop_witness: -1,
     loop_revision: -1,
+    loop_changes_are_removals,
   }
 }
 
@@ -834,7 +877,22 @@ fn MergeBlocksBranchScanWorkspace::loop_begin(
     self.loop_states.push(0)
     self.loop_revisions.push(-1)
   }
+  if self.loop_changes_are_removals && self.retired_loops.length() == 0 {
+    self.retired_loops = @bitset.BitSet::new(@ir.hot_node_count(func))
+  }
   self.loop_revision = @ir.hot_revision_current(func)
+}
+
+///|
+fn MergeBlocksBranchScanWorkspace::retire_loop(
+  self : MergeBlocksBranchScanWorkspace,
+  func : @ir.HotFunc,
+  loop_id : Int32,
+) -> Unit {
+  self.loop_begin(func)
+  if self.loop_changes_are_removals {
+    self.retired_loops[loop_id] = true
+  }
 }
 
 ///|
@@ -1100,6 +1158,7 @@ fn merge_blocks_flatten_branch_free_loop_body(
   }
   ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))
   @ir.hot_region_replace_body(func, body_ref, [])
+  workspace.retire_loop(func, loop_id)
   true
 }
 
@@ -1158,6 +1217,7 @@ fn merge_blocks_flatten_branch_free_loop_block_body(
   ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))
   @ir.hot_region_replace_body(func, block_body_ref, [])
   @ir.hot_region_replace_body(func, loop_body_ref, [])
+  workspace.retire_loop(func, loop_id)
   true
 }
 
@@ -1419,7 +1479,9 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   // functions with relevant roots still build at most one immutable snapshot.
   let drop_parent_index = MergeBlocksDropParentIndex::new()
   let flattened_roots : Array[Int32] = []
-  let branch_workspace = MergeBlocksBranchScanWorkspace::new()
+  let branch_workspace = MergeBlocksBranchScanWorkspace::new(
+    loop_changes_are_removals=true,
+  )
   changed = merge_blocks_visit_region(
       func,
       @ir.HotRegionRef::root(),

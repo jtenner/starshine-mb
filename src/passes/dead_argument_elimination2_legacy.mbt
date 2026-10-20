@@ -489,7 +489,7 @@ priv struct Dae2LegacySetup {
 fn Dae2LegacySetup::new(mod_ : @lib.Module) -> Dae2LegacySetup {
   {
     env: @validate.Env::new().with_module(mod_),
-    types: { next_type_sec: mod_.type_sec, type_sec_changed: false, },
+    types: HotPipelineLowerState::new(mod_.type_sec),
     bodies: [],
   }
 }

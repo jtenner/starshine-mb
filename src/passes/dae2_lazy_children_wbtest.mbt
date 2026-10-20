@@ -18,10 +18,7 @@ fn dae2_lazy_children_fixture(
     graph.observe(info.result_location)
   }
   graph.solve()
-  let state : HotPipelineLowerState = {
-    next_type_sec: input.type_sec,
-    type_sec_changed: false,
-  }
+  let state : HotPipelineLowerState = HotPipelineLowerState::new(input.type_sec)
   (graph, [info], func, @ir.hot_root_get(func, 0), state)
 }
 

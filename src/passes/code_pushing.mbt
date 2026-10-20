@@ -139,7 +139,7 @@ fn code_pushing_node_is_exact_no_effects_intrinsic_call(
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       return false
     }
-    if !@ir.effects_is_pure(@ir.effects_for_node(func, child_id)) ||
+    if !@ir.effects_is_pure(@ir.effects_for_node_subtree(func, child_id)) ||
       @ir.hot_may_trap(func, child_id) {
       return false
     }
@@ -217,7 +217,7 @@ fn code_pushing_node_is_movable_value(
     | @ir.HotOp::RefFunc
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract =>
-      @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) ||
+      @ir.effects_is_pure(@ir.effects_for_node_subtree(func, node_id)) ||
       (
         traps_never_happen &&
         exact_instr_can_trap &&
@@ -257,7 +257,7 @@ fn code_pushing_node_has_call_or_nonglobal_write_effect(
   func : @ir.HotFunc,
   node_id : Int32,
 ) -> Bool {
-  let mask = @ir.effects_for_node(func, node_id)
+  let mask = @ir.effects_for_node_subtree(func, node_id)
   (
     mask &
     (
@@ -288,7 +288,7 @@ fn code_pushing_node_is_pure_nop_or_drop_const(
       }
       match @ir.hot_node_get(func, child_id).op {
         @ir.HotOp::Const =>
-          @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+          @ir.effects_is_pure(@ir.effects_for_node_subtree(func, node_id))
         _ => false
       }
     }
@@ -476,19 +476,78 @@ fn code_pushing_effects_safe_to_cross_for_heap_read(mask : UInt32) -> Bool {
 }
 
 ///|
+priv struct CodePushingRethrowVisited {
+  mut sparse : @hashmap.HashMap[Int32, Bool]?
+  mut dense : @bitset.BitSet?
+  node_count : Int32
+}
+
+///|
+fn CodePushingRethrowVisited::new(
+  node_count : Int32,
+) -> CodePushingRethrowVisited {
+  {
+    sparse: if node_count <= 4096 {
+      None
+    } else {
+      Some(@hashmap.new())
+    },
+    dense: if node_count <= 4096 {
+      Some(@bitset.BitSet::new(node_count))
+    } else {
+      None
+    },
+    node_count,
+  }
+}
+
+///|
+fn CodePushingRethrowVisited::enter(
+  self : CodePushingRethrowVisited,
+  node_id : Int32,
+) -> Bool {
+  match self.dense {
+    Some(bits) => {
+      if bits[node_id] {
+        return false
+      }
+      bits[node_id] = true
+    }
+    None => {
+      let sparse = self.sparse.unwrap()
+      if sparse.contains(node_id) {
+        return false
+      }
+      sparse.set(node_id, true)
+      if sparse.length() >= (self.node_count / 256).max(8) {
+        let bits = @bitset.BitSet::new(self.node_count)
+        for node in sparse.keys() {
+          bits[node] = true
+        }
+        self.dense = Some(bits)
+        self.sparse = None
+      }
+    }
+  }
+  true
+}
+
+///|
 fn code_pushing_node_has_rethrow_with_visited(
   func : @ir.HotFunc,
   node_id : Int32,
-  visited : Array[Bool],
+  visited : CodePushingRethrowVisited,
 ) -> Bool {
-  if node_id < 0 ||
-    node_id >= visited.length() ||
-    visited[node_id] ||
-    !@ir.hot_node_is_live(func, node_id) {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  visited[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return node.op is @ir.HotOp::Rethrow
+  }
+  if !visited.enter(node_id) {
+    return false
+  }
   match node.op {
     @ir.HotOp::Rethrow => return true
     _ => ()
@@ -502,54 +561,38 @@ fn code_pushing_node_has_rethrow_with_visited(
       return true
     }
   }
-  let region_has_rethrow = fn(region_ref : @ir.HotRegionRef) -> Bool {
-    for idx = 0
-        idx < @ir.hot_region_root_count(func, region_ref)
-        idx = idx + 1 {
-      if code_pushing_node_has_rethrow_with_visited(
-          func,
-          @ir.hot_region_get(func, region_ref, idx),
-          visited,
-        ) {
-        return true
-      }
-    }
-    false
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
-      region_has_rethrow(@ir.hot_region_body_ref(func, node_id))
-    @ir.HotOp::If => {
-      if region_has_rethrow(@ir.hot_region_then_ref(func, node_id)) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) => region_has_rethrow(else_ref)
-        None => false
-      }
-    }
-    @ir.HotOp::Try => {
-      if region_has_rethrow(@ir.hot_region_body_ref(func, node_id)) {
-        return true
-      }
-      match @ir.hot_region_catch_ref(func, node_id) {
-        Some(catch_ref) => region_has_rethrow(catch_ref)
-        None => false
-      }
-    }
-    @ir.HotOp::TryTable =>
-      region_has_rethrow(@ir.hot_region_body_ref(func, node_id)) ||
-      region_has_rethrow(@ir.hot_region_catch_list_ref(func, node_id))
-    _ => false
-  }
+  // Every region holder and region root is already a physical child subtree.
+  false
 }
 
 ///|
 fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int32) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if @ir.hot_node_get(func, node_id).op is @ir.Rethrow {
+    return true
+  }
+  let mut shallow = true
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child = @ir.hot_child_get(func, node_id, slot)
+    if child < 0 || !@ir.hot_node_is_live(func, child) {
+      continue
+    }
+    if @ir.hot_node_get(func, child).op is @ir.Rethrow {
+      return true
+    }
+    if @ir.hot_child_count(func, child) != 0 {
+      shallow = false
+    }
+  }
+  if shallow {
+    return false
+  }
   code_pushing_node_has_rethrow_with_visited(
     func,
     node_id,
-    Array::make(@ir.hot_node_count(func), false),
+    CodePushingRethrowVisited::new(@ir.hot_node_count(func)),
   )
 }
 
@@ -571,7 +614,7 @@ fn code_pushing_node_has_segment_order_barrier(
       if code_pushing_node_has_rethrow(func, node_id) {
         return true
       }
-      let mask = @ir.effects_for_node(func, node_id)
+      let mask = @ir.effects_for_node_subtree(func, node_id)
       (mask & @ir.EFFECT_MASK_CALL) != 0U
     }
   }
@@ -584,11 +627,12 @@ fn code_pushing_node_safe_to_cross_for_value(
   value_id : Int32,
   module_ctx~ : @ir.HotModuleContext? = None,
   depth~ : Int32 = 64,
+  rethrow_checked~ : Bool = false,
 ) -> Bool {
   if depth <= 0 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if code_pushing_node_has_rethrow(func, node_id) {
+  if !rethrow_checked && code_pushing_node_has_rethrow(func, node_id) {
     return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, value_id); slot = slot + 1 {
@@ -598,13 +642,14 @@ fn code_pushing_node_safe_to_cross_for_value(
         @ir.hot_child_get(func, value_id, slot),
         module_ctx~,
         depth=depth - 1,
+        rethrow_checked=true,
       ) {
       return false
     }
   }
   if code_pushing_node_is_global_get(func, value_id) {
     code_pushing_effects_safe_to_cross_for_value(
-      @ir.effects_for_node(func, node_id),
+      @ir.effects_for_node_subtree(func, node_id),
     ) ||
     code_pushing_node_is_disjoint_global_set_for_global_get(
       func,
@@ -624,7 +669,7 @@ fn code_pushing_node_safe_to_cross_for_value(
   } else {
     if code_pushing_node_is_memory_load(func, value_id) {
       return code_pushing_effects_safe_to_cross_for_heap_read(
-        @ir.effects_for_node(func, node_id),
+        @ir.effects_for_node_subtree(func, node_id),
       )
     }
     let source_local = code_pushing_nonnull_struct_get_source_local(
@@ -636,7 +681,7 @@ fn code_pushing_node_safe_to_cross_for_value(
       )
       writes == 0 &&
       code_pushing_effects_safe_to_cross_for_heap_read(
-        @ir.effects_for_node(func, node_id),
+        @ir.effects_for_node_subtree(func, node_id),
       )
     } else {
       true
@@ -1196,33 +1241,63 @@ fn code_pushing_region_cannot_fall_through_simple(
 }
 
 ///|
-fn code_pushing_push_point_kind(func : @ir.HotFunc, node_id : Int32) -> String {
+priv enum CodePushingPushPointKind {
+  NoPushPoint
+  IfPushPoint
+  SwitchPushPoint
+  ConditionalBranchPushPoint
+  DroppedIfPushPoint
+  DroppedSwitchPushPoint
+  DroppedConditionalBranchPushPoint
+  NestedDroppedPushPoint(CodePushingPushPointKind)
+} derive(Eq)
+
+///|
+fn CodePushingPushPointKind::diagnostic(
+  self : CodePushingPushPointKind,
+) -> String {
+  match self {
+    NoPushPoint => "none"
+    IfPushPoint => "if"
+    SwitchPushPoint => "switch"
+    ConditionalBranchPushPoint => "conditional-branch"
+    DroppedIfPushPoint => "dropped-if"
+    DroppedSwitchPushPoint => "dropped-switch"
+    DroppedConditionalBranchPushPoint => "dropped-conditional-branch"
+    NestedDroppedPushPoint(child) => "dropped-" + child.diagnostic()
+  }
+}
+
+///|
+fn code_pushing_push_point_kind(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> CodePushingPushPointKind {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return "none"
+    return NoPushPoint
   }
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::If => "if"
-    @ir.HotOp::BrTable => "switch"
+    @ir.HotOp::If => IfPushPoint
+    @ir.HotOp::BrTable => SwitchPushPoint
     @ir.HotOp::BrIf
     | @ir.HotOp::BrOnNull
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
-    | @ir.HotOp::BrOnCastFail => "conditional-branch"
+    | @ir.HotOp::BrOnCastFail => ConditionalBranchPushPoint
     @ir.HotOp::Drop => {
       if @ir.hot_child_count(func, node_id) != 1 {
-        return "none"
+        return NoPushPoint
       }
-      let child_kind = code_pushing_push_point_kind(
-        func,
-        @ir.hot_child_get(func, node_id, 0),
-      )
-      if child_kind == "none" {
-        "none"
-      } else {
-        "dropped-" + child_kind
+      match
+        code_pushing_push_point_kind(func, @ir.hot_child_get(func, node_id, 0)) {
+        NoPushPoint => NoPushPoint
+        IfPushPoint => DroppedIfPushPoint
+        SwitchPushPoint => DroppedSwitchPushPoint
+        ConditionalBranchPushPoint => DroppedConditionalBranchPushPoint
+        child => NestedDroppedPushPoint(child)
       }
     }
-    _ => "none"
+    _ => NoPushPoint
   }
 }
 
@@ -1319,7 +1394,7 @@ fn code_pushing_segment_window_diagnostic(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
-    if kind != "none" {
+    if kind != NoPushPoint {
       if !code_pushing_node_safe_to_cross_for_value(
           func,
           candidate_id,
@@ -1328,7 +1403,7 @@ fn code_pushing_segment_window_diagnostic(
         ) {
         return "reject:ordered-before-barrier"
       }
-      return "candidate:" + kind
+      return "candidate:" + kind.diagnostic()
     }
     let (gets, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
       func, candidate_id, local_id, 1, 0,
@@ -1728,7 +1803,7 @@ fn code_pushing_node_is_drop_const_window_separator(
   }
   match @ir.hot_node_get(func, child_id).op {
     @ir.HotOp::Const =>
-      @ir.effects_is_pure(@ir.effects_for_node(func, child_id))
+      @ir.effects_is_pure(@ir.effects_for_node_subtree(func, child_id))
     _ => false
   }
 }
@@ -1831,7 +1906,7 @@ fn code_pushing_try_sink_local_get_set_after_if(
     // the proposed new write location. Check every crossed root, not just ifs.
     if code_pushing_node_has_branch(func, candidate_id) ||
       (
-        @ir.effects_for_node(func, candidate_id) &
+        @ir.effects_for_node_subtree(func, candidate_id) &
         (@ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)
       ) !=
       0U {
@@ -2015,7 +2090,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
         }
       }
       _ =>
-        if code_pushing_push_point_kind(func, root_id) != "none" {
+        if code_pushing_push_point_kind(func, root_id) != NoPushPoint {
           return false
         }
     }
@@ -2063,7 +2138,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, root_id)
-    if kind != "none" {
+    if kind != NoPushPoint {
       break
     }
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
@@ -2149,11 +2224,12 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   let push_kind = code_pushing_push_point_kind(func, push_id)
   let mut if_id = -1
   let mut branch_id = -1
-  if push_kind == "if" {
+  if push_kind == IfPushPoint {
     if_id = push_id
-  } else if push_kind == "dropped-if" && @ir.hot_child_count(func, push_id) == 1 {
+  } else if push_kind == DroppedIfPushPoint &&
+    @ir.hot_child_count(func, push_id) == 1 {
     if_id = @ir.hot_child_get(func, push_id, 0)
-  } else if push_kind == "conditional-branch" &&
+  } else if push_kind == ConditionalBranchPushPoint &&
     (
       code_pushing_direct_br_if_push_point_supported(func, push_id) ||
       code_pushing_single_set_conditional_branch_push_point_supported(
@@ -2169,7 +2245,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
       return false
     }
     branch_id = push_id
-  } else if push_kind == "dropped-conditional-branch" &&
+  } else if push_kind == DroppedConditionalBranchPushPoint &&
     code_pushing_single_set_conditional_branch_push_point_supported(
       func, push_id,
     ) {
@@ -2184,10 +2260,10 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
     if !@ir.hot_node_is_live(func, if_id) {
       return false
     }
-    if push_kind == "if" && @ir.hot_node_result_arity(func, if_id) != 0 {
+    if push_kind == IfPushPoint && @ir.hot_node_result_arity(func, if_id) != 0 {
       return false
     }
-    if push_kind == "dropped-if" &&
+    if push_kind == DroppedIfPushPoint &&
       @ir.hot_node_result_arity(func, push_id) != 0 {
       return false
     }
@@ -2355,7 +2431,7 @@ fn code_pushing_try_sink_zero_read_set_after_push_point(
   while idx < root_count - 1 {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
-    if kind != "none" {
+    if kind != NoPushPoint {
       if !code_pushing_zero_read_push_point_supported(func, candidate_id) {
         return false
       }
@@ -2441,7 +2517,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
         func,
         @ir.hot_region_get(func, region_ref, scan),
       ) !=
-      "none" {
+      NoPushPoint {
       has_later_push_point = true
       break
     }
@@ -2495,14 +2571,15 @@ fn code_pushing_try_sink_set_after_if_push_point(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
-    if kind != "none" {
-      if kind == "if" {
+    if kind != NoPushPoint {
+      if kind == IfPushPoint {
         if_id = candidate_id
-      } else if kind == "dropped-if" &&
+      } else if kind == DroppedIfPushPoint &&
         @ir.hot_child_count(func, candidate_id) == 1 {
         if_id = @ir.hot_child_get(func, candidate_id, 0)
       } else if (
-          kind == "conditional-branch" || kind == "dropped-conditional-branch"
+          kind == ConditionalBranchPushPoint ||
+          kind == DroppedConditionalBranchPushPoint
         ) &&
         code_pushing_single_set_conditional_branch_push_point_supported(
           func, candidate_id,

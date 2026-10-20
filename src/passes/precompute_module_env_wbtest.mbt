@@ -25,7 +25,7 @@ test "precompute cleanup shares a module snapshot and removes scalar identity bl
         @lib.FuncIdx::new(index),
         descriptor,
         state,
-        { next_type_sec: mod_.type_sec, type_sec_changed: false, },
+        HotPipelineLowerState::new(mod_.type_sec),
         options,
       ).unwrap()
       outputs.push(result.func)

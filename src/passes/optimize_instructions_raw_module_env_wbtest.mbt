@@ -27,7 +27,7 @@ test "OI raw return shares tuple cleanup environment and preserves carried effec
       @lib.FuncIdx::new(index),
       optimize_instructions_descriptor(),
       state,
-      { next_type_sec: input.type_sec, type_sec_changed: false, },
+      HotPipelineLowerState::new(input.type_sec),
       options,
     ).unwrap()
     // OI intentionally leaves try_table itself unsupported by HOT rewriting;

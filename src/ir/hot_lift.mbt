@@ -2779,13 +2779,12 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
-      // Multi-parameter entries need an explicit prefix for lower's body stack.
-      // Keep the established single-parameter carrier/spill lowering shape.
-      let scalar_entry_has_outer_prefix = params.length() == 1 &&
+      // Keep scalar producers even when the body discards their entry lane.
+      // A partial tuple entry retains its existing outer-stack carrier path.
+      let scalar_entry = params.length() == 1 &&
         entry_values.length() == 1 &&
-        hot_node_result_arity(func, entry_values[0]) == 1 &&
-        values.any(fn(value) { value != entry_values[0] })
-      let entry_count = if params.length() > 1 || scalar_entry_has_outer_prefix {
+        hot_node_result_arity(func, entry_values[0]) == 1
+      let entry_count = if params.length() > 1 || scalar_entry {
         entry_values.length()
       } else {
         0
@@ -3172,12 +3171,12 @@ fn hot_lift_impl_lift_control(
           }
       }
       hot_lift_impl_pop_label(label_frames)
-      ignore(
-        hot_replace_child_span(func, id, [
-          hot_lift_impl_make_region(func, body_roots, result_arity),
-          hot_lift_impl_make_region(func, catch_roots, result_arity),
-        ]),
-      )
+      let children = [
+        hot_lift_impl_make_region(func, body_roots, result_arity),
+        hot_lift_impl_make_region(func, catch_roots, result_arity),
+      ]
+      children.append(entry_values)
+      ignore(hot_replace_child_span(func, id, children))
       hot_node_set(func, id, {
         ..hot_node_get(func, id),
         imm0: label_id,
@@ -3275,12 +3274,12 @@ fn hot_lift_impl_lift_control(
         func,
         HotCatchInfo::new(catch_arms),
       )
-      ignore(
-        hot_replace_child_span(func, id, [
-          hot_lift_impl_make_region(func, body_roots, result_arity),
-          catch_region,
-        ]),
-      )
+      let children = [
+        hot_lift_impl_make_region(func, body_roots, result_arity),
+        catch_region,
+      ]
+      children.append(entry_values)
+      ignore(hot_replace_child_span(func, id, children))
       hot_node_set(func, id, {
         ..hot_node_get(func, id),
         imm0: label_id,

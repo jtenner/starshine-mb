@@ -403,10 +403,9 @@ fn dae2_writer_cut_frozen_dae2_run_module_pass(
       if @ir.hot_node_count(func) != info.node_count {
         return Err("dae2: analysis relift changed node identities")
       }
-      let lower_state : HotPipelineLowerState = {
-        next_type_sec: Some(type_workspace.types),
-        type_sec_changed: false,
-      }
+      let lower_state : HotPipelineLowerState = HotPipelineLowerState::new(
+        Some(type_workspace.types),
+      )
       dae2_preserve_control_types(
         func, context, rewrite_graph, infos, type_infos, lower_state, control_types,
       )

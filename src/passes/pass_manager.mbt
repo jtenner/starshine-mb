@@ -193,6 +193,10 @@ pub struct HotPassContext {
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
   priv mut allows_simd_introduction : Bool
+  priv mut precompute_global_values : Map[
+    (@lib.GlobalIdx, Int32),
+    PrecomputeKnownHeapValue?,
+  ]?
 }
 
 ///|
@@ -224,6 +228,7 @@ pub fn HotPassContext::new(
     perf,
     module_ctx,
     allows_simd_introduction: true,
+    precompute_global_values: None,
   }
 }
 
@@ -994,17 +999,11 @@ fn vacuum_can_remove_dropped_node_memoized(
     workspace.set_state(node_id, 3)
     return false
   }
-  let value_child_count = if node.op is @ir.HotOp::If {
-    1
-  } else if node.op is @ir.HotOp::Block {
-    0
-  } else {
-    @ir.hot_child_count(func, node_id)
-  }
+  let value_child_count = pass_value_operand_count(func, node_id)
   for slot = 0; slot < value_child_count; slot = slot + 1 {
     if !vacuum_can_remove_dropped_node_memoized(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, slot)),
         workspace,
       ) {
       workspace.set_state(node_id, 3)
@@ -13751,7 +13750,11 @@ fn run_hot_pipeline_raw_simplify_locals(
   let no_structure_variant = descriptor.name == "simplify-locals-nostructure" ||
     descriptor.name == "simplify-locals-no-structure" ||
     descriptor.name == "simplify-locals-notee-nostructure"
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
@@ -16714,6 +16717,11 @@ priv struct HsoCandidateScanState {
 ///|
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
+  module_cache : HotPipelineModuleCache?
+  mut imported_func_count : Int32?
+  mut assemblyscript_startup : Bool?
+  mut assemblyscript_run : Bool?
+  mut offset_sensitive_metadata : Bool?
   mut allows_simd_introduction : Bool?
   mut validation_module_env : @validate.Env?
   mut func_type_indices : Array[@lib.TypeIdx]?
@@ -16734,9 +16742,16 @@ priv struct HotPipelineModuleState {
 }
 
 ///|
-fn HotPipelineModuleState::new() -> HotPipelineModuleState {
+fn HotPipelineModuleState::new(
+  module_cache~ : HotPipelineModuleCache? = None,
+) -> HotPipelineModuleState {
   {
     module_ctx: None,
+    module_cache,
+    imported_func_count: None,
+    assemblyscript_startup: None,
+    assemblyscript_run: None,
+    offset_sensitive_metadata: None,
     allows_simd_introduction: None,
     validation_module_env: None,
     func_type_indices: None,
@@ -16899,6 +16914,34 @@ fn run_hot_pipeline_emit_vacuum_aggregate_timers(
 priv struct HotPipelineLowerState {
   mut next_type_sec : @lib.TypeSec?
   mut type_sec_changed : Bool
+  mut type_sec_owned : Bool
+  mut block_result_types : Map[Array[@lib.ValType], @lib.TypeIdx]?
+  mut flat_type_count : Int32
+}
+
+///|
+fn HotPipelineLowerState::new(
+  type_sec : @lib.TypeSec?,
+) -> HotPipelineLowerState {
+  {
+    next_type_sec: type_sec,
+    type_sec_changed: false,
+    type_sec_owned: false,
+    block_result_types: None,
+    flat_type_count: -1,
+  }
+}
+
+///|
+fn HotPipelineLowerState::adopt_rewritten_types(
+  self : HotPipelineLowerState,
+  types : @lib.TypeSec,
+) -> Unit {
+  self.next_type_sec = Some(types)
+  self.type_sec_changed = true
+  self.type_sec_owned = false
+  self.block_result_types = None
+  self.flat_type_count = -1
 }
 
 ///|
@@ -16927,6 +16970,19 @@ fn run_hot_pipeline_require_module_ctx(
   match module_state.module_ctx {
     Some(module_ctx) => module_ctx
     None => {
+      match module_state.module_cache {
+        Some(cache) =>
+          match cache.find(mod_) {
+            Some(module_ctx) => {
+              module_state.module_ctx = Some(module_ctx)
+              module_state.raw_type_sec_snapshot = mod_.type_sec
+              module_state.raw_flat_subtypes = Some(module_ctx.subtypes)
+              return module_ctx
+            }
+            None => ()
+          }
+        None => ()
+      }
       let start_us = perf_start_timer_opt(
         options.perf,
         "analysis:module-context",
@@ -16934,6 +16990,13 @@ fn run_hot_pipeline_require_module_ctx(
       let module_ctx = @ir.hot_module_context_from_module(mod_)
       perf_stop_timer_opt(options.perf, "analysis:module-context", start_us)
       module_state.module_ctx = Some(module_ctx)
+      match module_state.module_cache {
+        Some(cache) => {
+          cache.source = Some(mod_)
+          cache.context = Some(module_ctx)
+        }
+        None => ()
+      }
       // This table was flattened from the same immutable type-section object.
       // Raw lookups can borrow it; lower-created replacement sections refresh
       // the raw snapshot independently from the original HOT module context.
@@ -17028,36 +17091,104 @@ fn run_hot_pipeline_lower_find_block_result_type_idx(
 }
 
 ///|
+fn run_hot_pipeline_lower_append_block_result_type_idx(
+  lower_state : HotPipelineLowerState,
+  results : Array[@lib.ValType],
+) -> @lib.TypeIdx {
+  // Copy the group vector once, before the first append. Existing modules
+  // keep their immutable section; further tuples share this owned vector.
+  if !lower_state.type_sec_owned {
+    let groups = match lower_state.next_type_sec {
+      Some(@lib.TypeSec(groups)) => groups.copy()
+      None => []
+    }
+    lower_state.next_type_sec = Some(@lib.TypeSec::new(groups))
+    lower_state.type_sec_changed = true
+    lower_state.type_sec_owned = true
+  }
+  let type_idx = @lib.TypeIdx::new(lower_state.flat_type_count.to_uint())
+  let @lib.TypeSec(groups) = lower_state.next_type_sec.unwrap()
+  groups.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], results))),
+  )
+  lower_state.flat_type_count += 1
+  type_idx
+}
+
+///|
 fn run_hot_pipeline_lower_intern_block_result_type_idx(
   lower_state : HotPipelineLowerState,
   results : Array[@lib.ValType],
 ) -> @lib.TypeIdx {
-  match
-    run_hot_pipeline_lower_find_block_result_type_idx(
+  if lower_state.flat_type_count < 0 {
+    lower_state.flat_type_count = run_hot_pipeline_lower_type_sec_flat_count(
       lower_state.next_type_sec,
-      results,
-    ) {
-    Some(type_idx) => type_idx
-    None => {
-      let next_flat_idx = run_hot_pipeline_lower_type_sec_flat_count(
+    )
+  }
+  // Tiny tables and scalar results need no multi-value signature index.
+  if lower_state.flat_type_count <= 16 || results.length() <= 1 {
+    match
+      run_hot_pipeline_lower_find_block_result_type_idx(
         lower_state.next_type_sec,
-      )
-      let next_rec_types : Array[@lib.RecType] = []
+        results,
+      ) {
+      Some(type_idx) => return type_idx
+      None =>
+        return run_hot_pipeline_lower_append_block_result_type_idx(
+          lower_state, results,
+        )
+    }
+  }
+  let result_types = match lower_state.block_result_types {
+    Some(index) => index
+    None => {
+      let index : Map[Array[@lib.ValType], @lib.TypeIdx] = Map([])
+      let mut flat_idx = 0
+      let note_subtype = fn(subtype : @lib.SubType) {
+        match subtype.get_comptype() {
+          @lib.FuncCompType(params, candidate_results) if params.is_empty() &&
+            candidate_results.length() > 1 =>
+            if !index.contains(candidate_results) {
+              index[candidate_results] = @lib.TypeIdx::new(flat_idx.to_uint())
+            }
+          _ => ()
+        }
+        flat_idx += 1
+      }
       match lower_state.next_type_sec {
-        Some(@lib.TypeSec(rec_types)) =>
-          for rec_type in rec_types {
-            next_rec_types.push(rec_type)
+        Some(@lib.TypeSec(groups)) =>
+          for group in groups {
+            match group {
+              @lib.SingleRecType(subtype) => note_subtype(subtype)
+              @lib.GroupRecType(members) =>
+                for subtype in members {
+                  note_subtype(subtype)
+                }
+            }
           }
         None => ()
       }
-      next_rec_types.push(
-        @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::func([], results)),
-        ),
+      lower_state.block_result_types = Some(index)
+      index
+    }
+  }
+  match result_types.get(results) {
+    Some(type_idx) => type_idx
+    None => {
+      let type_idx = run_hot_pipeline_lower_append_block_result_type_idx(
+        lower_state, results,
       )
-      lower_state.next_type_sec = Some(@lib.TypeSec::new(next_rec_types))
-      lower_state.type_sec_changed = true
-      @lib.TypeIdx::new(next_flat_idx.reinterpret_as_uint())
+      let @lib.TypeSec(groups) = lower_state.next_type_sec.unwrap()
+      let owned_results = match groups[groups.length() - 1] {
+        @lib.SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(_, owned_results) => owned_results
+            _ => abort("block result interning appended a non-function type")
+          }
+        _ => abort("block result interning appended a non-singleton type")
+      }
+      result_types[owned_results] = type_idx
+      type_idx
     }
   }
 }
@@ -18577,6 +18708,37 @@ fn run_hot_pipeline_raw_compact_rewrite_local_refs(
             },
           ),
         )
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) =>
+        rewritten.push(
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_compact_rewrite_local_refs(body, local_remap),
+            ),
+            catches.map(fn(arm) {
+              match arm {
+                @lib.LegacyCatch(tag, @lib.Expr(caught)) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_compact_rewrite_local_refs(
+                        caught, local_remap,
+                      ),
+                    ),
+                  )
+                @lib.LegacyCatchAll(@lib.Expr(caught)) =>
+                  @lib.LegacyCatch::all(
+                    @lib.Expr::new(
+                      run_hot_pipeline_raw_compact_rewrite_local_refs(
+                        caught, local_remap,
+                      ),
+                    ),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       _ => rewritten.push(instr)
     }
   }
@@ -18731,6 +18893,19 @@ fn run_hot_pipeline_raw_note_appended_local_first_refs(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        next = run_hot_pipeline_raw_note_appended_local_first_refs(
+          body, appended_start, first_refs, next,
+        )
+        for arm in catches {
+          let @lib.Expr(caught) = match arm {
+            @lib.LegacyCatch(_, caught) | @lib.LegacyCatchAll(caught) => caught
+          }
+          next = run_hot_pipeline_raw_note_appended_local_first_refs(
+            caught, appended_start, first_refs, next,
+          )
+        }
+      }
       _ => ()
     }
   }
@@ -18766,6 +18941,19 @@ fn run_hot_pipeline_raw_instrs_reference_local(
               return true
             }
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_instrs_reference_local(body, local_id) {
+          return true
+        }
+        for arm in catches {
+          let @lib.Expr(caught) = match arm {
+            @lib.LegacyCatch(_, caught) | @lib.LegacyCatchAll(caught) => caught
+          }
+          if run_hot_pipeline_raw_instrs_reference_local(caught, local_id) {
+            return true
+          }
         }
       }
       _ => ()
@@ -18810,6 +18998,19 @@ fn run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
               body, appended_start, priorities,
             )
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+          body, appended_start, priorities,
+        )
+        for arm in catches {
+          let @lib.Expr(caught) = match arm {
+            @lib.LegacyCatch(_, caught) | @lib.LegacyCatchAll(caught) => caught
+          }
+          run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+            caught, appended_start, priorities,
+          )
         }
       }
       _ => ()
@@ -18926,51 +19127,7 @@ fn run_hot_pipeline_raw_branch_targets_depth(
   instrs : Array[@lib.Instruction],
   target_depth : UInt32,
 ) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
-        if raw == target_depth {
-          return true
-        }
-      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
-        if default_raw == target_depth {
-          return true
-        }
-        for label in labels {
-          let @lib.LabelIdx(raw) = label
-          if raw == target_depth {
-            return true
-          }
-        }
-      }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_branch_targets_depth(body, target_depth + 1U) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_branch_targets_depth(
-            then_body,
-            target_depth + 1U,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_branch_targets_depth(
-                body,
-                target_depth + 1U,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
+  run_hot_pipeline_raw_vacuum_body_targets_owner(instrs, target_depth.to_int())
 }
 
 ///|
@@ -32907,7 +33064,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   if descriptor.name == "dead-code-elimination" &&
     options.optimize_level >= 4 &&
     options.shrink_level >= 1 {
@@ -33908,7 +34069,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   let params = run_hot_pipeline_required_raw_func_params(
     mod_, module_ctx, func_idx, module_state,
   )
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
   if run_hot_pipeline_raw_instrs_have_typed_loop_param(
       original_instrs, module_ctx,
@@ -34162,7 +34327,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         mod_, module_ctx, func_idx, module_state,
       )
       let @lib.Func(original_locals, _) = run_hot_pipeline_original_func(
-        mod_, func_idx,
+        mod_,
+        func_idx,
+        module_state=Some(module_state),
       )
       let (compacted_func, compacted) = if raw_result.reason.contains(
           "default-local-reads",
@@ -34256,7 +34423,11 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       let params = run_hot_pipeline_required_raw_func_params(
         mod_, module_ctx, func_idx, module_state,
       )
-      let original = run_hot_pipeline_original_func(mod_, func_idx)
+      let original = run_hot_pipeline_original_func(
+        mod_,
+        func_idx,
+        module_state=Some(module_state),
+      )
       let @lib.Func(locals, @lib.Expr(instrs)) = original
       let (collapsed_instrs, collapsed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
         instrs,
@@ -34309,7 +34480,11 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         raw_result.func,
         params,
       )
-      let original = run_hot_pipeline_original_func(mod_, func_idx)
+      let original = run_hot_pipeline_original_func(
+        mod_,
+        func_idx,
+        module_state=Some(module_state),
+      )
       let @lib.Func(original_locals, @lib.Expr(original_instrs)) = original
       let @lib.Func(_, @lib.Expr(repaired_instrs)) = repaired_func
       if params.length() == 3 &&
@@ -34334,6 +34509,27 @@ fn run_hot_pipeline_raw_ssa_nomerge(
           unchanged_original: raw_result.unchanged_original,
           trace_skip_raw: raw_result.trace_skip_raw,
         })
+      }
+    }
+    other => other
+  }
+  let result = match result {
+    Some(raw_result) if descriptor.name == "ssa-nomerge" &&
+      !raw_result.unchanged_original => {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_raw_func_params(
+        mod_, module_ctx, func_idx, module_state,
+      )
+      let (repaired, changed) = ssa_repair_raw_nondefaultable_local_scopes(
+        raw_result.func,
+        params,
+      )
+      if changed {
+        Some({ ..raw_result, func: repaired, })
+      } else {
+        Some(raw_result)
       }
     }
     other => other
@@ -34600,11 +34796,12 @@ fn run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   module_ctx~ : @ir.HotModuleContext? = None,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   if body.length() < 3 {
     return None
@@ -34676,11 +34873,12 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   module_ctx~ : @ir.HotModuleContext? = None,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   if body.length() < 6 || !(body[body.length() - 1] is @lib.Call(_)) {
     return None
@@ -34765,11 +34963,12 @@ fn run_hot_pipeline_raw_merge_blocks_ordered_atomic_call(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   if body.length() != 6 {
     return None
@@ -34944,7 +35143,11 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
   if descriptor.name != "merge-blocks" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(body)) = original
   if run_hot_pipeline_raw_merge_blocks_has_structured_control(body) ||
     !run_hot_pipeline_raw_merge_blocks_has_flat_call_prefix_candidate(body) {
@@ -35024,11 +35227,12 @@ fn run_hot_pipeline_raw_size_cleanup_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
     body,
@@ -35330,11 +35534,12 @@ fn run_hot_pipeline_raw_code_pushing_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "code-pushing" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   if run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(body) {
     return Some({
@@ -35713,11 +35918,12 @@ fn run_hot_pipeline_raw_code_folding_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "code-folding" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(body)) = original
   if run_hot_pipeline_raw_has_paired_distinct_call_lifetime(body) {
     return Some({
@@ -46233,7 +46439,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   if descriptor.name != "optimize-instructions" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(body)) = original
   if run_hot_pipeline_raw_has_load_before_same_local_call(body) {
     return Some({
@@ -46805,11 +47015,12 @@ fn run_hot_pipeline_raw_heap_store_optimization(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "heap-store-optimization" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let plain_start_us = perf_start_timer_opt(
     options.perf,
@@ -47230,11 +47441,12 @@ fn run_hot_pipeline_raw_pick_load_signs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "pick-load-signs" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let raw_rewrite = match run_hot_pipeline_raw_pls_direct_extension(instrs) {
     Some(rewritten) => Some(rewritten)
@@ -47536,7 +47748,11 @@ fn run_hot_pipeline_raw_tuple_optimization_skip(
   if descriptor.name != "tuple-optimization" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   if options.optimize_level >= 4 && options.shrink_level >= 1 {
     return Some({
       reason: "o4z-tuple-optimization-noop",
@@ -48259,7 +48475,11 @@ fn run_hot_pipeline_raw_precompute(
   if descriptor.name != "precompute" && !propagating {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let o4z_precompute_gate = options.optimize_level >= 4 &&
     options.shrink_level >= 1
   let @lib.Func(locals, @lib.Expr(body)) = original
@@ -48477,7 +48697,12 @@ fn run_hot_pipeline_raw_precompute(
     }
     run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   }
-  if propagating && precompute_raw_instrs_have_legacy_try(body) {
+  let raw_features = if propagating {
+    precompute_raw_gate_features(body)
+  } else {
+    0
+  }
+  if propagating && (raw_features & 1) != 0 {
     let module_ctx = Some(
       run_hot_pipeline_require_module_ctx(mod_, module_state, options),
     )
@@ -48502,7 +48727,7 @@ fn run_hot_pipeline_raw_precompute(
         })
     }
   }
-  if propagating && precompute_raw_instrs_have_stack_switching(body) {
+  if propagating && (raw_features & 2) != 0 {
     let module_ctx = Some(
       run_hot_pipeline_require_module_ctx(mod_, module_state, options),
     )
@@ -48527,14 +48752,20 @@ fn run_hot_pipeline_raw_precompute(
         })
     }
   }
-  if precompute_raw_instrs_have_atomic_fence(body) {
+  if (propagating && (raw_features & 4) != 0) ||
+    (!propagating && precompute_raw_instrs_have_atomic_fence(body)) {
     let module_ctx = if propagating ||
       precompute_raw_func_has_global_get(original) {
       Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
     } else {
       None
     }
-    match precompute_run_raw_around_atomic_fence(original, module_ctx) {
+    match
+      precompute_run_raw_around_atomic_fence(
+        original,
+        module_ctx,
+        known_atomic_fence=true,
+      ) {
       Some((rewritten, changed)) =>
         return Some({
           reason: if changed {
@@ -48551,7 +48782,7 @@ fn run_hot_pipeline_raw_precompute(
       None => ()
     }
   }
-  if propagating {
+  if propagating && (raw_features & 64) != 0 {
     let module_ctx = run_hot_pipeline_require_module_ctx(
       mod_, module_state, options,
     )
@@ -48561,6 +48792,7 @@ fn run_hot_pipeline_raw_precompute(
         original,
         params,
         Some(module_ctx),
+        known_unreachable_suffix=true,
       ) {
       Some((rewritten, changed)) =>
         return Some({
@@ -48576,9 +48808,7 @@ fn run_hot_pipeline_raw_precompute(
       None => ()
     }
   }
-  if propagating &&
-    stats.instrs > 50 &&
-    precompute_raw_instrs_have_memory_grow(body) {
+  if propagating && stats.instrs > 50 && (raw_features & 16) != 0 {
     let module_ctx = run_hot_pipeline_require_module_ctx(
       mod_, module_state, options,
     )
@@ -48718,7 +48948,7 @@ fn run_hot_pipeline_raw_precompute(
         _ => ()
       }
     }
-    if !precompute_raw_func_has_local_traffic(original) {
+    if (raw_features & 32) == 0 {
       let module_ctx = Some(
         run_hot_pipeline_require_module_ctx(mod_, module_state, options),
       )
@@ -48900,7 +49130,11 @@ fn run_hot_pipeline_raw_rse(
     return None
   }
   let setup_start_us = perf_start_timer_opt(options.perf, "detail:rse:setup")
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
@@ -48981,28 +49215,60 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_label(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+  label : @lib.LabelIdx,
+  owner_depth : Int32,
+  removed_eh_target~ : Array[Bool]? = None,
+) -> @lib.LabelIdx {
+  if run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
+    match removed_eh_target {
+      Some(found) => found[0] = true
+      None => ()
+    }
+  }
+  run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth)
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_rebase_outer_catch(
   catch_ : @lib.Catch,
   owner_depth : Int32,
+  removed_eh_target~ : Array[Bool]? = None,
 ) -> @lib.Catch {
   match catch_ {
     @lib.Catch(tag, label) =>
       @lib.Catch::new(
         tag,
-        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+          label,
+          owner_depth,
+          removed_eh_target~,
+        ),
       )
     @lib.CatchRef(tag, label) =>
       @lib.Catch::ref_(
         tag,
-        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+          label,
+          owner_depth,
+          removed_eh_target~,
+        ),
       )
     @lib.CatchAll(label) =>
       @lib.Catch::all(
-        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+          label,
+          owner_depth,
+          removed_eh_target~,
+        ),
       )
     @lib.CatchAllRef(label) =>
       @lib.Catch::all_ref(
-        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+          label,
+          owner_depth,
+          removed_eh_target~,
+        ),
       )
   }
 }
@@ -49080,8 +49346,9 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
       run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1)
     }
     @lib.Try(_, @lib.Expr(body), catches, delegate) => {
-      // Delegate targets use the surrounding scope; keep its owner conservatively.
-      if delegate is Some(_) {
+      // Delegate depths start outside the try, unlike its protected body.
+      if delegate is Some(label) &&
+        run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
         return true
       }
       if run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1) {
@@ -49128,13 +49395,18 @@ fn run_hot_pipeline_raw_vacuum_body_targets_owner(
 fn run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
   handlers : Array[@lib.ResumeHandler],
   owner_depth : Int32,
+  removed_eh_target~ : Array[Bool]? = None,
 ) -> Array[@lib.ResumeHandler] {
   handlers.map(fn(handler) {
     match handler {
       @lib.ResumeOnLabel(tag, label) =>
         @lib.ResumeHandler::on_label(
           tag,
-          run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+          run_hot_pipeline_raw_vacuum_rebase_outer_exception_label(
+            label,
+            owner_depth,
+            removed_eh_target~,
+          ),
         )
       @lib.ResumeOnSwitch(tag) => @lib.ResumeHandler::on_switch(tag)
     }
@@ -49145,6 +49417,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
 fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
   instr : @lib.Instruction,
   owner_depth : Int32,
+  removed_eh_target~ : Array[Bool]? = None,
 ) -> @lib.Instruction {
   match instr {
     @lib.BrOnCastDescEq(label, source, target) =>
@@ -49221,14 +49494,22 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
       @lib.Instruction::block(
         block_type,
         @lib.Expr::new(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(
+            body,
+            owner_depth + 1,
+            removed_eh_target~,
+          ),
         ),
       )
     @lib.Loop(block_type, @lib.Expr(body)) =>
       @lib.Instruction::loop_(
         block_type,
         @lib.Expr::new(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(
+            body,
+            owner_depth + 1,
+            removed_eh_target~,
+          ),
         ),
       )
     @lib.If(block_type, then_body, else_body) =>
@@ -49237,6 +49518,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         run_hot_pipeline_raw_vacuum_rebase_outer_body(
           then_body,
           owner_depth + 1,
+          removed_eh_target~,
         ),
         match else_body {
           Some(body) =>
@@ -49244,6 +49526,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
               run_hot_pipeline_raw_vacuum_rebase_outer_body(
                 body,
                 owner_depth + 1,
+                removed_eh_target~,
               ),
             )
           None => None
@@ -49253,14 +49536,22 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
       let rebased_catches : Array[@lib.Catch] = []
       for catch_ in catches {
         rebased_catches.push(
-          run_hot_pipeline_raw_vacuum_rebase_outer_catch(catch_, owner_depth),
+          run_hot_pipeline_raw_vacuum_rebase_outer_catch(
+            catch_,
+            owner_depth,
+            removed_eh_target~,
+          ),
         )
       }
       @lib.Instruction::try_table(
         block_type,
         rebased_catches,
         @lib.Expr::new(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(
+            body,
+            owner_depth + 1,
+            removed_eh_target~,
+          ),
         ),
       )
     }
@@ -49274,6 +49565,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
                 run_hot_pipeline_raw_vacuum_rebase_outer_body(
                   body,
                   owner_depth + 1,
+                  removed_eh_target~,
                 ),
               ),
             )
@@ -49283,6 +49575,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
                 run_hot_pipeline_raw_vacuum_rebase_outer_body(
                   body,
                   owner_depth + 1,
+                  removed_eh_target~,
                 ),
               ),
             )
@@ -49291,17 +49584,31 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
       @lib.Instruction::try_(
         block_type,
         @lib.Expr::new(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(
+            body,
+            owner_depth + 1,
+            removed_eh_target~,
+          ),
         ),
         next_catches,
-        delegate~,
+        delegate=delegate.map(fn(label) {
+          if run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
+            match removed_eh_target {
+              Some(found) => found[0] = true
+              None => ()
+            }
+          }
+          run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth)
+        }),
       )
     }
     @lib.Resume(type_idx, handlers) =>
       @lib.Instruction::resume_(
         type_idx,
         run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
-          handlers, owner_depth,
+          handlers,
+          owner_depth,
+          removed_eh_target~,
         ),
       )
     @lib.ResumeThrow(type_idx, tag, handlers) =>
@@ -49309,17 +49616,50 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         type_idx,
         tag,
         run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
-          handlers, owner_depth,
+          handlers,
+          owner_depth,
+          removed_eh_target~,
         ),
       )
     @lib.ResumeThrowRef(type_idx, handlers) =>
       @lib.Instruction::resume_throw_ref(
         type_idx,
         run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
-          handlers, owner_depth,
+          handlers,
+          owner_depth,
+          removed_eh_target~,
         ),
       )
+    @lib.Rethrow(_) => {
+      // Rethrow depth counts exception handlers. Frame removal needs a
+      // separate handler proof, so reject this candidate in the checked path.
+      match removed_eh_target {
+        Some(found) => found[0] = true
+        None => ()
+      }
+      instr
+    }
     _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+  body : Array[@lib.Instruction],
+  owner_depth : Int32,
+) -> Array[@lib.Instruction]? {
+  // Callers prove normal branch flattening through their shape contracts.
+  // Exception and resume edges must still retain their owner frame.
+  let removed_eh_target = [false]
+  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+    body,
+    owner_depth,
+    removed_eh_target=Some(removed_eh_target),
+  )
+  if removed_eh_target[0] {
+    None
+  } else {
+    Some(rebased)
   }
 }
 
@@ -49327,11 +49667,16 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
 fn run_hot_pipeline_raw_vacuum_rebase_outer_body(
   body : Array[@lib.Instruction],
   owner_depth : Int32,
+  removed_eh_target~ : Array[Bool]? = None,
 ) -> Array[@lib.Instruction] {
   let rebased : Array[@lib.Instruction] = []
   for instr in body {
     rebased.push(
-      run_hot_pipeline_raw_vacuum_rebase_outer_instr(instr, owner_depth),
+      run_hot_pipeline_raw_vacuum_rebase_outer_instr(
+        instr,
+        owner_depth,
+        removed_eh_target~,
+      ),
     )
   }
   rebased
@@ -51241,7 +51586,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5138_outer_singleton_parent(
     ) {
     return None
   }
-  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+  let rebased = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   let rebased_child_body = match rebased[0] {
     @lib.Block(@lib.VoidBlockType, @lib.Expr(rebased_child_body)) =>
       rebased_child_body
@@ -51694,7 +52043,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_singleton_child(
     ) {
     return None
   }
-  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
+  let rebased = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(extra_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
@@ -51741,7 +52094,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f364_four_field_child_before_continua
     ) {
     return None
   }
-  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(extra_body, 0)
+  let rebased = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(extra_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
@@ -52316,7 +52673,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_be
     run_hot_pipeline_raw_vacuum_body_targets_owner(child_body, 0) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -52538,7 +52901,15 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_c
         ) {
         return None
       }
-      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_non_nops, 0))
+      Some(
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+            child_non_nops, 0,
+          ) {
+          Some(rebased) => rebased
+          None => return None
+        },
+      )
     }
     _ => None
   }
@@ -52679,7 +53050,12 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_re
     run_hot_pipeline_raw_vacuum_body_targets_owner(non_nops, 0) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(non_nops, 0))
+  Some(
+    match run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(non_nops, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -53817,10 +54193,18 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_b
     run_hot_pipeline_raw_vacuum_body_targets_owner(dispatch_body, 0) {
     return None
   }
-  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    dispatch_body, 0,
+  let rebased_once = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(rebased_once, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
   )
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0))
 }
 
 ///|
@@ -54012,10 +54396,18 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_
     run_hot_pipeline_raw_vacuum_body_targets_owner(dispatch_body, 0) {
     return None
   }
-  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    dispatch_body, 0,
+  let rebased_once = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(rebased_once, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
   )
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0))
 }
 
 ///|
@@ -54181,10 +54573,16 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_str
     ) {
     return None
   }
-  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    dispatch_body, 0,
-  )
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0)
+  let rebased_once = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(rebased_once, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -54950,10 +55348,20 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call
         return None
       }
       Some(
-        run_hot_pipeline_raw_vacuum_rebase_outer_body(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
-          0,
-        ),
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+            match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                dispatch_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => return None
+            },
+            0,
+          ) {
+          Some(rebased) => rebased
+          None => return None
+        },
       )
     }
     _ => None
@@ -55251,7 +55659,12 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag9
     return None
   }
   if run_hot_pipeline_raw_vacuum_body_is_f4915_tag1_owner_dispatch(body) {
-    return Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0))
+    return Some(
+      match run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+        Some(rebased) => rebased
+        None => return None
+      },
+    )
   }
   if body.length() != 1 {
     return None
@@ -55264,10 +55677,20 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag9
         return None
       }
       Some(
-        run_hot_pipeline_raw_vacuum_rebase_outer_body(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
-          0,
-        ),
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+            match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                dispatch_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => return None
+            },
+            0,
+          ) {
+          Some(rebased) => rebased
+          None => return None
+        },
       )
     }
     _ => None
@@ -55425,7 +55848,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_ret
     ) {
     return None
   }
-  let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0)
+  let rebased = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
     rebased, module_ctx,
   )
@@ -55828,7 +56255,12 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_bef
   }
   if run_hot_pipeline_raw_vacuum_body_is_f4859_leading_owner_exit_dispatch(body) ||
     run_hot_pipeline_raw_vacuum_body_is_f4860_leading_owner_exit_dispatch(body) {
-    return Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0))
+    return Some(
+      match run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+        Some(rebased) => rebased
+        None => return None
+      },
+    )
   }
   if body.length() != 1 {
     return None
@@ -55844,10 +56276,20 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_bef
         return None
       }
       Some(
-        run_hot_pipeline_raw_vacuum_rebase_outer_body(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
-          0,
-        ),
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+            match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                dispatch_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => return None
+            },
+            0,
+          ) {
+          Some(rebased) => rebased
+          None => return None
+        },
       )
     }
     _ => None
@@ -56020,10 +56462,20 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_befor
         return None
       }
       Some(
-        run_hot_pipeline_raw_vacuum_rebase_outer_body(
-          run_hot_pipeline_raw_vacuum_rebase_outer_body(dispatch_body, 0),
-          0,
-        ),
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+            match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                dispatch_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => return None
+            },
+            0,
+          ) {
+          Some(rebased) => rebased
+          None => return None
+        },
       )
     }
     _ => None
@@ -56135,9 +56587,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_
       @lib.LocalGet(_),
       @lib.I32Store(@lib.MemArg(_, _, @lib.U64(0UL))),
     ) => {
-      let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-        child_body, 0,
-      )
+      let flattened = match
+        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+        Some(rebased) => rebased
+        None => return None
+      }
       for idx = 1; idx < body.length(); idx = idx + 1 {
         flattened.push(body[idx])
       }
@@ -56439,7 +56893,14 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owne
   match body[0] {
     @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) if run_hot_pipeline_raw_vacuum_body_is_f4463_offset12_indexed_call_result_tag1_prefix(
         child_body,
-      ) => Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+      ) =>
+      Some(
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+          Some(rebased) => rebased
+          None => return None
+        },
+      )
     _ => None
   }
 }
@@ -56494,15 +56955,19 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_b
     ) if run_hot_pipeline_raw_vacuum_body_is_f4463_offset20_call_result_tag1_prefix(
         prefix_body,
       ) => {
-      let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-        [
-          @lib.Instruction::block(
-            @lib.BlockType::void_(),
-            @lib.Expr::new(prefix_body),
-          ),
-        ],
-        0,
-      )
+      let rebased = match
+        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+          [
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(prefix_body),
+            ),
+          ],
+          0,
+        ) {
+        Some(rebased) => rebased
+        None => return None
+      }
       match rebased {
         [rebased_prefix] => rebased_prefix
         _ => return None
@@ -56732,7 +57197,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_pr
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(copy_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(copy_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for instr in continuation {
     flattened.push(instr)
   }
@@ -56885,10 +57354,16 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_l
     ) {
     return None
   }
-  let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    selection_body, 0,
-  )
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(rebased_once, 0)
+  let rebased_once = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(selection_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(rebased_once, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -56950,7 +57425,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachab
   }
   match body[0] {
     @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
-      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+      Some(
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+          Some(rebased) => rebased
+          None => return None
+        },
+      )
     _ => None
   }
 }
@@ -57090,7 +57571,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrappe
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -57267,7 +57752,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -57415,7 +57906,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_befor
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -57612,7 +58109,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_befor
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -57670,7 +58173,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_befor
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -57807,7 +58316,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_l
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -57992,7 +58507,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_c
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -58279,7 +58798,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_co
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -58495,7 +59018,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_be
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -58728,7 +59257,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wr
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -59002,7 +59535,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -59174,7 +59711,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrap
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   flattened.push(body[1])
   Some(flattened)
 }
@@ -59348,7 +59889,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper
     ) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(wrapper_body, 0)
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(wrapper_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   flattened.push(body[1])
   flattened.push(body[2])
   Some(flattened)
@@ -59697,7 +60242,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladde
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -59987,7 +60538,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -60123,7 +60680,13 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_w
     ) {
     return None
   }
-  Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(child_body, 0))
+  Some(
+    match
+      run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(child_body, 0) {
+      Some(rebased) => rebased
+      None => return None
+    },
+  )
 }
 
 ///|
@@ -60253,12 +60816,16 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappe
     ) {
     return None
   }
-  let flattened_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    selection_body, 0,
-  )
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    flattened_once, 0,
-  )
+  let flattened_once = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(selection_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(flattened_once, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -61540,9 +62107,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_appen
     !run_hot_pipeline_raw_vacuum_body_has_f1260_append_update_continuation(body) {
     return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    dispatch_body, 0,
-  )
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -61805,9 +62374,11 @@ fn run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_
       run_hot_pipeline_raw_vacuum_label_depth(label) >= 1 => ()
     _ => return None
   }
-  let flattened = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-    dispatch_body, 0,
-  )
+  let flattened = match
+    run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(dispatch_body, 0) {
+    Some(rebased) => rebased
+    None => return None
+  }
   for idx = 1; idx < body.length(); idx = idx + 1 {
     flattened.push(body[idx])
   }
@@ -63143,6 +63714,39 @@ fn run_hot_pipeline_raw_vacuum_dropped_pure_multivalue_width_at(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_dropped_control_arities_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int32,
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext?,
+) -> (Int32, Int32)? {
+  let (param_count, result_count) = match block_type {
+    @lib.VoidBlockType => (0, 0)
+    @lib.ValTypeBlockType(_) => (0, 1)
+    @lib.TypeIdxBlockType(type_idx) => {
+      let ctx = match module_ctx {
+        Some(ctx) => ctx
+        None => return None
+      }
+      match @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          (params.length(), results.length())
+        None => return None
+      }
+    }
+  }
+  if idx + result_count >= instrs.length() {
+    return None
+  }
+  for offset = 1; offset <= result_count; offset = offset + 1 {
+    if !(instrs[idx + offset] is @lib.Drop) {
+      return None
+    }
+  }
+  Some((param_count, result_count))
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -63924,7 +64528,13 @@ fn run_hot_pipeline_raw_vacuum_flatten_terminal_owner_branch(
         run_hot_pipeline_raw_vacuum_body_targets_owner(prefix, 0) {
         return None
       }
-      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(prefix, 0))
+      Some(
+        match
+          run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(prefix, 0) {
+          Some(rebased) => rebased
+          None => return None
+        },
+      )
     }
     _ => None
   }
@@ -64677,9 +65287,22 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               body,
             )
           ) {
-          changed = true
-          idx = idx + 2
-          continue
+          match
+            run_hot_pipeline_raw_vacuum_dropped_control_arities_at(
+              instrs, idx, block_type, module_ctx,
+            ) {
+            Some((param_count, result_count)) => {
+              // The parent has already evaluated the entry values. Keep their
+              // effects and consume their stack lanes when the control is gone.
+              for _ in 0..<param_count {
+                rewritten.push(@lib.Instruction::drop())
+              }
+              changed = true
+              idx += result_count + 1
+              continue
+            }
+            None => ()
+          }
         }
         if block_type == @lib.BlockType::void_() &&
           run_hot_pipeline_raw_vacuum_body_is_owner_targeted_no_throw_try_table(
@@ -64810,7 +65433,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               rebased, module_ctx,
             )
@@ -64828,7 +65459,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               instrs, idx,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -64839,16 +65478,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_result_dispatch(
               body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4070_one_arg_prefix_parent_before_result_dispatch(
-                body,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
             idx = idx + 1
@@ -64857,16 +65489,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
               body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
-                body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
             idx = idx + 1
@@ -64875,16 +65500,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
               body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
-                body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
             idx = idx + 1
@@ -64893,16 +65511,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
               body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f5288_leading_tag_dispatch_wrappers_before_returns(
-                body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
             idx = idx + 1
@@ -64911,16 +65522,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
               body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f5392_leading_tag2_dispatch_wrappers_before_call_return(
-                body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
             idx = idx + 1
@@ -64929,7 +65533,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f5351_leading_tag_dispatch_before_zero_return(
               body, instrs, idx,
             ) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(body, 0) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             let (clean_rebased, _) = run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               rebased, module_ctx,
             )
@@ -64995,562 +65607,323 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2850_local_copy_guard_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1738_loop_head_local_copy_child(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1743_loop_head_copy_before_nested_dispatch(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f3579_loop_head_local_copy_guard_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f3841_tag_dispatch_singleton_child_before_local_set_branch(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f3998_tag2_prefix_child_before_loop_continuation(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_stream_loop(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f5419_tag1_singleton_owner_before_stream_loop(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1963_local_set_sentinel_comparison_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappers(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1948_call_tee_sentinel_branch_wrappers(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1946_loop_arg_copy_before_eqz_call(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_prefix(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1054_local_copy_child_before_load_prefix(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_load_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1148_tag_selection_wrappers_before_load_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1167_br_table_child_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1940_call_tee_br_table_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1956_call_tee_br_table_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2054_call_tee_br_table_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_ladder_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2321_call_arg_tee_br_table_release_ladder_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2334_tag236_wrapper_before_offset8_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_converter_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2651_load_br_table_wrapper_before_converter_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2696_tee_br_table_release_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wrapper_before_local_set_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2714_direct_call_br_table_release_wrapper_before_local_set_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load_wrapper_before_call_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2905_direct_call_br_table_local_load_wrapper_before_call_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrapper_before_sibling_branch(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2775_call_tee_cleanup_return_if_wrapper_before_sibling_branch(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper_before_i64_return(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2823_call_tee_branch_cleanup_wrapper_before_i64_return(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladder_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2297_call_tee_br_table_release_ladder_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update_wrapper_before_unreachable(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2320_call_tee_br_table_double_update_wrapper_before_unreachable(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1792_br_table_dispatch_return_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1836_loop_if_owner_branch_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_drop_f1895_empty_sibling(
-                next_body,
-              ) {
-              Some(cleaned_body) =>
-                rewritten.push(
-                  @lib.Instruction::block(
-                    block_type,
-                    @lib.Expr::new(cleaned_body),
-                  ),
-                )
-              None => ()
-            }
+            is Some(cleaned_body) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(cleaned_body)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_drop_f2072_empty_sibling(
-                next_body,
-              ) {
-              Some(cleaned_body) =>
-                rewritten.push(
-                  @lib.Instruction::block(
-                    block_type,
-                    @lib.Expr::new(cleaned_body),
-                  ),
-                )
-              None => ()
-            }
+            is Some(cleaned_body) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(cleaned_body)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_drop_f2842_empty_block_before_live_if(
-                next_body,
-              ) {
-              Some(cleaned_body) =>
-                rewritten.push(
-                  @lib.Instruction::block(
-                    block_type,
-                    @lib.Expr::new(cleaned_body),
-                  ),
-                )
-              None => ()
-            }
+            is Some(cleaned_body) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(cleaned_body)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_branch_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1155_single_release_child_before_branch_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_append_update(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f1260_tag_dispatch_child_before_append_update(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_wrapper(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f2130_tag42_tag43_loop_head_dispatch_wrapper(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f649_branchy_loop_dispatch_parent_wrapper_candidate(
               next_body,
             ) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65564,12 +65937,28 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             ) => {
             match next_body[0] {
               @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) => {
-                let rebased_once = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                  child_body, 0,
-                )
-                let rebased_twice = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                  rebased_once, 0,
-                )
+                let rebased_once = match
+                  run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                    child_body, 0,
+                  ) {
+                  Some(rebased) => rebased
+                  None => {
+                    rewritten.push(instr)
+                    idx += 1
+                    continue
+                  }
+                }
+                let rebased_twice = match
+                  run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                    rebased_once, 0,
+                  ) {
+                  Some(rebased) => rebased
+                  None => {
+                    rewritten.push(instr)
+                    idx += 1
+                    continue
+                  }
+                }
                 for next_instr in rebased_twice {
                   rewritten.push(next_instr)
                 }
@@ -65584,9 +65973,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             run_hot_pipeline_raw_vacuum_has_f749_i64_return_continuation(
               instrs, idx,
             ) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65598,9 +65995,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             run_hot_pipeline_raw_vacuum_body_is_branchy_loop_dispatch_singleton_wrapper_candidate(
               next_body,
             ) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65625,17 +66030,10 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owner(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset12_indexed_singleton_owner(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if next_body.length() == 1 &&
@@ -65667,9 +66065,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   @lib.Instruction::block(
                     block_type,
                     @lib.Expr::new(
-                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                        child_body, 0,
-                      ),
+                      match
+                        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                          child_body, 0,
+                        ) {
+                        Some(rebased) => rebased
+                        None => {
+                          rewritten.push(instr)
+                          idx += 1
+                          continue
+                        }
+                      },
                     ),
                   ),
                 )
@@ -65684,9 +66090,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65714,9 +66128,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               _ => false
             }) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65731,9 +66153,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               _ => false
             }) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65764,9 +66194,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             )) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65905,9 +66343,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               next_body, instrs, idx,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -65916,113 +66362,64 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4463_offset20_owner_before_failure_box_return(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4311_nested_tag_dispatch_before_call_continuation(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4915_tag1_owner_dispatch_before_tag95_return(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
               next_body, instrs, idx, module_ctx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4919_call_if_return_before_tag99_return(
-                next_body, instrs, idx, module_ctx,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4859_leading_owner_exit_dispatch_before_case0_return(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
               next_body, instrs, idx,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4665_nested_tag_classification_before_renderer_continuation(
-                next_body, instrs, idx,
-              ) {
-              Some(flattened) =>
-                for next_instr in flattened {
-                  rewritten.push(next_instr)
-                }
-              None => ()
+            is Some(flattened) => {
+            for next_instr in flattened {
+              rewritten.push(next_instr)
             }
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_continuation(
               next_body,
             )
-            is Some(_) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_flatten_f4702_call_result_child_before_store_continuation(
-                next_body,
-              ) {
-              Some(flattened) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
-                )
-              None => ()
-            }
+            is Some(flattened) => {
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(flattened)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_f3317_singleton_retain_allocation_loop_wrapper(
@@ -66035,9 +66432,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   @lib.Instruction::block(
                     block_type,
                     @lib.Expr::new(
-                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                        child_body, 0,
-                      ),
+                      match
+                        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                          child_body, 0,
+                        ) {
+                        Some(rebased) => rebased
+                        None => {
+                          rewritten.push(instr)
+                          idx += 1
+                          continue
+                        }
+                      },
                     ),
                   ),
                 )
@@ -66095,9 +66500,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   @lib.Instruction::block(
                     block_type,
                     @lib.Expr::new(
-                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                        child_body, 0,
-                      ),
+                      match
+                        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                          child_body, 0,
+                        ) {
+                        Some(rebased) => rebased
+                        None => {
+                          rewritten.push(instr)
+                          idx += 1
+                          continue
+                        }
+                      },
                     ),
                   ),
                 )
@@ -66115,9 +66528,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               next_body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66127,9 +66548,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               next_body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66160,9 +66589,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               instrs, idx,
             )) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66171,18 +66608,11 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(
               next_body,
             )
-            is Some(_) &&
+            is Some(wrapped) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            match
-              run_hot_pipeline_raw_vacuum_try_wrap_load_linked_release_prefix(
-                next_body,
-              ) {
-              Some(wrapped) =>
-                rewritten.push(
-                  @lib.Instruction::block(block_type, @lib.Expr::new(wrapped)),
-                )
-              None => ()
-            }
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(wrapped)),
+            )
             changed = true
           }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_singleton_load_linked_local_set_call_prefix_block(
@@ -66198,9 +66628,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
                   @lib.Instruction::block(
                     block_type,
                     @lib.Expr::new(
-                      run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                        child_body, 0,
-                      ),
+                      match
+                        run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                          child_body, 0,
+                        ) {
+                        Some(rebased) => rebased
+                        None => {
+                          rewritten.push(instr)
+                          idx += 1
+                          continue
+                        }
+                      },
                     ),
                   ),
                 )
@@ -66212,9 +66650,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               next_body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66232,9 +66678,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               )
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66255,9 +66709,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
               )
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66313,9 +66775,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
-            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-              next_body, 0,
-            )
+            let rebased = match
+              run_hot_pipeline_raw_vacuum_rebase_removable_outer_body(
+                next_body, 0,
+              ) {
+              Some(rebased) => rebased
+              None => {
+                rewritten.push(instr)
+                idx += 1
+                continue
+              }
+            }
             for next_instr in rebased {
               rewritten.push(next_instr)
             }
@@ -66326,10 +66796,23 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs_owned(
             instrs[idx + 1] is @lib.Drop &&
             run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
               next_body,
-            ) => {
-            changed = true
-            idx = idx + 1
-          }
+            ) =>
+            match
+              run_hot_pipeline_raw_vacuum_dropped_control_arities_at(
+                instrs, idx, block_type, module_ctx,
+              ) {
+              Some((param_count, result_count)) => {
+                for _ in 0..<param_count {
+                  rewritten.push(@lib.Instruction::drop())
+                }
+                changed = true
+                idx += result_count
+              }
+              None =>
+                rewritten.push(
+                  @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+                )
+            }
           _ if run_hot_pipeline_raw_vacuum_body_is_static_null_throw_ref_trap(
               next_body,
             ) => {
@@ -72181,7 +72664,11 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   if descriptor.name != "vacuum" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   match run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(instrs) {
     Some(leaf) =>
@@ -72195,15 +72682,10 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       })
     None => ()
   }
-  let has_dropped_typeidx_block = run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
-    instrs,
-  )
-  let has_flattenable_no_throw_exception_region = run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
-    instrs,
-  )
-  let has_legacy_try = run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(
-    instrs,
-  )
+  let admission = VacuumPrecleanAdmissionFacts::new(instrs)
+  let has_dropped_typeidx_block = admission.dropped_typeidx_block
+  let has_flattenable_no_throw_exception_region = admission.flattenable_exception
+  let has_legacy_try = admission.legacy_try
   if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(instrs) {
     return Some({
       reason: "negative-array-allocation-vacuum-noop",
@@ -72243,20 +72725,12 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       })
     }
   }
-  let has_fresh_array_set = run_hot_pipeline_raw_vacuum_instrs_have_fresh_array_set_candidate(
-    instrs,
-  )
-  let has_dropped_ref_func_struct = run_hot_pipeline_raw_vacuum_instrs_have_dropped_ref_func_struct(
-    instrs,
-  )
-  let has_dropped_simple_struct = run_hot_pipeline_raw_vacuum_instrs_have_dropped_simple_struct(
-    instrs,
-  )
-  let module_ctx = if run_hot_pipeline_raw_vacuum_instrs_require_type_context(
-      instrs,
-    ) ||
+  let has_fresh_array_set = admission.fresh_array_set
+  let has_dropped_simple_struct = admission.dropped_simple_struct
+  // Every ref.func/struct.new/drop candidate is also a dropped simple struct
+  // admission. Its separate transform still checks field types in the worker.
+  let module_ctx = if admission.needs_type_context ||
     has_fresh_array_set ||
-    has_dropped_ref_func_struct ||
     has_dropped_simple_struct {
     Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
   } else {
@@ -72267,10 +72741,8 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
     constant_result_if=Some(has_constant_result_if),
   )
-  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
-    instrs,
-  )
-  let guarded_hot_hazard = has_writes && has_stack_effect
+  let guarded_hot_hazard = has_writes &&
+    run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(instrs)
   if guarded_hot_hazard {
     let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
       instrs, module_ctx,
@@ -72302,9 +72774,8 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       trace_skip_raw: true,
     })
   }
-  let has_dropped_local_tee = run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(
-    instrs,
-  )
+  let has_dropped_local_tee = has_writes &&
+    run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(instrs)
   if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) ||
     run_hot_pipeline_raw_vacuum_instrs_have_dropped_pure_simd_expr(instrs) ||
     run_hot_pipeline_raw_vacuum_instrs_have_dropped_simd_replace_lane_load(
@@ -72326,7 +72797,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     has_flattenable_no_throw_exception_region ||
     has_legacy_try ||
     has_fresh_array_set ||
-    has_dropped_ref_func_struct ||
     has_dropped_simple_struct {
     let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
       instrs, module_ctx,
@@ -72357,9 +72827,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     has_branches
   let branchy_structured_nop_debris = branchy_structured_writes &&
     run_hot_pipeline_raw_vacuum_count_nops_until(instrs, 1) >= 1
-  let has_terminal_debris = run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
-    instrs,
-  )
+  let has_terminal_debris = instr_count <= 2048 &&
+    !branchy_structured_nop_debris &&
+    run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(instrs)
   if instr_count <= 2048 &&
     !branchy_structured_nop_debris &&
     !has_terminal_debris {
@@ -72524,11 +72994,12 @@ fn run_hot_pipeline_raw_vacuum_no_candidates(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "vacuum" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(_, @lib.Expr(instrs)) = original
   if instrs.length() == 0 ||
     run_hot_pipeline_raw_vacuum_has_candidate_instrs(instrs) {
@@ -73334,11 +73805,12 @@ fn run_hot_pipeline_raw_remove_unused_names(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "remove-unused-names" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   // Continuation resume handlers can carry label depths, but HOT currently has
   // no continuation representation that RemoveUnusedNames can update safely.
@@ -74119,11 +74591,12 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "remove-unused-brs" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   if run_hot_pipeline_raw_remove_unused_brs_has_stack_carried_accumulator_copy(
       instrs,
@@ -80192,7 +80665,11 @@ fn run_hot_pipeline_raw_merge_locals(
   if descriptor.name != "merge-locals" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(_, @lib.Expr(instrs)) = original
   let (has_call, has_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
     instrs,
@@ -80309,11 +80786,12 @@ fn run_hot_pipeline_raw_heap2local_no_candidates(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "heap2local" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(_, @lib.Expr(instrs)) = original
   if run_hot_pipeline_raw_heap2local_has_supported_allocation(instrs) {
     return None
@@ -80505,7 +80983,11 @@ fn run_hot_pipeline_raw_heap2local_fresh_struct_null_test(
   if descriptor.name != "heap2local" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
@@ -80536,7 +81018,11 @@ fn run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
   if descriptor.name != "heap2local" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let (array_type, length) = match instrs {
     [
@@ -80880,11 +81366,12 @@ fn run_hot_pipeline_raw_optimize_casts_no_candidates(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "optimize-casts" {
     return None
   }
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx, module_state~)
   let @lib.Func(_, @lib.Expr(instrs)) = original
   if run_hot_pipeline_raw_optimize_casts_has_candidate(instrs) {
     None
@@ -81094,7 +81581,11 @@ fn run_hot_pipeline_func_before_unread_tees(
   lower_state : HotPipelineLowerState,
   options : HotPipelineOptions,
 ) -> Result[HotPipelineFuncResult, String] {
-  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let original = run_hot_pipeline_original_func(
+    mod_,
+    func_idx,
+    module_state=Some(module_state),
+  )
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
   if (
       descriptor.name == "precompute" ||
@@ -81129,7 +81620,7 @@ fn run_hot_pipeline_func_before_unread_tees(
     None
   }
   if descriptor.name == "flatten" &&
-    run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_) &&
+    run_hot_pipeline_cached_assemblyscript_startup(mod_, module_state) &&
     run_hot_pipeline_raw_i32_ctz_count(original_instrs) < 3 {
     return Ok({
       reason: "assemblyscript-startup-nonallocator-flatten-noop",
@@ -81139,7 +81630,7 @@ fn run_hot_pipeline_func_before_unread_tees(
     })
   }
   if descriptor.name == "flatten" &&
-    run_hot_pipeline_module_has_assemblyscript_run_exported_memory_runtime(mod_) {
+    run_hot_pipeline_cached_assemblyscript_run(mod_, module_state) {
     return Ok({
       reason: "assemblyscript-exported-memory-flatten-noop",
       func: original,
@@ -81274,13 +81765,22 @@ fn run_hot_pipeline_func_before_unread_tees(
   }
   match
     run_hot_pipeline_raw_heap_store_optimization(
-      mod_, func_idx, descriptor, options,
+      mod_,
+      func_idx,
+      descriptor,
+      options,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
   }
   match
-    run_hot_pipeline_raw_heap2local_no_candidates(mod_, func_idx, descriptor) {
+    run_hot_pipeline_raw_heap2local_no_candidates(
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -81298,13 +81798,22 @@ fn run_hot_pipeline_func_before_unread_tees(
     Some(result) => return Ok(result)
     None => ()
   }
-  match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
+  match
+    run_hot_pipeline_raw_pick_load_signs(
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
   match
     run_hot_pipeline_raw_optimize_casts_no_candidates(
-      mod_, func_idx, descriptor,
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -81319,8 +81828,8 @@ fn run_hot_pipeline_func_before_unread_tees(
       oi_index~,
     ) {
     Some(result) => {
-      let (precleaned, tee_changed) = if pass_module_has_offset_sensitive_metadata(
-          mod_,
+      let (precleaned, tee_changed) = if run_hot_pipeline_cached_offset_sensitive_metadata(
+          mod_, module_state,
         ) {
         (result.func, false)
       } else {
@@ -81328,7 +81837,13 @@ fn run_hot_pipeline_func_before_unread_tees(
       }
       let (cleaned, changed) = run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
         precleaned,
-        Some(run_hot_pipeline_original_func(mod_, func_idx)),
+        Some(
+          run_hot_pipeline_original_func(
+            mod_,
+            func_idx,
+            module_state=Some(module_state),
+          ),
+        ),
         mod_,
         module_ctx=Some(
           run_hot_pipeline_require_module_ctx(mod_, module_state, options),
@@ -81361,6 +81876,7 @@ fn run_hot_pipeline_func_before_unread_tees(
       func_idx,
       descriptor,
       module_ctx=merge_blocks_module_ctx,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -81371,13 +81887,17 @@ fn run_hot_pipeline_func_before_unread_tees(
       func_idx,
       descriptor,
       module_ctx=merge_blocks_module_ctx,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
   }
   match
     run_hot_pipeline_raw_merge_blocks_ordered_atomic_call(
-      mod_, func_idx, descriptor,
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -81389,15 +81909,33 @@ fn run_hot_pipeline_func_before_unread_tees(
     Some(result) => return Ok(result)
     None => ()
   }
-  match run_hot_pipeline_raw_size_cleanup_skip(mod_, func_idx, descriptor) {
+  match
+    run_hot_pipeline_raw_size_cleanup_skip(
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
-  match run_hot_pipeline_raw_code_pushing_skip(mod_, func_idx, descriptor) {
+  match
+    run_hot_pipeline_raw_code_pushing_skip(
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
-  match run_hot_pipeline_raw_code_folding_skip(mod_, func_idx, descriptor) {
+  match
+    run_hot_pipeline_raw_code_folding_skip(
+      mod_,
+      func_idx,
+      descriptor,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -81443,6 +81981,49 @@ fn run_hot_pipeline_func_before_unread_tees(
     None => ()
   }
   if descriptor.name == "vacuum" {
+    // Admission is part of the preclean probe, including its cheap early exit.
+    // Keep its work visible in the one aggregate raw-preclean timer.
+    let admission_start_us = perf_start_timer_opt(
+      options.perf,
+      "raw:vacuum-preclean",
+    )
+    let preclean_is_unchanged = run_hot_pipeline_raw_vacuum_preclean_flat_loop_is_unchanged(
+      original_instrs,
+    )
+    module_state.vacuum_raw_preclean_elapsed_us += perf_elapsed_since_start_opt(
+      options.perf,
+      admission_start_us,
+    )
+    module_state.vacuum_raw_preclean_count += 1
+    if preclean_is_unchanged {
+      let no_candidate_start_us = perf_start_timer_opt(
+        options.perf,
+        "raw:vacuum-no-candidates",
+      )
+      match
+        run_hot_pipeline_raw_vacuum_no_candidates(
+          mod_,
+          func_idx,
+          descriptor,
+          module_state=Some(module_state),
+        ) {
+        Some(result) => {
+          module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
+            options.perf,
+            no_candidate_start_us,
+          )
+          module_state.vacuum_no_candidate_count += 1
+          return Ok(result)
+        }
+        None => {
+          module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
+            options.perf,
+            no_candidate_start_us,
+          )
+          module_state.vacuum_no_candidate_count += 1
+        }
+      }
+    }
     let preclean_start_us = perf_start_timer_opt(
       options.perf,
       "raw:vacuum-preclean",
@@ -81456,43 +82037,51 @@ fn run_hot_pipeline_func_before_unread_tees(
           options.perf,
           preclean_start_us,
         )
-        module_state.vacuum_raw_preclean_count += 1
         return Ok(result)
       }
-      None => {
+      None =>
         module_state.vacuum_raw_preclean_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
           preclean_start_us,
         )
-        module_state.vacuum_raw_preclean_count += 1
-      }
     }
-    let no_candidate_start_us = perf_start_timer_opt(
-      options.perf,
-      "raw:vacuum-no-candidates",
-    )
-    match
-      run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
-      Some(result) => {
-        module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
-          options.perf,
-          no_candidate_start_us,
-        )
-        module_state.vacuum_no_candidate_count += 1
-        return Ok(result)
-      }
-      None => {
-        module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
-          options.perf,
-          no_candidate_start_us,
-        )
-        module_state.vacuum_no_candidate_count += 1
+    if !preclean_is_unchanged {
+      let no_candidate_start_us = perf_start_timer_opt(
+        options.perf,
+        "raw:vacuum-no-candidates",
+      )
+      match
+        run_hot_pipeline_raw_vacuum_no_candidates(
+          mod_,
+          func_idx,
+          descriptor,
+          module_state=Some(module_state),
+        ) {
+        Some(result) => {
+          module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
+            options.perf,
+            no_candidate_start_us,
+          )
+          module_state.vacuum_no_candidate_count += 1
+          return Ok(result)
+        }
+        None => {
+          module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
+            options.perf,
+            no_candidate_start_us,
+          )
+          module_state.vacuum_no_candidate_count += 1
+        }
       }
     }
   }
   match
     run_hot_pipeline_raw_remove_unused_names(
-      mod_, func_idx, descriptor, options,
+      mod_,
+      func_idx,
+      descriptor,
+      options,
+      module_state=Some(module_state),
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -81506,7 +82095,13 @@ fn run_hot_pipeline_func_before_unread_tees(
     )
   }
   match
-    run_hot_pipeline_raw_remove_unused_brs(mod_, func_idx, descriptor, options) {
+    run_hot_pipeline_raw_remove_unused_brs(
+      mod_,
+      func_idx,
+      descriptor,
+      options,
+      module_state=Some(module_state),
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -81515,7 +82110,11 @@ fn run_hot_pipeline_func_before_unread_tees(
   )
   let (lift_mod, raw_preclean_changed) = if descriptor.name == "merge-blocks" {
     let (branch_precleaned, branch_changed) = run_hot_pipeline_merge_blocks_preclean_func(
-      run_hot_pipeline_original_func(mod_, func_idx),
+      run_hot_pipeline_original_func(
+        mod_,
+        func_idx,
+        module_state=Some(module_state),
+      ),
     )
     let (precleaned, ref_changed) = run_hot_pipeline_merge_blocks_preclean_ref_drops(
       branch_precleaned, module_ctx,
@@ -81536,9 +82135,13 @@ fn run_hot_pipeline_func_before_unread_tees(
       (mod_, false)
     }
   } else if descriptor.name == "optimize-instructions" &&
-    !pass_module_has_offset_sensitive_metadata(mod_) {
+    !run_hot_pipeline_cached_offset_sensitive_metadata(mod_, module_state) {
     let (precleaned, changed) = oi_tee_reuse_preclean(
-      run_hot_pipeline_original_func(mod_, func_idx),
+      run_hot_pipeline_original_func(
+        mod_,
+        func_idx,
+        module_state=Some(module_state),
+      ),
     )
     if changed {
       (
@@ -81569,7 +82172,11 @@ fn run_hot_pipeline_func_before_unread_tees(
         payload="func_idx=\{func_idx} err=\{err}",
       )
       if descriptor.name == "optimize-instructions" {
-        let original = run_hot_pipeline_original_func(mod_, func_idx)
+        let original = run_hot_pipeline_original_func(
+          mod_,
+          func_idx,
+          module_state=Some(module_state),
+        )
         match oi_publish_rewrite_func(mod_, func_idx, original) {
           Some(next) =>
             return Ok({
@@ -81639,7 +82246,11 @@ fn run_hot_pipeline_func_before_unread_tees(
       if !options.validate_final_module {
         return Ok({
           reason: "hot-lift-error",
-          func: run_hot_pipeline_original_func(mod_, func_idx),
+          func: run_hot_pipeline_original_func(
+            mod_,
+            func_idx,
+            module_state=Some(module_state),
+          ),
           unchanged_original: true,
           trace_skip_raw: true,
         })
@@ -81812,7 +82423,11 @@ fn run_hot_pipeline_func_before_unread_tees(
         ) &&
         !(descriptor.name == "heap-store-optimization" &&
         run_hot_pipeline_hso_original_requires_unchanged_lowering(
-          run_hot_pipeline_original_func(mod_, func_idx),
+          run_hot_pipeline_original_func(
+            mod_,
+            func_idx,
+            module_state=Some(module_state),
+          ),
         )) &&
         !((
           descriptor.name == "vacuum" ||
@@ -81820,10 +82435,18 @@ fn run_hot_pipeline_func_before_unread_tees(
           descriptor.name == "precompute-propagate"
         ) &&
         run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
-          run_hot_pipeline_original_func(mod_, func_idx),
+          run_hot_pipeline_original_func(
+            mod_,
+            func_idx,
+            module_state=Some(module_state),
+          ),
         )) &&
         !dce_requires_unchanged_lowering {
-        let original = run_hot_pipeline_original_func(mod_, func_idx)
+        let original = run_hot_pipeline_original_func(
+          mod_,
+          func_idx,
+          module_state=Some(module_state),
+        )
         let (output, changed) = if descriptor.name == "constraint-analysis" {
           ca_lower_cleanup_raw(
             original,
@@ -81939,7 +82562,13 @@ fn run_hot_pipeline_func_before_unread_tees(
           let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
             raw_lowered,
             descriptor.name,
-            Some(run_hot_pipeline_original_func(mod_, func_idx)),
+            Some(
+              run_hot_pipeline_original_func(
+                mod_,
+                func_idx,
+                module_state=Some(module_state),
+              ),
+            ),
             func_idx,
             mod_,
             module_env_provider=Some(fn() {
@@ -82000,7 +82629,11 @@ fn run_hot_pipeline_func_before_unread_tees(
           )
           return Ok({
             reason: "hot-verify-before-lower-error",
-            func: run_hot_pipeline_original_func(mod_, func_idx),
+            func: run_hot_pipeline_original_func(
+              mod_,
+              func_idx,
+              module_state=Some(module_state),
+            ),
             unchanged_original: true,
             trace_skip_raw: true,
           })
@@ -82016,7 +82649,13 @@ fn run_hot_pipeline_func_before_unread_tees(
       let lowered = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
         raw_lowered,
         descriptor.name,
-        Some(run_hot_pipeline_original_func(mod_, func_idx)),
+        Some(
+          run_hot_pipeline_original_func(
+            mod_,
+            func_idx,
+            module_state=Some(module_state),
+          ),
+        ),
         func_idx,
         mod_,
         module_env_provider=Some(fn() {
@@ -82064,8 +82703,12 @@ fn run_hot_pipeline_func_before_unread_tees(
 fn run_hot_pipeline_original_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
+  module_state~ : HotPipelineModuleState? = None,
 ) -> @lib.Func {
-  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let imported_func_count = match module_state {
+    Some(state) => run_hot_pipeline_cached_imported_func_count(mod_, state)
+    None => run_hot_pipeline_imported_func_count(mod_)
+  }
   let @lib.FuncIdx(raw) = func_idx
   let code_idx = raw.reinterpret_as_int() - imported_func_count
   if code_idx < 0 {
@@ -82722,7 +83365,10 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
           code_idx < candidate_defs.length()
           code_idx = code_idx + 1 {
         if code_idx < original_defs.length() &&
-          candidate_defs[code_idx] != original_defs[code_idx] {
+          !dae_snapshot_func_unchanged(
+            candidate_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           changed_funcs.push(
             (
               @lib.FuncIdx::new(
@@ -82770,7 +83416,10 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
           code_idx >= original_defs.length() {
           return None
         }
-        if repaired_defs[code_idx] == original_defs[code_idx] {
+        if dae_snapshot_func_unchanged(
+            repaired_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           return None
         }
         repaired_defs[code_idx] = original_defs[code_idx]
@@ -82802,7 +83451,10 @@ fn run_hot_pipeline_ssa_repair_batch_writeback(
           code_idx < candidate_defs.length()
           code_idx = code_idx + 1 {
         if code_idx < original_defs.length() &&
-          candidate_defs[code_idx] != original_defs[code_idx] {
+          !dae_snapshot_func_unchanged(
+            candidate_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           changed_funcs.push(
             (
               @lib.FuncIdx::new(
@@ -82850,7 +83502,10 @@ fn run_hot_pipeline_ssa_repair_batch_writeback(
           code_idx >= original_defs.length() {
           return None
         }
-        if repaired_defs[code_idx] == original_defs[code_idx] {
+        if dae_snapshot_func_unchanged(
+            repaired_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           return None
         }
         repaired_defs[code_idx] = original_defs[code_idx]
@@ -82890,7 +83545,10 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
           touched[code_idx] &&
           (
             touched_proves_changed ||
-            candidate_defs[code_idx] != original_defs[code_idx]
+            !dae_snapshot_func_unchanged(
+              candidate_defs[code_idx],
+              original_defs[code_idx],
+            )
           ) {
           changed_funcs.push(
             (
@@ -82941,7 +83599,10 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
           !touched[code_idx] ||
           (
             !touched_proves_changed &&
-            repaired_defs[code_idx] == original_defs[code_idx]
+            dae_snapshot_func_unchanged(
+              repaired_defs[code_idx],
+              original_defs[code_idx],
+            )
           ) {
           return None
         }
@@ -82976,16 +83637,18 @@ fn run_hot_pipeline_precompute_repair_batch_writeback(
 fn run_hot_pipeline_optimize_instructions_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
+  touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> @lib.Module? {
   match original_mod.code_sec {
-    Some(@lib.CodeSec(defs)) =>
+    Some(@lib.CodeSec(_)) =>
       run_hot_pipeline_repair_touched_batch_writeback(
         original_mod,
         candidate_mod,
-        Array::make(defs.length(), true),
+        touched,
         "optimize-instructions",
         options,
+        touched_proves_changed=true,
       )
     None => Some(candidate_mod)
   }
@@ -83023,7 +83686,10 @@ fn run_hot_pipeline_remove_unused_brs_repair_batch_writeback(
           code_idx < candidate_defs.length()
           code_idx = code_idx + 1 {
         if code_idx < original_defs.length() &&
-          candidate_defs[code_idx] != original_defs[code_idx] {
+          !dae_snapshot_func_unchanged(
+            candidate_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           changed_funcs.push(
             (
               @lib.FuncIdx::new(
@@ -83071,7 +83737,10 @@ fn run_hot_pipeline_remove_unused_brs_repair_batch_writeback(
           code_idx >= original_defs.length() {
           return None
         }
-        if repaired_defs[code_idx] == original_defs[code_idx] {
+        if dae_snapshot_func_unchanged(
+            repaired_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           return None
         }
         repaired_defs[code_idx] = original_defs[code_idx]
@@ -83102,7 +83771,10 @@ fn run_hot_pipeline_dce_repair_batch_writeback(
           code_idx < candidate_defs.length()
           code_idx = code_idx + 1 {
         if code_idx < original_defs.length() &&
-          candidate_defs[code_idx] != original_defs[code_idx] {
+          !dae_snapshot_func_unchanged(
+            candidate_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           changed_funcs.push(
             (
               @lib.FuncIdx::new(
@@ -83150,7 +83822,10 @@ fn run_hot_pipeline_dce_repair_batch_writeback(
           code_idx >= original_defs.length() {
           return None
         }
-        if repaired_defs[code_idx] == original_defs[code_idx] {
+        if dae_snapshot_func_unchanged(
+            repaired_defs[code_idx],
+            original_defs[code_idx],
+          ) {
           return None
         }
         repaired_defs[code_idx] = original_defs[code_idx]
@@ -83172,6 +83847,45 @@ fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
+  defer_vacuum_writeback_guard~ : Bool = true,
+  defer_ssa_nomerge_writeback_guard~ : Bool = true,
+  defer_remove_unused_brs_writeback_guard~ : Bool = true,
+  defer_dce_writeback_guard~ : Bool = true,
+  defer_precompute_writeback_guard~ : Bool = true,
+  defer_simplify_locals_writeback_guard~ : Bool = true,
+  defer_optimize_instructions_writeback_guard~ : Bool = true,
+) -> Result[@lib.Module, String] {
+  let result = run_hot_pipeline_apply_hot_pass_impl(
+    mod_,
+    entry,
+    options,
+    module_cache~,
+    defer_vacuum_writeback_guard~,
+    defer_ssa_nomerge_writeback_guard~,
+    defer_remove_unused_brs_writeback_guard~,
+    defer_dce_writeback_guard~,
+    defer_precompute_writeback_guard~,
+    defer_simplify_locals_writeback_guard~,
+    defer_optimize_instructions_writeback_guard~,
+  )
+  match module_cache {
+    Some(cache) =>
+      match result {
+        Ok(next) => cache.advance(next)
+        Err(_) => cache.clear()
+      }
+    None => ()
+  }
+  result
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass_impl(
+  mod_ : @lib.Module,
+  entry : HotPassRegistryEntry,
+  options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
   defer_vacuum_writeback_guard~ : Bool = true,
   defer_ssa_nomerge_writeback_guard~ : Bool = true,
   defer_remove_unused_brs_writeback_guard~ : Bool = true,
@@ -83219,7 +83933,7 @@ fn run_hot_pipeline_apply_hot_pass(
     )
     return Ok(mod_)
   }
-  let module_state = HotPipelineModuleState::new()
+  let module_state = HotPipelineModuleState::new(module_cache~)
   let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&
     descriptor.name == "vacuum"
   let defer_this_ssa_nomerge_writeback_guard = defer_ssa_nomerge_writeback_guard &&
@@ -83246,6 +83960,7 @@ fn run_hot_pipeline_apply_hot_pass(
     None
   }
   let mut simplify_locals_touched : Array[Bool]? = None
+  let mut optimize_instructions_touched : Array[Bool]? = None
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let code_section_start_us = perf_start_timer_opt(
@@ -83342,10 +84057,7 @@ fn run_hot_pipeline_apply_hot_pass(
             continue
           }
         }
-        let lower_state = {
-          next_type_sec: current_mod.type_sec,
-          type_sec_changed: false,
-        }
+        let lower_state = HotPipelineLowerState::new(current_mod.type_sec)
         let func_result_start_us = if descriptor.name ==
           "redundant-set-elimination" {
           perf_start_timer_opt(options.perf, "detail:rse:func-result")
@@ -83481,6 +84193,18 @@ fn run_hot_pipeline_apply_hot_pass(
           }
           touched[code_idx] = true
         }
+        if defer_this_optimize_instructions_writeback_guard &&
+          !result.unchanged_original {
+          let touched = match optimize_instructions_touched {
+            Some(touched) => touched
+            None => {
+              let touched = Array::make(defs.length(), false)
+              optimize_instructions_touched = Some(touched)
+              touched
+            }
+          }
+          touched[code_idx] = true
+        }
         let rse_trace_writeback_start_us = if descriptor.name ==
           "redundant-set-elimination" {
           perf_start_timer_opt(options.perf, "detail:rse:trace-writeback")
@@ -83526,8 +84250,7 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         match lowered {
           Some(defs_copy) =>
-            if !defer_this_precompute_writeback_guard ||
-              !result.unchanged_original {
+            if !result.unchanged_original {
               // The copy starts from the original code section, so leaving an
               // unchanged result in place makes `precompute_touched` complete
               // by construction: only marked slots can differ at batch time.
@@ -83771,7 +84494,10 @@ fn run_hot_pipeline_apply_hot_pass(
     )
     match
       run_hot_pipeline_optimize_instructions_repair_batch_writeback(
-        mod_, next_mod, options,
+        mod_,
+        next_mod,
+        optimize_instructions_touched.unwrap(),
+        options,
       ) {
       Some(repaired_mod) => {
         perf_stop_timer_opt(
@@ -84019,6 +84745,31 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   mod_ : @lib.Module,
   entries : Array[HotPassRegistryEntry],
   options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
+) -> Result[@lib.Module, String] {
+  let result = run_hot_pipeline_apply_hot_pass_stack_impl(
+    mod_,
+    entries,
+    options,
+    module_cache~,
+  )
+  match module_cache {
+    Some(cache) =>
+      match result {
+        Ok(next) => cache.advance(next)
+        Err(_) => cache.clear()
+      }
+    None => ()
+  }
+  result
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass_stack_impl(
+  mod_ : @lib.Module,
+  entries : Array[HotPassRegistryEntry],
+  options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
 ) -> Result[@lib.Module, String] {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     for entry in entries {
@@ -84061,7 +84812,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   if descriptors.length() == 0 {
     return Ok(mod_)
   }
-  let module_state = HotPipelineModuleState::new()
+  let module_state = HotPipelineModuleState::new(module_cache~)
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -84180,10 +84931,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
           }
           continue
         }
-        let lower_state = {
-          next_type_sec: current_mod.type_sec,
-          type_sec_changed: false,
-        }
+        let lower_state = HotPipelineLowerState::new(current_mod.type_sec)
         run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
         let lower_start_us = perf_start_timer_opt(options.perf, "lower")
         let lowered_func = match options.verify_policy {
@@ -84196,7 +84944,13 @@ fn run_hot_pipeline_apply_hot_pass_stack(
                 ),
               ),
               descriptors[descriptors.length() - 1].name,
-              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              Some(
+                run_hot_pipeline_original_func(
+                  mod_,
+                  func_idx,
+                  module_state=Some(module_state),
+                ),
+              ),
               func_idx,
               current_mod,
               module_env_provider=Some(fn() {
@@ -84215,7 +84969,13 @@ fn run_hot_pipeline_apply_hot_pass_stack(
                 ),
               ),
               descriptors[descriptors.length() - 1].name,
-              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              Some(
+                run_hot_pipeline_original_func(
+                  mod_,
+                  func_idx,
+                  module_state=Some(module_state),
+                ),
+              ),
               func_idx,
               current_mod,
               module_env_provider=Some(fn() {
@@ -84507,10 +85267,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
           Some(descriptor) => descriptor
           None => continue
         }
-        let lower_state = {
-          next_type_sec: current_mod.type_sec,
-          type_sec_changed: false,
-        }
+        let lower_state = HotPipelineLowerState::new(current_mod.type_sec)
         run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
         let lower_start_us = perf_start_timer_opt(options.perf, "lower")
         let lowered_func = match options.verify_policy {
@@ -84523,7 +85280,13 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
                 ),
               ),
               final_descriptor.name,
-              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              Some(
+                run_hot_pipeline_original_func(
+                  mod_,
+                  func_idx,
+                  module_state=Some(module_state),
+                ),
+              ),
               func_idx,
               current_mod,
               module_env_provider=Some(fn() {
@@ -84542,7 +85305,13 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
                 ),
               ),
               final_descriptor.name,
-              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              Some(
+                run_hot_pipeline_original_func(
+                  mod_,
+                  func_idx,
+                  module_state=Some(module_state),
+                ),
+              ),
               func_idx,
               current_mod,
               module_env_provider=Some(fn() {
@@ -84709,6 +85478,33 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
   descriptor : @ir.HotPassDescriptor,
   touched : Array[Bool],
   options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
+) -> Result[@lib.Module, String] {
+  let result = run_hot_pipeline_apply_hot_pass_to_touched_impl(
+    mod_,
+    descriptor,
+    touched,
+    options,
+    module_cache~,
+  )
+  match module_cache {
+    Some(cache) =>
+      match result {
+        Ok(next) => cache.advance(next)
+        Err(_) => cache.clear()
+      }
+    None => ()
+  }
+  result
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass_to_touched_impl(
+  mod_ : @lib.Module,
+  descriptor : @ir.HotPassDescriptor,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
 ) -> Result[@lib.Module, String] {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     pipeline_trace_hook(
@@ -84745,7 +85541,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
     )
     return Ok(mod_)
   }
-  let module_state = HotPipelineModuleState::new()
+  let module_state = HotPipelineModuleState::new(module_cache~)
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -84803,10 +85599,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
             continue
           }
         }
-        let lower_state = {
-          next_type_sec: current_mod.type_sec,
-          type_sec_changed: false,
-        }
+        let lower_state = HotPipelineLowerState::new(current_mod.type_sec)
         let result = match
           run_hot_pipeline_func(
             current_mod, func_idx, descriptor, module_state, lower_state, options,
@@ -92769,6 +93562,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     None => ()
   }
   let mut current = mod_
+  let module_cache = HotPipelineModuleCache::new()
   for pass_name in nested_passes {
     match diagnostics {
       Some(diagnostics) => diagnostics.nested_passes_executed += 1
@@ -92798,6 +93592,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
           precompute_propagate_descriptor(),
           touched,
           options,
+          module_cache=Some(module_cache),
         ) {
         Ok(next) => next
         Err(err) => {
@@ -92822,6 +93617,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       continue
     }
     if pass_name == "local-cse" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
         Ok(next) => next
@@ -92847,6 +93643,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       continue
     }
     if pass_name == "coalesce-locals" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_coalesce_locals_to_touched(current, touched) {
         Ok(next) => next
@@ -92872,6 +93669,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       continue
     }
     if pass_name == "reorder-locals" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_reorder_locals_to_touched(current, touched) {
         Ok(next) => next
@@ -92897,6 +93695,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       continue
     }
     if pass_name == "merge-locals" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_merge_locals_to_touched(
           current, touched, options,
@@ -92924,6 +93723,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       continue
     }
     if pass_name == "local-subtyping" {
+      module_cache.clear()
       pipeline_trace_hook(options.trace, "local-subtyping", "start")
       current = match
         run_hot_pipeline_apply_local_subtyping_to_touched(current, touched) {
@@ -92969,7 +93769,11 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
-        current, descriptor, touched, options,
+        current,
+        descriptor,
+        touched,
+        options,
+        module_cache=Some(module_cache),
       ) {
       Ok(next) => next
       Err(err) => {
@@ -93551,6 +94355,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     "pass[simplify-globals-optimizing]:nested-cleanup-stats touched=\{touched_count} cleaned=\{cleanup_touched_count} filtered-large=\{filtered_large_count}",
   )
   let mut current = mod_
+  let module_cache = HotPipelineModuleCache::new()
   if large_unreachable_count > 0 {
     pipeline_trace_hook(
       options.trace,
@@ -93565,7 +94370,11 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
-        current, vacuum_descriptor, large_unreachable_touched, options,
+        current,
+        vacuum_descriptor,
+        large_unreachable_touched,
+        options,
+        module_cache=Some(module_cache),
       ) {
       Ok(next) => next
       Err(err) => return Err("SGO nested large vacuum cleanup: \{err}")
@@ -93612,6 +94421,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
       "detail:sgo:nested:\{pass_name}",
     )
     if pass_name == "local-cse" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(
           current, cleanup_touched, options,
@@ -93639,6 +94449,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
       continue
     }
     if pass_name == "local-subtyping" {
+      module_cache.clear()
       pipeline_trace_hook(options.trace, "local-subtyping", "start")
       current = match
         run_hot_pipeline_apply_local_subtyping_to_touched(
@@ -93668,6 +94479,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
       continue
     }
     if pass_name == "coalesce-locals" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_coalesce_locals_to_touched(
           current,
@@ -93696,6 +94508,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
       continue
     }
     if pass_name == "reorder-locals" {
+      module_cache.clear()
       current = match
         run_hot_pipeline_apply_reorder_locals_to_touched(
           current, cleanup_touched,
@@ -93741,7 +94554,11 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     }
     let candidate = match
       run_hot_pipeline_apply_hot_pass_to_touched(
-        current, descriptor, cleanup_touched, options,
+        current,
+        descriptor,
+        cleanup_touched,
+        options,
+        module_cache=Some(module_cache),
       ) {
       Ok(next) => next
       Err(err) => {
@@ -94021,7 +94838,12 @@ fn run_hot_pipeline_dae_immutable_global_struct_field_literal(
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
 ) -> @lib.Instruction? {
-  if !dae_global_get_is_immutable(mod_, global_idx) {
+  if !dae_global_get_is_immutable(mod_, global_idx) ||
+    !run_hot_pipeline_dae_struct_field_is_immutable(
+      mod_.type_sec,
+      type_idx,
+      field_idx,
+    ) {
     return None
   }
   let global_slot = dae_global_idx_slot(global_idx)
@@ -94933,6 +95755,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
   }
   let mut convergence_wave = 0
+  let mut converged_size : Int32? = None
+  // Every accepted wave strictly reduces a nonnegative encoded byte count.
+  // The initial byte count therefore bounds accepted waves without truncating
+  // valid cleanup. Empty, invalid and nonshrinking candidates return below.
+  // Keep the accepted candidate's size for the following wave's baseline.
   while true {
     (options.trace)(
       "pass[dae-optimizing]:effect-frontier wave=\{convergence_wave} throttle_consumed=\{throttle_consumed} seeds=\{dae_count_touched(frontier_seed)}",
@@ -94986,7 +95813,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     let candidate = dae_prune_unused_simple_func_types(frontier_cleaned)
     match
       (
-        run_hot_pipeline_dae_encoded_size(converged),
+        match converged_size {
+          Some(size) => Some(size)
+          None => run_hot_pipeline_dae_encoded_size(converged)
+        },
         run_hot_pipeline_dae_encoded_size(candidate),
         @validate.validate_module(candidate),
       ) {
@@ -94995,6 +95825,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
           "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=true before=\{before} after=\{after} defs=\{dae_count_touched(frontier_worth)}",
         )
         converged = candidate
+        converged_size = Some(after)
         frontier_seed = frontier_worth
         convergence_wave += 1
       }
@@ -95067,7 +95898,12 @@ fn run_hot_pipeline_apply_module_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
+  module_cache~ : HotPipelineModuleCache? = None,
 ) -> Result[@lib.Module, String] {
+  match module_cache {
+    Some(cache) => cache.clear()
+    None => ()
+  }
   pipeline_trace_hook(options.trace, entry.name, "start")
   let metadata_safe = entry.name == "strip-debug" ||
     no_inline_pass_pattern(entry.name) is Some(_)

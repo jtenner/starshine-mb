@@ -3272,12 +3272,17 @@ fn OiDescriptorOperandFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorOperandFact {
   {
     type_fact: OiDescriptorTypeFact::from_node(ctx, func, node_id),
     trap_fact: OiDescriptorOperandTrapFact::from_operand(func, node_id),
     erase_fact: OiDescriptorOperandEraseFact::from_operand(
-      ctx, func, dead, node_id,
+      ctx,
+      func,
+      dead,
+      node_id,
+      purity_cache~,
     ),
     skip_localization_fact: OiDescriptorOperandSkipLocalizationFact::from_operand(
       func, node_id,
@@ -6028,6 +6033,7 @@ fn OiDescriptorExactMissFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorExactMissFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6064,6 +6070,7 @@ fn OiDescriptorExactMissFact::from_node(
         func,
         dead,
         cast_fact.descriptor_id,
+        purity_cache~,
       ).proves_erases_without_effects(),
       operand_relation.proves_operand_erases_without_effects(),
       operand_drop_fact,
@@ -6338,6 +6345,7 @@ fn OiDescriptorTnhSkipFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorTnhSkipFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6350,6 +6358,7 @@ fn OiDescriptorTnhSkipFact::from_node(
       func,
       dead,
       cast_fact.descriptor_id,
+      purity_cache~,
     ),
     operand_relation: OiDescriptorOperandTargetRelationFact::from_operand(
       ctx,
@@ -6707,6 +6716,7 @@ fn OiDescriptorNullCastFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorNullCastFact? {
   let cast_fact = match OiDescriptorCastFact::from_node(func, node_id) {
     Some(fact) => fact
@@ -6724,6 +6734,7 @@ fn OiDescriptorNullCastFact::from_node(
       func,
       dead,
       cast_fact.descriptor_id,
+      purity_cache~,
     ),
   })
 }
@@ -8023,6 +8034,7 @@ fn OiDescriptorCallRefChildDirectizationFact::directize(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   match self.slot {
     DescriptorCallRefOperandChild | DescriptorCallRefDescriptorChild =>
@@ -8031,6 +8043,7 @@ fn OiDescriptorCallRefChildDirectizationFact::directize(
         func,
         dead,
         self.call_ref_id,
+        purity_cache~,
       )
   }
 }
@@ -8119,6 +8132,7 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let fact = self.simplification_fact
   let cast_fact = fact.cast_fact
@@ -8131,7 +8145,11 @@ fn OiDescriptorOperandSimplificationRewritePlanFact::apply(
       ctx, func, node_id,
     ) ||
     optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
-      ctx, func, dead, node_id,
+      ctx,
+      func,
+      dead,
+      node_id,
+      purity_cache~,
     ) {
     return true
   }
@@ -8520,7 +8538,27 @@ fn OiRefGetDescFact::child_is_unreachable(
 }
 
 ///|
+priv struct OiPurityCacheEntry {
+  revision : Int32
+  pure : Bool
+}
+
+///|
+priv struct OiPurityCache {
+  mut owner_roots : Array[Int32]?
+  revisions : Array[Int32]
+  results : Array[Bool]
+  mut sparse : @hashmap.HashMap[Int32, OiPurityCacheEntry]?
+}
+
+///|
+fn OiPurityCache::new() -> OiPurityCache {
+  { owner_roots: None, revisions: [], results: [], sparse: None, }
+}
+
+///|
 priv struct OptimizeInstructionsScratch {
+  purity_cache : OiPurityCache
   cross_seen_stamps : Array[Int32]
   loop_input_nodes : @bitset.BitSet
   if_condition_nodes : @bitset.BitSet
@@ -8536,6 +8574,7 @@ fn OptimizeInstructionsScratch::new(
   local_count : Int32,
 ) -> OptimizeInstructionsScratch {
   {
+    purity_cache: OiPurityCache::new(),
     cross_seen_stamps: Array::make(node_count, -1),
     loop_input_nodes: @bitset.BitSet::new(node_count),
     if_condition_nodes: @bitset.BitSet::new(node_count),
@@ -9172,6 +9211,7 @@ fn OiI32ConvertMaxBitsFact::from_convert(
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   operand_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32ConvertMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` keeps the bounded low-lane fact for
   // `i32.wrap_i64(x)` when the wrapped i64 is proven below the i32 sign bit.
@@ -9179,7 +9219,11 @@ fn OiI32ConvertMaxBitsFact::from_convert(
     @lib.Instruction::I32WrapI64 =>
       match
         OiUnsignedMaxValueFact::i64_max_for_node(
-          func, dead, local_facts, operand_id,
+          func,
+          dead,
+          local_facts,
+          operand_id,
+          purity_cache~,
         ) {
         Some(max_value) if max_value <= 2147483647L =>
           Some({ operand_id, max_value: max_value.to_int(), })
@@ -9196,6 +9240,7 @@ fn OiI64ConvertMaxBitsFact::from_convert(
   local_facts : OptimizeInstructionsLocalFacts?,
   instr : @lib.Instruction,
   operand_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64ConvertMaxBitsFact? {
   // Binaryen v130 i32-to-i64 producer facts preserve known unsigned i32 maxima;
   // unsigned extension has the full 32-bit fallback when the operand is not
@@ -9205,7 +9250,11 @@ fn OiI64ConvertMaxBitsFact::from_convert(
     @lib.Instruction::I64ExtendI32U => {
       let max_value = match
         OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, operand_id,
+          func,
+          dead,
+          local_facts,
+          operand_id,
+          purity_cache~,
         ) {
         Some(value) => value.to_int64()
         None => 4294967295L
@@ -9215,7 +9264,11 @@ fn OiI64ConvertMaxBitsFact::from_convert(
     _ =>
       match
         OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, operand_id,
+          func,
+          dead,
+          local_facts,
+          operand_id,
+          purity_cache~,
         ) {
         Some(value) => Some({ operand_id, max_value: value.to_int64(), })
         None => None
@@ -9241,16 +9294,25 @@ fn OiI32BitwiseMaxBitsFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32BitwiseMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats integer `and` as the minimum of
   // operand max-bit counts and `or` / `xor` as the maximum. Keep those bitwise
   // producer rules in an explicit width-specific fact instead of embedding an
   // opcode whitelist inside the unsigned-max recursive query.
   let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-    func, dead, local_facts, lhs_id,
+    func,
+    dead,
+    local_facts,
+    lhs_id,
+    purity_cache~,
   )
   let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-    func, dead, local_facts, rhs_id,
+    func,
+    dead,
+    local_facts,
+    rhs_id,
+    purity_cache~,
   )
   match instr {
     @lib.Instruction::I32And =>
@@ -9277,13 +9339,22 @@ fn OiI64BitwiseMaxBitsFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64BitwiseMaxBitsFact? {
   // Same Binaryen v130 bitwise maxBits fact for i64 producers.
   let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-    func, dead, local_facts, lhs_id,
+    func,
+    dead,
+    local_facts,
+    lhs_id,
+    purity_cache~,
   )
   let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-    func, dead, local_facts, rhs_id,
+    func,
+    dead,
+    local_facts,
+    rhs_id,
+    purity_cache~,
   )
   match instr {
     @lib.Instruction::I64And =>
@@ -9361,6 +9432,7 @@ fn OiI32LogicalShiftMaxBitsFact::from_shr_u(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32LogicalShiftMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` treats constant logical right shifts as
   // max-bit reducers using the masked WebAssembly shift amount. Keep the `shr_u`
@@ -9374,7 +9446,11 @@ fn OiI32LogicalShiftMaxBitsFact::from_shr_u(
         Some(fact) if fact.amount > 0 => {
           let max_value = match
             OiUnsignedMaxValueFact::i32_max_for_node(
-              func, dead, local_facts, lhs_id,
+              func,
+              dead,
+              local_facts,
+              lhs_id,
+              purity_cache~,
             ) {
             Some(value) => Some(value >> fact.amount)
             None if fact.amount == 1 => Some(2147483647)
@@ -9396,6 +9472,7 @@ fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64LogicalShiftMaxBitsFact? {
   // Same Binaryen v130 logical-right-shift maxBits fact for i64 producers.
   match instr {
@@ -9405,7 +9482,11 @@ fn OiI64LogicalShiftMaxBitsFact::from_shr_u(
         Some(fact) if fact.amount > 0 => {
           let max_value = match
             OiUnsignedMaxValueFact::i64_max_for_node(
-              func, dead, local_facts, lhs_id,
+              func,
+              dead,
+              local_facts,
+              lhs_id,
+              purity_cache~,
             ) {
             Some(value) => Some(value >> fact.amount)
             None if fact.amount == 1 => Some(9223372036854775807L)
@@ -9606,6 +9687,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   root_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiMaxBitsBlockPrefixFact? {
   // Binaryen v130 `Bits::getMaxBits` can use the value fallthrough of a block
   // even when earlier straight-line roots have effects; the later replacement
@@ -9616,7 +9698,12 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // cmpxchg, drop-wrapped array RMW, direct, indirect, and reference calls,
   // table.grow and memory.grow, and global write roots so branch, control, and
   // generalized localization remain out of this fact.
-  if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
+  if OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      root_id,
+      purity_cache~,
+    ) {
     return Some({ kind: MaxBitsBlockPrefixPure, root_id, })
   }
   match @ir.hot_node_get(func, root_id).op {
@@ -9797,6 +9884,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
   dead : @bitset.BitSet,
   node_id : Int32,
   local_facts : OptimizeInstructionsLocalFacts?,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiMaxBitsFallthroughFact? {
   // Starshine's represented block fallthrough mirrors the local Binaryen
   // `Properties::getFallthrough` maxBits path used by the local scanner. Record
@@ -9831,7 +9919,13 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
       }
       for slot = 0; slot < root_count - 1; slot = slot + 1 {
         let root_id = @ir.hot_region_get(func, body_ref, slot)
-        match OiMaxBitsBlockPrefixFact::from_root(func, dead, root_id) {
+        match
+          OiMaxBitsBlockPrefixFact::from_root(
+            func,
+            dead,
+            root_id,
+            purity_cache~,
+          ) {
           Some(fact) if fact.proves_preservable_prefix() => ()
           _ => return None
         }
@@ -9942,15 +10036,28 @@ fn OiCombinedShiftZeroBitsFact::from_i32_shr_u(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   amount : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCombinedShiftZeroBitsFact? {
   // When Starshine combines nested logical right shifts before the general
   // zero-bits replacement gets a second look, preserve the same Binaryen
   // `Bits::getMaxBits` fact: if all known lhs bits are shifted out and the lhs
   // is pure, the combined shift is a typed zero.
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
+    ) {
     return None
   }
-  match OiUnsignedMaxValueFact::i32_max_for_node(func, dead, None, lhs_id) {
+  match
+    OiUnsignedMaxValueFact::i32_max_for_node(
+      func,
+      dead,
+      None,
+      lhs_id,
+      purity_cache~,
+    ) {
     Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) <=
       amount => Some({ kind: CombinedShiftZeroI32, })
     _ => None
@@ -9963,12 +10070,25 @@ fn OiCombinedShiftZeroBitsFact::from_i64_shr_u(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   amount : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCombinedShiftZeroBitsFact? {
   // Same combined-shift zero-bit fact for i64 logical right shifts.
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
+    ) {
     return None
   }
-  match OiUnsignedMaxValueFact::i64_max_for_node(func, dead, None, lhs_id) {
+  match
+    OiUnsignedMaxValueFact::i64_max_for_node(
+      func,
+      dead,
+      None,
+      lhs_id,
+      purity_cache~,
+    ) {
     Some(max_value) if OiUnsignedMaxValueFact::i64_bits_for_max(max_value) <=
       amount => Some({ kind: CombinedShiftZeroI64, })
     _ => None
@@ -10301,6 +10421,7 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32ArithmeticMaxBitsFact? {
   // Binaryen v130 `Bits::getMaxBits` derives i32 arithmetic max-bit counts
   // from operand max bits for add, multiply, constant left shift, arithmetic
@@ -10308,14 +10429,22 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
   // explicit so downstream zero-bit, signed-to-unsigned, and wrap/extend
   // consumers do not grow their own operator whitelists.
   let lhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-    func, dead, local_facts, lhs_id,
+    func,
+    dead,
+    local_facts,
+    lhs_id,
+    purity_cache~,
   )
   let lhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(lhs_max)
   let max_bits = match instr {
     @lib.Instruction::I32Add => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       let fact = OiI32AddMaxBitsFact::from_bits(lhs_bits, rhs_bits)
@@ -10324,7 +10453,11 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
     @lib.Instruction::I32Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       let fact = OiI32MulMaxBitsFact::from_bits(lhs_bits, rhs_bits)
@@ -10332,7 +10465,11 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
     }
     @lib.Instruction::I32DivS | @lib.Instruction::I32DivU => {
       let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
-        func, dead, local_facts, rhs_id,
+        func,
+        dead,
+        local_facts,
+        rhs_id,
+        purity_cache~,
       )
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(rhs_max)
       // Signed negative quotients have high bits set. Both operands must be
@@ -10360,7 +10497,11 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
       }
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       match OiI32RemMaxBitsFact::from_bits(lhs_bits, rhs_bits) {
@@ -10408,18 +10549,27 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64ArithmeticMaxBitsFact? {
   // Same Binaryen v130 arithmetic `Bits::getMaxBits` family as the i32 fact,
   // specialized for i64 widths and i64-typed shift operands in Starshine HOT.
   let lhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-    func, dead, local_facts, lhs_id,
+    func,
+    dead,
+    local_facts,
+    lhs_id,
+    purity_cache~,
   )
   let lhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(lhs_max)
   let max_bits = match instr {
     @lib.Instruction::I64Add => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i64_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       let fact = OiI64AddMaxBitsFact::from_bits(lhs_bits, rhs_bits)
@@ -10428,7 +10578,11 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
     @lib.Instruction::I64Mul => {
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i64_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       let fact = OiI64MulMaxBitsFact::from_bits(lhs_bits, rhs_bits)
@@ -10436,7 +10590,11 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
     }
     @lib.Instruction::I64DivS | @lib.Instruction::I64DivU => {
       let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
-        func, dead, local_facts, rhs_id,
+        func,
+        dead,
+        local_facts,
+        rhs_id,
+        purity_cache~,
       )
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(rhs_max)
       // Signed negative quotients have high bits set. Both operands must be
@@ -10462,7 +10620,11 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
       }
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i64_max_for_node(
-          func, dead, local_facts, rhs_id,
+          func,
+          dead,
+          local_facts,
+          rhs_id,
+          purity_cache~,
         ),
       )
       match OiI64RemMaxBitsFact::from_bits(lhs_bits, rhs_bits) {
@@ -10521,9 +10683,14 @@ fn OiUnsignedMaxValueFact::from_i32_node_with_local_facts(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiUnsignedMaxValueFact {
   let max_value = OiUnsignedMaxValueFact::i32_max_for_node(
-    func, dead, local_facts, node_id,
+    func,
+    dead,
+    local_facts,
+    node_id,
+    purity_cache~,
   )
   OiUnsignedMaxValueFact::from_i32_max(max_value)
 }
@@ -10534,9 +10701,14 @@ fn OiUnsignedMaxValueFact::from_i64_node_with_local_facts(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiUnsignedMaxValueFact {
   let max_value = OiUnsignedMaxValueFact::i64_max_for_node(
-    func, dead, local_facts, node_id,
+    func,
+    dead,
+    local_facts,
+    node_id,
+    purity_cache~,
   )
   OiUnsignedMaxValueFact::from_i64_max(max_value)
 }
@@ -10553,6 +10725,7 @@ fn OiUnsignedMaxValueFact::from_i32_value(
     dead,
     Some(scratch.local_facts),
     node_id,
+    purity_cache=Some(scratch.purity_cache),
   )
 }
 
@@ -10568,6 +10741,7 @@ fn OiUnsignedMaxValueFact::from_i64_value(
     dead,
     Some(scratch.local_facts),
     node_id,
+    purity_cache=Some(scratch.purity_cache),
   )
 }
 
@@ -10577,6 +10751,7 @@ fn OiUnsignedMaxValueFact::assigned_i32_max_for_node(
   dead : @bitset.BitSet,
   facts : OptimizeInstructionsLocalFacts,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Int32? {
   if node_id < 0 || node_id >= facts.assigned_i32_max_by_node.length() {
     return None
@@ -10586,7 +10761,13 @@ fn OiUnsignedMaxValueFact::assigned_i32_max_for_node(
   }
   facts.assigned_i32_max_ready[node_id] = true
   let max_value = match
-    OiI32MaxBitsProducerFact::from_node(func, dead, Some(facts), node_id) {
+    OiI32MaxBitsProducerFact::from_node(
+      func,
+      dead,
+      Some(facts),
+      node_id,
+      purity_cache~,
+    ) {
     Some(fact) => {
       ignore(fact.value_id)
       fact.max_value
@@ -10603,6 +10784,7 @@ fn OiUnsignedMaxValueFact::assigned_i64_max_for_node(
   dead : @bitset.BitSet,
   facts : OptimizeInstructionsLocalFacts,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Int64? {
   if node_id < 0 || node_id >= facts.assigned_i64_max_by_node.length() {
     return None
@@ -10612,7 +10794,13 @@ fn OiUnsignedMaxValueFact::assigned_i64_max_for_node(
   }
   facts.assigned_i64_max_ready[node_id] = true
   let max_value = match
-    OiI64MaxBitsProducerFact::from_node(func, dead, Some(facts), node_id) {
+    OiI64MaxBitsProducerFact::from_node(
+      func,
+      dead,
+      Some(facts),
+      node_id,
+      purity_cache~,
+    ) {
     Some(fact) => {
       ignore(fact.value_id)
       fact.max_value
@@ -10643,6 +10831,7 @@ fn OiUnsignedMaxValueFact::from_assigned_i32_value(
       dead,
       scratch.local_facts,
       fallthrough.selected_value(),
+      purity_cache=Some(scratch.purity_cache),
     ),
   )
 }
@@ -10662,6 +10851,7 @@ fn OiUnsignedMaxValueFact::from_assigned_i64_value(
       dead,
       scratch.local_facts,
       fallthrough.selected_value(),
+      purity_cache=Some(scratch.purity_cache),
     ),
   )
 }
@@ -10929,13 +11119,20 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiBooleanMaxBitsBinaryRewriteFact? {
   // Binaryen v130 `visitBinary` uses `Bits::getMaxBits(left) == 1` to simplify
   // boolean-valued integer expressions in `== 1`, `!= 0`, `& 1`, `!= 1`,
   // `^ 1`, and `| 1` shells. Keep that as a maxBits consumer fact so compare,
   // eqz, and future one-bit producers do not reappear as visitor whitelists.
   match
-    OiUnsignedMaxValueFact::i32_max_for_node(func, dead, local_facts, lhs_id) {
+    OiUnsignedMaxValueFact::i32_max_for_node(
+      func,
+      dead,
+      local_facts,
+      lhs_id,
+      purity_cache~,
+    ) {
     Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) == 1 =>
       ()
     _ => return None
@@ -10980,12 +11177,19 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiBooleanMaxBitsBinaryRewriteFact? {
   // Same Binaryen v130 maxBits consumer family for i64 boolean values. Compare
   // shells return i32 via `i32.wrap_i64(left)`, while `xor 1` inverts the i64
   // boolean and extends the i32 predicate result back to i64.
   match
-    OiUnsignedMaxValueFact::i64_max_for_node(func, dead, local_facts, lhs_id) {
+    OiUnsignedMaxValueFact::i64_max_for_node(
+      func,
+      dead,
+      local_facts,
+      lhs_id,
+      purity_cache~,
+    ) {
     Some(max_value) if OiUnsignedMaxValueFact::i64_bits_for_max(max_value) == 1 =>
       ()
     _ => return None
@@ -11144,6 +11348,7 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32BinaryMaxBitsProducerFact? {
   // Binaryen v130 `Bits::getMaxBits` binary-producer dispatch first tries
   // bitwise facts, then logical-right-shift reducers, then arithmetic formulas.
@@ -11151,19 +11356,38 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
   // dispatcher does not grow its own nested opcode list.
   let max_value = match
     OiI32BitwiseMaxBitsFact::from_binary(
-      func, dead, local_facts, instr, lhs_id, rhs_id,
+      func,
+      dead,
+      local_facts,
+      instr,
+      lhs_id,
+      rhs_id,
+      purity_cache~,
     ) {
     Some(fact) => fact.max_value
     None =>
       match
         OiI32LogicalShiftMaxBitsFact::from_shr_u(
-          func, dead, local_facts, instr, lhs_id, rhs_id,
+          func,
+          dead,
+          local_facts,
+          instr,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
         ) {
         Some(fact) => fact.max_value
         None =>
           match
             OiI32ArithmeticMaxBitsFact::from_binary(
-              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
+              func,
+              dead,
+              local_facts,
+              node_id,
+              instr,
+              lhs_id,
+              rhs_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.value_id)
@@ -11187,23 +11411,43 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64BinaryMaxBitsProducerFact? {
   // Same Binaryen v130 binary-producer dispatch for i64 maxBits queries.
   let max_value = match
     OiI64BitwiseMaxBitsFact::from_binary(
-      func, dead, local_facts, instr, lhs_id, rhs_id,
+      func,
+      dead,
+      local_facts,
+      instr,
+      lhs_id,
+      rhs_id,
+      purity_cache~,
     ) {
     Some(fact) => fact.max_value
     None =>
       match
         OiI64LogicalShiftMaxBitsFact::from_shr_u(
-          func, dead, local_facts, instr, lhs_id, rhs_id,
+          func,
+          dead,
+          local_facts,
+          instr,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
         ) {
         Some(fact) => fact.max_value
         None =>
           match
             OiI64ArithmeticMaxBitsFact::from_binary(
-              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
+              func,
+              dead,
+              local_facts,
+              node_id,
+              instr,
+              lhs_id,
+              rhs_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.value_id)
@@ -11236,6 +11480,7 @@ fn OiI32MaxBitsProducerFact::from_node(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32MaxBitsProducerFact? {
   // Binaryen v130 `Bits::getMaxBits` asks a single producer classifier for the
   // current expression before consumers use the resulting unsigned maximum.
@@ -11287,7 +11532,12 @@ fn OiI32MaxBitsProducerFact::from_node(
         Some(instr) =>
           match
             OiI32ConvertMaxBitsFact::from_convert(
-              func, dead, local_facts, instr, operand_id,
+              func,
+              dead,
+              local_facts,
+              instr,
+              operand_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.operand_id)
@@ -11305,7 +11555,14 @@ fn OiI32MaxBitsProducerFact::from_node(
         Some(instr) =>
           match
             OiI32BinaryMaxBitsProducerFact::from_binary(
-              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
+              func,
+              dead,
+              local_facts,
+              node_id,
+              instr,
+              lhs_id,
+              rhs_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.value_id)
@@ -11321,7 +11578,11 @@ fn OiI32MaxBitsProducerFact::from_node(
     @ir.HotOp::Block =>
       match
         OiMaxBitsFallthroughFact::from_single_value_block(
-          func, dead, node_id, local_facts,
+          func,
+          dead,
+          node_id,
+          local_facts,
+          purity_cache~,
         ) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i32_max_for_node(
@@ -11329,6 +11590,7 @@ fn OiI32MaxBitsProducerFact::from_node(
             dead,
             local_facts,
             fact.value_id,
+            purity_cache~,
           )
         None => return None
       }
@@ -11340,6 +11602,7 @@ fn OiI32MaxBitsProducerFact::from_node(
             dead,
             local_facts,
             fact.value_id,
+            purity_cache~,
           )
         None => return None
       }
@@ -11354,6 +11617,7 @@ fn OiI64MaxBitsProducerFact::from_node(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64MaxBitsProducerFact? {
   // Same fact-owned producer dispatch for i64 maxBits queries. I64 does not use
   // the i32 boolean-result fact directly; i64 one-bit values come from ordinary
@@ -11396,7 +11660,12 @@ fn OiI64MaxBitsProducerFact::from_node(
         Some(instr) =>
           match
             OiI64ConvertMaxBitsFact::from_convert(
-              func, dead, local_facts, instr, operand_id,
+              func,
+              dead,
+              local_facts,
+              instr,
+              operand_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.operand_id)
@@ -11414,7 +11683,14 @@ fn OiI64MaxBitsProducerFact::from_node(
         Some(instr) =>
           match
             OiI64BinaryMaxBitsProducerFact::from_binary(
-              func, dead, local_facts, node_id, instr, lhs_id, rhs_id,
+              func,
+              dead,
+              local_facts,
+              node_id,
+              instr,
+              lhs_id,
+              rhs_id,
+              purity_cache~,
             ) {
             Some(fact) => {
               ignore(fact.value_id)
@@ -11430,7 +11706,11 @@ fn OiI64MaxBitsProducerFact::from_node(
     @ir.HotOp::Block =>
       match
         OiMaxBitsFallthroughFact::from_single_value_block(
-          func, dead, node_id, local_facts,
+          func,
+          dead,
+          node_id,
+          local_facts,
+          purity_cache~,
         ) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i64_max_for_node(
@@ -11438,6 +11718,7 @@ fn OiI64MaxBitsProducerFact::from_node(
             dead,
             local_facts,
             fact.value_id,
+            purity_cache~,
           )
         None => return None
       }
@@ -11449,6 +11730,7 @@ fn OiI64MaxBitsProducerFact::from_node(
             dead,
             local_facts,
             fact.value_id,
+            purity_cache~,
           )
         None => return None
       }
@@ -11463,6 +11745,7 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Int32? {
   match local_facts {
     Some(facts) if node_id >= 0 && node_id < facts.i32_max_by_node.length() => {
@@ -11475,7 +11758,13 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
       // an unknown pre-rewrite result intentionally stays unknown.
       facts.i32_max_ready[node_id] = true
       let max_value = match
-        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        OiI32MaxBitsProducerFact::from_node(
+          func,
+          dead,
+          local_facts,
+          node_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.max_value
@@ -11487,7 +11776,13 @@ fn OiUnsignedMaxValueFact::i32_max_for_node(
     }
     _ =>
       match
-        OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        OiI32MaxBitsProducerFact::from_node(
+          func,
+          dead,
+          local_facts,
+          node_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.max_value
@@ -11503,6 +11798,7 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Int64? {
   match local_facts {
     Some(facts) if node_id >= 0 && node_id < facts.i64_max_by_node.length() => {
@@ -11511,7 +11807,13 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
       }
       facts.i64_max_ready[node_id] = true
       let max_value = match
-        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        OiI64MaxBitsProducerFact::from_node(
+          func,
+          dead,
+          local_facts,
+          node_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.max_value
@@ -11523,7 +11825,13 @@ fn OiUnsignedMaxValueFact::i64_max_for_node(
     }
     _ =>
       match
-        OiI64MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+        OiI64MaxBitsProducerFact::from_node(
+          func,
+          dead,
+          local_facts,
+          node_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           ignore(fact.value_id)
           fact.max_value
@@ -11633,7 +11941,10 @@ fn OiZeroBitsReplacementFact::from_node(
     _ => ()
   }
   let dropped_children = if OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, node_id,
+      func,
+      dead,
+      node_id,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     OiDroppedChildrenReplacementFact::empty()
   } else {
@@ -12014,6 +12325,13 @@ fn optimize_instructions_rewrite_exact_with_children(
   instr : @lib.Instruction,
   new_children : Array[Int32],
 ) -> Unit {
+  if new_children.length() == 2 &&
+    @ir.hot_child_count(func, node_id) == 2 &&
+    new_children[0] == @ir.hot_child_get(func, node_id, 1) &&
+    new_children[1] == @ir.hot_child_get(func, node_id, 0) &&
+    pass_swap_scalar_operands(ctx, func, node_id, instr=Some(instr)) {
+    return
+  }
   ignore(@ir.hot_replace_child_span(func, node_id, new_children))
   @ir.hot_node_exact_instr_set(func, node_id, instr)
   pass_mark_mutated(ctx, func)
@@ -12933,6 +13251,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   target_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefKnownNullTargetFact? {
   // Binaryen v130 `trapOnNull` checks `getFallthrough(ref)->type.isNull()`
   // before replacing the parent with `getDroppedChildrenAndAppend(...,
@@ -12993,7 +13312,11 @@ fn OiCallRefKnownNullTargetFact::from_target(
         return None
       }
       if OiDescriptorInternalControlEffectFreeFact::from_node(
-          func, dead, target_id, target_id,
+          func,
+          dead,
+          target_id,
+          target_id,
+          purity_cache~,
         ).proves_effect_free_allowing_internal_control() {
         Some({
           target_id,
@@ -13097,6 +13420,7 @@ fn OiCallRefNullTrapPlanFact::from_child_layout(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   child_layout_fact : OiCallRefChildLayoutFact,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefNullTrapPlanFact? {
   // Binaryen v130 `visitCallRef` runs `skipNonNullCast(curr->target, curr)` and
   // then `trapOnNull(curr, curr->target)` before any direct/table/fallthrough
@@ -13111,6 +13435,7 @@ fn OiCallRefNullTrapPlanFact::from_child_layout(
       func,
       dead,
       child_layout_fact.target_slot_fact.effective_target_id,
+      purity_cache~,
     ) {
     Some(fact) if fact.proves_elidable_known_null_fallthrough() => fact
     _ => return None
@@ -13578,6 +13903,7 @@ fn OiCallRefTargetClassificationFact::from_target(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   callee_ref_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefTargetClassificationFact {
   // Binaryen v130 `visitCallRef` classifies targets in a fixed source order:
   // direct `ref.func`, immediate `table.get`, `Properties::getFallthrough`
@@ -13617,7 +13943,13 @@ fn OiCallRefTargetClassificationFact::from_target(
   }
   match callee_ref.op {
     @ir.HotOp::Select if callee_ref.child_count == 3 =>
-      match OiCallRefSelectTargetFact::from_select(func, dead, callee_ref_id) {
+      match
+        OiCallRefSelectTargetFact::from_select(
+          func,
+          dead,
+          callee_ref_id,
+          purity_cache~,
+        ) {
         Some(fact) =>
           {
             target_id: callee_ref_id,
@@ -13993,6 +14325,7 @@ fn OiCallRefSelectConditionFact::from_select_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   condition_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefSelectConditionFact? {
   if !OiLiveNodeFact::proves_node_live(func, dead, condition_id) {
     return None
@@ -14003,7 +14336,10 @@ fn OiCallRefSelectConditionFact::from_select_condition(
     _ => return None
   }
   let effect_fact = if OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, condition_id,
+      func,
+      dead,
+      condition_id,
+      purity_cache~,
     ) {
     OiCallRefSelectConditionEffectFact::elidable()
   } else {
@@ -14088,6 +14424,7 @@ fn OiCallRefSelectTargetFact::from_select(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   callee_ref_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefSelectTargetFact? {
   // Binaryen v130 delegates select target directization to
   // `CallUtils::convertToDirectCalls` after direct/table/fallthrough targets
@@ -14099,7 +14436,10 @@ fn OiCallRefSelectTargetFact::from_select(
   let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
   let condition_fact = match
     OiCallRefSelectConditionFact::from_select_condition(
-      func, dead, condition_id,
+      func,
+      dead,
+      condition_id,
+      purity_cache~,
     ) {
     Some(fact) => fact
     None => return None
@@ -15160,6 +15500,7 @@ fn OiCallRefInvocationFact::from_child_layout(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   child_layout_fact : OiCallRefChildLayoutFact,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefInvocationFact {
   // Binaryen v130 classifies direct/table/fallthrough/select targets only after
   // the target-slot null-trap opportunity has been considered. Keep the ordered
@@ -15169,6 +15510,7 @@ fn OiCallRefInvocationFact::from_child_layout(
     func,
     dead,
     child_layout_fact.target_slot_fact.effective_target_id,
+    purity_cache~,
   )
   { child_layout_fact, target_classification_fact, }
 }
@@ -15243,6 +15585,7 @@ fn OiCallRefRewriteFact::from_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiCallRefRewriteFact? {
   // Binaryen v130 `visitCallRef` runs target `skipNonNullCast`, target
   // `trapOnNull`, direct `ref.func`, immediate `table.get`, fallthrough
@@ -15260,7 +15603,12 @@ fn OiCallRefRewriteFact::from_call_ref(
     None => return None
   }
   match
-    OiCallRefNullTrapPlanFact::from_child_layout(func, dead, child_layout_fact) {
+    OiCallRefNullTrapPlanFact::from_child_layout(
+      func,
+      dead,
+      child_layout_fact,
+      purity_cache~,
+    ) {
     Some(fact) =>
       return Some({
         kind: CallRefNullTrapRewrite,
@@ -15270,7 +15618,10 @@ fn OiCallRefRewriteFact::from_call_ref(
     None => ()
   }
   let invocation_fact = OiCallRefInvocationFact::from_child_layout(
-    func, dead, child_layout_fact,
+    func,
+    dead,
+    child_layout_fact,
+    purity_cache~,
   )
   match OiCallRefDirectizationFact::from_invocation(func, invocation_fact) {
     Some(fact) =>
@@ -15310,8 +15661,10 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
-  match OiCallRefRewriteFact::from_call_ref(func, dead, node_id) {
+  match
+    OiCallRefRewriteFact::from_call_ref(func, dead, node_id, purity_cache~) {
     Some(fact) => fact.apply(ctx, func, node_id)
     None => false
   }
@@ -15323,6 +15676,7 @@ fn optimize_instructions_try_sink_same_global_set_if(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return false
@@ -15362,8 +15716,18 @@ fn optimize_instructions_try_sink_same_global_set_if(
   }
   let then_value = @ir.hot_child_get(func, then_set_id, 0)
   let else_value = @ir.hot_child_get(func, else_set_id, 0)
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, then_value) ||
-    !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, else_value) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      then_value,
+      purity_cache~,
+    ) ||
+    !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      else_value,
+      purity_cache~,
+    ) {
     return false
   }
   let then_results = @ir.hot_type_results(
@@ -15409,6 +15773,7 @@ fn OiSameLocalSetIfFact::from_if(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiSameLocalSetIfFact? {
   // Binaryen v130's parsed OI shape sinks matching local writes from both arms
   // into one write around a value-producing `if`. Keep the same-local target,
@@ -15453,9 +15818,17 @@ fn OiSameLocalSetIfFact::from_if(
   let then_value_id = @ir.hot_child_get(func, then_set_id, 0)
   let else_value_id = @ir.hot_child_get(func, else_set_id, 0)
   if !OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, then_value_id,
+      func,
+      dead,
+      then_value_id,
+      purity_cache~,
     ) ||
-    !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, else_value_id) {
+    !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      else_value_id,
+      purity_cache~,
+    ) {
     return None
   }
   let value_type = match
@@ -15567,8 +15940,9 @@ fn optimize_instructions_try_sink_same_local_set_if(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
-  match OiSameLocalSetIfFact::from_if(ctx, func, dead, node_id) {
+  match OiSameLocalSetIfFact::from_if(ctx, func, dead, node_id, purity_cache~) {
     Some(fact) => fact.apply(ctx, func, node_id)
     None => false
   }
@@ -15580,8 +15954,15 @@ fn optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
-  if !optimize_instructions_try_sink_same_local_set_if(ctx, func, dead, node_id) {
+  if !optimize_instructions_try_sink_same_local_set_if(
+      ctx,
+      func,
+      dead,
+      node_id,
+      purity_cache~,
+    ) {
     return false
   }
   // Sinking keeps this exact If node alive but changes its arms and result
@@ -15591,7 +15972,13 @@ fn optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
       ctx, func, dead, node_id,
     ) {
     ignore(
-      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id),
+      optimize_instructions_try_optimize_if_condition(
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache~,
+      ),
     )
   }
   true
@@ -17136,9 +17523,15 @@ fn optimize_instructions_try_canonicalize_commutative(
     !OiLeadingOperandSwapFact::from_operands(ctx, func, lhs_id, rhs_id).proves_swappable() {
     return false
   }
-  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
-    rhs_id, lhs_id,
-  ])
+  if !pass_swap_scalar_operands(ctx, func, node_id) {
+    optimize_instructions_rewrite_exact_with_children(
+      ctx,
+      func,
+      node_id,
+      instr,
+      [rhs_id, lhs_id],
+    )
+  }
   true
 }
 
@@ -17279,10 +17672,13 @@ fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
 }
 
 ///|
+
+///|
 fn OiSideEffectFreeExpressionFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiSideEffectFreeExpressionFact {
   // Represented subset of Binaryen v130 `EffectAnalyzer` /
   // `ExpressionAnalyzer` purity queries used by OI when it can erase an
@@ -17355,15 +17751,16 @@ fn OiSideEffectFreeExpressionFact::from_node(
         children_effect_free: true,
       }
     Some(@lib.Instruction::RefI31) if node.child_count == 1 => {
-      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+      let child_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
         func,
         dead,
         func.children[node.child_base],
+        purity_cache~,
       )
       return {
         kind: SideEffectFreeRefI31Payload,
         trivial_leaf,
-        children_effect_free: child_fact.proves_free(),
+        children_effect_free: child_effect_free,
       }
     }
     Some(instr) =>
@@ -17375,15 +17772,16 @@ fn OiSideEffectFreeExpressionFact::from_node(
             children_effect_free: true,
           }
         SideEffectFreeSimdSplatPayloadInstruction if node.child_count == 1 => {
-          let child_fact = OiSideEffectFreeExpressionFact::from_node(
+          let child_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
             func,
             dead,
             func.children[node.child_base],
+            purity_cache~,
           )
           return {
             kind: SideEffectFreeSimdSplatPayload,
             trivial_leaf,
-            children_effect_free: child_fact.proves_free(),
+            children_effect_free: child_effect_free,
           }
         }
         _ => ()
@@ -17399,39 +17797,55 @@ fn OiSideEffectFreeExpressionFact::from_node(
   }
   match node.op {
     @ir.HotOp::Drop if node.child_count == 1 => {
-      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+      let child_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
         func,
         dead,
         func.children[node.child_base],
+        purity_cache~,
       )
       {
         kind: SideEffectFreeDropPayload,
         trivial_leaf,
-        children_effect_free: child_fact.proves_free(),
+        children_effect_free: child_effect_free,
       }
     }
     @ir.HotOp::Block if node.child_count == 1 => {
-      let child_fact = OiSideEffectFreeExpressionFact::from_node(
+      let child_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
         func,
         dead,
         func.children[node.child_base],
+        purity_cache~,
       )
       {
         kind: SideEffectFreeSingleValueBlock,
         trivial_leaf,
-        children_effect_free: child_fact.proves_free(),
+        children_effect_free: child_effect_free,
       }
     }
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let root_count = @ir.hot_region_root_count(func, body_ref)
       let mut roots_effect_free = root_count > 0
+      for slot = 0; slot < node.imm1; slot = slot + 1 {
+        let entry_id = @ir.hot_child_get(func, node_id, slot)
+        if !OiSideEffectFreeExpressionFact::proves_node_free(
+            func,
+            dead,
+            entry_id,
+            purity_cache~,
+          ) {
+          roots_effect_free = false
+        }
+      }
       for slot = 0; slot < root_count; slot = slot + 1 {
         let root_id = @ir.hot_region_get(func, body_ref, slot)
-        let root_fact = OiSideEffectFreeExpressionFact::from_node(
-          func, dead, root_id,
+        let root_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
+          func,
+          dead,
+          root_id,
+          purity_cache~,
         )
-        if !root_fact.proves_free() {
+        if !root_effect_free {
           roots_effect_free = false
         }
       }
@@ -17451,12 +17865,13 @@ fn OiSideEffectFreeExpressionFact::from_node(
       // trap even when their operands are pure local reads or constants.
       let mut children_effect_free = !@ir.hot_may_trap(func, node_id)
       for slot = 0; slot < node.child_count; slot = slot + 1 {
-        let child_fact = OiSideEffectFreeExpressionFact::from_node(
+        let child_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
           func,
           dead,
           func.children[node.child_base + slot],
+          purity_cache~,
         )
-        if !child_fact.proves_free() {
+        if !child_effect_free {
           children_effect_free = false
         }
       }
@@ -17498,8 +17913,105 @@ fn OiSideEffectFreeExpressionFact::proves_node_free(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
-  OiSideEffectFreeExpressionFact::from_node(func, dead, node_id).proves_free()
+  if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
+    return false
+  }
+  // Leaves and shallow expressions have constant query cost. Memoizing them
+  // would add storage and can grow a sparse arena-sized cache for no benefit.
+  if OiTriviallyPureOperandFact::proves_node_pure(func, node_id) {
+    return true
+  }
+  let child_count = @ir.hot_child_count(func, node_id)
+  let mut shallow = child_count <= 2
+  if shallow {
+    for slot = 0; slot < child_count; slot = slot + 1 {
+      let child = @ir.hot_child_get(func, node_id, slot)
+      if child < 0 ||
+        !@ir.hot_node_is_live(func, child) ||
+        @ir.hot_child_count(func, child) != 0 {
+        shallow = false
+        break
+      }
+    }
+  }
+  if shallow {
+    return OiSideEffectFreeExpressionFact::from_node(func, dead, node_id).proves_free()
+  }
+  let revision = @ir.hot_revision_current(func)
+  match purity_cache {
+    Some(cache) => {
+      match cache.owner_roots {
+        Some(roots) if physical_equal(roots, func.roots) => ()
+        _ => {
+          cache.revisions.clear()
+          cache.results.clear()
+          cache.sparse = None
+          cache.owner_roots = Some(func.roots)
+        }
+      }
+      // Dense runs use compact arrays. Distant node ids use sparse entries
+      // rather than filling a large unused gap before the first query.
+      if node_id - cache.revisions.length() < 256 {
+        while node_id >= cache.revisions.length() {
+          cache.revisions.push(-1)
+          cache.results.push(false)
+        }
+        if cache.revisions[node_id] == revision {
+          return cache.results[node_id]
+        }
+      } else {
+        match cache.sparse {
+          Some(entries) =>
+            match entries.get(node_id) {
+              Some(entry) if entry.revision == revision => return entry.pure
+              _ => ()
+            }
+          None => ()
+        }
+      }
+    }
+    None => ()
+  }
+  let result = OiSideEffectFreeExpressionFact::from_node(
+    func,
+    dead,
+    node_id,
+    purity_cache~,
+  ).proves_free()
+  match purity_cache {
+    Some(cache) =>
+      if node_id < cache.revisions.length() {
+        cache.revisions[node_id] = revision
+        cache.results[node_id] = result
+      } else {
+        let entries = match cache.sparse {
+          Some(entries) => entries
+          None => {
+            let entries = @hashmap.new()
+            cache.sparse = Some(entries)
+            entries
+          }
+        }
+        entries.set(node_id, { revision, pure: result, })
+        // A formerly sparse query can grow into a dense traversal. Promote
+        // before hash entries cost more than compact per-node memo storage.
+        if entries.length() >= (@ir.hot_node_count(func) / 64).max(32) {
+          while cache.revisions.length() < @ir.hot_node_count(func) {
+            cache.revisions.push(-1)
+            cache.results.push(false)
+          }
+          for cached_node, entry in entries {
+            cache.revisions[cached_node] = entry.revision
+            cache.results[cached_node] = entry.pure
+          }
+          cache.sparse = None
+        }
+      }
+    None => ()
+  }
+  result
 }
 
 ///|
@@ -18060,6 +18572,7 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let then_root_count = @ir.hot_region_root_count(func, then_region)
@@ -18089,7 +18602,10 @@ fn optimize_instructions_try_collapse_duplicate_then_branch(
   }
   let inner_cond_id = @ir.hot_child_get(func, inner_if_id, 0)
   if !OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, inner_cond_id,
+      func,
+      dead,
+      inner_cond_id,
+      purity_cache~,
     ) {
     return false
   }
@@ -19504,6 +20020,7 @@ fn optimize_instructions_try_optimize_if_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -19511,7 +20028,11 @@ fn optimize_instructions_try_optimize_if_condition(
     _ => return false
   }
   if optimize_instructions_try_collapse_duplicate_then_branch(
-      ctx, func, dead, node_id,
+      ctx,
+      func,
+      dead,
+      node_id,
+      purity_cache~,
     ) {
     return true
   }
@@ -23212,11 +23733,17 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
   order : @lib.AtomicOrder,
   receiver_fact : OiStructAtomicReceiverFact,
   operands_to_drop : Array[Int32],
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let body : Array[Int32] = []
   for operand in operands_to_drop {
     if !OiLiveNodeFact::proves_node_live(func, dead, operand) ||
-      !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, operand) {
+      !OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        operand,
+        purity_cache~,
+      ) {
       return false
     }
     body.push(@ir.hot_build_drop(func, operand))
@@ -23347,6 +23874,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   order : @lib.AtomicOrder,
   op : @lib.AggregateAtomicRmwOp,
   field_fact : OiStructAtomicFieldFact,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
@@ -23382,6 +23910,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
         order,
         receiver_fact,
         [identity_fact.value_id],
+        purity_cache~,
       )
     }
     None => ()
@@ -23395,7 +23924,12 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
     Some(fact) => fact
     None => return false
   }
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, value_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      value_id,
+      purity_cache~,
+    ) {
     return false
   }
   let receiver_local = optimize_instructions_add_temp_local(
@@ -23468,6 +24002,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   node_id : Int32,
   order : @lib.AtomicOrder,
   field_fact : OiStructAtomicFieldFact,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 3 {
     return false
@@ -23504,6 +24039,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
         order,
         receiver_fact,
         [fact.expected_id, fact.replacement_id],
+        purity_cache~,
       )
     }
     None => ()
@@ -23513,9 +24049,17 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
     Some(fact) => fact
     None => return false
   }
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, expected_id) ||
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      expected_id,
+      purity_cache~,
+    ) ||
     !OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, replacement_id,
+      func,
+      dead,
+      replacement_id,
+      purity_cache~,
     ) {
     return false
   }
@@ -23614,6 +24158,7 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) => instr
@@ -23681,7 +24226,14 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_rmw(
-        ctx, func, dead, node_id, order, op, field_fact,
+        ctx,
+        func,
+        dead,
+        node_id,
+        order,
+        op,
+        field_fact,
+        purity_cache~,
       )
     }
     @lib.Instruction::StructAtomicCmpxchg(order, type_idx, field_idx) => {
@@ -23694,7 +24246,13 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
-        ctx, func, dead, node_id, order, field_fact,
+        ctx,
+        func,
+        dead,
+        node_id,
+        order,
+        field_fact,
+        purity_cache~,
       )
     }
     @lib.Instruction::ArrayAtomicGet(_, _)
@@ -27357,6 +27915,7 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   dead : @bitset.BitSet,
   if_true : Int32,
   if_false : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiIdenticalPureExpressionFact {
   // Binaryen v130 `visitSelect` folds identical arms via
   // `ExpressionAnalyzer::equal(ifTrue, ifFalse)` after checking whether the
@@ -27399,8 +27958,18 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
   let effect_safe = if state_read || state_scalar_tree {
     true
   } else {
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_true) &&
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_false)
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      if_true,
+      purity_cache~,
+    ) &&
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      if_false,
+      purity_cache~,
+    )
   }
   if !effect_safe {
     return { kind: IdenticalPureEffectUnsafe, }
@@ -27870,6 +28439,7 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   right_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiConsecutiveInputFoldabilityFact {
   // Binaryen v130 `areConsecutiveInputsEqualAndFoldable` separately requires
   // the later equal input to have no unremovable effects before it can be
@@ -27877,7 +28447,10 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
   // operands accepted by the explicit recursive child-effect/invalidation fact
   // are the represented exceptions to the ordinary pure-expression proof.
   let kind = if OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, right_id,
+      func,
+      dead,
+      right_id,
+      purity_cache~,
     ) {
     ConsecutiveInputFoldablePure
   } else {
@@ -27926,6 +28499,7 @@ fn OiConsecutiveSelfSelectFact::from_select(
   if_true : Int32,
   if_false : Int32,
   condition_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiConsecutiveSelfSelectFact? {
   // Binaryen v130 `optimizeSelect`'s paired SCCP compatibility rules rewrite
   // `i32(x) ? i32(x) : 0` to the earlier `x`, and `i32(x) ? 0 : i32(x)` to
@@ -27950,7 +28524,11 @@ fn OiConsecutiveSelfSelectFact::from_select(
     ctx, func, selected_id, condition_id,
   )
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
-    ctx, func, dead, condition_id,
+    ctx,
+    func,
+    dead,
+    condition_id,
+    purity_cache~,
   )
   if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
     return None
@@ -28060,6 +28638,7 @@ fn OiI64ZeroTestSelfSelectFact::from_select(
   if_true : Int32,
   if_false : Int32,
   condition_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64ZeroTestSelfSelectFact? {
   // Binaryen v130 `optimizeSelect` has four paired i64 SCCP compatibility
   // forms. Depending on eqz/ne polarity and which arm is zero, they either
@@ -28105,6 +28684,7 @@ fn OiI64ZeroTestSelfSelectFact::from_select(
     func,
     dead,
     condition_fact.inner_id,
+    purity_cache~,
   )
   if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
     return None
@@ -28164,11 +28744,19 @@ fn OiOneBitI32ValueFact::from_node(
   dead : @bitset.BitSet,
   local_facts : OptimizeInstructionsLocalFacts?,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiOneBitI32ValueFact? {
   // Binaryen v130 `optimizeSelect` asks `Bits::getMaxBits` for the condition
   // and both arms before applying boolean algebra. Reuse the fact-owned i32
   // maxBits producer instead of adding a select-local opcode whitelist.
-  match OiI32MaxBitsProducerFact::from_node(func, dead, local_facts, node_id) {
+  match
+    OiI32MaxBitsProducerFact::from_node(
+      func,
+      dead,
+      local_facts,
+      node_id,
+      purity_cache~,
+    ) {
     Some(producer_fact) =>
       match producer_fact.max_value {
         Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) <=
@@ -28213,6 +28801,7 @@ fn OiSynthesizedI32BinaryFact::apply(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Unit {
   let replacement = optimize_instructions_build_i32_binary(
     func,
@@ -28233,6 +28822,7 @@ fn OiSynthesizedI32BinaryFact::apply(
       self.instr,
       self.left_id,
       self.right_id,
+      purity_cache~,
     ) ||
     optimize_instructions_try_fold_absorbing_binary(
       ctx,
@@ -28242,6 +28832,7 @@ fn OiSynthesizedI32BinaryFact::apply(
       self.instr,
       self.left_id,
       self.right_id,
+      purity_cache~,
     ) ||
     optimize_instructions_try_fold_exact_const_binary(
       ctx,
@@ -28272,6 +28863,7 @@ fn OiBooleanSelectAlgebraFact::from_select(
   if_true : Int32,
   if_false : Int32,
   condition_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiBooleanSelectAlgebraFact? {
   // Binaryen v130 `optimizeSelect` rewrites `select(y, 0, x)` to `y & x`
   // and `select(1, y, x)` to `y | x` only after all three i32 inputs are
@@ -28291,17 +28883,35 @@ fn OiBooleanSelectAlgebraFact::from_select(
     _ => return None
   }
   let condition_fact = match
-    OiOneBitI32ValueFact::from_node(func, dead, local_facts, condition_id) {
+    OiOneBitI32ValueFact::from_node(
+      func,
+      dead,
+      local_facts,
+      condition_id,
+      purity_cache~,
+    ) {
     Some(fact) => fact
     None => return None
   }
   let if_true_fact = match
-    OiOneBitI32ValueFact::from_node(func, dead, local_facts, if_true) {
+    OiOneBitI32ValueFact::from_node(
+      func,
+      dead,
+      local_facts,
+      if_true,
+      purity_cache~,
+    ) {
     Some(fact) => fact
     None => return None
   }
   let if_false_fact = match
-    OiOneBitI32ValueFact::from_node(func, dead, local_facts, if_false) {
+    OiOneBitI32ValueFact::from_node(
+      func,
+      dead,
+      local_facts,
+      if_false,
+      purity_cache~,
+    ) {
     Some(fact) => fact
     None => return None
   }
@@ -30689,6 +31299,7 @@ fn OiV131IdenticalSelectPlanFact::from_select(
   if_true : Int32,
   if_false : Int32,
   condition : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiV131IdenticalSelectPlanFact? {
   // This is the v131 extension after the older cheap identical-arm paths have
   // declined. The shared equality fact handles fallthrough values and annotated
@@ -30713,7 +31324,11 @@ fn OiV131IdenticalSelectPlanFact::from_select(
     condition,
   )
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
-    ctx, func, dead, if_false,
+    ctx,
+    func,
+    dead,
+    if_false,
+    purity_cache~,
   )
   if foldability_fact.proves_foldable() {
     let first_effects = OiSubtreeReorderEffectFact::from_node(
@@ -30829,14 +31444,28 @@ fn optimize_instructions_try_fold_const_select(
   let condition = @ir.hot_child_get(func, node_id, 2)
   match
     OiConsecutiveSelfSelectFact::from_select(
-      ctx, func, dead, node_id, if_true, if_false, condition,
+      ctx,
+      func,
+      dead,
+      node_id,
+      if_true,
+      if_false,
+      condition,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
   }
   match
     OiI64ZeroTestSelfSelectFact::from_select(
-      ctx, func, dead, node_id, if_true, if_false, condition,
+      ctx,
+      func,
+      dead,
+      node_id,
+      if_true,
+      if_false,
+      condition,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => return fact.apply(ctx, func, node_id)
     _ => ()
@@ -30888,15 +31517,25 @@ fn optimize_instructions_try_fold_const_select(
       if_true,
       if_false,
       condition,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => return fact.apply(ctx, func, dead, node_id)
     _ => ()
   }
   let identical_arm_fact = OiIdenticalPureExpressionFact::from_select_arms(
-    func, dead, if_true, if_false,
+    func,
+    dead,
+    if_true,
+    if_false,
+    purity_cache=Some(scratch.purity_cache),
   )
   if identical_arm_fact.proves_equal() {
-    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, condition) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        condition,
+        purity_cache=Some(scratch.purity_cache),
+      ) {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, if_true)
       return true
     }
@@ -30930,7 +31569,13 @@ fn optimize_instructions_try_fold_const_select(
   }
   match
     OiV131IdenticalSelectPlanFact::from_select(
-      ctx, func, dead, if_true, if_false, condition,
+      ctx,
+      func,
+      dead,
+      if_true,
+      if_false,
+      condition,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => return fact.apply(ctx, func, node_id)
     None => ()
@@ -30941,10 +31586,20 @@ fn optimize_instructions_try_fold_const_select(
     Some(@lib.I32(_)) => (if_true, if_false)
     _ => return false
   }
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, dead_arm) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      dead_arm,
+      purity_cache=Some(scratch.purity_cache),
+    ) {
     return false
   }
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, chosen) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      chosen,
+      purity_cache=Some(scratch.purity_cache),
+    ) {
     let use_def = pass_require_use_def(ctx, func)
     if @ir.node_use_count(use_def, chosen) != 1 {
       return false
@@ -31629,6 +32284,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
       instr,
       lhs_id,
       rhs_id,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -31645,6 +32301,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
       instr,
       rhs_id,
       lhs_id,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -31661,6 +32318,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
       instr,
       lhs_id,
       rhs_id,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -31677,6 +32335,7 @@ fn optimize_instructions_try_rewrite_boolean_maxbits_binary(
       instr,
       rhs_id,
       lhs_id,
+      purity_cache=Some(scratch.purity_cache),
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -31914,13 +32573,17 @@ fn OiI32RemainderOneFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32RemainderOneFact? {
   // Binaryen folds `rem(_, 1)` to zero only when the dividend can be erased
   // without losing effects. Keep that asymmetric trap/effect boundary as a fact
   // next to the ordinary identity facts instead of a visitor-local predicate.
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(1)) if OiSideEffectFreeExpressionFact::proves_node_free(
-        func, dead, lhs_id,
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
       ) => Some({ replacement: @lib.I32(0), })
     _ => None
   }
@@ -31932,11 +32595,15 @@ fn OiI64RemainderOneFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64RemainderOneFact? {
   // Same asymmetric Binaryen `rem(_, 1) -> 0` proof for i64.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
-        func, dead, lhs_id,
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
       ) => Some({ replacement: @lib.I64(0L), })
     _ => None
   }
@@ -31981,6 +32648,7 @@ fn optimize_instructions_try_fold_identity_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   // A constant identity operand makes these binary ops a no-op. The symmetric
   // cases allow the constant on either side; `sub` is asymmetric because
@@ -31989,7 +32657,14 @@ fn optimize_instructions_try_fold_identity_binary(
   // lhs effect (Binaryen keeps `rem(effect, 1)`).
   match instr {
     @lib.Instruction::I32RemS | @lib.Instruction::I32RemU =>
-      match OiI32RemainderOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+      match
+        OiI32RemainderOneFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           return true
@@ -31997,7 +32672,14 @@ fn optimize_instructions_try_fold_identity_binary(
         None => ()
       }
     @lib.Instruction::I64RemS | @lib.Instruction::I64RemU =>
-      match OiI64RemainderOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+      match
+        OiI64RemainderOneFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           return true
@@ -32154,6 +32836,7 @@ fn OiI32AbsorbingZeroFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32AbsorbingZeroFact? {
   // Binaryen v130 folds zero-absorbing integer ops to zero only when the other
   // operand can be erased. Keep the constant-side and effect boundary explicit
@@ -32167,9 +32850,19 @@ fn OiI32AbsorbingZeroFact::from_operands(
     _ => false
   }
   let pure_other = if zero_on_lhs && !zero_on_rhs {
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      rhs_id,
+      purity_cache~,
+    )
   } else if zero_on_rhs && !zero_on_lhs {
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
+    )
   } else {
     zero_on_lhs && zero_on_rhs
   }
@@ -32186,6 +32879,7 @@ fn OiI64AbsorbingZeroFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64AbsorbingZeroFact? {
   // Same Binaryen zero-absorbing fact for the i64 lane.
   let zero_on_lhs = match optimize_instructions_i64_const(func, dead, lhs_id) {
@@ -32197,9 +32891,19 @@ fn OiI64AbsorbingZeroFact::from_operands(
     _ => false
   }
   let pure_other = if zero_on_lhs && !zero_on_rhs {
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      rhs_id,
+      purity_cache~,
+    )
   } else if zero_on_rhs && !zero_on_lhs {
-    OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id)
+    OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
+    )
   } else {
     zero_on_lhs && zero_on_rhs
   }
@@ -32258,6 +32962,7 @@ fn OiI32AbsorbingAllOnesOrFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32AbsorbingAllOnesOrFact? {
   // Binaryen v130 treats `or -1` as an absorbing all-ones result while keeping
   // effects from the non-constant operand. Preserve that effectful-drop payload
@@ -32276,13 +32981,23 @@ fn OiI32AbsorbingAllOnesOrFact::from_operands(
     return None
   }
   let drop_id = if neg_one_on_lhs && !neg_one_on_rhs {
-    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        rhs_id,
+        purity_cache~,
+      ) {
       None
     } else {
       Some(rhs_id)
     }
   } else if neg_one_on_rhs && !neg_one_on_lhs {
-    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
+      ) {
       None
     } else {
       Some(lhs_id)
@@ -32299,6 +33014,7 @@ fn OiI64AbsorbingAllOnesOrFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64AbsorbingAllOnesOrFact? {
   // Same all-ones absorbing OR fact for the i64 lane.
   let neg_one_on_lhs = match
@@ -32315,13 +33031,23 @@ fn OiI64AbsorbingAllOnesOrFact::from_operands(
     return None
   }
   let drop_id = if neg_one_on_lhs && !neg_one_on_rhs {
-    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, rhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        rhs_id,
+        purity_cache~,
+      ) {
       None
     } else {
       Some(rhs_id)
     }
   } else if neg_one_on_rhs && !neg_one_on_lhs {
-    if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+    if OiSideEffectFreeExpressionFact::proves_node_free(
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
+      ) {
       None
     } else {
       Some(lhs_id)
@@ -32400,13 +33126,17 @@ fn OiI32RemainderNegOneFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI32RemainderNegOneFact? {
   // Binaryen also folds signed `rem(_, -1)` to zero only when the dividend can
   // be erased. This remains intentionally separate from `rem(_, 1)` because it
   // belongs to the absorbing family and applies only to signed remainder.
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(-1)) if OiSideEffectFreeExpressionFact::proves_node_free(
-        func, dead, lhs_id,
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
       ) => Some({ replacement: @lib.I32(0), })
     _ => None
   }
@@ -32418,11 +33148,15 @@ fn OiI64RemainderNegOneFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiI64RemainderNegOneFact? {
   // Same signed-remainder absorbing fact for i64.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(-1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
-        func, dead, lhs_id,
+        func,
+        dead,
+        lhs_id,
+        purity_cache~,
       ) => Some({ replacement: @lib.I64(0L), })
     _ => None
   }
@@ -32467,12 +33201,20 @@ fn optimize_instructions_try_fold_absorbing_binary(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   // Binaryen v130's absorbing binary folds are now expressed as width-specific
   // facts that carry both constant-side proof and any effect-preserving payload.
   match instr {
     @lib.Instruction::I32Mul | @lib.Instruction::I32And =>
-      match OiI32AbsorbingZeroFact::from_operands(func, dead, lhs_id, rhs_id) {
+      match
+        OiI32AbsorbingZeroFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -32480,7 +33222,14 @@ fn optimize_instructions_try_fold_absorbing_binary(
         None => false
       }
     @lib.Instruction::I64Mul | @lib.Instruction::I64And =>
-      match OiI64AbsorbingZeroFact::from_operands(func, dead, lhs_id, rhs_id) {
+      match
+        OiI64AbsorbingZeroFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -32489,7 +33238,13 @@ fn optimize_instructions_try_fold_absorbing_binary(
       }
     @lib.Instruction::I32RemS =>
       match
-        OiI32RemainderNegOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        OiI32RemainderNegOneFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -32498,7 +33253,13 @@ fn optimize_instructions_try_fold_absorbing_binary(
       }
     @lib.Instruction::I64RemS =>
       match
-        OiI64RemainderNegOneFact::from_operands(func, dead, lhs_id, rhs_id) {
+        OiI64RemainderNegOneFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -32507,7 +33268,13 @@ fn optimize_instructions_try_fold_absorbing_binary(
       }
     @lib.Instruction::I32Or =>
       match
-        OiI32AbsorbingAllOnesOrFact::from_operands(func, dead, lhs_id, rhs_id) {
+        OiI32AbsorbingAllOnesOrFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -32516,7 +33283,13 @@ fn optimize_instructions_try_fold_absorbing_binary(
       }
     @lib.Instruction::I64Or =>
       match
-        OiI64AbsorbingAllOnesOrFact::from_operands(func, dead, lhs_id, rhs_id) {
+        OiI64AbsorbingAllOnesOrFact::from_operands(
+          func,
+          dead,
+          lhs_id,
+          rhs_id,
+          purity_cache~,
+        ) {
         Some(fact) => {
           fact.apply(ctx, func, node_id)
           true
@@ -33547,6 +34320,7 @@ fn optimize_instructions_try_combine_nested_const_shift(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let mask_bits = match optimize_instructions_shift_mask_bits(instr) {
     Some(bits) => bits
@@ -33613,7 +34387,11 @@ fn optimize_instructions_try_combine_nested_const_shift(
         @lib.Instruction::I32ShrU =>
           match
             OiCombinedShiftZeroBitsFact::from_i32_shr_u(
-              func, dead, inner_lhs, combined,
+              func,
+              dead,
+              inner_lhs,
+              combined,
+              purity_cache~,
             ) {
             Some(fact) => {
               fact.apply(ctx, func, node_id)
@@ -33677,7 +34455,11 @@ fn optimize_instructions_try_combine_nested_const_shift(
         @lib.Instruction::I64ShrU =>
           match
             OiCombinedShiftZeroBitsFact::from_i64_shr_u(
-              func, dead, inner_lhs, combined,
+              func,
+              dead,
+              inner_lhs,
+              combined,
+              purity_cache~,
             ) {
             Some(fact) => {
               fact.apply(ctx, func, node_id)
@@ -34148,9 +34930,10 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let skip_fact = match
-    OiDescriptorTnhSkipFact::from_node(ctx, func, dead, node_id) {
+    OiDescriptorTnhSkipFact::from_node(ctx, func, dead, node_id, purity_cache~) {
     Some(fact) => fact
     None => return false
   }
@@ -34187,9 +34970,10 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let null_fact = match
-    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
+    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id, purity_cache~) {
     Some(fact) => fact
     None => return false
   }
@@ -34231,6 +35015,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorNullableIfNoEffectMoveFact {
   // TNH descriptor operand erasure can drop a nullable `if` child when the
   // condition and both single-result arms are side-effect-free. This preserves
@@ -34263,6 +35048,7 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
     func,
     dead,
     @ir.hot_child_get(func, node_id, 0),
+    purity_cache~,
   )
   let then_region = @ir.hot_region_then_ref(func, node_id)
   let else_region = match @ir.hot_region_else_ref(func, node_id) {
@@ -34288,12 +35074,14 @@ fn OiDescriptorNullableIfNoEffectMoveFact::from_if(
       func,
       dead,
       @ir.hot_region_get(func, then_region, 0),
+      purity_cache~,
     )
   let else_side_effect_free = single_root_arms &&
     OiSideEffectFreeExpressionFact::proves_node_free(
       func,
       dead,
       @ir.hot_region_get(func, else_region, 0),
+      purity_cache~,
     )
   let payload : OiDescriptorNullableIfNoEffectPayloadFact = {
     condition_side_effect_free,
@@ -35289,6 +36077,7 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
   dead : @bitset.BitSet,
   owner_id : Int32,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorInternalControlEffectFreeFact {
   // TNH descriptor-null-check removal can ignore internal branch/control edges
   // when all reachable payload work is otherwise effect-free. Preserve that
@@ -35296,7 +36085,10 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
   // proof, an allowed internal-control shell, block-region effect facts, and
   // recursively effect-free child facts.
   let direct_side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   if direct_side_effect_free {
     return {
@@ -35343,6 +36135,7 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
           dead,
           owner_id,
           @ir.hot_region_body_ref(func, node_id),
+          purity_cache~,
         ).proves_effect_free(),
       )
     @ir.HotOp::Drop => (node.child_count == 1, true)
@@ -35367,6 +36160,7 @@ fn OiDescriptorInternalControlEffectFreeFact::from_node(
         dead,
         owner_id,
         @ir.hot_child_get(func, node_id, slot),
+        purity_cache~,
       ).proves_effect_free_allowing_internal_control()
   }
   {
@@ -35404,6 +36198,7 @@ fn OiDescriptorInternalControlEffectFreeRegionFact::from_region(
   dead : @bitset.BitSet,
   owner_id : Int32,
   region_ref : @ir.HotRegionRef,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorInternalControlEffectFreeRegionFact {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut effect_free = true
@@ -35414,6 +36209,7 @@ fn OiDescriptorInternalControlEffectFreeRegionFact::from_region(
         dead,
         owner_id,
         @ir.hot_region_get(func, region_ref, slot),
+        purity_cache~,
       ).proves_effect_free_allowing_internal_control()
   }
   {
@@ -36782,9 +37578,16 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let miss_fact = match
-    OiDescriptorExactMissFact::from_node(ctx, func, dead, node_id) {
+    OiDescriptorExactMissFact::from_node(
+      ctx,
+      func,
+      dead,
+      node_id,
+      purity_cache~,
+    ) {
     Some(fact) => fact
     None => return false
   }
@@ -36829,9 +37632,10 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   let null_fact = match
-    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id) {
+    OiDescriptorNullCastFact::from_node(ctx, func, dead, node_id, purity_cache~) {
     Some(fact) => fact
     None => return false
   }
@@ -36918,6 +37722,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorNullableChildEraseTnhFact {
   // Binaryen v130's traps-never-happen mode may erase a descriptor-side null
   // check when the nullable child can be discarded or localized safely. This is
@@ -36926,7 +37731,10 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
   // movement proof. It is intentionally narrower than full ChildLocalizer and
   // EffectAnalyzer parity.
   let side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   let node = @ir.hot_node_get(func, node_id)
   let mut block_root = false
@@ -36934,7 +37742,10 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
   let mut block_no_escaping_branch_control = false
   let mut block_children_effect_free_internal_control = false
   let if_no_effect_move_fact = OiDescriptorNullableIfNoEffectMoveFact::from_if(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   match node.op {
     @ir.HotOp::Block => {
@@ -36955,6 +37766,7 @@ fn OiDescriptorNullableChildEraseTnhFact::from_child(
               dead,
               node_id,
               @ir.hot_region_get(func, body, slot),
+              purity_cache~,
             ).proves_effect_free_allowing_internal_control() {
             block_children_effect_free_internal_control = false
           }
@@ -37030,6 +37842,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiRefGetDescOperandEraseFact {
   // Binaryen v130 descriptor rewrites may drop `ref.get_desc` when the operand
   // is already known non-null and side-effect-free, or when TNH lets the
@@ -37056,6 +37869,7 @@ fn OiRefGetDescOperandEraseFact::from_node(
     func,
     dead,
     get_desc_fact.child_id,
+    purity_cache~,
   )
   let default_can_erase = (child_non_nullable_type || child_known_non_null) &&
     child_side_effect_free
@@ -37064,7 +37878,10 @@ fn OiRefGetDescOperandEraseFact::from_node(
     Some(nullable_child) =>
       Some(
         OiDescriptorNullableChildEraseTnhFact::from_child(
-          func, dead, nullable_child,
+          func,
+          dead,
+          nullable_child,
+          purity_cache~,
         ),
       )
     None => None
@@ -37140,6 +37957,7 @@ fn OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiRefAsNonNullDescriptorOperandEraseTnhFact {
   // Under TNH, Binaryen's descriptor operand cleanup can erase an explicit
   // `ref.as_non_null` wrapper if the nullable child itself can be discarded or
@@ -37157,6 +37975,7 @@ fn OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
         func,
         dead,
         @ir.hot_child_get(func, node_id, 0),
+        purity_cache~,
       ),
     )
   } else {
@@ -37222,6 +38041,7 @@ fn OiDescriptorOperandEraseFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiDescriptorOperandEraseFact {
   // Binaryen v130's descriptor-cast/test rewrites use `getDroppedChildren...`,
   // trap-on-null, skipNonNullCast, ChildLocalizer, and EffectAnalyzer to decide
@@ -37230,7 +38050,10 @@ fn OiDescriptorOperandEraseFact::from_operand(
   // them to an ordered result kind instead of a helper-local cascade of raw
   // purity, allocation, ref.get_desc, and TNH checks.
   let side_effect_free = OiSideEffectFreeExpressionFact::proves_node_free(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   let node_effects_pure = optimize_instructions_node_effects_are_pure(
     ctx, func, node_id,
@@ -37239,10 +38062,16 @@ fn OiDescriptorOperandEraseFact::from_operand(
     func, node_id,
   )
   let ref_get_desc_fact = OiRefGetDescOperandEraseFact::from_node(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   let ref_as_non_null_tnh_fact = OiRefAsNonNullDescriptorOperandEraseTnhFact::from_node(
-    func, dead, node_id,
+    func,
+    dead,
+    node_id,
+    purity_cache~,
   )
   let kind = if side_effect_free {
     DescriptorOperandEraseSideEffectFree
@@ -38754,9 +39583,14 @@ fn OiRefEqOperandErasabilityFact::from_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   operand_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiRefEqOperandErasabilityFact {
   let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
-    ctx, func, dead, operand_id,
+    ctx,
+    func,
+    dead,
+    operand_id,
+    purity_cache~,
   )
   match @ir.hot_node_exact_instr(func, operand_id) {
     Some(@lib.Instruction::RefAsNonNull)
@@ -38769,6 +39603,7 @@ fn OiRefEqOperandErasabilityFact::from_operand(
           func,
           dead,
           @ir.hot_child_get(func, operand_id, 0),
+          purity_cache~,
         ) {
         return { kind: RefEqOperandErasable, foldability_fact, }
       }
@@ -38810,6 +39645,7 @@ fn OiRefEqConsecutiveEqualityFact::from_operands(
   dead : @bitset.BitSet,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiRefEqConsecutiveEqualityFact? {
   // Binaryen v131 applies the shared consecutive-input equality machinery to
   // ref.eq. A foldable right operand means only the left evaluation survives;
@@ -38825,10 +39661,18 @@ fn OiRefEqConsecutiveEqualityFact::from_operands(
     rhs_id,
     equality_fact,
     lhs_erasability_fact: OiRefEqOperandErasabilityFact::from_operand(
-      ctx, func, dead, lhs_id,
+      ctx,
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
     ),
     rhs_erasability_fact: OiRefEqOperandErasabilityFact::from_operand(
-      ctx, func, dead, rhs_id,
+      ctx,
+      func,
+      dead,
+      rhs_id,
+      purity_cache~,
     ),
   })
 }
@@ -38881,6 +39725,7 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
@@ -38893,7 +39738,12 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   let mut rhs_id = @ir.hot_child_get(func, node_id, 1)
   match
     OiRefEqConsecutiveEqualityFact::from_operands(
-      ctx, func, dead, lhs_id, rhs_id,
+      ctx,
+      func,
+      dead,
+      lhs_id,
+      rhs_id,
+      purity_cache~,
     ) {
     Some(fact) => return fact.apply(ctx, func, node_id)
     None => ()
@@ -39193,12 +40043,18 @@ fn OiSignedDomainEdgeCompareFact::from_operands(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiSignedDomainEdgeCompareFact? {
   // Binaryen v130 folds signed integer comparisons at the unreachable domain
   // endpoints only when the left operand can be erased without preserving
   // effects. Keep the endpoint proof and boolean result as a fact instead of a
   // helper-level compare/result table.
-  if !OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) {
+  if !OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
+    ) {
     return None
   }
   let (rhs_is_signed_min, rhs_is_signed_max) = match instr {
@@ -39250,6 +40106,7 @@ fn OiUnsignedDomainEdgeCompareFact::from_operands(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> OiUnsignedDomainEdgeCompareFact? {
   // Binaryen v130 folds unsigned integer comparisons at the impossible domain
   // endpoints and preserves left-operand effects by dropping the operand before
@@ -39298,7 +40155,10 @@ fn OiUnsignedDomainEdgeCompareFact::from_operands(
     result,
     lhs_id,
     preserve_lhs: OiSideEffectFreeExpressionFact::proves_node_free(
-      func, dead, lhs_id,
+      func,
+      dead,
+      lhs_id,
+      purity_cache~,
     ) ||
     optimize_instructions_node_effects_are_pure(ctx, func, lhs_id),
   })
@@ -39354,10 +40214,16 @@ fn optimize_instructions_try_fold_signed_domain_edge_compare(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   match
     OiSignedDomainEdgeCompareFact::from_operands(
-      func, dead, instr, lhs_id, rhs_id,
+      func,
+      dead,
+      instr,
+      lhs_id,
+      rhs_id,
+      purity_cache~,
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -39376,10 +40242,17 @@ fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Bool {
   match
     OiUnsignedDomainEdgeCompareFact::from_operands(
-      ctx, func, dead, instr, lhs_id, rhs_id,
+      ctx,
+      func,
+      dead,
+      instr,
+      lhs_id,
+      rhs_id,
+      purity_cache~,
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -39622,9 +40495,15 @@ fn OiI32SignExtensionEqualityFoldFact::apply(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  purity_cache~ : OiPurityCache? = None,
 ) -> Unit {
   let drop_id = self.sign_ext_fact.child_id
-  if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, drop_id) ||
+  if OiSideEffectFreeExpressionFact::proves_node_free(
+      func,
+      dead,
+      drop_id,
+      purity_cache~,
+    ) ||
     optimize_instructions_node_effects_are_pure(ctx, func, drop_id) {
     optimize_instructions_replace_with_const_i32(
       ctx,
@@ -39910,7 +40789,12 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
       instr, max_value, rhs,
     ) {
     Some(result) => {
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(
+          func,
+          dead,
+          lhs_id,
+          purity_cache=Some(scratch.purity_cache),
+        ) ||
         optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
@@ -40028,7 +40912,12 @@ fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
       instr, max_value, rhs,
     ) {
     Some(result) => {
-      if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, lhs_id) ||
+      if OiSideEffectFreeExpressionFact::proves_node_free(
+          func,
+          dead,
+          lhs_id,
+          purity_cache=Some(scratch.purity_cache),
+        ) ||
         optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
         optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
       } else {
@@ -41554,10 +42443,24 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_fold_identity_binary(
-            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            initial_instr,
+            initial_lhs,
+            initial_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_fold_absorbing_binary(
-            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            initial_instr,
+            initial_lhs,
+            initial_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_remove_redundant_unsigned_mask(
             ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
@@ -41590,7 +42493,14 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_combine_nested_const_shift(
-            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            initial_instr,
+            initial_lhs,
+            initial_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
@@ -41629,10 +42539,24 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_fold_identity_binary(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            current_instr,
+            current_lhs,
+            current_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_fold_absorbing_binary(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            current_instr,
+            current_lhs,
+            current_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_remove_redundant_unsigned_mask(
             ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
@@ -41662,7 +42586,14 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_combine_nested_const_shift(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            current_instr,
+            current_lhs,
+            current_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
@@ -41710,10 +42641,24 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_fold_signed_domain_edge_compare(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            current_instr,
+            current_lhs,
+            current_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_fold_unsigned_domain_edge_compare(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx,
+            func,
+            dead,
+            node_id,
+            current_instr,
+            current_lhs,
+            current_rhs,
+            purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_fold_same_local_integer_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
@@ -41826,10 +42771,24 @@ fn optimize_instructions_visit_node(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_signed_domain_edge_compare(
-                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+                ctx,
+                func,
+                dead,
+                node_id,
+                next_instr,
+                next_lhs,
+                next_rhs,
+                purity_cache=Some(scratch.purity_cache),
               ) ||
               optimize_instructions_try_fold_unsigned_domain_edge_compare(
-                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+                ctx,
+                func,
+                dead,
+                node_id,
+                next_instr,
+                next_lhs,
+                next_rhs,
+                purity_cache=Some(scratch.purity_cache),
               ) ||
               optimize_instructions_try_fold_i32_sign_extension_equality_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
@@ -41893,19 +42852,35 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::RefCastDescEq =>
       optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_skip_ref_cast_desc_eq_exact_success_traps_never_happen(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_fold_ref_cast_desc_eq_exact_descriptor_miss(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
         ctx, func, dead, node_id,
@@ -41927,7 +42902,13 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
-      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
+      optimize_instructions_try_rewrite_ref_eq_null(
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
+      ) ||
       optimize_instructions_try_rewrite_array_new_default_init(
         ctx, func, node_id,
       ) ||
@@ -41940,7 +42921,11 @@ fn optimize_instructions_visit_node(
       false
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       )
     @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
       optimize_instructions_try_replace_unreachable_guard_cast_branch(
@@ -41952,7 +42937,11 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Atomic =>
       optimize_instructions_try_rewrite_aggregate_atomic(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_fold_const_memory_access_offset(
         ctx, func, dead, node_id,
@@ -41996,10 +42985,18 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_hoist_matching_unary_if(ctx, func, node_id) ||
       optimize_instructions_try_hoist_matching_reference_if(ctx, func, node_id) ||
       optimize_instructions_try_sink_same_global_set_if(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
-        ctx, func, dead, node_id,
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
       ) ||
       optimize_instructions_try_fold_constant_if_condition(
         ctx, func, dead, node_id,
@@ -42007,7 +43004,13 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_optimize_boolean_condition_context(
         ctx, func, dead, node_id, scratch,
       ) ||
-      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
+      optimize_instructions_try_optimize_if_condition(
+        ctx,
+        func,
+        dead,
+        node_id,
+        purity_cache=Some(scratch.purity_cache),
+      ) ||
       optimize_instructions_try_wrap_boolean_if_value_in_eqz(
         ctx, func, dead, node_id,
       ) ||

@@ -297,10 +297,13 @@ fn cl_all_local_types(
 ///|
 fn cl_simple_const_source(instr : @lib.Instruction) -> CLValueSource? {
   match instr {
+    // Numeric debug formatting loses NaN payloads and the sign of zero.
+    @lib.F32Const(@lib.F32(value)) =>
+      Some(CLValueSource::Const("f32-bits:\{value.reinterpret_as_int()}"))
+    @lib.F64Const(@lib.F64(value)) =>
+      Some(CLValueSource::Const("f64-bits:\{value.reinterpret_as_int64()}"))
     @lib.I32Const(_)
     | @lib.I64Const(_)
-    | @lib.F32Const(_)
-    | @lib.F64Const(_)
     | @lib.RefNull(_)
     | @lib.StringConst(_) => Some(CLValueSource::Const(@debug.to_string(instr)))
     _ => None
@@ -2440,6 +2443,11 @@ fn cl_rewrite_func_structured_conservative(
     interferences,
     weights,
   )
+  let proof_cache = if original_instrs.length() >= 64 && types.length() > 8 {
+    Some(CLLocalProofCache::new(local_count=types.length()))
+  } else {
+    None
+  }
   cl_remove_safe_consume_forward_interferences(
     original_instrs,
     actions,
@@ -2447,6 +2455,7 @@ fn cl_rewrite_func_structured_conservative(
     params.length(),
     interferences,
     weights,
+    proof_cache~,
   )
   cl_add_structured_write_live_interferences(
     structured_write_hazards,
@@ -2474,6 +2483,7 @@ fn cl_rewrite_func_structured_conservative(
     types,
     params.length(),
     interferences,
+    proof_cache~,
   )
   cl_remove_read_only_default_interferences(
     actions,
@@ -3383,46 +3393,124 @@ fn cl_instr_tree_accesses_local(
 }
 
 ///|
+fn cl_collect_fanout_local_facts(
+  instr : @lib.Instruction,
+  root_idx : Int32,
+  first_access : Array[Int32],
+  last_write : Array[Int32],
+  write_counts : Array[Int32],
+) -> Unit {
+  match instr {
+    @lib.LocalGet(local_idx)
+    | @lib.LocalSet(local_idx)
+    | @lib.LocalTee(local_idx) => {
+      let local = cl_local_idx_raw(local_idx)
+      if local >= 0 && local < first_access.length() {
+        if first_access[local] < 0 {
+          first_access[local] = root_idx
+        }
+        match instr {
+          @lib.LocalSet(_) | @lib.LocalTee(_) => {
+            last_write[local] = root_idx
+            write_counts[local] += 1
+          }
+          _ => ()
+        }
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for child in body {
+        cl_collect_fanout_local_facts(
+          child, root_idx, first_access, last_write, write_counts,
+        )
+      }
+    @lib.If(_, then_body, else_body) => {
+      for child in then_body {
+        cl_collect_fanout_local_facts(
+          child, root_idx, first_access, last_write, write_counts,
+        )
+      }
+      if else_body is Some(body) {
+        for child in body {
+          cl_collect_fanout_local_facts(
+            child, root_idx, first_access, last_write, write_counts,
+          )
+        }
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for child in body {
+        cl_collect_fanout_local_facts(
+          child, root_idx, first_access, last_write, write_counts,
+        )
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        for child in catch_body {
+          cl_collect_fanout_local_facts(
+            child, root_idx, first_access, last_write, write_counts,
+          )
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn cl_remove_same_source_fanout_interferences(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
   param_count : Int32,
   interferences : CLBitMatrix,
 ) -> Unit {
-  let gets = Array::make(types.length(), 0)
-  let sets = Array::make(types.length(), 0)
-  let tees = Array::make(types.length(), 0)
-  cl_count_syntactic_local_accesses(instrs, gets, sets, tees)
-  for source = param_count; source < types.length(); source = source + 1 {
-    let destinations : Array[Int32] = []
-    for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
-      match (instrs[idx], instrs[idx + 1]) {
-        (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) => {
-          if cl_local_idx_raw(source_idx) != source {
-            continue
-          }
-          let dest = cl_local_idx_raw(dest_idx)
-          if dest < param_count ||
-            dest >= types.length() ||
-            dest == source ||
-            types[dest] != types[source] ||
-            sets[dest] != 1 ||
-            tees[dest] != 0 ||
-            cl_instrs_suffix_writes_local(instrs, idx + 2, source) {
-            continue
-          }
-          let mut accessed_before_copy = false
-          for before = 0; before < idx; before = before + 1 {
-            if cl_instr_tree_accesses_local(instrs[before], dest) {
-              accessed_before_copy = true
-            }
-          }
-          if !accessed_before_copy {
-            destinations.push(dest)
-          }
+  // Summarize nested accesses by their top-level root. Prefix reads and suffix
+  // writes then need no repeated walks for each source/destination pair.
+  let first_access = Array::make(types.length(), -1)
+  let last_write = Array::make(types.length(), -1)
+  let write_counts = Array::make(types.length(), 0)
+  for idx in 0..<instrs.length() {
+    cl_collect_fanout_local_facts(
+      instrs[idx],
+      idx,
+      first_access,
+      last_write,
+      write_counts,
+    )
+  }
+  let by_source : Array[Array[Int32]?] = Array::make(types.length(), None)
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) => {
+        let source = cl_local_idx_raw(source_idx)
+        let dest = cl_local_idx_raw(dest_idx)
+        if source < param_count ||
+          source >= types.length() ||
+          dest < param_count ||
+          dest >= types.length() ||
+          dest == source ||
+          types[dest] != types[source] ||
+          write_counts[dest] != 1 ||
+          last_write[source] > idx + 1 ||
+          first_access[dest] < idx {
+          continue
         }
-        _ => ()
+        match by_source[source] {
+          Some(destinations) => destinations.push(dest)
+          None => by_source[source] = Some([dest])
+        }
       }
+      _ => ()
+    }
+  }
+  for source in param_count..<types.length() {
+    let destinations = match by_source[source] {
+      Some(destinations) => destinations
+      None => continue
     }
     if destinations.length() < 2 {
       continue
@@ -3432,9 +3520,12 @@ fn cl_remove_same_source_fanout_interferences(
     }
     for lhs = 0; lhs < destinations.length(); lhs = lhs + 1 {
       for rhs = lhs + 1; rhs < destinations.length(); rhs = rhs + 1 {
-        let left = destinations[lhs]
-        let right = destinations[rhs]
-        cl_bit_matrix_set_symmetric(interferences, left, right, false)
+        cl_bit_matrix_set_symmetric(
+          interferences,
+          destinations[lhs],
+          destinations[rhs],
+          false,
+        )
       }
     }
   }
@@ -3448,31 +3539,9 @@ fn cl_remove_safe_copy_forward_interferences(
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> Unit {
-  // Every pair scan rejects these barriers unconditionally, including inside
-  // both Block/If arms. Prove that once before repeating the same failed walk.
-  // Barrier-free candidates still use the complete original pair proof.
-  let mut checked_barriers = false
-  for source = param_count; source < types.length(); source = source + 1 {
-    if weights.rows[source].length() == 0 {
-      continue
-    }
-    if !checked_barriers {
-      if cl_pair_forward_scans_have_global_barrier(instrs) {
-        return
-      }
-      checked_barriers = true
-    }
-    let (reachable, _) = cl_copy_weight_reachable_destinations(
-      weights, source, 4,
-    )
-    for dest = 0; dest < types.length(); dest = dest + 1 {
-      if reachable[dest] &&
-        types[source] == types[dest] &&
-        cl_copy_forward_pair_safe(instrs, source, dest) {
-        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
-      }
-    }
-  }
+  cl_remove_safe_copy_forward_interferences_indexed(
+    instrs, types, param_count, interferences, weights,
+  )
 }
 
 ///|
@@ -4625,17 +4694,36 @@ fn cl_remove_path_disjoint_branch_result_interferences(
   types : Array[@lib.ValType],
   param_count : Int32,
   interferences : CLBitMatrix,
+  indexed_proofs~ : Bool = true,
+  proof_cache~ : CLLocalProofCache? = None,
 ) -> Unit {
   if cl_pair_forward_scans_have_global_barrier(instrs) {
     return
   }
+  let mut cache = proof_cache
+
   let (_, writes) = cl_local_read_write_flags(actions, types.length())
   for source = param_count; source < types.length(); source = source + 1 {
     for
       dest in cl_path_disjoint_candidate_dests(
         source, writes, types, interferences,
       ) {
-      if cl_path_disjoint_branch_result_pair_safe(instrs, source, dest) {
+      let pair_safe = if indexed_proofs &&
+        instrs.length() >= 64 &&
+        types.length() > 8 {
+        let index = match cache {
+          Some(index) => index
+          None => {
+            let index = CLLocalProofCache::new(local_count=types.length())
+            cache = Some(index)
+            index
+          }
+        }
+        index.path_pair_safe(instrs, source, dest)
+      } else {
+        cl_path_disjoint_branch_result_pair_safe(instrs, source, dest)
+      }
+      if pair_safe {
         cl_bit_matrix_set_symmetric(interferences, source, dest, false)
       }
     }
@@ -4758,10 +4846,14 @@ fn cl_remove_safe_consume_forward_interferences(
   param_count : Int32,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
+  indexed_proofs~ : Bool = true,
+  proof_cache~ : CLLocalProofCache? = None,
 ) -> Unit {
   if cl_pair_forward_scans_have_global_barrier(instrs) {
     return
   }
+  let mut cache = proof_cache
+
   let (reads, writes) = cl_local_read_write_flags(actions, types.length())
   let syntactic_candidates = cl_consume_forward_syntactic_candidates(
     instrs,
@@ -4790,13 +4882,35 @@ fn cl_remove_safe_consume_forward_interferences(
         source, reads, writes, types, interferences, first_initialized_get, latest_write,
         syntactic_candidates,
       ) {
-      if cl_consume_forward_pair_safe(instrs, source, dest) {
+      let pair_safe = if indexed_proofs &&
+        instrs.length() >= 64 &&
+        types.length() > 8 {
+        let index = match cache {
+          Some(index) => index
+          None => {
+            let index = CLLocalProofCache::new(local_count=types.length())
+            cache = Some(index)
+            index
+          }
+        }
+        index.consume_pair_safe(instrs, source, dest)
+      } else {
+        cl_consume_forward_pair_safe(instrs, source, dest)
+      }
+      if pair_safe {
         cl_bit_matrix_set_symmetric(interferences, source, dest, false)
-        for target = 0; target < types.length(); target = target + 1 {
-          if source != target &&
-            types[source] == types[target] &&
-            cl_copy_weight_reaches(weights, dest, target, 4) {
-            cl_bit_matrix_set_symmetric(interferences, source, target, false)
+        if weights.rows[dest].length() > 0 {
+          // The recursive predicate checks its direct edge before the depth
+          // stop, so depth 4 means paths of at most five edges.
+          let (reachable, _) = cl_copy_weight_reachable_destinations(
+            weights, dest, 5,
+          )
+          for target in 0..<types.length() {
+            if source != target &&
+              types[source] == types[target] &&
+              reachable[target] {
+              cl_bit_matrix_set_symmetric(interferences, source, target, false)
+            }
           }
         }
       }
@@ -4816,9 +4930,9 @@ fn cl_source_is_explicit_default(
       } else if ty == @lib.ValType::i64() {
         key == @debug.to_string(@lib.Instruction::i64_const(@lib.I64(0L)))
       } else if ty == @lib.ValType::f32() {
-        key == @debug.to_string(@lib.Instruction::f32_const(0.0))
+        key == "f32-bits:0"
       } else if ty == @lib.ValType::f64() {
-        key == @debug.to_string(@lib.Instruction::f64_const(0.0))
+        key == "f64-bits:0"
       } else {
         false
       }

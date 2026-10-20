@@ -851,8 +851,7 @@ fn dae2_preserve_control_types(
           None => continue
         }
         let (types, index) = dae_append_new_func_type(types, params, results)
-        lower_state.next_type_sec = Some(types)
-        lower_state.type_sec_changed = true
+        lower_state.adopt_rewritten_types(types)
         replacements.set(old_index, index)
         index
       }

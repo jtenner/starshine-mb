@@ -523,6 +523,7 @@ fn ssa_full_apply_plan(
   if @ir.hot_revision_current(func) == before_revision {
     HotPassResult::unchanged()
   } else {
+    ignore(@ir.hot_repair_nondefaultable_local_scopes(func))
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()
   }
@@ -790,7 +791,11 @@ fn ssa_full_rewrite_raw_func(
     !prepends.is_empty() ||
     !extra_local_types.is_empty()
   if changed {
-    (@lib.Func::new(rewritten_locals, @lib.Expr::new(final_body)), true)
+    let rewritten = @lib.Func::new(rewritten_locals, @lib.Expr::new(final_body))
+    let (repaired, _) = ssa_repair_raw_nondefaultable_local_scopes(
+      rewritten, params,
+    )
+    (repaired, true)
   } else {
     (original, false)
   }
@@ -805,4 +810,213 @@ fn ssa_full_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let graph = @ir.local_graph_build_full_flow(func, cfg)
   let plan = ssa_full_build_merge_rewrite_plan(func, graph)
   ssa_full_apply_plan(ctx, func, plan)
+}
+
+///|
+priv struct SsaRawLocalScopeScan {
+  initialized : Array[Bool]
+  writes : Array[Int32]
+  needs_default : Array[Bool]
+}
+
+///|
+fn ssa_raw_local_scope_scan(
+  instrs : Array[@lib.Instruction],
+  scan : SsaRawLocalScopeScan,
+  child_frame~ : Bool = false,
+) -> Unit {
+  let saved = scan.writes.length()
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local = raw.reinterpret_as_int()
+        if local >= 0 &&
+          local < scan.initialized.length() &&
+          !scan.initialized[local] {
+          scan.needs_default[local] = true
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local = raw.reinterpret_as_int()
+        if local >= 0 &&
+          local < scan.initialized.length() &&
+          !scan.initialized[local] {
+          scan.initialized[local] = true
+          scan.writes.push(local)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_raw_local_scope_scan(body, scan, child_frame=true)
+      @lib.If(_, then_body, else_body) => {
+        ssa_raw_local_scope_scan(then_body, scan, child_frame=true)
+        match else_body {
+          Some(body) => ssa_raw_local_scope_scan(body, scan, child_frame=true)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        ssa_raw_local_scope_scan(body, scan, child_frame=true)
+        for catch_ in catches {
+          let @lib.Expr(body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          ssa_raw_local_scope_scan(body, scan, child_frame=true)
+        }
+      }
+      _ => ()
+    }
+  }
+  if child_frame {
+    while scan.writes.length() > saved {
+      scan.initialized[scan.writes.pop().unwrap()] = false
+    }
+  }
+}
+
+///|
+fn ssa_raw_local_scope_rewrite(
+  instrs : Array[@lib.Instruction],
+  needs_default : Array[Bool],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        out.push(instr)
+        let local = raw.reinterpret_as_int()
+        if local >= 0 && local < needs_default.length() && needs_default[local] {
+          out.push(@lib.Instruction::ref_as_non_null())
+        }
+      }
+      @lib.Block(bt, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            bt,
+            @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+          ),
+        )
+      @lib.Loop(bt, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            bt,
+            @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+          ),
+        )
+      @lib.TryTable(bt, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+          ),
+        )
+      @lib.If(bt, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            bt,
+            ssa_raw_local_scope_rewrite(then_body, needs_default),
+            else_body.map(fn(body) {
+              ssa_raw_local_scope_rewrite(body, needs_default)
+            }),
+          ),
+        )
+      @lib.Try(bt, @lib.Expr(body), catches, delegate) => {
+        let catches = catches.map(fn(catch_) {
+          match catch_ {
+            @lib.LegacyCatch(tag, @lib.Expr(body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+              )
+            @lib.LegacyCatchAll(@lib.Expr(body)) =>
+              @lib.LegacyCatch::all(
+                @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+              )
+          }
+        })
+        out.push(
+          @lib.Instruction::try_(
+            bt,
+            @lib.Expr::new(ssa_raw_local_scope_rewrite(body, needs_default)),
+            catches,
+            delegate~,
+          ),
+        )
+      }
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+// Fresh SSA definitions can dominate a read without initializing its WebAssembly
+// control frame. Use nullable storage only for affected locals, then recover the
+// original non-null type at each get/tee, as the HOT scope repair does.
+fn ssa_repair_raw_nondefaultable_local_scopes(
+  original : @lib.Func,
+  params : Array[@lib.ValType],
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let mut has_nondefaultable = false
+  let local_runs = locals.runs()
+  for run in local_runs {
+    if !@lib.has_default(run.val_type()) {
+      has_nondefaultable = true
+      break
+    }
+  }
+  if !has_nondefaultable {
+    return (original, false)
+  }
+  let initialized = Array::make(params.length() + locals.length(), true)
+  let mut local_index = params.length()
+  for run in local_runs {
+    let count = run.count().reinterpret_as_int()
+    if !@lib.has_default(run.val_type()) {
+      for offset in 0..<count {
+        initialized[local_index + offset] = false
+      }
+    }
+    local_index += count
+  }
+  let scan : SsaRawLocalScopeScan = {
+    initialized,
+    writes: [],
+    needs_default: Array::make(params.length() + locals.length(), false),
+  }
+  ssa_raw_local_scope_scan(instrs, scan)
+  if !scan.needs_default.any(fn(value) { value }) {
+    return (original, false)
+  }
+  let repaired_locals = @lib.Locals::empty()
+  local_index = params.length()
+  for run in local_runs {
+    let original_type = run.val_type()
+    for _offset in 0..<run.count().reinterpret_as_int() {
+      let storage_type = if scan.needs_default[local_index] {
+        match original_type {
+          @lib.RefTypeValType(rt) =>
+            @lib.ValType::ref_type(
+              @lib.RefType::new(true, rt.get_heap_type(), exact=rt.is_exact()),
+            )
+          _ =>
+            abort("SSA scope repair requires a non-defaultable reference local")
+        }
+      } else {
+        original_type
+      }
+      repaired_locals.push(storage_type)
+      local_index += 1
+    }
+  }
+  (
+    @lib.Func::new(
+      repaired_locals,
+      @lib.Expr::new(ssa_raw_local_scope_rewrite(instrs, scan.needs_default)),
+    ),
+    true,
+  )
 }

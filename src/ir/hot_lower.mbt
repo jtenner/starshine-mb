@@ -378,6 +378,27 @@ priv struct HotLowerInputs {
 }
 
 ///|
+fn hot_lower_impl_control_entry_stack(
+  func : HotFunc,
+  id : NodeId,
+  first_entry_slot : Int32,
+) -> HotLowerValueStack? {
+  let node = hot_node_get(func, id)
+  if node.child_count == first_entry_slot {
+    return None
+  }
+  let params = hot_lower_impl_control_param_types(func, id)
+  Some(
+    hot_lower_value_stack_makei(params.length(), fn(index) {
+      {
+        node_id: func.children[node.child_base + first_entry_slot + index],
+        val_type: params[index],
+      }
+    }),
+  )
+}
+
+///|
 fn hot_lower_impl_input_info(
   func : HotFunc,
   id : NodeId,
@@ -404,9 +425,14 @@ fn hot_lower_impl_input_info(
         pop_count,
       }
     }
-    HotOp::Try
-    | HotOp::TryTable
-    | HotOp::Nop
+    HotOp::Try | HotOp::TryTable => {
+      let start = node.child_base + 2
+      {
+        nodes: func.children[start:node.child_base + node.child_count],
+        pop_count: node.child_count - 2,
+      }
+    }
+    HotOp::Nop
     | HotOp::Unreachable
     | HotOp::Const
     | HotOp::RefNull
@@ -2357,17 +2383,26 @@ fn hot_lower_impl_emit_instruction(
       out.push(Instruction::local_get(local_idx))
       out.push(Instruction::throw_ref())
     }
-    HotOp::Block =>
-      out.push(
-        Instruction::block(
-          hot_lower_impl_control_block_type(func, id),
-          Expr::new(
-            hot_lower_impl_body_items(
-              func, id, use_def, label_frames, label_stack_head, extra_locals, options,
-            ),
-          ),
-        ),
+    HotOp::Block => {
+      let body = hot_lower_impl_body_items(
+        func, id, use_def, label_frames, label_stack_head, extra_locals, options,
       )
+      // A retained scalar entry does not require a raw frame when its body
+      // has no control transfer. The prefix was already emitted before it.
+      if node.imm1 > 0 &&
+        hot_lower_impl_control_param_types(func, id).length() == 1 &&
+        !hot_lower_impl_label_is_used(label_frames, node.imm0) &&
+        !body.any(hot_lower_impl_has_control_transfer) {
+        out.append(body)
+      } else {
+        out.push(
+          Instruction::block(
+            hot_lower_impl_control_block_type(func, id),
+            Expr::new(body),
+          ),
+        )
+      }
+    }
     HotOp::Loop => {
       let loop_body = hot_lower_impl_body_items(
         func, id, use_def, label_frames, label_stack_head, extra_locals, options,
@@ -2432,19 +2467,7 @@ fn hot_lower_impl_emit_instruction(
       let condition_region_base = node.child_base
       let then_id = func.children[condition_region_base + 1]
       let else_id = func.children[condition_region_base + 2]
-      let entry_stack = if node.child_count == 3 {
-        None
-      } else {
-        let params = hot_lower_impl_control_param_types(func, id)
-        Some(
-          hot_lower_value_stack_makei(params.length(), fn(index) {
-            {
-              node_id: func.children[condition_region_base + 3 + index],
-              val_type: params[index],
-            }
-          }),
-        )
-      }
+      let entry_stack = hot_lower_impl_control_entry_stack(func, id, 3)
       out.push(
         Instruction::if_(
           hot_lower_impl_control_block_type(func, id),
@@ -2490,6 +2513,7 @@ fn hot_lower_impl_emit_instruction(
         let try_stack = hot_lower_impl_push_label(
           label_frames, label_stack_head, label_id,
         )
+        let entry_stack = hot_lower_impl_control_entry_stack(func, id, 2)
         let body = hot_lower_impl_region_body(
           func,
           func.children[node.child_base],
@@ -2498,6 +2522,7 @@ fn hot_lower_impl_emit_instruction(
           try_stack,
           extra_locals,
           options,
+          entry_stack~,
         )
         let catches : Array[@lib.LegacyCatch] = []
         let mut delegate = None
@@ -2750,6 +2775,7 @@ fn hot_lower_impl_emit_instruction(
       } else {
         label_stack_head
       }
+      let entry_stack = hot_lower_impl_control_entry_stack(func, id, 2)
       out.push(
         Instruction::try_table(
           hot_lower_impl_control_block_type(func, id),
@@ -2763,6 +2789,7 @@ fn hot_lower_impl_emit_instruction(
               next_stack,
               extra_locals,
               options,
+              entry_stack~,
             ),
           ),
         ),
@@ -4269,6 +4296,13 @@ fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
     | BrTable(_, _)
     | BrOnNull(_)
     | BrOnNonNull(_)
+    | BrOnCast(_, _, _, _)
+    | BrOnCastFail(_, _, _, _)
+    | BrOnCastDescEq(_, _, _)
+    | BrOnCastDescEqFail(_, _, _)
+    | Resume(_, _)
+    | ResumeThrow(_, _, _)
+    | ResumeThrowRef(_, _)
     | Return
     | Throw(_)
     | ThrowRef
@@ -5646,6 +5680,15 @@ fn hot_lower_impl_count_local_gets_in_instr(
         None => ()
       }
     }
+    Try(_, Expr(body), catches, _) => {
+      hot_lower_impl_count_local_gets_in_body(body, counts)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, Expr(body)) | @lib.LegacyCatchAll(Expr(body)) =>
+            hot_lower_impl_count_local_gets_in_body(body, counts)
+        }
+      }
+    }
     _ => ()
   }
 }
@@ -5828,6 +5871,20 @@ fn hot_lower_impl_instr_has_later_local_get(
       hot_lower_impl_body_has_later_local_get(then_, 0, local_)
     TryTable(_, _, Expr(body)) =>
       hot_lower_impl_body_has_later_local_get(body, 0, local_)
+    Try(_, Expr(body), catches, _) => {
+      if hot_lower_impl_body_has_later_local_get(body, 0, local_) {
+        return true
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, Expr(body)) | @lib.LegacyCatchAll(Expr(body)) =>
+            if hot_lower_impl_body_has_later_local_get(body, 0, local_) {
+              return true
+            }
+        }
+      }
+      false
+    }
     _ => false
   }
 }
@@ -5860,6 +5917,20 @@ fn hot_lower_impl_instr_writes_local(
       hot_lower_impl_body_writes_local(else_, local_)
     If(_, then_, None) => hot_lower_impl_body_writes_local(then_, local_)
     TryTable(_, _, Expr(body)) => hot_lower_impl_body_writes_local(body, local_)
+    Try(_, Expr(body), catches, _) => {
+      if hot_lower_impl_body_writes_local(body, local_) {
+        return true
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, Expr(body)) | @lib.LegacyCatchAll(Expr(body)) =>
+            if hot_lower_impl_body_writes_local(body, local_) {
+              return true
+            }
+        }
+      }
+      false
+    }
     _ => false
   }
 }

@@ -18370,7 +18370,7 @@ fn pass_manager_test_run_hot_pipeline_func(
     func_idx,
     descriptor,
     HotPipelineModuleState::new(),
-    { next_type_sec: mod_.type_sec, type_sec_changed: false, },
+    HotPipelineLowerState::new(mod_.type_sec),
     options,
   )
 }
@@ -18389,7 +18389,7 @@ fn pass_manager_test_run_hot_pipeline_func_with_module_state(
     func_idx,
     descriptor,
     module_state,
-    { next_type_sec: mod_.type_sec, type_sec_changed: false, },
+    HotPipelineLowerState::new(mod_.type_sec),
     options,
   )
 }

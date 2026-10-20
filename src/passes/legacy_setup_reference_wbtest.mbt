@@ -7,10 +7,7 @@ fn dae2_legacy_setup_reference(
     None => return Ok(mod_)
   }
   let env = @validate.Env::new().with_module(mod_)
-  let types : HotPipelineLowerState = {
-    next_type_sec: mod_.type_sec,
-    type_sec_changed: false,
-  }
+  let types : HotPipelineLowerState = HotPipelineLowerState::new(mod_.type_sec)
   let bodies : Array[@lib.Func] = []
   let imported = dae_imported_func_count(mod_)
   let mut changed = false

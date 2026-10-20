@@ -957,6 +957,25 @@ pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if set.strings.is_empty() {
     return mod_
   }
+  let mod_ = if mod_.name_sec is None {
+    match mod_.raw_name_sec_payload {
+      Some(payload) => {
+        let decoded : Result[(@lib.NameSec, Int32), @binary.BinaryDecodeError] = @binary.Decode::decode(
+          payload, 0,
+        )
+        match decoded {
+          Ok((names, end)) if end == payload.length() =>
+            mod_.with_name_sec(names)
+          // Malformed optional names do not prevent string gathering. The
+          // rewritten module below clears this stale, opaque name cache.
+          _ => mod_
+        }
+      }
+      None => mod_
+    }
+  } else {
+    mod_
+  }
   let imported_globals = sg_imported_global_count(mod_)
   let plan = sg_make_rewrite_plan(mod_, set, imported_globals)
   @lib.Module::new(

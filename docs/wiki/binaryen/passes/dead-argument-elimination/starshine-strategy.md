@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-29
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -1259,3 +1260,33 @@ these reproduced DAE cases, not release or general DAE parity signoff.
 
 Exact source/input/tool hashes, commands, spreads, RSS, observations and artifacts:
 `.tmp/large-pass-hotspots-20261001/main-dae-branch-liveness-20261003.md`.
+
+## October 19, 2026 — Multi-result actuals and boundary refresh
+
+Operand slices must describe complete stack lanes. A scalar slice cannot own a
+producer that returns more lanes than it still needs. When such a producer
+feeds several arguments, the localization path evaluates it once, consumes
+removed lanes and gives retained lanes distinct scratch locations. Values below
+the call arguments remain on the caller stack. The original review fixture
+returned 105 instead of 101 in both DAE modes; the bounded
+[multi-value tests](../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt)
+and [command tests](../../../../../src/cmd/cmd.mbt) require 101 and actual
+parameter removal.
+
+Boundary refresh shares type and first-unreachable-root indices, replays
+unchanged caller records, and caches forwarding syntax rather than semantic
+edges. Signature and type changes must still rebuild semantic dependencies;
+inactive return calls and forced aliased body edits are covered by the
+[cache tests](../../../../../src/passes/dae_review_dependency_cache_wbtest.mbt).
+Ordinary numeric parameter plans can reuse a checked source only after the
+first complete validation, with affected bodies rechecked and type changes
+falling back to a full gate. Invalid untouched bodies must still reject.
+See the [validation tests](../../../../../src/passes/dae_review_parameter_validation_wbtest.mbt).
+
+A helper that folds fields from a constant global reference must also prove
+the selected struct field is immutable. The October 20 follow-up adds the
+existing field-mutability check and two direct IR tests: a mutable read after
+`struct.set` stays a read, while an immutable sibling still folds. The helper
+had no production caller at discovery. See
+[`dae_immutable_global_field_wbtest.mbt`](../../../../../src/passes/dae_immutable_global_field_wbtest.mbt)
+and the [review evidence](../../../raw/tooling/2026-10-19-pass-review-follow-up.json).

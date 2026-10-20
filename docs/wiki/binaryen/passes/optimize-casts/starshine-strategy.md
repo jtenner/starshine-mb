@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-10-20
 sources:
+  - ../../../../../src/passes/report_types_metadata_wbtest.mbt
   - ./index.md
   - ../../../../../src/passes/optimize_casts.mbt
   - ../../../../../src/passes/optimize_casts_child_walk_perf_wbtest.mbt
@@ -255,3 +256,22 @@ replay passes 937/1000, one more than before and no new failures, in 172.401 s.
 The release CLI build takes 308.205 s, an open build performance bug. Its
 SHA-256 is `8d4fe3609c6b128f30dcefef6a05ca688b51565ecd365baa43b082c26ad35fe2`;
 the exact O4z component-trap fixture passes both engines with this binary.
+
+## October 19, 2026 — Keep the function hierarchy separate
+
+A concrete function heap type is a subtype of `func`, not `any`. The subtype
+helper now follows the validator's separate function and GC hierarchies.
+This prevents a type proof from treating a function reference as an anyref.
+[Focused type tests](../../../../../src/passes/report_types_metadata_wbtest.mbt)
+check the relation directly. Repeated comparisons share one lazy validation
+environment per pass invocation; functions without comparisons do not allocate
+that environment.
+
+The October 20 renewal has 10,000 canonical matches and no validation,
+generator, property or command failures against verified Binaryen 133. Runtime
+checking is off. A pre-existing generator defect gives all seven profile labels
+the same configuration and selects the later-reuse body; this is not evidence
+for seven distinct cast families. Direct type tests above cover the repaired
+hierarchy. Raw output is larger in all generated cases, so this renewal makes
+no raw-size win claim. The [joint record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
+and active cast-profile backlog retain these limits.

@@ -767,16 +767,22 @@ fn simplify_locals_collect_subtree_local_effects(
   )
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::If | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      for index in 0..<pass_value_operand_count(func, node_id) {
+        simplify_locals_collect_subtree_local_effects(
+          func,
+          @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, index)),
+          local_reads,
+          local_writes,
+          read_stamps,
+          write_stamps,
+          stamp,
+        )
+      }
+    _ => ()
+  }
+  match node.op {
     @ir.HotOp::If => {
-      simplify_locals_collect_subtree_local_effects(
-        func,
-        @ir.hot_child_get(func, node_id, 0),
-        local_reads,
-        local_writes,
-        read_stamps,
-        write_stamps,
-        stamp,
-      )
       simplify_locals_collect_region_local_effects(
         func,
         @ir.hot_region_then_ref(func, node_id),
@@ -879,13 +885,19 @@ fn simplify_locals_collect_subtree_global_effects(
   )
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::If | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      for index in 0..<pass_value_operand_count(func, node_id) {
+        simplify_locals_collect_subtree_global_effects(
+          func,
+          @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, index)),
+          global_reads,
+          global_writes,
+        )
+      }
+    _ => ()
+  }
+  match node.op {
     @ir.HotOp::If => {
-      simplify_locals_collect_subtree_global_effects(
-        func,
-        @ir.hot_child_get(func, node_id, 0),
-        global_reads,
-        global_writes,
-      )
       simplify_locals_collect_region_global_effects(
         func,
         @ir.hot_region_then_ref(func, node_id),
@@ -2913,20 +2925,9 @@ fn simplify_locals_inline_input_count(
   func : @ir.HotFunc,
   node_id : Int32,
 ) -> Int32 {
-  // A single syntactic local.get in a loop can execute many times and see
-  // writes from the backedge. Region roots are not expression operands.
-  // Leave them to the region scanner, which manages reaching definitions
-  // and effect barriers; only inline into inputs evaluated before entry.
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
-    @ir.HotOp::Loop =>
-      @ir.hot_label_branch_arity(
-        func,
-        @ir.hot_control_node_label(func, node_id),
-      )
-    @ir.HotOp::If => 1
-    _ => @ir.hot_child_count(func, node_id)
-  }
+  // Region roots are not expression operands. Entry values execute before
+  // the control frame, so they can be substituted without entering its body.
+  pass_value_operand_count(func, node_id)
 }
 
 ///|
@@ -2952,7 +2953,9 @@ fn simplify_locals_try_inline_local_get_child(
     _ => false
   }
   let input_count = simplify_locals_inline_input_count(func, node_id)
-  for slot = 0; slot < input_count; slot = slot + 1 {
+  let input_node = @ir.hot_node_get(func, node_id)
+  for index = 0; index < input_count; index = index + 1 {
+    let slot = pass_value_operand_slot(input_node, index)
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
@@ -3001,7 +3004,9 @@ fn simplify_locals_try_inline_leading_local_get_child(
     _ => false
   }
   let input_count = simplify_locals_inline_input_count(func, node_id)
-  for slot = 0; slot < input_count; slot = slot + 1 {
+  let input_node = @ir.hot_node_get(func, node_id)
+  for index = 0; index < input_count; index = index + 1 {
+    let slot = pass_value_operand_slot(input_node, index)
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
@@ -3038,7 +3043,9 @@ fn simplify_locals_try_move_control_to_leading_local_get_child(
     return false
   }
   let input_count = simplify_locals_inline_input_count(func, node_id)
-  for slot = 0; slot < input_count; slot = slot + 1 {
+  let input_node = @ir.hot_node_get(func, node_id)
+  for index = 0; index < input_count; index = index + 1 {
+    let slot = pass_value_operand_slot(input_node, index)
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
@@ -3864,6 +3871,16 @@ fn simplify_locals_node_has_any_branch(
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_node_kind_is_control(func, node_id) {
+    for index in 0..<pass_value_operand_count(func, node_id) {
+      if simplify_locals_node_has_any_branch(
+          func,
+          @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, index)),
+        ) {
+        return true
+      }
+    }
+  }
   match node.op {
     @ir.HotOp::Br
     | @ir.HotOp::BrIf
@@ -3887,11 +3904,7 @@ fn simplify_locals_node_has_any_branch(
         return true
       }
     @ir.HotOp::If => {
-      if simplify_locals_node_has_any_branch(
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-        ) ||
-        simplify_locals_region_has_any_branch(
+      if simplify_locals_region_has_any_branch(
           func,
           @ir.hot_region_then_ref(func, node_id),
         ) {
@@ -4019,7 +4032,11 @@ fn simplify_locals_scan_node_uncaptured(
   let mut previous_input = -1
   let mut lane = 0
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable =>
       for index = 0
           index < pass_value_operand_count(func, node_id)
           index = index + 1 {
@@ -4873,6 +4890,15 @@ fn simplify_locals_region_has_branch_to_label(
       return true
     }
     let node = @ir.hot_node_get(func, node_id)
+    for index in 0..<pass_value_operand_count(func, node_id) {
+      if simplify_locals_subtree_has_branch_to_label(
+          func,
+          @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, index)),
+          target_label,
+        ) {
+        return true
+      }
+    }
     match node.op {
       @ir.HotOp::Block | @ir.HotOp::Loop =>
         if simplify_locals_region_has_branch_to_label(
@@ -4997,6 +5023,7 @@ fn simplify_locals_try_rewrite_block_return(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -5023,12 +5050,14 @@ fn simplify_locals_try_rewrite_block_return(
   for preferred_local in preferred_locals {
     for candidate in candidates {
       if candidate.local_id != preferred_local ||
+        !simplify_locals_structure_batch_allows(batch, candidate.local_id) ||
         (!allow_multi_use && get_counts[candidate.local_id] > 1) {
         continue
       }
       if simplify_locals_try_apply_block_return_candidate(
           func, node_id, label_id, candidate, detached,
         ) {
+        simplify_locals_structure_batch_note(batch, candidate.local_id)
         if get_counts[candidate.local_id] == 1 &&
           (
             simplify_locals_try_consume_following_local_get(
@@ -5069,13 +5098,15 @@ fn simplify_locals_try_rewrite_block_return(
   let mut candidate_idx = candidates.length() - 1
   while candidate_idx >= 0 {
     let candidate = candidates[candidate_idx]
-    if !allow_multi_use && get_counts[candidate.local_id] > 1 {
+    if !simplify_locals_structure_batch_allows(batch, candidate.local_id) ||
+      (!allow_multi_use && get_counts[candidate.local_id] > 1) {
       candidate_idx = candidate_idx - 1
       continue
     }
     if simplify_locals_try_apply_block_return_candidate(
         func, node_id, label_id, candidate, detached,
       ) {
+      simplify_locals_structure_batch_note(batch, candidate.local_id)
       if get_counts[candidate.local_id] == 1 &&
         (
           simplify_locals_try_consume_following_local_get(
@@ -5121,6 +5152,7 @@ fn simplify_locals_try_rewrite_if_return(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -5164,6 +5196,7 @@ fn simplify_locals_try_rewrite_if_return(
       if chosen_local < 0 ||
         chosen_local >= get_counts.length() ||
         get_counts[chosen_local] == 0 ||
+        !simplify_locals_structure_batch_allows(batch, chosen_local) ||
         (!allow_multi_use && get_counts[chosen_local] > 1) {
         return false
       }
@@ -5188,6 +5221,7 @@ fn simplify_locals_try_rewrite_if_return(
         ) {
         return false
       }
+      simplify_locals_structure_batch_note(batch, chosen_local)
       if !then_unreachable {
         let tail = then_tail.unwrap()
         simplify_locals_replace_tail_set_with_result_value(func, then_ref, tail)
@@ -5234,10 +5268,12 @@ fn simplify_locals_try_rewrite_if_return(
       }
       if then_tail.local_id < 0 ||
         then_tail.local_id >= get_counts.length() ||
+        !simplify_locals_structure_batch_allows(batch, then_tail.local_id) ||
         (!allow_multi_use && get_counts[then_tail.local_id] > 1) ||
         !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
         return false
       }
+      simplify_locals_structure_batch_note(batch, then_tail.local_id)
       simplify_locals_replace_tail_set_with_result_value(
         func, then_ref, then_tail,
       )
@@ -5323,6 +5359,7 @@ fn simplify_locals_try_rewrite_loop_return(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -5340,6 +5377,7 @@ fn simplify_locals_try_rewrite_loop_return(
   if tail.local_id < 0 ||
     tail.local_id >= get_counts.length() ||
     get_counts[tail.local_id] == 0 ||
+    !simplify_locals_structure_batch_allows(batch, tail.local_id) ||
     (!allow_multi_use && get_counts[tail.local_id] > 1) {
     return false
   }
@@ -5358,6 +5396,7 @@ fn simplify_locals_try_rewrite_loop_return(
   }
   // The tail value still executes inside the loop. Export the loop's result,
   // rather than copying its producer into a following local.get.
+  simplify_locals_structure_batch_note(batch, tail.local_id)
   simplify_locals_replace_tail_set_with_result_value(func, body_ref, tail)
   simplify_locals_queue_rehomed_wrapper_for_deletion(
     func,
@@ -5410,6 +5449,7 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
   if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
     return false
@@ -5434,10 +5474,12 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
   if then_tail.local_id < 0 ||
     then_tail.local_id >= get_counts.length() ||
     get_counts[then_tail.local_id] == 0 ||
+    !simplify_locals_structure_batch_allows(batch, then_tail.local_id) ||
     (!allow_multi_use && get_counts[then_tail.local_id] > 1) ||
     !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
     return false
   }
+  simplify_locals_structure_batch_note(batch, then_tail.local_id)
   simplify_locals_replace_tail_set_with_result_value(func, then_ref, then_tail)
   simplify_locals_queue_rehomed_wrapper_for_deletion(
     func,
@@ -5504,6 +5546,7 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_children(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -5519,6 +5562,7 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_children(
         get_counts,
         detached,
         allow_multi_use~,
+        batch~,
       ) ||
       simplify_locals_try_rewrite_nested_one_armed_if_child(
         func,
@@ -5528,9 +5572,217 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_children(
         get_counts,
         detached,
         allow_multi_use~,
+        batch~,
       ) {
       return true
     }
+  }
+  false
+}
+
+///|
+priv struct SimplifyLocalsStructureBatch {
+  blocked_writes : Array[Bool]
+}
+
+///|
+fn SimplifyLocalsStructureBatch::new(
+  func : @ir.HotFunc,
+) -> SimplifyLocalsStructureBatch {
+  { blocked_writes: Array::make(@ir.hot_local_count(func), false), }
+}
+
+///|
+fn simplify_locals_structure_batch_allows(
+  batch : SimplifyLocalsStructureBatch?,
+  local : Int32,
+) -> Bool {
+  match batch {
+    Some(batch) =>
+      local >= 0 &&
+      local < batch.blocked_writes.length() &&
+      !batch.blocked_writes[local]
+    None => true
+  }
+}
+
+///|
+fn simplify_locals_structure_batch_note(
+  batch : SimplifyLocalsStructureBatch?,
+  local : Int32,
+) -> Unit {
+  if batch is Some(batch) {
+    batch.blocked_writes[local] = true
+  }
+}
+
+///|
+fn simplify_locals_try_structure_rewrite_root(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int32,
+  get_counts : Array[Int32],
+  detached : Array[Int32],
+  allow_multi_use~ : Bool = true,
+  scan_nested_ifs~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
+) -> Bool {
+  let node_id = @ir.hot_region_get(func, region_ref, idx)
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if simplify_locals_try_rewrite_split_local_set_wrapper_forwarder(
+      func, node_id, detached,
+    ) {
+    return true
+  }
+  if scan_nested_ifs &&
+    simplify_locals_try_rewrite_nested_one_armed_if_children(
+      func,
+      node_id,
+      get_counts,
+      detached,
+      allow_multi_use~,
+      batch~,
+    ) {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block =>
+      if simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) ||
+        simplify_locals_try_rewrite_block_return(
+          func,
+          region_ref,
+          idx,
+          node_id,
+          get_counts,
+          detached,
+          allow_multi_use~,
+          batch~,
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if simplify_locals_try_structure_rewrite_region(
+              func,
+              else_ref,
+              get_counts,
+              detached,
+              allow_multi_use~,
+              scan_nested_ifs~,
+              batch~,
+            ) {
+            return true
+          }
+        None => ()
+      }
+      if simplify_locals_try_rewrite_if_return(
+          func,
+          region_ref,
+          idx,
+          node_id,
+          get_counts,
+          detached,
+          allow_multi_use~,
+          batch~,
+        ) {
+        return true
+      }
+    }
+    @ir.HotOp::Loop =>
+      if simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) ||
+        simplify_locals_try_rewrite_loop_return(
+          func,
+          region_ref,
+          idx,
+          node_id,
+          get_counts,
+          detached,
+          allow_multi_use~,
+          batch~,
+        ) {
+        return true
+      }
+    @ir.HotOp::Try => {
+      if simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          if simplify_locals_try_structure_rewrite_region(
+              func,
+              catch_ref,
+              get_counts,
+              detached,
+              allow_multi_use~,
+              scan_nested_ifs~,
+              batch~,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable =>
+      if simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) ||
+        simplify_locals_try_structure_rewrite_region(
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+          get_counts,
+          detached,
+          allow_multi_use~,
+          scan_nested_ifs~,
+          batch~,
+        ) {
+        return true
+      }
+    _ => ()
   }
   false
 }
@@ -5542,146 +5794,51 @@ fn simplify_locals_try_structure_rewrite_region(
   get_counts : Array[Int32],
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  scan_nested_ifs~ : Bool = true,
+  batch~ : SimplifyLocalsStructureBatch? = None,
 ) -> Bool {
+  let mut changed = false
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    let node_id = @ir.hot_region_get(func, region_ref, idx)
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    if simplify_locals_try_rewrite_split_local_set_wrapper_forwarder(
-        func, node_id, detached,
-      ) {
-      return true
-    }
-    if simplify_locals_try_rewrite_nested_one_armed_if_children(
+    if simplify_locals_try_structure_rewrite_root(
         func,
-        node_id,
+        region_ref,
+        idx,
         get_counts,
         detached,
         allow_multi_use~,
+        scan_nested_ifs~,
+        batch~,
       ) {
-      return true
+      changed = true
+      if batch is None {
+        return true
+      }
     }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::Block =>
-        if simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) ||
-          simplify_locals_try_rewrite_block_return(
-            func,
-            region_ref,
-            idx,
-            node_id,
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
-        }
+  }
+  changed
+}
+
+///|
+fn simplify_locals_structure_control_flags(func : @ir.HotFunc) -> (Bool, Bool) {
+  let mut has_control = false
+  let mut has_nested_if_candidate = false
+  for node_id in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop => has_control = true
       @ir.HotOp::If => {
-        if simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_then_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
-        }
-        match @ir.hot_region_else_ref(func, node_id) {
-          Some(else_ref) =>
-            if simplify_locals_try_structure_rewrite_region(
-                func,
-                else_ref,
-                get_counts,
-                detached,
-                allow_multi_use~,
-              ) {
-              return true
-            }
-          None => ()
-        }
-        if simplify_locals_try_rewrite_if_return(
-            func,
-            region_ref,
-            idx,
-            node_id,
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
+        has_control = true
+        if @ir.hot_region_else_ref(func, node_id) is None {
+          has_nested_if_candidate = true
+          break
         }
       }
-      @ir.HotOp::Loop =>
-        if simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) ||
-          simplify_locals_try_rewrite_loop_return(
-            func,
-            region_ref,
-            idx,
-            node_id,
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
-        }
-      @ir.HotOp::Try => {
-        if simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
-        }
-        match @ir.hot_region_catch_ref(func, node_id) {
-          Some(catch_ref) =>
-            if simplify_locals_try_structure_rewrite_region(
-                func,
-                catch_ref,
-                get_counts,
-                detached,
-                allow_multi_use~,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @ir.HotOp::TryTable =>
-        if simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) ||
-          simplify_locals_try_structure_rewrite_region(
-            func,
-            @ir.hot_region_catch_list_ref(func, node_id),
-            get_counts,
-            detached,
-            allow_multi_use~,
-          ) {
-          return true
-        }
       _ => ()
     }
   }
-  false
+  (has_control, has_nested_if_candidate)
 }
 
 ///|
@@ -5689,13 +5846,31 @@ fn simplify_locals_run_structure_rewrites(
   func : @ir.HotFunc,
   detached : Array[Int32],
   allow_multi_use~ : Bool = true,
+  batch_independent~ : Bool = true,
 ) -> Bool {
+  // Nested-If rewriting can only change a one-armed If. Without one, its
+  // recursive child walk repeats the region walk at every enclosing control.
+  let (has_control, scan_nested_ifs) = simplify_locals_structure_control_flags(
+    func,
+  )
+  if !has_control {
+    return false
+  }
   simplify_locals_try_structure_rewrite_region(
     func,
     @ir.HotRegionRef::root(),
     simplify_locals_count_local_gets(func),
     detached,
     allow_multi_use~,
+    scan_nested_ifs~,
+    // A structural rewrite changes get counts only for locals written by its
+    // subtree. Batch disjoint writers with one count snapshot; defer conflicts
+    // to the normal main/dead cleanup cycle before another structural scan.
+    batch=if batch_independent {
+      Some(SimplifyLocalsStructureBatch::new(func))
+    } else {
+      None
+    },
   )
 }
 
@@ -6194,7 +6369,11 @@ fn simplify_locals_scan_equivalent_node_uncaptured(
   let mut previous_input = -1
   let mut lane = 0
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable =>
       for index = 0
           index < pass_value_operand_count(func, node_id)
           index = index + 1 {
@@ -7285,6 +7464,7 @@ fn simplify_locals_run_with_options(
   policy : SimplifyLocalsPolicy,
   reuse_get_counts~ : Bool = true,
   get_count_scans~ : Array[Int32]? = None,
+  batch_structure_rewrites~ : Bool = true,
 ) -> HotPassResult {
   let get_count_cache = if reuse_get_counts {
     simplify_locals_new_get_count_cache(func)
@@ -7406,6 +7586,7 @@ fn simplify_locals_run_with_options(
         func,
         structure_detached,
         allow_multi_use=policy.allow_sink_tee,
+        batch_independent=batch_structure_rewrites,
       )
       perf_stop_timer_opt(
         ctx.perf,
@@ -7516,8 +7697,11 @@ fn simplify_locals_is_region_child_slot(
   node_id : Int32,
   slot : Int32,
 ) -> Bool {
-  if @ir.hot_node_get(func, node_id).op is @ir.HotOp::If {
+  let op = @ir.hot_node_get(func, node_id).op
+  if op is @ir.HotOp::If {
     slot == 1 || slot == 2
+  } else if op is @ir.HotOp::Try || op is @ir.HotOp::TryTable {
+    slot == 0 || slot == 1
   } else {
     slot >= pass_value_operand_count(func, node_id)
   }

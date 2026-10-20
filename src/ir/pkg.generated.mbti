@@ -108,6 +108,8 @@ pub fn cache_invalidate_all(HotAnalysisCache) -> Unit
 
 pub fn cache_invalidate_analyses(HotAnalysisCache, Array[HotAnalysis]) -> Unit
 
+pub fn cache_swap_scalar_operands(HotAnalysisCache, HotFunc, Int, instr? : @lib.Instruction?) -> Bool
+
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
 pub fn cfg_block_count(HotCfg) -> Int
@@ -189,6 +191,8 @@ pub fn effects_atomic_orders_conflict(UInt, UInt, earlier_shared~ : Bool, later_
 pub fn effects_for_block(HotFunc, HotCfg, Int) -> UInt
 
 pub fn effects_for_node(HotFunc, Int) -> UInt
+
+pub fn effects_for_node_subtree(HotFunc, Int) -> UInt
 
 pub fn effects_for_region(HotFunc, HotRegionRef) -> UInt
 
