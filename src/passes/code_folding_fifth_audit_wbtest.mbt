@@ -53,7 +53,12 @@ test "fifth audit code folding preserves continuation handler scope" {
     @ir.hot_region_body_ref(func, inner),
     0,
   )
-  let index = CodeFoldingExitIndex::new(@ir.hot_node_count(func), true, true)
+  let index = CodeFoldingExitIndex::new(
+    @ir.hot_node_count(func),
+    true,
+    true,
+    @bitset.BitSet::new(@ir.hot_node_count(func)),
+  )
   assert_false(
     code_folding_branch_targets_survive_hoist(
       func, resume_node, inner, resume_node, index,
@@ -117,6 +122,11 @@ test "fifth audit code folding preserves continuation exception scope" {
     @ir.hot_region_body_ref(func, inner),
     0,
   )
-  let index = CodeFoldingExitIndex::new(@ir.hot_node_count(func), true, true)
+  let index = CodeFoldingExitIndex::new(
+    @ir.hot_node_count(func),
+    true,
+    true,
+    @bitset.BitSet::new(@ir.hot_node_count(func)),
+  )
   assert_true(code_folding_node_may_throw_for_eh_move(func, resume_node))
 }

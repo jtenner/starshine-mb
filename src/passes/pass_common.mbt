@@ -265,6 +265,7 @@ pub fn pass_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::BrOnCastFail(_, _, _, _)
     | @lib.Instruction::BrOnCastDescEq(_, _, _)
     | @lib.Instruction::BrOnCastDescEqFail(_, _, _)
+    | @lib.Instruction::Rethrow(_)
     | @lib.Instruction::Return
     | @lib.Instruction::ReturnCall(_)
     | @lib.Instruction::ReturnCallIndirect(_, _)

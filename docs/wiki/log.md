@@ -1,3 +1,25 @@
+### 2026-10-20 — Repair IR ownership and control-flow corruption defects
+
+- Red-first regressions reproduce nine IR ownership/invariant defects, two
+  legacy exception CFG defects, two direct SSA destruction defects, and three
+  pass semantic defects. The tests cover loop entry/result arity, local/type and
+  exact-payload array ownership, direct block/loop region walking, unsupported
+  simple-value comparison, typed try entry sentinels, maximum-size bitset
+  arithmetic, tagged legacy catches, delegates, typed-loop operands, branch
+  operand phi sources, self-targeting block exits, rethrow depth, and resume
+  handler exits.
+- HOT constructors and public getters now keep mutable arrays private. CFG uses
+  separate normal and exception label targets and preserves unmatched typed
+  catch flow. Direct SSA destruction owns its operand inventory, so pass callers
+  do not duplicate that scan. CodeFolding, raw unreachable cleanup, and
+  OptimizeCasts retain their required control boundaries.
+- Final validation passed `moon info`, `moon fmt`, the README/API sync gate, and
+  the full wasm-gc suite (`15373/15373`). Verified Binaryen 133 lanes compared
+  `optimize-casts-all` at `10000/10000` exact canonical matches; reproduced the
+  documented `code-folding-all` split (`6624` exact, `3376` one-byte
+  Starshine wins); and reproduced the documented once-reduction tail-call
+  family (`10000/10000` valid, Starshine `120` bytes versus Binaryen `144`).
+
 ### 2026-10-20 — Repair master CI on the qualified compiler
 
 - The [repair record](tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler) identifies the moving compiler's API failures and pins all 11 Moon setup steps to the qualified compiler/Core pair. Archive observations and their limits remain explicit; the license guard stays unchanged.

@@ -48,6 +48,7 @@ priv struct CodeFoldingExitIndex {
   mut movement_visited_marks : Array[Int32]
   mut movement_epoch : Int32
   mut facts_epoch : Int32
+  label_used : @bitset.BitSet
 }
 
 ///|
@@ -103,6 +104,7 @@ priv struct CodeFoldingTerminatingFacts {
   mut mark_epoch : Int32
   mut root_has_eh_ready : Bool
   mut root_has_eh_value : Bool
+  label_used : @bitset.BitSet
 }
 
 ///|
@@ -133,6 +135,7 @@ fn CodeFoldingTerminatingFacts::new(
     mark_epoch: 0,
     root_has_eh_ready: false,
     root_has_eh_value: false,
+    label_used,
   }
 }
 
@@ -548,10 +551,9 @@ fn code_folding_node_exits_to_own_block_label(
   }
   let last = @ir.hot_node_get(func, last_id)
   match last.op {
-    @ir.HotOp::Br => last.imm0 == label_id && last.child_count == 0
+    @ir.HotOp::Br => last.imm0 == label_id
     @ir.HotOp::BrTable => {
-      if last.child_count != 1 ||
-        @ir.hot_branch_table_default_target(func, last.imm0) != label_id {
+      if @ir.hot_branch_table_default_target(func, last.imm0) != label_id {
         return false
       }
       for target_id in @ir.hot_branch_table_targets(func, last.imm0) {
@@ -607,7 +609,12 @@ fn code_folding_terminating_node_prevents_fallthrough(
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let count = @ir.hot_region_root_count(func, body_ref)
-      if count > 0 {
+      if count > 0 &&
+        !pass_label_is_used(
+          @ir.hot_control_node_label(func, node_id),
+          facts.label_used,
+        ) &&
+        !code_folding_node_exits_to_own_block_label(func, node_id) {
         result = code_folding_terminating_node_prevents_fallthrough(
           func,
           @ir.hot_region_get(func, body_ref, count - 1),
@@ -2153,7 +2160,12 @@ fn code_folding_node_prevents_fallthrough_with_index(
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let count = @ir.hot_region_root_count(func, body_ref)
-      if count > 0 {
+      if count > 0 &&
+        !pass_label_is_used(
+          @ir.hot_control_node_label(func, node_id),
+          index.label_used,
+        ) &&
+        !code_folding_node_exits_to_own_block_label(func, node_id) {
         result = code_folding_node_prevents_fallthrough_with_index(
           func,
           @ir.hot_region_get(func, body_ref, count - 1),
@@ -2887,6 +2899,7 @@ fn CodeFoldingExitIndex::new(
   node_count : Int32,
   build_block_exit_index : Bool,
   visit_control_bodies : Bool,
+  label_used : @bitset.BitSet,
 ) -> CodeFoldingExitIndex {
   let index_node_count = if build_block_exit_index { node_count } else { 0 }
   {
@@ -2912,6 +2925,7 @@ fn CodeFoldingExitIndex::new(
     movement_visited_marks: [],
     movement_epoch: 0,
     facts_epoch: 1,
+    label_used,
   }
 }
 
@@ -3192,7 +3206,7 @@ fn code_folding_build_block_exit_index(
     }
   }
   let index = CodeFoldingExitIndex::new(
-    node_count, has_used_block_label, has_control_body,
+    node_count, has_used_block_label, has_control_body, label_used,
   )
   if has_used_block_label {
     code_folding_index_block_exit_region(

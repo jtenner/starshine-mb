@@ -974,7 +974,8 @@ fn oc_op_is_linear_block_barrier(op : @ir.HotOp) -> Bool {
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate => true
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Continuation => true
     _ => false
   }
 }
