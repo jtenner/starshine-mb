@@ -27870,3 +27870,13 @@ arrays/typecheck wrappers from the completed return packaging change.
 ### 2026-10-17 — Rough optimizer pass performance inventory
 
 - Renewed the [active-pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) from native source `17df23d87` against verified Binaryen 133 on three fixed inputs. One warmup and three serial alternating samples cover 61/61/59 standalone sequences, with StripDebug references. The record includes all 172 oracle flags, aliases, Starshine-only entries, pattern-policy exclusions and guarded large cases. Raw-path clocks are included without double-counting inclusive pass spans; whole-command and pipeline costs remain separate. Preserved samples, symmetric writer sizes and independent validation establish discovery evidence only: concurrent project workloads, unclassified output drift, quiet-host renewal and semantic/runtime signoff remain explicit. No optimizer implementation or release target changed.
+
+
+## 2026-10-20 — Compiler bridge function export builder
+
+The [function/export section page](binary/function-import-export-and-code-sections.md#compiler-bridge-function-exports)
+now records the raw WasmGC builder for ordered additional function exports. It
+preserves existing exports and accepts UTF-8 name bytes across a scalar bridge.
+The [bridge regression](../../src/ffi_bridge/compiler_bridge_test.mbt) checks exact
+IR, input preservation, and validated binary round trip. This lets compiler
+worker entry points use ordinary exports without hard-coded worker names.

@@ -3847,6 +3847,16 @@
     "effect": ""
   },
   {
+    "sourceName": "ffi_ffi_bridge_function_export_builder_new",
+    "exportName": "ffi_bridge::function_export_builder_new",
+    "packageAlias": "ffi_bridge",
+    "owner": null,
+    "name": "function_export_builder_new",
+    "params": [],
+    "returnType": "@ffi_bridge.FunctionExportBuilder",
+    "effect": ""
+  },
+  {
     "sourceName": "ffi_ffi_bridge_function_reference_builder_new",
     "exportName": "ffi_bridge::function_reference_builder_new",
     "packageAlias": "ffi_bridge",
@@ -4082,6 +4092,29 @@
     "owner": null,
     "name": "module_new",
     "params": [],
+    "returnType": "@lib.Module",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_ffi_bridge_module_with_additional_function_exports",
+    "exportName": "ffi_bridge::module_with_additional_function_exports",
+    "packageAlias": "ffi_bridge",
+    "owner": null,
+    "name": "module_with_additional_function_exports",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@lib.Module",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "@ffi_bridge.FunctionExportBuilder",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
     "returnType": "@lib.Module",
     "effect": ""
   },
@@ -4982,6 +5015,52 @@
       }
     ],
     "returnType": "Bool",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_ffi_bridge_FunctionExportBuilder_push",
+    "exportName": "FunctionExportBuilder::push",
+    "packageAlias": "ffi_bridge",
+    "owner": "FunctionExportBuilder",
+    "name": "push",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@ffi_bridge.FunctionExportBuilder",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Int",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Unit",
+    "effect": ""
+  },
+  {
+    "sourceName": "ffi_ffi_bridge_FunctionExportBuilder_push_name_byte",
+    "exportName": "FunctionExportBuilder::push_name_byte",
+    "packageAlias": "ffi_bridge",
+    "owner": "FunctionExportBuilder",
+    "name": "push_name_byte",
+    "params": [
+      {
+        "name": "arg0",
+        "type": "@ffi_bridge.FunctionExportBuilder",
+        "optional": false,
+        "labelOnly": false
+      },
+      {
+        "name": "arg1",
+        "type": "Byte",
+        "optional": false,
+        "labelOnly": false
+      }
+    ],
+    "returnType": "Unit",
     "effect": ""
   },
   {

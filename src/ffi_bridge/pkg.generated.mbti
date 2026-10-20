@@ -3,6 +3,7 @@ package "jtenner/starshine/ffi_bridge"
 
 import {
   "jtenner/starshine/lib",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
 }
 
@@ -16,6 +17,8 @@ pub fn field_types_push(Array[@lib.FieldType], @lib.FieldType) -> Unit
 pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
+
+pub fn function_export_builder_new() -> FunctionExportBuilder
 
 pub fn function_reference_builder_new() -> FunctionReferenceBuilder
 
@@ -44,6 +47,8 @@ pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
 pub fn memory_argument(UInt, UInt64) -> @lib.MemArg
 
 pub fn module_new() -> @lib.Module
+
+pub fn module_with_additional_function_exports(@lib.Module, FunctionExportBuilder) -> @lib.Module
 
 pub fn module_with_compiler_exports(@lib.Module, Int) -> @lib.Module
 
@@ -137,6 +142,13 @@ pub struct EncodedModule {
 pub fn EncodedModule::byte_at(Self, UInt) -> Byte
 pub fn EncodedModule::byte_length(Self) -> UInt
 pub fn EncodedModule::is_ok(Self) -> Bool
+
+pub(all) struct FunctionExportBuilder {
+  exports : Array[@lib.Export]
+  name : @buffer.Buffer
+}
+pub fn FunctionExportBuilder::push(Self, Int) -> Unit
+pub fn FunctionExportBuilder::push_name_byte(Self, Byte) -> Unit
 
 pub(all) struct FunctionReferenceBuilder {
   functions : Array[@lib.FuncIdx]
