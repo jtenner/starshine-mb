@@ -1,7 +1,7 @@
 ### 2026-10-20 — Pin the qualified compiler for master CI
 
 - The [repair record](tooling/validation-gates.md#october-20-2026--pin-the-qualified-ci-compiler) records the newer compiler's API failures and the shared full-version pin for 11 jobs in six workflows. Official archives match the qualified tools and all 1,200 Core files; this supersedes the earlier archive provisioning limit without changing its history.
-- Red/green workflow and optimizer contracts pass; current comparison jobs require Binaryen 133. Product-version, interface and format checks pass. Fresh coverage exceeds the unchanged 28,138-line budget by 127 lines, and bounded test repairs remain active. FFI regeneration and 38 generator contracts pass. Later artifact/consumer gates and exact-head remote CI remain pending. This checkpoint does not claim repair completion.
+- Red/green workflow and optimizer contracts pass; current comparison jobs require Binaryen 133. Product-version, interface and format checks pass. Fresh coverage exceeds the unchanged 28,138-line budget by 127 lines, and three bounded tests now check 73 numeric folds and eight traps through both Precompute variants. Focused tests, independent arithmetic review, FFI regeneration and 38 generator contracts pass. The full coverage rerun remains active. Later artifact/consumer gates and exact-head remote CI remain pending. This checkpoint does not claim repair completion.
 
 ### 2026-10-20 — Complete the pass review repairs
 

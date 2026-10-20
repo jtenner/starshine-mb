@@ -226,7 +226,8 @@
     "scripts/lib/npm-licenses.mjs",
     "ffi/src/ffi/exports.generated.mbt",
     "ffi/src/ffi/export-names.generated.json",
-    "ffi/src/ffi/export-schema.generated.json"
+    "ffi/src/ffi/export-schema.generated.json",
+    "src/passes/precompute_numeric_fold_contract_wbtest.mbt"
   ],
   "localEvidence": {
     "root": "/tmp/starshine-master-ci-20261020",
@@ -278,5 +279,22 @@
     },
     "consumerGates": "pending",
     "limit": "The parent ran FFI generation and its green check; this review ran only source/schema comparisons and pure JavaScript contracts."
+  },
+  "coverageRepair": {
+    "file": "src/passes/precompute_numeric_fold_contract_wbtest.mbt",
+    "sha256": "9a0a2bf663d96a12241c418a04e562cdab39ce2a726a4fa4037a5a2080da331b",
+    "tests": 3,
+    "constantFoldCases": 73,
+    "trapCases": 8,
+    "passes": [
+      "precompute",
+      "precompute-propagate"
+    ],
+    "contract": "Require exactly one expected constant with exact literal bits for folds; retain all original trap instructions and function counts; validate every output.",
+    "focusedTestResult": "3 passed, 0 failed before final function-count hardening; complete fresh run includes final assertion.",
+    "independentReview": "All expected numbers, float bits and trap inputs independently checked with a Python arithmetic model; no defect found. Final hardening adds explicit trap function-count assertion.",
+    "baselineChanged": false,
+    "fullFreshCoverage": "running; no final line count claimed",
+    "estimateLimit": "A direct coverage report combined other local scopes and is not comparable to the analyze gate; discard its estimate."
   }
 }

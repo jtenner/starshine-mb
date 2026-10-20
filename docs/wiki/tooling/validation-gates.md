@@ -1810,8 +1810,13 @@ unchanged. Historical oracle results keep their recorded versions.
 
 These local checks do not complete the repair. Fresh coverage reports 28,265
 uncovered lines across 260 files, against the unchanged budget of 28,138 lines
-across 196 files. The 127-line excess is an active blocker; bounded test repairs
-remain in progress. Product-version, `moon info` and `moon fmt` checks pass.
+across 196 files. The initial 127-line excess is an active blocker. Three bounded
+[numeric-folding tests](../../../src/passes/precompute_numeric_fold_contract_wbtest.mbt)
+check 73 fixed results and eight trap expressions through both Precompute
+variants. They compare exact opcodes/bits, validate outputs and preserve function
+counts. The focused run passes; independent arithmetic review finds no defect.
+The complete coverage rerun is active and the budget is unchanged. Product-version,
+`moon info` and `moon fmt` checks pass.
 The fresh `bun ffi check` exposed two missing generated IR exports,
 `cache_swap_scalar_operands` and `effects_for_node_subtree`. Regeneration
 updates their wrappers, names and schema; the check now passes with 4,377
