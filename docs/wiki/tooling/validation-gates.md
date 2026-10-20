@@ -231,17 +231,17 @@ The three jobs and their exact local equivalents are:
    bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
    ```
 
-3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid check against its pinned legacy Binaryen `132` baseline:
+3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid check against its pinned Binaryen `133` baseline:
 
    ```text
    moon update
    moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*retained dropped-result graph*'
    moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*complete dead-suffix call removal reports topology change*'
    moon build --target native --release src/cmd
-   bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --determinism --codec-idempotence --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --require-binaryen-version 132 --max-failures 1 --no-reduce-mismatches
+   bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --determinism --codec-idempotence --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --require-binaryen-version 133 --max-failures 1 --no-reduce-mismatches
    ```
 
-New dedicated pass evidence uses the verified Binaryen 133 target from `AGENTS.md`; the existing required differential job retains its explicit legacy 132 contract. For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_132` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
+New dedicated pass evidence and the required differential job use the verified Binaryen 133 target from `AGENTS.md`. For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_133` directory. Earlier v132 commands and results remain historical evidence. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks static package contracts, builds the package artifacts, and tests exact packed JavaScript/TypeScript consumers plus source-archive and README consumers. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
 
 Both CI compare-pass correctness lanes require fresh-run deterministic output and stable decode/encode bytes.
 

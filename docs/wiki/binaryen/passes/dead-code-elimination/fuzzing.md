@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-20
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -9,12 +9,12 @@ sources:
 
 # `dead-code-elimination` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 20, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 Recommended smoke lane for future DCE changes: run the ordinary GenValid compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt --require-binaryen-version 132
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version_133/bin/wasm-opt --require-binaryen-version 133
 ```
 
 ## 2026-09-02 Binaryen-v131 raw-admission renewal

@@ -323,7 +323,9 @@
       "claude/status.json",
       "claude/stdout.txt",
       "claude/followup/status.json",
-      "claude/followup/stdout.txt"
+      "claude/followup/stdout.txt",
+      "claude/oracle-default/status.json",
+      "claude/oracle-default/stdout.txt"
     ],
     "limit": "Local logs are not committed. This record preserves observations and identities; GitHub run links preserve remote provenance. Retention of remote logs/artifacts is finite."
   },
@@ -456,8 +458,17 @@
       "Generated FFI changed hunks and supporting searches were inspected; unchanged ABI records were independently compared, not read in full by Claude.",
       "Claude reviewed partial CI receipts while DAE was still running; the later completed run receipts are recorded separately above.",
       "Version text is enforced in CI; observed archive hashes are not enforced and other SDK components were not all byte-compared.",
-      "The small final CLI-default review is retained separately under claude/oracle-default; only an actual completed assessment is review evidence."
-    ]
+      "The final live-default assessment completed; its detailed scope and test-evidence limits are recorded in finalDefaultReview."
+    ],
+    "finalDefaultReview": {
+      "status": "completed",
+      "baseline": "35af9faab8a3109bb35bd5a852a213ba8b293cda",
+      "completedUtc": "2026-10-20T03:48:28.927329+00:00",
+      "exit": 0,
+      "result": "No defect found in changed code. Explicit historical override/resume paths and CLI/help/README identities agree. Three stale normative oracle/CI descriptions outside changed lines were verified against current source and corrected. Current DCE command and historical Precompute refresh wording were also clarified without changing recorded results.",
+      "optionalTestGap": "No separate end-to-end default-wrong-version test was added. Parser default and accepting fixtures pass; explicit wrong-version guard tests remain. The initial mismatched default fixtures also failed before generation. This is a coverage limit, not a demonstrated implementation defect.",
+      "limits": "Changed ranges and relevant supporting ranges were read, not every complete test body. Local bounded tests use Node26.11.1/wasm-tools1.262.0; actual CI pins differ. The review does not establish full CI or performance results."
+    }
   },
   "tutorialUpdate": {
     "file": "README.md",

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-20
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_133
   - https://github.com/WebAssembly/binaryen/compare/version_132...version_133
@@ -106,7 +106,7 @@ proposal support, nor does it invalidate historical measured v131 results.
 
 Use `.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt` or another
 explicitly verified v133 binary. CI and performance sweeps require v133.
-Compare-pass still defaults to 132, so new evidence must pass both
+Compare-pass defaults to 133. Signoff commands still pass both
 `--wasm-opt-bin <verified-v133-wasm-opt>` and `--require-binaryen-version 133`.
 Record the resolved
 path, version and executable hash. Bare PATH resolution is not evidence of the

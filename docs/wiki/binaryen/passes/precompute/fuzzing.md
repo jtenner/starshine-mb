@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-20
 sources:
   - ../../../tooling/tracing-playbook.md
   - ./index.md
@@ -226,8 +226,11 @@ records the common command and complete seven-lane matrix.
 
 ## Binaryen 132 refresh
 
-New campaigns use `.tmp/binaryen-version_132/bin/wasm-opt` with
-`--require-binaryen-version 132`. The `precompute-all` aggregate retains every
+At this historical v132 checkpoint, campaigns used
+`.tmp/binaryen-version_132/bin/wasm-opt` with
+`--require-binaryen-version 132`. New campaigns use the verified v133 oracle
+from the [current guide](../../../tooling/pass-fuzz-compare.md); the results
+below retain their v132 identity. The `precompute-all` aggregate retains every
 existing leaf. The September 22 independent-validator run above rejected every
 sample of `precompute-gc-atomic-boundary` at consistency byte `2` (`Relaxed`),
 which the pinned `wasm-tools` validator does not support for aggregate atomic
