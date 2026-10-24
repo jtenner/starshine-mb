@@ -99,6 +99,7 @@ const path = require("node:path");
 const args = process.argv.slice(2);
 const start = Date.now();
 while (Date.now() - start < 10) {}
+if (args.includes("--version")) { console.log("wasm-opt version 133 (test fixture)"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
@@ -333,6 +334,11 @@ process.exit(0);
   assert(summary.binaryenPassElapsedMs === 10, `expected parsed Binaryen pass runtime, got ${summary.binaryenPassElapsedMs}`);
   assert(summary.starshinePassAtLeastAsFast === false, "expected Starshine pass parity flag to report slower");
   assert(summary.normalizedWatEqual === true, "expected normalized WAT equality");
+  const cost = (summary as unknown as { costProvenance: { qualification: { status: string; canonicalDeltaBytes: number | null } } }).costProvenance;
+  assert(cost.qualification.status === "asymmetric", "default comparison must label its asymmetric normalization");
+  assert(cost.qualification.canonicalDeltaBytes === null, "default comparison cannot claim canonical size quality");
+  assert(result.stdout.includes("Binaryen raw reference wasm size:"), "default Binaryen display must label its raw reference metric");
+  assert(!result.stdout.includes("Binaryen canonical wasm size:"), "raw bytes must not be displayed as canonical");
   assert(
     fs.readFileSync(path.join(outDir, "starshine.wasm"), "utf8") ===
       fs.readFileSync(path.join(outDir, "binaryen.wasm"), "utf8"),
@@ -359,7 +365,7 @@ process.exit(0);
   assert(result.stdout.includes("Starshine raw wasm size: 14"), `expected raw Starshine size in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Binaryen raw wasm size: 13"), `expected raw Binaryen size in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Starshine canonical wasm size: 13"), `expected canonical Starshine size in stdout:\n${result.stdout}`);
-  assert(result.stdout.includes("Binaryen canonical wasm size: 13"), `expected canonical Binaryen size in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Binaryen raw reference wasm size: 13"), `expected raw reference Binaryen size in stdout:\n${result.stdout}`);
   assert(
     result.stdout.includes("Starshine at least as fast: no"),
     `expected runtime parity verdict in stdout:\n${result.stdout}`,
@@ -433,6 +439,7 @@ fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { console.log("wasm-opt version 133 (test fixture)"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
@@ -572,6 +579,7 @@ fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { console.log("wasm-opt version 133 (test fixture)"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 if (outIndex === -1 || outIndex + 1 >= args.length) {

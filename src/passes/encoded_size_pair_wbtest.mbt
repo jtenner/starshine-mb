@@ -128,3 +128,36 @@ test "encoded size pairs reject intentionally invalid reserved custom names" {
   assert_true(@binary.encoded_module_sizes(invalid, good) is Err(_))
   assert_true(@binary.encoded_module_sizes(good, invalid) is Err(_))
 }
+
+///|
+test "encoded size pairs retain data-section overhead that reverses a local saving" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #| (memory 1)
+      #| (func i32.const 0 i32.const 7 i32.store8)
+      #| (start 0)
+      #| (func (export "get") (result i32) i32.const 0 i32.load8_u))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #| (memory 1)
+      #| (func)
+      #| (start 0)
+      #| (func (export "get") (result i32) i32.const 0 i32.load8_u)
+      #| (data (i32.const 0) "\07"))
+    ),
+  )
+  @validate.validate_module(before).unwrap()
+  @validate.validate_module(after).unwrap()
+  let @lib.Func(_, @lib.Expr(before_body)) = before.code_sec.unwrap().0[0]
+  let @lib.Func(_, @lib.Expr(after_body)) = after.code_sec.unwrap().0[0]
+  assert_true(before_body.length() > after_body.length())
+  let pair = @binary.encoded_module_sizes(before, after).unwrap()
+  let before_bytes = @binary.encode_module(before).unwrap()
+  let after_bytes = @binary.encode_module(after).unwrap()
+  assert_eq(pair, (before_bytes.length(), after_bytes.length()))
+  assert_true(pair.1 > pair.0)
+}

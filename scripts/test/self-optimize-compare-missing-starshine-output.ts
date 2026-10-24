@@ -37,6 +37,8 @@ export function runSelfOptimizeCompareMissingStarshineOutputTest(): void {
   const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
   const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
   fs.writeFileSync(inputPath, "input");
+  fs.mkdirSync(outDir);
+  fs.writeFileSync(path.join(outDir, "starshine.raw.wasm"), "stale previous output");
 
   const fakeMoon = makeExecutable(
     path.join(tmpdir, "fake-moon"),

@@ -1151,7 +1151,39 @@ flock -w 3600 /tmp/starshine-perf-sweep-heavy.lock \
   --warmup 1 --samples 3 --out-dir <artifact-dir>
 ```
 
-`pass-performance-sweep` brackets every requested-pass round with leading and trailing reference-pass commands, reversing requested-pass order on alternating rounds to reduce thermal and order bias. It rejects campaigns with fewer than one warmup or three measured rounds, refuses a pre-existing artifact directory, requires explicit Starshine and Binaryen binaries, verifies that the oracle reports version 133, and rejects a native binary older than current compiler sources. It pins both executable SHA-256 identities, the input, and a production-compiler source fingerprint before sampling; rechecks them at the end; preserves every underlying `self-optimize-compare` result; rejects traced/no-trace byte drift and cross-round Starshine or Binaryen raw-output drift, including the reference; and writes machine-readable `result.json` plus `summary.md` with raw samples, median±MAD command and bracket-adjusted measurements, pass-local and phase attribution, sizes, and canonical equality. A bracket-adjusted increment subtracts the mean of that round's two references and is noise context rather than a substitute for pass-local attribution or a causal before/after binary comparison. Use the default `strip-debug` reference only when the input is known not to carry debug payloads. The wrapper is serial internally; the outer `flock` prevents separate worktrees, builds, or campaigns from sharing the measured host interval. A timing set that overlapped an untracked heavy process is invalid and must be rerun in a fresh artifact directory.
+`pass-performance-sweep` brackets every requested-pass round with leading and trailing reference-pass commands, reversing requested-pass order on alternating rounds to reduce thermal and order bias. It rejects campaigns with fewer than one warmup or three measured rounds, refuses a pre-existing artifact directory, requires explicit Starshine and Binaryen binaries, verifies that the oracle reports version 133, and rejects a native binary older than current compiler sources. It pins both executable SHA-256 identities, the input, and a production-compiler source fingerprint before sampling; rechecks them at the end; preserves every underlying `self-optimize-compare` result; rejects traced/no-trace byte drift and cross-round Starshine or Binaryen raw-output drift, including the reference; and writes machine-readable `result.json` plus `summary.md` with raw samples, median±MAD command and bracket-adjusted measurements, pass-local and phase attribution, sizes, and selected comparison-artifact equality. A bracket-adjusted increment subtracts the mean of that round's two references and is noise context rather than a substitute for pass-local attribution or a causal before/after binary comparison. Use the default `strip-debug` reference only when the input is known not to carry debug payloads. The wrapper is serial internally; the outer `flock` prevents separate worktrees, builds, or campaigns from sharing the measured host interval. A timing set that overlapped an untracked heavy process is invalid and must be rerun in a fresh artifact directory.
+
+Self-compare's `costProvenance` binds source/effective inputs, raw outputs and
+selected metric artifacts to exact byte lengths and SHA-256 identities. Its
+`artifacts` record the `--all-features --strip-debug` projection, executable
+hash/version, commands and normalizer subprocess timings. The default preserves
+Binaryen's direct output and is explicitly `asymmetric`; only
+`--canonicalize-binaryen-output` with the same qualified v133 executable and
+settings can produce `qualification.canonicalDeltaBytes`. Raw/selected size
+fields remain compatible aliases. `ledgerMeasurementElapsedMs` measures final
+ledger construction and verification, excluding earlier hashes, executable
+identity work and normalization. Use complete paired command measurements for
+total reporting overhead. Hashing uses bounded 64 KiB scratch and does not
+re-encode optimizer candidates.
+
+Sources must be physically outside the output directory, including symlink or
+hardlink aliases to existing outputs, so no-pass intermediates, diagnostics and
+fresh output cleanup cannot overwrite input bytes. Missing command outputs
+cannot reuse prior artifacts. The provenance qualifier blocks stale identities,
+raw artifacts substituted for canonical metrics and mismatched projection
+settings; it assumes trusted tool execution and does not independently attest
+which bytes a hostile tool consumed. In performance sweep reports,
+`comparisonWasmEqualInAllSamples` describes selected-artifact equality;
+`canonicalComparisonQualifiedInAllSamples` records whether the normalization
+permits canonical claims. `canonicalWasmEqualInAllSamples` is a deprecated legacy
+alias for selected-artifact equality, not canonical-quality evidence.
+
+The [encoded-size pair tests](../../../src/passes/encoded_size_pair_wbtest.mbt)
+cover body/section framing and the case where added data-segment overhead
+reverses a local body saving. Existing
+[MSF boundary guards](../../../src/passes/merge_similar_functions_wbtest.mbt)
+cover function/type-index growth. Neither metric provenance nor encoded size
+proves preservation of observable behavior.
 
 Use `--closed-world` for passes such as `global-type-optimization` that require that mode; the sweep applies it to both tools and the bracketing reference. The 2026-09-25 v133 common-pass campaign is in `.tmp/pass-sweep-v133-combined-20260925/`: 67 Starshine-advertised names produced paired results across 63 Binaryen flag sequences. The v133 `wasm-opt --help` optimization-pass catalog has 172 flags; 110 have no paired Starshine sweep. The primary 189 KB input left both outputs unchanged for 28 names, so those timings measure admission/no-op cost rather than transform throughput. Active-input pass-local ratios above the 2x target include `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `inlining`, `inlining-optimizing`, `simplify-globals-optimizing`, and `simplify-locals-nonesting`; the per-pass reports contain exact medians, output sizes, and hashes. This campaign is performance evidence only; output drift still needs pass-specific parity classification.
 

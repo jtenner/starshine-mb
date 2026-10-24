@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
+import { qualifyCostComparison, type CostComparison } from "./optimizer-cost-provenance";
 
 import {
   fail,
@@ -48,6 +49,7 @@ export type PassPerformanceSample = {
   starshineSize: number;
   binaryenSize: number;
   wasmEqual: boolean;
+  canonicalCostQualified?: boolean;
   tracedNoTraceOutputEqual: boolean;
   starshineRawSha256: string;
   starshineNoTraceSha256: string;
@@ -90,7 +92,10 @@ export type PassPerformancePassSummary = {
   binaryenRawSize: number;
   starshineSize: number;
   binaryenSize: number;
+  /** Legacy alias for selected comparison-artifact equality. */
   canonicalWasmEqualInAllSamples: boolean;
+  comparisonWasmEqualInAllSamples: boolean;
+  canonicalComparisonQualifiedInAllSamples: boolean;
   stableStarshineRawOutput: boolean;
   stableBinaryenRawOutput: boolean;
   allTracedNoTraceOutputsEqual: boolean;
@@ -602,6 +607,8 @@ export function summarizePassPerformanceSamples(
       starshineSize: passSamples[0].starshineSize,
       binaryenSize: passSamples[0].binaryenSize,
       canonicalWasmEqualInAllSamples: passSamples.every((sample) => sample.wasmEqual),
+      comparisonWasmEqualInAllSamples: passSamples.every((sample) => sample.wasmEqual),
+      canonicalComparisonQualifiedInAllSamples: passSamples.every((sample) => sample.canonicalCostQualified === true),
       stableStarshineRawOutput: allSame(
         passSamples.map((sample) => sample.starshineRawSha256),
       ),
@@ -780,6 +787,9 @@ function readSample(
     starshineSize: requiredNumber(result, "starshineSize", resultPath),
     binaryenSize: requiredNumber(result, "binaryenSize", resultPath),
     wasmEqual: result.wasmEqual === true,
+    canonicalCostQualified: typeof result.costProvenance === "object" && result.costProvenance !== null && "artifacts" in result.costProvenance
+      ? qualifyCostComparison((result.costProvenance as { artifacts: CostComparison }).artifacts).status === "qualified"
+      : false,
     tracedNoTraceOutputEqual: result.starshineNoTraceOutputEqual === true,
     starshineRawSha256: sha256File(starshineRawPath),
     starshineNoTraceSha256: sha256File(starshineNoTracePath),
@@ -851,12 +861,12 @@ export function formatPassPerformanceSweepReport(
     "",
     `Reference medians (median±MAD): Starshine ${fmtMeasurement(report.summary.baseline.starshineCommandMedianMs, report.summary.baseline.starshineCommandMadMs)}; Binaryen ${fmtMeasurement(report.summary.baseline.binaryenCommandMedianMs, report.summary.baseline.binaryenCommandMadMs)}. Reference-adjusted increments use the mean of each round's leading and trailing references.`,
     "",
-    "| Pass | Starshine command | Binaryen command | Command ratio | Starshine increment | Binaryen increment | Increment ratio | Starshine pass | Binaryen pass | Pass ratio | Raw bytes S/B | Stable S/B | Canonical equal |",
+    "| Pass | Starshine command | Binaryen command | Command ratio | Starshine increment | Binaryen increment | Increment ratio | Starshine pass | Binaryen pass | Pass ratio | Raw bytes S/B | Stable S/B | Comparison artifacts equal |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | :---: |",
   ];
   for (const pass of report.summary.passes) {
     lines.push(
-      `| \`${pass.pass}\` | ${fmtMeasurement(pass.starshineCommandMedianMs, pass.starshineCommandMadMs)} | ${fmtMeasurement(pass.binaryenCommandMedianMs, pass.binaryenCommandMadMs)} | ${fmtRatio(pass.commandRatio)} | ${fmtMeasurement(pass.starshineIncrementMedianMs, pass.starshineIncrementMadMs)} | ${fmtMeasurement(pass.binaryenIncrementMedianMs, pass.binaryenIncrementMadMs)} | ${fmtRatio(pass.incrementRatio)} | ${fmtMeasurement(pass.starshinePassMedianMs, pass.starshinePassMadMs)} | ${fmtMeasurement(pass.binaryenPassMedianMs, pass.binaryenPassMadMs)} | ${fmtRatio(pass.passLocalRatio)} | ${pass.starshineRawSize}/${pass.binaryenRawSize} | ${pass.stableStarshineRawOutput ? "yes" : "no"}/${pass.stableBinaryenRawOutput ? "yes" : "no"} | ${pass.canonicalWasmEqualInAllSamples ? "yes" : "no"} |`,
+      `| \`${pass.pass}\` | ${fmtMeasurement(pass.starshineCommandMedianMs, pass.starshineCommandMadMs)} | ${fmtMeasurement(pass.binaryenCommandMedianMs, pass.binaryenCommandMadMs)} | ${fmtRatio(pass.commandRatio)} | ${fmtMeasurement(pass.starshineIncrementMedianMs, pass.starshineIncrementMadMs)} | ${fmtMeasurement(pass.binaryenIncrementMedianMs, pass.binaryenIncrementMadMs)} | ${fmtRatio(pass.incrementRatio)} | ${fmtMeasurement(pass.starshinePassMedianMs, pass.starshinePassMadMs)} | ${fmtMeasurement(pass.binaryenPassMedianMs, pass.binaryenPassMadMs)} | ${fmtRatio(pass.passLocalRatio)} | ${pass.starshineRawSize}/${pass.binaryenRawSize} | ${pass.stableStarshineRawOutput ? "yes" : "no"}/${pass.stableBinaryenRawOutput ? "yes" : "no"} | ${pass.comparisonWasmEqualInAllSamples ? "yes" : "no"} |`,
     );
   }
   lines.push("", "## Raw samples", "");
