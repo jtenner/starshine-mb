@@ -1614,7 +1614,10 @@ fn remove_unused_brs_try_rewrite_caught_throws_in_region(
       continue
     }
     let current_idx = remove_unused_brs_find_region_root_index(
-      func, region_ref, node_id,
+      func,
+      region_ref,
+      node_id,
+      expected_idx=idx,
     )
     if current_idx < 0 {
       continue
@@ -11056,8 +11059,24 @@ fn remove_unused_brs_find_region_root_index(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   node_id : Int32,
+  expected_idx~ : Int32 = -1,
+  probes~ : Array[Int32]? = None,
 ) -> Int32 {
+  if expected_idx >= 0 &&
+    expected_idx < @ir.hot_region_root_count(func, region_ref) {
+    match probes {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    if @ir.hot_region_get(func, region_ref, expected_idx) == node_id {
+      return expected_idx
+    }
+  }
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    match probes {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     if @ir.hot_region_get(func, region_ref, idx) == node_id {
       return idx
     }
@@ -11095,7 +11114,10 @@ fn remove_unused_brs_visit_region(
       continue
     }
     let current_idx = remove_unused_brs_find_region_root_index(
-      func, region_ref, node_id,
+      func,
+      region_ref,
+      node_id,
+      expected_idx=idx,
     )
     if current_idx < 0 {
       continue

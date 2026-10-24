@@ -14,7 +14,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `33b60af13` | EXTRACT | RED original constructor scan with work counter: 4160 steps exceeded linear bound; GREEN GTO file passed with direct opcode and validation assertions; source: perf: bound nested GTO constructor operand work |
 | `e4a220e83` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused inlining_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: skip inlining dead-suffix queries without targets |
 | `e123aa521` | REDESIGN SKIP | Effects workspace/API redesign conflicts with master f60fb9eca effects_subtree_query.mbt and revision-keyed analysis reuse; retain master MergeBlocks analysis architecture. |
-| `9dce22234` | Review pending | perf: check expected remove-unused-brs root index first |
+| `9dce22234` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused remove_unused_brs_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: check expected remove-unused-brs root index first |
 | `794519800` | Review pending | perf: batch DCE detached reference scans |
 | `d265b2a43` | Review pending | perf: skip merge-locals graph work without influenced reads |
 | `300c6d1f6` | REDESIGN SKIP | Split reviewed: saturation candidate filtering already exists in master 6f8efd3ad; intrinsic worker changes collide with cc9677cee declared-local typing. Leave intrinsic redesign behind. |
