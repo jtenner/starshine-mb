@@ -806,19 +806,35 @@ fn mso_scan_conversions(
   expr : @lib.Expr,
   needs_any_to_extern : Array[Bool],
   needs_extern_to_any : Array[Bool],
+  needs_handle : Array[Bool],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
-  for instr in instrs {
+  // Adjacent conversions keep both host calls but need no private table slot.
+  for i = 0; i < instrs.length(); i = i + 1 {
+    let instr = instrs[i]
     match instr {
-      @lib.ExternConvertAny => needs_any_to_extern[0] = true
-      @lib.AnyConvertExtern => needs_extern_to_any[0] = true
+      @lib.ExternConvertAny => {
+        needs_any_to_extern[0] = true
+        if i + 1 == instrs.length() || !(instrs[i + 1] is @lib.AnyConvertExtern) {
+          needs_handle[0] = true
+        }
+      }
+      @lib.AnyConvertExtern => {
+        needs_extern_to_any[0] = true
+        if i == 0 || !(instrs[i - 1] is @lib.ExternConvertAny) {
+          needs_handle[0] = true
+        }
+      }
       @lib.Block(_, body) | @lib.Loop(_, body) =>
-        mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+        mso_scan_conversions(
+          body, needs_any_to_extern, needs_extern_to_any, needs_handle,
+        )
       @lib.If(_, yes, no) => {
         mso_scan_conversions(
           @lib.Expr::new(yes),
           needs_any_to_extern,
           needs_extern_to_any,
+          needs_handle,
         )
         match no {
           Some(body) =>
@@ -826,19 +842,24 @@ fn mso_scan_conversions(
               @lib.Expr::new(body),
               needs_any_to_extern,
               needs_extern_to_any,
+              needs_handle,
             )
           None => ()
         }
       }
       @lib.TryTable(_, _, body) =>
-        mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+        mso_scan_conversions(
+          body, needs_any_to_extern, needs_extern_to_any, needs_handle,
+        )
       @lib.Try(_, body, catches, _) => {
-        mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+        mso_scan_conversions(
+          body, needs_any_to_extern, needs_extern_to_any, needs_handle,
+        )
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
               mso_scan_conversions(
-                catch_body, needs_any_to_extern, needs_extern_to_any,
+                catch_body, needs_any_to_extern, needs_extern_to_any, needs_handle,
               )
           }
         }
@@ -1019,9 +1040,12 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let needs_any_to_extern = [false]
   let needs_extern_to_any = [false]
+  let needs_handle = [false]
   for func in orig_funcs {
     let @lib.Func(_, body) = func
-    mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+    mso_scan_conversions(
+      body, needs_any_to_extern, needs_extern_to_any, needs_handle,
+    )
   }
   let orig_func_types = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
@@ -1345,10 +1369,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       candidate = candidate.with_elem_sec(@lib.ElemSec::new(elems))
     }
   }
-  if !import_specs.is_empty() ||
-    !export_specs.is_empty() ||
-    needs_any_to_extern[0] ||
-    needs_extern_to_any[0] {
+  if !import_specs.is_empty() || !export_specs.is_empty() || needs_handle[0] {
     let table_idx = @lib.TableIdx::new(
       (original_table_count + (if refs.needs_table[0] { 1 } else { 0 })).to_uint(),
     )

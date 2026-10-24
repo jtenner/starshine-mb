@@ -628,9 +628,13 @@ test "make-shared-objects scans and rewrites conversions in EH bodies" {
   ])
   let needs_any_to_extern = [false]
   let needs_extern_to_any = [false]
-  mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+  let needs_handle = [false]
+  mso_scan_conversions(
+    body, needs_any_to_extern, needs_extern_to_any, needs_handle,
+  )
   assert_true(needs_any_to_extern[0])
   assert_true(needs_extern_to_any[0])
+  assert_true(needs_handle[0])
   let rewritten = mso_rewrite_conversions(
     body,
     Some(@lib.FuncIdx::new(0U)),
@@ -721,6 +725,16 @@ test "make-shared-objects avoids a handle for adjacent conversion roundtrips" {
     @lib.Instruction::call(@lib.FuncIdx::new(3U)),
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
   ])
+}
+
+///|
+test "make-shared-objects omits unused handle storage for paired conversions" {
+  let output = binaryen133_run_shared(
+    "(module (func (export \"roundtrip\") (result anyref) i32.const 7 ref.i31 extern.convert_any any.convert_extern))",
+  )
+  assert_eq(output.import_sec.unwrap().0.length(), 2)
+  assert_eq(output.table_sec, None)
+  assert_eq(output.code_sec.unwrap().0.length(), 1)
 }
 
 ///|
