@@ -907,11 +907,91 @@ fn merge_locals_region_has_stack_carried_copy(
 }
 
 ///|
+fn merge_locals_may_have_influenced_gets(func : @ir.HotFunc) -> Bool {
+  let mut has_copy = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if @ir.hot_child_count(func, node_id) == 1 {
+          let get_id = @ir.hot_child_get(func, node_id, 0)
+          if get_id >= 0 && @ir.hot_node_is_live(func, get_id) {
+            let get = @ir.hot_node_get(func, get_id)
+            if get.op is @ir.HotOp::LocalGet && get.imm0 != node.imm0 {
+              has_copy = true
+              break
+            }
+          }
+        }
+      _ => ()
+    }
+  }
+  if !has_copy {
+    return false
+  }
+  let local_count = @ir.hot_local_count(func)
+  let reads = Array::make(local_count, 0)
+  let copy_sources = Array::make(local_count, 0)
+  let copy_targets = Array::make(local_count, 0)
+  let copy_gets = Array::make(local_count, -1)
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalGet => reads[node.imm0] += 1
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+        if @ir.hot_child_count(func, node_id) != 1 {
+          continue
+        }
+        let get_id = @ir.hot_child_get(func, node_id, 0)
+        if get_id < 0 || !@ir.hot_node_is_live(func, get_id) {
+          continue
+        }
+        let get = @ir.hot_node_get(func, get_id)
+        if get.op is @ir.HotOp::LocalGet && get.imm0 != node.imm0 {
+          copy_sources[get.imm0] += 1
+          copy_targets[node.imm0] += 1
+          copy_gets[get.imm0] = get_id
+        }
+      }
+      _ => ()
+    }
+  }
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    if copy_targets[local_id] > 0 && reads[local_id] > 0 {
+      return true
+    }
+    if copy_sources[local_id] == 0 {
+      continue
+    }
+    if copy_sources[local_id] != 1 || reads[local_id] != 1 {
+      return true
+    }
+  }
+  let uses = @ir.hot_node_use_counts_build(func)
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    if copy_sources[local_id] == 1 &&
+      @ir.hot_node_use_count(uses, copy_gets[local_id]) != 1 {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if pass_has_repeated_entry_evaluation(func) {
     return HotPassResult::unchanged()
   }
   if merge_locals_region_has_stack_carried_copy(func, @ir.HotRegionRef::root()) {
+    return HotPassResult::unchanged()
+  }
+  if !merge_locals_may_have_influenced_gets(func) {
     return HotPassResult::unchanged()
   }
   let copies = merge_locals_instrument_copies(func)

@@ -18,6 +18,39 @@ test "merge-locals stack-carried preflight scans a flat copy region once" {
 }
 
 ///|
+test "merge-locals leaves copy-only functions untouched" {
+  for
+    source in [
+      "(module (func (param i32) (local i32) local.get 0 local.set 1))", "(module (func (param i32 i32) (local i32 i32) local.get 0 local.set 2 local.get 1 local.set 3))",
+    ] {
+    let func = pass_test_lift_first_func(source)
+    let before_revision = @ir.hot_revision_current(func)
+    let before_nodes = @ir.hot_node_count(func)
+    let ctx = HotPassContext::new(
+      merge_locals_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    assert_false(merge_locals_run(ctx, func).changed)
+    assert_eq(@ir.hot_revision_current(func), before_revision)
+    assert_eq(@ir.hot_node_count(func), before_nodes)
+  }
+}
+
+///|
+test "merge-locals preflight keeps a shared copy source on the proof path" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let get = @ir.hot_build_local_get(func, 0)
+  @ir.hot_root_append(func, @ir.hot_build_local_set(func, 1, get))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, get))
+  assert_true(merge_locals_may_have_influenced_gets(func))
+}
+
+///|
 fn merge_locals_preflight_nested_hazard(kind : Int32) -> Bool {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
