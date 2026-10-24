@@ -12908,3 +12908,100 @@ test "flatten does not snapshot an earlier local.get for a nonmatching local wri
       fail("expected nonmatching local write routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten local-write scratch reuses generations without stale marks" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=Array::make(4096, i32_type)),
+  )
+  let state = FlattenRewriteState::new(func)
+  let no_write = [@ir.hot_build_nop(func)]
+  flatten_new_prelude_local_writes(func, state, no_write, 0)
+  assert_false(flatten_local_is_written(state, 17))
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+
+  let first = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    17,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let repeated = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    17,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  flatten_new_prelude_local_writes(func, state, [first, repeated], 0)
+  assert_true(flatten_local_is_written(state, 17))
+  assert_false(flatten_local_is_written(state, 18))
+
+  let second = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    18,
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  flatten_new_prelude_local_writes(func, state, [second], 0)
+  assert_false(flatten_local_is_written(state, 17))
+  assert_true(flatten_local_is_written(state, 18))
+  @debug.assert_eq(state.local_write_query_count, 3)
+  @debug.assert_eq(state.local_write_exact_root_count, 3)
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+  @debug.assert_eq(state.local_write_full_clear_count, 0)
+  @debug.assert_eq(state.local_write_generations.length(), 4096)
+}
+
+///|
+test "flatten local-write scratch falls back for nested tees and survives rollover" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i32_type, i32_type]),
+  )
+  let state = FlattenRewriteState::new(func)
+  let nested = @ir.hot_build_drop(
+    func,
+    @ir.hot_build_local_tee(
+      func,
+      2,
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+    ),
+  )
+  flatten_new_prelude_local_writes(func, state, [nested], 0)
+  assert_true(flatten_local_is_written(state, 1))
+  assert_true(flatten_local_is_written(state, 2))
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+
+  state.local_write_generation = 2147483646
+  flatten_new_prelude_local_writes(func, state, [], 0)
+  assert_false(flatten_local_is_written(state, 1))
+  assert_false(flatten_local_is_written(state, 2))
+  @debug.assert_eq(state.local_write_generation, 1)
+  @debug.assert_eq(state.local_write_full_clear_count, 1)
+
+  let after_rollover = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  )
+  flatten_new_prelude_local_writes(func, state, [after_rollover], 0)
+  assert_true(flatten_local_is_written(state, 0))
+  assert_false(flatten_local_is_written(state, 1))
+}
+
+///|
+test "flatten local-write scratch supports zero-local functions" {
+  let func = @ir.HotFunc::new()
+  let state = FlattenRewriteState::new(func)
+  flatten_new_prelude_local_writes(func, state, [@ir.hot_build_nop(func)], 0)
+  @debug.assert_eq(state.local_write_generations.length(), 0)
+  assert_false(flatten_local_is_written(state, 0))
+  @debug.assert_eq(state.local_write_query_count, 1)
+}
+
