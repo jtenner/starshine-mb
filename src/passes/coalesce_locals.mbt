@@ -8469,6 +8469,102 @@ fn cl_rewrite_single_body_local_param_fast(
 }
 
 ///|
+fn cl_rewrite_large_sparse_intervals(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite? {
+  let @lib.Func(body_locals, @lib.Expr(instrs)) = func
+  let total_locals = params.length() + body_locals.length()
+  let first = Array::make(total_locals, -1)
+  let last = Array::make(total_locals, -1)
+  let first_is_write = Array::make(total_locals, false)
+  let used : Array[Int32] = []
+  for instr_index, instr in instrs {
+    if cl_instr_is_control_transfer_barrier(instr) {
+      return None
+    }
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return None
+      _ => ()
+    }
+    let access = match instr {
+      @lib.LocalGet(idx) => Some((cl_local_idx_raw(idx), false))
+      @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        Some((cl_local_idx_raw(idx), true))
+      _ => None
+    }
+    match access {
+      Some((local_idx, is_write)) => {
+        if local_idx < 0 || local_idx >= total_locals {
+          return None
+        }
+        if local_idx >= params.length() {
+          if first[local_idx] < 0 {
+            first[local_idx] = instr_index
+            first_is_write[local_idx] = is_write
+            used.push(local_idx)
+            // Bound the slot search even when the declared local count is huge.
+            if used.length() > 128 {
+              return None
+            }
+          }
+          last[local_idx] = instr_index
+        }
+      }
+      None => ()
+    }
+  }
+  if used.length() == 0 {
+    return None
+  }
+  let types = cl_all_local_types(params, body_locals)
+  let old_to_new = Array::make(total_locals, -1)
+  for index = 0; index < params.length(); index = index + 1 {
+    old_to_new[index] = index
+  }
+  let slot_types : Array[@lib.ValType] = []
+  let slot_last : Array[Int32] = []
+  for local_idx in used {
+    let mut slot = -1
+    if first_is_write[local_idx] {
+      for candidate = 0
+          candidate < slot_types.length()
+          candidate = candidate + 1 {
+        if slot_types[candidate] == types[local_idx] &&
+          slot_last[candidate] < first[local_idx] {
+          slot = candidate
+          break
+        }
+      }
+    }
+    if slot < 0 {
+      slot = slot_types.length()
+      slot_types.push(types[local_idx])
+      slot_last.push(last[local_idx])
+    } else {
+      slot_last[slot] = last[local_idx]
+    }
+    old_to_new[local_idx] = params.length() + slot
+  }
+  if slot_types.length() >= body_locals.length() {
+    return None
+  }
+  let rewritten_instrs = instrs.copy()
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+  Some({
+    func: @lib.Func::new(
+      @lib.Locals::from_types(slot_types),
+      @lib.Expr::new(rewritten_instrs),
+    ),
+    changed: true,
+  })
+}
+
+///|
 fn cl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -8507,7 +8603,10 @@ fn cl_rewrite_func(
     )
   }
   if params.length() + body_local_count > cl_dense_coloring_local_limit() {
-    return { func, changed: false, }
+    match cl_rewrite_large_sparse_intervals(func, params) {
+      Some(rewrite) => return rewrite
+      None => return { func, changed: false, }
+    }
   }
   let has_structured_control = cl_instrs_have_structured_control(
     original_instrs,
