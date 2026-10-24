@@ -407,6 +407,46 @@ test "coalesce-locals leaves NaN no-op functions and local names untouched" {
 }
 
 ///|
+test "coalesce-locals keeps local names on unchanged functions" {
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"keep\") (param i32) (result i32) local.get 0) (func (export \"merge\") (result i32) (local i32 i32) i32.const 11 local.set 0 local.get 0 drop i32.const 22 local.set 1 local.get 1))",
+  ).with_name_sec(
+    @lib.NameSec::new(
+      local_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-param")),
+            ]),
+          ),
+          @lib.IndirectNameAssoc::new(
+            1U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("first")),
+              @lib.NameAssoc::new(1U, @lib.Name::from_string("second")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  let output = coalesce_locals_run_module_pass(input)
+  guard output.name_sec is Some(name_sec) else { fail("expected name section") }
+  guard name_sec.local_names is Some(@lib.IndirectNameMap(entries)) else {
+    fail("expected unchanged function local names")
+  }
+  @debug.assert_eq(entries, [
+    @lib.IndirectNameAssoc::new(
+      0U,
+      @lib.NameMap::new([
+        @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-param")),
+      ]),
+    ),
+  ])
+}
+
+///|
 test "coalesce-locals merges non-overlapping same-typed body locals" {
   let input =
     #| (module

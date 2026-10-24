@@ -8691,6 +8691,76 @@ fn cl_name_sec_without_local_names(name_sec : @lib.NameSec?) -> @lib.NameSec? {
 }
 
 ///|
+fn cl_name_sec_without_changed_local_names(
+  name_sec : @lib.NameSec?,
+  imported_func_count : Int32,
+  defined_func_count : Int32,
+  committed_code_indices : Array[Int32],
+) -> @lib.NameSec? {
+  match name_sec {
+    Some(sec) => {
+      let changed = Array::make(defined_func_count, false)
+      for code_idx in committed_code_indices {
+        if code_idx >= 0 && code_idx < defined_func_count {
+          changed[code_idx] = true
+        }
+      }
+      let local_names = match sec.local_names {
+        Some(@lib.IndirectNameMap(entries)) => {
+          let kept : Array[@lib.IndirectNameAssoc] = []
+          for entry in entries {
+            let @lib.IndirectNameAssoc(func_idx, _) = entry
+            let code_idx = func_idx.reinterpret_as_int() - imported_func_count
+            if code_idx < 0 ||
+              code_idx >= defined_func_count ||
+              !changed[code_idx] {
+              kept.push(entry)
+            }
+          }
+          if kept.is_empty() {
+            None
+          } else {
+            Some(@lib.IndirectNameMap::new(kept))
+          }
+        }
+        None => None
+      }
+      let {
+        module_name,
+        func_names,
+        label_names,
+        type_names,
+        table_names,
+        memory_names,
+        global_names,
+        elem_names,
+        data_names,
+        field_names,
+        tag_names,
+        ..
+      } = sec
+      Some(
+        @lib.NameSec::new(
+          module_name~,
+          func_names~,
+          local_names~,
+          label_names~,
+          type_names~,
+          table_names~,
+          memory_names~,
+          global_names~,
+          elem_names~,
+          data_names~,
+          field_names~,
+          tag_names~,
+        ),
+      )
+    }
+    None => None
+  }
+}
+
+///|
 fn cl_rebuild_module(
   mod_ : @lib.Module,
   next_code_sec : @lib.CodeSec?,
@@ -9212,7 +9282,12 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       cl_rebuild_module(
         mod_,
         Some(@lib.CodeSec::new(checked_funcs)),
-        cl_name_sec_without_local_names(mod_.name_sec),
+        cl_name_sec_without_changed_local_names(
+          mod_.name_sec,
+          imported_func_count,
+          funcs.length(),
+          committed_code_indices,
+        ),
       )
     }
     None => mod_
