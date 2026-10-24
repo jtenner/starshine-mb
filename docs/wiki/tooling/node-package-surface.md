@@ -64,6 +64,19 @@ passes. A successful wrapper launch alone would not prove O4z optimization.
 The runtime comparison therefore reports these failures and separately measures
 a current-source Wasm GC runner under Node and Bun. Those rows are not npm
 package timings. See [the tracing record](tracing-playbook.md).
+## October 11, 2026 runtime package comparison
+
+The published registry name is **`starshine`**, version 0.2.0. The earlier
+`@jtenner/starshine` E404 concerned the scoped name in the old `main` checkout;
+it did not establish that the current unscoped package was unavailable.
+
+The current `master` package rebuilds both artifacts and runs the optimizer.
+Its 0.2.2 tarball builds and installs in a separate `.tmp` project. Both registry
+0.2.0 and local 0.2.2 CLI packages complete O4z under Node and Bun, validate, and
+write bytes identical to native. These are WASI CLI timings. The separate bulk
+GC runner has its own timings and is not the package's API adapter.
+See the [completed record](tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes).
+No version bump or publication is part of this fix.
 
 ## Overview
 

@@ -4731,6 +4731,15 @@ fn cmd_choose_smallest_encoded_candidate(
 }
 
 ///|
+fn cmd_o4z_append_unvalidated_input_candidate(
+  candidates : Array[(String, Bytes)],
+  bytes : Bytes,
+) -> Unit {
+  // The selector validates this candidate only if smaller candidates fail.
+  candidates.push(("input", bytes))
+}
+
+///|
 fn cmd_o4z_prevalidate_encoded_candidate(bytes : Bytes) -> Bytes? {
   match decode_module(bytes) {
     Ok(mod_) =>
@@ -4895,6 +4904,23 @@ fn cmd_o4z_late_cleanup_candidate_enabled(
 ) -> Bool {
   defined_func_count < 2000 &&
   (optimized_size >= 10000 || input_size <= optimized_size * 4)
+}
+
+///|
+fn cmd_o4z_original_copy_needed(
+  size_portfolio_enabled : Bool,
+  stack_carried_simd_trunc_global_write : Bool,
+  input_size : Int,
+  optimized_size : Int,
+  optimized_defined_func_count : Int,
+) -> Bool {
+  size_portfolio_enabled &&
+  (
+    stack_carried_simd_trunc_global_write ||
+    cmd_o4z_late_cleanup_candidate_enabled(
+      input_size, optimized_size, optimized_defined_func_count,
+    )
+  )
 }
 
 ///|
@@ -6040,6 +6066,25 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:pass_count=\{effective_pass_count} optimize:start",
     )
 
+    let size_portfolio_enabled = cmd_o4z_size_portfolio_enabled(
+      format, optimize_level, shrink_level, resolved_passes,
+    )
+    // Passes can share mutable module arrays, so snapshot these facts before
+    // optimization instead of scanning `mod` after the pipeline.
+    let caught_try_table_boundary = size_portfolio_enabled &&
+      cmd_module_has_caught_try_table(mod)
+    let unsafe_emscripten_main_runtime = size_portfolio_enabled &&
+      @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(mod)
+    let stateful_emscripten_main_runtime = size_portfolio_enabled &&
+      @passes.o4z_size_candidate_has_stateful_emscripten_main_runtime(mod)
+    let ifs_final_canonicalization_enabled = size_portfolio_enabled &&
+      cmd_o4z_ifs_final_canonicalization_enabled(mod)
+    let stack_carried_simd_trunc_global_write = size_portfolio_enabled &&
+      @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(mod)
+    let zero_memory_dense_i64_runtime_hazard = size_portfolio_enabled &&
+      cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(mod)
+    let single_render_runtime_hazard = size_portfolio_enabled &&
+      cmd_o4z_has_single_render_runtime_hazard(mod)
     let main_pipeline_start_us = cmd_trace_timer_start(trace_optimize)
     let pending_passes : Array[String] = []
     let mut optimized = mod
@@ -6187,25 +6232,36 @@ pub fn run_cmd_with_adapter(
     cmd_trace_timer_stop(
       io, trace_optimize, "main-pipeline", main_pipeline_start_us,
     )
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:final-validate:start",
-    )
-    let final_validate_start_us = cmd_trace_timer_start(trace_optimize)
-    match
-      validate_module_for_pipeline_step(optimized, "final module validate") {
-      Ok(_) => ()
-      Err(err) => return Err(err)
+    if size_portfolio_enabled &&
+      !caught_try_table_boundary &&
+      !merged.debug_serial_passes {
+      // The size-ordered selector validates the encoded candidate it returns.
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:deferred-to-candidate-selection",
+      )
+    } else {
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:start",
+      )
+      let final_validate_start_us = cmd_trace_timer_start(trace_optimize)
+      match
+        validate_module_for_pipeline_step(optimized, "final module validate") {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      cmd_trace_timer_stop(
+        io, trace_optimize, "validate:final-module", final_validate_start_us,
+      )
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:done",
+      )
     }
-    cmd_trace_timer_stop(
-      io, trace_optimize, "validate:final-module", final_validate_start_us,
-    )
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:final-validate:done",
-    )
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
     let reuse_check_start_us = cmd_trace_timer_start(trace_optimize)
@@ -6232,10 +6288,17 @@ pub fn run_cmd_with_adapter(
       encoded
     }
     let size_portfolio_start_us = cmd_trace_timer_start(trace_optimize)
-    let size_portfolio_enabled = cmd_o4z_size_portfolio_enabled(
-      format, optimize_level, shrink_level, resolved_passes,
-    )
-    let original_for_portfolio = if size_portfolio_enabled {
+    let optimized_defined_func_count = match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs.length()
+      None => 0
+    }
+    let original_for_portfolio = if cmd_o4z_original_copy_needed(
+        size_portfolio_enabled,
+        stack_carried_simd_trunc_global_write,
+        wasm_bytes.length(),
+        normal_out_bytes.length(),
+        optimized_defined_func_count,
+      ) {
       match decode_module_for_pipeline(input_path, wasm_bytes) {
         Ok(mod_) => Some(mod_)
         Err(_) => None
@@ -6243,49 +6306,9 @@ pub fn run_cmd_with_adapter(
     } else {
       None
     }
-    let caught_try_table_boundary = match original_for_portfolio {
-      Some(original) => cmd_module_has_caught_try_table(original)
-      None => false
-    }
-    let unsafe_emscripten_main_runtime = match original_for_portfolio {
-      Some(original) =>
-        @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(original)
-      None => false
-    }
-    let stateful_emscripten_main_runtime = match original_for_portfolio {
-      Some(original) =>
-        @passes.o4z_size_candidate_has_stateful_emscripten_main_runtime(
-          original,
-        )
-      None => false
-    }
-    let ifs_final_canonicalization_enabled = match original_for_portfolio {
-      Some(original) => cmd_o4z_ifs_final_canonicalization_enabled(original)
-      None => false
-    }
-    let stack_carried_simd_trunc_global_write = match original_for_portfolio {
-      Some(original) =>
-        @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
-          original,
-        )
-      None => false
-    }
-    let zero_memory_dense_i64_runtime_hazard = match original_for_portfolio {
-      Some(original) =>
-        cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(original)
-      None => false
-    }
-    let single_render_runtime_hazard = match original_for_portfolio {
-      Some(original) => cmd_o4z_has_single_render_runtime_hazard(original)
-      None => false
-    }
     let root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
       optimized,
     )
-    let optimized_defined_func_count = match optimized.code_sec {
-      Some(@lib.CodeSec(funcs)) => funcs.length()
-      None => 0
-    }
     let portfolio_candidates : Array[(String, Bytes)] = []
     let prevalidated_portfolio_labels : Array[String] = []
     if !size_portfolio_enabled ||
@@ -6298,12 +6321,11 @@ pub fn run_cmd_with_adapter(
       portfolio_candidates.push(("optimized", normal_out_bytes))
     }
     if size_portfolio_enabled && !caught_try_table_boundary {
+      cmd_o4z_append_unvalidated_input_candidate(
+        portfolio_candidates, wasm_bytes,
+      )
       match original_for_portfolio {
-        Some(original) => {
-          match validate_module(original) {
-            Ok(_) => portfolio_candidates.push(("input", wasm_bytes))
-            Err(_) => ()
-          }
+        Some(original) =>
           if stack_carried_simd_trunc_global_write {
             match
               optimize_module_with_pass_flags(
@@ -6333,7 +6355,6 @@ pub fn run_cmd_with_adapter(
               Err(_) => ()
             }
           }
-        }
         None => ()
       }
       if @passes.o4z_size_candidate_has_observable_assemblyscript_memory(
@@ -8073,7 +8094,9 @@ fn main {
 ///|
 #cfg(target="wasm-gc")
 fn main {
-  ignore(run_cmd_exit_code(trim_program_name(@env.args())))
+  if run_cmd_exit_code(trim_program_name(@env.args())) != 0 {
+    abort("Starshine command failed")
+  }
 }
 
 ///|
@@ -9236,16 +9259,10 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
       #|(module
       #|  (global (mut i32) (i32.const 0))
       #|  (func (result i32)
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
-      #|    global.get 0 i32.const 1 i32.add global.set 0
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
       #|
     ),

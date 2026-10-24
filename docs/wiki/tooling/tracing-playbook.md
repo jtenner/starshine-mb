@@ -2,6 +2,7 @@
 kind: concept
 status: supported
 last_reviewed: 2026-10-17
+last_reviewed: 2026-10-11
 sources:
   - ../raw/tooling/2026-10-17-pass-performance-v133.json
   - ../raw/tooling/2026-10-17-pass-performance-mixed.wat
@@ -5789,6 +5790,10 @@ diagnostic, and CSV/JSON reports.
 
 ## October 11, 2026: Wago wall-time and collection investigation
 
+Historical snapshot: this section used unpatched Wago `cea8f83f` and the old
+Starshine `main` checkout. The completed bulk-host record below supersedes its
+open correctness and package blockers.
+
 The follow-up uses the frozen Starshine artifacts and Wago source `cea8f83f`.
 Wago source remains unchanged. A diagnostic host adds call counts and Go
 CPU/allocation profiles and compiles directly, without the compiled cache.
@@ -5880,3 +5885,179 @@ Evidence is `.tmp/wago-investigation-20261011/`: admission JSON; complete
 CPU/heap profiles and source-line reports; call counts; RSS samples; cache
 controls; the failing reduced start test; nine copy controls; CSV/JSON findings
 and the report. Earlier comparison results remain their original observations.
+
+
+## October 11, 2026: bulk host and Wago fixes
+
+This supersedes the open runtime/package blockers above. Wago fixes are in
+[PR 948](https://github.com/wago-org/wago/pull/948), head
+`ef57364b9948fdf9f4ae3046bfc0cd04878f191a`. The Starshine change is based on
+`origin/master` at `3e6c77476ad446e11e3094b5890a10a7148793d9`, rather than the
+earlier `main` checkout at `a61c3e418f43a469b480febc4ad590310c1451a1`.
+
+### Fixed causes
+
+- Artifact format 7 preserves local/imported starts and rejects the old format.
+  Fresh and cached CLI invocations both return 42. Nonzero indices and trapping
+  starts pass through binary and stream loaders.
+- Direct host imports use the synchronous 64-slot ABI. Dynamic reference calls
+  keep their register limits. The next root-map failure was a dead call after a
+  loop with no fallthrough: conservative masks counted ten calls; native code
+  emitted nine. CFG reachability fixes that non-EH family without weakening the
+  collection guard. The bulk artifact now has exact roots: 33,724 allocation
+  safepoints, 101,526 callsites and 77 maximum roots.
+- Ordinary external-reference-to-scalar callbacks allocate no result scratch.
+  Retained/nested callers and separately owned type contexts keep their existing
+  lifetime checks; Caller stays 64 bytes. The new allocation test first failed.
+- Host activation had a linear scan of the entire return-PC table at every
+  ordinary host call. Both backends now use exact binary lookup above eight
+  entries. A 100,671-entry last-hit benchmark gives medians 20.68 ns indexed and
+  33,099 ns linear, with zero allocations (three 100 ms samples). This is a
+  lookup benchmark, not a whole-command speedup claim.
+- [`src/cmd_gc`](../../../src/cmd_gc/main.mbt) transfers full byte buffers through
+  linear staging memory and a scalar host protocol. Reading the input and writing
+  the output need **four host calls total**, independent of byte count. Arguments,
+  environment queries and tracing are separate calls. No byte cursor is used.
+  The legacy default closures still cause unused imports to be retained; the
+  new runners bind them to traps, and full executions never call them.
+
+### Completed comparison
+
+The input remains the original 13,324,080-byte debug artifact, SHA-256
+`bbd21e1ce934ae41b83c61c4c15e806d4123d473f7daec11b450ccd001e6f44e`.
+All 21 fresh-process runs in the seven fast rows succeed, validate with
+`wasm-tools --features all`, and produce identical 5,478,001-byte outputs:
+`f9424eb5f4b7618aeef5f8ab4ec1143c2510ce782f7e7a9f19e9f3dc4988549e`.
+The completed Wago runs produce that same hash.
+
+Wall times below are medians of three fresh processes, except Wago, which is
+one completed traced run. Phase columns are separate traced runs; they are not
+medians and do not sum to the wall column. Node is 26.11.1 and Bun is 1.4.2.
+The measurements are local observations with other user work active, not a
+controlled release performance gate.
+
+| Host | Wall (s) | Decode (s) | Final validation (s) | Size portfolio (s) | Candidate selection (s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Native 0.2.2 | 2.341 | 0.168 | 0.336 | 0.724 | 0.523 |
+| Node / GC bulk 0.2.2 | 4.034 | 0.532 | 0.432 | 1.112 | 0.593 |
+| Bun / GC bulk 0.2.2 | 5.418 | 0.395 | 0.555 | 1.439 | 0.786 |
+| npm starshine 0.2.0 / Node | 6.697 | 0.889 | 0.663 | 1.516 | 1.127 |
+| npm starshine 0.2.0 / Bun | 9.880 | 2.692 | 1.153 | 2.794 | 2.278 |
+| Local npm 0.2.2 / Node | 5.767 | 0.854 | 0.622 | 1.426 | 1.095 |
+| Local npm 0.2.2 / Bun | 9.442 | 1.733 | 0.574 | 2.642 | 2.273 |
+| Wago / GC bulk 0.2.2 | 176.354 | 20.186 | 35.425 | 66.161 | 42.353 |
+
+Wago input transfer is 3.000 s and output transfer is 0.422 s. Its traced run
+makes 124 request/response pairs: one argument request, fourteen environment
+queries, one existence check, one file read, one file write and 106 trace writes.
+The read/write pair alone uses four calls. The run completes with a 2 GiB Wasm
+heap; Go allocations total 5.63 GB across compilation and execution.
+
+The original host also completes after the Wago fixes, in one 221.848 s run, but
+still makes 13,324,081 read-byte calls and 5,478,001 write-byte calls. The original
+collection-disabled 77.657 s heap failure is not a successful timing baseline.
+These observations do not isolate a whole-command speedup from the bulk change.
+
+Only `strip-debug` has a pass-local timer in the main pipeline for this input:
+1 µs native and less than the 1 ms clock resolution on the GC/linear-Wasm hosts.
+Most main-pipeline passes are skipped by metadata/size guards. Portfolio internals
+retain aggregate phase timers, not individual pass-local measurements. Published
+0.2.0 does not forward a pass timer at phase tracing; local 0.2.2 does.
+
+The remaining Wago wall cost is large. Final validation, portfolio work and
+candidate selection take about 144 s together. A separate 20 s CPU sample after
+indexing with the legacy host attributes 26.84% inclusive to the GC struct helper and 12.11% to external
+native code. This short sample does not quantify the complete bulk run.
+The generic GC helper/native transition cost remains open; no unsafe
+reference-field fast path or weakened validation is enabled by these fixes.
+
+### Package and validation receipts
+
+The registry package is **`starshine`**, published version 0.2.0. The earlier
+`@jtenner/starshine` E404 was for the scoped name in the old `main` checkout.
+The current source package is 0.2.2 and rebuilds both adapters. It builds, packs
+and installs in `.tmp/bulk-check/npm-local`; the registry version installs in
+`.tmp/bulk-check/npm-published`. Both CLI packages perform real O4z work under
+Node and Bun and produce the same output hash. No package was published.
+
+`moon info`, `moon fmt` and all **14,134** Wasm GC tests pass. Four stale pass-test
+expectations exposed by the clean build are corrected without changing pass
+implementations: MSF fixtures now exceed the encoded-size guard, and the hot RSE
+assertion uses each floating-point row's store count and checks surviving bits.
+The compatibility GC main also stops with a nonzero status on command errors;
+its missing-file process test failed before the fix and retains the version-success
+control. These measurements precede that final compatibility-main status change,
+which is not the bulk entry point.
+Node and Bun both pass the binary/Unicode/error bulk-host tests and the real
+constant-fold command fixture. Wago passes full Go, regalloc and bench-regalloc
+checks with pinned WABT 1.0.41 and conformance submodules. Linux/arm64 cross-builds;
+no local ARM64 execution is claimed.
+
+Reproduce GC execution with `moon build --target wasm-gc --release src/cmd_gc`,
+then `node --stack-size=65536 tools/run-gc-cli.mjs <artifact> <input> -O4z --out <output>`
+or `BUN_JSC_maxPerThreadStackUsage=67108864 bun tools/run-gc-cli.mjs ...`.
+Use a 128 MiB OS stack limit for the large artifact. Build Wago's runner with
+`go build -C tools/wago-host -o starshine-wago .`; its optional
+`STARSHINE_BENCH_REPORT` records cold compile, instantiate, invoke, allocation and
+I/O counts. Add `--tracing phase` for the command/pass timing rows.
+
+Local receipts: `.tmp/bulk-check/measurements/`, `wago-full.json`,
+`wago-full.stderr`, `full-tests-final.log`, npm build/pack/install receipts, plus
+`.tmp/wago-investigation-20261011/` and `.tmp/wago-callsite-bench.log` in the
+original workspace. Earlier interrupted checks remain historical failures.
+
+## October 12, 2026: defer the O4z input fallback validation
+
+The O4z portfolio decoded the original input again and validated it before
+candidate selection, even when a smaller, valid optimized result won. It now
+adds the input as an unvalidated fallback. The size-ordered selector validates
+it only if every smaller candidate fails. The existing encoded-candidate check
+still validates the selected result. The fallback test covers both the early
+optimized selection and the case where validation rejects that result.
+
+Six alternating fresh-process runs used the frozen 13,324,080-byte debug input,
+the same Wago PR 948 host and 64 MiB nursery, and identical O4z phase tracing.
+Both optimizer builds used the same Starshine bulk CLI source; only the deferred
+validation change differed. All six outputs were the same valid 5,478,001-byte
+wasm, SHA-256 `f9424eb5f4b7618aeef5f8ab4ec1143c2510ce782f7e7a9f19e9f3dc4988549e`.
+Collection stayed enabled. Phase medians are separate measurements.
+
+| Optimizer | Wall median, s | Final validation, s | Size portfolio, s | Candidate selection, s | Go allocation, MB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Before | 54.078 | 7.942 | 18.401 | 13.685 | 5,637.869 |
+| Deferred input validation | 45.278 | 8.099 | 10.740 | 12.928 | 5,232.315 |
+
+Wall time fell 16.3%, and size-portfolio time fell 41.6%. The paired wall
+samples were 54.078/45.278, 57.215/42.980, and 51.445/48.118 seconds for
+before/after runs. Machine load varied, so the result supports the direction
+and size of this gain rather than a release timing guarantee. Wago PR 948's
+earlier three-run median was 48.616 seconds under a different load. The second
+decode of the original input and the selected encoded result's validation remain
+in Starshine; those are distinct from Wago's compile-time validation.
+
+The next change captures original-module hazard facts before the optimizer can
+mutate shared arrays. It decodes a separate original copy only for cleanup that
+uses that copy. The 13.3 MB artifact has more than 1,999 optimized functions and
+does not enter that cleanup. Three fresh Wago runs took 39.478, 39.032, and
+37.862 seconds (median 39.032). Their size-portfolio times were 3.595, 3.561,
+and 3.444 seconds (median 3.561); selected-candidate checks still took 14.154,
+14.042, and 13.880 seconds (median 14.042). All outputs retained the same
+5,478,001-byte hash and passed independent `wasm-tools` validation. The earlier
+45.278-second median was measured under a different load, so the 6.246-second
+difference is directional evidence. The reported size-portfolio phase fell
+from 10.740 to 3.561 seconds; original-fact scans now run before that timer,
+so the phase difference is not wholly saved work. Original-dependent cleanup
+still decodes its own copy.
+
+Normal O4z then moved final validity checking to the size-ordered encoded
+candidate selector. That selector still decodes and validates the bytes it
+returns; an invalid smaller encoded candidate falls back to a valid input.
+Caught try-table forced-input runs and debug serial mode retain eager final
+module validation. Three further Wago runs measured 27.675, 26.308, and
+29.320 seconds (median 27.675), with 12.392 seconds in candidate selection
+at the median and no separate final-module validation. All three outputs had
+the unchanged 5,478,001-byte hash and passed independent `wasm-tools`
+validation. This group was run later than the 39.032-second group, so its
+11.357-second median difference is directional evidence rather than a paired
+speedup estimate. The selected-candidate decode and validation remain the
+largest phase.

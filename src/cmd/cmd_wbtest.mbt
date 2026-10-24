@@ -1956,6 +1956,48 @@ test "O4z size portfolio validates shortest candidates first and stops" {
 }
 
 ///|
+test "O4z input candidate validation waits until selection needs it" {
+  let visited : Array[String] = []
+  let optimized = bytes_from_ints([1])
+  let input = bytes_from_ints([2, 2])
+  let candidates = [("optimized", optimized)]
+  cmd_o4z_append_unvalidated_input_candidate(candidates, input)
+  let (label, selected) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    candidates,
+    [],
+    fn(label, _) {
+      visited.push(label)
+      label == "optimized"
+    },
+  )
+  @debug.assert_eq(visited, ["optimized"])
+  @debug.assert_eq(label, "optimized")
+  @debug.assert_eq(selected, optimized)
+  visited.clear()
+  let (fallback_label, fallback_bytes) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    candidates,
+    [],
+    fn(label, _) {
+      visited.push(label)
+      label == "input"
+    },
+  )
+  @debug.assert_eq(visited, ["optimized", "input"])
+  @debug.assert_eq(fallback_label, "input")
+  @debug.assert_eq(fallback_bytes, input)
+}
+
+///|
+test "O4z original copy is decoded only for original-dependent cleanup" {
+  assert_false(
+    cmd_o4z_original_copy_needed(true, false, 13324080, 5478001, 2000),
+  )
+  assert_true(cmd_o4z_original_copy_needed(true, true, 13324080, 5478001, 2000))
+  assert_true(cmd_o4z_original_copy_needed(true, false, 10000, 5000, 1999))
+  assert_false(cmd_o4z_original_copy_needed(false, true, 10000, 5000, 1999))
+}
+
+///|
 test "normal O4z skips selected candidate re-decode outside debug serial validation" {
   assert_false(should_validate_encoded_module_after_encode(false))
   assert_true(should_validate_encoded_module_after_encode(true))
@@ -2114,13 +2156,11 @@ test "O4z size portfolio bounds late cleanup on compressed and artifact-scale mo
 }
 
 ///|
-test "run_cmd_with_adapter O4z keeps a smaller valid input candidate" {
+test "run_cmd_with_adapter O4z defers final validation and rejects invalid encoded output" {
   let wasm = encode_module_bytes(fixture_i32_const_module(32))
-  let inflated = bytes_from_ints([
-    0, 97, 115, 109, 1, 0, 0, 0, 0, 10, 8, 105, 110, 102, 108, 97, 116, 101, 100,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  ])
+  let invalid_encoded = bytes_from_ints([1])
   let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm"] },
     file_exists=fn(path) { path == "a.wasm" },
@@ -2131,18 +2171,32 @@ test "run_cmd_with_adapter O4z keeps a smaller valid input candidate" {
         Err("missing fixture")
       }
     },
-    encode_module=fn(_) { Ok(inflated) },
+    encode_module=fn(_) { Ok(invalid_encoded) },
     write_file=fn(path, bytes) {
       writes.push((path, bytes))
       Ok(())
     },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
   )
-  match run_cmd_with_adapter(["-O4z", "--out", "out.wasm", "a.wasm"], io) {
+  match
+    run_cmd_with_adapter(
+      ["-O4z", "--tracing", "phase", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
     Ok(_) => ()
     Err(err) => fail("expected O4z portfolio success, got \{err}")
   }
   @debug.assert_eq(writes.length(), 1)
   @debug.assert_eq(writes[0].1, wasm)
+  let trace = concat_ascii_bytes(stderr_writes)
+  assert_true(
+    trace.contains("final-validate:deferred-to-candidate-selection"),
+    msg=trace,
+  )
+  assert_false(trace.contains("final-validate:start"), msg=trace)
 }
 
 ///|

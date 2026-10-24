@@ -6,6 +6,7 @@ import {
   normalizeGeneratedText,
   parseComponentArgs,
   patchGeneratedMoonModule,
+  renderGeneratedMoonModule,
   validateComponentVersionSources,
 } from "./component-task";
 
@@ -93,6 +94,21 @@ describe("component task", () => {
         "jtenner/starshine": "0.1.2-beta.0",
       },
     });
+  });
+
+  test("renders the generated module without a retired JSON manifest", () => {
+    expect(renderGeneratedMoonModule(patchGeneratedMoonModule({
+      name: "jtenner/starshine-component",
+      preferredTarget: "wasm",
+    }, "0.2.2"))).toBe([
+      'name = "jtenner/starshine-component"',
+      'preferred_target = "wasm"',
+      "",
+      "import {",
+      '  "jtenner/starshine@0.2.2",',
+      "}",
+      "",
+    ].join("\n"));
   });
 
   test("internalizes known MoonBit runtime imports after every retained component import", () => {
