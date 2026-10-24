@@ -282,3 +282,19 @@ element regression now keeps function indices consistent with the rewritten
 shared i31 references. Broader differences in function-index numbering,
 boundary wrappers, and older GTO pruning remain open pending direct semantic
 and size analysis; validation alone is not acceptance evidence.
+
+## Shared-object handle lifetime
+
+`make-shared-objects` keeps escaping shared-i31 handles and their external
+references for module lifetime. A host-only `release(handle)` cannot infer
+liveness: ordinary exports return `externref`, while the module may retain the
+internal handle. Clearing its table slot when a `store` export returns can
+change a later `load` from the original object to null. Safe reclamation needs
+an explicit module-level ownership and release contract; none is implemented.
+
+Immediately adjacent `extern.convert_any` / `any.convert_extern` pairs have no
+escaping handle. Their generated table write/read calls are omitted while both
+host conversion calls remain. Pair-only modules also omit the unused private
+table and handle helpers. See the [direct and dispatcher regressions](../../../src/passes/binaryen133_shared_parity_wbtest.mbt),
+[command fixture](../../../src/cmd/make_shared_objects_tuple_wbtest.mbt), and
+[extraction ledger](../../pass-audit-extraction.md) for source provenance.

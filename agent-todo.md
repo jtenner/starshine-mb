@@ -26,6 +26,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   family coverage. The current hierarchy repair has independent direct tests.
   See the [review record](docs/wiki/tooling/validation-gates.md#october-19-2026--pass-review-follow-up).
 
+### Shared-object handle lifetime [IR2-MSO-HANDLE-LIFETIME]
+
+- **Goal / why:** bound retention for escaping handles without changing later
+  loads; current private table entries live for the module lifetime.
+- **Deliverables / tasks:** establish an explicit module ownership/release
+  contract before changing escaping-handle storage. Adjacent conversion pairs
+  already avoid handles and unused table/helpers.
+- **APIs / invariants:** exported externrefs do not expose internal handle
+  liveness; a host-only release function is insufficient. Preserve cross-call
+  stores, loads, aliases, nullability, and both host conversion calls.
+- **Dependencies / exit / tests:** an approved ownership contract and explicit
+  release points, with store/load across exports and escaping-alias controls;
+  retain the paired-conversion regressions. See the [lifetime contract](docs/wiki/binaryen/version-133-upgrade.md#shared-object-handle-lifetime).
+
 ### Generic inlining raw output [IR2-INLINING-RAW-QUALITY]
 
 - **Goal / why:** reduce the general-profile raw-byte gap while preserving
