@@ -46,6 +46,8 @@ A Starshine release is not just “run tests and publish npm.” The current rep
 
 1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at version `0.3.0`.
 2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at version `0.3.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at published tutorial version `0.2.2`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at candidate version `0.2.2`; published npm remains `0.2.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
@@ -135,8 +137,8 @@ output. The API reference remains in `README.mbt.md`.
 Mooncakes `0.2.1` is published. Its registry ZIP matches the frozen qualified
 archive, and registry-only tutorial/API consumers pass. The root module overview
 renders the guide at both the exact-version and unversioned latest URLs. The
-historical harness also checked the npm CLI. The source prep branch contains the
-README; GitHub default master still has the `0.2.0` guide pending protected checks.
+historical harness also checked the npm CLI. The published `0.2.2` tutorial and qualified master advancement supersede its
+runtime guidance and the previous default-source discoverability gap.
 
 ### MoonBit tutorial revision 0.2.2
 
@@ -159,6 +161,18 @@ After publication, `--registry` runs the literal `moon new`, `moon add` and
 README and archive evidence before publication. Verify registry ZIP integrity and
 the rendered public default/latest module overview before declaring completion.
 No formal ASD-STE100 certification is claimed.
+
+The `0.2.2` registry ZIP is byte-identical to the reviewed archive (2,157 files /
+6,302,558 bytes; SHA256 `e8646b662c638a4a0b2befc73f2fdd575af97da887efb3c876c8ec17ea2ea5dc`).
+Literal registry tutorial and API consumers pass; the independent cloud browser
+verified complete code rendering on both the default/latest and versioned module
+overview. The source commit `0f9460d3200e1ed679b4f8405368cc707a518959` passed all three
+app-15368 protected checks and package CI before normal master advancement.
+The default GitHub README now contains the tutorial. Independent CI ZIP payloads
+match every published member; container order and permission metadata differ.
+Ordinary master workflow repeats remain separate from preparation qualification.
+The existing differential CI oracle is pinned to Binaryen 132; this retained gate
+must not be presented as new Binaryen 133 parity evidence.
 
 Product-version checks require synchronized Moon/npm candidate metadata.
 This patch prepares an npm `0.2.2` candidate but authorizes only the Mooncakes

@@ -881,6 +881,21 @@
 - Updated the pass dossier, shared catalogs, fuzzing status and active backlog.
   Full type, ABI, local, global, call, return, memory, ordinary numeric, helper
   and atomic lowering remains open and cannot use narrow-pass evidence.
+### 2026-10-11 — Publish and verify MoonBit tutorial 0.2.2
+
+- Mooncakes `0.2.2` is published after parent/independent content review. The
+  exact registry archive matches qualified bytes; literal registry tutorial/API
+  consumers pass, including Node-free MoonGC, native text/file/error paths and
+  independently executed answer 42. Legal/source payloads are retained.
+- Independent cloud-browser review confirms full MoonBit code on the default
+  latest and versioned module overview. The documentation-build placeholder is
+  gone. [Release process](tooling/release-process.md#moonbit-tutorial-revision-022)
+  records the hashes, checks and runtime correction.
+- Required CI `38108586470` and package CI `38108615903` pass at exact signed
+  commit `0f9460d32`. Master advanced normally to that qualified commit without
+  bypass, force or protection changes. Ordinary master workflow repeats are
+  separate runs. The private 52-file npm `0.2.2` candidate passes all nine exports,
+  strict TypeScript, CLI and runtime isolation checks; npm latest stays `0.2.0`.
 
 ### 2026-10-11 — Prepare the MoonBit tutorial revision 0.2.2
 

@@ -67,6 +67,15 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - The owner authorized `0.3.0` for both registries, a full local test, and an
   annotated tag with a detailed GitHub changelog. This supersedes the old
   restriction that treated synchronized npm `0.2.2` as a private candidate.
+  Its runtime/dependency guidance is superseded by the published `0.2.2` tutorial.
+- Mooncakes `0.2.2` is published and its default/latest overview renders the
+  complete reviewed MoonBit tutorial. The registry ZIP exactly matches the
+  qualified archive; literal registry tutorial/API consumers pass on WasmGC and
+  native targets, including Node-free MoonGC, file/error checks and answer 42.
+  All three eligible exact-head protected checks and package CI pass. Normal
+  master advancement to `0f9460d32` completed without bypass or force; ordinary
+  master workflow repeats are separate from preparation qualification.
+  npm remains `0.2.0`; synchronized npm `0.2.2` is an unpublished candidate.
 - The automatic FFI-backed declarations, six-pass self-build and packed runtime
   boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
   Unsupported ABI mappings fail generation; root/subpaths share async ESM
