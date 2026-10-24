@@ -3290,11 +3290,7 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       if !changed {
         return mod_
       }
-      cl_rebuild_module(
-        mod_,
-        Some(@lib.CodeSec::new(rewritten)),
-        cl_name_sec_without_local_names(mod_.name_sec),
-      )
+      cl_rebuild_module(mod_, Some(@lib.CodeSec::new(rewritten)), mod_.name_sec)
     }
     None => mod_
   }
