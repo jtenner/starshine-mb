@@ -19,8 +19,8 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `d265b2a43` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused merge_locals_preflight_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: skip merge-locals graph work without influenced reads |
 | `300c6d1f6` | REDESIGN SKIP | Split reviewed: saturation candidate filtering already exists in master 6f8efd3ad; intrinsic worker changes collide with cc9677cee declared-local typing. Leave intrinsic redesign behind. |
 | `6589329c3` | ALREADY ON MASTER | Master 6f8efd3ad i64_lower_sat_expr_candidate_types and conditional temporary pushes already allocate only used f32/f64 locals, with narrow-pass tests. |
-| `bcc83ebe6` | Review pending | fix: avoid reorder-locals size growth from mixed type runs |
-| `eb8193144` | Review pending | fix: scope descriptor field-zero reads to related types |
+| `bcc83ebe6` | SUPERSEDED BY MASTER | Ported size-regression test passes unchanged (14/14 file tests); master reorder_locals.mbt already groups type runs and compares encoded candidates, from d0dd83c95/f1393ac89. No source implementation needed. |
+| `eb8193144` | EXTRACT | RED new regression failed without fix; GREEN focused binaryen133_gto_red_wbtest.mbt passed (see source row for behavior); source: fix: scope descriptor field-zero reads to related types |
 | `cceefec87` | Review pending | perf: coalesce sparse straight-line locals above dense guard |
 | `6733db350` | Review pending | perf: reduce DAE2 raw qualification dispatch cost |
 | `36e3016e1` | Review pending | fix: preserve each final invalid-module dump |

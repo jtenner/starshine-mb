@@ -14,38 +14,92 @@
 fn gto_scan_exposure(
   instrs : Array[@lib.Instruction],
   exposure : Array[Bool],
-  first_field_read : Array[Bool],
+  first_field_reads : Array[Bool],
 ) -> Unit {
   for instr in instrs {
     match instr {
       @lib.ExternConvertAny => exposure[0] = true
-      @lib.StructGet(_, @lib.U32(0U))
-      | @lib.StructGetS(_, @lib.U32(0U))
-      | @lib.StructGetU(_, @lib.U32(0U)) => first_field_read[0] = true
+      @lib.StructGet(type_idx, @lib.U32(0U))
+      | @lib.StructGetS(type_idx, @lib.U32(0U))
+      | @lib.StructGetU(type_idx, @lib.U32(0U)) =>
+        match type_idx {
+          @lib.TypeIdx(raw) => {
+            let index = raw.to_int()
+            if index >= 0 && index < first_field_reads.length() {
+              first_field_reads[index] = true
+            }
+          }
+          _ => ()
+        }
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        gto_scan_exposure(body, exposure, first_field_read)
+        gto_scan_exposure(body, exposure, first_field_reads)
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        gto_scan_exposure(body, exposure, first_field_read)
+        gto_scan_exposure(body, exposure, first_field_reads)
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        gto_scan_exposure(body, exposure, first_field_read)
+        gto_scan_exposure(body, exposure, first_field_reads)
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(_, @lib.Expr(body))
             | @lib.LegacyCatchAll(@lib.Expr(body)) =>
-              gto_scan_exposure(body, exposure, first_field_read)
+              gto_scan_exposure(body, exposure, first_field_reads)
           }
         }
       }
       @lib.If(_, then_body, else_body) => {
-        gto_scan_exposure(then_body, exposure, first_field_read)
+        gto_scan_exposure(then_body, exposure, first_field_reads)
         match else_body {
-          Some(body) => gto_scan_exposure(body, exposure, first_field_read)
+          Some(body) => gto_scan_exposure(body, exposure, first_field_reads)
           None => ()
         }
       }
       _ => ()
     }
   }
+}
+
+///|
+fn gto_related_first_field_reads(
+  subtypes : Array[@lib.SubType],
+  direct_reads : Array[Bool],
+) -> Array[Bool] {
+  if direct_reads.all(fn(read) { !read }) {
+    return direct_reads
+  }
+  let neighbors : Array[Array[Int32]] = []
+  for _ in subtypes {
+    neighbors.push([])
+  }
+  for index, subtype in subtypes {
+    for super_type in subtype.super_types() {
+      match super_type {
+        @lib.TypeIdx(raw) => {
+          let super_index = raw.to_int()
+          if super_index >= 0 && super_index < subtypes.length() {
+            neighbors[index].push(super_index)
+            neighbors[super_index].push(index)
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  let related = direct_reads.copy()
+  let pending : Array[Int32] = []
+  for index, read in direct_reads {
+    if read {
+      pending.push(index)
+    }
+  }
+  while pending.length() > 0 {
+    let index = pending.pop().unwrap()
+    for neighbor in neighbors[index] {
+      if !related[neighbor] {
+        related[neighbor] = true
+        pending.push(neighbor)
+      }
+    }
+  }
+  related
 }
 
 ///|
@@ -398,14 +452,17 @@ fn global_type_optimization_run_module_pass(
   }
   let old_subtypes = cl_module_subtypes(mod_)
   let exposure = [false]
-  let first_field_read = [false]
+  let first_field_reads = Array::make(old_subtypes.length(), false)
   for func in funcs {
     let @lib.Func(_, @lib.Expr(body)) = func
-    gto_scan_exposure(body, exposure, first_field_read)
+    gto_scan_exposure(body, exposure, first_field_reads)
   }
   if !exposure[0] {
     return mod_
   }
+  let related_reads = gto_related_first_field_reads(
+    old_subtypes, first_field_reads,
+  )
   let plans = Array::make(old_subtypes.length(), 0)
   for index, subtype in old_subtypes {
     if subtype.describes_type() is None {
@@ -414,7 +471,7 @@ fn global_type_optimization_run_module_pass(
     match subtype.get_comptype() {
       @lib.StructCompType(fields) if fields.length() >= 2 &&
         !gto_field_can_configure_prototype(fields[0]) =>
-        plans[index] = if first_field_read[0] { 2 } else { 1 }
+        plans[index] = if related_reads[index] { 2 } else { 1 }
       _ => ()
     }
   }

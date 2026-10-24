@@ -240,6 +240,38 @@ test "Binaryen 133 GTO keeps a non-prototype descriptor field at index zero" {
 }
 
 ///|
+test "GTO does not expand a descriptor for an unrelated field-zero read" {
+  let output = binaryen133_run_gto(
+    (
+      #| (module
+      #|   (rec
+      #|     (type $s (sub (descriptor $d) (struct)))
+      #|     (type $d (sub (describes $s)
+      #|       (struct (field (ref null noextern)) (field externref)))))
+      #|   (type $other (struct (field i32)))
+      #|   (import "env" "ext" (global $ext externref))
+      #|   (func (export "run") (result externref)
+      #|     (extern.convert_any
+      #|       (struct.new_default_desc $s
+      #|         (struct.new $d (ref.null noextern) (global.get $ext)))))
+      #|   (func (export "read-other") (param (ref $other)) (result i32)
+      #|     (struct.get $other 0 (local.get 0)))
+      #|   (func (param (ref $d)) (result externref)
+      #|     (struct.get $d 1 (local.get 0))))
+      #|
+    ),
+  )
+  let descriptors = cl_module_subtypes(output).filter(fn(subtype) {
+    subtype.describes_type() is Some(_)
+  })
+  assert_eq(descriptors.length(), 1)
+  match descriptors[0].get_comptype() {
+    @lib.StructCompType(fields) => assert_eq(fields.length(), 2)
+    _ => fail("expected struct descriptor")
+  }
+}
+
+///|
 test "Binaryen 133 GTO inserts inherited placeholders and remaps subtype field reads" {
   let output = binaryen133_run_gto(
     "(module (rec (type $super (sub (descriptor $super-desc) (struct))) (type $super-desc (sub (describes $super) (struct (field i32) (field externref))))) (rec (type $sub (sub $super (descriptor $sub-desc) (struct))) (type $sub-desc (sub $super-desc (describes $sub) (struct (field i32) (field externref))))) (func (export \"run\") (result structref) (struct.new_desc $super (struct.new $super-desc (i32.const 42) (extern.convert_any (struct.new_default $super-desc))))) (func (param (ref $super-desc)) (drop (struct.get $super-desc 1 (local.get 0)))) (func (param (ref $sub-desc)) (drop (struct.get $sub-desc 0 (local.get 0))) (drop (struct.get $sub-desc 1 (local.get 0)))))",
