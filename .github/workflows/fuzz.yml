@@ -65,6 +65,7 @@ jobs:
       - name: Run bounded semantic optimizer component tests
         run: |
           bun test \
+            scripts/lib/validator-premise-qualification.test.ts \
             scripts/lib/optimizer-runtime.test.ts \
             scripts/lib/optimizer-properties.test.ts \
             scripts/lib/optimizer-failure-fingerprint.test.ts \

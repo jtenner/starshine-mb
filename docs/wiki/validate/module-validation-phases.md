@@ -2,7 +2,12 @@
 kind: concept
 status: supported
 last_reviewed: 2026-10-16
+last_reviewed: 2026-10-12
 sources:
+  - ../../../tests/validator-premises/catalog.json
+  - ../../../scripts/test/validator-premise-matrix.ts
+  - ../../../scripts/lib/validator-premise-qualification.ts
+  - https://github.com/WebAssembly/spec/tree/7e9fb78c63d65018cc111422f657947b3df80d7b
   - ./ref-func-declarations.md
   - ../wast/exception-tag-authoring.md
   - ../binary/data-element-and-datacount-sections.md
@@ -59,6 +64,63 @@ related:
 ---
 
 # Module Validation Phases
+
+## Pinned premise qualification
+
+The test-only [premise catalog](../../../tests/validator-premises/catalog.json)
+maps 22 fixtures (11 valid/invalid pairs) to existing validator and spec tests.
+It pins Core specification revision
+`7e9fb78c63d65018cc111422f657947b3df80d7b` and the SHA-256 identities of the
+instruction rules and validation algorithm. The selected families cover typed
+block entry/results, multi-result branches, concrete operands after unreachable,
+`br_table` arity and bottom types, typed select operands/condition, and
+nondefaultable local initialization across block/if scope exits.
+
+Run the bounded matrix with a built native Starshine, release Binaryen 133,
+wasm-tools, and a fresh output directory:
+
+```text
+bun scripts/test/validator-premise-matrix.ts <native-starshine> <v133-wasm-opt> <fresh-out-dir> [wasm-tools]
+```
+
+The runner records exact input and tool identities, feature settings, raw
+per-tool diagnostics, and input preservation. Starshine writes to a distinct
+output because its default `--validate` command can rewrite its input. Native
+decode and wasm-tools print establish byte structure before typing comparisons.
+The text compiler and strict validator share wasm-tools dependencies; native
+Starshine and Binaryen decode the same bytes independently. No guest execution
+occurs. Unknown diagnostics, host errors, malformed bytes, unavailable features,
+and timeouts cannot qualify as invalid typing. A truncated version header and a
+positive non-nullable-reference fixture with function references disabled test
+those phase boundaries. A test-only weakened initialization context demonstrates
+why marking an unset local initialized would violate the pinned premise.
+
+At master `3e6c774`, Starshine and wasm-tools 1.251.0 agree with the pinned
+expectations for all 22 cases. Binaryen 133 admits five invalid fixtures:
+concrete i64 consumed by i32.add after unreachable, mismatched br_table label
+arity, unset nondefaultable local, block-local initialization escaping its frame,
+and initialization in both if arms escaping its frame. These are command-level
+input-admission disagreements. Binaryen builds IR before validation; this matrix
+does not establish five distinct defects in a raw-byte validator. The other
+rejections require tool-specific causal diagnostics; Binaryen may reject typing
+during its typed IR read. Each disagreement stays visible in the result.
+
+Five fresh-process measurements gave a complete matrix cost of 423–429 ms
+(median 428 ms), with median child maximum RSS 93,740 KiB. Native validation of
+a reduced Rust fixture took 20.2–22.2 ms and of a frozen 16,999,058-byte CLI
+artifact 860–882 ms. Those include Python resource-wrapper and native process startup, decoding, validation,
+encoding and output writing; they are not validator-only timings. One thousand
+catalog checks plus 22,000 synthetic result qualifications took 19.6–25.8 ms
+inside Node with allocation sampling enabled, with 39.7–43.9 MB sampled allocation and 0.60–0.85 MB live heap
+growth. These diagnostic costs do not imply a production optimization gain.
+
+This is a selected premise qualification, not full conformance. Exceptions,
+threads, SIMD, memory64, and additional proposal type combinations are outside
+the matrix. The aggregate spec runner historically allows validation rejection
+for some `assert_malformed` assertions, so its aggregate pass count does not
+establish byte-decode versus typing classification. Six inherited full-suite
+failures still block publication of this local research candidate; see
+[research issue 29](https://github.com/jtenner/starshine-mb/issues/29).
 
 ## September 27 follow-up allocation campaign renewal
 
