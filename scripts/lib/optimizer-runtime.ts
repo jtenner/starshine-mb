@@ -43,6 +43,7 @@ export type RuntimeFunctionSignature = {
 export type RuntimeInterfaceV1 = {
   schema: "starshine.optimizer-runtime-interface.v1";
   moduleHash: string;
+  sourceArtifactHash?: string;
   interfaceHash: string;
   features: string[];
   hasStart: boolean;
@@ -156,6 +157,9 @@ export type RuntimeObservationV2 = {
   schema: "starshine.optimizer-runtime-observation.v2";
   runtime: { identity: string; timeoutMs: number };
   mode: ObservationMode;
+  artifact?: { expectedHash: string | null; loadedHash: string | null; verified: boolean };
+  traceLimit?: { cap: number; observedEventCount: number; exhausted: boolean };
+  diagnosticMode?: "enabled" | "disabled";
   compilation: RuntimeCompilationOutcomeV2;
   instantiation: RuntimeInstantiationOutcomeV2;
   completeness: "complete" | "incomplete";
@@ -520,6 +524,10 @@ function emptyComparison(policy: SemanticPolicy, before: RuntimeObservationV2, a
   };
 }
 
+function semanticState(state: RuntimeStateSnapshotV2) {
+  return { ...state, memories: state.memories.map(({ diagnosticSamples: _samples, ...memory }) => memory) };
+}
+
 function setDifference(report: SemanticComparisonV2, category: string, path: string, expected: unknown, actual: unknown): SemanticComparisonV2 {
   report.classification = "semantic-mismatch";
   report.firstDifferenceCategory = category;
@@ -633,6 +641,16 @@ function definiteOutcomeDifference(
 
 export function compareRuntimeObservationsV2(before: RuntimeObservationV2, after: RuntimeObservationV2, policy: SemanticPolicy): SemanticComparisonV2 {
   const report = emptyComparison(policy, before, after);
+  const qualificationLimits = [before, after].flatMap(observation => [
+    ...(observation.traceLimit?.exhausted ? [`event-trace-cap:${observation.traceLimit.cap}`] : []),
+    ...(observation.artifact?.expectedHash != null && !observation.artifact.verified ? ["artifact-identity-mismatch"] : []),
+  ]);
+  if (qualificationLimits.length > 0) {
+    report.classification = "blocked";
+    report.completeness = "incomplete";
+    report.diagnostics = [...new Set([...before.blockedReasons, ...after.blockedReasons, ...qualificationLimits])];
+    return report;
+  }
   if (report.completeness === "incomplete" || before.blockedReasons.length > 0 || after.blockedReasons.length > 0) {
     report.diagnostics = [...before.blockedReasons, ...after.blockedReasons];
     const definiteDifference = definiteOutcomeDifference(report, before, after, policy);
@@ -679,14 +697,16 @@ export function compareRuntimeObservationsV2(before: RuntimeObservationV2, after
         }
       }
     }
-    if (stableRuntimeJson(left.stateAfter) !== stableRuntimeJson(right.stateAfter)) return setDifference(report, "state", `steps[${index}].stateAfter`, left.stateAfter, right.stateAfter);
+    if (stableRuntimeJson(semanticState(left.stateAfter)) !== stableRuntimeJson(semanticState(right.stateAfter))) return setDifference(report, "state", `steps[${index}].stateAfter`, left.stateAfter, right.stateAfter);
   }
   for (const kind of ["globals", "memories", "tables"] as const) {
     const left = before.resources[kind];
     const right = after.resources[kind];
-    if (stableRuntimeJson(left) !== stableRuntimeJson(right)) {
+    const semanticLeft = kind === "memories" ? semanticState(before.resources).memories : left;
+    const semanticRight = kind === "memories" ? semanticState(after.resources).memories : right;
+    if (stableRuntimeJson(semanticLeft) !== stableRuntimeJson(semanticRight)) {
       report.resourceKind = kind === "globals" ? "global" : kind === "memories" ? "memory" : "table";
-      const first = Math.max(0, left.findIndex((value, index) => stableRuntimeJson(value) !== stableRuntimeJson(right[index])));
+      const first = Math.max(0, semanticLeft.findIndex((value, index) => stableRuntimeJson(value) !== stableRuntimeJson(semanticRight[index])));
       report.resourceIndex = (left[first] as { index?: number } | undefined)?.index ?? (right[first] as { index?: number } | undefined)?.index ?? first;
       return setDifference(report, `resource-${report.resourceKind}`, `resources.${kind}[${first}]`, left[first], right[first]);
     }
@@ -700,6 +720,9 @@ export type StarshineRuntimeDiagnostic = "ok" | "tool-resource-uncertainty";
 export function classifyStarshineRuntimeDiagnostic(
   observation: RuntimeObservationV2,
 ): StarshineRuntimeDiagnostic {
+  if (observation.blockedReasons.some(reason =>
+    reason.startsWith("event-trace-cap:") || reason === "artifact-identity-mismatch" || reason === "invalid-event-cap"
+  )) return "tool-resource-uncertainty";
   return observation.compilation.status === "unknown" &&
       observation.instantiation.status === "unknown" &&
       observation.steps.length === 0 &&

@@ -32,13 +32,17 @@ import {
 } from "./optimizer-runtime.ts";
 
 // Resumable runs must use the same observable execution contract.
-export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-header-signatures-and-matrix-deadlines-v11";
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-loaded-artifacts-and-bounded-events-v12";
+export const DEFAULT_OBSERVATION_EVENT_CAP = 4096;
 
 export type NodeObservationV2Options = {
   mode: ObservationMode;
   timeoutMs: number;
   memoryCapBytes: number;
   tableEntryCap: number;
+  eventCap?: number;
+  expectedArtifactHash?: string;
+  diagnosticMode?: "enabled" | "disabled";
   seed?: bigint;
   wasmToolsBin?: string;
 };
@@ -340,9 +344,10 @@ function supportForTable(table: { elementType: WasmRuntimeValueType }): RuntimeS
     : "unsupported";
 }
 
-function printedWasm(wasmPath: string, wasmToolsBin: string): string {
-  const result = spawnSync(wasmToolsBin, ["print", wasmPath], {
+function printedWasm(wasmPath: string, wasmToolsBin: string, loadedBytes?: Uint8Array): string {
+  const result = spawnSync(wasmToolsBin, ["print", loadedBytes === undefined ? wasmPath : "-"], {
     encoding: "utf8",
+    ...(loadedBytes === undefined ? {} : { input: loadedBytes }),
     maxBuffer: 128 * 1024 * 1024,
   });
   if (result.error) throw result.error;
@@ -375,9 +380,9 @@ export function buildRuntimeInterfaceFromStarshine(
   return report;
 }
 
-export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "wasm-tools"): RuntimeInterfaceV1 {
-  const bytes = fs.readFileSync(wasmPath);
-  const text = printedWasm(wasmPath, wasmToolsBin);
+export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "wasm-tools", snapshotBytes?: Buffer): RuntimeInterfaceV1 {
+  const bytes = snapshotBytes ?? fs.readFileSync(wasmPath);
+  const text = printedWasm(wasmPath, wasmToolsBin, bytes);
   const forms = splitTopLevelForms(text);
   const namedReferenceKinds = new Map<string, NamedReferenceKind>();
   for (const form of forms) {
@@ -800,6 +805,7 @@ async function instantiateImportScalarAdapter(
     }
     const module = await WebAssembly.compile(fs.readFileSync(wasmPath));
     const hostCall = (...flatArgs: unknown[]): unknown => {
+      if (context.limit.exhausted) throw new RuntimeTraceLimit(context.limit.cap);
       const argumentsTyped = adapterResultValues(
         flatArgs,
         { params: [], results: imported.signature.params },
@@ -809,7 +815,7 @@ async function instantiateImportScalarAdapter(
         const matching = imported.signature.params.findIndex((parameter) => parameter === type);
         return matching >= 0 ? argumentsTyped[matching] : defaultTypedValue(type);
       });
-      trace.push({
+      recordImportEvent(trace, context, {
         module: imported.module,
         field: imported.field,
         ordinal: context.ordinal++,
@@ -893,7 +899,7 @@ function sha256Bytes(bytes: Uint8Array): string {
   return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
 }
 
-function memoryObservation(index: number, names: string[], memory: WebAssembly.Memory, cap: number): RuntimeMemoryObservationV2 {
+function memoryObservation(index: number, names: string[], memory: WebAssembly.Memory, cap: number, diagnostics: boolean): RuntimeMemoryObservationV2 {
   const bytes = new Uint8Array(memory.buffer);
   if (bytes.byteLength > cap) {
     return {
@@ -910,7 +916,7 @@ function memoryObservation(index: number, names: string[], memory: WebAssembly.M
   for (let offset = 0; offset < bytes.byteLength; offset += 64 * 1024) {
     chunkHashes.push(sha256Bytes(bytes.subarray(offset, Math.min(bytes.byteLength, offset + 64 * 1024))));
   }
-  const samples = bytes.byteLength === 0
+  const samples = !diagnostics || bytes.byteLength === 0
     ? []
     : [...new Set([0, Math.max(0, bytes.byteLength - 32)])].map((offset) => ({
         offset,
@@ -965,8 +971,9 @@ class RuntimeInstantiationFailure extends Error {
 function staticTableRelationsFromWasm(
   wasmPath: string,
   wasmToolsBin: string,
+  loadedBytes?: Uint8Array,
 ): Map<number, Map<number, string>> {
-  const text = printedWasm(wasmPath, wasmToolsBin);
+  const text = printedWasm(wasmPath, wasmToolsBin, loadedBytes);
   if (/\btable\.(?:set|init|copy|fill)\b/.test(text) || /^\s*\(import[^\n]*\(table\b/m.test(text)) {
     return new Map();
   }
@@ -1018,7 +1025,24 @@ type TraceContext = {
   phase: RuntimeImportEventV2["phase"];
   stepIndex: number | null;
   ordinal: number;
+  limit: { cap: number; observedEventCount: number; exhausted: boolean };
 };
+
+class RuntimeTraceLimit extends Error {
+  constructor(cap: number) { super(`event-trace-cap:${cap}`); }
+}
+
+function recordImportEvent(trace: RuntimeImportEventV2[], context: TraceContext, event: RuntimeImportEventV2): void {
+  if (context.limit.exhausted) throw new RuntimeTraceLimit(context.limit.cap);
+  trace.push(event);
+  context.limit.observedEventCount += 1;
+  // The configured boundary itself is incomplete evidence, even if the
+  // guest would have returned immediately after this last recorded event.
+  if (context.limit.observedEventCount >= context.limit.cap) {
+    context.limit.exhausted = true;
+    throw new RuntimeTraceLimit(context.limit.cap);
+  }
+}
 
 function exportedNames(runtimeInterface: RuntimeInterfaceV1, kind: "global" | "memory" | "table", index: number): string[] {
   return runtimeInterface.exports.filter((entry) => entry.kind === kind && entry.index === index).map((entry) => entry.name).sort();
@@ -1062,9 +1086,10 @@ async function instantiateRuntime(
       );
     } else {
       namespace[imported.field] = (...args: unknown[]) => {
+        if (context.limit.exhausted) throw new RuntimeTraceLimit(context.limit.cap);
         const rawResult = fuzzAbiResult(imported, args, seed);
         const rawResults = imported.signature.results.length === 0 ? [] : imported.signature.results.length === 1 ? [rawResult] : rawResult as unknown[];
-        trace.push({
+        recordImportEvent(trace, context, {
           module: imported.module,
           field: imported.field,
           ordinal: context.ordinal++,
@@ -1167,7 +1192,7 @@ function snapshotResources(resources: RuntimeResources, runtimeInterface: Runtim
       const imported = runtimeInterface.imports.memories.find((entry) => entry.index === index);
       if (imported) names.push(`${imported.module}.${imported.field}`);
     }
-    return memoryObservation(index, names, memory, options.memoryCapBytes);
+    return memoryObservation(index, names, memory, options.memoryCapBytes, options.diagnosticMode === "enabled");
   });
   const tables = [...resources.tables.entries()].sort(([left], [right]) => left - right).map(([index, table]) => {
     const names = exportedNames(runtimeInterface, "table", index);
@@ -1247,15 +1272,20 @@ export async function executeNodeObservationV2(
   options: NodeObservationV2Options,
 ): Promise<RuntimeObservationV2> {
   const trace: RuntimeImportEventV2[] = [];
+  const limit = { cap: options.eventCap === undefined ? DEFAULT_OBSERVATION_EVENT_CAP : options.eventCap, observedEventCount: 0, exhausted: false };
   const context: TraceContext = {
     phase: runtimeInterface.hasStart ? "start" : "instantiation",
     stepIndex: null,
     ordinal: 0,
+    limit,
   };
   const observation: RuntimeObservationV2 = {
     schema: "starshine.optimizer-runtime-observation.v2",
     runtime: { identity: optimizerRuntimeIdentity(), timeoutMs: options.timeoutMs },
     mode: options.mode,
+    artifact: { expectedHash: options.expectedArtifactHash ?? null, loadedHash: null, verified: false },
+    traceLimit: limit,
+    diagnosticMode: options.diagnosticMode ?? "disabled",
     compilation: { status: "not-attempted" },
     instantiation: { status: "not-attempted" },
     completeness: "complete",
@@ -1264,6 +1294,21 @@ export async function executeNodeObservationV2(
     importTrace: trace,
     resources: emptyState(),
   };
+  const finish = (): RuntimeObservationV2 => {
+    if (limit.exhausted) {
+      observation.blockedReasons.push(`event-trace-cap:${limit.cap}`);
+      const active = observation.steps.at(-1);
+      if (active) active.outcome = { kind: "unsupported", reason: `event-trace-cap:${limit.cap}` };
+    }
+    observation.blockedReasons = [...new Set(observation.blockedReasons)].sort();
+    if (observation.blockedReasons.length > 0) observation.completeness = "incomplete";
+    return observation;
+  };
+  if (!Number.isSafeInteger(limit.cap) || limit.cap <= 0) {
+    observation.completeness = "incomplete";
+    observation.blockedReasons.push("invalid-event-cap");
+    return finish();
+  }
   if (runtimeInterface.features.includes("relaxed-simd")) {
     // Keep the observations, but do not certify arbitrary relaxed operations
     // using exact cross-optimization equality. Their allowed result sets need
@@ -1274,8 +1319,17 @@ export async function executeNodeObservationV2(
     );
   }
   let module: WebAssembly.Module;
+  let loadedBytes: Buffer;
   try {
-    module = await WebAssembly.compile(fs.readFileSync(wasmPath));
+    loadedBytes = fs.readFileSync(wasmPath);
+    const loadedHash = sha256Bytes(loadedBytes);
+    observation.artifact = { expectedHash: options.expectedArtifactHash ?? null, loadedHash, verified: options.expectedArtifactHash === loadedHash };
+    if (options.expectedArtifactHash !== undefined && !observation.artifact.verified) {
+      observation.completeness = "incomplete";
+      observation.blockedReasons.push("artifact-identity-mismatch");
+      return finish();
+    }
+    module = await WebAssembly.compile(loadedBytes);
     observation.compilation = { status: "succeeded" };
   } catch (error) {
     observation.compilation = {
@@ -1284,13 +1338,16 @@ export async function executeNodeObservationV2(
     };
     observation.completeness = "incomplete";
     observation.blockedReasons.push(`compile-failure:${error instanceof Error ? error.message : String(error)}`);
-    return observation;
+    return finish();
   }
 
-  const staticTableRelations = staticTableRelationsFromWasm(
-    wasmPath,
-    options.wasmToolsBin ?? "wasm-tools",
-  );
+  // These relations only annotate imported/exported table snapshots. Private
+  // tables execute normally in the engine and have no observable table entry
+  // here; printing a large module for unused metadata adds no evidence.
+  const observesTables = runtimeInterface.imports.tables.length > 0 || runtimeInterface.exports.some(entry => entry.kind === "table");
+  const staticTableRelations = observesTables
+    ? staticTableRelationsFromWasm(wasmPath, options.wasmToolsBin ?? "wasm-tools", loadedBytes)
+    : new Map<number, Map<number, string>>();
   let initial: RuntimeInstance;
   const traceStart = trace.length;
   try {
@@ -1319,10 +1376,22 @@ export async function executeNodeObservationV2(
       firstChangedResource: null,
     });
     observation.blockedReasons.push(...blockedReasons(stateAfter, options));
+    if (limit.exhausted) return finish();
   } catch (error) {
     const originalError = error instanceof RuntimeInstantiationFailure
       ? error.original
       : error;
+    if (originalError instanceof RuntimeTraceLimit) {
+      observation.instantiation = { status: "failed", error: originalError.message };
+      observation.completeness = "incomplete";
+      observation.blockedReasons.push(originalError.message);
+      observation.resources = error instanceof RuntimeInstantiationFailure
+        ? snapshotResources(error.resources, runtimeInterface, options) : emptyState();
+      observation.steps.push({ stepIndex: -1, exportName: null, phase: context.phase, arguments: [], importTraceStart: traceStart, importTraceEnd: trace.length,
+        stateBefore: emptyState(), stateAfter: observation.resources, stateDelta: [], firstChangedResource: null,
+        outcome: { kind: "unsupported", reason: originalError.message } });
+      return finish();
+    }
     const trap = normalizeRuntimeTrap(
       originalError instanceof Error ? originalError.message : String(originalError),
     );
@@ -1353,15 +1422,17 @@ export async function executeNodeObservationV2(
       `instantiation-failure:${trap.class}`,
       ...blockedReasons(stateAfter, options),
     );
-    return observation;
+    return finish();
   }
 
   let current = initial;
   for (let index = 0; index < plan.steps.length; index += 1) {
+    if (limit.exhausted) break;
     const planned = plan.steps[index];
     if (options.mode === "independent") {
       context.phase = runtimeInterface.hasStart ? "start" : "instantiation";
       context.stepIndex = null;
+      const instanceTraceStart = trace.length;
       try {
         current = await instantiateRuntime(
           module,
@@ -1372,8 +1443,25 @@ export async function executeNodeObservationV2(
           staticTableRelations,
           options.seed ?? 0n,
         );
+        if (limit.exhausted) {
+          observation.steps.push({ stepIndex: planned.stepIndex, exportName: null, phase: context.phase, arguments: [], importTraceStart: instanceTraceStart, importTraceEnd: trace.length,
+            stateBefore: emptyState(), stateAfter: snapshotState(current, runtimeInterface, options), stateDelta: [], firstChangedResource: null,
+            outcome: { kind: "unsupported", reason: `event-trace-cap:${limit.cap}` } });
+          break;
+        }
       } catch (error) {
-        observation.blockedReasons.push(`independent-instantiation-failure:${planned.exportName}:${error instanceof Error ? error.message : String(error)}`);
+        const originalError = error instanceof RuntimeInstantiationFailure ? error.original : error;
+        if (limit.exhausted) {
+          const reason = `event-trace-cap:${limit.cap}`;
+          const stateAfter = error instanceof RuntimeInstantiationFailure ? snapshotResources(error.resources, runtimeInterface, options) : emptyState();
+          observation.steps.push({ stepIndex: planned.stepIndex, exportName: null, phase: context.phase, arguments: [], importTraceStart: instanceTraceStart, importTraceEnd: trace.length,
+            stateBefore: emptyState(), stateAfter, stateDelta: [], firstChangedResource: null,
+            outcome: { kind: "unsupported", reason } });
+          observation.resources = stateAfter;
+          return finish();
+        }
+        observation.blockedReasons.push(originalError instanceof RuntimeTraceLimit ? originalError.message
+          : `independent-instantiation-failure:${planned.exportName}:${error instanceof Error ? error.message : String(error)}`);
         observation.completeness = "incomplete";
         continue;
       }
@@ -1405,8 +1493,13 @@ export async function executeNodeObservationV2(
           outcome = { kind: "returned", values: values.map((value, resultIndex) => typedFromJs(value, planned.signature.results[resultIndex] ?? "unknown", relations)) };
         }
       } catch (error) {
-        const trap = normalizeRuntimeTrap(error instanceof Error ? error.message : String(error));
-        outcome = { kind: "trapped", trapClass: trap.class, rawText: trap.rawText };
+        if (error instanceof RuntimeTraceLimit) {
+          observation.blockedReasons.push(error.message);
+          outcome = { kind: "unsupported", reason: error.message };
+        } else {
+          const trap = normalizeRuntimeTrap(error instanceof Error ? error.message : String(error));
+          outcome = { kind: "trapped", trapClass: trap.class, rawText: trap.rawText };
+        }
       }
     }
     const stateAfter = snapshotState(current, runtimeInterface, options);
@@ -1428,9 +1521,7 @@ export async function executeNodeObservationV2(
   }
   observation.resources = snapshotState(current, runtimeInterface, options);
   observation.blockedReasons.push(...blockedReasons(observation.resources, options));
-  observation.blockedReasons = [...new Set(observation.blockedReasons)].sort();
-  if (observation.blockedReasons.length > 0) observation.completeness = "incomplete";
-  return observation;
+  return finish();
 }
 
 function threeWayRelation(
@@ -1455,18 +1546,42 @@ export async function runNodeThreeWaySemanticOracleV2(
     starshineArgsPrefix?: string[];
     maxPairwise?: number;
     binaryenDiagnostic?: "ok" | "tool-failure" | "timeout" | "unsupported";
+    expectedArtifactHashes?: { original: string; starshine: string; binaryen?: string };
   },
 ): Promise<NodeThreeWaySemanticOracleV2Report> {
   const totalStarted = performance.now();
   let stageStarted = performance.now();
-  const runtimeInterface = options.starshineBin != null
-    ? buildRuntimeInterfaceFromStarshine(
-        originalWasmPath,
-        options.starshineBin,
-        undefined,
-        options.starshineArgsPrefix,
-      )
-    : buildRuntimeInterfaceFromWasm(originalWasmPath, options.wasmToolsBin);
+  if (options.expectedArtifactHashes !== undefined &&
+      (typeof options.expectedArtifactHashes.original !== "string" || typeof options.expectedArtifactHashes.starshine !== "string")) {
+    throw new Error("missing expected original or Starshine artifact hash");
+  }
+  if (binaryenWasmPath !== null && options.expectedArtifactHashes !== undefined && options.expectedArtifactHashes.binaryen === undefined) {
+    throw new Error("missing expected Binaryen artifact hash");
+  }
+  const originalBytes = fs.readFileSync(originalWasmPath);
+  const sourceArtifactHash = sha256Bytes(originalBytes);
+  if (options.expectedArtifactHashes !== undefined && options.expectedArtifactHashes.original !== sourceArtifactHash) {
+    throw new Error("original artifact identity mismatch");
+  }
+  const expectedArtifactHashes = options.expectedArtifactHashes ?? {
+    original: sourceArtifactHash,
+    starshine: sha256Bytes(fs.readFileSync(starshineWasmPath)),
+    ...(binaryenWasmPath === null ? {} : { binaryen: sha256Bytes(fs.readFileSync(binaryenWasmPath)) }),
+  };
+  let runtimeInterface: RuntimeInterfaceV1;
+  if (options.starshineBin != null) {
+    // Native reports hash the re-encoded decoded module, not necessarily its
+    // raw input. Bind their source through an immutable owned snapshot instead.
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-runtime-interface-"));
+    const snapshot = path.join(directory, "original.wasm");
+    try {
+      fs.writeFileSync(snapshot, originalBytes);
+      runtimeInterface = buildRuntimeInterfaceFromStarshine(snapshot, options.starshineBin, undefined, options.starshineArgsPrefix);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } else {
+    runtimeInterface = buildRuntimeInterfaceFromWasm(originalWasmPath, options.wasmToolsBin, originalBytes);
+  }
+  runtimeInterface = { ...runtimeInterface, sourceArtifactHash };
   const runtimeInterfaceMs = performance.now() - stageStarted;
   stageStarted = performance.now();
   const plan = buildInvocationPlanV2(runtimeInterface, {
@@ -1481,13 +1596,15 @@ export async function runNodeThreeWaySemanticOracleV2(
     tableEntryCap: options.tableEntryCap,
     seed: options.seed,
     wasmToolsBin: options.wasmToolsBin,
+    eventCap: options.eventCap,
+    diagnosticMode: options.diagnosticMode,
   };
   stageStarted = performance.now();
   const original = await executeNodeObservationV2WithTimeout(
     originalWasmPath,
     runtimeInterface,
     plan,
-    executionOptions,
+    { ...executionOptions, expectedArtifactHash: expectedArtifactHashes.original },
   );
   const originalObservationMs = performance.now() - stageStarted;
   stageStarted = performance.now();
@@ -1495,7 +1612,7 @@ export async function runNodeThreeWaySemanticOracleV2(
     starshineWasmPath,
     runtimeInterface,
     plan,
-    executionOptions,
+    { ...executionOptions, expectedArtifactHash: expectedArtifactHashes.starshine },
   );
   const starshineObservationMs = performance.now() - stageStarted;
   stageStarted = performance.now();
@@ -1505,7 +1622,7 @@ export async function runNodeThreeWaySemanticOracleV2(
         binaryenWasmPath,
         runtimeInterface,
         plan,
-        executionOptions,
+        { ...executionOptions, expectedArtifactHash: expectedArtifactHashes.binaryen },
       );
   const binaryenObservationMs = binaryenWasmPath === null ? 0 : performance.now() - stageStarted;
   stageStarted = performance.now();
@@ -1600,6 +1717,8 @@ export async function executeNodeObservationV2WithTimeout(
   spawnWorker: (command: string, args: string[], options: { stdio: ["pipe", "pipe", "pipe"] }) => ChildProcessWithoutNullStreams = spawn,
 ): Promise<RuntimeObservationV2> {
   const identity = nodeObservationRuntimeIdentity();
+  const executionOptions = { ...options, expectedArtifactHash: options.expectedArtifactHash
+    ?? (fs.existsSync(wasmPath) ? sha256Bytes(fs.readFileSync(wasmPath)) : undefined) };
   const failure = (detail: string, timedOut: boolean): RuntimeObservationV2 => ({
     schema: "starshine.optimizer-runtime-observation.v2",
     runtime: { identity, timeoutMs: options.timeoutMs },
@@ -1649,7 +1768,7 @@ export async function executeNodeObservationV2WithTimeout(
         resolve(failure(`invalid Node observation: ${String(error)}; ${diagnostic}`, false));
       }
     });
-    child.stdin.end(JSON.stringify({ wasmPath, runtimeInterface, plan, options },
+    child.stdin.end(JSON.stringify({ wasmPath, runtimeInterface, plan, options: executionOptions },
       (_key, value) => typeof value === "bigint" ? value.toString() : value));
   });
 }
