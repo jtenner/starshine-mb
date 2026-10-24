@@ -1545,6 +1545,7 @@ export async function runNodeThreeWaySemanticOracleV2(
     starshineBin?: string;
     starshineArgsPrefix?: string[];
     maxPairwise?: number;
+    includedExports?: string[];
     binaryenDiagnostic?: "ok" | "tool-failure" | "timeout" | "unsupported";
     expectedArtifactHashes?: { original: string; starshine: string; binaryen?: string };
   },
@@ -1587,6 +1588,7 @@ export async function runNodeThreeWaySemanticOracleV2(
   const plan = buildInvocationPlanV2(runtimeInterface, {
     seed: options.seed,
     maxPairwise: options.maxPairwise,
+    includedExports: options.includedExports,
   });
   const invocationPlanMs = performance.now() - stageStarted;
   const executionOptions: NodeObservationV2Options = {

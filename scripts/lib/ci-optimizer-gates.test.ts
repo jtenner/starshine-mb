@@ -27,6 +27,19 @@ describe("CI optimizer correctness lanes", () => {
     expect(requiredJob).not.toContain("--report-only");
   });
 
+  test("runs the licensed external replay corpus in the semantic optimizer smoke job", () => {
+    const repoRoot = path.resolve(import.meta.dir, "..", "..");
+    const workflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "fuzz.yml"), "utf8");
+    const semanticJob = workflow.split("  semantic-optimizer-smoke:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+    expect(semanticJob).toBeDefined();
+    expect(workflow).toContain('      - "tests/optimizer/external-replays/**"');
+    expect(semanticJob).toContain("bun fuzz optimizer-seeds");
+    expect(semanticJob).toContain("--corpus-root tests/optimizer/external-replays");
+    expect(semanticJob).toContain("--pass optimize-instructions");
+    expect(semanticJob).toContain("--observation-mode stateful");
+    expect(semanticJob).toContain("--starshine-bin _build/native/release/build/cmd/cmd.exe");
+  });
+
   test("require independent validation, deterministic output, and stable codec bytes", () => {
     const repoRoot = path.resolve(import.meta.dir, "..", "..");
     const workflows = ["ci.yml", "fuzz.yml"];

@@ -1,20 +1,52 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { runNodeSelfSemanticOracle } from "./optimizer-correctness";
-import { runNodeThreeWaySemanticOracleV2 } from "./optimizer-runtime-executor";
-import type { ObservationMode } from "./optimizer-runtime";
+import {
+  runNodeThreeWaySemanticOracleV2,
+  type NodeThreeWaySemanticOracleV2Report,
+} from "./optimizer-runtime-executor";
+import {
+  sha256RuntimeValue,
+  type ObservationMode,
+  type RuntimeObservationV2,
+} from "./optimizer-runtime";
+
+export type OptimizerExternalReplay = {
+  sha256: string;
+  provenance: {
+    url: string;
+    artifact: string;
+    artifactHash: string;
+    license: string;
+    licenseUrl: string;
+    attribution: string;
+  };
+  observation: {
+    entrypoint: string;
+    expectedObservationHash: string;
+    requiredFeatures: string[];
+    requiredExports: string[];
+    timeoutMs: number;
+    memoryCapBytes: number;
+    tableEntryCap: number;
+    minimumStateChanges: number;
+    requireTransform: boolean;
+  };
+};
 
 export type OptimizerSeedEntry = {
   id: string;
   file: string;
   surfaces: string[];
+  replay?: OptimizerExternalReplay;
 };
 
 export type OptimizerSeedCorpus = {
-  schema: "starshine.optimizer-seed-corpus.v1";
+  schema: "starshine.optimizer-seed-corpus.v1" | "starshine.optimizer-seed-corpus.v2";
   root: string;
   seeds: OptimizerSeedEntry[];
 };
@@ -36,6 +68,115 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+function requiredString(object: Record<string, unknown>, key: string, label: string): string {
+  const value = object[key];
+  if (typeof value !== "string" || value.length === 0) fail(`${label} missing ${key}`);
+  return value;
+}
+
+function requiredStringArray(object: Record<string, unknown>, key: string, label: string): string[] {
+  const value = object[key];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
+    fail(`${label} has malformed ${key}`);
+  }
+  return value as string[];
+}
+
+function requiredInteger(
+  object: Record<string, unknown>,
+  key: string,
+  label: string,
+  minimum: number,
+): number {
+  const value = object[key];
+  if (typeof value !== "number" || !Number.isInteger(value) || value < minimum) {
+    fail(`${label} has malformed ${key}`);
+  }
+  return value;
+}
+
+function requiredObject(value: unknown, label: string): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) fail(`malformed ${label}`);
+  return value as Record<string, unknown>;
+}
+
+function parseExternalReplay(
+  entry: Record<string, unknown>,
+  id: string,
+  filePath: string,
+): OptimizerExternalReplay {
+  const replay = requiredObject(entry.replay, `optimizer seed ${id} replay`);
+  const sha256 = requiredString(replay, "sha256", `optimizer seed ${id} replay`).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(sha256)) fail(`optimizer seed ${id} has malformed sha256`);
+  const actualSha256 = crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+  if (actualSha256 !== sha256) {
+    fail(`optimizer seed ${id} artifact hash mismatch: expected ${sha256}, loaded ${actualSha256}`);
+  }
+  const provenanceObject = requiredObject(replay.provenance, `optimizer seed ${id} provenance`);
+  const provenance = {
+    url: requiredString(provenanceObject, "url", `optimizer seed ${id} provenance`),
+    artifact: requiredString(provenanceObject, "artifact", `optimizer seed ${id} provenance`),
+    artifactHash: requiredString(provenanceObject, "artifactHash", `optimizer seed ${id} provenance`),
+    license: requiredString(provenanceObject, "license", `optimizer seed ${id} provenance`),
+    licenseUrl: requiredString(provenanceObject, "licenseUrl", `optimizer seed ${id} provenance`),
+    attribution: requiredString(provenanceObject, "attribution", `optimizer seed ${id} provenance`),
+  };
+  if (!/^https:\/\//.test(provenance.url)) fail(`optimizer seed ${id} provenance url must use https`);
+  if (!/^https:\/\//.test(provenance.licenseUrl)) {
+    fail(`optimizer seed ${id} provenance licenseUrl must use https`);
+  }
+  const observationObject = requiredObject(replay.observation, `optimizer seed ${id} observation`);
+  const expectedObservationHash = requiredString(
+    observationObject,
+    "expectedObservationHash",
+    `optimizer seed ${id} observation`,
+  ).toLowerCase();
+  if (!/^sha256:[0-9a-f]{64}$/.test(expectedObservationHash)) {
+    fail(`optimizer seed ${id} has malformed expectedObservationHash`);
+  }
+  if (typeof observationObject.requireTransform !== "boolean") {
+    fail(`optimizer seed ${id} observation has malformed requireTransform`);
+  }
+  return {
+    sha256,
+    provenance,
+    observation: {
+      entrypoint: requiredString(observationObject, "entrypoint", `optimizer seed ${id} observation`),
+      expectedObservationHash,
+      requiredFeatures: requiredStringArray(
+        observationObject,
+        "requiredFeatures",
+        `optimizer seed ${id} observation`,
+      ),
+      requiredExports: requiredStringArray(
+        observationObject,
+        "requiredExports",
+        `optimizer seed ${id} observation`,
+      ),
+      timeoutMs: requiredInteger(observationObject, "timeoutMs", `optimizer seed ${id} observation`, 1),
+      memoryCapBytes: requiredInteger(
+        observationObject,
+        "memoryCapBytes",
+        `optimizer seed ${id} observation`,
+        1,
+      ),
+      tableEntryCap: requiredInteger(
+        observationObject,
+        "tableEntryCap",
+        `optimizer seed ${id} observation`,
+        1,
+      ),
+      minimumStateChanges: requiredInteger(
+        observationObject,
+        "minimumStateChanges",
+        `optimizer seed ${id} observation`,
+        0,
+      ),
+      requireTransform: observationObject.requireTransform,
+    },
+  };
+}
+
 export function loadOptimizerSeedCorpus(root: string): OptimizerSeedCorpus {
   const resolved = path.resolve(root);
   const manifestPath = path.join(resolved, "manifest.json");
@@ -43,7 +184,10 @@ export function loadOptimizerSeedCorpus(root: string): OptimizerSeedCorpus {
     schema?: string;
     seeds?: unknown[];
   };
-  if (manifest.schema !== "starshine.optimizer-seed-corpus.v1") {
+  if (
+    manifest.schema !== "starshine.optimizer-seed-corpus.v1" &&
+    manifest.schema !== "starshine.optimizer-seed-corpus.v2"
+  ) {
     fail(`unsupported optimizer seed schema ${manifest.schema ?? "missing"}`);
   }
   if (!Array.isArray(manifest.seeds)) fail("optimizer seed manifest is missing seeds");
@@ -63,9 +207,12 @@ export function loadOptimizerSeedCorpus(root: string): OptimizerSeedCorpus {
       fail(`optimizer seed ${entry.id} is missing ${entry.file}`);
     }
     seen.add(entry.id);
-    seeds.push({ id: entry.id, file: entry.file, surfaces: entry.surfaces as string[] });
+    const replay = manifest.schema === "starshine.optimizer-seed-corpus.v2"
+      ? parseExternalReplay(entry, entry.id, filePath)
+      : undefined;
+    seeds.push({ id: entry.id, file: entry.file, surfaces: entry.surfaces as string[], replay });
   }
-  return { schema: "starshine.optimizer-seed-corpus.v1", root: resolved, seeds };
+  return { schema: manifest.schema, root: resolved, seeds };
 }
 
 function parseSeed(raw: string): bigint {
@@ -151,6 +298,63 @@ function commandResult(command: string, args: string[]): { ok: boolean; detail: 
   return { ok: result.status === 0, detail: result.stderr || result.stdout || `exit ${String(result.status)}` };
 }
 
+function sha256File(filePath: string): string {
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+export function checkExternalReplayEvidence(
+  replay: OptimizerExternalReplay,
+  report: Pick<NodeThreeWaySemanticOracleV2Report, "runtimeInterface" | "plan" | "original">,
+  transformed: boolean,
+): { status: "passed" | "blocked" | "failed"; detail: string } {
+  const contract = replay.observation;
+  if (contract.requireTransform && !transformed) {
+    return { status: "failed", detail: "external replay optimizer output is byte-identical" };
+  }
+  const actualFeatures = new Set(report.runtimeInterface.features);
+  const missingFeature = contract.requiredFeatures.find((feature) => !actualFeatures.has(feature));
+  if (missingFeature !== undefined) {
+    return { status: "failed", detail: `external replay missing required feature ${missingFeature}` };
+  }
+  const actualExports = new Set(report.runtimeInterface.exports.map((entry) => entry.name));
+  const missingExport = contract.requiredExports.find((name) => !actualExports.has(name));
+  if (missingExport !== undefined) {
+    return { status: "failed", detail: `external replay missing required export ${missingExport}` };
+  }
+  if (!report.plan.steps.some((step) => step.exportName === contract.entrypoint)) {
+    return { status: "failed", detail: `external replay entrypoint ${contract.entrypoint} is unavailable` };
+  }
+  if (report.original.completeness !== "complete" || report.original.blockedReasons.length > 0) {
+    return {
+      status: "blocked",
+      detail: `external replay original observation incomplete: ${report.original.blockedReasons.join(",")}`,
+    };
+  }
+  const observationHash = externalReplayObservationHash(report.original);
+  if (observationHash !== contract.expectedObservationHash) {
+    return {
+      status: "failed",
+      detail: `external replay observation mismatch: expected ${contract.expectedObservationHash}, loaded ${observationHash}`,
+    };
+  }
+  const stateChanges = report.original.steps.reduce((sum, step) => sum + step.stateDelta.length, 0);
+  if (stateChanges < contract.minimumStateChanges) {
+    return {
+      status: "failed",
+      detail: `external replay silently did insufficient work: ${stateChanges} state changes, expected at least ${contract.minimumStateChanges}`,
+    };
+  }
+  return {
+    status: "passed",
+    detail: `replay observation ${observationHash}, state changes ${stateChanges}`,
+  };
+}
+
+export function externalReplayObservationHash(observation: RuntimeObservationV2): string {
+  const { identity: _runtimeIdentity, ...runtimeContract } = observation.runtime;
+  return sha256RuntimeValue({ ...observation, runtime: runtimeContract });
+}
+
 function starshineCommand(options: OptimizerSeedRunOptions): { command: string; prefix: string[] } {
   const explicit = options.starshineBin ?? process.env.STARSHINE_BIN;
   if (explicit) return { command: path.resolve(explicit), prefix: [] };
@@ -198,7 +402,10 @@ export async function runOptimizerSeedCorpus(options: OptimizerSeedRunOptions): 
         cases.push({ id: seed.id, status: "failed", detail: `validation failed: ${validated.detail}` });
         continue;
       }
-      if (options.semanticOracle === "node-v2") {
+      const replay = seed.replay;
+      let replayDetail = "";
+      if (options.semanticOracle === "node-v2" || replay !== undefined) {
+        const contract = replay?.observation;
         const report = await runNodeThreeWaySemanticOracleV2(
           inputPath,
           outputPath,
@@ -207,15 +414,29 @@ export async function runOptimizerSeedCorpus(options: OptimizerSeedRunOptions): 
             seed: options.seed + BigInt(index),
             policy: "trap-aware",
             mode: options.observationMode,
-            timeoutMs: 1000,
-            memoryCapBytes: 1024 * 1024,
-            tableEntryCap: 1024,
+            timeoutMs: contract?.timeoutMs ?? 1000,
+            memoryCapBytes: contract?.memoryCapBytes ?? 1024 * 1024,
+            tableEntryCap: contract?.tableEntryCap ?? 1024,
             wasmToolsBin: options.wasmToolsBin,
             starshineBin: starshine.command,
             starshineArgsPrefix: starshine.prefix,
+            maxPairwise: contract === undefined ? undefined : 0,
+            includedExports: contract === undefined ? undefined : [contract.entrypoint],
             binaryenDiagnostic: "tool-failure",
           },
         );
+        if (contract !== undefined) {
+          const checked = checkExternalReplayEvidence(
+            replay!,
+            report,
+            sha256File(inputPath) !== sha256File(outputPath),
+          );
+          if (checked.status !== "passed") {
+            cases.push({ id: seed.id, status: checked.status, detail: checked.detail });
+            continue;
+          }
+          replayDetail = `; ${checked.detail}`;
+        }
         if (report.classification.primary === "starshine-semantic-mismatch" || report.classification.primary === "starshine-correctness-failure") {
           cases.push({ id: seed.id, status: "failed", detail: `semantic:v2 ${report.classification.primary} ${report.classification.pattern}` });
           continue;
@@ -243,7 +464,7 @@ export async function runOptimizerSeedCorpus(options: OptimizerSeedRunOptions): 
           continue;
         }
       }
-      cases.push({ id: seed.id, status: "passed", detail: "valid optimized output" });
+      cases.push({ id: seed.id, status: "passed", detail: `valid optimized output${replayDetail}` });
     }
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });

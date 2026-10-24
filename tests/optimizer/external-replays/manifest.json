@@ -1,0 +1,76 @@
+{
+  "schema": "starshine.optimizer-seed-corpus.v2",
+  "seeds": [
+    {
+      "id": "wasm-r3-game-of-life-v0.1.0",
+      "file": "game-of-life.wasm",
+      "surfaces": [
+        "external-replay",
+        "control-flow",
+        "memory",
+        "stateful-main"
+      ],
+      "replay": {
+        "sha256": "dcd363b1865dee922e2bc04526a9d222704fafa0f3bd71af48af616f84a122f7",
+        "provenance": {
+          "url": "https://zenodo.org/records/13382344",
+          "artifact": "doehyunbaek/wasm-r3-v0.1.0.zip:doehyunbaek-wasm-r3-5da9d66/benchmarks/game-of-life.wasm",
+          "artifactHash": "md5:78eda422e0851e4690ed2bf41860890a",
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+          "attribution": "Doehyun Baek, Jakob Getz, Yusung Sim, Daniel Lehmann, Ben L. Titzer, Sukyoung Ryu, and Michael Pradel; Wasm-R3 v0.1.0; DOI 10.5281/zenodo.13382344; unchanged replay binary"
+        },
+        "observation": {
+          "entrypoint": "main",
+          "expectedObservationHash": "sha256:b65e7d935b248e71def1e3a1fb59e51086078b245fa0717464be2ed4cfc4ac58",
+          "requiredFeatures": [],
+          "requiredExports": [
+            "main",
+            "memory"
+          ],
+          "timeoutMs": 2000,
+          "memoryCapBytes": 8388608,
+          "tableEntryCap": 1024,
+          "minimumStateChanges": 1,
+          "requireTransform": true
+        }
+      }
+    },
+    {
+      "id": "wasm-r3-factorial-v0.1.0",
+      "file": "factorial.wasm",
+      "surfaces": [
+        "external-replay",
+        "indirect-call",
+        "memory",
+        "rust-runtime",
+        "stateful-main"
+      ],
+      "replay": {
+        "sha256": "8eab2d2141466b6fd32c5c1c8132cd145a7faa54061d5ba4db440b241f240e71",
+        "provenance": {
+          "url": "https://zenodo.org/records/13382344",
+          "artifact": "doehyunbaek/wasm-r3-v0.1.0.zip:doehyunbaek-wasm-r3-5da9d66/benchmarks/factorial.wasm",
+          "artifactHash": "md5:78eda422e0851e4690ed2bf41860890a",
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+          "attribution": "Doehyun Baek, Jakob Getz, Yusung Sim, Daniel Lehmann, Ben L. Titzer, Sukyoung Ryu, and Michael Pradel; Wasm-R3 v0.1.0; DOI 10.5281/zenodo.13382344; unchanged replay binary"
+        },
+        "observation": {
+          "entrypoint": "main",
+          "expectedObservationHash": "sha256:7112396752812035f4a23d6901420809b71d09d4d743f7365dd45f17ec85c331",
+          "requiredFeatures": [],
+          "requiredExports": [
+            "main",
+            "memory"
+          ],
+          "timeoutMs": 2000,
+          "memoryCapBytes": 8388608,
+          "tableEntryCap": 1024,
+          "minimumStateChanges": 1,
+          "requireTransform": true
+        }
+      }
+    }
+  ]
+}

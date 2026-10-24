@@ -192,6 +192,22 @@ describe("invocation plan v2", () => {
     expect(first.steps[0].arguments).toEqual([i32(0), { type: "f64", bits: "0x0000000000000000", class: "zero", sign: "+" }]);
   });
 
+  test("limits an external replay plan to its recorded entrypoint", () => {
+    const iface = structuredClone(runtimeInterface);
+    iface.exports.push({
+      name: "helper",
+      kind: "function",
+      index: 1,
+      signature: { params: [], results: [] },
+      support: "directly-constructible",
+    });
+
+    const plan = buildInvocationPlanV2(iface, { seed: 0x28n, includedExports: ["run"] });
+
+    expect(new Set(plan.steps.map((step) => step.exportName))).toEqual(new Set(["run"]));
+    expect(plan.blockedExports).toEqual([]);
+  });
+
   test("uses the recorded seed to diversify non-boundary scalar arguments", () => {
     const first = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eedn });
     const again = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eedn });

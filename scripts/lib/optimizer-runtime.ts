@@ -373,14 +373,23 @@ function seededScalarValue(type: WasmRuntimeValueType, bits: bigint): TypedRunti
 
 export function buildInvocationPlanV2(
   runtimeInterface: RuntimeInterfaceV1,
-  options: { seed: bigint; targetedVectors?: Record<string, TypedRuntimeValue[][]>; maxPairwise?: number } = { seed: 0x5eedn },
+  options: {
+    seed: bigint;
+    targetedVectors?: Record<string, TypedRuntimeValue[][]>;
+    maxPairwise?: number;
+    includedExports?: string[];
+  } = { seed: 0x5eedn },
 ): InvocationPlanV2 {
   const steps: InvocationPlanStepV2[] = [];
   const blockedExports: InvocationPlanV2["blockedExports"] = [];
   const maxPairwise = Math.max(0, options.maxPairwise ?? 4);
+  const includedExports = options.includedExports === undefined
+    ? null
+    : new Set(options.includedExports);
   const retainedFactories = retainedFactoryValues(runtimeInterface);
   for (const exported of runtimeInterface.exports) {
     if (exported.kind !== "function" || exported.signature === undefined) continue;
+    if (includedExports !== null && !includedExports.has(exported.name)) continue;
     const signature = exported.signature;
     const crossingBoundary = [...signature.params, ...signature.results]
       .map(javascriptReferenceCrossingBoundary)

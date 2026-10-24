@@ -13,6 +13,7 @@ on:
     paths:
       - "src/**"
       - "scripts/**"
+      - "tests/optimizer/external-replays/**"
       - "package.json"
       - "moon.mod"
       - "**/moon.pkg"
@@ -26,6 +27,7 @@ on:
     paths:
       - "src/**"
       - "scripts/**"
+      - "tests/optimizer/external-replays/**"
       - "package.json"
       - "moon.mod"
       - "**/moon.pkg"
@@ -120,6 +122,14 @@ jobs:
         run: |
           moon build --target native --release src/cmd
           moon build --target native --release src/fuzz
+
+      - name: Replay licensed real-world optimizer corpus
+        run: |
+          bun fuzz optimizer-seeds \
+            --corpus-root tests/optimizer/external-replays \
+            --pass optimize-instructions \
+            --observation-mode stateful \
+            --starshine-bin _build/native/release/build/cmd/cmd.exe
 
       - name: Run pinned semantic component and solver tests
         run: |
