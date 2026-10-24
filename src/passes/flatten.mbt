@@ -9855,6 +9855,15 @@ fn flatten_new_prelude_local_writes(
 }
 
 ///|
+fn flatten_operand_must_materialize_before_preludes(
+  func : @ir.HotFunc,
+  node_id : Int32,
+) -> Bool {
+  @ir.hot_node_exact_instr(func, node_id) ==
+  Some(@lib.Instruction::ref_as_non_null())
+}
+
+///|
 fn flatten_stage_operand_reads_before_local_writes(
   func : @ir.HotFunc,
   owner_id : Int32,
@@ -9868,13 +9877,19 @@ fn flatten_stage_operand_reads_before_local_writes(
     return 0
   }
   let node = @ir.hot_node_get(func, node_id)
-  let should_stage = match node.op {
-    @ir.HotOp::GlobalGet => true
-    @ir.HotOp::LocalGet =>
-      node.imm0 >= 0 &&
-      node.imm0 < written_locals.length() &&
-      written_locals[node.imm0]
-    _ => false
+  let should_stage = if flatten_operand_must_materialize_before_preludes(
+      func, node_id,
+    ) {
+    true
+  } else {
+    match node.op {
+      @ir.HotOp::GlobalGet => true
+      @ir.HotOp::LocalGet =>
+        node.imm0 >= 0 &&
+        node.imm0 < written_locals.length() &&
+        written_locals[node.imm0]
+      _ => false
+    }
   }
   if should_stage {
     let value_type = match flatten_single_result_type(func, node.ty) {
@@ -9891,22 +9906,7 @@ fn flatten_stage_operand_reads_before_local_writes(
     )
     return 1
   }
-  if @ir.hot_node_exact_instr(func, node_id) !=
-    Some(@lib.Instruction::ref_as_non_null()) {
-    return 0
-  }
-  let mut inserted = 0
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    inserted += flatten_stage_operand_reads_before_local_writes(
-      func,
-      node_id,
-      slot,
-      written_locals,
-      preludes,
-      insert_at + inserted,
-    )
-  }
-  inserted
+  0
 }
 
 ///|
