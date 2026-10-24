@@ -1348,6 +1348,18 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       )
     }
     candidate = dfe_rewrite_module_func_idxs(candidate, remap)
+    // The new host imports move every defined function. Keep the parsed name
+    // maps on their original functions and discard opaque indices we cannot
+    // remap.
+    match
+      die_rewrite_name_sec(
+        candidate.name_sec,
+        remap.map(fn(idx) { idx.reinterpret_as_int() }),
+        Array::make(remap.length(), false),
+      ) {
+      Some(names) => candidate = candidate.with_name_sec(names)
+      None => candidate = candidate.without_name_sec()
+    }
     let mut host_any_to_extern : @lib.FuncIdx? = None
     let mut host_extern_to_any : @lib.FuncIdx? = None
     if needs_any_to_extern[0] {

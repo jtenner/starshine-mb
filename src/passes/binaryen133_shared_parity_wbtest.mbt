@@ -58,6 +58,72 @@ test "make-shared-objects wraps a multi-result externref import" {
 }
 
 ///|
+test "make-shared-objects shifts parsed function and local names with conversion imports" {
+  let parsed = pass_test_module_from_wat(
+    "(module (func (export \"run\") (param externref) (result anyref) local.get 0 any.convert_extern))",
+  )
+  let funcs = parsed.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+  let next_body : Array[@lib.Instruction] = [
+    @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new([])),
+  ]
+  next_body.append(body)
+  funcs[0] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+  let input = parsed
+    .with_code_sec(@lib.CodeSec::new(funcs))
+    .with_name_sec(
+      @lib.NameSec::new(
+        func_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("run-body")),
+          ]),
+        ),
+        local_names=Some(
+          @lib.IndirectNameMap::new([
+            @lib.IndirectNameAssoc::new(
+              0U,
+              @lib.NameMap::new([
+                @lib.NameAssoc::new(0U, @lib.Name::from_string("input")),
+              ]),
+            ),
+          ]),
+        ),
+        label_names=Some(
+          @lib.IndirectNameMap::new([
+            @lib.IndirectNameAssoc::new(
+              0U,
+              @lib.NameMap::new([
+                @lib.NameAssoc::new(0U, @lib.Name::from_string("empty-block")),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    )
+    .with_raw_name_sec_payload(b"stale-function-indices")
+  let input_validation = @validate.validate_module(input)
+  assert_true(input_validation.is_ok(), msg=@debug.to_string(input_validation))
+  let output = make_shared_objects_run_module_pass(input)
+  let output_validation = @validate.validate_module(output)
+  assert_true(
+    output_validation.is_ok(),
+    msg=@debug.to_string(output_validation),
+  )
+  assert_true(output.import_sec.unwrap().0.length() > 0)
+  let names = output.name_sec.unwrap()
+  assert_eq(names.func_names.unwrap().0, [
+    @lib.NameAssoc::new(1U, @lib.Name::from_string("run-body")),
+  ])
+  assert_eq(names.local_names.unwrap().0[0].0, 1U)
+  assert_eq(names.label_names.unwrap().0[0].0, 1U)
+  assert_eq(output.raw_name_sec_payload, None)
+  let public_output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "make-shared-objects",
+  ]).unwrap()
+  assert_eq(public_output.name_sec, output.name_sec)
+}
+
+///|
 test "make-shared-objects wraps a multi-result externref export" {
   let output = binaryen133_run_shared(
     (
