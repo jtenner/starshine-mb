@@ -858,14 +858,23 @@ fn mso_rewrite_conversions(
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
+  let mut previous_extern_convert = false
   for instr in instrs {
+    let adjacent_roundtrip = previous_extern_convert
+    previous_extern_convert = false
     match instr {
       @lib.ExternConvertAny => {
         out.push(@lib.Instruction::call(any_to_extern.unwrap()))
         out.push(@lib.Instruction::call(to_index))
+        previous_extern_convert = true
       }
       @lib.AnyConvertExtern => {
-        out.push(@lib.Instruction::call(to_ref))
+        if adjacent_roundtrip {
+          // The new handle has not escaped, so the table roundtrip is redundant.
+          ignore(out.pop())
+        } else {
+          out.push(@lib.Instruction::call(to_ref))
+        }
         out.push(@lib.Instruction::call(extern_to_any.unwrap()))
       }
       @lib.Block(bt, body) =>

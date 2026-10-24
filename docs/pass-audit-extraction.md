@@ -30,6 +30,6 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `b0582ddba` | EXTRACT | RED nested value-region regressions retained dead branches; GREEN focused DCE file passed with validation and direct branch assertions; source: Fix DCE traversal of nested value regions |
 | `737ec92ca` | EXTRACT | RED new regression failed without fix; GREEN focused dead_code_elimination_test.mbt passed (see source row for behavior); source: Preserve typed control entries during DCE rewrites |
 | `d5d51ca8f` | EXTRACT | Behavioral RED does not apply: replace full use-def storage with existing count-only analysis, keeping count queries/output contract; existing 73 DCE regressions pass before and after; historical source timing is not a current benchmark; source: Use lightweight node counts in DCE |
-| `298b07ee4` | Review pending | perf: avoid handles for adjacent shared-object conversions |
+| `298b07ee4` | EXTRACT | RED new regression failed without fix; GREEN focused binaryen133_shared_parity_wbtest.mbt passed (see source row for behavior); source: perf: avoid handles for adjacent shared-object conversions |
 | `582decb92` | Review pending | perf: omit unused shared-object handle storage |
 | `6636026d0` | Review pending | docs: correct shared-object handle lifetime contract |
