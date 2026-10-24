@@ -27,7 +27,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `643d0cba4` | EXTRACT | RED new regression failed without fix; GREEN focused remove_unused_brs_audit_test.mbt passed (see source row for behavior); source: fix: keep remove-unused-brs active for trivial tail branches |
 | `09feb1dd7` | EXTRACT | RED new regression failed without fix; GREEN focused dead_code_elimination_cache_wbtest.mbt passed (see source row for behavior); source: Fix DCE branch caches after detached HOT roots |
 | `ed0ffb333` | EXTRACT | RED new regression failed without fix; GREEN focused local_cse_names_wbtest.mbt passed (see source row for behavior); source: Preserve local names when local CSE appends temps |
-| `b0582ddba` | Review pending | Fix DCE traversal of nested value regions |
+| `b0582ddba` | EXTRACT | RED nested value-region regressions retained dead branches; GREEN focused DCE file passed with validation and direct branch assertions; source: Fix DCE traversal of nested value regions |
 | `737ec92ca` | Review pending | Preserve typed control entries during DCE rewrites |
 | `d5d51ca8f` | Review pending | Use lightweight node counts in DCE |
 | `298b07ee4` | Review pending | perf: avoid handles for adjacent shared-object conversions |

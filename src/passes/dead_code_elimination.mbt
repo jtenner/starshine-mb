@@ -2928,6 +2928,63 @@ fn dead_code_elimination_visit_node_regions(
 }
 
 ///|
+fn dead_code_elimination_child_is_value_slot(
+  node : @ir.HotNode,
+  slot : Int32,
+) -> Bool {
+  match node.op {
+    @ir.HotOp::Block => slot < node.imm1
+    @ir.HotOp::Loop => false
+    @ir.HotOp::If => slot != 1 && slot != 2
+    @ir.HotOp::Try | @ir.HotOp::TryTable => slot != 0 && slot != 1
+    _ => true
+  }
+}
+
+///|
+fn dead_code_elimination_visit_nested_value_regions(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  fallthrough_cache : DeadCodeEliminationFallthroughCache,
+  purity_cache : DeadCodeEliminationPurityCache,
+  first_node_id : Int32,
+) -> Bool {
+  let node_count = @ir.hot_node_count(func)
+  let nested = @bitset.BitSet::new(node_count)
+  for parent_id = 0; parent_id < node_count; parent_id = parent_id + 1 {
+    if !@ir.hot_node_is_live(func, parent_id) {
+      continue
+    }
+    let parent = func.nodes[parent_id]
+    for slot = 0; slot < parent.child_count; slot = slot + 1 {
+      if !dead_code_elimination_child_is_value_slot(parent, slot) {
+        continue
+      }
+      let child_id = func.children[parent.child_base + slot]
+      if child_id >= first_node_id &&
+        child_id < node_count &&
+        @ir.hot_node_is_live(func, child_id) &&
+        (func.nodes[child_id].flags & @ir.HOT_FLAG_CONTROL) != 0U {
+        nested[child_id] = true
+      }
+    }
+  }
+  let mut changed = false
+  for node_id = node_count - 1; node_id >= first_node_id; node_id = node_id - 1 {
+    if nested[node_id] && @ir.hot_node_is_live(func, node_id) {
+      changed = dead_code_elimination_visit_node_regions(
+          ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+          node_id,
+        ) ||
+        changed
+    }
+  }
+  changed
+}
+
+///|
 fn dead_code_elimination_voidify_control(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3516,15 +3573,39 @@ fn dead_code_elimination_run(
   )
   let fallthrough_cache = dead_code_elimination_new_fallthrough_cache(func)
   let purity_cache = dead_code_elimination_new_purity_cache(func)
-  let changed = dead_code_elimination_visit_region(
-    ctx,
-    func,
-    branch_user_cache,
-    node_use_cache,
-    fallthrough_cache,
-    purity_cache,
-    @ir.HotRegionRef::root(),
+  let initial_node_count = @ir.hot_node_count(func)
+  let mut changed = dead_code_elimination_visit_nested_value_regions(
+    ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+    0,
   )
+  changed = dead_code_elimination_visit_region(
+      ctx,
+      func,
+      branch_user_cache,
+      node_use_cache,
+      fallthrough_cache,
+      purity_cache,
+      @ir.HotRegionRef::root(),
+    ) ||
+    changed
+  if @ir.hot_node_count(func) > initial_node_count &&
+    dead_code_elimination_visit_nested_value_regions(
+      ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, purity_cache,
+      initial_node_count,
+    ) {
+    changed = true
+    ignore(
+      dead_code_elimination_visit_region(
+        ctx,
+        func,
+        branch_user_cache,
+        node_use_cache,
+        fallthrough_cache,
+        purity_cache,
+        @ir.HotRegionRef::root(),
+      ),
+    )
+  }
   dead_code_elimination_flush_unused_nodes(ctx, func, node_use_cache)
   if changed {
     HotPassResult::changed()
