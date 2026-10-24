@@ -52,6 +52,7 @@ test "DAE2 analyzes flat writes trapping producers conditionals and loops withou
       ("i32.const 8 local.get 0 i32.div_s drop", 0),
       ("local.get 0 if i32.const 11 global.set $g end", 0),
       ("local.get 0 if loop i32.const 11 global.set $g end end", 0),
+      ("local.get 0 drop unreachable", 0),
     ] {
     let input = pass_test_module_from_wat(
       "(module (global $g (mut i32) (i32.const 0)) (func $h (param i32) \{body}) (func (export \"run\") (param i32) local.get 0 call $h))",

@@ -22,7 +22,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `bcc83ebe6` | SUPERSEDED BY MASTER | Ported size-regression test passes unchanged (14/14 file tests); master reorder_locals.mbt already groups type runs and compares encoded candidates, from d0dd83c95/f1393ac89. No source implementation needed. |
 | `eb8193144` | EXTRACT | RED new regression failed without fix; GREEN focused binaryen133_gto_red_wbtest.mbt passed (see source row for behavior); source: fix: scope descriptor field-zero reads to related types |
 | `cceefec87` | EXTRACT | RED new regression failed without fix; GREEN focused coalesce_locals_test.mbt passed (see source row for behavior); source: perf: coalesce sparse straight-line locals above dense guard |
-| `6733db350` | Review pending | perf: reduce DAE2 raw qualification dispatch cost |
+| `6733db350` | EXTRACT | Behavioral RED does not apply: classifier dispatch ordering only, same accepted instructions and output contract; new unsupported-unreachable case and existing DAE2 file pass before and after; source historical small timing gain is not a current benchmark; source: perf: reduce DAE2 raw qualification dispatch cost |
 | `36e3016e1` | Review pending | fix: preserve each final invalid-module dump |
 | `643d0cba4` | Review pending | fix: keep remove-unused-brs active for trivial tail branches |
 | `09feb1dd7` | Review pending | Fix DCE branch caches after detached HOT roots |
