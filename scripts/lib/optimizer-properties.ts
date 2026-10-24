@@ -245,15 +245,15 @@ export async function runCommutatorProperty<Module>(
     { left: "M", right: "Q(P(M))", relation: rightOrderRelation },
     { left: "P(Q(M))", right: "Q(P(M))", relation: orderRelation },
   );
-  if ([leftRelation, rightRelation, leftOrderRelation, rightOrderRelation, orderRelation].includes("blocked")) {
-    result.status = "blocked";
-    result.classification = "blocked";
-  } else if (leftRelation === "different") {
+  if (leftRelation === "different") {
     result.status = "fail";
     result.classification = "left-pass-fails-alone";
   } else if (rightRelation === "different") {
     result.status = "fail";
     result.classification = "right-pass-fails-alone";
+  } else if ([leftOrderRelation, rightOrderRelation, orderRelation].includes("blocked")) {
+    result.status = "blocked";
+    result.classification = "blocked";
   } else if (leftOrderRelation === "different" && rightOrderRelation === "equal") {
     result.status = "fail";
     result.classification = "only-left-then-right-fails";

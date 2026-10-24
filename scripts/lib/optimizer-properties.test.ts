@@ -170,6 +170,19 @@ describe("commutator", () => {
     expect(rightFailure.classification).toBe("only-right-then-left-fails");
   });
 
+  test("does not let a blocked order comparison hide a definite pass failure", async () => {
+    const result = await runCommutatorProperty("M", "p", "q", harness({
+      apply: (module, passes) => module === "M" && passes[0] === "p"
+        ? "BROKEN"
+        : `${module}|${passes[0]}`,
+      semanticClass: (original, candidate) => original !== "M"
+        ? "blocked"
+        : candidate.startsWith("BROKEN") ? "different" : "equal",
+    }));
+    expect(result.status).toBe("fail");
+    expect(result.classification).toBe("left-pass-fails-alone");
+  });
+
   test("detects a pass that fails alone", async () => {
     const result = await runCommutatorProperty("M", "p", "q", harness({
       apply: (module, passes) => module === "M" && passes[0] === "p" ? "BROKEN" : `${module}|${passes[0]}`,
