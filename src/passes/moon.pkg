@@ -11,6 +11,7 @@ import {
   "moonbitlang/core/buffer",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/debug",
+  "moonbitlang/core/env",
 }
 
 import {

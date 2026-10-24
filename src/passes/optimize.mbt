@@ -1371,11 +1371,63 @@ fn run_hot_pipeline_format_final_validate_error(
 }
 
 ///|
-fn run_hot_pipeline_dump_invalid_module(mod_ : @lib.Module) -> Unit {
-  match @binary.encode_module(mod_) {
-    Ok(bytes) => ignore(@sfs.write_file_bytes(".tmp/final-invalid.wasm", bytes))
-    Err(_) => ()
+fn run_hot_pipeline_write_invalid_module(
+  path : String,
+  bytes : Bytes,
+) -> Result[String, String] {
+  match @sfs.write_file_bytes(path, bytes) {
+    Ok(_) => Ok(path)
+    Err(err) => Err("invalid-module dump write failed at \{path}: \{err}")
   }
+}
+
+///|
+fn run_hot_pipeline_dump_invalid_module(
+  mod_ : @lib.Module,
+  directory~ : String = ".tmp",
+) -> Result[String, String] {
+  let bytes = match @binary.encode_module(mod_) {
+    Ok(bytes) => bytes
+    Err(err) => return Err("invalid-module dump encoding failed: \{err}")
+  }
+  // The parent may already exist. Random suffixes also separate processes
+  // that start a dump in the same clock tick.
+  ignore(@sfs.create_dir(directory))
+  let stamp = @env.now()
+  let mut last_error = ""
+  for attempt in 0..<128 {
+    let suffix = match @env.rand(12) {
+      Some(random) => {
+        let token = StringBuilder::new()
+        for idx in 0..<random.length() {
+          token.write_string(random[idx].to_hex().pad_start(2, '0'))
+        }
+        token.to_string()
+      }
+      None => "\{attempt}"
+    }
+    let artifact_dir = "\{directory}/final-invalid-\{stamp}-\{suffix}"
+    // Some filesystem backends accept create_dir on an existing directory.
+    if @sfs.list_files_recursive(artifact_dir) is Ok(_) {
+      continue
+    }
+    match @sfs.create_dir(artifact_dir) {
+      Ok(_) => {
+        let path = "\{artifact_dir}/module.wasm"
+        match run_hot_pipeline_write_invalid_module(path, bytes) {
+          Ok(path) => return Ok(path)
+          Err(err) => {
+            ignore(@sfs.remove_dir(artifact_dir))
+            return Err(err)
+          }
+        }
+      }
+      Err(err) => last_error = err
+    }
+  }
+  Err(
+    "invalid-module dump directory unavailable under \{directory}: \{last_error}",
+  )
 }
 
 ///|
@@ -1713,10 +1765,13 @@ pub fn run_hot_pipeline(
           validate_start_us,
         )
         perf_stop_timer_opt(options.perf, "pipeline", pipeline_start_us)
-        run_hot_pipeline_dump_invalid_module(current)
-        return Err(
-          run_hot_pipeline_format_final_validate_error(mod_, current, err),
+        let diagnostic = run_hot_pipeline_format_final_validate_error(
+          mod_, current, err,
         )
+        return match run_hot_pipeline_dump_invalid_module(current) {
+          Ok(path) => Err("\{diagnostic}\n\nInvalid module dump: \{path}")
+          Err(dump_err) => Err("\{diagnostic}\n\n\{dump_err}")
+        }
       }
     }
   }
