@@ -12660,16 +12660,36 @@ test "flatten snapshots an earlier local.get before a later tee writes that loca
 }
 
 ///|
-test "flatten dependency staging preserves a local read below ref.as_non_null" {
-  let func = pass_test_lift_first_func(
-    "(module (func (param $r (ref null eq)) (result i32) local.get $r ref.as_non_null local.get $r ref.as_non_null ref.eq))",
+test "flatten dependency staging materializes ref.as_non_null before later writes" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+    ]),
   )
-  let parent_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
-  let wrapper_id = @ir.hot_child_get(func, parent_id, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(func, wrapper_id),
-    Some(@lib.Instruction::ref_as_non_null()),
+  let nullable = @ir.hot_build_local_get(func, 0)
+  let wrapper = @ir.hot_build_unary(
+    func,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    ),
+    nullable,
   )
+  @ir.hot_node_exact_instr_set(
+    func,
+    wrapper,
+    @lib.Instruction::ref_as_non_null(),
+  )
+  let later = @ir.hot_build_local_get(func, 0)
+  let parent_id = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    wrapper,
+    later,
+  )
+  @ir.hot_node_exact_instr_set(func, parent_id, @lib.Instruction::ref_eq())
+  @ir.hot_root_append(func, parent_id)
   let preludes = [
     @ir.hot_build_local_set(func, 0, @ir.hot_build_local_get(func, 0)),
   ]
@@ -12684,14 +12704,70 @@ test "flatten dependency staging preserves a local read below ref.as_non_null" {
     @ir.hot_node_get(func, snapshot_set).op.to_string(),
     "LocalSet",
   )
+  @debug.assert_eq(@ir.hot_child_get(func, snapshot_set, 0), wrapper)
   let snapshot_local = @ir.hot_node_get(func, snapshot_set).imm0
-  assert_true(snapshot_local > 0)
-  let preserved_read = @ir.hot_child_get(func, wrapper_id, 0)
   @debug.assert_eq(
-    @ir.hot_node_get(func, preserved_read).op.to_string(),
+    @ir.hot_local_type(func, snapshot_local),
+    Some(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+    ),
+  )
+  let replacement = @ir.hot_child_get(func, parent_id, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, replacement).op.to_string(),
     "LocalGet",
   )
-  @debug.assert_eq(@ir.hot_node_get(func, preserved_read).imm0, snapshot_local)
+  @debug.assert_eq(@ir.hot_node_get(func, replacement).imm0, snapshot_local)
+}
+
+///|
+test "flatten materializes one trapping wrapper among multiple prior operands" {
+  let nullable_eq = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let nonnull_eq = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[nullable_eq, nullable_eq]),
+  )
+  let plain = @ir.hot_build_local_get(func, 1)
+  let wrapper = @ir.hot_build_unary(
+    func,
+    nonnull_eq,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    wrapper,
+    @lib.Instruction::ref_as_non_null(),
+  )
+  let parent = @ir.hot_build_tuple_make(
+    func,
+    [nullable_eq, nonnull_eq, nullable_eq],
+    [plain, wrapper, @ir.hot_build_local_get(func, 0)],
+  )
+  let preludes = [
+    @ir.hot_build_local_set(func, 0, @ir.hot_build_local_get(func, 0)),
+  ]
+  assert_true(
+    flatten_stage_prior_operands_before_new_preludes(
+      func, parent, 2, preludes, 0,
+    ),
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, parent, 0), plain)
+  @debug.assert_eq(@ir.hot_child_get(func, preludes[0], 0), wrapper)
+  let replacement = @ir.hot_child_get(func, parent, 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, replacement).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, @ir.hot_node_get(func, replacement).imm0),
+    Some(nonnull_eq),
+  )
 }
 
 ///|
