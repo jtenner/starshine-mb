@@ -688,6 +688,11 @@ pub enum GenValidProfile {
   Binaryen132CompactImportsProfile
   Binaryen132AtomicOrdersProfile
   Binaryen132DescriptorBranchesProfile
+  RuleRecipesAllProfile
+  RuleRecipeOiI32AddZeroPositiveProfile
+  RuleRecipeOiI32AddZeroNearMissProfile
+  RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile
+  RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile
   Dae2AllProfile
   Dae2ForwardedResultsProfile
   Dae2CyclesProfile
@@ -1202,6 +1207,15 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     Binaryen132AtomicOrdersProfile => "binaryen132-atomic-orders"
     Binaryen132DescriptorBranchesProfile => "binaryen132-descriptor-branches"
     Binaryen132CompactImportsProfile => "binaryen132-compact-imports"
+    RuleRecipesAllProfile => "rule-recipes"
+    RuleRecipeOiI32AddZeroPositiveProfile =>
+      "rule-recipe-oi-i32-add-zero-positive"
+    RuleRecipeOiI32AddZeroNearMissProfile =>
+      "rule-recipe-oi-i32-add-zero-near-miss"
+    RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile =>
+      "rule-recipe-dae2-unused-typed-if-argument-positive"
+    RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile =>
+      "rule-recipe-dae2-unused-typed-if-argument-near-miss"
     Dae2LocalsProfile => "dae2-locals"
     Dae2ContinuationsProfile => "dae2-continuations"
     Dae2ExceptionsProfile => "dae2-exceptions"
@@ -1677,6 +1691,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | RseAllProfile
     | DaeAllProfile
     | ConstraintAllProfile
+    | RuleRecipesAllProfile
     | Dae2AllProfile
     | DaeOptimizingProfile
     | GsiDescCastAllProfile
@@ -1785,6 +1800,19 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(Dae2ExceptionsProfile, 1),
         GenValidProfileMember::new(Dae2CallRefProfile, 1),
         GenValidProfileMember::new(Dae2IntrinsicsProfile, 1),
+      ]
+    RuleRecipesAllProfile =>
+      [
+        GenValidProfileMember::new(RuleRecipeOiI32AddZeroPositiveProfile, 1),
+        GenValidProfileMember::new(RuleRecipeOiI32AddZeroNearMissProfile, 1),
+        GenValidProfileMember::new(
+          RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile,
+          1,
+        ),
       ]
     DaeAllProfile =>
       [
@@ -2471,6 +2499,7 @@ pub fn gen_valid_case_seed(seed : UInt64, case_index : Int32) -> UInt64 {
 fn gen_valid_profile_uses_exact_weighted_cycle(
   profile : GenValidProfile,
 ) -> Bool {
+  profile == RuleRecipesAllProfile ||
   profile == EngineStateAllProfile ||
   profile == EngineCompileShapesProfile ||
   profile == EngineProposalMatrixProfile ||
@@ -2485,6 +2514,10 @@ pub fn gen_valid_profile_leaf_for_case(
   case_index : Int32,
 ) -> GenValidProfile {
   let members = gen_valid_profile_members(profile)
+  if profile == RuleRecipesAllProfile {
+    let normalized_index = if case_index <= 0 { 1 } else { case_index }
+    return members[(normalized_index - 1) % members.length()].profile
+  }
   if gen_valid_profile_uses_exact_weighted_cycle(profile) && !members.is_empty() {
     let normalized_index = if case_index <= 0 { 1 } else { case_index }
     let mut total_weight = 0
@@ -2592,6 +2625,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ConstraintRelationsProfile,
     ConstraintEffectsProfile,
     ConstraintFloatBoundaryProfile,
+    RuleRecipesAllProfile,
+    RuleRecipeOiI32AddZeroPositiveProfile,
+    RuleRecipeOiI32AddZeroNearMissProfile,
+    RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile,
+    RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile,
     Dae2AllProfile,
     Dae2ForwardedResultsProfile,
     Dae2CyclesProfile,
@@ -5347,6 +5385,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | ConstraintEffectsProfile
     | ConstraintFloatBoundaryProfile =>
       gen_valid_constraint_profile_config(profile)
+    RuleRecipeOiI32AddZeroPositiveProfile
+    | RuleRecipeOiI32AddZeroNearMissProfile
+    | RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile
+    | RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile =>
+      gen_valid_rule_recipe_profile_config(profile)
+    RuleRecipesAllProfile =>
+      gen_valid_rule_recipe_profile_config(
+        RuleRecipeOiI32AddZeroPositiveProfile,
+      )
     Dae2AllProfile
     | Dae2ForwardedResultsProfile
     | Dae2CyclesProfile
@@ -35023,6 +35070,8 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if config == gen_valid_heap2local_owner_updates_config() {
     return gen_valid_heap2local_owner_updates_module(ctx.root_seed)
+  if gen_valid_is_rule_recipe_profile_config(config) {
+    return gen_valid_rule_recipe_profile_module(ctx)
   }
   if gen_valid_is_engine_tiering_config(config) {
     return gen_valid_engine_tiering_profile_module(ctx)

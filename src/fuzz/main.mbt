@@ -3196,6 +3196,7 @@ pub struct GenValidBatchManifestEntry {
   config_label : String
   selected_profile : String
   profile_case_label : String?
+  rule_recipe : GenValidRuleRecipeMetadata?
   attempts : Int32
   validated : Bool
   validation_error_message : String?
@@ -3648,6 +3649,25 @@ fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int32) -> UInt64 {
 }
 
 ///|
+fn emit_gen_valid_batch_profile_seed(
+  profile : GenValidProfile,
+  seed : UInt64,
+  case_index : Int,
+  attempt_index : Int,
+) -> UInt64 {
+  if gen_valid_profile_name(profile) == "rule-recipes" {
+    let derived = emit_gen_valid_batch_candidate_seed(
+      seed,
+      (case_index - 1) / 2 + 1,
+    )
+    let structure = ((case_index - 1) / 4).to_uint64() & 31UL
+    (derived & 0xffffffffffffffe0UL) | structure
+  } else {
+    emit_gen_valid_batch_candidate_seed(seed, attempt_index)
+  }
+}
+
+///|
 fn emit_gen_valid_batch_profile_case_label(
   leaf_profile : GenValidProfile,
   seed : UInt64,
@@ -3900,6 +3920,7 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       config_label: generated.config_label,
       selected_profile: generated.config_label,
       profile_case_label: None,
+      rule_recipe: None,
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -3969,11 +3990,10 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     let selected_profile_label = gen_valid_profile_name(leaf_profile)
     let config = GenValidConfig::for_profile(leaf_profile)
     attempts += 1
-    let generated = match
-      gen_valid_module_result_from_seed(
-        emit_gen_valid_batch_candidate_seed(seed, attempts),
-        config,
-      ) {
+    let case_seed = emit_gen_valid_batch_profile_seed(
+      profile, seed, case_index, attempts,
+    )
+    let generated = match gen_valid_module_result_from_seed(case_seed, config) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -4070,7 +4090,7 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     manifest.push({
       file_name,
       seed,
-      case_seed: emit_gen_valid_batch_candidate_seed(seed, attempts),
+      case_seed,
       index: selected,
       wasm_hash: fuzz_corpus_hash_bytes(bytes),
       static_instruction_count: gen_valid_engine_state_static_instruction_count(
@@ -4083,9 +4103,9 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
       },
       selected_profile: selected_profile_label,
       profile_case_label: emit_gen_valid_batch_profile_case_label(
-        leaf_profile,
-        emit_gen_valid_batch_candidate_seed(seed, attempts),
+        leaf_profile, case_seed,
       ),
+      rule_recipe: gen_valid_rule_recipe_metadata(leaf_profile, case_seed),
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -4174,6 +4194,7 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
       config_label: generated.config_label,
       selected_profile: generated.config_label,
       profile_case_label: None,
+      rule_recipe: None,
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -6028,6 +6049,11 @@ fn format_gen_valid_batch_manifest_json(
       Some(label) => "\"\{fuzz_json_escape(label)}\""
       None => "null"
     }
+    let rule_recipe_json = match item.rule_recipe {
+      Some(recipe) =>
+        "{\"recipe_id\":\"\{fuzz_json_escape(recipe.recipe_id)}\",\"pass_name\":\"\{fuzz_json_escape(recipe.pass_name)}\",\"variant\":\"\{fuzz_json_escape(recipe.variant)}\",\"relation_id\":\"\{fuzz_json_escape(recipe.relation_id)}\",\"structure_id\":\"\{fuzz_json_escape(recipe.structure_id)}\",\"result_types\":\{format_fuzz_string_array_json(recipe.result_types)},\"operand_relations\":\{format_fuzz_string_array_json(recipe.operand_relations)},\"required_facts\":\{format_fuzz_string_array_json(recipe.required_facts)},\"legal_contexts\":\{format_fuzz_string_array_json(recipe.legal_contexts)},\"prohibited_effects\":\{format_fuzz_string_array_json(recipe.prohibited_effects)},\"feature_requirements\":\{format_fuzz_string_array_json(recipe.feature_requirements)}}"
+      None => "null"
+    }
     let base_file_json = match item.base_file_name {
       Some(name) => "\"\{fuzz_json_escape(name)}\""
       None => "null"
@@ -6037,7 +6063,7 @@ fn format_gen_valid_batch_manifest_json(
       None => "null"
     }
     out.write_string(
-      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"base_file_name\":\{base_file_json},\"relation_group_id\":\{relation_group_json},\"seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"index\":\{item.index},\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"static_instruction_count\":\{item.static_instruction_count},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)},\"engine_state\":\{format_gen_valid_engine_state_manifest_entry(item)}}",
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"base_file_name\":\{base_file_json},\"relation_group_id\":\{relation_group_json},\"seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"index\":\{item.index},\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"static_instruction_count\":\{item.static_instruction_count},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"rule_recipe\":\{rule_recipe_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)},\"engine_state\":\{format_gen_valid_engine_state_manifest_entry(item)}}",
     )
     i += 1
   }
@@ -6139,11 +6165,13 @@ fn emit_gen_valid_batch_to_dir(
     let selected_profile_label = gen_valid_profile_name(leaf_profile)
     let config = GenValidConfig::for_profile(leaf_profile)
     attempts += 1
-    let generated = match
-      gen_valid_module_result_from_seed(
-        emit_gen_valid_batch_candidate_seed(args.seed, attempts),
-        config,
-      ) {
+    let case_seed = emit_gen_valid_batch_profile_seed(
+      profile,
+      args.seed,
+      case_index,
+      attempts,
+    )
+    let generated = match gen_valid_module_result_from_seed(case_seed, config) {
       Ok(v) => v
       Err(failure) =>
         return Err(
@@ -6263,7 +6291,7 @@ fn emit_gen_valid_batch_to_dir(
     manifest.push({
       file_name,
       seed: args.seed,
-      case_seed: emit_gen_valid_batch_candidate_seed(args.seed, attempts),
+      case_seed,
       index: selected,
       wasm_hash: fuzz_corpus_hash_bytes(bytes),
       static_instruction_count: gen_valid_engine_state_static_instruction_count(
@@ -6276,9 +6304,9 @@ fn emit_gen_valid_batch_to_dir(
       },
       selected_profile: selected_profile_label,
       profile_case_label: emit_gen_valid_batch_profile_case_label(
-        leaf_profile,
-        emit_gen_valid_batch_candidate_seed(args.seed, attempts),
+        leaf_profile, case_seed,
       ),
+      rule_recipe: gen_valid_rule_recipe_metadata(leaf_profile, case_seed),
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,

@@ -8,8 +8,11 @@ sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/validate/gen_valid_rule_recipes.mbt
+  - ../../../../../src/passes/optimize_instructions.mbt
   - ./parity-matrix.json
   - ./sweep-report.md
+  - https://insuyun.github.io/pubs/2025/park:rgfuzz.pdf
 ---
 
 # `optimize-instructions` fuzzing and parity sweep
@@ -50,6 +53,17 @@ Agent judgment classifies 1,065 refreshed scalar differences as Starshine wins: 
 Across 22 deterministic fixtures, raw bytes fall from 1,174 to 1,038: 17 improve, five are unchanged and none grow. All 112 original/baseline/candidate observations agree, including call effects, traps, memory state and nested exits. A real MicroPython module after pinned v133 LocalCSE falls from 371,053 to 371,050 bytes. Four other measured corpus modules are unchanged. Runtime median rises 0.75%; reverse-compilation and same-binary controls rise 0.69% and 0.34%, with overlapping dispersion. No runtime speedup is established. Full-command optimizer medians change by +0.62% on MicroPython and +0.79% on SQLite; the small branch-call fixture rises 4.07% and 716 KiB median RSS. These startup-inclusive measurements are not pass-local performance claims.
 
 The final wasm-gc suite has 14,142 passes and six failures out of 14,148. All six fail on the isolated baseline commit as well; they concern MSF/metadata and RSE floating bits. This ordinary aggregate renewal does not close the full 100,000-case general, random-all or external-generator audit. Historical evidence below keeps its original scope.
+## Rewrite-precondition recipe
+
+`rule-recipe-oi-i32-add-zero-positive` and its near-miss sibling generate
+matched, core-only modules for the `i32.add(x, 0) -> x` rule. Each relation ID
+contains one positive and one `i32.add(x, 1)` boundary case from the same seed.
+The low five seed bits select 32 structural contexts by varying the pure
+producer and surrounding consumed expressions; manifests expose the normalized
+`structure_id` separately from the byte hash. The compare harness rejects
+missing, malformed, unpaired, or pass-mismatched recipe metadata. This bounded
+design follows RGFuzz's premise-driven generation approach while keeping the
+rule oracle explicit and independently testable.
 
 ## October 9, 2026 final native comparison renewal
 

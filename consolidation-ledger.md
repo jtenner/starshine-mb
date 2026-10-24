@@ -84,3 +84,20 @@ SKIP-HELD agent/case29-lcse-nonnull-1790144588
 MERGED-UNIONDOCS codex/mooncakes-readme -> 39a3589c3
 MERGED-UNIONDOCS codex/research-29-validation-premises-20261012 -> 3139714cf
 STOPPED at codex/wago-bulk-cli awaiting manual resolution
+MERGED-MANUAL codex/wago-bulk-cli: component staging manifests + renderGeneratedMoonModule + syncConvertedPackageManifests call taken from branch; fmt step kept master (release) sequencing since bindings are copied to componentRoot before plan[1] runs; moon.mod kept 0.3.0; cmd.mbt hunk1 combined (master try-table guard + branch unvalidated-candidate append), hunk2 combined (trim_program_name + abort on failure), hunk3 branch nop fixture; passes test files kept master versions (paired with master pass code; branch added no tests there)
+## Resolve pass 2026-10-24T15:24:18-04:00
+SKIP-HELD fix/flatten-trap-flow-cache
+SKIP-HELD codex/name-debug-comparison-fix
+SKIP-HELD audit/duplicate-import-host-contract
+SKIP-HELD audit/die-annotation-preservation-after-host-contract
+SKIP-HELD audit/shared-gc-atomic-runtime
+SKIP-HELD audit/memory64-atomic-runtime-20260923
+SKIP-HELD fix/proposal-runtime-boundaries-47
+SKIP-HELD codex/atomic-outcomes-20260922
+SKIP-HELD audit/item48-weaker-fence-20260922
+SKIP-HELD audit/memory64-atomic-wait-runtime-20260923
+SKIP-HELD codex/case437-simplify-typed-loop
+SKIP-HELD codex/rub-seven-pass-larger-parity-home
+SKIP-HELD fix/vacuum-case31-dead-struct-type
+SKIP-HELD agent/case29-lcse-nonnull-1790144588
+STOPPED at codex/research-6-rule-recipes-20261012 awaiting manual resolution
