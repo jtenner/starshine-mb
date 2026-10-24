@@ -35,6 +35,9 @@ priv struct DeadCodeEliminationNodeUseCache {
   first_unreachable_revision : Array[Int32]
   first_unreachable_absent : @bitset.BitSet
   first_unreachable_visits : Array[Int32]?
+  defer_deletion : Bool
+  pending_deletions : Array[Int32]
+  reference_scan_visits : Array[Int32]?
 }
 
 ///|
@@ -81,6 +84,8 @@ fn dead_code_elimination_build_i32_eqz(
 fn DeadCodeEliminationNodeUseCache::new(
   func : @ir.HotFunc,
   first_unreachable_visits~ : Array[Int32]? = None,
+  defer_deletion~ : Bool = false,
+  reference_scan_visits~ : Array[Int32]? = None,
 ) -> DeadCodeEliminationNodeUseCache {
   let node_count = @ir.hot_node_count(func)
   {
@@ -89,7 +94,30 @@ fn DeadCodeEliminationNodeUseCache::new(
     first_unreachable_revision: Array::make(node_count, -1),
     first_unreachable_absent: @bitset.BitSet::new(node_count),
     first_unreachable_visits,
+    defer_deletion,
+    pending_deletions: [],
+    reference_scan_visits,
   }
+}
+
+///|
+fn dead_code_elimination_flush_unused_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cache : DeadCodeEliminationNodeUseCache,
+) -> Unit {
+  if cache.pending_deletions.is_empty() {
+    return
+  }
+  let pending = cache.pending_deletions.copy()
+  cache.pending_deletions.clear()
+  dead_code_elimination_delete_unused_nodes_now(
+    ctx,
+    func,
+    cache,
+    pending,
+    allow_large=true,
+  )
 }
 
 ///|
@@ -278,13 +306,33 @@ fn dead_code_elimination_region_result_arity(
 fn dead_code_elimination_delete_unused_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  _node_use_cache : DeadCodeEliminationNodeUseCache,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
   node_ids : Array[Int32],
 ) -> Unit {
-  // Large detached subgraphs do not affect lowered output once roots/child
-  // edges are gone; eagerly collecting them here is disproportionately
-  // expensive on real modules.
-  if node_ids.length() > 32 {
+  if node_use_cache.defer_deletion {
+    if node_ids.length() <= 32 {
+      for node_id in node_ids {
+        node_use_cache.pending_deletions.push(node_id)
+      }
+    }
+    return
+  }
+  dead_code_elimination_delete_unused_nodes_now(
+    ctx, func, node_use_cache, node_ids,
+  )
+}
+
+///|
+fn dead_code_elimination_delete_unused_nodes_now(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  node_ids : Array[Int32],
+  allow_large~ : Bool = false,
+) -> Unit {
+  // Skip one large detached subtree on the eager path. The pass batches many
+  // small detached sets and scans their references once at the end.
+  if !allow_large && node_ids.length() > 32 {
     return
   }
   let node_count = @ir.hot_node_count(func)
@@ -357,6 +405,10 @@ fn dead_code_elimination_delete_unused_nodes(
     }
   }
   for user_id = 0; user_id < node_count; user_id = user_id + 1 {
+    match node_use_cache.reference_scan_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     let user = func.nodes[user_id]
     if user.child_count == 0 || !@ir.hot_node_is_live(func, user_id) {
       continue
@@ -3363,18 +3415,23 @@ fn dead_code_elimination_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let branch_user_cache = DeadCodeEliminationBranchUserCache::new()
-  let node_use_cache = DeadCodeEliminationNodeUseCache::new(func)
+  let node_use_cache = DeadCodeEliminationNodeUseCache::new(
+    func,
+    defer_deletion=true,
+  )
   let fallthrough_cache = dead_code_elimination_new_fallthrough_cache(func)
   let purity_cache = dead_code_elimination_new_purity_cache(func)
-  if dead_code_elimination_visit_region(
-      ctx,
-      func,
-      branch_user_cache,
-      node_use_cache,
-      fallthrough_cache,
-      purity_cache,
-      @ir.HotRegionRef::root(),
-    ) {
+  let changed = dead_code_elimination_visit_region(
+    ctx,
+    func,
+    branch_user_cache,
+    node_use_cache,
+    fallthrough_cache,
+    purity_cache,
+    @ir.HotRegionRef::root(),
+  )
+  dead_code_elimination_flush_unused_nodes(ctx, func, node_use_cache)
+  if changed {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()

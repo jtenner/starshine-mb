@@ -15,7 +15,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `e4a220e83` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused inlining_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: skip inlining dead-suffix queries without targets |
 | `e123aa521` | REDESIGN SKIP | Effects workspace/API redesign conflicts with master f60fb9eca effects_subtree_query.mbt and revision-keyed analysis reuse; retain master MergeBlocks analysis architecture. |
 | `9dce22234` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused remove_unused_brs_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: check expected remove-unused-brs root index first |
-| `794519800` | Review pending | perf: batch DCE detached reference scans |
+| `794519800` | EXTRACT | RED instrumented baseline failed the bounded work/unchanged-IR regression; GREEN focused dead_code_elimination_delete_perf_wbtest.mbt passed; only counters/new helper signatures retained during RED, optimization disabled; source: perf: batch DCE detached reference scans |
 | `d265b2a43` | Review pending | perf: skip merge-locals graph work without influenced reads |
 | `300c6d1f6` | REDESIGN SKIP | Split reviewed: saturation candidate filtering already exists in master 6f8efd3ad; intrinsic worker changes collide with cc9677cee declared-local typing. Leave intrinsic redesign behind. |
 | `6589329c3` | ALREADY ON MASTER | Master 6f8efd3ad i64_lower_sat_expr_candidate_types and conditional temporary pushes already allocate only used f32/f64 locals, with narrow-pass tests. |
