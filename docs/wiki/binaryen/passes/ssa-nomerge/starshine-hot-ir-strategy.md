@@ -2,6 +2,7 @@
 kind: concept
 status: supported
 last_reviewed: 2026-09-25
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
