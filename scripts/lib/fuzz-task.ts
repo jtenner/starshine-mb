@@ -15,6 +15,7 @@ import { exploreOptimizerWasmNeighborhood } from "./optimizer-neighborhood";
 import { buildThresholdCliffGroup, optimizerThresholdsFromMoonReport, type MoonOptimizerThresholdReport } from "./optimizer-thresholds";
 import {
   exhaustiveValidateRewrite,
+  parseSolverModel,
   proveRewriteWithSolver,
   type IntegerExpression,
   type RewriteContract,
@@ -611,6 +612,7 @@ function decodeIntegerExpression(value: unknown): IntegerExpression {
   }
   if (kind === "const") {
     if (typeof object.value !== "string" && typeof object.value !== "number") fail("malformed integer constant");
+    if (typeof object.value === "number" && !Number.isSafeInteger(object.value)) fail("numeric integer constant must be a safe integer; use a string for exact large values");
     return { kind, value: BigInt(object.value), width };
   }
   const binaryKinds = new Set(["add", "sub", "mul", "and", "or", "xor", "shl", "shr_u", "div_s", "div_u", "rem_s", "rem_u"]);
@@ -652,11 +654,19 @@ function loadRewriteContracts(contractPath: string): RewriteContract[] {
     : parsed !== null && typeof parsed === "object" && Array.isArray((parsed as { contracts?: unknown }).contracts)
       ? (parsed as { contracts: unknown[] }).contracts
       : [parsed];
-  return entries.map(decodeRewriteContract);
+  if (entries.length === 0) fail("rewrite proof batch must contain at least one contract");
+  const contracts = entries.map(decodeRewriteContract);
+  const outputNames = new Set<string>();
+  for (const contract of contracts) {
+    const name = contract.id.replace(/[^A-Za-z0-9._-]+/g, "_");
+    if (outputNames.has(name)) fail(`colliding proof output name: ${name}`);
+    outputNames.add(name);
+  }
+  return contracts;
 }
 
 function solverVersion(solverBin: string): string | null {
-  const version = spawnSync(solverBin, ["--version"], { encoding: "utf8" });
+  const version = spawnSync(solverBin, ["--version"], { encoding: "utf8", timeout: 1000, killSignal: "SIGKILL" });
   return version.error || version.status !== 0 ? null : (version.stdout || version.stderr).trim();
 }
 
@@ -671,13 +681,20 @@ async function runOptimizerProofTask(options: OptimizerProofTaskOptions): Promis
     const proof = await proveRewriteWithSolver(contract, {
       solver: async (smt) => {
         if (version === null) return { status: "unavailable" as const, stdout: "", version: null };
-        const result = spawnSync(options.solverBin, ["-in"], { input: smt, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-        if (result.error) return { status: "unavailable" as const, stdout: result.error.message, version };
-        const first = result.stdout.trimStart().split(/\s+/, 1)[0];
-        if (first === "sat" || first === "unsat" || first === "unknown") {
+        const run = (input: string) => spawnSync(options.solverBin, ["-in"], { input, encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 10000, killSignal: "SIGKILL" });
+        const result = run(smt);
+        if (result.error) return { status: (result.error as NodeJS.ErrnoException).code === "ETIMEDOUT" ? "timeout" as const : "error" as const, stdout: result.error.message, version };
+        if (result.status !== 0) return { status: "error" as const, stdout: result.stderr || result.stdout || `exit ${String(result.status)}`, version };
+        const first = result.stdout.trim();
+        if (first === "sat") {
+          const model = run(smt + "(get-model)\n");
+          if (model.error || model.status !== 0 || !validRewriteSolverModel(contract, model.stdout)) return { status: model.error && (model.error as NodeJS.ErrnoException).code === "ETIMEDOUT" ? "timeout" as const : "error" as const, stdout: model.error?.message || model.stderr || model.stdout, version };
+          return { status: "sat" as const, stdout: model.stdout, version };
+        }
+        if (first === "unsat" || first === "unknown") {
           return { status: first, stdout: result.stdout, version };
         }
-        return { status: "unavailable" as const, stdout: result.stderr || result.stdout || `exit ${String(result.status)}`, version };
+        return { status: "error" as const, stdout: result.stderr || result.stdout || `exit ${String(result.status)}`, version };
       },
     });
     const result = {
@@ -692,6 +709,13 @@ async function runOptimizerProofTask(options: OptimizerProofTaskOptions): Promis
     results.push(result);
   }
   process.stdout.write(`${JSON.stringify({ schema: "starshine.optimizer-rewrite-validation-batch.v1", solverVersion: version, results }, (_key, child) => typeof child === "bigint" ? child.toString() : child, 2)}\n`);
+  if (results.some((result) => (result as { proof: { status: string }; exhaustive: { status: string } }).proof.status !== "contract-proved" || (result as { exhaustive: { status: string } }).exhaustive.status === "counterexample")) process.exitCode = 1;
+}
+
+function validRewriteSolverModel(contract: RewriteContract, text: string): boolean {
+  if (!/^sat\s+\(/.test(text.trim())) return false;
+  try { parseSolverModel(text, contract.variables); return true; }
+  catch { return false; }
 }
 
 export type OptimizerReplayTaskOptions = {

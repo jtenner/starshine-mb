@@ -261,6 +261,32 @@ bun fuzz promote-optimizer <failure-dir>
 
 `list-optimizer-thresholds` emits `starshine.optimizer-threshold-registry.v1` from the current `InliningOptions::new` defaults and deterministic `N-1/N/N+1` groups. `prove-rewrites` reads declarative integer contracts, runs reduced-width exhaustive checking, invokes Z3 when available, and persists SMT-LIB plus versioned JSON results. These commands do not alter the Starshine module queue or locked preset order.
 
+The integer proof model `wasm-integer-bitvectors-v2` checks consistent operand,
+result and variable widths (1–64 bits), modulo arithmetic, masked shift counts,
+and the first integer trap class in operand evaluation order. Only 32/64-bit
+contracts use the `wasm-integer` domain; narrower checks are explicitly
+`reduced-bitvector` evidence. Exhaustive checking admits at most 20 input bits,
+reports checked assignments, and blocks empty domains. Functional preconditions
+are supported only by exhaustive checking over immutable input values; SMT
+deliberately rejects them until a declarative premise format exists. Memory,
+FP, references, control, extensions and comparisons are outside this model.
+
+`prove-rewrites` is a qualification gate: it writes reports before returning
+nonzero for a counterexample or blocked proof. Empty batches reject. Solver
+absence, timeout, error and unknown remain distinct blocked reasons; each solver
+process has a deadline, successful status output must be exact, and models are
+requested separately only after `sat`. Proof v2 records the semantic model,
+SMT obligation hash and solver version, with declared-variable witnesses in
+hexadecimal, binary or decimal form. The representative positive inputs are
+[`scalar-rewrite-contracts.json`](../../../tests/optimizer/scalar-rewrite-contracts.json);
+[`scalar-rewrite-counterexamples.json`](../../../tests/optimizer/scalar-rewrite-counterexamples.json)
+must return nonzero while preserving witnesses. Rule-body hashes in the positive
+fixture require requalification when the source changes. These are pure
+expression contracts, not proofs of effectful producer sharing or rewrite
+installation. The [actual Wasm boundary test](../../../scripts/lib/optimizer-integer-wasm-boundaries.test.ts)
+independently executes the represented operations. See the
+[WebAssembly numeric semantics](https://webassembly.github.io/spec/core/exec/numerics.html).
+
 A machine-readable runtime-interface report emitted directly from Starshine's decoded MoonBit module, an expanded pass-sequence report for presets/composites, and MoonBit-owned threshold export remain pending. Compare-pass currently derives the runtime interface from decoded `wasm-tools print` structure, and the threshold command labels its MoonBit source owner explicitly.
 
 ## WasmGC runner argument prefix

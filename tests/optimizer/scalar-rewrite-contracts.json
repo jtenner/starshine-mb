@@ -1,0 +1,421 @@
+{
+  "schema": "starshine.scalar-rewrite-cases.v1",
+  "modelVersion": "wasm-integer-bitvectors-v2",
+  "sources": [
+    {
+      "function": "optimize_instructions_try_fold_identity_binary",
+      "path": "src/passes/optimize_instructions.mbt",
+      "sha256": "b129f7db47945e6a66ed4d9b39a0136ce37b3d87fbaa210f820c0fb9475f31fc"
+    },
+    {
+      "function": "optimize_instructions_try_rewrite_mul_shift",
+      "path": "src/passes/optimize_instructions.mbt",
+      "sha256": "49e6bfb69a235268102a169a7959bda7b1a6a263a250ccd34a02677cd24fb451"
+    },
+    {
+      "function": "optimize_instructions_try_rewrite_shift",
+      "path": "src/passes/optimize_instructions.mbt",
+      "sha256": "701cc0840ae6ec97e7c65033158e4c321855d2dc2a29b76d3d5c4395cc37c276"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "add-zero-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "add",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "0",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "and-all-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "and",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "-1",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "multiply-one-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "mul",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "multiply-power-two-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "mul",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "2",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "shl",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 32
+        }
+      }
+    },
+    {
+      "id": "shift-width-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "32",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "masked-shift-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        },
+        {
+          "name": "y",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "and",
+          "width": 32,
+          "left": {
+            "kind": "var",
+            "name": "y",
+            "width": 32
+          },
+          "right": {
+            "kind": "const",
+            "value": "31",
+            "width": 32
+          }
+        }
+      },
+      "after": {
+        "kind": "shl",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "var",
+          "name": "y",
+          "width": 32
+        }
+      }
+    },
+    {
+      "id": "add-zero-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "add",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "0",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "and-all-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "and",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "-1",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "multiply-one-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "mul",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "multiply-power-two-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "mul",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "2",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "shl",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 64
+        }
+      }
+    },
+    {
+      "id": "shift-width-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "64",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "masked-shift-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        },
+        {
+          "name": "y",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "and",
+          "width": 64,
+          "left": {
+            "kind": "var",
+            "name": "y",
+            "width": 64
+          },
+          "right": {
+            "kind": "const",
+            "value": "63",
+            "width": 64
+          }
+        }
+      },
+      "after": {
+        "kind": "shl",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "var",
+          "name": "y",
+          "width": 64
+        }
+      }
+    }
+  ]
+}

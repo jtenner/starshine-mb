@@ -128,12 +128,10 @@ jobs:
             scripts/lib/optimizer-runtime-executor.test.ts \
             scripts/lib/optimizer-semantic-cache.test.ts \
             scripts/lib/optimizer-neighborhood.test.ts \
-            scripts/lib/optimizer-translation-validation.test.ts
-          mkdir -p .tmp/semantic-z3
-          cat > .tmp/semantic-z3/contracts.json <<'EOF'
-          [{"id":"ci-add-zero","variables":[{"name":"x","width":32}],"before":{"kind":"add","width":32,"left":{"kind":"var","name":"x","width":32},"right":{"kind":"const","value":"0","width":32}},"after":{"kind":"var","name":"x","width":32}}]
-          EOF
-          bun fuzz prove-rewrites .tmp/semantic-z3/contracts.json \
+            scripts/lib/optimizer-translation-validation.test.ts \
+            scripts/lib/optimizer-translation-qualification.test.ts \
+            scripts/lib/optimizer-integer-wasm-boundaries.test.ts
+          bun fuzz prove-rewrites tests/optimizer/scalar-rewrite-contracts.json \
             --solver "$Z3_DIR/bin/z3" \
             --out-dir .tmp/semantic-z3/proofs
 

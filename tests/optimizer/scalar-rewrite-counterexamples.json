@@ -1,0 +1,330 @@
+{
+  "schema": "starshine.scalar-rewrite-cases.v1",
+  "modelVersion": "wasm-integer-bitvectors-v2",
+  "contracts": [
+    {
+      "id": "negative-unmasked-shift-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "32",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "const",
+        "value": "0",
+        "width": 32
+      }
+    },
+    {
+      "id": "negative-signed-div-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "div_s",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "2",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "shr_u",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 32
+        }
+      }
+    },
+    {
+      "id": "negative-missing-premise-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "and",
+        "width": 32,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        },
+        "right": {
+          "kind": "const",
+          "value": "7",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "negative-negation-i32",
+      "variables": [
+        {
+          "name": "x",
+          "width": 32
+        }
+      ],
+      "before": {
+        "kind": "sub",
+        "width": 32,
+        "left": {
+          "kind": "const",
+          "value": "0",
+          "width": 32
+        },
+        "right": {
+          "kind": "var",
+          "name": "x",
+          "width": 32
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 32
+      }
+    },
+    {
+      "id": "negative-unmasked-shift-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "shl",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "64",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "const",
+        "value": "0",
+        "width": 64
+      }
+    },
+    {
+      "id": "negative-signed-div-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "div_s",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "2",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "shr_u",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "1",
+          "width": 64
+        }
+      }
+    },
+    {
+      "id": "negative-missing-premise-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "and",
+        "width": 64,
+        "left": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        },
+        "right": {
+          "kind": "const",
+          "value": "7",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "negative-negation-i64",
+      "variables": [
+        {
+          "name": "x",
+          "width": 64
+        }
+      ],
+      "before": {
+        "kind": "sub",
+        "width": 64,
+        "left": {
+          "kind": "const",
+          "value": "0",
+          "width": 64
+        },
+        "right": {
+          "kind": "var",
+          "name": "x",
+          "width": 64
+        }
+      },
+      "after": {
+        "kind": "var",
+        "name": "x",
+        "width": 64
+      }
+    },
+    {
+      "id": "negative-trap-class-i32",
+      "variables": [],
+      "before": {
+        "kind": "div_s",
+        "width": 32,
+        "left": {
+          "kind": "const",
+          "width": 32,
+          "value": "2147483648"
+        },
+        "right": {
+          "kind": "const",
+          "width": 32,
+          "value": "4294967295"
+        }
+      },
+      "after": {
+        "kind": "div_s",
+        "width": 32,
+        "left": {
+          "kind": "const",
+          "width": 32,
+          "value": "1"
+        },
+        "right": {
+          "kind": "const",
+          "width": 32,
+          "value": "0"
+        }
+      }
+    },
+    {
+      "id": "negative-first-trap-i32",
+      "variables": [],
+      "before": {
+        "kind": "add",
+        "width": 32,
+        "left": {
+          "kind": "div_s",
+          "width": 32,
+          "left": {
+            "kind": "const",
+            "width": 32,
+            "value": "2147483648"
+          },
+          "right": {
+            "kind": "const",
+            "width": 32,
+            "value": "4294967295"
+          }
+        },
+        "right": {
+          "kind": "div_s",
+          "width": 32,
+          "left": {
+            "kind": "const",
+            "width": 32,
+            "value": "1"
+          },
+          "right": {
+            "kind": "const",
+            "width": 32,
+            "value": "0"
+          }
+        }
+      },
+      "after": {
+        "kind": "div_s",
+        "width": 32,
+        "left": {
+          "kind": "const",
+          "width": 32,
+          "value": "1"
+        },
+        "right": {
+          "kind": "const",
+          "width": 32,
+          "value": "0"
+        }
+      }
+    }
+  ]
+}
