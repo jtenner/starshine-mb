@@ -124,6 +124,58 @@ test "make-shared-objects shifts parsed function and local names with conversion
 }
 
 ///|
+test "make-shared-objects keeps type and field names on swapped types" {
+  let input = pass_test_module_from_wat(
+      "(module (type $f (func)) (type $s (struct (field i32))) (func (type $f) (drop (struct.new $s (i32.const 1)))))",
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        type_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("function")),
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("record")),
+          ]),
+        ),
+        field_names=Some(
+          @lib.IndirectNameMap::new([
+            @lib.IndirectNameAssoc::new(
+              1U,
+              @lib.NameMap::new([
+                @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    )
+    .with_raw_name_sec_payload(b"stale-type-indices")
+  let input_validation = @validate.validate_module(input)
+  assert_true(input_validation.is_ok(), msg=@debug.to_string(input_validation))
+  let output = make_shared_objects_run_module_pass(input)
+  let output_validation = @validate.validate_module(output)
+  assert_true(
+    output_validation.is_ok(),
+    msg=@debug.to_string(output_validation),
+  )
+  let first = match output.type_sec.unwrap().0[0] {
+    @lib.SingleRecType(subtype) => subtype
+    _ => fail("expected one struct type")
+  }
+  assert_true(first.get_comptype() is @lib.StructCompType(_))
+  let names = output.name_sec.unwrap()
+  assert_eq(names.type_names.unwrap().0, [
+    @lib.NameAssoc::new(0U, @lib.Name::from_string("record")),
+    @lib.NameAssoc::new(1U, @lib.Name::from_string("function")),
+  ])
+  assert_eq(names.field_names.unwrap().0[0].0, 0U)
+  assert_eq(output.raw_name_sec_payload, None)
+  let public_output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "make-shared-objects",
+  ]).unwrap()
+  assert_eq(public_output.name_sec, output.name_sec)
+}
+
+///|
 test "make-shared-objects wraps a multi-result externref export" {
   let output = binaryen133_run_shared(
     (

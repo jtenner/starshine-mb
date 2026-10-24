@@ -4,21 +4,21 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 
 | Source | Decision | Evidence |
 | --- | --- | --- |
-| `7e66ffe75` | Review pending | docs: track October pass audit repairs |
+| `7e66ffe75` | SUPERSEDED BY MASTER | Audit-only backlog snapshot; master agent-todo.md already includes the later optimizer rollups and current release blockers; importing the old snapshot would resurrect stale work. |
 | `19b8053fb` | EXTRACT | RED native regression returned the unchanged module (missing inserted imports); GREEN focused shared-parity file: 27/27 passed; source: fix: remap shared-object function names after import insertion |
-| `102dc8349` | Review pending | fix: remap shared-object type and field names on type swap |
+| `102dc8349` | EXTRACT | RED swapped-type assertion failed; GREEN shared-parity file: 28/28 passed; source: fix: remap shared-object type and field names on type swap |
 | `c9415221e` | Review pending | fix: retain local names for unchanged coalescing functions |
 | `222c0fd2f` | Review pending | fix: retain gathered raw names when global indices stay fixed |
-| `af91ec935` | Review pending | fix: separate saturating i64 conversion lowering from ABI pass |
-| `df4b96762` | Review pending | fix: skip discarded O4z preset work for caught try tables |
+| `af91ec935` | SUPERSEDED BY MASTER | Master 6f8efd3ad independently restores the ABI boundary and exposes i64-trunc-sat-float-lowering with registry/pipeline/EH tests; retain its canonical name and wiring. |
+| `df4b96762` | SUPERSEDED BY MASTER | Master optimize.mbt skip_caught_o4z_preset skips valid caught-try preset entries, flushes explicit passes in order and preserves compiler facts; f60fb9eca tests manager_review_wbtest.mbt cover the stronger contract. |
 | `33b60af13` | Review pending | perf: bound nested GTO constructor operand work |
 | `e4a220e83` | Review pending | perf: skip inlining dead-suffix queries without targets |
-| `e123aa521` | Review pending | perf: reuse merge-blocks effect masks across prefixes |
+| `e123aa521` | REDESIGN SKIP | Effects workspace/API redesign conflicts with master f60fb9eca effects_subtree_query.mbt and revision-keyed analysis reuse; retain master MergeBlocks analysis architecture. |
 | `9dce22234` | Review pending | perf: check expected remove-unused-brs root index first |
 | `794519800` | Review pending | perf: batch DCE detached reference scans |
 | `d265b2a43` | Review pending | perf: skip merge-locals graph work without influenced reads |
-| `300c6d1f6` | Review pending | perf: rewrite only candidate module-pass functions |
-| `6589329c3` | Review pending | fix: add only used i64 saturation temporary locals |
+| `300c6d1f6` | REDESIGN SKIP | Split reviewed: saturation candidate filtering already exists in master 6f8efd3ad; intrinsic worker changes collide with cc9677cee declared-local typing. Leave intrinsic redesign behind. |
+| `6589329c3` | ALREADY ON MASTER | Master 6f8efd3ad i64_lower_sat_expr_candidate_types and conditional temporary pushes already allocate only used f32/f64 locals, with narrow-pass tests. |
 | `bcc83ebe6` | Review pending | fix: avoid reorder-locals size growth from mixed type runs |
 | `eb8193144` | Review pending | fix: scope descriptor field-zero reads to related types |
 | `cceefec87` | Review pending | perf: coalesce sparse straight-line locals above dense guard |

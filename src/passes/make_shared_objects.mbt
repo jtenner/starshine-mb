@@ -749,6 +749,59 @@ fn mso_retarget_import_calls(
 }
 
 ///|
+fn mso_swap_first_type_name_idx(idx : UInt32) -> UInt32 {
+  if idx == 0U {
+    1U
+  } else if idx == 1U {
+    0U
+  } else {
+    idx
+  }
+}
+
+///|
+fn mso_swap_first_type_names(names : @lib.NameSec) -> @lib.NameSec {
+  let type_names = match names.type_names {
+    Some(@lib.NameMap(entries)) => {
+      let next : Array[@lib.NameAssoc] = []
+      for @lib.NameAssoc(idx, name) in entries {
+        next.push(@lib.NameAssoc::new(mso_swap_first_type_name_idx(idx), name))
+      }
+      die_sort_name_assocs(next)
+      Some(@lib.NameMap::new(next))
+    }
+    None => None
+  }
+  let field_names = match names.field_names {
+    Some(@lib.IndirectNameMap(entries)) => {
+      let next : Array[@lib.IndirectNameAssoc] = []
+      for @lib.IndirectNameAssoc(idx, fields) in entries {
+        next.push(
+          @lib.IndirectNameAssoc::new(mso_swap_first_type_name_idx(idx), fields),
+        )
+      }
+      die_sort_indirect_name_assocs(next)
+      Some(@lib.IndirectNameMap::new(next))
+    }
+    None => None
+  }
+  @lib.NameSec::new(
+    module_name=names.module_name,
+    func_names=names.func_names,
+    local_names=names.local_names,
+    label_names=names.label_names,
+    type_names~,
+    table_names=names.table_names,
+    memory_names=names.memory_names,
+    global_names=names.global_names,
+    elem_names=names.elem_names,
+    data_names=names.data_names,
+    field_names~,
+    tag_names=names.tag_names,
+  )
+}
+
+///|
 fn mso_scan_conversions(
   expr : @lib.Expr,
   needs_any_to_extern : Array[Bool],
@@ -1440,6 +1493,13 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           reordered[0] = rewritten_types[1]
           reordered[1] = rewritten_types[0]
           candidate = rewritten.with_type_sec(@lib.TypeSec::new(reordered))
+          match candidate.name_sec {
+            Some(names) =>
+              candidate = candidate.with_name_sec(
+                mso_swap_first_type_names(names),
+              )
+            None => candidate = candidate.without_name_sec()
+          }
         }
         _ => ()
       }
