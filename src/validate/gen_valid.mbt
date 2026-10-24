@@ -35070,6 +35070,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if config == gen_valid_heap2local_owner_updates_config() {
     return gen_valid_heap2local_owner_updates_module(ctx.root_seed)
+  }
   if gen_valid_is_rule_recipe_profile_config(config) {
     return gen_valid_rule_recipe_profile_module(ctx)
   }
