@@ -8,7 +8,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `19b8053fb` | EXTRACT | RED native regression returned the unchanged module (missing inserted imports); GREEN focused shared-parity file: 27/27 passed; source: fix: remap shared-object function names after import insertion |
 | `102dc8349` | EXTRACT | RED swapped-type assertion failed; GREEN shared-parity file: 28/28 passed; source: fix: remap shared-object type and field names on type swap |
 | `c9415221e` | EXTRACT | RED unchanged function lost its local names; GREEN coalesce-locals file: 95/95 passed; source: fix: retain local names for unchanged coalescing functions |
-| `222c0fd2f` | Review pending | fix: retain gathered raw names when global indices stay fixed |
+| `222c0fd2f` | EXTRACT | RED both raw-name retention assertions failed; GREEN string-gathering file: 25/25 passed; retain master raw-only decoding when remapping; source: fix: retain gathered raw names when global indices stay fixed |
 | `af91ec935` | SUPERSEDED BY MASTER | Master 6f8efd3ad independently restores the ABI boundary and exposes i64-trunc-sat-float-lowering with registry/pipeline/EH tests; retain its canonical name and wiring. |
 | `df4b96762` | SUPERSEDED BY MASTER | Master optimize.mbt skip_caught_o4z_preset skips valid caught-try preset entries, flushes explicit passes in order and preserves compiler facts; f60fb9eca tests manager_review_wbtest.mbt cover the stronger contract. |
 | `33b60af13` | Review pending | perf: bound nested GTO constructor operand work |

@@ -708,3 +708,33 @@ test "string-gathering clears stale raw name payload when global indices change"
   let optimized = string_gathering_run_module_pass(input)
   @debug.assert_eq(optimized.raw_name_sec_payload, None)
 }
+
+///|
+test "string-gathering keeps raw name payload when global indices stay fixed" {
+  let input = pass_test_module_from_wat(
+    "(module (global stringref (string.const \"foo\")) (func (result stringref) (string.const \"foo\")))",
+  ).with_raw_name_sec_payload(b"raw")
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(optimized.raw_name_sec_payload, Some(b"raw"))
+}
+
+///|
+test "string-gathering keeps parsed names aligned with retained raw bytes" {
+  let input = pass_test_module_from_wat(
+      "(module (global stringref (string.const \"a\")) (global stringref (string.const \"b\")) (func (result stringref) (string.const \"a\")))",
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        global_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(1U, @lib.Name::from_string("second")),
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("first")),
+          ]),
+        ),
+      ),
+    )
+    .with_raw_name_sec_payload(b"raw")
+  let optimized = string_gathering_run_module_pass(input)
+  @debug.assert_eq(optimized.raw_name_sec_payload, input.raw_name_sec_payload)
+  @debug.assert_eq(optimized.name_sec, input.name_sec)
+}
