@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-24
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
+  - ../../../../../src/passes/dead_code_elimination_cache_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_delete_perf_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_label_targets_wbtest.mbt
@@ -408,3 +409,28 @@ leaf nodes from `21.40 → 20.12 µs`, 1,024 from `39.56 → 37.82 µs`, 512
 non-leaf nodes from `47.65 → 45.88 µs`, and 1,024 from `92.62 → 89.95 µs`.
 Label-owned controls stayed near 19 and 36 µs. A focused sparse-ID regression
 checks a referenced middle candidate. Full-pass impact remains unmeasured.
+
+## Attached roots, nested regions, and typed entries
+
+The selective audit extraction supersedes earlier region-only traversal
+assumptions in this page. DCE now visits control regions nested in value
+operands, including newly constructed controls. Typed entry parameters block
+voidification and forwarder rewrites that would discard or repeat an entry
+value. The [nested and effectful-entry regressions](../../../../../src/passes/dead_code_elimination_test.mbt)
+assert branch removal, validation, and single evaluation.
+
+Small detached deletion sets are batched. A detached branch can therefore stay
+live in the arena after its root is removed. Root splices and arena growth
+invalidate branch-user views; subsequent rebuilds walk attached roots and
+children, excluding detached nodes. The initial scan retains its arena fast
+path. The [cache regressions](../../../../../src/passes/dead_code_elimination_cache_wbtest.mbt)
+cover detached incoming branches and newly built branches, while the
+[deletion regressions](../../../../../src/passes/dead_code_elimination_delete_perf_wbtest.mbt)
+cover retained references and bounded scan work. Node-use queries use count-only
+analysis rather than storing full use sites.
+
+Broader traversal and reachable-node cache rebuilds can increase compile time;
+count-only analysis and batched scans reduce other work. The
+[extraction ledger](../../../../pass-audit-extraction.md) records individual
+regressions and cost expectations without claiming new whole-pass parity or
+current wall-time improvements.

@@ -2396,7 +2396,6 @@ test "dead-code-elimination voidifies dead result blocks ending in tail calls" {
   }
 }
 
-
 ///|
 test "dead-code-elimination removes a dead branch in a nested value block" {
   let input =

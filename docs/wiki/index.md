@@ -843,3 +843,5 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [Starshine license provenance](tooling/license-provenance.md): scoped original MIT, owner-authorized conservative Binaryen/source notices, exact dependency terms and packaged legal assets; factual provenance remains unknown where unconfirmed.
 
 - [October 11 bulk host and Wago fixes](tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes) — completed native, GC, published/local npm comparisons; four input/output calls, guarded collection, cached-start parity, Wago PR 948 and the remaining validation/portfolio cost.
+
+- [Selective October pass-audit extraction](../pass-audit-extraction.md) — all 29 source decisions, independent port IDs, red/green methods, redesign exclusions, and expected performance costs.

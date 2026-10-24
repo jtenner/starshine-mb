@@ -27971,3 +27971,14 @@ arrays/typecheck wrappers from the completed return packaging change.
   Raw writer and DAE2 size/parity work remain active. Claude's session limit
   prevented its source review; the independent GPT review and evidence limits
   are explicit.
+
+
+### 2026-10-24 — Selective pass-audit extraction
+
+- Filed the [29-commit decision ledger](../pass-audit-extraction.md): 22 fresh
+  ports, one already implemented change, four supersessions, and two redesign
+  exclusions. Rebased the ports onto master’s flatten trap-order repair.
+- Recorded focused red/green evidence, dedicated threshold-test handling,
+  metadata preservation, DCE attachment/entry invariants, and the shared-object
+  lifetime contract. Historical timing does not establish current performance;
+  per-port expectations and final gate results belong in the ledger.
