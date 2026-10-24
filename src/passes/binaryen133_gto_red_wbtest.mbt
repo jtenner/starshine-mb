@@ -25,6 +25,61 @@ fn binaryen133_run_gto_module(input : @lib.Module) -> @lib.Module raise {
 }
 
 ///|
+test "GTO nested constructor operand scans stay linear" {
+  let input = pass_test_module_from_wat(
+    "(module (rec (type $t (struct (field (ref null $t)) (field i32)))) (func (result (ref $t)) (struct.new $t (ref.null $t) (i32.const 0))))",
+  )
+  let @lib.Func(_, @lib.Expr(base)) = input.code_sec.unwrap().0[0]
+  guard base[base.length() - 1] is @lib.StructNew(type_idx) else {
+    fail("expected base constructor")
+  }
+  let instrs = base.copy()
+  let depth = 64
+  for i = 1; i < depth; i = i + 1 {
+    instrs.push(@lib.Instruction::i32_const(@lib.I32(i)))
+    instrs.push(@lib.Instruction::struct_new(type_idx))
+  }
+  let steps = [0]
+  let failed = [false]
+  let rewritten = gto_rewrite_expr(
+    @lib.Expr::new(instrs),
+    Array::make(cl_module_subtypes(input).length(), 2),
+    cl_module_subtypes(input),
+    @validate.Env::new().with_module(input),
+    failed,
+    scan_steps=Some(steps),
+  )
+  assert_false(failed[0])
+  assert_eq(rewritten.0.length(), instrs.length() + depth)
+  assert_true(steps[0] <= depth * 8, msg="scan steps: \{steps[0]}")
+  let expected : Array[@lib.Instruction] = []
+  for repeat = 0; repeat < depth; repeat = repeat + 1 {
+    expected.push(@lib.Instruction::i32_const(@lib.I32(0)))
+  }
+  for instr in instrs {
+    expected.push(instr)
+  }
+  @debug.assert_eq(rewritten.0, expected)
+  let @lib.TypeSec(rec_types) = input.type_sec.unwrap()
+  let next_types = rec_types.copy()
+  match rec_types[0] {
+    @lib.GroupRecType(group) =>
+      next_types[0] = @lib.RecType::group([gto_rewrite_subtype(group[0], 2)])
+    @lib.SingleRecType(subtype) =>
+      next_types[0] = @lib.RecType::new(gto_rewrite_subtype(subtype, 2))
+  }
+  let @lib.CodeSec(funcs) = input.code_sec.unwrap()
+  let @lib.Func(locals, _) = funcs[0]
+  let candidate = input
+    .with_type_sec(@lib.TypeSec::new(next_types))
+    .with_code_sec(@lib.CodeSec::new([@lib.Func::new(locals, rewritten)]))
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) => fail("nested constructor rewrite must validate: \{err}")
+  }
+}
+
+///|
 test "Binaryen 133 GTO removes an unread private struct field" {
   let output = binaryen133_run_gto(
     "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",

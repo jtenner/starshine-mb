@@ -141,16 +141,61 @@ fn gto_rewrite_field_access(
 }
 
 ///|
+fn gto_find_operand_start(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  constructor_spans : Array[Int32],
+  end_inclusive : Int32,
+  scan_steps : Array[Int32]?,
+) -> Int32 {
+  let mut needed = 1
+  let mut idx = end_inclusive
+  while idx >= 0 {
+    match scan_steps {
+      Some(steps) => steps[0] += 1
+      None => ()
+    }
+    let span = constructor_spans[idx]
+    if span > 0 {
+      needed -= 1
+      if needed == 0 {
+        return idx - span + 1
+      }
+      idx -= span
+      continue
+    }
+    let operands = match gsi_unnestable_stack_operand_count(env, instrs[idx]) {
+      Some(operands) => operands
+      None => return -1
+    }
+    needed -= 1
+    if needed < 0 {
+      return -1
+    }
+    needed += operands
+    if needed == 0 {
+      return idx
+    }
+    idx -= 1
+  }
+  -1
+}
+
+///|
 fn gto_rewrite_expr(
   expr : @lib.Expr,
   plans : Array[Int32],
   old_subtypes : Array[@lib.SubType],
   env : @validate.Env,
   failed : Array[Bool],
+  scan_steps~ : Array[Int32]? = None,
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
+  let mut constructor_spans : Array[Int32]? = None
+  let placeholder_positions : Array[Int32] = []
   for instr in instrs {
+    let mut constructor_span = 0
     match instr {
       @lib.Block(block_type, body) =>
         out.push(
@@ -221,6 +266,10 @@ fn gto_rewrite_expr(
       @lib.StructNew(type_idx) => {
         let plan = gto_type_plan(plans, type_idx)
         if plan != 0 {
+          if constructor_spans is None {
+            constructor_spans = Some(Array::make(out.length(), 0))
+          }
+          let spans = constructor_spans.unwrap()
           let field_count = match type_idx {
             @lib.TypeIdx(raw) =>
               match old_subtypes[raw.to_int()].get_comptype() {
@@ -232,7 +281,9 @@ fn gto_rewrite_expr(
           let mut operand_end = out.length() - 1
           let mut first_start = -1
           for operand = 0; operand < field_count; operand = operand + 1 {
-            first_start = gsi_find_operand_start(env, out, operand_end)
+            first_start = gto_find_operand_start(
+              env, out, spans, operand_end, scan_steps,
+            )
             if first_start < 0 {
               failed[0] = true
               break
@@ -241,20 +292,45 @@ fn gto_rewrite_expr(
           }
           if first_start >= 0 && !failed[0] {
             if plan == 2 {
-              out.insert(first_start, @lib.Instruction::i32_const(@lib.I32(0)))
+              placeholder_positions.push(first_start)
             } else if out[first_start] is @lib.RefNull(_) {
               out[first_start] = @lib.Instruction::i32_const(@lib.I32(0))
             } else {
               failed[0] = true
             }
           }
+          if first_start >= 0 {
+            constructor_span = out.length() + 1 - first_start
+          }
         }
         out.push(instr)
       }
       _ => out.push(gto_rewrite_field_access(instr, plans))
     }
+    match constructor_spans {
+      Some(spans) => spans.push(constructor_span)
+      None => ()
+    }
   }
-  @lib.Expr::new(out)
+  if placeholder_positions.is_empty() {
+    return @lib.Expr::new(out)
+  }
+  let counts = Array::make(out.length() + 1, 0)
+  for index in placeholder_positions {
+    counts[index] += 1
+  }
+  let materialized : Array[@lib.Instruction] = Array::new(
+    capacity=out.length() + placeholder_positions.length(),
+  )
+  for index = 0; index <= out.length(); index = index + 1 {
+    for repeat = 0; repeat < counts[index]; repeat = repeat + 1 {
+      materialized.push(@lib.Instruction::i32_const(@lib.I32(0)))
+    }
+    if index < out.length() {
+      materialized.push(out[index])
+    }
+  }
+  @lib.Expr::new(materialized)
 }
 
 ///|

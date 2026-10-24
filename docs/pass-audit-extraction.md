@@ -11,7 +11,7 @@ Source: `origin/codex/pass-audit-red-green-fixes` at `6636026d0`; baseline: `6d0
 | `222c0fd2f` | EXTRACT | RED both raw-name retention assertions failed; GREEN string-gathering file: 25/25 passed; retain master raw-only decoding when remapping; source: fix: retain gathered raw names when global indices stay fixed |
 | `af91ec935` | SUPERSEDED BY MASTER | Master 6f8efd3ad independently restores the ABI boundary and exposes i64-trunc-sat-float-lowering with registry/pipeline/EH tests; retain its canonical name and wiring. |
 | `df4b96762` | SUPERSEDED BY MASTER | Master optimize.mbt skip_caught_o4z_preset skips valid caught-try preset entries, flushes explicit passes in order and preserves compiler facts; f60fb9eca tests manager_review_wbtest.mbt cover the stronger contract. |
-| `33b60af13` | Review pending | perf: bound nested GTO constructor operand work |
+| `33b60af13` | EXTRACT | RED original constructor scan with work counter: 4160 steps exceeded linear bound; GREEN GTO file passed with direct opcode and validation assertions; source: perf: bound nested GTO constructor operand work |
 | `e4a220e83` | Review pending | perf: skip inlining dead-suffix queries without targets |
 | `e123aa521` | REDESIGN SKIP | Effects workspace/API redesign conflicts with master f60fb9eca effects_subtree_query.mbt and revision-keyed analysis reuse; retain master MergeBlocks analysis architecture. |
 | `9dce22234` | Review pending | perf: check expected remove-unused-brs root index first |
