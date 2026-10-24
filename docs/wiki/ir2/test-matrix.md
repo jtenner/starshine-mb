@@ -154,6 +154,7 @@ That one fixture intentionally exercises lift, CFG block formation, dominance, l
 | HOT mutation and region edits | `src/ir/hot_mutate_test.mbt`, `src/ir/hot_region_edit_test.mbt` | Root/child replacement, batched child edits, tombstones, local appends, detached deletes, label rehoming, and root/body/then/else/catch region insert/remove/splice/set helpers are covered. |
 | HOT walks and queries | `src/ir/hot_walk_test.mbt`, `src/ir/hot_query_test.mbt` | Root/child/subtree/worklist walks are deterministic; skip/stop/rewrite walkers are explicit; query helpers classify families, expose branch metadata, peel wrappers, split payload tails, and detect repeated shapes without mutating revisions. |
 | Lift + verify | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lift_test.mbt`, `src/ir/hot_verify_test.mbt`, `src/ir/hot_verify_wbtest.mbt` | WAT fixtures validate before lift; lifted hot bodies pass core/control verification; invalid body and control cases report focused errors. |
+| Staged identity diagnostics | `src/hot_identity_trace/main.mbt`, `src/ir/hot_identity_trace_wbtest.mbt`, `scripts/test/hot-identity-evaluation.ts` | The bounded diagnostic validates source input, lifts with explicit conversion flags, verifies HOT, rebuilds CFG/use-def, lowers only after verification, validates and encodes, then relifts into fresh derived views. Runtime qualification uses the independent Node observation oracle and includes duplicate-producer and equal-arity label-retarget controls. |
 | Lower + validate | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lower_test.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Mutated/lifted HOT bodies verify, lower into the original module shell, validate, and preserve important lowered shapes including carrier, payload, compare, call-spill, wrapper, unreachable, and typed-loop families. |
 | Lift/lower performance and stress repros | `src/ir/hot_lift_perf_test.mbt`, `src/ir/hot_lift_perf_wbtest.mbt`, `src/validate/typecheck_state_wbtest.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Duplicated multivalue control-entry stacks, count-derived function indexing, compressed validation locals, one-environment function-result reuse, length-based definite-local allocation, and saved lower-live repro families stay covered without turning broad randomized loops into ordinary tests. |
 | CFG shape | `src/ir/test_helpers_test.mbt`, `src/ir/cfg_test.mbt`, `src/ir/cfg_contract_test.mbt` | Stable entry/exit/synthetic blocks, region roots, predecessors, successors, branch/return/unreachable/exceptional edges, and the policy documented in [`./cfg-contract.md`](./cfg-contract.md). As of the 2026-06-04 focused recheck, add missing `return_call*` policy-helper tests and a concrete no-fallthrough tail-call CFG test before fixing the documented `cfg_contract.mbt` helper omission. |
@@ -224,3 +225,22 @@ modes, including normal and trap-first event order. Full aggregate fuzz and
 release CI/coverage gates remain separate from these bounded checks.
 
 Evidence: [hot_virtual_entry_access_wbtest.mbt](../../../src/ir/hot_virtual_entry_access_wbtest.mbt), [hot_prefix_results_wbtest.mbt](../../../src/ir/hot_prefix_results_wbtest.mbt), [hot_source_order_escape_wbtest.mbt](../../../src/ir/hot_source_order_escape_wbtest.mbt), [cfg_caught_calls_wbtest.mbt](../../../src/ir/cfg_caught_calls_wbtest.mbt), [ssa_local_test.mbt](../../../src/ir/ssa_local_test.mbt), [p00-correctness-runtime.ts](../../../scripts/test/p00-correctness-runtime.ts). See the [current checkpoint](../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+## Staged HOT identity boundary — October 12, 2026
+
+The staged identity diagnostic is a bounded investigation tool rather than a
+claim that arbitrary HOT conversion is semantics preserving. It records each
+validation, lift, verification, fresh-analysis, lower, encode, and relift stage
+separately. Runtime evidence must come from the independent observation oracle;
+successful HOT verification and output validation alone are insufficient.
+
+The current representative matrix found two repeatable semantic blockers. With
+both conversion flags disabled, the saved Winch multi-value fixture validates
+but an exported call traps at an inserted `unreachable`. Enabling stack capture
+without multi-value materialization similarly changes a later exported call in
+the typed exception fixture from return to `unreachable`. Multi-value
+materialization preserved behavior across the five bounded fixtures tested, but
+that result does not justify changing production defaults without broader pass
+and fuzz qualification. Keep the failing lanes visible and treat the earliest
+observed failure as runtime execution after successful output validation; this
+evidence does not isolate lift from lower by itself.
