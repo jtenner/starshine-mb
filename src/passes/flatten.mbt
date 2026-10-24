@@ -1442,6 +1442,14 @@ priv struct FlattenRewriteState {
   mut next_node_mark : Int32
   prelude_buffers : Array[Array[Int32]]
   mut prelude_depth : Int32
+  local_write_generations : Array[Int32]
+  mut local_write_generation : Int32
+  local_write_pending_nodes : Array[Int32]
+  prelude_exact_write_locals : Array[Int32]
+  mut local_write_query_count : Int32
+  mut local_write_full_clear_count : Int32
+  mut local_write_subtree_scan_count : Int32
+  mut local_write_exact_root_count : Int32
   mut active_region_holder : Int32
   mut active_root_idx : Int32
   mut active_early_insertions : Int32
@@ -1505,6 +1513,14 @@ fn FlattenRewriteState::new(
     next_node_mark: 1,
     prelude_buffers: [],
     prelude_depth: 0,
+    local_write_generations: [],
+    local_write_generation: 0,
+    local_write_pending_nodes: [],
+    prelude_exact_write_locals: [],
+    local_write_query_count: 0,
+    local_write_full_clear_count: 0,
+    local_write_subtree_scan_count: 0,
+    local_write_exact_root_count: 0,
     active_region_holder: -2,
     active_root_idx: -1,
     active_early_insertions: 0,
@@ -9555,7 +9571,9 @@ fn flatten_spill_scalar_operand(
     return false
   }
   let local_id = @ir.hot_append_body_local(func, result_types[0])
-  let set_id = @ir.hot_build_local_set_from_value(func, local_id, child_id)
+  let set_id = flatten_build_recorded_prelude_local_set(
+    func, state, local_id, child_id,
+  )
   preludes.push(set_id)
   flatten_insert_early_source_preludes(
     ctx, func, state, owner_region, child_id, preludes,
@@ -9715,6 +9733,7 @@ fn flatten_rewrite_region_operands(
 fn flatten_try_lower_tee_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   parent_id : Int32,
   slot : Int32,
   tee_id : Int32,
@@ -9733,6 +9752,7 @@ fn flatten_try_lower_tee_operand(
     }
     _ => {
       let set_id = @ir.hot_build_local_set_from_tee(func, tee_id)
+      flatten_record_exact_prelude_local_write(state, set_id, tee.imm0)
       // Splitting a tee changes its representation, not its execution point.
       // Keep the original write order so lowering does not hoist later reads
       // before this newly allocated initialization node.
@@ -9767,7 +9787,7 @@ fn flatten_rewrite_operand_slot(
     ctx, func, state, owner_region, child_id, preludes,
   )
   if flatten_try_lower_tee_operand(
-      ctx, func, parent_id, slot, child_id, preludes,
+      ctx, func, state, parent_id, slot, child_id, preludes,
     ) {
     return true
   }
@@ -9816,27 +9836,98 @@ fn flatten_node_needs_postorder_branch_routing(
 }
 
 ///|
+// Only normalized prelude values belong here: their nested writes have already
+// been extracted. Unrecorded roots retain the complete subtree fallback.
+fn flatten_record_exact_prelude_local_write(
+  state : FlattenRewriteState,
+  node_id : Int32,
+  local_id : Int32,
+) -> Unit {
+  while state.prelude_exact_write_locals.length() <= node_id {
+    state.prelude_exact_write_locals.push(-1)
+  }
+  state.prelude_exact_write_locals[node_id] = local_id
+}
+
+///|
+fn flatten_build_recorded_prelude_local_set(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  local_id : Int32,
+  value_id : Int32,
+) -> Int32 {
+  let set_id = @ir.hot_build_local_set_from_value(func, local_id, value_id)
+  flatten_record_exact_prelude_local_write(state, set_id, local_id)
+  set_id
+}
+
+///|
+// Reuse one function-sized table across regions. Zero remains the unmarked
+// sentinel; rollover clears old stamps before generation one is reused.
+fn flatten_begin_local_write_query(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Unit {
+  while state.local_write_generations.length() < @ir.hot_local_count(func) {
+    state.local_write_generations.push(0)
+  }
+  if state.local_write_generation >= 2147483646 {
+    for local_id = 0
+        local_id < state.local_write_generations.length()
+        local_id = local_id + 1 {
+      state.local_write_generations[local_id] = 0
+    }
+    state.local_write_generation = 1
+    state.local_write_full_clear_count += 1
+  } else {
+    state.local_write_generation += 1
+  }
+  state.local_write_pending_nodes.clear()
+  state.local_write_query_count += 1
+}
+
+///|
+fn flatten_mark_local_write(
+  state : FlattenRewriteState,
+  local_id : Int32,
+) -> Unit {
+  if local_id >= 0 && local_id < state.local_write_generations.length() {
+    state.local_write_generations[local_id] = state.local_write_generation
+  }
+}
+
+///|
+fn flatten_local_is_written(
+  state : FlattenRewriteState,
+  local_id : Int32,
+) -> Bool {
+  local_id >= 0 &&
+  local_id < state.local_write_generations.length() &&
+  state.local_write_generations[local_id] == state.local_write_generation
+}
+
+///|
 fn flatten_mark_local_writes_in_subtree(
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   root_id : Int32,
-  written_locals : Array[Bool],
 ) -> Unit {
-  let pending = [root_id]
-  while !pending.is_empty() {
-    let node_id = pending.pop().unwrap()
+  state.local_write_pending_nodes.push(root_id)
+  while !state.local_write_pending_nodes.is_empty() {
+    let node_id = state.local_write_pending_nodes.pop().unwrap()
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-        if node.imm0 >= 0 && node.imm0 < written_locals.length() {
-          written_locals[node.imm0] = true
-        }
+        flatten_mark_local_write(state, node.imm0)
       _ => ()
     }
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-      pending.push(@ir.hot_child_get(func, node_id, slot))
+      state.local_write_pending_nodes.push(
+        @ir.hot_child_get(func, node_id, slot),
+      )
     }
   }
 }
@@ -9844,14 +9935,23 @@ fn flatten_mark_local_writes_in_subtree(
 ///|
 fn flatten_new_prelude_local_writes(
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   preludes : Array[Int32],
   start : Int32,
-) -> Array[Bool] {
-  let written_locals = Array::make(@ir.hot_local_count(func), false)
+) -> Unit {
+  flatten_begin_local_write_query(func, state)
   for idx = start; idx < preludes.length(); idx = idx + 1 {
-    flatten_mark_local_writes_in_subtree(func, preludes[idx], written_locals)
+    let root_id = preludes[idx]
+    if root_id >= 0 &&
+      root_id < state.prelude_exact_write_locals.length() &&
+      state.prelude_exact_write_locals[root_id] >= 0 {
+      flatten_mark_local_write(state, state.prelude_exact_write_locals[root_id])
+      state.local_write_exact_root_count += 1
+    } else {
+      state.local_write_subtree_scan_count += 1
+      flatten_mark_local_writes_in_subtree(func, state, root_id)
+    }
   }
-  written_locals
 }
 
 ///|
@@ -9866,9 +9966,9 @@ fn flatten_operand_must_materialize_before_preludes(
 ///|
 fn flatten_stage_operand_reads_before_local_writes(
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   owner_id : Int32,
   owner_slot : Int32,
-  written_locals : Array[Bool],
   preludes : Array[Int32],
   insert_at : Int32,
 ) -> Int32 {
@@ -9884,10 +9984,7 @@ fn flatten_stage_operand_reads_before_local_writes(
   } else {
     match node.op {
       @ir.HotOp::GlobalGet => true
-      @ir.HotOp::LocalGet =>
-        node.imm0 >= 0 &&
-        node.imm0 < written_locals.length() &&
-        written_locals[node.imm0]
+      @ir.HotOp::LocalGet => flatten_local_is_written(state, node.imm0)
       _ => false
     }
   }
@@ -9912,6 +10009,7 @@ fn flatten_stage_operand_reads_before_local_writes(
 ///|
 fn flatten_stage_prior_operands_before_new_preludes(
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   parent_id : Int32,
   end_slot : Int32,
   preludes : Array[Int32],
@@ -9920,16 +10018,14 @@ fn flatten_stage_prior_operands_before_new_preludes(
   if end_slot <= 0 {
     return false
   }
-  let written_locals = flatten_new_prelude_local_writes(
-    func, preludes, insert_at,
-  )
+  flatten_new_prelude_local_writes(func, state, preludes, insert_at)
   let mut inserted = 0
   for slot = 0; slot < end_slot; slot = slot + 1 {
     inserted += flatten_stage_operand_reads_before_local_writes(
       func,
+      state,
       parent_id,
       slot,
-      written_locals,
       preludes,
       insert_at + inserted,
     )
@@ -10165,7 +10261,7 @@ fn flatten_rewrite_node_operands(
         }
         if preludes.length() > prelude_count &&
           flatten_stage_prior_operands_before_new_preludes(
-            func, node_id, slot, preludes, prelude_count,
+            func, state, node_id, slot, preludes, prelude_count,
           ) {
           changed = true
         }

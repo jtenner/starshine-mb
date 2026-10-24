@@ -127,9 +127,34 @@ related:
 This page maps the upstream Binaryen owner files, helper surfaces, official tests, scheduler placement, and current Starshine code/status surfaces for `flatten`.
 Read it when you want to move from the conceptual pages to exact files.
 
+## Reusable local-write scratch
+
+Operand staging reuses generation-stamped local membership and a pending-node
+buffer in `FlattenRewriteState` across regions. Each query marks only its new
+prelude suffix; stale generations are absent, newly appended locals extend the
+table, and rollover at `2147483646` clears it before reusing generation one.
+Normalized scalar spills and split tees record their exact written local, avoiding
+subtree walks; unrecorded preludes retain the nested-write scan. Current master's
+`hot_build_local_set_from_value` and `hot_build_local_set_from_tee` are retained to
+preserve source execution order. Region-summary priming and the trap-order rule
+from `da029041` are unchanged.
+
+The scratch whitebox tests in `src/passes/flatten_wbtest.mbt` cover stale stamps,
+repeated writes, fallback nested tees, rollover, zero locals, local growth and
+suffix isolation. They establish mechanism and membership correctness, not elapsed
+time. The 12 focused flatten test files pass `563/563`, and
+`moon build --target native --release src/cmd` passes. The complete passes
+package passes `10303/10303` in five sequential file batches; the direct package
+runner exceeded the OS argument-length limit. Historical commit `3c4d4ad7c`
+reported roughly 2–3% lower local-dependency benchmark medians for its combined change; that claim is unverified for this port.
+The code removes per-query function-sized initialization and known-root subtree
+walks, so dependency-heavy flatten staging is the expected beneficiary. No
+benchmarks or fuzz rounds were run for this port under the October 24 compute
+lease; the full `moon test` and full validation gate remain pending that lease.
+
 ## Status in one sentence
 
-Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, top-level aggressive-preset scheduling, a Flat-IR-preserving lowering mode, 286 focused tests, 243 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
+Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, top-level aggressive-preset scheduling, a Flat-IR-preserving lowering mode, 286 focused tests, 249 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
 
 ## Upstream owner map
 

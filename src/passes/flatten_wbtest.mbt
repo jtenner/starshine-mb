@@ -12695,7 +12695,12 @@ test "flatten dependency staging materializes ref.as_non_null before later write
   ]
   assert_true(
     flatten_stage_prior_operands_before_new_preludes(
-      func, parent_id, 1, preludes, 0,
+      func,
+      FlattenRewriteState::new(func),
+      parent_id,
+      1,
+      preludes,
+      0,
     ),
   )
   @debug.assert_eq(preludes.length(), 2)
@@ -12754,7 +12759,12 @@ test "flatten materializes one trapping wrapper among multiple prior operands" {
   ]
   assert_true(
     flatten_stage_prior_operands_before_new_preludes(
-      func, parent, 2, preludes, 0,
+      func,
+      FlattenRewriteState::new(func),
+      parent,
+      2,
+      preludes,
+      0,
     ),
   )
   @debug.assert_eq(@ir.hot_child_get(func, parent, 0), plain)
@@ -12913,7 +12923,7 @@ test "flatten does not snapshot an earlier local.get for a nonmatching local wri
 test "flatten local-write scratch reuses generations without stale marks" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new(
-    locals=@ir.HotLocals::new(locals=Array::make(4096, i32_type)),
+    locals=@ir.HotLocals::new(locals=Array::make(64, i32_type)),
   )
   let state = FlattenRewriteState::new(func)
   let no_write = [@ir.hot_build_nop(func)]
@@ -12950,7 +12960,7 @@ test "flatten local-write scratch reuses generations without stale marks" {
   @debug.assert_eq(state.local_write_exact_root_count, 3)
   @debug.assert_eq(state.local_write_subtree_scan_count, 1)
   @debug.assert_eq(state.local_write_full_clear_count, 0)
-  @debug.assert_eq(state.local_write_generations.length(), 4096)
+  @debug.assert_eq(state.local_write_generations.length(), 64)
 }
 
 ///|
@@ -13005,3 +13015,32 @@ test "flatten local-write scratch supports zero-local functions" {
   @debug.assert_eq(state.local_write_query_count, 1)
 }
 
+///|
+test "flatten local-write scratch grows with locals and queries only new preludes" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let state = FlattenRewriteState::new(func)
+  let first = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  flatten_new_prelude_local_writes(func, state, [first], 0)
+  assert_true(flatten_local_is_written(state, 0))
+  let added = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  let second = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    added,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  flatten_new_prelude_local_writes(func, state, [first, second], 1)
+  assert_false(flatten_local_is_written(state, 0))
+  assert_true(flatten_local_is_written(state, added))
+  @debug.assert_eq(state.local_write_generations.length(), 2)
+  flatten_new_prelude_local_writes(func, state, [first, second], 2)
+  assert_false(flatten_local_is_written(state, added))
+  @debug.assert_eq(state.local_write_full_clear_count, 0)
+}

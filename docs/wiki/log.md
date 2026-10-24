@@ -1,3 +1,19 @@
+### 2026-10-24 — Port flatten scratch write sets independently
+
+- [Flatten implementation notes](binaryen/passes/flatten/implementation-structure-and-tests.md#reusable-local-write-scratch)
+  describe the fresh port of only the generation-stamped local-write scratch
+  from `3c4d4ad7c` onto master `fc9a63546`. Trap ordering from `da029041` and
+  eager region summaries are unchanged; source-order-preserving spill and tee
+  builders remain in use.
+- Red-first whitebox tests cover membership, stale marks, repeated writes,
+  fallback traversal and rollover; additional coverage checks growth and new
+  prelude suffixes. The historical 2–3% benchmark claim remains unverified for
+  this independent port. Focused flatten tests pass `563/563`, the native release
+  build passes, and all passes-package tests pass `10303/10303` in five sequential
+  file batches after the direct runner hit the OS argument-length limit.
+  Full-suite validation remains pending the compute lease; benchmarks and fuzz
+  rounds were explicitly excluded from this task.
+
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
 - Red-first regressions reproduce nine IR ownership/invariant defects, two
