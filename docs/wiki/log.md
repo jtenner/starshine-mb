@@ -27982,3 +27982,7 @@ arrays/typecheck wrappers from the completed return packaging change.
   metadata preservation, DCE attachment/entry invariants, and the shared-object
   lifetime contract. Historical timing does not establish current performance;
   per-port expectations and final gate results belong in the ledger.
+- Final native gates: release build and 10,305 pass tests succeed; dedicated
+  threshold selections pass 90/90 and 3/3. Command tests pass 824/825 with only
+  the supplied pristine-master `wasm-opt` fixture-lowering failure, retained in
+  the active backlog and [gate record](../pass-audit-extraction.md#final-gates).

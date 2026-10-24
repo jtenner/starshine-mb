@@ -13,6 +13,18 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### Native command fixture baseline [IR2-CMD-FIXTURE-BASELINE]
+
+- **Goal / why:** restore the native command gate's known-red carried-guard
+  fixture; the extraction gate passes 824/825 command tests.
+- **Deliverables / tasks:** investigate the existing `wasm-opt` fixture-lowering
+  failure independently of the extracted pass fixes; retain its regression.
+- **APIs / invariants:** preserve the carried-guard validity assertion and the
+  native WAT helper's fixture meaning; no production workaround is authorized.
+- **Dependencies / exit / tests:** reproduce against the pristine baseline and
+  current environment, then pass the existing test and native command package.
+  See the [extraction gate record](docs/pass-audit-extraction.md#final-gates).
+
 ### Cast aggregate coverage [IR2-CAST-PROFILE]
 
 - **Goal / why:** repair a pre-existing generator configuration collapse; seven

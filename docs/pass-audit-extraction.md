@@ -7,8 +7,8 @@ Decisions: 1 ALREADY ON MASTER, 22 EXTRACT, 2 REDESIGN SKIP, 4 SUPERSEDED BY MAS
 | Source | Decision | Evidence | Landed commit | Expected performance |
 | --- | --- | --- | --- | --- |
 | `7e66ffe75` | SUPERSEDED BY MASTER | Audit-only backlog snapshot; master agent-todo.md already includes the later optimizer rollups and current release blockers; importing the old snapshot would resurrect stale work. | — | No source change landed. |
-| `19b8053fb` | EXTRACT | RED native regression returned the unchanged module (missing inserted imports); GREEN focused shared-parity file: 27/27 passed; source: fix: remap shared-object function names after import insertion | `548682aaf` | Metadata only; adds a name-map walk after import insertion; successful wasm instructions/runtime unchanged. |
-| `102dc8349` | EXTRACT | RED swapped-type assertion failed; GREEN shared-parity file: 28/28 passed; source: fix: remap shared-object type and field names on type swap | `90c4c5f54` | Metadata only; sorts swapped type/field name owners; successful wasm instructions/runtime unchanged. |
+| `19b8053fb` | EXTRACT | RED native regression returned the unchanged module (missing inserted imports); GREEN focused shared-parity file: 27/27 passed; source: fix: remap shared-object function names after import insertion | `548682aaf` | Adds a function-name remap walk; can unblock MSO output previously rolled back for invalid names, so no uniform size/runtime delta is claimed. |
+| `102dc8349` | EXTRACT | RED swapped-type assertion failed; GREEN shared-parity file: 28/28 passed; source: fix: remap shared-object type and field names on type swap | `90c4c5f54` | Adds type/field-name remapping and sorting; can unblock MSO output previously rolled back for invalid names, so no uniform size/runtime delta is claimed. |
 | `c9415221e` | EXTRACT | RED unchanged function lost its local names; GREEN coalesce-locals file: 95/95 passed; source: fix: retain local names for unchanged coalescing functions | `1a2a86f86` | Small changed-function/name filtering cost; optimizer instructions unchanged; retained debug names may retain debug bytes. |
 | `222c0fd2f` | EXTRACT | RED both raw-name retention assertions failed; GREEN string-gathering file: 25/25 passed; retain master raw-only decoding when remapping; source: fix: retain gathered raw names when global indices stay fixed | `3aefcd353` | One global-remap identity scan; avoids unnecessary name rewriting; runtime unchanged, preserves requested debug bytes. |
 | `af91ec935` | SUPERSEDED BY MASTER | Master 6f8efd3ad independently restores the ABI boundary and exposes i64-trunc-sat-float-lowering with registry/pipeline/EH tests; retain its canonical name and wiring. | — | No source change landed. |
@@ -41,3 +41,22 @@ Red checks for the bounded performance regressions preserve instrumentation whil
 Performance entries are expectations from the changed work and output contracts, not fresh wall-time benchmarks. In particular, nested DCE, cache correctness, and renewed branch cleanup can cost compile time. Historical source-branch measurements remain under their original revisions and are not current-master performance or Binaryen parity evidence. This extraction does not close whole-pass parity or performance backlogs.
 
 Master advanced during extraction to `da029041bcffd844c1dac19df923f6e9e85fa394` (two flatten trap-order commits). All 22 ports were rebased onto it before final gates; the table records rebased IDs. Master’s effects, intrinsic, saturation, and pass-registration implementations are retained.
+
+## Final gates
+
+Run serially after rebasing onto `da029041b`, with `ulimit -s 65536` for all
+native commands. The tested code is at `6d81f986b`; subsequent gate-record edits
+are documentation only.
+
+- `moon info`: passed; public `.mbti` snapshots unchanged.
+- `moon fmt`: completed; unrelated baseline formatter changes were discarded.
+- `moon build --target native --release src/cmd`: passed.
+- `moon test --target native src/passes`: **10,305/10,305 passed**.
+- Dedicated native coalescing file selection with `--include-skipped --filter 'coalesce-locals *'`: **90/90 passed**, including both new threshold tests.
+- Dedicated native `remove_unused_brs_audit_test.mbt` with `--include-skipped`: **3/3 passed**, including the new constructor-ladder threshold test.
+- `moon test --target native src/cmd`: **824/825 passed**; the sole failure is the supplied known-red baseline, `run_cmd_with_adapter keeps lowered remove-unused-brs carried guard branches valid` (`cmd_wbtest.mbt:7553`), reporting `failed to lower wat fixture via wasm-opt`. The extraction does not change that fixture or helper. The brief establishes its identical failure on pristine master; this record does not claim a new pristine-checkout run.
+
+All newly ported command-name and shared-object dispatcher tests pass. The
+source branch remains at `6636026d0420dd05596324daf44798e948b3f002`.
+
+Native release artifact: `_build/native/release/build/cmd/cmd.exe`, SHA-256 `f8415158afd35b5082befe7fca9173983cf3bde4187f5b45c27c19ce240dcef9`.
