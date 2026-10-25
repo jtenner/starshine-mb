@@ -28223,3 +28223,10 @@ arrays/typecheck wrappers from the completed return packaging change.
   formatting and diff checks pass. Earlier host process-limit failures were
   retried successfully. Timing, fuzz and full-suite runs are deferred under the
   shared-host restriction; no performance gain is claimed.
+
+### 2026-10-25 — DAE2 imported tag count
+
+- Filed [item 11](binaryen/passes/dae2/implementation-structure-and-tests.md#imported-tag-count-during-finalization): count imported tags directly in finalization, while retaining the validation environment and existing handler logic.
+- Added bounded tests for imported/defined tag identity, unrelated import kinds, unchanged declarations, absent/empty imports, and invalid function types. The invalid-type test first failed in the old HOT context builder.
+- Focused validation passes 22/22 tests (21 white-box and one internal). The `moon test` launcher hit the shared host process limit after compilation; direct `moonrun` execution of the current compiled test drivers passed the selected files and indices.
+- Performance remains unmeasured. Defined-tag modules with many unrelated declarations, with/without foldable catches, and tagless/imported-only controls await a measurement slot. No full suite, fuzz, or timing runs are part of this change.

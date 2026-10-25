@@ -879,7 +879,16 @@ fn dae2_fold_known_local_throws(
     None => ()
   }
   let env = @validate.Env::new().with_module(mod_)
-  let imported_tags = @ir.hot_module_context_from_module(mod_).imported_tag_count
+  let mut imported_tags = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        if import_ is @lib.Import(_, _, @lib.TagExternType(_)) {
+          imported_tags += 1
+        }
+      }
+    None => ()
+  }
   let mut any_changed = false
   let next = bodies.map(fn(func) {
     let @lib.Func(locals, @lib.Expr(body)) = func

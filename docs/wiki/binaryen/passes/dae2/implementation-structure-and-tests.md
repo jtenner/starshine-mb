@@ -162,6 +162,37 @@ compare these paths with frozen full-header controls. The
 is skipped in the default suite. `HotNode` is already a value record: these
 changes narrow field return traffic, without removing a record heap allocation.
 
+## Imported tag count during finalization
+
+Item 11 of `docs/dae-perf-opportunities.md` on branch
+`research/dae-perf-opportunities` removes one HOT module context construction
+from `dae2_fold_known_local_throws` in
+[`dead_argument_elimination2_legacy.mbt`](../../../../../src/passes/dead_argument_elimination2_legacy.mbt).
+The helper counts only `TagExternType` entries in the import section. It does
+not collect tags or build unrelated context tables. The existing validation
+environment, defined-tag gate, handler scan, and fold order remain unchanged.
+Imported tags can share host identity; defined tags remain fresh.
+
+The [focused tests](../../../../../src/passes/dae2_imported_tag_count_wbtest.mbt)
+cover mixed import kinds, both sides of the imported/defined tag boundary,
+absent and empty imports, unchanged declarations, and both DAE2 variants.
+For a direct call with an invalid function type index, the old context builder
+aborted while resolving unrelated function types. The count-only path leaves
+that module unchanged for module validation to reject. This does not accept
+invalid Wasm.
+
+Focused validation passes 22 tests: four new count/boundary tests, five handler
+admission tests, three local-tag guards, nine intake tests, and the internal
+tagless control. The shared host exhausted its process limit in the `moon test`
+launcher after compilation; the current compiled Wasm test drivers were run
+directly with `moonrun` and the same file/index selection.
+
+Performance is not measured. The measurement workloads are modules with many
+unrelated declarations and defined tags, with and without foldable catches,
+plus tagless and imported-only controls. The latter controls already exit
+before setup. Full-suite, fuzz, and timing runs are deferred under the shared
+host restriction; this change does not close the DAE2 performance campaign.
+
 ## Reusing rewritten signatures — 2026-09-11
 
 The `dae2-locals` renewal exposed redundant scalar function types: a private
