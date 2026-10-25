@@ -179,11 +179,16 @@
   peak-memory measurements remain pending for branch-carried values with many
   shared operands/locals, raw-admitted controls and tiny bodies.
 ### 2026-10-25 — Retain Daybreak F05 catch-order regressions
+### 2026-10-25 — Repair Daybreak F05 legacy catch ordering
 
-- Copied the three tests from verification head `3fa354e3` without changes.
-  On unchanged master source, both invalid catch-order cases fail their rejection
-  assertions; the valid-order control passes. See the
-  [F05 record](wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering).
+- Test checkpoint `bc04efcc1` copied the three verification tests from `3fa354e3`
+  unchanged and reproduced both invalid-order acceptance defects on master.
+- The legacy catch loop now rejects nonfinal catch-all clauses. All three F05
+  tests and four existing tag/rethrow tests pass; test changes after the checkpoint
+  are formatter-only. The completed F05 repair is removed from the active backlog.
+- The [F05 record](wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering)
+  retains the baseline, results and proposed lease-gated performance workloads.
+  No full suite, fuzzing, timing or external oracle run was performed.
 
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 

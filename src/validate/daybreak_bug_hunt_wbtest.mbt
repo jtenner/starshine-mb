@@ -1,6 +1,7 @@
 // F05 regression copied from hunt/daybreak-starshine-r1 at
 // 49b757b94b4dfd1a11394aa11081777ddf686b90.
 // This invalid legacy try must fail validation: catch_all must be last.
+
 ///|
 test "validator intentionally rejects catches after a legacy catch_all" {
   let input = Module::new()
@@ -31,25 +32,25 @@ test "validator intentionally rejects catches after a legacy catch_all" {
 ///|
 fn daybreak_f05_tagged_try(catches : Array[@lib.LegacyCatch]) -> Module {
   Module::new()
-    .with_type_sec(
-      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
-    )
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::new(
-          Locals::empty(),
-          Expr::new([
-            Instruction::try_(
-              BlockType::void_(),
-              Expr::new([Instruction::nop()]),
-              catches,
-            ),
-          ]),
-        ),
-      ]),
-    )
+  .with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::try_(
+            BlockType::void_(),
+            Expr::new([Instruction::nop()]),
+            catches,
+          ),
+        ]),
+      ),
+    ]),
+  )
 }
 
 ///|

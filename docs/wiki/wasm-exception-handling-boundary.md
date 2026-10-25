@@ -108,15 +108,32 @@ Validation accepts a nullable `exnref` operand. Execution still observes the ope
 
 ## October 25, 2026 — F05 legacy catch ordering
 
-The tests from verification head `3fa354e3` are retained unchanged in
-[`daybreak_bug_hunt_wbtest.mbt`](../../src/validate/daybreak_bug_hunt_wbtest.mbt).
-On the unchanged master source at `6d020542e5c54e2d1ace8db7c52e4949ff8da5de`,
-`moon test src/validate/daybreak_bug_hunt_wbtest.mbt` fails both rejection tests
-and passes the valid-order control (three tests, exit 2). The legacy catch loop
-in [`typecheck_legacy_try`](../../src/validate/typecheck.mbt) validates handler
-bodies without requiring `catch_all` to be the final clause. Duplicate
-`catch_all` clauses and typed catches after `catch_all` remain open defects
-at this test checkpoint.
+The tests from verification head `3fa354e3` are retained in
+[`daybreak_bug_hunt_wbtest.mbt`](../../src/validate/daybreak_bug_hunt_wbtest.mbt),
+with formatter-only changes after the unchanged test checkpoint `bc04efcc1`.
+On unchanged master source `6d020542e5c54e2d1ace8db7c52e4949ff8da5de`,
+`moon test src/validate/daybreak_bug_hunt_wbtest.mbt` failed both rejection tests
+and passed the valid-order control (three tests, exit 2). The legacy catch loop
+validated handler bodies without requiring `catch_all` to be the final clause.
+
+**Resolved:** [`typecheck_legacy_try`](../../src/validate/typecheck.mbt) now uses
+the handler index to reject a nonfinal `LegacyCatchAll` in the existing match.
+This rejects duplicate catch-all clauses and typed catches after catch-all,
+while retaining the existing body, tag and stack checks. The focused regression
+run passes all three tests. The separate focused run of
+[`binaryen132_continuation_wbtest.mbt`](../../src/validate/binaryen132_continuation_wbtest.mbt)
+and [`p00_rethrow_wbtest.mbt`](../../src/validate/p00_rethrow_wbtest.mbt) passes
+all four existing tag/rethrow tests. These historical filenames do not claim
+new Binaryen oracle evidence. `moon fmt src/validate` passes.
+
+Performance measurement is pending a suite lease. The changed path is legacy
+try validation: one handler index and a final-position check in the catch-all
+arm, with no new collection or traversal. Proposed workloads compare the test
+checkpoint and fixed native builds on modules without legacy try (control),
+valid tries with 1, 16 and 256 typed handlers with and without a final catch-all,
+and invalid tries with an early catch-all. Measure validation cost and allocation
+counts with identical fixtures and build settings. No full suite, fuzzing,
+timing or external oracle run was performed for this fix.
 
 ## Current Gaps And Caveats
 
