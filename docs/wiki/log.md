@@ -1,3 +1,17 @@
+### 2026-10-25 — Complete flatten scratch write-set suite gates
+
+- At `f3fb28d41`, the bounded workspace Wasm test run passed `15436/15436`
+  across eight sequential source-file batches. Full CI validation passed
+  `moon info`, `moon fmt`, `moon check --target wasm-gc`, all `15434/15434`
+  Wasm-GC tests, and all 14 included CI fuzz suites, seed
+  `117502534437969297` (including `86820` binary roundtrips).
+- No benchmark or timing sample was run. The two-test backend count difference
+  is reported as observed; no default tests were disabled. Unrelated automatic
+  formatter migrations in six existing files were excluded from this port.
+- All suite processes exited before lease release. Landing and focused
+  post-landing checks follow these gates; performance claims remain limited
+  to the mechanism evidence in the [flatten notes](binaryen/passes/flatten/implementation-structure-and-tests.md#reusable-local-write-scratch).
+
 ### 2026-10-25 — Bound Moon suite launch selections
 
 - The scratch-write-set full-suite attempt exited `255` before passes whitebox
