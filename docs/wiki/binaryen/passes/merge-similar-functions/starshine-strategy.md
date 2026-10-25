@@ -26,6 +26,21 @@ related:
 
 > **Historical comparison baseline — September 10, 2026:** comparisons then used [Binaryen 132](../../release-horizon-and-oracles.md). The October 10 qualification below uses verified Binaryen 133. Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
+## Name metadata contract
+
+An accepted ordinary merge must retain the name section. Original function
+indices and names belong to the retained thunks. Thunks keep their parameter
+names; the primary body's local and label names belong to the appended helper,
+with local indices shifted past added parameters. Names in other subsections
+and for untouched functions must remain unchanged. Changed structured names
+must replace the cached raw payload before encoding.
+
+The [name regressions](../../../../../src/passes/merge_similar_functions_names_review_test.mbt)
+replace the defect-confirming expectation from `562c50d9f` with this contract.
+At the regression checkpoint, two of three focused tests fail because accepted
+merges drop the complete name section. Full gates, fuzz and timing are deferred
+on the shared host; this checkpoint does not establish final pass signoff.
+
 ## October 13, 2026 encoded-size guard and positive fixtures
 
 The October 11 final encoded-size guard remains strict: the ordinary MSF candidate must not grow the complete encoded module. The weighted instruction-count estimate only admits a candidate for construction; it does not override measured helper/type/index costs. A fourteen-`nop` pair is 61 bytes before outlining and 62 after, even in verified Binaryen 133. The [ordinary-overhead regression](../../../../../src/passes/merge_similar_functions_wbtest.mbt) now proves that estimate passes but the actual candidate is rejected. Existing function/type index-boundary rejection tests remain unchanged.
