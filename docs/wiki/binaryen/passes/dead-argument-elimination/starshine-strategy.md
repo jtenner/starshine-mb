@@ -145,6 +145,12 @@ versus distinct wide signatures. Existing
 and [batch tests](../../../../../src/passes/dae_batch_signature_scan_wbtest.mbt)
 cover recursive absolutization and batch consumers.
 
+Focused validation passes 12/12: four structural-key tests, three type-update
+tests, three batch-signature tests, one recursive-group lookup test and one
+command test that exercises both DAE modes. Source formatting and diff checks
+also pass. Shared-host process exhaustion interrupted earlier attempts; the
+final focused runs completed. No full suite, fuzz or timing lane was run.
+
 Performance is unmeasured. After the shared-host restriction is lifted, measure
 repeated equivalent and distinct wide signatures, recursive signatures, and
 small scalar controls through `dae_structural_func_type_lookup`,

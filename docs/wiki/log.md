@@ -28205,5 +28205,7 @@ arrays/typecheck wrappers from the completed return packaging change.
   rendered strings while preserving signature admission, spelling distinctions,
   first-index reuse and batch lifetime. See the
   [key contract and measurement scope](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-structural-existing-signature-keys).
-- Validation is limited to focused tests. Timing, fuzz and full-suite runs are
-  deferred under the shared-host restriction; no performance gain is claimed.
+- Focused tests pass 12/12, including both DAE command modes; changed-source
+  formatting and diff checks pass. Earlier host process-limit failures were
+  retried successfully. Timing, fuzz and full-suite runs are deferred under the
+  shared-host restriction; no performance gain is claimed.
