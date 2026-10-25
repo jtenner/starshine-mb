@@ -1209,6 +1209,125 @@ fn msf_collect_classes(
 }
 
 ///|
+// Per original function: helper index, original parameter count, added
+// parameter count, and whether this is the primary body copied to the helper.
+fn msf_remap_body_name_map(
+  names : @lib.IndirectNameMap?,
+  rewrites : @hashmap.HashMap[UInt32, (UInt32, UInt32, UInt32, Bool)],
+  locals~ : Bool,
+) -> (@lib.IndirectNameMap?, Bool) {
+  let entries = match names {
+    Some(@lib.IndirectNameMap(entries)) => entries
+    None => return (names, false)
+  }
+  let retained : Array[@lib.IndirectNameAssoc] = []
+  let helpers : Array[@lib.IndirectNameAssoc] = []
+  let mut changed = false
+  for entry in entries {
+    let @lib.IndirectNameAssoc(func_idx, @lib.NameMap(body_names)) = entry
+    match rewrites.get(func_idx) {
+      None => retained.push(entry)
+      Some((helper_idx, param_count, added_params, primary)) => {
+        changed = true
+        if locals {
+          let thunk_names : Array[@lib.NameAssoc] = []
+          let helper_names : Array[@lib.NameAssoc] = []
+          for name in body_names {
+            let @lib.NameAssoc(idx, text) = name
+            if idx < param_count {
+              thunk_names.push(name)
+            }
+            if primary {
+              helper_names.push(
+                @lib.NameAssoc::new(
+                  if idx < param_count {
+                    idx
+                  } else {
+                    idx + added_params
+                  },
+                  text,
+                ),
+              )
+            }
+          }
+          if !thunk_names.is_empty() {
+            retained.push(
+              @lib.IndirectNameAssoc::new(
+                func_idx,
+                @lib.NameMap::new(thunk_names),
+              ),
+            )
+          }
+          if !helper_names.is_empty() {
+            helpers.push(
+              @lib.IndirectNameAssoc::new(
+                helper_idx,
+                @lib.NameMap::new(helper_names),
+              ),
+            )
+          }
+        } else if primary {
+          // The body keeps its label order; the thunk has no labels.
+          helpers.push(
+            @lib.IndirectNameAssoc::new(
+              helper_idx,
+              @lib.NameMap::new(body_names),
+            ),
+          )
+        }
+      }
+    }
+  }
+  if !changed {
+    return (names, false)
+  }
+  // Helpers are appended in primary-function order, as are their names.
+  retained.append(helpers)
+  (Some(@lib.IndirectNameMap::new(retained)), true)
+}
+
+///|
+fn msf_remap_body_names(
+  mod_ : @lib.Module,
+  rewrites : @hashmap.HashMap[UInt32, (UInt32, UInt32, UInt32, Bool)]?,
+) -> @lib.Module {
+  let (names, rewrites) = match (mod_.name_sec, rewrites) {
+    (Some(names), Some(rewrites)) => (names, rewrites)
+    _ => return mod_
+  }
+  let (local_names, locals_changed) = msf_remap_body_name_map(
+    names.local_names,
+    rewrites,
+    locals=true,
+  )
+  let (label_names, labels_changed) = msf_remap_body_name_map(
+    names.label_names,
+    rewrites,
+    locals=false,
+  )
+  if !locals_changed && !labels_changed {
+    return mod_
+  }
+  // with_name_sec also discards the stale encoded name payload.
+  mod_.with_name_sec(
+    @lib.NameSec::new(
+      module_name=names.module_name,
+      func_names=names.func_names,
+      local_names~,
+      label_names~,
+      type_names=names.type_names,
+      table_names=names.table_names,
+      memory_names=names.memory_names,
+      global_names=names.global_names,
+      elem_names=names.elem_names,
+      data_names=names.data_names,
+      field_names=names.field_names,
+      tag_names=names.tag_names,
+    ),
+  )
+}
+
+///|
 fn msf_run_similarity_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
@@ -1252,6 +1371,12 @@ fn msf_run_similarity_module_pass_with_perf(
   let use_tail_call = msf_module_allows_tail_call_thunks(mod_)
   let use_function_references = msf_module_allows_function_references(mod_)
   let ref_targets : Array[@lib.FuncIdx] = []
+  // Modules without body names need no name-remapping allocation.
+  let name_rewrites = match mod_.name_sec {
+    Some(names) if names.local_names is Some(_) || names.label_names is Some(_) =>
+      Some(@hashmap.new())
+    _ => None
+  }
   let mut merged_count = 0
   for class_ in classes {
     let primary_idx = class_.members[0]
@@ -1314,6 +1439,17 @@ fn msf_run_similarity_module_pass_with_perf(
     )
     for ordinal = 0; ordinal < class_.members.length(); ordinal = ordinal + 1 {
       let member_idx = class_.members[ordinal]
+      if name_rewrites is Some(rewrites) {
+        rewrites.set(
+          (imported_count + member_idx).reinterpret_as_uint(),
+          (
+            helper_idx.0,
+            original_params.length().reinterpret_as_uint(),
+            params.length().reinterpret_as_uint(),
+            ordinal == 0,
+          ),
+        )
+      }
       next_funcs[member_idx] = msf_make_thunk(
         original_params.length(),
         params,
@@ -1333,11 +1469,13 @@ fn msf_run_similarity_module_pass_with_perf(
     return mod_
   }
   let candidate = msf_append_declarative_targets(
-    mod_
-    .with_type_sec(@lib.TypeSec::new(rec_types))
-    .with_func_sec(@lib.FuncSec::new(next_type_idxs))
-    .with_code_sec(@lib.CodeSec::new(next_funcs))
-    .without_name_sec(),
+    msf_remap_body_names(
+      mod_
+      .with_type_sec(@lib.TypeSec::new(rec_types))
+      .with_func_sec(@lib.FuncSec::new(next_type_idxs))
+      .with_code_sec(@lib.CodeSec::new(next_funcs)),
+      name_rewrites,
+    ),
     ref_targets,
   )
   perf_stop_timer_opt(perf, "detail:msf:plan-and-rewrite", plan_start_us)

@@ -1,3 +1,14 @@
+### 2026-10-25 — Preserve names during similar-function merges
+
+- The [MSF repair](binaryen/passes/merge-similar-functions/starshine-strategy.md#name-metadata-contract)
+  retains function and unrelated names, moves primary local/label names to
+  helpers, and refreshes raw name bytes when needed. The existing encoded-size
+  guard still includes all retained metadata.
+- All 30 focused tests pass across the completed runs, including the final
+  main, white-box and shape checks after the host's thread limit cleared.
+  Full gates, fuzz and timing remain unrun. The linked status records exact
+  selections and the aborted independent review; landing awaits full gates.
+
 ### 2026-10-25 — Complete flatten scratch write-set suite gates
 
 - At `f3fb28d41`, the bounded workspace Wasm test run passed `15436/15436`

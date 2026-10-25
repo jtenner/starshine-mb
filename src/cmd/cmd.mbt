@@ -9274,6 +9274,16 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
       ]),
     ),
   ])
+  let input = input.with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("left")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("right")),
+        ]),
+      ),
+    ),
+  )
   assert_true(@validate.validate_module(input) is Ok(_))
   let output = match
     optimize_module_with_pass_flags(
@@ -9285,6 +9295,7 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
     Err(err) => fail("expected metadata-compatible MSF dispatch: \{err}")
   }
   @debug.assert_eq(output.custom_secs, input.custom_secs)
+  @debug.assert_eq(output.name_sec, input.name_sec)
   assert_true(@validate.validate_module(output) is Ok(_))
   match output.code_sec {
     Some(@lib.CodeSec([first, second, _])) =>

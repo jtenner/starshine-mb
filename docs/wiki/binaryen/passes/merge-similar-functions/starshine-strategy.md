@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-25
 sources:
   - ./index.md
   - ../../../../../src/passes/merge_similar_functions.mbt
@@ -25,6 +25,52 @@ related:
 # Starshine strategy for `merge-similar-functions`
 
 > **Historical comparison baseline — September 10, 2026:** comparisons then used [Binaryen 132](../../release-horizon-and-oracles.md). The October 10 qualification below uses verified Binaryen 133. Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
+
+## Name metadata contract
+
+An accepted ordinary merge retains the name section. Original function
+indices and names belong to the retained thunks. Thunks keep their parameter
+names; the primary body's local and label names move to the appended helper,
+with local indices shifted past added parameters. Non-primary body names are
+removed with those bodies. Names in other subsections and for untouched
+functions remain unchanged. Changed structured names replace the cached raw
+payload before encoding; unchanged names retain the original raw payload.
+
+The [name regressions](../../../../../src/passes/merge_similar_functions_names_review_test.mbt)
+replace the defect-confirming expectation from `562c50d9f`. Two of three tests
+failed first because accepted merges dropped the complete name section. The
+corrected fixtures validate their input declarations and cover direct and
+pipeline dispatch, imported and untouched functions, all supported name
+subsections, local and label remapping, raw-payload reuse and refresh, encoded
+roundtrips, and rejected merges. Two existing call-reference fixtures now use
+larger shared bodies because their previous savings depended on deleting
+function names; the encoded non-growth rule is unchanged.
+
+The repair changes accepted-rewrite metadata handling in
+[`merge_similar_functions.mbt`](../../../../../src/passes/merge_similar_functions.mbt).
+A sparse function map is allocated only when local or label name subsections
+exist. Mapping visits merged functions and name entries; it adds no body or
+class-matching scan. The unchanged complete-module encoded-size guard includes
+retained names. Full gates, fuzz and timing remain deferred at the user's
+request for the shared host. Broader MSF audit and parity gaps remain open.
+
+### Focused verification status (October 25, 2026)
+
+All 30 focused tests pass across the completed runs: three name regressions,
+16 main-file cases, eight white-box cases, one shape-hash case, one command-route
+case and one tiny-wrapper rejection case. The name regressions include valid
+input/output and encoded roundtrips. The final main-file run includes both
+enlarged call-reference fixtures described above.
+
+Earlier final-check attempts were blocked by shared-host process/thread
+exhaustion (`Resource temporarily unavailable`, OS error 11). After host
+capacity returned, the remaining checks passed with one job and sequential
+test execution: main-file indices `0-16`, white-box indices `0-8`, and
+`merge_similar_functions_shape_collision_perf_wbtest.mbt` filtered to
+`MergeSimilar shape hash*`. These selections exclude the GenValid case, timing
+test and benchmarks. Full gates, fuzz and timing were not run. Claude Code's
+read-only review aborted with exit 134 before an assessment. The focused
+verification is complete; the fix is ready to land once full gates pass.
 
 ## October 13, 2026 encoded-size guard and positive fixtures
 

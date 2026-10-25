@@ -264,6 +264,7 @@ test "merge-similar-functions shifts original non-parameter locals" {
 
 ///|
 test "merge-similar-functions parameterizes same-type direct callees" {
+  // Pay for helper overhead while retaining the original function names.
   let optimized = try! msf_test_run(
     (
       #|(module
@@ -273,8 +274,12 @@ test "merge-similar-functions parameterizes same-type direct callees" {
       #|  (elem declare func $callee0 $callee1)
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    call $callee0)
       #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    call $callee1))
     ),
@@ -295,11 +300,11 @@ test "merge-similar-functions parameterizes same-type direct callees" {
         @lib.Instruction::return_call(helper_idx),
       ])
       @debug.assert_eq(
-        helper[18],
+        helper[54],
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       )
       @debug.assert_eq(
-        helper[19],
+        helper[55],
         @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
       )
     }
@@ -391,6 +396,7 @@ test "merge-similar-functions preserves incompatible callee types" {
 
 ///|
 test "merge-similar-functions preserves return-call indirection" {
+  // Pay for helper overhead while retaining the original function names.
   let optimized = try! msf_test_run(
     (
       #|(module
@@ -400,8 +406,12 @@ test "merge-similar-functions preserves return-call indirection" {
       #|  (elem declare func $callee0 $callee1)
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    return_call $callee0)
       #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    return_call $callee1))
     ),
