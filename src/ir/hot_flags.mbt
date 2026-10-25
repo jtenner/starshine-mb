@@ -111,7 +111,9 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt32 {
       HOT_FLAG_TERMINATOR
     HotOp::Catch => HOT_FLAG_VALUE
     HotOp::Delegate | HotOp::CatchAll => 0U
-    HotOp::Atomic | HotOp::Simd => 0U
+    HotOp::Atomic =>
+      HOT_FLAG_LOAD | HOT_FLAG_STORE | HOT_FLAG_SIDE_EFFECT | HOT_FLAG_MAY_TRAP
+    HotOp::Simd => 0U
   }
 }
 
@@ -119,32 +121,47 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt32 {
 fn hot_flags_for_exact_payload(
   func : HotFunc,
   op : HotOp,
-  payload_id : SideTableId,
+  imm0 : Int32,
+  imm1 : Int32,
 ) -> UInt32 {
   let base = hot_default_flags_for_op(op)
+  // Atomic nodes keep the exact opcode in imm1; imm0 is their memory argument.
+  let payload_id = if op == HotOp::Atomic { imm1 } else { imm0 }
   if payload_id < 0 || payload_id >= func.instr_payloads.length() {
     return base
   }
+  let mut flags = base | HOT_FLAG_VALUE
   let mask = match op {
     HotOp::Unary =>
       effects_mask_for_numeric_exact(
         Some(hot_instr_payload_get(func, payload_id).instr),
       )
-    HotOp::Simd =>
-      effects_mask_for_simd_exact(
+    HotOp::Simd => {
+      let mask = effects_mask_for_simd_exact(
         Some(hot_instr_payload_get(func, payload_id).instr),
       )
+      if (mask & EFFECT_MASK_MEMORY_WRITE) != 0U {
+        flags = base
+      }
+      mask
+    }
+    HotOp::Atomic => {
+      let instr = hot_instr_payload_get(func, payload_id).instr
+      let mask = effects_mask_for_atomic_exact(Some(instr))
+      // Stores and fences have no result; read-modify-write and wait/notify do.
+      flags = if instr is Instruction::AtomicFence(_) ||
+        (mask & EFFECT_MASK_MEMORY_READ) == 0U {
+        0U
+      } else {
+        HOT_FLAG_VALUE
+      }
+      mask
+    }
     HotOp::StringOp =>
       effects_mask_for_string_exact(
         Some(hot_instr_payload_get(func, payload_id).instr),
       )
     _ => return base
-  }
-  let mut flags = if op == HotOp::Simd &&
-    (mask & EFFECT_MASK_MEMORY_WRITE) != 0U {
-    base
-  } else {
-    base | HOT_FLAG_VALUE
   }
   if (mask & EFFECT_MASK_MEMORY_READ) != 0U {
     flags = flags | HOT_FLAG_LOAD

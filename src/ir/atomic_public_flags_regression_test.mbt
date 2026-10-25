@@ -150,6 +150,7 @@ test "atomic builders and node replacement use the exact payload in imm1" {
   let ptr = hot_build_const_i32(func, @lib.I32(0))
   let value = hot_build_const_i32(func, @lib.I32(1))
   let memarg = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
+  assert_eq(hot_alloc_memarg(func, HotMemArg::new(memarg)), 0)
   let store = hot_build_atomic(
     func,
     [],
@@ -177,5 +178,8 @@ test "atomic builders and node replacement use the exact payload in imm1" {
     @lib.Instruction::i32_atomic_store(memarg),
   )
   assert_eq(hot_node_flags(func, store), flags)
-  hot_verify_core(func).unwrap()
+  match hot_verify_core(func) {
+    Ok(_) => ()
+    Err(error) => fail("atomic builder verification: \{error}")
+  }
 }
