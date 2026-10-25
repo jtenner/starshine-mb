@@ -27,6 +27,16 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## October 25, 2026: HOT fallback liveness checks
+
+The [entry-mask tests](../../../../../src/passes/dead_argument_elimination.mbt)
+compare the HOT fallback with full use-def liveness for nested branch carriers
+and exception handlers. Existing raw/HOT handoff tests protect the syntactic-read
+supplement and input ownership. The [command fixture](../../../../../src/cmd/cmd.mbt)
+covers single and nested branch carriers in both DAE modes. These bounded checks
+support item 1 of the DAE performance report; they do not measure runtime or
+allocation savings.
+
 ## September 29, 2026 reverse literal signature reuse
 
 Reverse exact-literal candidate scanning now reads function signatures from the
