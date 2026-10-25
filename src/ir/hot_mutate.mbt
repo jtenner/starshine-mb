@@ -1396,7 +1396,7 @@ pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
   hot_mutate_require_node_shape(func, node, "hot node_set")
   func.nodes[id] = {
     ..node,
-    flags: hot_flags_for_exact_payload(func, node.op, node.imm0),
+    flags: hot_flags_for_exact_payload(func, node.op, node.imm0, node.imm1),
     order: if node.order < func.nodes[id].order {
       func.nodes[id].order
     } else {
@@ -1546,13 +1546,28 @@ pub fn hot_node_exact_instr_set(
         | HotOp::RefTestDesc
         | HotOp::RefCastDescEq
         | HotOp::BrOnCast
-        | HotOp::BrOnCastFail
-        | HotOp::Atomic => { ..node, imm1: payload_id, }
+        | HotOp::BrOnCastFail => { ..node, imm1: payload_id, }
+        HotOp::Atomic =>
+          {
+            ..node,
+            imm1: payload_id,
+            flags: hot_flags_for_exact_payload(
+              func,
+              node.op,
+              node.imm0,
+              payload_id,
+            ),
+          }
         _ =>
           {
             ..node,
             imm0: payload_id,
-            flags: hot_flags_for_exact_payload(func, node.op, payload_id),
+            flags: hot_flags_for_exact_payload(
+              func,
+              node.op,
+              payload_id,
+              node.imm1,
+            ),
           }
       }
       func.nodes[id] = next_node
@@ -1635,7 +1650,12 @@ pub fn hot_replace_node(
   }
   hot_node_set(func, id, {
     ..new_node,
-    flags: hot_flags_for_exact_payload(func, new_node.op, new_node.imm0),
+    flags: hot_flags_for_exact_payload(
+      func,
+      new_node.op,
+      new_node.imm0,
+      new_node.imm1,
+    ),
   })
   // Removing a proven identity wrapper forwards its already evaluated value.
   // Its source can precede intervening roots, unlike a newly computed value

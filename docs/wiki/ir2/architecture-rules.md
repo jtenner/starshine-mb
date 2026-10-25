@@ -5,6 +5,8 @@ last_reviewed: 2026-10-25
 sources:
   - ../../../src/ir/hot_verify.mbt
   - ../../../src/ir/hot_verify_missing_operand_wbtest.mbt
+  - ../../../src/ir/hot_flags.mbt
+  - ../../../src/ir/atomic_public_flags_regression_test.mbt
   - ../../../src/ir/effects_subtree_query.mbt
   - ../../../src/ir/analysis_cache_operand_swap.mbt
   - ../../../src/passes/instruction_cache_review_wbtest.mbt
@@ -697,6 +699,24 @@ Important practical consequences:
 2. **Side tables preserve exact boundary details.** Generic HOT families such as heap/reference/string/SIMD/atomic forms may carry exact instruction payloads so lift/lower can preserve opcode identity that a pass does not understand deeply yet.
 3. **Deleted nodes are tombstones, not an alternate body.** Tombstones keep ids stable during a pass, but later queries must check liveness instead of assuming every allocated node is semantically present.
 4. **Revision is part of correctness.** Any semantic mutation that changes roots, children, nodes, locals, labels, types, or lowered meaning must bump the revision through the public mutation surface.
+
+## Atomic public flags
+
+Atomic flags use the exact instruction in `imm1`, independently of the
+memory-argument id in `imm0`. Loads carry `VALUE`, `LOAD` and `MAY_TRAP`;
+stores carry `STORE`, `SIDE_EFFECT` and `MAY_TRAP`. Read-modify-write,
+compare-exchange and wait/notify operations combine both sets. Fences carry
+`LOAD`, `STORE` and `SIDE_EFFECT`, without `VALUE` or `MAY_TRAP`. The same
+rules apply to linear memory and GC atomics. An absent exact payload retains
+conservative read/write/trap flags.
+
+Builders, node setters, replacement, exact-instruction mutation and core
+verification use the same flag calculation. The [focused regressions](../../../src/ir/atomic_public_flags_regression_test.mbt)
+and [waitqueue fixture](../../../src/ir/binaryen132_waitqueue_test.mbt) check
+the public flags separately from the exact effect mask. Atomic ordering and
+blocking-control effects remain in that mask; public `CONTROL` describes
+structured control nodes. Full gates remain pending under the shared-host
+restriction; these fixtures do not establish pass or performance signoff.
 
 ## Performance reuse ownership contracts
 

@@ -28078,3 +28078,16 @@ arrays/typecheck wrappers from the completed return packaging change.
   threshold selections pass 90/90 and 3/3. Command tests pass 824/825 with only
   the supplied pristine-master `wasm-opt` fixture-lowering failure, retained in
   the active backlog and [gate record](../pass-audit-extraction.md#final-gates).
+
+### 2026-10-25 — Repair atomic public flags
+
+- The [atomic flag contract](ir2/architecture-rules.md#atomic-public-flags)
+  now derives memory, trap and value flags from each exact atomic instruction
+  in `imm1`. Construction, replacement, mutation and verification share it.
+- Seven focused IR tests failed before the fix, including the shared-memory
+  store regression from `d97541196`. Coverage includes linear widths, GC and
+  packed reads, RMW, compare-exchange, waits, notify, fences and flag refresh.
+- After the fix, all 32 focused IR tests across nine files pass with one build
+  worker. These include existing flag, builder, payload, numeric, SIMD, string
+  and atomic-effect controls. Full suites, fuzz and timing were not run on the
+  shared host; no performance result is claimed.
