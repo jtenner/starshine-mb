@@ -56,21 +56,21 @@ request for the shared host. Broader MSF audit and parity gaps remain open.
 
 ### Focused verification status (October 25, 2026)
 
-The three name regressions pass, including valid input/output and encoded
-roundtrips. The focused command-route test and tiny-wrapper rejection test
-also pass. The initial main-file run passed 14 of 16 cases; the two remaining
-call-reference fixtures were then enlarged as described above. Final main-file,
-white-box and shape-hash verification is blocked by shared-host process/thread
-exhaustion (`Resource temporarily unavailable`, OS error 11), including a
-one-CPU, one-job, sequential-test retry. The corrected main file reached the
-test-executable launch but did not produce final test results.
+All 30 focused tests pass across the completed runs: three name regressions,
+16 main-file cases, eight white-box cases, one shape-hash case, one command-route
+case and one tiny-wrapper rejection case. The name regressions include valid
+input/output and encoded roundtrips. The final main-file run includes both
+enlarged call-reference fixtures described above.
 
-Resume with the main file's indices `0-16`, white-box indices `0-8`, and
+Earlier final-check attempts were blocked by shared-host process/thread
+exhaustion (`Resource temporarily unavailable`, OS error 11). After host
+capacity returned, the remaining checks passed with one job and sequential
+test execution: main-file indices `0-16`, white-box indices `0-8`, and
 `merge_similar_functions_shape_collision_perf_wbtest.mbt` filtered to
 `MergeSimilar shape hash*`. These selections exclude the GenValid case, timing
 test and benchmarks. Full gates, fuzz and timing were not run. Claude Code's
-read-only review aborted with exit 134 before an assessment. The fix is
-committed, but remaining focused checks and full gates must pass before land.
+read-only review aborted with exit 134 before an assessment. The focused
+verification is complete; the fix is ready to land once full gates pass.
 
 ## October 13, 2026 encoded-size guard and positive fixtures
 

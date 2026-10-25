@@ -4,10 +4,10 @@
   retains function and unrelated names, moves primary local/label names to
   helpers, and refreshes raw name bytes when needed. The existing encoded-size
   guard still includes all retained metadata.
-- Three name regressions, the focused command route and tiny-wrapper rejection
-  pass. Final remaining focused checks are blocked by the shared host's OS
-  thread limit; full gates, fuzz and timing remain unrun. The linked status
-  records exact remaining selections and the aborted independent review.
+- All 30 focused tests pass across the completed runs, including the final
+  main, white-box and shape checks after the host's thread limit cleared.
+  Full gates, fuzz and timing remain unrun. The linked status records exact
+  selections and the aborted independent review; landing awaits full gates.
 
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
