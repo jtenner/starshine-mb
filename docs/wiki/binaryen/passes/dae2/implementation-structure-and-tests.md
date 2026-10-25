@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-25
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -10,6 +10,8 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
   - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_host_types_wbtest.mbt
+  - ../../../../../src/cmd/dae2_host_types_wbtest.mbt
   - ../../../../../src/cmd/dae2_family_dispatch_wbtest.mbt
   - ../../../../../src/validate/match.mbt
   - ../../../../../tests/optimizer/regressions/round2-correctness.test.ts
@@ -159,6 +161,39 @@ checks in `tests/optimizer/regressions/round2-correctness.test.ts` cover both
 directions, including recursive groups. See the
 [second audit](../../../ir2/architecture-rules.md#september-12-second-correctness-audit)
 for final evidence and limitations.
+
+## Host-origin runtime type tests — 2026-10-25
+
+Verification head `be26b7d65` proves that DAE2 can change a retained `ref.test`
+target from `(func (param i64))` to `(func)` after an imported function returns
+an abstract `funcref`. Internal type-partition checks do not protect identities
+supplied by the host. The target and its type dependencies must keep their
+original signatures, including when a retained `ref.cast` uses the target.
+
+The [pass regressions](../../../../../src/passes/dead_argument_elimination2_host_types_wbtest.mbt)
+check the actual retained instruction target, parameter and result types, nested
+control, and both DAE2 modes. The
+[command regression](../../../../../src/cmd/dae2_host_types_wbtest.mbt) covers the
+active dispatcher. All three pass tests and the command test fail on rewritten
+signatures before the repair.
+
+DAE2 now marks `ref.test` and `ref.cast` heap targets in the existing recursive
+table-ingress scan. It uses the existing public-type mask before the public
+closure is solved. This retains complete target signatures, recursive-group
+siblings and referenced type dependencies. The rule also covers exact and
+nullable variants and does not depend on a table or global being present.
+Private direct function signatures can still shrink independently.
+
+Focused validation passes all 18 tests in the pass host-target, round-two and
+signature-reuse files, plus the command host-target and family-dispatch files.
+The command was `moon test -j 1` with those five file paths explicitly selected.
+
+The changed preparation path adds target handling to an existing traversal and
+reuses its type mask; it adds no traversal or mask allocation. More types can
+remain live, which can reduce later optimization. Performance was not measured:
+the user requested only focused DAE2 tests on the shared host, with no full
+suite, fuzz or timing. Full validation remains a landing gate. These structural
+tests do not claim a cross-module runtime replay or new Binaryen comparison.
 
 ## Host-visible abstract function tables
 
