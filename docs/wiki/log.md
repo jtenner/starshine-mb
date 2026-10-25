@@ -1,3 +1,14 @@
+### 2026-10-25 — Complete HOT operand repair gates
+
+- The [final operand contract](ir2/architecture-rules.md#final-hot-operand-admission)
+  passes 35 focused verifier and typed-prefix tests at `fd3a39b5f`.
+  Eight bounded workspace batches pass 15,445/15,445 Wasm tests. Full CI
+  passes info/fmt/check, 15,443/15,443 Wasm-GC tests and all 14 fuzz suites,
+  seed `117503737500607175`. No default tests or fuzz stages were disabled.
+- Both independent wiki-log additions are retained. Six unrelated formatter
+  migrations are excluded. No timing measurement was run; final child-span
+  verification cost remains a later measurement question.
+
 ### 2026-10-25 — Reject missing final HOT operands
 
 - Final control/all verification now rejects `HOT_NONE_NODE` in ordinary

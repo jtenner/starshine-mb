@@ -59,9 +59,19 @@ See the [verifier](../../../src/ir/hot_verify.mbt) and
 [focused regressions](../../../src/ir/hot_verify_missing_operand_wbtest.mbt).
 
 The final control walk scans ordinary child spans without a new collection or
-graph traversal. It leaves core admission and lowering unchanged. Full gates
-and performance measurements are deferred; the shared-host check is limited
-to focused verifier tests.
+graph traversal. It leaves core admission and lowering unchanged. The original
+shared-host check covered 32 focused tests; full gates and performance
+measurements were deferred at that point.
+
+On October 25, candidate `fd3a39b5f` merges `fb0fefb15a` onto master
+`01dc357d4`. The broader verifier and typed-prefix selection passes 35/35.
+Eight sequential Wasm batches of at most 300 source files pass 15,445/15,445.
+`bun validate full --profile ci --target wasm-gc` passes info/fmt/check,
+15,443/15,443 tests and all 14 CI fuzz suites, seed `117503737500607175`.
+This closes the earlier full-gate deferral for the operand repair. Six unrelated
+automatic formatter migrations were excluded; no API snapshot changed.
+No timing measurement was run. The added child-span scan still needs a later
+verifier runtime check.
 
 ## Counted data sizes and first-emission lowering (October 15, 2026)
 
