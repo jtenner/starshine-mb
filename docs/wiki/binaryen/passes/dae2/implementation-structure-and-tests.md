@@ -83,6 +83,23 @@ changes. HOT verification and final module validation are separate checks;
 execution, normalized opportunity parity and cost need the dedicated lanes in
 [fuzzing](fuzzing.md) and the [upgrade evidence](../../version-132-upgrade.md).
 
+## Shared raw forward-control preflight
+
+The fallback contract covered by
+[`dae2_shared_preflight_wbtest.mbt`](../../../../../src/passes/dae2_shared_preflight_wbtest.mbt)
+requires one count/qualification result for the exact immutable body and module
+context after conditional qualification fails. Rejection must leave the graph
+untouched. On success, local-flow planning precedes forward planning; each
+planner owns a fresh plan and a separate `64 + 8 * count` work budget.
+Standalone planner wrappers must retain their own admission checks.
+
+The bounded cases cover late unsupported instructions, local-flow budget
+exhaustion followed by forward success, successful local flow, flat controls,
+branch tables and indexed scalar loops. They compare plan fields, boundary and
+write demand, encoded output, and unchanged input with the existing HOT path.
+Performance and v133 comparison evidence remain pending; the shared-host task
+permits focused package tests only, with no fuzz or timing runs.
+
 ## Checked fields during expression rewriting
 
 The call-prefix filter reads the current opcode with `hot_node_op`. Child-span
