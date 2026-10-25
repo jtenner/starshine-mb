@@ -4599,7 +4599,7 @@ test "remove-unused-brs skips raw lift when the original function has no candida
 }
 
 ///|
-test "remove-unused-brs avoids full use-def for scalar HOT functions" {
+test "remove-unused-brs prepares declared analyses for scalar HOT functions" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -4618,7 +4618,8 @@ test "remove-unused-brs avoids full use-def for scalar HOT functions" {
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:timer name=lift"), msg=text)
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
-  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
+  assert_true(text.contains("perf:timer name=analysis:cfg"), msg=text)
+  assert_true(text.contains("perf:timer name=analysis:use-def"), msg=text)
 }
 
 ///|

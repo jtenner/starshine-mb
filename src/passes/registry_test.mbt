@@ -300,7 +300,10 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(rse.name, "redundant-set-elimination")
   @debug.assert_eq(@ir.hot_pass_requires(rse), [])
   @debug.assert_eq(rub.name, "remove-unused-brs")
-  @debug.assert_eq(@ir.hot_pass_requires(rub), [])
+  @debug.assert_eq(@ir.hot_pass_requires(rub), [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
 }
 
 ///|
@@ -331,9 +334,10 @@ test "audited pass_require helper metadata contracts stay declared" {
     @ir.HotAnalysis::use_def(),
     @ir.HotAnalysis::effects(),
   ])
-  // RUB uses a lightweight exact node-use count only for the opt-in literal
-  // multivalue path, so eager full use-def metadata would be dishonest.
-  registry_test_assert_requires(remove_unused_brs_descriptor(), [])
+  registry_test_assert_requires(remove_unused_brs_descriptor(), [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   registry_test_assert_requires(precompute_propagate_descriptor(), [
     @ir.HotAnalysis::ssa(),
   ])
