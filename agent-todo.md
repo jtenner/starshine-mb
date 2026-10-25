@@ -778,6 +778,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   fixture: 59 bytes in both modes, versus original/before 60 and intermediate
   63. Matching and mismatching indirect calls pass. Extend identity and root
   rewrite evidence before widening scalar admission or closing general parity.
+  Item 5 of the DAE performance report now uses a dependency-only subtype
+  visitor; partition construction and the identity fixed point are unchanged.
+  Measure large recursive/GC identity split/collapse, descriptor, continuation,
+  embedded-definition and unchanged-family controls when the shared-host gate
+  is lifted. No new timing or memory gain is established by the focused tests.
 - [ ] **Current resource checks (P03/P10):** preserve every matched native
   cohort. The first expanded LocalCSE build added 44.776% wall time and
   12.468% RSS for 849 fewer canonical bytes. Current `ee57fe32…` retains those

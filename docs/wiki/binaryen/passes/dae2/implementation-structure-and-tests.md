@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
+  - ../../../../../src/passes/dae2_identity_dependencies_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_host_types_wbtest.mbt
   - ../../../../../src/cmd/dae2_host_types_wbtest.mbt
@@ -161,6 +162,30 @@ checks in `tests/optimizer/regressions/round2-correctness.test.ts` cover both
 directions, including recursive groups. See the
 [second audit](../../../ir2/architecture-rules.md#september-12-second-correctness-audit)
 for final evidence and limitations.
+
+Identity dependency discovery uses a read-only visitor instead of constructing
+and discarding remapped subtype trees. It visits function parameters, results,
+struct/array fields and continuation targets, then `describes`, `descriptor`
+and supertypes in the same order as the constructing visitor. Repeated edges,
+recursive-group star edges and the embedded-definition fallback are retained.
+Identity partition keys still use the constructing visitor, and the admission
+gate and identity fixed point are unchanged.
+
+The [dependency tests](../../../../../src/passes/dae2_identity_dependencies_wbtest.mbt)
+compare complete graph storage and solved observation order with the previous
+construction path. They cover absolute and relative indices, exact and nullable
+references, packed fields, metadata, continuations, embedded definitions and an
+unchanged family. The [command tests](../../../../../src/cmd/dae2_family_dispatch_wbtest.mbt)
+cover recursive identity split and collapse through both DAE2 modes.
+
+This is item 5 of `docs/dae-perf-opportunities.md` on
+`research/dae-perf-opportunities`. No new timing or memory result is claimed.
+Measurement remains pending for closed-world rewrites with large recursive/GC
+type graphs: identity split/collapse, descriptors, continuations, embedded
+definitions and unchanged-family controls. The expected saving is the removed
+temporary subtype construction during dependency discovery; partition-key
+construction is still required. Full-suite and fuzz validation are deferred
+under the shared-host instruction for this item.
 
 ## Host-origin runtime type tests — 2026-10-25
 

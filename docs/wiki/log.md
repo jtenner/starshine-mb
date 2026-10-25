@@ -28175,3 +28175,17 @@ arrays/typecheck wrappers from the completed return packaging change.
   Shared-host process limits required a serial, single-CPU retry.
 - Kept leased measurement and later parity signoff open in P08. No full-suite,
   fuzz, timing, or memory run is part of this shared-host task.
+
+### 2026-10-25 — DAE2 identity dependency traversal
+
+- Recorded the [dependency-only visitor contract](binaryen/passes/dae2/implementation-structure-and-tests.md#runtime-type-identity-preservation)
+  for performance report item 5. Discovery retains reference order, complete
+  graph rows, recursive-group edges and embedded-definition fallback without
+  building discarded subtype trees. Partition keys and the identity fixed
+  point retain their existing construction path.
+- The five-file focused gate passes all 23 tests. Coverage compares the old
+  construction path and exercises both DAE2 command modes. Source checks
+  confirm the visitor has no tree constructors or array maps/copies and that
+  partition construction and the identity fixed point are unchanged. Timing,
+  memory measurements, full-suite validation and fuzzing remain deferred under
+  the shared-host instruction.

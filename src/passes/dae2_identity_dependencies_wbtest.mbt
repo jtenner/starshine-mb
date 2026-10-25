@@ -169,6 +169,8 @@ test "DAE2 identity dependencies preserve complete rows and solved observations"
 
 ///|
 test "DAE2 identity dependency visitor flags embedded definitions and keeps later edges" {
+  // Embedded identity rewriting is intentionally unsupported. Retain all
+  // signatures through the existing fallback, without losing later edges.
   let embedded_value = @lib.ValType::ref_type(
     @lib.RefType::new(
       true,
