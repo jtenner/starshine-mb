@@ -54,12 +54,28 @@ test "Binaryen 132 waitqueue HOT preserves allocation synchronization and operan
       }
       Some(@lib.WaitqueueNotify) => {
         @debug.assert_eq(hot_child_span(hot, node).length(), 2)
+        assert_eq(
+          hot_node_flags(hot, node),
+          HOT_FLAG_VALUE |
+          HOT_FLAG_LOAD |
+          HOT_FLAG_STORE |
+          HOT_FLAG_SIDE_EFFECT |
+          HOT_FLAG_MAY_TRAP,
+        )
         assert_true(effects_writes_memory(effects_for_node(hot, node)))
         assert_true((effects_for_node(hot, node) & EFFECT_MASK_SEQ_CST) != 0U)
         count += 1
       }
       Some(@lib.StructWait(_, _)) => {
         @debug.assert_eq(hot_child_span(hot, node).length(), 4)
+        assert_eq(
+          hot_node_flags(hot, node),
+          HOT_FLAG_VALUE |
+          HOT_FLAG_LOAD |
+          HOT_FLAG_STORE |
+          HOT_FLAG_SIDE_EFFECT |
+          HOT_FLAG_MAY_TRAP,
+        )
         assert_true(effects_reads_memory(effects_for_node(hot, node)))
         assert_true((effects_for_node(hot, node) & EFFECT_MASK_SEQ_CST) != 0U)
         assert_true((effects_for_node(hot, node) & EFFECT_MASK_CONTROL) != 0U)
