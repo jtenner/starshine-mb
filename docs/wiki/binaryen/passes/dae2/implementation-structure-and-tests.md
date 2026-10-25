@@ -174,7 +174,26 @@ The [pass regressions](../../../../../src/passes/dead_argument_elimination2_host
 check the actual retained instruction target, parameter and result types, nested
 control, and both DAE2 modes. The
 [command regression](../../../../../src/cmd/dae2_host_types_wbtest.mbt) covers the
-active dispatcher. The test checkpoint intentionally leaves this defect open.
+active dispatcher. All three pass tests and the command test fail on rewritten
+signatures before the repair.
+
+DAE2 now marks `ref.test` and `ref.cast` heap targets in the existing recursive
+table-ingress scan. It uses the existing public-type mask before the public
+closure is solved. This retains complete target signatures, recursive-group
+siblings and referenced type dependencies. The rule also covers exact and
+nullable variants and does not depend on a table or global being present.
+Private direct function signatures can still shrink independently.
+
+Focused validation passes all 18 tests in the pass host-target, round-two and
+signature-reuse files, plus the command host-target and family-dispatch files.
+The command was `moon test -j 1` with those five file paths explicitly selected.
+
+The changed preparation path adds target handling to an existing traversal and
+reuses its type mask; it adds no traversal or mask allocation. More types can
+remain live, which can reduce later optimization. Performance was not measured:
+the user requested only focused DAE2 tests on the shared host, with no full
+suite, fuzz or timing. Full validation remains a landing gate. These structural
+tests do not claim a cross-module runtime replay or new Binaryen comparison.
 
 ## Host-visible abstract function tables
 

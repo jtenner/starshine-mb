@@ -204,6 +204,7 @@ fn dae2_has_host_abstract_funcref_global(
 fn dae2_host_abstract_funcref_tables(
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,
+  tested_types : Array[Bool],
 ) -> Array[Bool] {
   let visible = Array::make(context.tables.length(), false)
   let mut table_import = 0
@@ -244,7 +245,12 @@ fn dae2_host_abstract_funcref_tables(
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
-        dae2_mark_runtime_funcref_table_ingress(body, context.tables, visible)
+        dae2_mark_runtime_funcref_uses(
+          body,
+          context.tables,
+          visible,
+          tested_types,
+        )
       }
     None => ()
   }
@@ -252,35 +258,42 @@ fn dae2_host_abstract_funcref_tables(
 }
 
 ///|
-fn dae2_mark_runtime_funcref_table_ingress(
+fn dae2_mark_runtime_funcref_uses(
   instrs : Array[@lib.Instruction],
   tables : Array[@lib.TableType],
   visible : Array[Bool],
+  tested_types : Array[Bool],
 ) -> Unit {
   for instr in instrs {
     match instr {
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+        dae2_mark_runtime_funcref_uses(body, tables, visible, tested_types)
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+        dae2_mark_runtime_funcref_uses(body, tables, visible, tested_types)
         for catch_ in catches {
           let @lib.Expr(catch_body) = match catch_ {
             @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
               catch_body
           }
-          dae2_mark_runtime_funcref_table_ingress(catch_body, tables, visible)
+          dae2_mark_runtime_funcref_uses(
+            catch_body, tables, visible, tested_types,
+          )
         }
       }
       @lib.If(_, then_body, else_body) => {
-        dae2_mark_runtime_funcref_table_ingress(then_body, tables, visible)
+        dae2_mark_runtime_funcref_uses(then_body, tables, visible, tested_types)
         match else_body {
           Some(body) =>
-            dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+            dae2_mark_runtime_funcref_uses(body, tables, visible, tested_types)
           None => ()
         }
       }
+      @lib.RefTest(_, _, heap_type) | @lib.RefCast(_, _, heap_type) =>
+        // A host value can have this original runtime identity even in a
+        // closed world. Preserve the target's full public type closure.
+        dae_mark_used_heap_type(heap_type, tested_types)
       @lib.TableSet(table_idx)
       | @lib.TableGrow(table_idx)
       | @lib.TableFill(table_idx)
@@ -543,7 +556,11 @@ fn dae2_prepare_type_locations(
       }
     }
   }
-  let host_abstract_tables = dae2_host_abstract_funcref_tables(mod_, context)
+  // Reuse the mandatory table-ingress scan and the existing public type mask.
+  let exposed = Array::make(total, false)
+  let host_abstract_tables = dae2_host_abstract_funcref_tables(
+    mod_, context, exposed,
+  )
   let has_host_abstract_table = host_abstract_tables.any(fn(visible) { visible })
   let has_host_abstract_global = dae2_has_host_abstract_funcref_global(
     mod_, context,
@@ -569,7 +586,6 @@ fn dae2_prepare_type_locations(
     }
   }
   // Imported/exported tables and globals expose their concrete reference types.
-  let exposed = Array::make(total, false)
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
       for import_ in imports {

@@ -2,7 +2,7 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-25
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -49,6 +49,10 @@ only after the graph converges. Effects and traps of removed values still execut
 
 Open-world entry points, imports/exports, referenced types, continuation
 signatures and effect-free-call intrinsics constrain signature changes.
+Retained `ref.test` and `ref.cast` targets keep their original type closure,
+including with host-origin abstract `funcref` values; the
+[October 25 repair](implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)
+records the focused coverage and deferred full gates.
 Post-tag #8994 is included: an unchangeable indirect tail callee also pins its
 caller's matching results. Multi-value results are one usage unit, not independent
 slots.

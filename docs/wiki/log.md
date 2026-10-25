@@ -1,3 +1,14 @@
+### 2026-10-25 — Preserve DAE2 host-observed runtime type targets
+
+- The [repair record](binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)
+  links verification head `be26b7d65` to failing-first pass and command tests.
+  DAE2 now retains the type closure of `ref.test` and `ref.cast` targets by
+  extending the existing preparation scan and reusing the public-type mask.
+- All 18 selected DAE2 tests pass, including both pass modes and private
+  signature pruning. Full gates, fuzz and timing remain deferred at the user's
+  request because the host is shared. No new runtime replay or performance
+  result is claimed.
+
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
 - Red-first regressions reproduce nine IR ownership/invariant defects, two
