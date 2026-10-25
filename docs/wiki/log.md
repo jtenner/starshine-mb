@@ -1,3 +1,14 @@
+### 2026-10-25 — Complete similar-function name repair gates
+
+- The [MSF name repair](binaryen/passes/merge-similar-functions/starshine-strategy.md#serial-landing-gates-october-25-2026)
+  passes 31 focused pass tests and one command test at `82847ceb4`.
+  Eight bounded workspace batches pass 15,439/15,439 Wasm tests. Full CI
+  passes info/fmt/check, 15,437/15,437 Wasm-GC tests and all 14 fuzz suites,
+  seed `117503669377623425`. No default tests or fuzz stages were disabled.
+- The wiki-log merge retains both independent entries. Six unrelated automatic
+  formatter migrations are excluded. No timing measurement was run; body-name
+  remapping cost and retained-name size-admission effects remain open.
+
 ### 2026-10-25 — Preserve names during similar-function merges
 
 - The [MSF repair](binaryen/passes/merge-similar-functions/starshine-strategy.md#name-metadata-contract)

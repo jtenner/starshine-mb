@@ -72,6 +72,19 @@ test and benchmarks. Full gates, fuzz and timing were not run. Claude Code's
 read-only review aborted with exit 134 before an assessment. The focused
 verification is complete; the fix is ready to land once full gates pass.
 
+### Serial landing gates (October 25, 2026)
+
+Candidate `82847ceb4` merges `969ef44150` onto master `c9f8af8d3`.
+The only merge conflict was independent additions to the wiki log; both were
+retained. Focused pass files pass 31/31 and command dispatch passes 1/1.
+The eight sequential, at-most-300-source-file Wasm batches pass 15,439/15,439.
+`bun validate full --profile ci --target wasm-gc` passes info, fmt, check,
+15,437/15,437 tests and all 14 CI fuzz suites, seed `117503669377623425`.
+Six unrelated automatic formatter migrations were excluded, as in the flatten
+landing. This supersedes the earlier full-gate deferral for this repair.
+No timing measurement was run. Body-name map cost and retained-name effects
+on size admission still need measurement; broader MSF parity gaps stay open.
+
 ## October 13, 2026 encoded-size guard and positive fixtures
 
 The October 11 final encoded-size guard remains strict: the ordinary MSF candidate must not grow the complete encoded module. The weighted instruction-count estimate only admits a candidate for construction; it does not override measured helper/type/index costs. A fourteen-`nop` pair is 61 bytes before outlining and 62 after, even in verified Binaryen 133. The [ordinary-overhead regression](../../../../../src/passes/merge_similar_functions_wbtest.mbt) now proves that estimate passes but the actual candidate is rejected. Existing function/type index-boundary rejection tests remain unchanged.
