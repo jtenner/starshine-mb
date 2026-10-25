@@ -178,6 +178,12 @@
   Runtime, allocation and
   peak-memory measurements remain pending for branch-carried values with many
   shared operands/locals, raw-admitted controls and tiny bodies.
+### 2026-10-25 — Retain Daybreak F05 catch-order regressions
+
+- Copied the three tests from verification head `3fa354e3` without changes.
+  On unchanged master source, both invalid catch-order cases fail their rejection
+  assertions; the valid-order control passes. See the
+  [F05 record](wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering).
 
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 

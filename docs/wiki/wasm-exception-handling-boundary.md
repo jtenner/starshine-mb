@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-25
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../src/lib/types.mbt
@@ -105,6 +105,18 @@ Validation accepts a nullable `exnref` operand. Execution still observes the ope
 | Instruction typecheck | Checks throw payloads, nullable `throw_ref`, `try_table` body type, catch-label payload matching, and non-null exception-reference payloads for `catch_ref` / `catch_all_ref`. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt). |
 | Fuzzing and generators | GenValid and WAST arbitrary surfaces include exception/tag coverage; invalid lanes keep tag and catch-family diagnostics visible. | [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md). |
 | Optimizer passes | Any transform that deletes, moves, or rewrites tag/catch/throw carriers must preserve tag indices, catch label payloads, operand evaluation, and null-trap/rethrow behavior. | Pass-specific Binaryen dossiers plus [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md). |
+
+## October 25, 2026 — F05 legacy catch ordering
+
+The tests from verification head `3fa354e3` are retained unchanged in
+[`daybreak_bug_hunt_wbtest.mbt`](../../src/validate/daybreak_bug_hunt_wbtest.mbt).
+On the unchanged master source at `6d020542e5c54e2d1ace8db7c52e4949ff8da5de`,
+`moon test src/validate/daybreak_bug_hunt_wbtest.mbt` fails both rejection tests
+and passes the valid-order control (three tests, exit 2). The legacy catch loop
+in [`typecheck_legacy_try`](../../src/validate/typecheck.mbt) validates handler
+bodies without requiring `catch_all` to be the final clause. Duplicate
+`catch_all` clauses and typed catches after `catch_all` remain open defects
+at this test checkpoint.
 
 ## Current Gaps And Caveats
 
