@@ -67,9 +67,12 @@
   decoded output: only `i32.const 9`, with no return wrapper. No analysis,
   scheduler or transform redesign is needed.
 - Focused runs pass 115/115 perf-target, 294/294 other pass and 16/16 registry
-  tests. Analysis preparation
-  time and memory on the DAE workloads remain due. Full suite and fuzz
+  tests. Analysis preparation time and memory on the DAE workloads remain due. Full suite and fuzz
   gates wait for the tender's lease grant; no benchmark is run here.
+- The wiki index links the diagnosis. Claude returned an initial assessment;
+  its follow-up hit the session usage limit before inspection. Its unread
+  tail-strip/use-def internals are covered by parent source inspection, but
+  a complete Claude review is not claimed.
 
 ### 2026-10-25 — Complete DAE2 host-type repair gates
 

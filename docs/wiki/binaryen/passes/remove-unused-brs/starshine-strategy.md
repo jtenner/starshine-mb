@@ -135,6 +135,9 @@ requested measurement stage. It does not accept an unmeasured performance
 regression as a landing result. Claude's initial assessment did not inspect
 the tail-strip helper or use-def builder internals; the diagnosis above also
 uses direct source inspection of those paths and the exact output test.
+The scoped Claude follow-up did not run: it exited 1 with
+`You've hit your session limit · resets 11:50pm (UTC)`. The initial assessment
+is available, but the full requested Claude review remains incomplete.
 Full suite and fuzz gates remain due under the measurement lease when the
 tender grants it. No benchmark is authorized in this repair. Before landing,
 measure analysis preparation time and memory on the DAE workloads, including
