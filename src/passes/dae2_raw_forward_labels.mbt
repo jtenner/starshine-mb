@@ -925,13 +925,33 @@ fn dae2_raw_forward_dependency_plan(
   intrinsic_imports : Array[Bool]?,
   context : @ir.HotModuleContext?,
 ) -> Dae2RawPlan? {
-  let @lib.Func(locals, @lib.Expr(instructions)) = body
+  let @lib.Func(_, @lib.Expr(instructions)) = body
   let instruction_count = dae2_raw_forward_instruction_count(
     instructions, context,
   )
   if instruction_count < 0 {
     return None
   }
+  dae2_raw_forward_dependency_plan_with_count(
+    graph, infos, index, type_infos, body, intrinsic_imports, context,
+    instruction_count,
+  )
+}
+
+///|
+// Count must be a successful preflight of this exact body and context.
+// A preceding local-flow attempt cannot spend this worker's fresh budget.
+fn dae2_raw_forward_dependency_plan_with_count(
+  graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  index : Int32,
+  type_infos : Array[Int32],
+  body : @lib.Func,
+  intrinsic_imports : Array[Bool]?,
+  context : @ir.HotModuleContext?,
+  instruction_count : Int32,
+) -> Dae2RawPlan? {
+  let @lib.Func(locals, @lib.Expr(instructions)) = body
   // Count table labels as input too. Bound map discovery, stored map lanes,
   // incoming joins, restores/applications and branch payload work by the body
   // size. Exhaustion discards this uncommitted plan and keeps full HOT analysis.

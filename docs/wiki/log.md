@@ -28191,3 +28191,8 @@ arrays/typecheck wrappers from the completed return packaging change.
   partition construction and the identity fixed point are unchanged. Timing,
   memory measurements, full-suite validation and fuzzing remain deferred under
   the shared-host instruction.
+
+### 2026-10-25 — Share DAE2 fallback preflight
+
+- Recorded [one shared forward-control qualification/count](binaryen/passes/dae2/implementation-structure-and-tests.md#shared-raw-forward-control-preflight) for the immutable body/context passed to the local-flow and forward planners. Standalone admission, planner order, separate work budgets, overflow limits, and uncommitted graph isolation remain intact.
+- Added bounded plan-field, graph, boundary/write-demand, and output checks for late rejection, local-flow rejection followed by forward success, successful local flow, flat controls, branch tables, and indexed loops. All 55 selected package tests pass through the compiled runner; the `moon test` wrapper hit the shared host's thread limit. The single-count source check passes. No full suite, fuzz, or timing evidence is claimed. Measurement remains in P03d.
