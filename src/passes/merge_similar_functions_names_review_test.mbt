@@ -27,6 +27,8 @@ test "merge-similar-functions accepted merge preserves the name section" {
       ),
     ),
   )
+  let input = @binary.decode_module(@binary.encode_module(input).unwrap()).unwrap()
+  assert_true(input.raw_name_sec_payload is Some(_))
   assert_true(input.name_sec is Some(_))
   @debug.assert_eq(input.code_sec.unwrap().0.length(), 2)
   let output = merge_similar_functions_run_module_pass(input)
@@ -34,6 +36,7 @@ test "merge-similar-functions accepted merge preserves the name section" {
   @debug.assert_eq(output.code_sec.unwrap().0.length(), 3)
   assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.name_sec, input.name_sec)
+  @debug.assert_eq(output.raw_name_sec_payload, input.raw_name_sec_payload)
 }
 
 ///|
@@ -83,7 +86,7 @@ test "merge-similar-functions remaps body names and preserves other name subsect
         (3U, [(0U, "unchanged-block")]),
       ]),
     ),
-    type_names=Some(msf_names_test_map([(0U, "signature")])),
+    type_names=Some(msf_names_test_map([(0U, "record")])),
     table_names=Some(msf_names_test_map([(0U, "table")])),
     memory_names=Some(msf_names_test_map([(0U, "memory")])),
     global_names=Some(msf_names_test_map([(0U, "global")])),
@@ -95,7 +98,14 @@ test "merge-similar-functions remaps body names and preserves other name subsect
   let source = pass_test_module_from_wat(
     (
       #|(module
+      #|  (type $record (struct (field i32)))
       #|  (import "env" "imported" (func (param i32)))
+      #|  (table 1 funcref)
+      #|  (memory 1)
+      #|  (global i32 (i32.const 0))
+      #|  (elem declare func 0)
+      #|  (data (i32.const 0) "")
+      #|  (tag (param i32))
       #|  (func (param i32 i32) (result i32) (local i32)
       #|    block
       #|      nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
@@ -116,6 +126,7 @@ test "merge-similar-functions remaps body names and preserves other name subsect
   // Decode first so the input has a cached raw name payload as well.
   let input = @binary.decode_module(@binary.encode_module(source).unwrap()).unwrap()
   assert_true(input.raw_name_sec_payload is Some(_))
+  @validate.validate_module(input).unwrap()
   for dispatched in [false, true] {
     let output = if dispatched {
       run_hot_pipeline(input, HotPipelineOptions::new(), [
@@ -154,7 +165,7 @@ test "merge-similar-functions remaps body names and preserves other name subsect
     )
     @debug.assert_eq(output.name_sec, Some(expected))
     @debug.assert_eq(output.raw_name_sec_payload, None)
-    assert_true(@validate.validate_module(output) is Ok(_))
+    @validate.validate_module(output).unwrap()
     let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
     @debug.assert_eq(decoded.name_sec, output.name_sec)
     assert_true(@validate.validate_module(decoded) is Ok(_))

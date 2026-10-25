@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-25
 sources:
   - ./index.md
   - ../../../../../src/passes/merge_similar_functions.mbt
@@ -28,18 +28,31 @@ related:
 
 ## Name metadata contract
 
-An accepted ordinary merge must retain the name section. Original function
+An accepted ordinary merge retains the name section. Original function
 indices and names belong to the retained thunks. Thunks keep their parameter
-names; the primary body's local and label names belong to the appended helper,
-with local indices shifted past added parameters. Names in other subsections
-and for untouched functions must remain unchanged. Changed structured names
-must replace the cached raw payload before encoding.
+names; the primary body's local and label names move to the appended helper,
+with local indices shifted past added parameters. Non-primary body names are
+removed with those bodies. Names in other subsections and for untouched
+functions remain unchanged. Changed structured names replace the cached raw
+payload before encoding; unchanged names retain the original raw payload.
 
 The [name regressions](../../../../../src/passes/merge_similar_functions_names_review_test.mbt)
-replace the defect-confirming expectation from `562c50d9f` with this contract.
-At the regression checkpoint, two of three focused tests fail because accepted
-merges drop the complete name section. Full gates, fuzz and timing are deferred
-on the shared host; this checkpoint does not establish final pass signoff.
+replace the defect-confirming expectation from `562c50d9f`. Two of three tests
+failed first because accepted merges dropped the complete name section. The
+corrected fixtures validate their input declarations and cover direct and
+pipeline dispatch, imported and untouched functions, all supported name
+subsections, local and label remapping, raw-payload reuse and refresh, encoded
+roundtrips, and rejected merges. Two existing call-reference fixtures now use
+larger shared bodies because their previous savings depended on deleting
+function names; the encoded non-growth rule is unchanged.
+
+The repair changes accepted-rewrite metadata handling in
+[`merge_similar_functions.mbt`](../../../../../src/passes/merge_similar_functions.mbt).
+A sparse function map is allocated only when local or label name subsections
+exist. Mapping visits merged functions and name entries; it adds no body or
+class-matching scan. The unchanged complete-module encoded-size guard includes
+retained names. Full gates, fuzz and timing remain deferred at the user's
+request for the shared host. Broader MSF audit and parity gaps remain open.
 
 ## October 13, 2026 encoded-size guard and positive fixtures
 
