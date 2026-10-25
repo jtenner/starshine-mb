@@ -28157,5 +28157,6 @@ arrays/typecheck wrappers from the completed return packaging change.
 
 - Recorded the [item 3 scope and ownership checks](binaryen/passes/dae2/starshine-strategy.md#october-25-2026-fallback-write-bucket-ownership).
   Sparse and dense conservative-reference tests retain all recorded writers;
-  the allocation regression requires shared empty rows and owned nonempty rows.
+  the allocation regression confirms shared empty rows and owned nonempty rows.
+  All 16 focused tests pass after retrying the shared host's process-limit errors.
   Performance measurement remains pending under the shared-host restriction.

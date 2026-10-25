@@ -12354,10 +12354,26 @@ The baseline checkpoint runs
 `moon test src/passes/dae2_fallback_hubs_wbtest.mbt -j 2`: four tests pass;
 the shared-empty identity assertion fails as expected.
 
-The ownership target is one shared empty row and one owned row per written
-local. Shared empty rows must never be mutated. The outer array and complete
-node census remain O(L+N). The ownership test checks empty-row identity,
+The census now initializes the indexed outer array with one shared empty row.
+The first write replaces its slot with an owned singleton; later writes append
+to that nonempty row. This creates one owned row per written local. Shared empty
+rows must never be mutated. The outer array and complete node census remain
+O(L+N). The ownership test checks empty-row identity,
 independent nonempty rows, exact writer order, and separate census ownership.
+
+Focused validation passes all 16 tests with:
+
+```sh
+RAYON_NUM_THREADS=1 moon test \
+  src/passes/dae2_fallback_hubs_wbtest.mbt \
+  src/passes/dae2_lazy_flow_wbtest.mbt \
+  src/passes/dae2_selected_flow_wbtest.mbt \
+  src/passes/dae2_write_facts_wbtest.mbt -j 1
+```
+
+The initial post-change attempts could not start compiler/test processes because
+of the shared host's process limit. The cached retry above completed with no
+failures. Both changed MoonBit files were formatted. No public API changed.
 
 Measurement remains pending. Run the sparse-write, wide-local fallback workload
 with unrepresented control reads, plus dense-write and no-fallback controls,
