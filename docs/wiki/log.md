@@ -28152,3 +28152,10 @@ arrays/typecheck wrappers from the completed return packaging change.
   worker. These include existing flag, builder, payload, numeric, SIMD, string
   and atomic-effect controls. Full suites, fuzz and timing were not run on the
   shared host; no performance result is claimed.
+
+### 2026-10-25 — DAE2 fallback write-bucket ownership
+
+- Recorded the [item 3 scope and ownership checks](binaryen/passes/dae2/starshine-strategy.md#october-25-2026-fallback-write-bucket-ownership).
+  Sparse and dense conservative-reference tests retain all recorded writers;
+  the allocation regression requires shared empty rows and owned nonempty rows.
+  Performance measurement remains pending under the shared-host restriction.

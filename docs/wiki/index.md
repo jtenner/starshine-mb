@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [DAE2 fallback write-bucket ownership](binaryen/passes/dae2/starshine-strategy.md#october-25-2026-fallback-write-bucket-ownership) — Item 3 ownership target, conservative graph checks, and pending sparse/dense/no-fallback measurements.
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.
 

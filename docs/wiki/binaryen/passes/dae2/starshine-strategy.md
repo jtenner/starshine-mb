@@ -12337,3 +12337,31 @@ retained outputs match the old CLI exactly; capped retention does not prove
 byte identity for all generated outputs. The independent GPT review reports
 no confirmed defect. Claude Code reached its session usage limit before any
 review; no Claude assessment is claimed.
+
+
+## October 25, 2026: fallback write-bucket ownership
+
+Performance report item 3 is scoped to the `source_count == 0` branch in
+[`dae2_analyze_function`](../../../../../src/passes/dead_argument_elimination2.mbt).
+The bucket census is extracted without changing its node range, writer order,
+or inclusion of writes outside represented CFG flow. The
+[focused fallback tests](../../../../../src/passes/dae2_fallback_hubs_wbtest.mbt)
+compare graph demand with independent conservative direct edges for sparse
+and dense writes, including `LocalSet` and `LocalTee`. They also check that
+no-fallback analysis avoids bucket construction.
+
+The baseline checkpoint runs
+`moon test src/passes/dae2_fallback_hubs_wbtest.mbt -j 2`: four tests pass;
+the shared-empty identity assertion fails as expected.
+
+The ownership target is one shared empty row and one owned row per written
+local. Shared empty rows must never be mutated. The outer array and complete
+node census remain O(L+N). The ownership test checks empty-row identity,
+independent nonempty rows, exact writer order, and separate census ownership.
+
+Measurement remains pending. Run the sparse-write, wide-local fallback workload
+with unrepresented control reads, plus dense-write and no-fallback controls,
+for both `dae2` and `dae2-optimizing`. The read-source query
+`src/ir/local_graph.mbt::local_read_source_count_for_get` is an exercise point,
+not an implementation change. Full-suite tests, fuzzing, and timing are excluded
+from this shared-host task. No runtime or heap-byte gain is claimed.
