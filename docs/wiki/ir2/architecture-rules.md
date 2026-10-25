@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-20
+last_reviewed: 2026-10-25
 sources:
+  - ../../../src/ir/hot_verify.mbt
+  - ../../../src/ir/hot_verify_missing_operand_wbtest.mbt
   - ../../../src/ir/effects_subtree_query.mbt
   - ../../../src/ir/analysis_cache_operand_swap.mbt
   - ../../../src/passes/instruction_cache_review_wbtest.mbt
@@ -45,6 +47,21 @@ related:
 ---
 
 # IR2 Architecture Rules
+
+## Final HOT operand admission
+
+`hot_verify_core` permits `HOT_NONE_NODE` as staging storage. Final
+`hot_verify_control` and `hot_verify_all` reject it in ordinary child slots,
+including branch payloads, call arguments and callees, and live detached nodes.
+Only an absent `If` else region or legacy `Try` catch region may retain the
+sentinel. Existing control-shape checks cover all other control slots.
+See the [verifier](../../../src/ir/hot_verify.mbt) and
+[focused regressions](../../../src/ir/hot_verify_missing_operand_wbtest.mbt).
+
+The final control walk scans ordinary child spans without a new collection or
+graph traversal. It leaves core admission and lowering unchanged. Full gates
+and performance measurements are deferred; the shared-host check is limited
+to focused verifier tests.
 
 ## Counted data sizes and first-emission lowering (October 15, 2026)
 

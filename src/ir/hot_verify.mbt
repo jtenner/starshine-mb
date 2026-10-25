@@ -892,7 +892,7 @@ fn hot_verify_control_impl(
       _ => ()
     }
 
-    match node.op {
+    let check_operands = match node.op {
       HotOp::Block | HotOp::Loop => {
         for slot = 0; slot < node.child_count; slot = slot + 1 {
           let child_id = func.children[node.child_base + slot]
@@ -908,6 +908,7 @@ fn hot_verify_control_impl(
             Err(err) => return Err(err)
           }
         }
+        false
       }
       HotOp::If => {
         let entry_count = match hot_type_get_borrowed(func, node.ty) {
@@ -951,6 +952,7 @@ fn hot_verify_control_impl(
             HotVerifyError::InvalidControlChild(node_id, 2, else_region),
           )
         }
+        false
       }
       HotOp::Try => {
         needs_catch_layout = true
@@ -986,6 +988,7 @@ fn hot_verify_control_impl(
             )
           }
         }
+        false
       }
       HotOp::Continuation => {
         for target in hot_continuation_targets(func, node_id) {
@@ -1006,8 +1009,12 @@ fn hot_verify_control_impl(
             ),
           )
         }
+        true
       }
-      HotOp::Catch => needs_catch_layout = true
+      HotOp::Catch => {
+        needs_catch_layout = true
+        true
+      }
       HotOp::TryTable => {
         let entry_count = match hot_type_get_borrowed(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()
@@ -1051,6 +1058,7 @@ fn hot_verify_control_impl(
             return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
           }
         }
+        false
       }
       HotOp::Br
       | HotOp::BrIf
@@ -1133,8 +1141,22 @@ fn hot_verify_control_impl(
           }
           _ => ()
         }
+        true
       }
-      _ => ()
+      _ => true
+    }
+    // Core permits staging sentinels. The control arms above check their
+    // required children and allow only the absent else/catch region slots.
+    // Every child of an ordinary instruction must be present before lowering.
+    if check_operands {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        let child_id = func.children[node.child_base + slot]
+        if child_id == HOT_NONE_NODE {
+          return Err(
+            HotVerifyError::InvalidControlChild(node_id, slot, child_id),
+          )
+        }
+      }
     }
   }
 
