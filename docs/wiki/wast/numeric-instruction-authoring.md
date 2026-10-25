@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-29
+last_reviewed: 2026-10-25
 sources:
   - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
+  - ../../../src/wast/daybreak_bug_hunt_test.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/arbitrary.mbt
   - ../../../src/lib/types.mbt
@@ -100,6 +101,33 @@ native suites pass; V18's signed/signalling f32/f64 text-frontend witnesses
 match integer-bit observations across eleven passes and verified v133 output.
 This supersedes the earlier payload-canonicalization limitation for scalar body
 constants, while assertion and printing paths keep their separate contracts.
+
+### Scalar i32 literal range (Daybreak F06)
+
+`wt_parse_i32` now checks the parsed `Int64` before it converts the value to
+`Int32`. It accepts values from `-2147483648` through `4294967295`, inclusive.
+This is the same signed or unsigned bit-pattern range used by the existing
+`i32x4` lane parser. Values outside this range return
+`i32 literal out of range: <text>`. The accepted unsigned maximum still lowers
+to the i32 bit pattern `-1`.
+
+Verification commit `1803fd744e3a149b3e557840f3f468fd36f23e07` recorded
+`4294967296` lowering to `0` and `-2147483649` lowering to `2147483647`.
+Its focused command, `moon test src/wast/daybreak_bug_hunt_test.mbt`, reported
+1 pass and 2 failures (exit 2). Before this fix, the lowerer and copied tests
+matched that commit byte for byte. That retained red evidence was reused.
+The [tests](../../../src/wast/daybreak_bug_hunt_test.mbt) are kept with only
+formatter changes. After the fix, all 3 pass. The bounded adjacent command
+`moon test src/wast/lower_to_lib.mbt --filter '*v128.const*'` also passes all
+5 tests. This supersedes the open F06 defect; other scalar literal paths keep
+their separate contracts.
+
+Performance measurement is deferred. The changed path is scalar WAST
+`i32.const` lowering: two range comparisons precede the existing conversion,
+with no added allocation on valid inputs. Later native workloads should cover
+many valid signed constants, many valid unsigned bit patterns, and rejected
+values at both limits. No runtime or memory impact was measured. No full
+suite, fuzz, benchmark, or timing lane was run for this fix.
 
 ### Tests and comparisons produce `i32`
 

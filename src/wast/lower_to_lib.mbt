@@ -695,6 +695,9 @@ fn wt_parse_i32(text : String) -> Result[@lib.I32, String] {
   let v = @string.parse_int64(text) catch {
     _ => return Err("invalid i32 literal: \{text}")
   }
+  if v < -2147483648L || v > 4294967295L {
+    return Err("i32 literal out of range: \{text}")
+  }
   Ok(@lib.I32(v.to_int()))
 }
 

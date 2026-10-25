@@ -197,6 +197,16 @@
 - The [F05 record](wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering)
   retains the baseline, results and proposed lease-gated performance workloads.
   No full suite, fuzzing, timing or external oracle run was performed.
+### 2026-10-25 — Reject out-of-range scalar i32 constants (Daybreak F06)
+
+- The [numeric guide](wast/numeric-instruction-authoring.md#scalar-i32-literal-range-daybreak-f06)
+  records the checked range, retained red evidence from verification commit
+  `1803fd74`, and the fix in `wt_parse_i32`.
+- The copied regression tests pass all 3 cases. The adjacent filtered SIMD
+  constant tests pass all 5 cases. Only bounded WAST tests were run.
+- Performance measurement is deferred for valid signed constants, valid
+  unsigned bit patterns, and rejected boundary values. No full suite, fuzz,
+  benchmark, or timing lane was run.
 
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
