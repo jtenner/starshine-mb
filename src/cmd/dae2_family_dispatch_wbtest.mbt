@@ -82,3 +82,31 @@ test "command DAE2 keeps contravariant recursive family signatures at indirect d
     )
   }
 }
+
+///|
+test "command DAE2 modes preserve recursive identity split and collapse" {
+  for
+    (other_param, body, equivalent) in [
+      ("i64", "", false),
+      ("i32", "local.get 0 global.set $side", true),
+    ] {
+    let input = @wast.wast_to_binary_module(
+      "(module (rec (type $A (func (param i32))) (type $AX (struct (field (ref null $A))))) (rec (type $B (func (param \{other_param}))) (type $BX (struct (field (ref null $B))))) (global $side (export \"side\") (mut i32) (i32.const 0)) (table 1 funcref) (func $a (type $A) \{body}) (elem (i32.const 0) func $a) (func (export \"run\") \{other_param}.const 7 i32.const 0 call_indirect (type $B)))",
+    ).unwrap()
+    @validate.validate_module(input).unwrap()
+    for pass in ["dae2", "dae2-optimizing"] {
+      let output = optimize_module_with_pass_flags(
+        input,
+        [pass],
+        OptimizeOptions::new(closed_world=true),
+      ).unwrap()
+      @validate.validate_module(output).unwrap()
+      let env = @validate.Env::new().with_module(output)
+      assert_eq(
+        env.resolve_functype(@lib.TypeIdx::new(0U)) ==
+        env.resolve_functype(@lib.TypeIdx::new(2U)),
+        equivalent,
+      )
+    }
+  }
+}
