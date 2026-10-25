@@ -63,6 +63,16 @@ The remaining documented differences are product-level boundaries such as expres
 
 ## Exact local code map
 
+The [pass descriptor](../../../../../src/passes/remove_unused_brs.mbt) declares
+CFG and use-def, matching the implementation's direct `pass_require_cfg` and
+`pass_require_use_def` calls. The [descriptor regression](../../../../../src/passes/remove_unused_brs_descriptor_test.mbt)
+and [registry tests](../../../../../src/passes/registry_test.mbt) lock this contract.
+The scheduler prepares these cached analyses before HOT execution, including
+scalar functions that previously avoided full use-def. This supersedes the
+earlier lazy-analysis performance claims above for scheduler-driven execution;
+raw skip paths still bypass HOT preparation. The descriptor correction has no
+new timing evidence; full gates and performance checks remain deferred.
+
 | Surface | Owner |
 | --- | --- |
 | descriptor, public summary, HOT implementation | `src/passes/remove_unused_brs.mbt` |
