@@ -28267,3 +28267,13 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Added bounded tests for imported/defined tag identity, unrelated import kinds, unchanged declarations, absent/empty imports, and invalid function types. The invalid-type test first failed in the old HOT context builder.
 - Focused validation passes 22/22 tests (21 white-box and one internal). The `moon test` launcher hit the shared host process limit after compilation; direct `moonrun` execution of the current compiled test drivers passed the selected files and indices.
 - Performance remains unmeasured. Defined-tag modules with many unrelated declarations, with/without foldable catches, and tagless/imported-only controls await a measurement slot. No full suite, fuzz, or timing runs are part of this change.
+### 2026-10-25 — Preserve legacy spec runner path arguments
+
+- Fixed F14 by copying each argument after `argv[0]` unchanged, without
+  trimming or filtering. Leading, trailing, and whitespace-only names survive.
+- Retained the committed verification harness and exact-source red evidence
+  from `7e10d18d` (1 passed, 3 failed); the focused native package now passes
+  all 4 tests. No suite, fuzz, benchmark, timing, or agent run was made.
+- Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
+  Legacy package/filesystem/WASI integration remains active backlog work;
+  these unit tests do not establish a working legacy executable.
