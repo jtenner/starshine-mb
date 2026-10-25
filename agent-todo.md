@@ -13,17 +13,17 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
-### Atomic public flag full gates [IR2-ATOMIC-FLAGS]
+### Atomic public flag measurement [IR2-ATOMIC-FLAGS]
 
-- **Goal / why:** complete broad signoff for the repaired public atomic flags;
-  the shared host permits focused IR tests only.
-- **Deliverables / tasks:** run full validation when the host is available;
-  retain exact atomic read/write/trap and result flags across all mutations.
-- **Required APIs / invariants:** builders, node setters, exact-instruction
-  mutation and verification use `imm1` for the atomic instruction payload.
-- **Dependencies / exit / tests:** full gates must pass before landing. Keep
-  the [atomic flag fixtures and contract](docs/wiki/ir2/architecture-rules.md#atomic-public-flags);
-  no full-suite, fuzz or timing result is claimed for this focused repair.
+- **Goal / why:** quantify the unmeasured cost of the repaired atomic flags in
+  builders, mutations and core verification after the correctness landing.
+- **Deliverables / tasks:** measure runtime and allocation on atomic families
+  and ordinary-node controls; check downstream atomic cleanup/output effects.
+- **Required APIs / invariants:** preserve exact read/write/trap/result flags;
+  builders, setters, replacement and verification use the payload in `imm1`.
+- **Dependencies / exit / tests:** full gates are green at `294899119`; retain
+  the [fixtures and contract](docs/wiki/ir2/architecture-rules.md#atomic-public-flags).
+  Later controlled evidence is required before any performance claim.
 
 ### Native command fixture baseline [IR2-CMD-FIXTURE-BASELINE]
 

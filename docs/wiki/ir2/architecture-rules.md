@@ -715,8 +715,19 @@ verification use the same flag calculation. The [focused regressions](../../../s
 and [waitqueue fixture](../../../src/ir/binaryen132_waitqueue_test.mbt) check
 the public flags separately from the exact effect mask. Atomic ordering and
 blocking-control effects remain in that mask; public `CONTROL` describes
-structured control nodes. Full gates remain pending under the shared-host
-restriction; these fixtures do not establish pass or performance signoff.
+structured control nodes. The initial shared-host repair deferred full gates;
+the fixtures alone do not establish pass or performance signoff.
+
+On October 25, candidate `294899119` merges `d3a472c49c` onto master
+`fdae275a1`. All nine focused IR files pass 32/32. Eight sequential Wasm
+batches of at most 300 source files pass 15,451/15,451.
+`bun validate full --profile ci --target wasm-gc` passes info/fmt/check,
+15,449/15,449 tests and all 14 CI fuzz suites, seed `117503808036238818`.
+This closes the repair's full-gate deferral. The architecture sources list
+retains both the verifier and atomic citations. Six unrelated formatter
+migrations were excluded; no API snapshot changed. Flag calculation, builders,
+mutation and core-verifier cost still need later measurement. No timing
+measurement or general pass-performance claim is made.
 
 ## Performance reuse ownership contracts
 

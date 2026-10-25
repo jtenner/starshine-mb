@@ -1,3 +1,15 @@
+### 2026-10-25 — Complete atomic public-flag repair gates
+
+- The [atomic flag contract](ir2/architecture-rules.md#atomic-public-flags)
+  passes 32 focused IR tests at `294899119`. Eight bounded workspace batches
+  pass 15,451/15,451 Wasm tests. Full CI passes info/fmt/check,
+  15,449/15,449 Wasm-GC tests and all 14 fuzz suites, seed
+  `117503808036238818`. No default tests or fuzz stages were disabled.
+- Both architecture source lists and the final-operand verifier are retained.
+  Six unrelated formatter migrations are excluded. The completed full-gate
+  backlog item now tracks the remaining flag-cost measurement question.
+  No timing measurement was run.
+
 ### 2026-10-25 — Complete HOT operand repair gates
 
 - The [final operand contract](ir2/architecture-rules.md#final-hot-operand-admission)
