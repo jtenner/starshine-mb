@@ -5005,26 +5005,37 @@ test "remove-unused-brs skips structured return ladders when a false prefix guar
 }
 
 ///|
-test "remove-unused-brs rewrites scalar tail returns without full use-def" {
+test "remove-unused-brs prepares declared analyses while rewriting scalar tail returns" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
 
-  match
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) i32.const 9 return))",
       ["remove-unused-brs"],
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail("expected tail-return remove-unused-brs success, got \{err}")
+  }
+
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.I32Const(@lib.I32(9))]))])) =>
+      ()
+    other =>
+      fail(
+        "expected tail return to become the exact constant payload, got \{@debug.to_string(other)}",
+      )
   }
 
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
-  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
+  // The scheduler prepares the descriptor's requirements before the tail rewrite.
+  assert_true(text.contains("perf:timer name=analysis:cfg"), msg=text)
+  assert_true(text.contains("perf:timer name=analysis:use-def"), msg=text)
 }
 
 ///|

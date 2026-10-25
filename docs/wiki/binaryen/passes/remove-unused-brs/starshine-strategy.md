@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-10-25
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -85,6 +85,61 @@ new timing evidence; full gates and performance checks remain deferred.
 | ordered artifact/CLI replay | `src/cmd/cmd_wbtest.mbt` |
 
 The exact helper inventory remains in [`./pattern-catalog.md`](./pattern-catalog.md).
+
+## Round-2 fix 1: tail-return contract repair — 2026-10-25
+
+Source fix `79d1058e84c3dade6e217bae85a689bc3ef03a99` and failed landing
+candidate `5fe834041e2b5619194b04dc9e9445fe253a874b` identify this change.
+The campaign report is on `gate/r2-fix-landing` at
+`docs/r2-fix-landing-results.md`; that report is absent from master.
+The three source commits were rebased onto master
+`1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`, producing candidate
+`646ff3779`. Before repair, the focused tail-return test reproduced the
+original failure at `perf_test.mbt:5027`: **0/1 passed**.
+
+The disagreement is between a test's analysis-avoidance claim and the
+scheduler's preparation contract. The [tail target and strip helpers](../../../../../src/passes/remove_unused_brs.mbt)
+recognize the function continuation and replace a tail return with its
+payload. That local rewrite needs no use-def query. However,
+[`hot_pass_run_with_aggregate_perf_timer`](../../../../../src/passes/pass_manager.mbt)
+calls [`pass_prepare_requirements`](../../../../../src/passes/pass_common.mbt)
+before dispatch. The descriptor's CFG and use-def requirements therefore
+prepare both analyses even for this scalar case. Use-def records live
+node-use sites and local/block facts; its [cache](../../../../../src/ir/analysis_cache.mbt)
+is keyed by function revision. It does not promise to skip scalar returns.
+The trace reaches successful final-module validation and reports a changed
+pass; the failure is the old negative timer assertion, not a use-def
+invariant or an invalid rewrite.
+
+Repair attempt 1 updates the existing [tail-return regression](../../../../../src/passes/perf_test.mbt)
+to require both declared analyses. It also checks decoded code-section
+instructions: the function must contain exactly `i32.const 9`, with the
+return removed. This behavior assertion was added first and passed before
+the old timer assertion failed again. No analysis, scheduler or transform
+code is changed by the repair. No second repair attempt was needed.
+The descriptor fix deliberately gives up the old scheduler-level lazy
+preparation claim; preserving that claim would be a separate policy change.
+
+Focused validation: the repaired tail-return test passes **1/1**; the complete
+`perf_test.mbt` target passes **115/115**; the eleven other explicit pass files
+filtered with `*remove-unused-brs*` pass **294/294**; registry tests pass
+**16/16**. The latter three runs cover **425 distinct tests**. Commands and
+raw logs are in `/tmp/starshine-fix1-repair-20261025/`. The test source was
+formatted with `moonfmt`; no public API snapshot changed.
+
+Independent read-only GPT and Claude inspections identified the same
+scheduler-versus-lazy-test conflict. Claude prefers a documented lazy
+exception and flags the extra preparation cost. That preference is not
+adopted here: this repair retains fix 1's descriptor correction for the
+requested measurement stage. It does not accept an unmeasured performance
+regression as a landing result. Claude's initial assessment did not inspect
+the tail-strip helper or use-def builder internals; the diagnosis above also
+uses direct source inspection of those paths and the exact output test.
+Full suite and fuzz gates remain due under the measurement lease when the
+tender grants it. No benchmark is authorized in this repair. Before landing,
+measure analysis preparation time and memory on the DAE workloads, including
+pre-pass preparation outside the `pass:remove-unused-brs` timer. Extra CFG and
+use-def allocation and traversal costs remain unmeasured.
 
 ## What the local pass already models well
 

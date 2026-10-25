@@ -55,6 +55,21 @@
   **356.740 → 337.624 ms (-4.80%)**, RSS **32,980 → 33,036 KiB**.
   All 15,488 native tests and 14 CI fuzz suites (100,772 attempts) pass.
   Raw/tiny controls and limits remain in the [measured landing record](../../experiment-results.md#landing-status).
+### 2026-10-25 — Repair round-2 remove-unused-brs tail-return contract
+
+- Rebased source fix `79d1058e8` onto master `1f67ff580`, producing
+  `646ff3779`. The unchanged scalar tail-return test reproduced the
+  `perf_test.mbt:5027` failure, 0/1 passed.
+- The [contract diagnosis](binaryen/passes/remove-unused-brs/starshine-strategy.md#round-2-fix-1-tail-return-contract-repair--2026-10-25)
+  separates the local tail rewrite from eager scheduler preparation. The
+  old test forbids use-def construction, but the descriptor requires it
+  before dispatch. Attempt 1 aligns the expectation and also checks exact
+  decoded output: only `i32.const 9`, with no return wrapper. No analysis,
+  scheduler or transform redesign is needed.
+- Focused runs pass 115/115 perf-target, 294/294 other pass and 16/16 registry
+  tests. Analysis preparation
+  time and memory on the DAE workloads remain due. Full suite and fuzz
+  gates wait for the tender's lease grant; no benchmark is run here.
 
 ### 2026-10-25 — Complete DAE2 host-type repair gates
 

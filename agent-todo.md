@@ -27,6 +27,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   closes the prior measurement task, with its accepted RSS cost explicit.
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
+
+- **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;
+  its eager preparation supersedes scalar tail-return analysis avoidance.
+- **Deliverables / tasks:** retain exact tail-return output and descriptor
+  regressions; measure analysis preparation time and memory on the DAE
+  workloads; renew the full suite and fuzz gates after the tender grants
+  the lease. No full gate, fuzz or benchmark is authorized in the repair.
+- **APIs / invariants:** prepare declared analyses before HOT dispatch;
+  preserve revision-keyed invalidation, return payloads and valid output.
+- **Dependencies / exit / tests:** focused perf target and pass/registry tests,
+  then leased full gates plus preparation-time and memory evidence. See the
+  [contract diagnosis](docs/wiki/binaryen/passes/remove-unused-brs/starshine-strategy.md#round-2-fix-1-tail-return-contract-repair--2026-10-25).
+
 ### Atomic public flag measurement [IR2-ATOMIC-FLAGS]
 
 - **Goal / why:** quantify the unmeasured cost of the repaired atomic flags in
