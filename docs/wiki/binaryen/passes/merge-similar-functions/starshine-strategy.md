@@ -54,6 +54,24 @@ class-matching scan. The unchanged complete-module encoded-size guard includes
 retained names. Full gates, fuzz and timing remain deferred at the user's
 request for the shared host. Broader MSF audit and parity gaps remain open.
 
+### Focused verification status (October 25, 2026)
+
+The three name regressions pass, including valid input/output and encoded
+roundtrips. The focused command-route test and tiny-wrapper rejection test
+also pass. The initial main-file run passed 14 of 16 cases; the two remaining
+call-reference fixtures were then enlarged as described above. Final main-file,
+white-box and shape-hash verification is blocked by shared-host process/thread
+exhaustion (`Resource temporarily unavailable`, OS error 11), including a
+one-CPU, one-job, sequential-test retry. The corrected main file reached the
+test-executable launch but did not produce final test results.
+
+Resume with the main file's indices `0-16`, white-box indices `0-8`, and
+`merge_similar_functions_shape_collision_perf_wbtest.mbt` filtered to
+`MergeSimilar shape hash*`. These selections exclude the GenValid case, timing
+test and benchmarks. Full gates, fuzz and timing were not run. Claude Code's
+read-only review aborted with exit 134 before an assessment. The fix is
+committed, but remaining focused checks and full gates must pass before land.
+
 ## October 13, 2026 encoded-size guard and positive fixtures
 
 The October 11 final encoded-size guard remains strict: the ordinary MSF candidate must not grow the complete encoded module. The weighted instruction-count estimate only admits a candidate for construction; it does not override measured helper/type/index costs. A fourteen-`nop` pair is 61 bytes before outlining and 62 after, even in verified Binaryen 133. The [ordinary-overhead regression](../../../../../src/passes/merge_similar_functions_wbtest.mbt) now proves that estimate passes but the actual candidate is rejected. Existing function/type index-boundary rejection tests remain unchanged.

@@ -1,3 +1,14 @@
+### 2026-10-25 — Preserve names during similar-function merges
+
+- The [MSF repair](binaryen/passes/merge-similar-functions/starshine-strategy.md#name-metadata-contract)
+  retains function and unrelated names, moves primary local/label names to
+  helpers, and refreshes raw name bytes when needed. The existing encoded-size
+  guard still includes all retained metadata.
+- Three name regressions, the focused command route and tiny-wrapper rejection
+  pass. Final remaining focused checks are blocked by the shared host's OS
+  thread limit; full gates, fuzz and timing remain unrun. The linked status
+  records exact remaining selections and the aborted independent review.
+
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
 - Red-first regressions reproduce nine IR ownership/invariant defects, two
