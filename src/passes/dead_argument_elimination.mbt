@@ -8353,10 +8353,9 @@ fn dae_hot_param_entry_liveness(
     conservative_exception_entries=false,
     expand_operand_control=true,
   )
-  let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
-  let liveness = @ir.liveness_build(
+  let liveness = @ir.liveness_build_from_func(
+    hot,
     cfg,
-    use_def,
     include_exceptional_edges=true,
   )
   let entry = @ir.cfg_entry_block(cfg)
@@ -54966,6 +54965,40 @@ test "DAE lightweight result cascade retains full refresh facts and output witho
   // Count-only result refresh must not construct records that it discards.
   for infos in observed {
     assert_eq(infos.length(), 0)
+  }
+}
+
+///|
+test "DAE HOT entry masks match full use-def through nested branches and exceptions" {
+  for
+    wat in [
+      "(module (func (param i32 i32) (result i32) (local i32) block (result i32) block (result i32) local.get 0 br 1 end end local.get 1 local.set 2 i32.const 5 local.set 0))",
+      "(module (tag $e) (func (param i32 i32) (local i32) block $exit block $catch try_table (catch $e $catch) local.get 0 local.set 2 throw $e end br $exit end local.get 2 drop local.get 1 drop end))",
+    ] {
+    let input = pass_test_module_from_wat(wat)
+    @validate.validate_module(input).unwrap()
+    let saved = @binary.encode_module(input).unwrap()
+    assert_true(dae_fast_param_entry_liveness(input, 0, 2) is None)
+    let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let cfg = @ir.cfg_build(
+      hot,
+      conservative_exception_entries=false,
+      expand_operand_control=true,
+    )
+    let reference = @ir.liveness_build(
+      cfg,
+      @ir.use_def_build(hot, cfg=Some(cfg)),
+      include_exceptional_edges=true,
+    )
+    let entry = @ir.cfg_entry_block(cfg)
+    let expected = [
+      @ir.local_live_in(reference, entry, 0),
+      @ir.local_live_in(reference, entry, 1),
+    ]
+    assert_eq(expected, [true, true])
+    assert_eq(dae_hot_param_entry_liveness(input, 0, 2), Some(expected))
+    assert_eq(dae_incoming_parameter_liveness(input, 0, 2), expected)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
 

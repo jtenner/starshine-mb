@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-20
+last_reviewed: 2026-10-25
 sources:
   - ../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt
   - ./index.md
@@ -26,6 +26,33 @@ related:
 ---
 
 # Starshine `dead-argument-elimination` strategy and status
+
+## October 25, 2026: block-only liveness in the HOT fallback
+
+DAE and DAE-optimizing now call the existing
+[`liveness_build_from_func`](../../../../../src/ir/liveness.mbt) API in
+`dae_hot_param_entry_liveness`. This skips the unused node-use and per-local
+read/write overlays from [`use_def_build`](../../../../../src/ir/use_def.mbt).
+CFG construction, block-set construction (including local-write-block scratch),
+solver order, exceptional edges, admission, and the syntactic-read supplement
+remain unchanged. There is no new HOT cache, and the raw fast path is unchanged.
+
+The [entry-mask tests](../../../../../src/passes/dead_argument_elimination.mbt)
+compare the HOT fallback with full use-def liveness for nested branch carriers
+and exception handlers. Existing raw/HOT handoff tests protect the syntactic-read
+supplement and input ownership. The [command fixture](../../../../../src/cmd/cmd.mbt)
+covers single and nested branch carriers in both DAE modes. These bounded checks
+support item 1 of the DAE performance report; they do not measure runtime or
+allocation savings. Focused validation passes 15 tests: three block-only IR tests,
+eight DAE handoff/branch tests, three implementation tests, and one command test
+covering both DAE modes. Initial Moon runs hit the shared host's process/thread
+limit; current-build IR/pass tests then passed directly with `moonrun`, and the
+command test passed through `moon test`. Timing, allocation/peak-memory
+measurements, full-suite validation, and Binaryen comparisons were not run on
+the shared host. Before
+landing, measure nested branch-carried values with many shared operands/locals;
+include raw-admitted and tiny bodies as controls. Check path reachability and
+output/validation equality for both DAE modes. No speed or memory gain is claimed.
 
 ## September 29, 2026 reverse literal signature reuse
 
