@@ -3,6 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-10-26
 sources:
+  - ../../../../../src/passes/dae_signature_key.mbt
+  - ../../../../../src/passes/dae_signature_key_wbtest.mbt
+  - ../../../../../src/cmd/dae_signature_key_wbtest.mbt
   - ../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -108,6 +111,46 @@ must exercise many late groups with relative parameter/result references,
 absolute-reference and numeric controls, and both unread-parameter and
 dropped-result batches through `DaeTypeUpdateIndex::new`. Full-suite, fuzz,
 timing, and memory runs are deferred under the shared-host restriction.
+
+## October 25, 2026 structural existing-signature keys
+
+Performance-report item 8 replaces rendered parameter/result strings with an
+owned structural key in the existing DAE signature index. The
+[key builder](../../../../../src/passes/dae_signature_key.mbt) records type
+constructors, lane lengths and scalar fields without formatting strings. It
+walks embedded definitions into owned parts, so later source-array changes
+cannot change stored keys. Key construction and hashing remain linear in the
+signature and its embedded definitions.
+
+The index still consumes the same already-absolutized signatures, keeps the
+first existing flattened type index, uses the same subtype metadata admission,
+and has the same batch lifetime. Unread-parameter and dropped-result producers
+continue to use that index. The shared-object pass retains its rendered helper. There is no cross-pass
+cache or change to type semantics. In particular, the key preserves abbreviated versus expanded
+references and single versus grouped embedded definitions; ordinary IR equality
+merges some of these spellings and therefore cannot replace this key contract.
+
+The old renderer equates explicit final subtypes with empty supertype lists and
+plain composite subtypes. It also omits shared metadata inside embedded subtype
+definitions. The structural key retains both equivalences. The latter is an
+existing key-collision risk reserved for the separate correctness sweep, not
+fixed by this performance item; see `src/lib/show.mbt::Show for SubType`.
+
+[Focused key tests](../../../../../src/passes/dae_signature_key_wbtest.mbt)
+compare key equality and map lookup with the previous rendered contract for
+reference flags, shared heaps, recursive indices and embedded definitions. They
+also cover ownership, lane boundaries, first-index selection, and repeated
+versus distinct wide signatures. Existing
+[type-update tests](../../../../../src/passes/dae_type_update_index_wbtest.mbt)
+and [batch tests](../../../../../src/passes/dae_batch_signature_scan_wbtest.mbt)
+cover recursive absolutization and batch consumers.
+
+Performance is unmeasured. After the shared-host restriction is lifted, measure
+repeated equivalent and distinct wide signatures, recursive signatures, and
+small scalar controls through `dae_structural_func_type_lookup`,
+`dae_update_defined_func_type`, unread-parameter batches and dropped-result
+batches. Record allocation and memory costs as well as pass-local and command
+costs. This change does not claim a speedup or renew Binaryen parity evidence.
 
 ## September 29, 2026 reverse literal signature reuse
 
