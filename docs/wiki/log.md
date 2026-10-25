@@ -1,3 +1,19 @@
+### 2026-10-25 — Reject missing final HOT operands
+
+- Final control/all verification now rejects `HOT_NONE_NODE` in ordinary
+  child slots, including branch payloads and call arguments/callees. Core
+  staging admission and valid absent else/catch regions remain unchanged.
+  The [operand contract](ir2/architecture-rules.md#final-hot-operand-admission)
+  links the source and focused tests.
+- The supplied drop regression failed before the change. Expanded tests then
+  reported five failures and one passing optional-region control; all six
+  now pass. All **32/32** tests in the seven focused verifier files pass with
+  one build job and sequential execution.
+- Full gates, fuzz and timing runs were deliberately deferred for the shared
+  host. The final control walk adds a scalar scan of ordinary child spans;
+  no new collection or graph traversal is introduced. Runtime cost is not
+  measured, and full gates remain required before landing.
+
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
 - Red-first regressions reproduce nine IR ownership/invariant defects, two
