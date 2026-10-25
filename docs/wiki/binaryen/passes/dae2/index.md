@@ -52,7 +52,8 @@ signatures and effect-free-call intrinsics constrain signature changes.
 Retained `ref.test` and `ref.cast` targets keep their original type closure,
 including with host-origin abstract `funcref` values; the
 [October 25 repair](implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)
-records the focused coverage and deferred full gates.
+records focused coverage, green landing gates, and the remaining type-retention
+measurement question.
 Post-tag #8994 is included: an unchangeable indirect tail callee also pins its
 caller's matching results. Multi-value results are one usage unit, not independent
 slots.

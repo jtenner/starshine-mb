@@ -190,10 +190,22 @@ The command was `moon test -j 1` with those five file paths explicitly selected.
 
 The changed preparation path adds target handling to an existing traversal and
 reuses its type mask; it adds no traversal or mask allocation. More types can
-remain live, which can reduce later optimization. Performance was not measured:
-the user requested only focused DAE2 tests on the shared host, with no full
-suite, fuzz or timing. Full validation remains a landing gate. These structural
-tests do not claim a cross-module runtime replay or new Binaryen comparison.
+remain live, which can reduce later optimization. Performance remains
+unmeasured. The original shared-host repair deferred full suites and fuzz;
+the serial landing results below supersede that gate deferral.
+
+On October 25, candidate `6a370bb5c` merges `a33d71cb41` onto master
+`3a31c388f`. The original five-file focused selection passes 18/18. Eight
+sequential Wasm batches of at most 300 source files pass 15,455/15,455.
+`bun validate full --profile ci --target wasm-gc` passes info/fmt/check,
+15,453/15,453 tests and all 14 CI fuzz suites, seed `117503874903495699`.
+Both independent wiki-log additions are retained. Six unrelated formatter
+migrations were excluded; no API snapshot changed.
+
+No timing measurement, new cross-module host runtime replay or new Binaryen
+comparison is claimed. The type-retention effect on runtime, allocation,
+output size and signature-pruning yield remains explicit follow-up work in
+both DAE2 modes, including host-value and private-direct controls.
 
 ## Host-visible abstract function tables
 

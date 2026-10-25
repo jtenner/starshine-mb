@@ -1205,12 +1205,12 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Run full landing gates for the retained `ref.test` / `ref.cast` target
-  repair on host-origin abstract `funcref` values. Verification head `be26b7d65`
-  and failing-first regressions establish the defect; preparation now retains
-  target type dependencies while direct-only signature pruning stays active.
-  [Contract and tests](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25).
-  Full gates, fuzz and timing are deferred on the shared host by user request.
+- [ ] Measure retained `ref.test` / `ref.cast` target cost after the host-type
+  correctness landing. Full gates are green at `6a370bb5c`; runtime, allocation,
+  output size and signature-pruning yield remain unmeasured. Compare host-origin
+  abstract `funcref` and private-direct controls in both DAE2 modes. Preserve
+  original runtime target identities and complete type/group dependency closure.
+  [Contract, tests and gate evidence](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25).
 
 - [ ] Reduce the continuation fixture's3B raw code-shape excess (84/81B after
   name removal), preserving resume handler target depths and nullable/GC types.

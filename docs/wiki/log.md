@@ -1,3 +1,15 @@
+### 2026-10-25 — Complete DAE2 host-type repair gates
+
+- The [host-type repair](binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)
+  passes all 18 focused tests at `6a370bb5c`. Eight bounded workspace batches
+  pass 15,455/15,455 Wasm tests. Full CI passes info/fmt/check,
+  15,453/15,453 Wasm-GC tests and all 14 fuzz suites, seed
+  `117503874903495699`. No default tests or fuzz stages were disabled.
+- The wiki-log conflict retains both independent blocks. Six unrelated formatter
+  migrations are excluded. The completed landing-gate task now tracks retained
+  type runtime/allocation and output/optimization effects in both DAE2 modes.
+  No timing measurement was run; retaining types can still reduce optimization.
+
 ### 2026-10-25 — Preserve DAE2 host-observed runtime type targets
 
 - The [repair record](binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)
