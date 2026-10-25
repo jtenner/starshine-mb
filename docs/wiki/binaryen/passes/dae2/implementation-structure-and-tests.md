@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-25
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -10,6 +10,8 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
   - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_host_types_wbtest.mbt
+  - ../../../../../src/cmd/dae2_host_types_wbtest.mbt
   - ../../../../../src/cmd/dae2_family_dispatch_wbtest.mbt
   - ../../../../../src/validate/match.mbt
   - ../../../../../tests/optimizer/regressions/round2-correctness.test.ts
@@ -159,6 +161,20 @@ checks in `tests/optimizer/regressions/round2-correctness.test.ts` cover both
 directions, including recursive groups. See the
 [second audit](../../../ir2/architecture-rules.md#september-12-second-correctness-audit)
 for final evidence and limitations.
+
+## Host-origin runtime type tests — 2026-10-25
+
+Verification head `be26b7d65` proves that DAE2 can change a retained `ref.test`
+target from `(func (param i64))` to `(func)` after an imported function returns
+an abstract `funcref`. Internal type-partition checks do not protect identities
+supplied by the host. The target and its type dependencies must keep their
+original signatures, including when a retained `ref.cast` uses the target.
+
+The [pass regressions](../../../../../src/passes/dead_argument_elimination2_host_types_wbtest.mbt)
+check the actual retained instruction target, parameter and result types, nested
+control, and both DAE2 modes. The
+[command regression](../../../../../src/cmd/dae2_host_types_wbtest.mbt) covers the
+active dispatcher. The test checkpoint intentionally leaves this defect open.
 
 ## Host-visible abstract function tables
 

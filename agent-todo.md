@@ -1193,6 +1193,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
+- [ ] Preserve retained `ref.test` / `ref.cast` target signatures on host-origin
+  abstract `funcref` values. Verification head `be26b7d65` and the focused
+  `dead_argument_elimination2_host_types_wbtest.mbt` regressions fail before the
+  fix. Keep type dependencies intact and direct-only signature pruning active.
+  [Contract and tests](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25).
+  Full gates, fuzz and timing are deferred on the shared host by user request.
+
 - [ ] Reduce the continuation fixture's3B raw code-shape excess (84/81B after
   name removal), preserving resume handler target depths and nullable/GC types.
   Verified133 one-write strip-debug output is exactly81B on both sides; this is
