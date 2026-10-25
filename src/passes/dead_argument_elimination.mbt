@@ -8353,10 +8353,9 @@ fn dae_hot_param_entry_liveness(
     conservative_exception_entries=false,
     expand_operand_control=true,
   )
-  let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
-  let liveness = @ir.liveness_build(
+  let liveness = @ir.liveness_build_from_func(
+    hot,
     cfg,
-    use_def,
     include_exceptional_edges=true,
   )
   let entry = @ir.cfg_entry_block(cfg)

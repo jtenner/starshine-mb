@@ -1554,6 +1554,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
 
+- [ ] **Item 1 HOT block-only liveness measurement:** the API replacement is
+  implemented; [scope and controls](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-block-only-liveness-in-the-hot-fallback).
+  Measure nested branch-carried values with many shared operands/locals, plus
+  raw-admitted and tiny controls in both DAE modes. Preserve CFG flags, exception
+  edges, admission, and the syntactic-read supplement; require output/validation
+  equality and runtime/allocation/peak-memory evidence before landing.
+
 - [ ] **October 15 discovery/setup signoff:** source-invariant sink scans reuse
   one context; empty adjacent roots and result worklists skip unused snapshots
   and graphs. Preserve source/current import and definition bounds, prior

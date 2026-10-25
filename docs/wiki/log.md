@@ -125,6 +125,18 @@
   Full-suite validation remains pending the compute lease; benchmarks and fuzz
   rounds were explicitly excluded from this task.
 
+### 2026-10-25 — Use block-only liveness in DAE's HOT fallback
+
+- The [DAE record](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-block-only-liveness-in-the-hot-fallback)
+  records item 1's replacement of the unused full use-def overlay with the
+  existing block-only API. CFG flags, exception edges, admission and the
+  syntactic-read supplement are preserved.
+- All 15 focused tests pass. Bounded tests compare nested-branch and exception
+  entry masks with the full analysis; command coverage includes both DAE modes.
+  Runtime, allocation and
+  peak-memory measurements remain pending for branch-carried values with many
+  shared operands/locals, raw-admitted controls and tiny bodies.
+
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 
 - Red-first regressions reproduce nine IR ownership/invariant defects, two
