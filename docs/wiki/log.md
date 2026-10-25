@@ -1,3 +1,16 @@
+### 2026-10-25 — Bound Moon suite launch selections
+
+- The scratch-write-set full-suite attempt exited `255` before passes whitebox
+  tests could start: `Argument list too long (os error 7)`. No change was landed.
+- [Validation gates](tooling/validation-gates.md) now document sequential
+  300-file batches in `bun validate test` and the test step of `bun validate full`.
+  Discovery still selects every source file; Moon keeps default test semantics.
+  A failed batch stops execution. The full gate still has a separate fuzz stage.
+- The new regression failed before the fix; both harness test files now pass
+  `10/10`. A real 300-file batch with a one-test filter starts the passes
+  whitebox runner and passes `1/1`. No full suite, fuzz round, or benchmark was
+  run for this off-lease repair. Complete validation remains pending a new grant.
+
 ### 2026-10-24 — Port flatten scratch write sets independently
 
 - [Flatten implementation notes](binaryen/passes/flatten/implementation-structure-and-tests.md#reusable-local-write-scratch)

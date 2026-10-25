@@ -54,6 +54,35 @@ describe("native Moon validation launch", () => {
     }]);
   });
 
+  test("bounds selections to 300 files and stops after a failed batch", () => {
+    const repoRoot = testWorkspace();
+    for (let i = 0; i < 600; i++) {
+      fs.writeFileSync(path.join(repoRoot, "src/example", `source-${String(i).padStart(4, "0")}.mbt`), "");
+    }
+    const selections: string[][] = [];
+    runValidateTest({ target: "wasm-gc", moonBin: "custom-moon" }, {
+      repoRoot,
+      run(_command, args) {
+        selections.push(args.slice(5));
+        return { stdout: "", stderr: "" };
+      },
+    });
+    expect(selections.map(files => files.length)).toEqual([300, 300, 3]);
+    const expected = fs.readdirSync(path.join(repoRoot, "src/example"))
+      .sort().map(file => `src/example/${file}`);
+    expect(selections.flat()).toEqual(expected);
+    let calls = 0;
+    expect(() => runValidateTest({ target: "wasm-gc", moonBin: "custom-moon" }, {
+      repoRoot,
+      run() {
+        calls++;
+        if (calls === 2) throw new Error("batch failed");
+        return { stdout: "", stderr: "" };
+      },
+    })).toThrow("batch failed");
+    expect(calls).toBe(2);
+  });
+
   test("full validation reuses the same launch and stops before fuzz on a Moon failure", () => {
     const repoRoot = testWorkspace();
     const calls: string[][] = [];

@@ -94,6 +94,15 @@ Starshine has three layers of validation:
 
 The important maintenance rule is: **do not blur tool capability with repo policy**. The official [Moon command manual](https://moonbitlang.github.io/moon/commands.html) establishes the upstream commands as building blocks, but Starshine's exact default target, target whitelist, fuzz profile, command order, and CI/reporting semantics live in [`scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts), and the command-shape tests in [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts). For the runtime `starshine` command itself, use the separate dispatcher contract in [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md).
 
+For large workspaces, use `bun validate test --target wasm` in place of bare
+`moon test`. Both select all default source-file tests, but the wrapper splits
+selection into sequential batches of at most 300 files. This avoids the Linux
+argument-size failure when Moon serializes package-wide whitebox selections.
+A failed batch stops the run; later batches do not run. `bun validate full` uses
+the same bounded test step and still includes its separate fuzz stage.
+See [`validate-task.ts`](../../../scripts/lib/validate-task.ts) and its
+[launch tests](../../../scripts/lib/validate-task.test.ts).
+
 ## Command Matrix
 
 | Command | What it proves locally | Inputs and defaults | Use it when |
@@ -102,7 +111,7 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `moon fmt` | MoonBit source formatting is normalized. | Starshine invokes mutating `moon fmt`, not `moon fmt --check`, so the gate can rewrite files; review the post-gate diff before commit. | Every source-changing slice before commit. |
 | `moon check --target <target>` | The workspace type-checks for the selected Moon target without running tests. | `bun validate full` defaults to `wasm-gc`; the local wrapper forwards only repo-whitelisted targets. Upstream path selectors and `moon check --fmt` are available for focused work but are not part of the full-gate command shape. | Full-gate pre-test typecheck and target-specific breakage triage. |
 | `moon test --target <target>` | Deterministic package tests pass for the selected target. | `bun validate full` defaults to `wasm-gc`; upstream supports path/package/doc/index/update controls for focused TDD, while the local full gate intentionally runs the workspace-level target test. | Required for behavior changes; prefer focused `moon test src/<pkg>` earlier in a TDD loop. |
-| `bun validate test [--target wasm-gc] [--moon path]` | Runs every default source-file test through Moon, using explicit file paths to keep its launch arguments bounded. | Defaults: target `wasm-gc`, at most 16 workers, all `.mbt` and `.mbt.md` files under `src/`; Moon retains test-kind, skip, expected-panic, and result semantics. | Complete test execution without fuzz; CI uses `--target wasm` to preserve its original backend. |
+| `bun validate test [--target wasm-gc] [--moon path]` | Runs every default source-file test through Moon, using sequential batches of at most 300 explicit source paths to keep Moon's per-test-kind launch arguments bounded. | Defaults: target `wasm-gc`, at most 16 workers, all `.mbt` and `.mbt.md` files under `src/`; Moon retains test-kind, skip, expected-panic, and result semantics. | Complete test execution without fuzz; CI uses `--target wasm` to preserve its original backend. |
 | `bun validate full [--profile ci] [--seed <seed>] [--target wasm-gc]` | Runs the repo's local CI floor: `info`, `fmt`, `check`, `test`, then all fuzz suites through [`runFuzz(...)`](../../../scripts/lib/fuzz-task.ts). | Defaults: profile `ci`, target `wasm-gc`, random/time-derived fuzz seed when omitted, `moon` from `MOON_BIN` or `moon`. | Release-like local gate, broad validation before publishing, and high-risk behavior changes; use [`release-process.md`](release-process.md) for the full version/package/release-note checklist. |
 | `bun validate coverage [--top n] [--baseline path] [--update-baseline]` | Parses `moon coverage analyze`, reports uncovered-line totals, and optionally fails CI on uncovered-line regression versus a simple baseline file. | Default top count is `10`; no baseline means report-only. | Coverage reviews and CI coverage-regression checks. |
 | `bun validate readme-api-sync ...` | Verifies README/API synchronization through [`scripts/lib/readme-api-sync`](../../../scripts/lib/readme-api-sync.ts). | Arguments are owned by the readme-sync parser. | Public API or README surface changes. |

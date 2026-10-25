@@ -227,13 +227,19 @@ export function parseCoverageOutput(report: string): { totalUncovered: number; f
   return { totalUncovered, fileCount, entries };
 }
 
-// Use explicit source paths while leaving all default test semantics to Moon.
+// Bound each selection so Moon's per-test-kind JSON stays below the OS argument
+// limit. Keep batches sequential because Moon shares a workspace build lock.
+// Explicit source paths preserve Moon's default skip and test-kind semantics.
 export function runValidateTest(options: TestOptions, deps: ValidateRunDeps = {}): void {
   const repoRoot = deps.repoRoot ?? resolveWorkspaceRoot();
   const testJobs = moonTestJobsForParallelism(deps.parallelism ?? availableParallelism());
-  (deps.run ?? runOrThrow)(options.moonBin, [
-    "test", "--target", options.target, "--jobs", String(testJobs), ...discoverMoonTestFiles(repoRoot),
-  ], { cwd: repoRoot });
+  const files = discoverMoonTestFiles(repoRoot);
+  const batchSize = 300;
+  for (let start = 0; start < files.length; start += batchSize) {
+    (deps.run ?? runOrThrow)(options.moonBin, [
+      "test", "--target", options.target, "--jobs", String(testJobs), ...files.slice(start, start + batchSize),
+    ], { cwd: repoRoot });
+  }
 }
 
 // Run the core quality gate in order: info, format, check, test, then fuzz.
