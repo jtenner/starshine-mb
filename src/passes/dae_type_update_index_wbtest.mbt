@@ -186,13 +186,14 @@ test "dae lookup group absolutization preserves reference bounds and flags" {
         }
       }
     }
-    for value in [
-      @lib.ValType::i32(),
-      @lib.ValType::f64(),
-      @lib.ValType::ref_type(
-        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(99U))),
-      ),
-    ] {
+    for
+      value in [
+        @lib.ValType::i32(),
+        @lib.ValType::f64(),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(99U))),
+        ),
+      ] {
       assert_eq(
         dae_absolutize_lookup_signature_val_type(base, length, value),
         value,
@@ -234,7 +235,11 @@ test "dae lookup keeps first signatures across late recursive groups" {
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let absolute_result = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(2U)), exact=true),
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+      exact=true,
+    ),
   )
   groups.push(
     @lib.RecType::new(
@@ -251,23 +256,38 @@ test "dae lookup keeps first signatures across late recursive groups" {
     )
   }
   let type_sec = @lib.TypeSec::new(groups)
-  let input = @lib.Module::new().with_type_sec(type_sec)
-  let saved = @binary.encode_module(input).unwrap()
   let index = DaeTypeUpdateIndex::new(type_sec)
   assert_eq(index.flat_count, 40)
   assert_eq(index.signatures.length(), 14)
   for group in 0..<12 {
     let owner = @lib.TypeIdx::new((group * 3 + 1).reinterpret_as_uint())
     let (params, results) = dae_absolutize_signature(
-      type_sec, owner, [relative_param], [relative_result],
+      type_sec,
+      owner,
+      [relative_param],
+      [relative_result],
     )
     assert_eq(
       index.signatures.get(dae_simple_func_type_key(params, results)),
       Some(owner),
     )
+    // Relative heap indices are not directly encodable. Check the borrowed
+    // signature fields instead, including the duplicate member's arrays.
+    for member in [1, 2] {
+      assert_eq(
+        dae_type_sec_func_type(
+          type_sec,
+          @lib.TypeIdx::new((group * 3 + member).reinterpret_as_uint()),
+        ),
+        Some(@lib.FuncType::new([relative_param], [relative_result])),
+      )
+    }
   }
   let (_, singleton_results) = dae_absolutize_signature(
-    type_sec, @lib.TypeIdx::new(36U), [], [singleton_ref],
+    type_sec,
+    @lib.TypeIdx::new(36U),
+    [],
+    [singleton_ref],
   )
   assert_eq(
     index.signatures.get(dae_simple_func_type_key([], singleton_results)),
@@ -283,7 +303,11 @@ test "dae lookup keeps first signatures across late recursive groups" {
     index.signatures.get(dae_simple_func_type_key([], [@lib.ValType::i64()])),
     Some(@lib.TypeIdx::new(38U)),
   )
-  assert_eq(@binary.encode_module(input).unwrap(), saved)
+  assert_eq(
+    dae_type_sec_func_type(type_sec, @lib.TypeIdx::new(36U)),
+    Some(@lib.FuncType::new([], [singleton_ref])),
+  )
+  assert_eq(groups.length(), 16)
 }
 
 ///|

@@ -28167,7 +28167,9 @@ arrays/typecheck wrappers from the completed return packaging change.
 
 ## 2026-10-25 — DAE item 4 signature lookup scope
 
-- Added focused tests and recorded the group-base reuse contract in the
+- Implemented lookup-local group-base reuse and recorded its contract in the
   [DAE strategy](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-known-recursive-group-base-in-signature-lookup).
+- All 13 focused type-update, batch-signature, and signature-index tests pass.
+  Shared-host process limits required a serial, single-CPU retry.
 - Kept leased measurement and later parity signoff open in P08. No full-suite,
   fuzz, timing, or memory run is part of this shared-host task.
