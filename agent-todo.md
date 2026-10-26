@@ -242,6 +242,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   samples and CPU logs, and report timing spread and paired uncertainty.
   Do not stop that work or remove slow samples to obtain a parity claim.
   P12/P05/P11/P13 retain their shared dependency, lowering and cleanup work.
+- [ ] **DAE2 item 11 measurement [P03]:** measure the direct imported-tag count
+  in finalization on modules with many unrelated declarations and defined tags,
+  with/without foldable catches, plus tagless and imported-only controls.
+  The implementation removes one HOT context build; timing and allocation
+  gains remain unmeasured. Preserve tag identity, output, and validation.
+  See the [item 11 contract](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#imported-tag-count-during-finalization).
 - **DAE campaign evidence:** [October 16 frozen trials](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-16-2026-dae-family-speed-campaign)
   records source/build identities, exact clocks, profiles, output and adverse
   controls. Trial 10 completes normal paired pass clocks: large S/B ratios

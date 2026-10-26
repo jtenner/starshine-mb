@@ -19,6 +19,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
 
+- [DAE2 imported tag count](binaryen/passes/dae2/implementation-structure-and-tests.md#imported-tag-count-during-finalization) — Item 11 removes a count-only HOT context construction. Tag identity and invalid-input controls are covered; performance measurement is pending.
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.
