@@ -937,6 +937,12 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
 
+- [ ] Measure [item 3 fallback write-bucket ownership](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-25-2026-fallback-write-bucket-ownership)
+  for `dae2` and `dae2-optimizing`: unrepresented control reads with many locals
+  and few writes, dense-write controls, and no-fallback controls. Preserve all
+  recorded writers and independent local demand; no timing or fuzz runs are
+  part of the shared-host implementation task.
+
 - **Completed live-control storage reuse:** descendants rewrite first; a live
   Block/Loop/If with unchanged child IDs skips a redundant copy/comparison.
   Keep in-place edits, dead controls and call/result handling intact.

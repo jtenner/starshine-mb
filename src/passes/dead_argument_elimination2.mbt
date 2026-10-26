@@ -534,6 +534,29 @@ fn dae2_entry_single_read_sources(
 }
 
 ///|
+fn dae2_fallback_write_buckets(
+  func : @ir.HotFunc,
+  node_count : Int32,
+) -> Array[Array[Int32]] {
+  let writes : Array[Array[Int32]] = Array::make(@ir.hot_local_count(func), [])
+  // Unrepresented reads retain every possible write, including
+  // nodes outside the represented CFG, exactly as before.
+  for write = 0; write < node_count; write = write + 1 {
+    let data = @ir.hot_node_get(func, write)
+    if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
+      let bucket = writes[data.imm0]
+      // Empty rows are shared. Only nonempty rows belong to one local.
+      if bucket.is_empty() {
+        writes[data.imm0] = [write]
+      } else {
+        bucket.push(write)
+      }
+    }
+  }
+  writes
+}
+
+///|
 fn dae2_analyze_function(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
@@ -676,18 +699,7 @@ fn dae2_analyze_function(
                 Some(count) => count[0] += 1
                 None => ()
               }
-              let writes : Array[Array[Int32]] = Array::makei(
-                @ir.hot_local_count(func),
-                fn(_) { [] },
-              )
-              // Unrepresented reads retain every possible write, including
-              // nodes outside the represented CFG, exactly as before.
-              for write = 0; write < info.node_count; write = write + 1 {
-                let data = @ir.hot_node_get(func, write)
-                if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
-                  writes[data.imm0].push(write)
-                }
-              }
+              let writes = dae2_fallback_write_buckets(func, info.node_count)
               fallback_writes = Some(writes)
               fallback_sources = Some(
                 Array::make(@ir.hot_local_count(func), -1),
