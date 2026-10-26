@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 sources:
   - ../../../../../src/passes/dae_multivalue_arguments_wbtest.mbt
   - ./index.md
@@ -43,6 +43,13 @@ identities are in the [landing record](../../../../../experiment-results.md#land
   The corrected complete native gate passes **15,488/15,488** and all
   **14 CI native fuzz suites**, **100,772 attempts**, seed `117504205198248316`.
   No new combined performance measurement or pass-comparison closure is claimed.
+
+### Measured item 4
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**.
+
+Source `dae/item-04-group-base` at `28a5949d314bbad4078a0c8819c76def4f0e6f4f` lands as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37` after 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts, seed 117504364697794335. The [campaign record](../../../../../experiment-results.md#item-4--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
 
 ## October 25, 2026: block-only liveness in the HOT fallback
 

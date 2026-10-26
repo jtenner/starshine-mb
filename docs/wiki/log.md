@@ -1,5 +1,7 @@
 ### 2026-10-25 — Measured DAE gains landing
 
+- Item 4 lands as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`. Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**. Gates: 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts, seed 117504364697794335; complete [landing record](../../experiment-results.md#item-4--landed-under-the-corrected-procedure).
+
 - Item 3 lands as `050e89360e7b7be32aa78366f1d35e515b2916b2`. Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established. Gates: 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts, seed 117504304333854712; complete [landing record](../../experiment-results.md#item-3--landed-under-the-corrected-procedure).
 
 - Corrected the native gate's launcher resolution: the mise/Bun path selected

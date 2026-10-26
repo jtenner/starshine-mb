@@ -4,7 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
-- [DAE signature lookup group-base reuse](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-known-recursive-group-base-in-signature-lookup) — Item 4 implementation and 13 passing focused tests; preserve signature keys and relative-reference bounds. Measurement is pending for late recursive groups, absolute references, and numeric controls.
+- [Measured DAE item 4](binaryen/passes/dead-argument-elimination/starshine-strategy.md#measured-item-4) — Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**. Gates: 15,496 native tests and 14 CI fuzz suites pass; merge `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`.
+
 
 - [Measured DAE item 3](binaryen/passes/dae2/starshine-strategy.md#measured-item-3) — Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established. Gates: 15,491 native tests and 14 CI fuzz suites pass; merge `050e89360e7b7be32aa78366f1d35e515b2916b2`.
 
