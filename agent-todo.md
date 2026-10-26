@@ -1542,6 +1542,17 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
 
+- [ ] **Item 4 group-base reuse measurement:** measure the implemented
+  [lookup-local change](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-known-recursive-group-base-in-signature-lookup).
+  Use many late recursive groups with relative parameter/result references,
+  plus absolute-reference and numeric controls. Exercise unread-parameter and
+  dropped-result batches through `DaeTypeUpdateIndex::new`; preserve keys,
+  first representatives, bounds, flags, and input ownership. All 13 focused
+  tests pass after a test-first checkpoint; full-suite, fuzz, timing, and memory
+  runs are deferred by the shared-host restriction. Exit requires leased
+  runtime/memory evidence and later parity signoff, with no claimed gain before
+  measurement.
+
 - [ ] **October 15 discovery/setup signoff:** source-invariant sink scans reuse
   one context; empty adjacent roots and result worklists skip unused snapshots
   and graphs. Preserve source/current import and definition bounds, prior

@@ -15454,12 +15454,23 @@ fn dae_simple_func_type_lookup(
       @lib.SingleRecType(subtype) => [subtype]
       @lib.GroupRecType(group) => group
     }
+    let group_base = flat_idx
+    let group_length = group.length()
     for subtype in group {
       match dae_simple_func_subtype_type(subtype) {
         Some(@lib.FuncType(params, results)) => {
           let owner = @lib.TypeIdx::new(flat_idx.reinterpret_as_uint())
-          let (params, results) = dae_absolutize_signature(
-            type_sec, owner, params, results,
+          let (params, results) = (
+            params.map(fn(value) {
+              dae_absolutize_lookup_signature_val_type(
+                group_base, group_length, value,
+              )
+            }),
+            results.map(fn(value) {
+              dae_absolutize_lookup_signature_val_type(
+                group_base, group_length, value,
+              )
+            }),
           )
           let key = dae_simple_func_type_key(params, results)
           if lookup.get(key) is None {
@@ -15472,6 +15483,38 @@ fn dae_simple_func_type_lookup(
     }
   }
   lookup
+}
+
+///|
+// Only the lookup's ordered group walk supplies this base and length. Other
+// signature consumers still resolve the group from their owning type index.
+fn dae_absolutize_lookup_signature_val_type(
+  group_base : Int32,
+  group_length : Int32,
+  value : @lib.ValType,
+) -> @lib.ValType {
+  match value {
+    @lib.RefTypeValType(
+      @lib.HeapTypeRefType(nullable, exact, @lib.HeapType(reference))
+    ) => {
+      let absolute = match reference {
+        @lib.TypeIdx(_) => reference
+        @lib.RecIdx(raw) => {
+          let member_idx = raw.reinterpret_as_int()
+          if member_idx < 0 || member_idx >= group_length {
+            abort(
+              "DAE batch signature contains an invalid recursive type reference",
+            )
+          }
+          @lib.TypeIdx::new((group_base + member_idx).reinterpret_as_uint())
+        }
+      }
+      @lib.ValType::ref_type(
+        @lib.RefType::new(nullable, @lib.HeapType::new(absolute), exact~),
+      )
+    }
+    _ => value
+  }
 }
 
 ///|

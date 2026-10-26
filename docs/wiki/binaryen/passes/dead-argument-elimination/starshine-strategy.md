@@ -71,6 +71,37 @@ landing, measure nested branch-carried values with many shared operands/locals;
 include raw-admitted and tiny bodies as controls. Check path reachability and
 output/validation equality for both DAE modes. No speed or memory gain is claimed.
 
+## October 25, 2026: known recursive-group base in signature lookup
+
+Item 4 of `docs/dae-perf-opportunities.md` on branch
+`research/dae-perf-opportunities` targets only
+[`dae_simple_func_type_lookup`](../../../../../src/passes/dead_argument_elimination.mbt).
+Its ordered group walk now passes the group base and length to
+`dae_absolutize_lookup_signature_val_type`. This helper resolves relative
+references in signature parameters and results without searching the type
+section again for each reference. The general owner resolver remains in use
+by other callers. String keys, first matching signatures, group order,
+nullable/exact flags, singleton bounds, and the invalid-reference abort remain
+unchanged. No new cache or retained array is added.
+
+The [focused tests](../../../../../src/passes/dae_type_update_index_wbtest.mbt)
+cover nonzero group bases, every member of a small group, relative parameter
+and result references, duplicate representative selection, singleton self
+references, absolute and numeric controls, and invalid relative indices.
+The tests were added first; the initial compiler check rejected the missing
+lookup helper. The final focused run passes all 13 tests in
+`dae_type_update_index_wbtest.mbt`, `dae_batch_signature_scan_wbtest.mbt`, and
+`dae_signature_index_wbtest.mbt`. It used `moon test` with `-j 1`,
+`--no-parallelize`, and one CPU after shared-host process-limit failures.
+
+Measurement is pending. The lookup no longer repeats owner/group-prefix scans
+for relative references. Absolute references already avoid those scans. Do not
+infer runtime or memory gains from this source bound. The next leased measurement
+must exercise many late groups with relative parameter/result references,
+absolute-reference and numeric controls, and both unread-parameter and
+dropped-result batches through `DaeTypeUpdateIndex::new`. Full-suite, fuzz,
+timing, and memory runs are deferred under the shared-host restriction.
+
 ## September 29, 2026 reverse literal signature reuse
 
 Reverse exact-literal candidate scanning now reads function signatures from the

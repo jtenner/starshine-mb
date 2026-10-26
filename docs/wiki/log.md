@@ -28164,3 +28164,12 @@ arrays/typecheck wrappers from the completed return packaging change.
   the allocation regression confirms shared empty rows and owned nonempty rows.
   All 16 focused tests pass after retrying the shared host's process-limit errors.
   Performance measurement remains pending under the shared-host restriction.
+
+## 2026-10-25 — DAE item 4 signature lookup scope
+
+- Implemented lookup-local group-base reuse and recorded its contract in the
+  [DAE strategy](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-known-recursive-group-base-in-signature-lookup).
+- All 13 focused type-update, batch-signature, and signature-index tests pass.
+  Shared-host process limits required a serial, single-CPU retry.
+- Kept leased measurement and later parity signoff open in P08. No full-suite,
+  fuzz, timing, or memory run is part of this shared-host task.
