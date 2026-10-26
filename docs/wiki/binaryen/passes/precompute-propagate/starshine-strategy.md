@@ -27,7 +27,7 @@ related:
 
 # Starshine `precompute-propagate` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## September 27, 2026 cleanup context reuse
 
@@ -166,7 +166,7 @@ The former first difference at defined `4`, absolute `31` is closed. On the rebu
 - Preserve the one-solve/one-rerun bound.
 - Keep stale result-`if` facts rejected unless a real phi or direct condition proof exists; keep raw branch/loop facts conservative and invalidate loop-written locals before body evaluation.
 - Use the public descriptor in all top-level and nested propagating slots; do not recreate a private prefix fork.
-- Use Binaryen `version_132` for new comparisons. Keep the recorded v131 oracle, commands, artifacts, and inherited plain-precompute boundaries explicitly historical.
+- Use a verified Binaryen `version_133` oracle for new comparisons. Keep the recorded v131 oracle, commands, artifacts, and inherited plain-precompute boundaries explicitly historical.
 
 
 ## Nested loop-copy reaching writes

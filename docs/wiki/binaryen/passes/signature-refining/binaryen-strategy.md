@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_132` as the current algorithm and fixture baseline for this pass; v129–v131 materials below are historical provenance, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the verified `version_132` baseline and a fresh source review; the later `version_130` / current-main bridge below remains historical evidence.
+Treat Binaryen `version_132` as the historical algorithm and fixture baseline for this page; v129–v131 materials below are historical provenance, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims need a fresh source review, and new comparisons require a verified `version_133` oracle; the later `version_130` / current-main bridge below remains historical evidence.
 
 Primary files:
 

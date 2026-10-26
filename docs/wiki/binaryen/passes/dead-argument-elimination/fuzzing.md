@@ -160,7 +160,7 @@ Fresh native Starshine `dd1746825fca4894469fc07309835381c434b0b347d730496ffeacb3
 All 20 saved residual outputs reproduce byte-for-byte against the pre-change CLI. My classification keeps these as pre-existing parity gaps; smaller output and validation alone do not establish semantic equivalence or close output-shape differences. Evidence: `.tmp/pass-fuzz-dae-dae-forwarding-preflight-v133-10000-20260926/` and `.tmp/dae-forwarding-preflight-replay/result.json`. See the [strategy](./starshine-strategy.md#september-26-2026-parameter-free-forwarding-preflight) for the source contract, tests and isolated performance evidence. Historical results below retain their original versions.
 
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## August 28, 2026 performance-only renewal
 

@@ -24,11 +24,11 @@ related:
 
 # Binaryen `ssa` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` / `version_130` as historical released source provenance for this pass; new comparisons use the verified `version_132` baseline. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.
+Treat Binaryen `version_129` / `version_130` as historical released source provenance for this pass; new comparisons require a verified `version_133` oracle. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.
 
 Primary files:
 

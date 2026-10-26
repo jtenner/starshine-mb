@@ -18,11 +18,11 @@ related:
 
 # Binaryen `type-ssa` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Upstream source rule
 
-Use the 2026-06-01 freshness capture as historical source evidence: [research note 0688](./index.md). New comparisons use the verified Binaryen `version_132` baseline.
+Use the 2026-06-01 freshness capture as historical source evidence: [research note 0688](./index.md). New comparisons require a verified Binaryen `version_133` oracle.
 
 The key official sources are:
 

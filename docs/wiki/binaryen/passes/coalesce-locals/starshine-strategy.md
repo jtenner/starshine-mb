@@ -65,7 +65,7 @@ Per-change measurements are historical isolated pairs, not additive gains.
 Remaining timing, output-quality and runtime-coverage gaps stay open; rejected
 prototypes remain rejected.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.

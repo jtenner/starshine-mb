@@ -15,11 +15,11 @@ related:
 
 # Binaryen `simplify-locals` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Upstream source rule
 
-Use Binaryen `version_132` as the current comparison oracle for this pass family; the v131 source review remains historical provenance.
+Use a verified Binaryen `version_133` oracle for new comparisons for this pass family; the v131 source review remains historical provenance.
 
 Primary files:
 

@@ -102,7 +102,7 @@ The active local strategy is still deliberately slot-honest:
 
 - keep the upstream pass spelling active in the registry surface
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
-- keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
+- keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood in the O4 preset
 - grow the implementation from same-window temp-localizing reuse, including the implemented trap-sensitive scalar numeric roots, without recasting it as a whole-function GVN pass
 - keep `ref.test` predicate-root parity as an implemented scalar-`i32` result case, `any.convert_extern` / `extern.convert_any` parity as implemented defaultable nullable reference-result cases, and ordinary `ref.cast` parity as direct result-local materialization for nullable results and outer-function-window non-null results; preserve the cast's exact result type and keep recursive structured-control scans on nullable operand replay. Keep `ref.as_non_null` parity as implemented by caching the nullable operand and replaying the non-null assertion, `ref.get_desc` descriptor-read parity as implemented by caching a defaultable operand and replaying the descriptor read, and `ref.cast_desc_eq` parity as implemented for nullable result locals plus non-null casts replayed from cached defaultable operands, while leaving obsolete/unsupported descriptor test roots, descriptor allocations, and broader descriptor reference reasoning as documented conservative deferrals unless a separate safe root model is approved
 - keep `i31.get_s` / `i31.get_u` as narrow scalar accessor roots and `ref.i31` parity as implemented by caching the `i32` operand and replaying the non-null-producing instruction instead of materializing a non-default `(ref i31)` result local
@@ -126,7 +126,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/pass_manager.mbt:8939-8943`
     - routes `local-cse` through `local_cse_run_module_pass(...)`
   - `src/passes/optimize_test.mbt:510-512,520-527,567-568`
-    - keeps `local-cse` in the active module-pass category, locks the late preset order, and keeps the aggressive neighborhood gated
+    - covers `local-cse` as an active module pass and the preset order
 - completed backlog and release note
   - `agent-todo.md`
     - no longer carries an active LCSE item; completed parity/performance evidence lives in this wiki dossier and the 2026-06-04/07 research note
@@ -176,7 +176,7 @@ The docs should keep that slice connected to the exact Binaryen contract:
 - temp-local materialization, not silent value merging
 - explicit slot dependence on neighboring passes
 
-### 3. The scheduler slot is already documented, and the missing neighbors matter
+### 3. The scheduler slots and their neighbors
 
 `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` already places `local-cse` in the ordinary late local-cleanup cluster.
 The upstream source also places it in the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude.
@@ -189,7 +189,7 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 - `coalesce-locals` simplifies later local traffic before the ordinary late run
 - full `simplify-locals` cleans up the temp-local traffic `local-cse` leaves behind
 
-Current Starshine has the direct `local-cse` transform, the late consumer (`simplify-locals`), and enough late-neighbor proof to schedule `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` in public presets. The aggressive early `flatten -> simplify-locals-notee-nostructure -> local-cse` slot remains gated because `flatten` is still unavailable.
+Current Starshine has the direct `local-cse` transform, the late consumer (`simplify-locals`), and enough late-neighbor proof to schedule `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` in public presets. The O4 preset also schedules the early `flatten -> simplify-locals-notee-nostructure -> local-cse` slot.
 
 ## The right future Starshine implementation shape
 
@@ -201,7 +201,7 @@ Why:
 - the upstream pass is centered on whole-tree equality plus small linear windows
 - Starshine already has nearby local-traffic and effect-conflict machinery in `simplify-locals`
 - Starshine already has a module-side local-index rewrite pass in `reorder-locals`
-- the missing early and late neighbors explain why exact slot parity remains blocked today
+- matching the scheduled order does not by itself establish exact slot parity
 
 So the local strategy should be thought of as:
 
@@ -217,7 +217,7 @@ So the local strategy should be thought of as:
    - effect and generativity invalidation
    - profitability thresholds
 3. compose it with the surrounding local cleanup ecosystem
-   - early `flatten -> simplify-locals-notee-nostructure -> local-cse` once those neighbors exist
+   - early `flatten -> simplify-locals-notee-nostructure -> local-cse`
    - ordinary `coalesce-locals -> local-cse -> simplify-locals`
    - local-index and CLI proof surfaces already maintained in-tree
 
@@ -278,7 +278,7 @@ Starshine does **not** currently have:
 
 - exact public preset parity for the upstream `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood
 - exact public preset parity for the upstream `coalesce-locals -> local-cse -> simplify-locals` neighborhood
-- a locally representable version of every prerequisite neighboring slot needed to make those ordered claims oracle-proven end to end
+- current oracle evidence that proves those ordered claims end to end
 
 So the current repo status is best summarized as:
 
@@ -287,7 +287,7 @@ So the current repo status is best summarized as:
 - backlog tracked and pruned
 - scheduler slot documented
 - neighboring local cleanup and rewrite files already exist
-- public preset scheduling for the exact upstream neighborhoods remains gated
+- public preset scheduling includes these neighborhoods; exact parity still needs evidence
 
 ## Validation plan for the ordered-neighborhood claim
 
@@ -307,7 +307,7 @@ The direct pass already exists, so the remaining validation ladder is about exac
 2. Keep the registry and CLI proof honest
    - `local-cse` stays an active module pass
    - explicit `--local-cse` execution keeps working
-   - the surrounding aggressive neighborhood gate stays false while the prerequisite neighbors are incomplete
+   - the aggressive neighborhood remains registered and scheduled at O4
 3. Keep pass-targeted parity and replay evidence green
    - `wasm-opt --local-cse` compare-pass replay
    - direct artifact replay on the no-DWARF lane
@@ -326,7 +326,7 @@ Current Starshine `local-cse` strategy is an active direct pass plus a guarded n
 - the backlog already treats the remaining ordered-neighborhood work as the real parity slice under `LCSE`
 - the canonical early and late slots are already documented in the no-DWARF optimizer notes
 - the surrounding implementation files already exist and define the practical landing zone for future neighborhood work, especially `simplify_locals.mbt`, `reorder_locals.mbt`, `pass_manager_wbtest.mbt`, and `cmd_wbtest.mbt`
-- the docs now keep two important honesty rules explicit: no exact preset-slot claim should be made before the missing upstream-neighbor equivalents land locally, and no direct window-model parity claim should be made until the before-`if` / then-arm gap is covered test-first
+- scheduled order and direct regression coverage do not by themselves prove exact preset parity
 
 So the right mental model today is not “nothing exists locally.”
 It is:

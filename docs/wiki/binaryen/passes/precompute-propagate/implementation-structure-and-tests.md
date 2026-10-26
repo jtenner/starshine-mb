@@ -16,7 +16,7 @@ related:
 
 # `precompute-propagate`: implementation structure and tests
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 This page is the file-and-test map for the active Starshine public port. Its v130 source and test references are historical provenance; the maintained implementation and signoff map is the living dossier in [`./index.md`](./index.md) and [`./starshine-strategy.md`](./starshine-strategy.md).
 

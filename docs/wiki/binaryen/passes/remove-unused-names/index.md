@@ -143,7 +143,7 @@ What it actually is in `version_132`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering unused-label stripping, same-type block merges, loop demotion, typed bailout families, and nearby pass interactions.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine HOT-IR strategy with exact code locations for the label-use bitset, same-typed block-chain peel, loop demotion, raw fast-skip path, preset placement, delegate/name-section test expectations, current direct compare evidence, the O4z raw no-op guard, and the major ways the local subset is still narrower than upstream Binaryen's generic control-label cleanup pass.
+  - Current in-tree Starshine HOT-IR strategy with exact code locations for the label-use bitset, same-typed block-chain peel, loop demotion, raw fast-skip path, preset placement, delegate/name-section test expectations, current direct compare evidence, the former O4z raw no-op guard, and the major ways the local subset is still narrower than upstream Binaryen's generic control-label cleanup pass.
 - [`./invalid-tag-index-parser-gap.md`](./invalid-tag-index-parser-gap.md)
   - Existing parser-gap note for `invalid tag index` compare failures; keep treating that family as Binaryen parser noise unless Binaryen can parse the saved case and a semantic diff still remains.
 
@@ -162,7 +162,7 @@ That is deliberately narrow. It does not claim that every neighboring cleanup-co
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-names` scheduler, shape, and parity notes.
-- Direct pass parity is currently clean, and the branchless direct rewrite kernel now has an actual fast rewrite lane, but O4z mode still returns an intentional raw no-op for this pass; do not claim O4z RUN slots perform same-type wrapper collapse or loop demotion until `o4z-remove-unused-names-noop` is narrowed or removed with artifact replay evidence.
+- O4z uses the raw branchless rewrite lane for eligible candidates. It falls back to HOT for label-use cases and retains specific no-op guards. See `run_hot_pipeline_raw_remove_unused_names` in `src/passes/pass_manager.mbt` and the O4z regression fixtures in `src/passes/remove_unused_names_test.mbt`.
 - Keep the central beginner correction explicit:
   - upstream `remove-unused-names` edits control labels rather than the wasm name section.
 - Keep the distinction explicit between:

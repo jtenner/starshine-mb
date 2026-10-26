@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_132` as the current source and fixture baseline for this pass; v129–v131 materials below are historical provenance, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
+Treat Binaryen `version_132` as the historical source and fixture baseline for this page; new comparisons require a verified `version_133` oracle. v129–v131 materials below are historical provenance, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
 The historical 2026-04-24 follow-up and 2026-07-11 recheck are retained as provenance. The v132 owner review confirms that the algorithm and test roster remain intact while one `getPassOptions().worldMode` policy now flows through heap-type visibility collection and final global type rewriting.
 
 Primary files:

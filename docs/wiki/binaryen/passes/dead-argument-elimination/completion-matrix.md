@@ -19,12 +19,12 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../dae-optimizing/index.md
   - ../dae-optimizing/starshine-strategy.md
-  - ../../late-pipeline-dispatch.md
+  - ../late-pipeline-dispatch.md
 ---
 
 # Binaryen v131 DAE completion matrix
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 This is the authoritative release ledger for plain `dead-argument-elimination` / `dae` and `dae-optimizing` / `dead-argument-elimination-optimizing`. The row-level lifecycle reconciliation was renewed through the 2026-07-23 canonical-core production-diagnostics slice; older hashes and counts below remain historical evidence checkpoints rather than current closure claims.
 

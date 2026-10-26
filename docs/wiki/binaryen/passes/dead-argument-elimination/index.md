@@ -34,14 +34,14 @@ related:
 
 Before its normal cleanup round, DAE now propagates zero read counts backward through adjacent top-level `local.get source; local.set target` copy pairs. This lets a chain whose terminal local is unread disappear in one rewrite round instead of removing one link per round. The existing iterative cleanup remains for nested and other shapes. The [native white-box benchmark](../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt) times the helper on prebuilt functions: 128 links fell from `318.69` to `9.38 µs` (34.0×), and 256 from `1.42 ms` to `18.69 µs` (76.0×). The live-terminal-read guard and 434 existing DAE white-box tests pass. This is helper-level synthetic evidence, not full-pass or Binaryen timing.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Binaryen 132 update
 
 The normal DAE release change adds removed-result statistics; its optimization
 algorithm does not change. Upstream DAE2 is a distinct parameter/result usage
-fixed-point solver and remains absent from Starshine's registry. It must not be
-exposed as an alias for ordinary DAE. The [upgrade contract](../../version-132-upgrade.md)
+fixed-point solver. Starshine registers it separately as `dae2` and
+`dae2-optimizing`; neither spelling is an alias for ordinary DAE. The [upgrade contract](../../version-132-upgrade.md)
 tracks DAE2 result tuples, cycles, open-world/reference restrictions and required
 post-tag indirect-tail-call correction #8994 separately from this implementation.
 
@@ -57,7 +57,7 @@ Final one-warmup/three-sample medians are `743.346ms` Starshine pass-local versu
 
 - `dead-argument-elimination` is an upstream Binaryen boundary pass.
 - The public upstream CLI alias is `dae`.
-- It has an active Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Represented Binaryen-v131 behavior, common lifecycle ownership, validity, residual classification, exact-once DAEO scheduling, and reviewed performance are closed through the final evidence base `b49c3b7db`; no DAE-owned release blocker remains.
+- It has an active Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Represented Binaryen-v131 behavior, common lifecycle ownership, validity, residual classification, exact-once DAEO scheduling, and reviewed performance are closed through the final evidence base `b49c3b7db`; that checkpoint does not close the current follow-ups in [`agent-todo.md`](../../../../../agent-todo.md).
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
 - The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
 - [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage, including TNH behavior. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus the current generated size evidence.

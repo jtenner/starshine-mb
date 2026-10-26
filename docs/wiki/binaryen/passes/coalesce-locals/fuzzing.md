@@ -162,7 +162,7 @@ All 120 saved residual outputs reproduce byte-for-byte against the pre-change CL
 Artifacts: `.tmp/pass-fuzz-<pass>-coalesce-source-order-v133-10000-20260926/` (closed DAE2 uses `dae2-closed`), `.tmp/coalesce-source-order-replay/result.json`, `.tmp/coalesce-source-order-full-tests-20260926.log`, and `.tmp/pass-sweep-v133-coalesce-source-order-{small,large}-20260926/`. The [strategy page](./starshine-strategy.md#september-26-2026-source-order-local-access-index) records the proof, red-first regressions, confirmed gains, small DAEO tradeoff and rejected matrix prototype.
 
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## 2026-09-26 CFG live-set renewal against Binaryen 133
 

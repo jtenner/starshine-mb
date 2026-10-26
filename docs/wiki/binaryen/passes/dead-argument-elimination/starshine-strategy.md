@@ -549,7 +549,7 @@ The v133 dedicated DAE GenValid lane compared `10000/10000` cases with the prebu
 
 The unread-local cleanup graph now collects adjacent `local.get`/`local.set` dependencies separately inside each structured body and If arm, including legacy Try catches. It propagates dead targets through the shared graph before cleanup rounds, so sibling nested copy chains no longer require one whole-function round per link. The [native direct-helper benchmark](../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt) improved from `1.56 ms` to `37.79 µs` at 128 nested links and from `6.24 ms` to `74.62 µs` at 256. Flat-chain controls stayed near `9.24 µs` at 128 and `18 µs` at 256. Live-terminal and separate-If-arm tests preserve dependency boundaries. These synthetic helper timings do not measure full-pass impact.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 For first-slice implementation order and validation details, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This page is the current status/code-map summary; the readiness page is the historical future-port checklist plus the current DAE-A through DAE-O implementation-family matrix.
 

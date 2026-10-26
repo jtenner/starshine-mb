@@ -108,9 +108,9 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Dedicated Starshine status/port map for this active direct pass: exact implementation, registry, dispatcher, scheduler, neighboring MoonBit files and test lanes, and the main honesty rule that preset placement should stay blocked until the missing Binaryen-neighbor equivalents land locally.
+  Dedicated Starshine status/port map for this active direct pass: exact implementation, registry, dispatcher, scheduler, neighboring MoonBit files and test lanes, and the distinction between scheduled preset placement and proven parity.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness bridge: the nearest local landing zone, conservative validation ladder, and the exact cluster-replay checks to defer until the missing neighbors exist.
+  Implementation-readiness bridge: the nearest local landing zone, conservative validation ladder, and the exact cluster-replay checks for the scheduled neighbors.
 
 ## Current maintenance rule
 

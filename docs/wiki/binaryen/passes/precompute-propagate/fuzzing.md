@@ -143,12 +143,12 @@ cases reproduce the starting compiler bytes, as recorded in the shared replay.
 
 Local reports: `.tmp/pass-perf-work-20260926/final4-fuzz-precompute-propagate/result.json`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Binaryen 132 refresh
 
 Use the broader `precompute-all` aggregate for dedicated signoff, including all
-three atomic orders. New comparisons require Binaryen 132. The
+three atomic orders. New comparisons require a verified Binaryen 133 oracle. The
 [release regressions](../../../../../src/passes/binaryen132_precompute_test.mbt)
 exercise both registered precompute variants through the same evaluator guards.
 The [upgrade record](../../version-132-upgrade.md) owns current results; dated

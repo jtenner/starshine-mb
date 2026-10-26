@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline.
+Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons require a verified `version_133` oracle.
 
 Primary files:
 

@@ -404,7 +404,7 @@ Node cannot execute the Binaryen output in 1,829 of the Starshine/original
 matches above. The shared audit classifies these as runtime coverage gaps,
 not observed wrong results or full three-way agreement.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. The September 10, 2026 baseline was v132. Earlier sources, commands, artifacts, and results retain their original versions.
 
 ## Inserted control and call ordering — 2026-09-11
 

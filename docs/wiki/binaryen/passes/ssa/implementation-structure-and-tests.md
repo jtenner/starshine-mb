@@ -163,7 +163,7 @@ So the dossier should teach them confidently, while also saying they are source-
 
 ## Starshine source map
 
-The Starshine source map is intentionally separate from the upstream file map because local code now exposes only an active **partial** public full-`ssa` pass.
+The Starshine source map is intentionally separate from the upstream file map because local code now exposes an active public full-`ssa` pass with merge support and documented boundaries.
 
 Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations. The shortest current version is:
 
@@ -189,7 +189,7 @@ The complete plan validates every write/get/merge node, original local, child ar
 
 The 2026-07-11 recheck reread current `main`'s `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared `SSAify(bool allowMerges)` owner, full-SSA merge-local path, and `ssa-nomerge`-only default scheduling remain present. It is a scoped source reading, **not** a full current-main-versus-`version_130` diff; the tagged manifests remain the released-oracle provenance.
 
-The same review reconciles local status: `src/passes/ssa.mbt`, `ssa_test.mbt`, registry coverage, and CLI adapter coverage prove an active direct non-merge subset, while `scripts/lib/pass-fuzz-compare-task.ts` does not admit `--ssa`. The latter is a harness boundary, not evidence that the active direct pass is unavailable or that it matches Binaryen merge behavior.
+The July 11 review described an active non-merge subset and a harness admission boundary. Since then, `src/passes/ssa.mbt` gained merge planning and the comparison harness admits `--ssa`. See the source map above for the current implementation and its boundaries.
 
 ## Easy misunderstandings this file map clears up
 
