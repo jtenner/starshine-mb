@@ -41,6 +41,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   then leased full gates plus preparation-time and memory evidence. See the
   [contract diagnosis](docs/wiki/binaryen/passes/remove-unused-brs/starshine-strategy.md#round-2-fix-1-tail-return-contract-repair--2026-10-25).
 
+### Simplify-locals analysis preparation [IR2-SL-ANALYSIS-CONTRACT]
+
+- **Goal / why:** measure the preparation cost after all five variants and
+  three aliases declare their shared CFG/use-def dependency.
+- **Deliverables / tasks:** compare cold/warm preparation, total pass time,
+  build counts, allocations, and peak/retained memory on candidate-free,
+  early-exit, scratch-copy, pre-query-mutation, and retained DAE workloads.
+- **APIs / invariants:** preserve transforms, revision-keyed cache reuse and
+  invalidation, all aliases, and the fix-1 tail-return repair. Eager analysis
+  can add work on paths that never made the former on-demand query.
+- **Dependencies / exit / tests:** obtain the measurement coordinator's lease
+  before timing. Keep the registry contract and focused pass tests green;
+  full-suite/fuzz gates and an independent review remain due. Claude Code
+  hit its session usage limit before inspection. See the
+  [source trace and handoff](docs/wiki/binaryen/passes/simplify-locals/implementation-map.md#analysis-descriptor-contract--2026-10-26).
+
 ### Atomic public flag measurement [IR2-ATOMIC-FLAGS]
 
 - **Goal / why:** quantify the unmeasured cost of the repaired atomic flags in

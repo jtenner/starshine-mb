@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-10-26
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/passes/pass_common.mbt
+  - ../../../../../src/ir/analysis_cache.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
@@ -20,6 +23,62 @@ related:
 ---
 
 # `simplify-locals` Implementation Map
+
+## Analysis descriptor contract — 2026-10-26
+
+All five variants and all three active aliases require **CFG and use-def**:
+`simplify-locals`, `simplify-locals-notee` / `simplify-locals-no-tee`,
+`simplify-locals-nonesting` / `simplify-locals-no-nesting`,
+`simplify-locals-nostructure` / `simplify-locals-no-structure`, and
+`simplify-locals-notee-nostructure`.
+
+The [dispatcher](../../../../../src/passes/pass_manager.mbt) routes each
+spelling to its variant driver. Each driver can call
+`simplify_locals_run_with_options`. Its first and late dead-cleanup phases call
+`simplify_locals_run_dead_cleanup`, then
+`simplify_locals_fold_dead_set_copy_region`. That recursive helper checks an
+adjacent single-use scratch-local copy through
+[`pass_node_use_count`](../../../../../src/passes/pass_common.mbt), which calls
+`pass_require_use_def`. The
+[`cache_get_or_build_use_def`](../../../../../src/ir/analysis_cache.mbt) builder
+also requests CFG. Thus both analyses belong in every variant descriptor.
+
+The protected control-embedded-tee path uses root-only cleanup and does not
+call this query. Early hazard exits can also avoid it. Neither path removes
+the dependency from other valid inputs to the same descriptor. The other
+shared calls, including value-operand access, global-disjointness checks,
+mutation invalidation, encoded cleanup, and pass-local get-count/value-order
+caches, do not request another HOT analysis. Dominance, liveness, effects,
+loop info, and SSA remain invalidations, not preparation requirements.
+The [registry contract test](../../../../../src/passes/registry_test.mbt)
+checks every registered spelling, including aliases, for CFG and use-def.
+Its failure on base `4a2278d1` named all eight missing contracts.
+
+This repair changes descriptors only. It preserves the transforms and the
+fix-1 tail-return repair. It does change analysis preparation timing:
+`pass_prepare_requirements` now builds or reuses CFG and use-def before HOT
+dispatch, including on candidate-free and early-exit functions that previously
+needed neither overlay. A mutation before the first dead-copy query can make
+the prepared overlays stale and cause another build. Cache reuse and
+revision-keyed invalidation remain unchanged. Raw paths that bypass HOT
+dispatch still bypass this preparation.
+
+**READY TO MEASURE:** compare the base and repaired commits for all five
+variants, with alias controls. Use cold and warm caches; candidate-free,
+early-hazard-exit, scratch-copy, and pre-query-mutation functions; and the
+retained DAE workloads. Measure pre-pass preparation and total pass time,
+analysis build counts, allocations, and peak/retained memory. Include the
+small extra requirement-array copies in registry descriptor lookup/cloning.
+No timing, benchmark, or measurement lease was used for this repair. Full-suite and fuzz
+signoff remain separate work. Claude Code exited before inspection because its
+session usage limit was reached; no independent Claude assessment is claimed.
+
+Validation at fix checkpoint `0bca436ad`: all 16 registry tests pass. The
+focused run across all 39 `simplify_locals*`, `registry*`, and `pass_manager*`
+test files passes 777/777 with one build worker. The source hashes were frozen
+before that run and checked again after completion. The prior test-only
+checkpoint is `c4a37f9b4`; production descriptors there still match the base.
+No full suite, fuzz lane, native release build, or benchmark was run.
 
 ## V131 renewal map
 
@@ -53,6 +112,7 @@ related:
 
 - `simplify_locals_descriptor`
   - declares `simplify-locals` as a HOT pass
+  - requires CFG and use-def through the shared dead-copy query
   - invalidates CFG, dominance, liveness, use-def, effects, loop info, and SSA
   - this is the first maintenance hint that the pass is not a narrow peephole; it rewrites enough structure and value flow to invalidate almost every local-flow analysis
 - `simplify_locals_summary`

@@ -24,6 +24,28 @@
 
 - Legacy catch-order validation has a neutral measurement verdict with small retained costs (-0.90% to +2.43% on valid cases), equal raw allocation cost, and native RSS within controls. [The complete F05 record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) preserves all 180 fresh samples and excludes the 18-sample contention run. Full native and CI fuzz gates were pending at that checkpoint; the later signoff entry above supersedes it. No landing was claimed at the measurement checkpoint.
 
+### 2026-10-26 — Declare the SimplifyLocals shared analysis contract
+
+- The [source trace and measurement handoff](binaryen/passes/simplify-locals/implementation-map.md#analysis-descriptor-contract--2026-10-26)
+  covers five variants and three aliases. Dead-copy cleanup calls
+  `pass_node_use_count`, which requires use-def; the cache builder requires
+  CFG. No further HOT overlay dependency was found.
+- Test-only checkpoint `c4a37f9b4` extends the registry contract. Its base
+  failure names all eight affected spellings, 0/1 passed, exit 2.
+  Fix checkpoint `0bca436ad` declares CFG and use-def before wider testing.
+  Transforms, invalidations, and fix-1 tail-return source remain unchanged.
+- Registry tests pass 16/16. All 39 focused SimplifyLocals, registry, and
+  pass-manager test files pass 777/777 with one build worker. Frozen source
+  hashes match before and after the run. Logs and exit status are retained
+  outside production source.
+- Preparation moves before HOT dispatch and can add builds or retention on
+  candidate-free, early-exit, and pre-query-mutation paths. The active backlog
+  retains preparation-time and memory measurement on cold/warm controls and
+  DAE workloads. No benchmark, timing, lease use, full suite, or fuzz lane ran.
+- Claude Code exited with its session usage limit before inspecting source.
+  No independent Claude assessment is claimed.
+
+
 ### 2026-10-25 — Measured DAE gains landing
 
 - All eight gain items (1, 3, 4, 5, 6, 8, 10, 11) are landed and pushed. Every item has a complete corrected native gate and 14 green CI fuzz suites. [Immutable source/gate/benchmark/push evidence](raw/tooling/2026-10-26-dae-gain-landings.json) preserves all 85 measured rows and the accepted item 8 RSS trade. The lease is released to the reserved Starshine-versus-Binaryen comparison lane.
