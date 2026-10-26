@@ -998,8 +998,6 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03d — Lift, dependency planning and lower [IR2-PERF-DAE2-PIPELINE]
 
-- [ ] Measure report item 6's [shared raw forward-control preflight](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#shared-raw-forward-control-preflight) after the shared-host restriction ends. Cover late qualification rejection, qualified local-flow rejection, successful local flow, and ordinary flat controls in both DAE2 modes. The implementation removes one repeated preflight on fallback; timing, allocation/peak-memory effects, and fresh v133 comparison remain unmeasured.
-
 - **Completed presence scan:** verified empty branch-table arena skips the initial
   continuation search; nonempty arena retains the full fallback.2.161m fewer
   node probes, no allocation/verification omission and complete DAE2 work−.482%.

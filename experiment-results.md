@@ -8,10 +8,11 @@
 - DONE: reproduce the separate missing `.tmp` parent failure and its 0/1 → 1/1 correction without source or fixture edits.
 - DONE: corrected unwrapped master control is green: **15,487/15,487 native tests and 14/14 CI fuzz suites, 100,775 attempts**, seed `117504144017018061`. All eight native batches and every fuzz stage ran.
 - DONE: item 1 landed as `642abea01b8a9348dc10f7dcf777bb879f060d14` after 15,488 native passes and 14 green CI fuzz suites; benchmark medians/RSS are in its landing row.
-- OPEN: process **6, 8, 10, 11** sequentially under the corrected procedure; each needs its own green native/fuzz gates and benchmark-bearing merge checkpoint.
+- OPEN: process **8, 10, 11** sequentially under the corrected procedure; each needs its own green native/fuzz gates and benchmark-bearing merge checkpoint.
 - DONE: item 3 landed as `050e89360e7b7be32aa78366f1d35e515b2916b2` after 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts, seed 117504304333854712; measured numbers and RSS remain in its landing row.
 - DONE: item 4 landed as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37` after 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts, seed 117504364697794335; measured numbers and RSS remain in its landing row.
 - DONE: item 5 landed as `fb1e9cc9da182407813c01adbd3a58adcc2456ca` after 15,501/15,501 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504419113374922; measured numbers and RSS remain in its landing row.
+- DONE: item 6 landed as `377c0bd58da20a00c43d1f0addf734a98bec0a26` after 15,504/15,504 native tests, 14/14 CI fuzz suites, 100,765 attempts, seed 117504469504920149; measured numbers and RSS remain in its landing row.
 - OPEN: audit final outcomes, record final master and explicitly release the lease to the Starshine-versus-Binaryen comparison test.
 - EXCLUDED: items 2 and 9 are NEUTRAL; item 12 remains outside this landing set for separate repair/remeasurement; item 7 is outside this assignment.
 
@@ -354,12 +355,12 @@ All timings here are the original paired measurements, with the full workload/co
 | 3 | sparse: **0.169 → 0.056 ms (-66.90%)** | 6180.000 → 6212.000 | PASS 15,491/15,491; 8 batches | PASS 14/14; 100,767 attempts; seed `117504304333854712` | LANDED `050e89360e7b7be32aa78366f1d35e515b2916b2`; origin push PASS (exit 0) at `050e89360e7b7be32aa78366f1d35e515b2916b2`; no force |
 | 4 | relative: **10.466 → 1.414 ms (-86.47%)** | 5848.000 → 5920.000 | PASS 15,496/15,496; 8 batches | PASS 14/14; 100,764 attempts; seed `117504364697794335` | LANDED `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`; origin push PASS (exit 0) at `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`; no force |
 | 5 | Recursive GC + descriptors + continuations: **2.708 → 0.580 ms (-78.67%)** | 9,944 → 9,968 | PASS 15,501/15,501; 8 batches | PASS 14/14; 100,779 attempts; seed `117504419113374922` | LANDED `fb1e9cc9da182407813c01adbd3a58adcc2456ca`; origin push PASS (exit 0) at `fb1e9cc9da182407813c01adbd3a58adcc2456ca`; no force |
-| 6 | late-rejection: **0.023 → 0.012 ms (-49.65%)** | 7316.000 → 7432.000 | Corrected native gate pending; prior procedure superseded | Corrected CI fuzz pending | Pending corrected qualification; no merge |
+| 6 | late-rejection: **0.023 → 0.012 ms (-49.65%)** | 7316.000 → 7432.000 | PASS 15,504/15,504; 8 batches | PASS 14/14; 100,765 attempts; seed `117504469504920149` | LANDED `377c0bd58da20a00c43d1f0addf734a98bec0a26`; origin push PASS (exit 0) at `377c0bd58da20a00c43d1f0addf734a98bec0a26`; no force |
 | 8 | distinct-wide: **2.320 → 1.916 ms (-17.18%)**; CLI distinct-wide/dae **58.888 → 55.983 ms (-4.34%)**, optimizing **59.147 → 55.953 ms (-5.03%)** | 6744.000 → 8816.000 **(+30.78%, accepted)**; CLI 15,800 → 15,660 / 17,108 → 16,976 | Corrected native gate pending; prior procedure superseded | Corrected CI fuzz pending | Pending corrected qualification; no merge |
 | 10 | many-types-functions: **0.505 → 0.472 ms (-6.26%)** | 11456.000 → 11504.000 | Corrected native gate pending; prior procedure superseded | Corrected CI fuzz pending | Pending corrected qualification; no merge |
 | 11 | many-imported-tags: **0.104 → 0.065 ms (-38.32%)** | 9376.000 → 9312.000 | Corrected native gate pending; prior procedure superseded | Corrected CI fuzz pending | Pending corrected qualification; no merge |
 
-Latest verified local master code merge: `fb1e9cc9da182407813c01adbd3a58adcc2456ca`; its documentation checkpoint follows.
+Latest verified local master code merge: `377c0bd58da20a00c43d1f0addf734a98bec0a26`; its documentation checkpoint follows.
 
 The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae275a1`, `3a31c388f`, and `1f67ff580`. Fix 1 was formally stopped by the previous campaign. All DAE candidates must include this new base before gating.
 
@@ -582,3 +583,11 @@ Joshua authorized pushes after the original local-only landing. `git push origin
 - **GAIN:** Recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, peak RSS **9,944 → 9,968 KiB**; embedded definition **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Pass-local gains have limited enclosing CLI benefit; no general memory gain. All original workload/control rows remain above. Times are historical matched-pair medians against the pinned measurement master; process RSS is not allocation or live-heap evidence.
 - Corrected gates: **15,501/15,501 native tests**, all 8 batches; **14/14 CI native fuzz suites**, **100,779 attempts**, seed `117504419113374922`; both exit zero. Evidence: `corrected-05-native.json`, `corrected-05-fuzz.json` and adjacent full fuzz report.
 - Earlier stop decisions are superseded by this complete corrected run. No test or stage was disabled. No public `.mbti` changes. Origin push: PASS (exit 0) at `fb1e9cc9da182407813c01adbd3a58adcc2456ca`; no force. Raw result retained in `push-05-merge.json`. This docs-only checkpoint is pushed next.
+
+
+### Item 6 — LANDED under the corrected procedure
+
+- Source `dae/item-06-preflight-share` at `4192c02791efd685afc171c93d16a483ccbda698`; gated candidate `faeee882a587ca317bfa5d7355f67688d477b66b`; local-master merge **`377c0bd58da20a00c43d1f0addf734a98bec0a26`**. The merge tree equals the gated candidate tree before this docs-only checkpoint.
+- **GAIN:** Late rejection **0.023 → 0.012 ms/call (-49.65%)**, peak RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**. CLI evidence is neutral. All original workload/control rows remain above. Times are historical matched-pair medians against the pinned measurement master; process RSS is not allocation or live-heap evidence.
+- Corrected gates: **15,504/15,504 native tests**, all 8 batches; **14/14 CI native fuzz suites**, **100,765 attempts**, seed `117504469504920149`; both exit zero. Evidence: `corrected-06-native.json`, `corrected-06-fuzz.json` and adjacent full fuzz report.
+- Earlier stop decisions are superseded by this complete corrected run. No test or stage was disabled. No public `.mbti` changes. Origin push: PASS (exit 0) at `377c0bd58da20a00c43d1f0addf734a98bec0a26`; no force. Raw result retained in `push-06-merge.json`. This docs-only checkpoint is pushed next.

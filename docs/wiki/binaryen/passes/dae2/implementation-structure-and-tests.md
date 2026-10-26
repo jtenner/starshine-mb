@@ -38,6 +38,13 @@ This completed landing supersedes this item's earlier measurement-pending wordin
 
 Source `dae/item-05-subtype-trees` at `d20dd9102639d92893f65468d80f26120a6ee403` lands as `fb1e9cc9da182407813c01adbd3a58adcc2456ca` after 15,501/15,501 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504419113374922. The [campaign record](../../../../../experiment-results.md#item-5--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
 
+### Measured item 6
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Late rejection **0.023 → 0.012 ms/call (-49.65%)**, peak RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**. CLI evidence is neutral.
+
+Source `dae/item-06-preflight-share` at `4192c02791efd685afc171c93d16a483ccbda698` lands as `377c0bd58da20a00c43d1f0addf734a98bec0a26` after 15,504/15,504 native tests, 14/14 CI fuzz suites, 100,765 attempts, seed 117504469504920149. The [campaign record](../../../../../experiment-results.md#item-6--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
+
 ## Implementation map
 
 The September 10 Binaryen 132 implementation replaces the earlier research-only

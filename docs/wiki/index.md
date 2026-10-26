@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Measured DAE item 6](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-6) — Late rejection **0.023 → 0.012 ms/call (-49.65%)**, peak RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**. CLI evidence is neutral. Gates: 15,504 native tests and 14 CI fuzz suites pass; merge `377c0bd58da20a00c43d1f0addf734a98bec0a26`.
+
 - [Measured DAE item 5](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-5) — Recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, peak RSS **9,944 → 9,968 KiB**; embedded definition **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Pass-local gains have limited enclosing CLI benefit; no general memory gain. Gates: 15,501 native tests and 14 CI fuzz suites pass; merge `fb1e9cc9da182407813c01adbd3a58adcc2456ca`.
 
 - [Measured DAE item 4](binaryen/passes/dead-argument-elimination/starshine-strategy.md#measured-item-4) — Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**. Gates: 15,496 native tests and 14 CI fuzz suites pass; merge `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`.
@@ -13,7 +15,6 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
 
-- [DAE2 shared forward-control preflight](binaryen/passes/dae2/implementation-structure-and-tests.md#shared-raw-forward-control-preflight) — One fallback qualification/count, independent planner budgets, and bounded plan/graph regressions; timing and v133 comparison remain pending.
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.
