@@ -97,20 +97,20 @@ Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) no
 
 Everything else is rejected by default. In particular, `div`/`rem`, integer bitwise and shift/rotate families, integer and float comparisons, floating arithmetic, `clz`/`ctz`/`popcnt`, `i31.get_*`, `ref.is_null`, `ref.eq`, `ref.as_non_null`, numeric reinterpret/sign-extension/saturating/conversion instructions, calls, memory/table operations, control flow, and stack operators are not constant instructions. The same gate is used for globals, optional table initializers, active data offsets, active element offsets, and element payload expressions; there is no offset-only numeric denylist.
 
-### Core array constructors: accepted core fixtures, not WAST text
+### Core array constructors
 
-The three Core constructors below pass Starshine's constant-instruction gate after the 2026-06-07 widening. This is an **illustrative Core WAT shape**, not accepted evidence for the current Starshine high-level WAST parser, which still lacks `array.*` instruction keywords:
+The three Core constructors below pass Starshine's constant-instruction gate after the 2026-06-07 widening. The WAST keyword, parser, printer, and lowering tables also support these constructors:
 
 ```wat
 (type $a (array i32))
-;; Core-model/binary fixture shape; do not use as a current Starshine WAST test.
+;; Array constructor used in a constant expression.
 (global (ref null $a)
   (i32.const 7)
   (i32.const 1)
   (array.new $a))
 ```
 
-The gate accepts `array.new`, `array.new_default`, and `array.new_fixed` only after `resolve_array_field(...)` proves the named type is an array; normal typechecking still enforces the element, length, defaultability, fixed-arity, and expected-result rules. Focused tests prove `array.new_fixed` in a table initializer plus `array.new_default` and `array.new` in element-expression payloads. They do **not** make `array.new_data` or `array.new_elem` constant expressions, and they do not widen WAST text support. See the official validation sources and the local gate/tests cited on this page for the current evidence and supersession boundary.
+The gate accepts `array.new`, `array.new_default`, and `array.new_fixed` only after `resolve_array_field(...)` proves the named type is an array; normal typechecking still enforces the element, length, defaultability, fixed-arity, and expected-result rules. Focused tests prove `array.new_fixed` in a table initializer plus `array.new_default` and `array.new` in element-expression payloads. They do **not** make `array.new_data` or `array.new_elem` constant expressions, Text support is defined separately by the WAST parser and lowerer. See the official validation sources and the local gate/tests cited on this page for the current evidence and supersession boundary.
 
 ## Examples
 

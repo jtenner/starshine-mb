@@ -113,7 +113,7 @@ The offset expression makes the segment active. Starshine resolves `$f` through 
     (elem.drop $e)))
 ```
 
-Use passive segments for runtime element payloads. `table.init` and `elem.drop` syntax, stack order, table/element immediate ordering, and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md). Core `array.new_elem` and `array.init_elem` are also element-index users, but they are not current Starshine high-level WAST text forms; route aggregate fixture-format and initializer caveats through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
+Use passive segments for runtime element payloads. `table.init` and `elem.drop` syntax, stack order, table/element immediate ordering, and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md). Core `array.new_elem` and `array.init_elem` are also element-index users. `array.new_elem` has WAST text support; `array.init_elem` text remains unavailable. Route aggregate fixture-format and initializer caveats through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
 ### Passive typed empty element segment
 

@@ -317,7 +317,7 @@ installation. The [actual Wasm boundary test](../../../scripts/lib/optimizer-int
 independently executes the represented operations. See the
 [WebAssembly numeric semantics](https://webassembly.github.io/spec/core/exec/numerics.html).
 
-A machine-readable runtime-interface report emitted directly from Starshine's decoded MoonBit module, an expanded pass-sequence report for presets/composites, and MoonBit-owned threshold export remain pending. Compare-pass currently derives the runtime interface from decoded `wasm-tools print` structure, and the threshold command labels its MoonBit source owner explicitly.
+An earlier plan treated the runtime-interface, expanded pass-queue, and threshold reports as pending. The current report flags above supersede that plan. The semantic harness requests the runtime interface from Starshine.
 
 ## WasmGC runner argument prefix
 

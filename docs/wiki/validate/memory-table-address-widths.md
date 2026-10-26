@@ -101,12 +101,12 @@ The local code already uses the selected memory/table address type in several pl
 | `memory.size` / `memory.grow` | Aligned: uses selected memory `at` for result and grow delta/result. | [`typecheck_memory_size`](../../../src/validate/typecheck.mbt), [`typecheck_memory_grow`](../../../src/validate/typecheck.mbt) |
 | `memory.copy` | Aligned: destination `at1`, source `at2`, length `min(at1, at2)`. | [`typecheck_memory_copy`](../../../src/validate/typecheck.mbt) |
 | `memory.init` | Aligned: destination `at`; data source and length `i32`. | [`typecheck_memory_init`](../../../src/validate/typecheck.mbt) |
-| `memory.fill` | Gap: destination uses selected memory `at`, but length is still hard-coded to `i32`; memory64 positive fixtures with `i64` length are expected follow-up evidence. | [`typecheck_memory_fill`](../../../src/validate/typecheck.mbt) |
+| `memory.fill` | Aligned: destination and length use selected memory `at`; the byte value uses `i32`. | [`typecheck_memory_fill`](../../../src/validate/typecheck.mbt) |
 | `table.copy` | Aligned: destination/source widths plus mixed-width length; also checks source element reference type matches destination. | [`typecheck_table_copy`](../../../src/validate/typecheck.mbt) |
 | `table.init` | Aligned for the destination/source split: destination `at`, element source and length `i32`. | [`typecheck_table_init`](../../../src/validate/typecheck.mbt) |
 | `table.fill` | Gap: destination uses selected table `at`, but length is still `i32`; table64 positive fixtures with `i64` length are follow-up evidence. | [`typecheck_table_fill`](../../../src/validate/typecheck.mbt) |
-| `table.get` / `table.set` / `table.size` / `table.grow` | Gap: ordinary table operations still use `i32` index/result/delta assumptions locally. | [`typecheck_table_get`](../../../src/validate/typecheck.mbt), [`typecheck_table_set`](../../../src/validate/typecheck.mbt), [`typecheck_table_size`](../../../src/validate/typecheck.mbt), [`typecheck_table_grow`](../../../src/validate/typecheck.mbt) |
-| `call_indirect` / `return_call_indirect` | Gap: selected-table index is still popped as `i32` locally even though table64 should use selected table `at`. | [`typecheck_call_indirect`](../../../src/validate/typecheck.mbt), [`typecheck_return_call_indirect`](../../../src/validate/typecheck.mbt) |
+| `table.get` / `table.set` / `table.size` / `table.grow` | Aligned: index, result, and delta use the selected table address type. | [`typecheck_table_get`](../../../src/validate/typecheck.mbt), [`typecheck_table_set`](../../../src/validate/typecheck.mbt), [`typecheck_table_size`](../../../src/validate/typecheck.mbt), [`typecheck_table_grow`](../../../src/validate/typecheck.mbt) |
+| `call_indirect` / `return_call_indirect` | Aligned: the selected-table index uses its address type. | [`typecheck_call_indirect`](../../../src/validate/typecheck.mbt), [`typecheck_return_call_indirect`](../../../src/validate/typecheck.mbt) |
 
 ## Concrete Fixture Guidance
 
@@ -115,7 +115,7 @@ The local code already uses the selected memory/table address type in several pl
 When widening or testing memory64, include all three bulk-memory shapes instead of only loads/stores:
 
 ```wat
-;; Official memory64-positive shape, but current Starshine rejects the i64 length.
+;; Memory64-positive shape accepted by the local typechecker.
 (memory.fill
   (i64.const 0)  ;; destination in memory64
   (i32.const 7)  ;; byte value
@@ -130,12 +130,12 @@ When widening or testing memory64, include all three bulk-memory shapes instead 
 
 For mixed-width `memory.copy`, test both memory directions if the change touches source/destination order. The length should be the narrower address type.
 
-### Table64 positives and current local rejections
+### Table64 positives and current local rejection
 
 For table64 work, keep the ordinary-table and bulk-table surfaces separate:
 
 ```wat
-;; Official table64-positive shape, but current Starshine still expects i32 index.
+;; Table64-positive shape accepted by the local typechecker.
 (table.get 0
   (i64.const 0))
 

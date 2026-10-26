@@ -70,7 +70,7 @@ Starshine's public optimize/shrink registry descriptors and runtime rosters now 
 
 ## 2026-07-18 release-order refresh
 
-Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while current pass-local behavior must now be read against the v132 baseline; the v131 release-impact audit remains historical evidence. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.
+Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while new pass-local comparisons require a verified v133 oracle; the v131 release-impact audit remains historical evidence. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.
 
 ## 2026-06-14 `ssa-nomerge` scheduling anchors
 

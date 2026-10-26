@@ -125,7 +125,7 @@ Implication: if a test must prove nonzero memory-index behavior today, use a dir
 
 ### Bulk memory and active data offsets are adjacent, not identical
 
-Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`. Their stack operand widths are also positional, not family-wide; the focused 2026-06-04 refresh in [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) records the current official matrix and Starshine code-map split. In short, `memory.init` keeps data-segment source offset and length as `i32`, mixed-width `memory.copy` uses the minimum address type for length, and `memory.fill` should use the selected memory address type for both destination and length even though current Starshine still hard-codes the length slot to `i32`.
+Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`. Their stack operand widths are also positional, not family-wide; the focused 2026-06-04 refresh in [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) records the current official matrix and Starshine code-map split. In short, `memory.init` keeps data-segment source offset and length as `i32`, mixed-width `memory.copy` uses the minimum address type for length, and `memory.fill` uses the selected memory address type for both destination and length.
 
 ```wat
 (module
@@ -173,7 +173,7 @@ When changing memory-argument text, binary, or validation behavior:
 - WAST printing emits `align=` in byte-alignment form and does not show explicit memory indices for ordinary memory arguments.
 - Generator and binary coverage are broader than WAST text coverage for multi-memory. Keep those layers distinct when writing signoff claims, and route declaration-level memory64/shared-memory validity through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 - `memory.copy` length typing uses the minimum address type of the two memories locally. Mixed memory32/memory64 fixtures are therefore better validator tests than simple one-memory examples.
-- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) and [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) record this as a local/spec divergence rather than an intended long-term contract.
+- Starshine validation uses the selected memory address type for `memory.fill` destination and length. See [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Sources
 

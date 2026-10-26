@@ -126,7 +126,7 @@ and [`p00_rethrow_wbtest.mbt`](../../src/validate/p00_rethrow_wbtest.mbt) passes
 all four existing tag/rethrow tests. These historical filenames do not claim
 new Binaryen oracle evidence. `moon fmt src/validate` passes.
 
-Performance measurement is pending a suite lease. The changed path is legacy
+At the October 25 checkpoint, performance measurement was pending a suite lease. The October 26 record below supersedes that status. The changed path is legacy
 try validation: one handler index and a final-position check in the catch-all
 arm, with no new collection or traversal. Proposed workloads compare the test
 checkpoint and fixed native builds on modules without legacy try (control),
@@ -137,7 +137,7 @@ timing or external oracle run was performed for this fix.
 
 ## Current Gaps And Caveats
 
-- **The resultful-tag declaration gap is resolved.** The Binaryen 132 upgrade allows tag function results and checks the empty-result restriction at `throw`, tagged catch and `resume_throw` uses. [Positive and negative tests](../../src/validate/binaryen132_continuation_wbtest.mbt) cover the change.
+- **The resultful-tag declaration gap is resolved.** Result-bearing tags require the stack-switching feature. The Binaryen 132 upgrade checks the empty-result restriction at `throw`, tagged catch and `resume_throw` uses. [Positive and negative tests](../../src/validate/binaryen132_continuation_wbtest.mbt) cover the change.
 - **Legacy EH remains a compatibility surface, but it is first-class after lowering or decoding.** New authored semantic fixtures should prefer modern `try_table`; accepted legacy `try` text and legacy binary instructions nevertheless become first-class `Instruction::Try` values. Raw optimizer walkers must traverse the protected body and every typed/catch-all body, or explicitly fail closed before mutation. Legacy `rethrow` still has narrower lowering/execution caveats than modern EH.
 - **`throw_ref` is not a pure terminator.** It consumes and evaluates an operand. A pass must preserve the difference between null-trap and non-null rethrow.
 - **Catch-reference payloads carry non-null exception references.** `catch_ref` and `catch_all_ref` branch with a captured non-null `(ref exn)` even if the target label is written as nullable `exnref`; subtyping/matching accounts for the difference.

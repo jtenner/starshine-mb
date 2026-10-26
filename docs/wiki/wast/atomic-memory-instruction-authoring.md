@@ -38,11 +38,11 @@ related:
 
 # Atomic Memory Instruction Authoring
 
-Starshine targets Binaryen 132 for new comparisons. Linear-memory atomic
+New comparisons use verified Binaryen 133. Linear-memory atomic
 instructions now have WAST parsing, printing and lowering as well as core,
 binary, validation and HOT support. This September 10 implementation supersedes
 this page's previous “core yes, WAST text no” boundary. The
-[upgrade record](../binaryen/version-132-upgrade.md) owns current signoff;
+[upgrade record](../binaryen/version-132-upgrade.md) records the historical intake;
 structural checks do not imply external-engine support for experimental orders.
 
 ## Text and binary contract

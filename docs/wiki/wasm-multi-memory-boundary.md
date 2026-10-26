@@ -81,7 +81,7 @@ Instruction::memory_grow(MemIdx::new(1))
 Instruction::memory_fill(MemIdx::new(1))
 ```
 
-`memory.size` and `memory.grow` use the selected memory's address type for page-count values. `memory.fill` uses the selected memory for destination typing, but Starshine currently still types the length as `i32` even for memory64; keep that memory64 gap routed through [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md). The multi-memory part is only the `MemIdx` selection.
+`memory.size` and `memory.grow` use the selected memory's address type for page-count values. `memory.fill` uses the selected memory address type for destination and length; route memory64 details through [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md). The multi-memory part is only the `MemIdx` selection.
 
 ### `memory.copy`
 

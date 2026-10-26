@@ -155,7 +155,7 @@ Sources: [core/codec tests](../../src/binary/binaryen132_waitqueue_wbtest.mbt),
 - **Effectful/trap-sensitive by default.** A dropped atomic result can still preserve a trap, write, synchronization edge, or returned old value. Validation success alone does not justify deletion, movement, or duplication.
 - **Packed signedness matters.** Plain atomic gets are not interchangeable with signed/unsigned packed reads.
 - **Shared type representation exists but is not a completeness claim.** `TypeMetadata.shared` and shared heap variants are real IR/binary state. Proposal-wide subtype restrictions, WAST declaration coverage, host/runtime threading, and engine execution still need exact layer-specific evidence.
-- **The represented aggregate family still has gaps.** Atomic set now has distinct struct and array carriers. The v132 waitqueue family is represented as described below. Array atomic gets are core/binary/validator/HOT-visible even where the high-level WAST surface remains narrower.
+- **The represented aggregate family still has gaps.** Atomic set now has distinct struct and array carriers. The v132 waitqueue family is represented as described below. Array atomic gets also have WAST parser, printer, and lowering entries.
 - **Fresh-object folding is order-sensitive.** HSO may fold a relaxed atomic field store while its fresh object is proven unescaped. It preserves release and sequentially consistent stores because a later acquire after publication can observe their synchronization event.
 - **`pause` remains absent.** Ordered atomic fields do not imply the entire Relaxed Atomics proposal is implemented.
 

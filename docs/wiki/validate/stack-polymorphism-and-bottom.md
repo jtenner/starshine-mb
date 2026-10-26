@@ -205,5 +205,5 @@ computations, and retains source-access bookkeeping.
 
 See [bounded frame regressions](../../../src/validate/frame_polymorphism_wbtest.mbt),
 [command rejection and valid controls](../../../src/cmd/p00_validator_wbtest.mbt),
-and [current repair evidence](../tooling/validation-gates.md#october-4-2026-focused-frame-order-and-typed-entry-repairs).
+and [current repair evidence](../tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs).
 The old audit fixtures and measurements remain historical evidence.

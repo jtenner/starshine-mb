@@ -40,6 +40,8 @@ related:
 
 ## Overview
 
+Publication remains gated on the current measurement backlog and release validation in [`agent-todo.md`](../../../agent-todo.md). Earlier release authorization is historical.
+
 Use this page when preparing a Starshine release, reviewing a release-prep branch, or deciding whether a change is release-blocking. It turns the compact repo policy in [`AGENTS.md`](../../../AGENTS.md) and [`docs/README.md`](../../README.md) into a concrete checklist with package-surface, validation, release-notes, and publication boundaries.
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
