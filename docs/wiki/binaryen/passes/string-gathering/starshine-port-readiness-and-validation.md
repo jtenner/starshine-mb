@@ -90,7 +90,7 @@ Expose `string-gathering` as an honest active pass everywhere users and validati
   - explicit CLI acceptance coverage
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
   - compare harness pass allowlist
-- [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L34-L35`](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
+- [Canonical full top-level scheduler](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
   - canonical late-tail slot before `reorder-globals` and `directize`
 
 ### Acceptance criteria
