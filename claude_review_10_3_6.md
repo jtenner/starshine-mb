@@ -1,5 +1,8 @@
 # Starshine optimizer passes: correctness and mutation review (2026-10-03)
 
+This is a historical review of the recorded revision. Findings below do not
+state the status of current master. See [the active backlog](agent-todo.md).
+
 ## How this review was done
 
 - **Code reviewed:** `3d46f7e52` (`perf: store scalar CFG edges inline`).

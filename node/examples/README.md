@@ -29,7 +29,7 @@ Or change into `node/` first and run `node examples/<file>.mjs`.
 
 ## Optimizer Path Note
 - Examples that pass optimizer flags exercise the command pipeline surface (`--optimize` and `--shrink`) and the generated pass ordering.
-- `--optimize` and `--shrink` run through the active hot preset pipeline; legacy pass names are still tracked in registry diagnostics, but they are not executable as active pass flags.
+- `--optimize` and `--shrink` run the preset pipelines. Registered individual passes can also be selected with pass flags, such as `--vacuum`.
 
 ## What to Run
 - Roundtrip baseline: `01-barrel-roundtrip.mjs`

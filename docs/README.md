@@ -98,12 +98,12 @@ Use this section for lower-frequency details that help humans and agents orient 
 
 ### Layout Details
 
-- Active packages live under `src/`; the current active package set is `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
+- Active packages live under `src/`; the current active package set is `binary`, `binary_fuzz`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `cmd_gc`, `daybreak19_measure`, `diff`, `ffi_bridge`, `fs`, `fuzz`, `hot_identity_trace`, `ir`, `lib`, `passes`, `passes_perf_long`, `representation`, `rume`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`. `src/spec_runner` has source files but no package manifest.
 - `examples/` contains runnable examples.
 - `component/` is a nested MoonBit module generated from `component/wit/starshine.wit` plus the `src/lib/pkg.generated.mbti`-derived `core-ir.generated.wit`; it builds the portable Component Model facade against the local Starshine checkout.
 - `tests/spec/` and `tests/node/` hold external and integration coverage.
 - `node/` is the npm export boundary; `ffi/src/npm` is its FFI-derived WasmGC adapter. Exact tarball checks and self-optimization evidence live in ignored `dist/npm/`.
-- `scripts/` contains Bun entrypoints only: `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, `pass-fuzz-compare.ts`, and `pass-performance-sweep.ts`.
+- `scripts/` contains Bun entrypoints: `cli-benchmarks.ts`, `component.ts`, `examples.ts`, `ffi.ts`, `fuzz.ts`, `make.ts`, `oi-parity-sweep.ts`, `pass-fuzz-compare.ts`, `pass-performance-sweep.ts`, `self-opt.ts`, `self-optimize-compare.ts`, and `validate.ts`.
 - `scripts/lib/*` contains shared script code.
 - `scripts/test/*` contains script tests.
 

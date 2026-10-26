@@ -25,14 +25,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   the next leased lane; retain key, type-update and batch regressions. The
   [measured landing](experiment-results.md#item-8--landed-under-the-corrected-procedure)
   closes the prior measurement task, with its accepted RSS cost explicit.
-## Next unreleased patch — Legacy catch ordering [IR2-VALIDATE-F05]
-
-- **Goal / why:** reject duplicate `catch_all` clauses and typed catches after `catch_all` in legacy `try`.
-- **Deliverables / tasks:** enforce final catch-all placement in `typecheck_legacy_try`.
-- **APIs / invariants:** no API change; preserve valid handler order and catch body checks.
-- **Dependencies / exit / tests:** fix both failing rejection tests in `src/validate/daybreak_bug_hunt_wbtest.mbt`; keep its valid-order control passing.
-- **Evidence:** [F05 record](docs/wiki/wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering); the test checkpoint has two failures and one pass.
-
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
 ### Atomic public flag measurement [IR2-ATOMIC-FLAGS]
@@ -123,8 +115,8 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - Mooncakes `0.2.2` is published. The downloaded registry ZIP has 2,157
   members, all byte-identical to source checkpoint `0f9460d32`. Its tutorial
   is the baseline for the [0.3.0 release notes](docs/releases/0.3.0.md).
-- The owner authorized `0.3.0` for both registries, a full local test, and an
-  annotated tag with a detailed GitHub changelog. This supersedes the old
+- The owner previously authorized `0.3.0` for both registries, a full local test,
+  and an annotated tag with a detailed GitHub changelog. This superseded the old
   restriction that treated synchronized npm `0.2.2` as a private candidate.
   Its runtime/dependency guidance is superseded by the published `0.2.2` tutorial.
 - Mooncakes `0.2.2` is published and its default/latest overview renders the
@@ -152,9 +144,9 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   7,747 structural differences and raw total growth 25,882 remain open parity
   gaps. Preserve saved aggregate's zero-tee coverage limit and targeted profile
   evidence in [Vacuum signoff](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
-- The `0.3.0` registry release, tag and GitHub release are authorized. Preserve
-  other worktrees, held optimizer refs, and the open memory/parity follow-ups.
-  Account permissions and branch protections are unchanged.
+- The earlier release authorization is historical. Publication remains gated on
+  the current measurement backlog and release validation. Preserve open
+  memory and parity follow-ups.
 
 ### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
 
@@ -697,7 +689,7 @@ quality gates. Keep traced inner and normal command measurements separate.
   and native separate-lane fixtures cover both store orders and overlap.
   [Contracts and measured scope](docs/wiki/binaryen/passes/tuple-optimization/index.md).
 - [ ] **October 14 correctness repairs awaiting final signoff:** the
-  [Heap2Local owner publication repair](docs/wiki/binaryen/passes/heap2local/index.md#october-14-2026-owner-publication-repair-under-validation)
+  [Heap2Local owner publication repair](docs/wiki/binaryen/passes/heap2local/index.md#october-14-2026-owner-publication-repair)
   stages all constructor operands before publishing new fields. Red-first
   tests also exposed removed result labels, wrapper ownership, and lost array
   tee constructor effects. Array old-owner reads now use the prior allocation

@@ -1,5 +1,8 @@
 # Handoff: json-as full-suite validation and optimizer follow-up
 
+This handoff records the June 6 checkpoint. Its status, paths, and next actions
+are historical. See [the active backlog](../agent-todo.md) for current work.
+
 Date: 2026-06-06
 Workspace: `/home/jtenner/Projects/starshine-mb`
 Current HEAD: `67bb6ef8d Guard large json-as cleanup shapes`

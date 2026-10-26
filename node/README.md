@@ -1,8 +1,8 @@
 # Starshine Node Package
 
-`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. This guide uses version `0.3.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
+`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. This guide describes the source checkout. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
 
-Version `0.3.0` is a minor release with optimizer correctness repairs, lower analysis costs, and new diagnostic tools. See the [full release notes](https://github.com/jtenner/starshine-mb/releases/tag/v0.3.0).
+The package release is pending. See the [draft release notes](../docs/releases/0.3.0.md).
 
 ## Start here
 
@@ -10,12 +10,12 @@ Use Starshine to turn WebAssembly text (`.wat`) into binary (`.wasm`), inspect
 and validate modules, or add an optimization step to a build. WAT is the
 human-readable form; Wasm is the binary that runtimes execute.
 
-With Node.js 25 or newer, start an ESM project:
+With Node.js 25 or newer and a locally built package tarball, start an ESM project:
 
 ```sh
 npm init -y
 npm pkg set type=module
-npm install starshine@0.3.0
+npm install /absolute/path/starshine-0.3.0.tgz
 ```
 
 Installing the package needs no MoonBit, C compiler or optimizer build tools.
@@ -135,7 +135,7 @@ needs no compiler checkout or build-time optimizer dependency.
 
 ## MoonBit source users
 
-In a MoonBit project, run `moon add jtenner/starshine@0.3.0`, then import the
+In a MoonBit project, run `moon add jtenner/starshine@0.2.2`, then import the
 `wast`, `binary`, `validate` and `passes` packages under `jtenner/starshine` in
 `moon.pkg`. The [Mooncakes README](https://github.com/jtenner/starshine-mb/blob/master/README.mooncakes.md)
 and [source package map](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md)
@@ -207,4 +207,4 @@ Joshua Tenner’s original portions are offered under MIT; the compiled bundle a
 
 Build generation checks notice drift; the build verifies reviewed installed Core 0.10.15+943464bfa license/NOTICE bytes and x 0.5.1 metadata before compilation. A dependency upgrade requires a notice/provenance review.
 
-The release uses version 0.3.0 with the explicitly authorized latest/default npm tag. Optimizer parity and resource limits remain recorded in the repository. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.
+The release remains pending the measurement backlog. Optimizer parity and resource limits remain recorded in the repository. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.

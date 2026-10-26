@@ -1,5 +1,7 @@
 # npm WasmGC beta preparation handoff
 
+This is a historical handoff. Branch, checkout, qualification, and release status below describe the recorded checkpoints, not current master. See [the active backlog](../agent-todo.md) for current release gates.
+
 This prepares `@jtenner/starshine@0.1.2-beta.0`. Source publication to
 `origin/master` was explicitly authorized on October 10 after local qualification.
 No npm package was published, no tag/release created, and no account credentials

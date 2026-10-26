@@ -2,14 +2,16 @@
 
 MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
 
-Optimizer comparisons target **Binaryen 132**. The [upgrade record](docs/wiki/binaryen/version-132-upgrade.md) tracks implemented release changes, GenValid coverage, remaining parity work, and runtime support boundaries.
+Optimizer comparisons target **Binaryen 133**. The [upgrade record](docs/wiki/binaryen/version-133-upgrade.md) tracks implemented release changes, GenValid coverage, remaining parity work, and runtime support boundaries.
 
 For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 ## Install in MoonBit
 
+The published package may differ from this source checkout.
+
 ```sh
-moon add jtenner/starshine@0.3.0
+moon add jtenner/starshine@0.2.2
 ```
 
 ## What You Can Do
@@ -45,14 +47,13 @@ moon add jtenner/starshine@0.3.0
 | `jtenner/starshine/diff` | Myers diff helpers used by diagnostics and tooling. |
 | `jtenner/starshine/fs` | Small filesystem helpers for host-facing code. |
 | `jtenner/starshine/fuzz` | Fuzz harness entrypoints and support code. |
-| `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
 | `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
 
 ## IR2 Architecture
 
 - `HotFunc` is the only owned optimizer body representation. Boundary decode/encode/validation/debug remain on raw module and expression forms.
 - CFG, dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by hot-IR `revision`.
-- The canonical architecture rule set lives in [`docs/0059-2026-03-24-ir2-architecture-rules.md`](./docs/0059-2026-03-24-ir2-architecture-rules.md); package-local module ownership rules live in [`src/ir/README.md`](./src/ir/README.md).
+- The canonical architecture rule set lives in [`docs/wiki/ir2/architecture-rules.md`](./docs/wiki/ir2/architecture-rules.md); package-local module ownership rules live in [`src/ir/README.md`](./src/ir/README.md).
 
 <!-- README_API_VERIFY src/ir/pkg.generated.mbti -->
 ```mbti

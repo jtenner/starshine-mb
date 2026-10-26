@@ -1,5 +1,8 @@
 # DAE gain landing campaign — 2026-10-25
 
+This is a historical landing record. Its lease and next-action statements
+refer to that campaign. See [the active backlog](agent-todo.md) for current gates.
+
 ## DONE / OPEN
 
 - DONE: verify the eight recorded GAIN source branches and preserve their original heads; prepare isolated item refs and the conditional item 4/8 integration repair.
