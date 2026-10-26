@@ -1,3 +1,7 @@
+### 2026-10-26, Baseline documentation refresh audit
+
+- Reviewed assigned historical sources and log scope against master `984523889116a32341718f66f34554bb5d464d43`. Historical raw captures and dated log entries retain their original context. The [release and measurement backlog](../../agent-todo.md) remains open; this refresh does not establish release signoff.
+
 ### 2026-10-26 — Daybreak F14 measured and gated
 
 - F14 has measured native argument-normalization gains with no confirmed loss. One ordinary path costs 0.05258 -> 0.03102 us (-40.99%) for a short path and 0.05105 -> 0.03348 us (-34.41%) for a long path. 64 ordinary paths improve 87.25-87.55%; 512 short paths improve 12.78056 -> 1.33663 us (-89.54%) and long paths improve 89.44%. Raw allocations fall 70.004 -> 6.001 per 64-path call and 521.037 -> 9.003 per 512-path call, removing one temporary per ordinary argument. No-path control time is neutral (-0.62%) and allocations remain 2.000. All candidate observations retain exact leading/trailing/whitespace-only paths and order. These changed-output cases are diagnostic; their speed differences are not used as same-work performance gains. Full native: 15532 passed, zero failed. All 14 CI fuzz suites pass (100757 attempts). Both gates exit zero with verified Binaryen 133 and .tmp present. [Frozen source, raw samples and gate identity](raw/tooling/2026-10-26-daybreak19/F14-signoff.json).
