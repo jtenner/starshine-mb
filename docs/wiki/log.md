@@ -1,6 +1,10 @@
+### 2026-10-26 — F05 full landing gates pass
+
+- The frozen F05 source passes 15525/15525 native tests and all 14 CI fuzz suites (100757 attempts, seed 24301), with both gates at exit zero. [Signoff](raw/tooling/2026-10-26-daybreak19/F05-signoff.json) records source, executables, verified Binaryen 133, .tmp setup, and the neutral measurement verdict with small costs. No merge or push is claimed before the landing step.
+
 ### 2026-10-26 — F05 leased measurement before landing gates
 
-- Legacy catch-order validation has a neutral measurement verdict with small retained costs (-0.90% to +2.43% on valid cases), equal raw allocation cost, and native RSS within controls. [The complete F05 record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) preserves all 180 fresh samples and excludes the 18-sample contention run. Full native and CI fuzz gates remain pending; no landing is claimed.
+- Legacy catch-order validation has a neutral measurement verdict with small retained costs (-0.90% to +2.43% on valid cases), equal raw allocation cost, and native RSS within controls. [The complete F05 record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) preserves all 180 fresh samples and excludes the 18-sample contention run. Full native and CI fuzz gates were pending at that checkpoint; the later signoff entry above supersedes it. No landing was claimed at the measurement checkpoint.
 
 ### 2026-10-25 — Measured DAE gains landing
 

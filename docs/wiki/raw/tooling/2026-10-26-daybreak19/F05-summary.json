@@ -331,11 +331,19 @@
   "memory_samples_accepted": 0,
   "discarded_samples": 0,
   "allocation_scope": "Raw MoonBit allocations in generated C and runtime, including headers. Whole-process counts divided by all callbacks; setup/fixture/benchmark overhead remains. Instrumented speed is excluded. RSS is uninstrumented whole-process kernel peak, not logical live memory.",
-  "verdict": "NEUTRAL within observed measurement variation; gates pending",
+  "verdict": "NEUTRAL within observed measurement variation",
   "reason": "Valid-case medians range from -0.90% to +2.43%. Raw allocations and bytes are unchanged within amortized setup noise. Native RSS is neutral within controls. The largest wide-catch time costs are similar to observed control variation; no gain or zero-cost claim is made.",
   "limits": "The 16-typed/no-final-all case costs +1.96%; 256-typed cases cost +2.39% to +2.43%. These small costs are retained in the record. Same-build drift reaches +9.05% in a wide-catch control. Newly rejected invalid cases are diagnostic only.",
   "quarantined_samples": 18,
   "quarantine_reason": "External T3 Code test contention. All partial old samples are excluded; these 180 samples come from the fresh quiet-host run.",
   "temperature_policy": "F05 retains the 60 C full protocol. The 65 C/early-stop update starts at F06.",
-  "gates": "pending"
+  "gates": {
+    "state": "passed",
+    "head": "03586a339938cff3f4483fd3b05b15c9b7ad1824",
+    "native_tests": 15525,
+    "ci_fuzz_suites": 14,
+    "ci_fuzz_attempts": 100757,
+    "native_exit_code": 0,
+    "fuzz_exit_code": 0
+  }
 }

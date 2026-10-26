@@ -1,0 +1,428 @@
+{
+  "item": "F05",
+  "original_branch": "fix/db-05-catch-after-catch-all",
+  "original_head": "339555ac4cd2df3d28688a25d5f774ebcd3c2ccd",
+  "measured_candidate_head": "27ef831a8",
+  "gate_head": "03586a339938cff3f4483fd3b05b15c9b7ad1824",
+  "gate_tree": "26e614ad357bb26e947695858aaad99efcb5408c",
+  "native_tests_passed": 15525,
+  "native_tests_failed": 0,
+  "native_batches": [
+    {
+      "total": 1077,
+      "passed": 1077,
+      "failed": 0
+    },
+    {
+      "total": 1337,
+      "passed": 1337,
+      "failed": 0
+    },
+    {
+      "total": 1200,
+      "passed": 1200,
+      "failed": 0
+    },
+    {
+      "total": 977,
+      "passed": 977,
+      "failed": 0
+    },
+    {
+      "total": 2586,
+      "passed": 2586,
+      "failed": 0
+    },
+    {
+      "total": 4173,
+      "passed": 4173,
+      "failed": 0
+    },
+    {
+      "total": 2021,
+      "passed": 2021,
+      "failed": 0
+    },
+    {
+      "total": 2154,
+      "passed": 2154,
+      "failed": 0
+    }
+  ],
+  "ci_fuzz_suites_passed": 14,
+  "ci_fuzz_attempts": 100757,
+  "ci_fuzz_seed": 24301,
+  "native_exit_code": 0,
+  "fuzz_exit_code": 0,
+  "verdict": "neutral with small retained time costs",
+  "measurement_summary": "F05-summary.json",
+  "tested_native_artifacts": [
+    {
+      "path": "_build/native/debug/build/fuzz/fuzz.exe",
+      "bytes": 87945856,
+      "mtime_ns": 1792991922951782911,
+      "sha256": "53404658e2bce9279851c0d7dda01ef82206e282266050a8b53b21992c425283"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.blackbox_test.exe",
+      "bytes": 967744,
+      "mtime_ns": 1792991400910375767,
+      "sha256": "0b3114379f36011fc12dbb243888c1c4d2e197297b50b124ef68994a235f649d"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.internal_test.exe",
+      "bytes": 963384,
+      "mtime_ns": 1792991400882375899,
+      "sha256": "55919a737565115ae078289bc43cd4d342678e80909bc5e40dd300c8651787a5"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.whitebox_test.exe",
+      "bytes": 34896920,
+      "mtime_ns": 1792991411682324451,
+      "sha256": "4676044ecf417e34215cdb9ad0d1d37294bde98f7606dcff50fd29bb6a052125"
+    },
+    {
+      "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.blackbox_test.exe",
+      "bytes": 969296,
+      "mtime_ns": 1792991411706324333,
+      "sha256": "966633edba393f57fdceae424475b701231343b9d699578f980555006b4ba4bc"
+    },
+    {
+      "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.internal_test.exe",
+      "bytes": 965160,
+      "mtime_ns": 1792991410710329086,
+      "sha256": "dd57afeece01bd1930320101e55c96436ed828685a12f492c6d52189c1dfd840"
+    },
+    {
+      "path": "_build/native/debug/test/bitset/bitset.blackbox_test.exe",
+      "bytes": 1549096,
+      "mtime_ns": 1792991400334378508,
+      "sha256": "5c4dacf2f14915ddd5c95c17cbe129baf59d63155eb9efa75adf208e0f484722"
+    },
+    {
+      "path": "_build/native/debug/test/bitset/bitset.internal_test.exe",
+      "bytes": 963384,
+      "mtime_ns": 1792991400358378391,
+      "sha256": "770b16fd263ae3ed398a448de28ca97ebcb30b6161ec4d24d3c492b97a98d03a"
+    },
+    {
+      "path": "_build/native/debug/test/cli/cli.blackbox_test.exe",
+      "bytes": 2747328,
+      "mtime_ns": 1792991399146384158,
+      "sha256": "e5165e785fffc833cbc16fa334b9cf7b313a8164d4be67f78fa70cd2f40ccb9d"
+    },
+    {
+      "path": "_build/native/debug/test/cli/cli.internal_test.exe",
+      "bytes": 962584,
+      "mtime_ns": 1792991399170384044,
+      "sha256": "c2f56e79c0c795d6b8aa93c0b9611a1b5e4de38b056d6cf02d2ba05afb4a9746"
+    },
+    {
+      "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.blackbox_test.exe",
+      "bytes": 2094456,
+      "mtime_ns": 1792991456318110514,
+      "sha256": "99c3cc4f53deea7596d8347c5478ffc33e3ba0b9e81a37cd096aa1aa7d02ee19"
+    },
+    {
+      "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.internal_test.exe",
+      "bytes": 966200,
+      "mtime_ns": 1792991455830112864,
+      "sha256": "7bc6100267f0caa480edc5de6fe4c0338282b7dd84ecbb1a765718f57ff4fd73"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.blackbox_test.exe",
+      "bytes": 84092328,
+      "mtime_ns": 1792991456758108393,
+      "sha256": "04c384df8766fb46fbb9739fb048e34d18fcb10f64534234950ca8ca91cc1c11"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.internal_test.exe",
+      "bytes": 90249320,
+      "mtime_ns": 1792991456294110630,
+      "sha256": "347c3c456975ae2ba0a0885928b08457c5349f36fcda71824777f0231b41772a"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+      "bytes": 118246280,
+      "mtime_ns": 1792991455802112996,
+      "sha256": "d1d53a2f04c3174d12d03a733f47f8a73b812d92c6a086f891e0a5569213e6cb"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.blackbox_test.exe",
+      "bytes": 971160,
+      "mtime_ns": 1792991510193849702,
+      "sha256": "8708cbbd6aaed8a13e05921b0663a89d4b82aef1bee8f789665341a8e6101e67"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.internal_test.exe",
+      "bytes": 967032,
+      "mtime_ns": 1792991510213849602,
+      "sha256": "16a306856c953c1ce76acb78f095e2a8972b879456139244b36da1f6f6e0dce4"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+      "bytes": 967032,
+      "mtime_ns": 1792991510169849817,
+      "sha256": "44dab7ce2e8fbd9dced4d2b86673c4de8e2428ce199b9bba77804917063f46c3"
+    },
+    {
+      "path": "_build/native/debug/test/diff/diff.blackbox_test.exe",
+      "bytes": 1704688,
+      "mtime_ns": 1792991510701847226,
+      "sha256": "9b4c7f03b0a8ac095c6b2ef1d220ab9578c81febd5e81ea0e5819b7904c53451"
+    },
+    {
+      "path": "_build/native/debug/test/diff/diff.internal_test.exe",
+      "bytes": 962848,
+      "mtime_ns": 1792991510721847132,
+      "sha256": "a063cf2dca2204ca270733a9e3ccf25e55f5b294cde72111b149f53b86a6061e"
+    },
+    {
+      "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.blackbox_test.exe",
+      "bytes": 91577928,
+      "mtime_ns": 1792991529193757095,
+      "sha256": "c99ef68b8fe94d5ebf7dbb3f76d6aa7b1af5f6e167f892f45b09f614e17da504"
+    },
+    {
+      "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.internal_test.exe",
+      "bytes": 1463736,
+      "mtime_ns": 1792991510261849371,
+      "sha256": "391772c7f010adaa78b5c80da94f223fb74a75ab6385351d176a469e1d36307b"
+    },
+    {
+      "path": "_build/native/debug/test/fs/fs.blackbox_test.exe",
+      "bytes": 1726768,
+      "mtime_ns": 1792991510125850032,
+      "sha256": "0e8e410af0c74f7ef8848e0e33b5a656ec73486013afdce4dc764679274e8dbc"
+    },
+    {
+      "path": "_build/native/debug/test/fs/fs.internal_test.exe",
+      "bytes": 962320,
+      "mtime_ns": 1792991510145849931,
+      "sha256": "ec61c779b494b0c508347373b038b97206aeb9f31b226dd5f164d998a705fa1c"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.blackbox_test.exe",
+      "bytes": 103424576,
+      "mtime_ns": 1792991529745754402,
+      "sha256": "c65337ba571f2b2cbe6cbd5aaebe38d652b10da689c4bbd2fc206446eb495502"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.internal_test.exe",
+      "bytes": 962848,
+      "mtime_ns": 1792991528609759947,
+      "sha256": "fa908f6e2826ae09fb85074cda91d56e67e006670e63f54bf4516d0f40fd094f"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.whitebox_test.exe",
+      "bytes": 127232016,
+      "mtime_ns": 1792991528585760066,
+      "sha256": "a915b7ca6d2f0759a19737d891c15a2e51bbecad37c360acfa55f26ed04c855e"
+    },
+    {
+      "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.blackbox_test.exe",
+      "bytes": 15517504,
+      "mtime_ns": 1792991528693759537,
+      "sha256": "972bbb3c0343797d605f2bdf8ba053b774667f38ec891ab625080f227881ea9d"
+    },
+    {
+      "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.internal_test.exe",
+      "bytes": 967256,
+      "mtime_ns": 1792991510237849487,
+      "sha256": "10990a2ccf121a8fd45f6b67e5214a0ca866cee8655c7f55c62ba989e827c300"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.blackbox_test.exe",
+      "bytes": 29746232,
+      "mtime_ns": 1792991510625847598,
+      "sha256": "5796250bd16f4141017799a16ea171a110da8e031644937dc8046ad5590b7af1"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.internal_test.exe",
+      "bytes": 7291368,
+      "mtime_ns": 1792991510677847347,
+      "sha256": "66184c3790afc95b3ac9b4f8d9455baffb2b85132657345809eae128b70f507d"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.whitebox_test.exe",
+      "bytes": 44021648,
+      "mtime_ns": 1792991510473848339,
+      "sha256": "5109efff84a43e44a0a8d24f9e161f9f4649f8be83c6f6cab3c70d0346af1a37"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.blackbox_test.exe",
+      "bytes": 2415648,
+      "mtime_ns": 1792991625721282116,
+      "sha256": "8a6503ed2a534c06b5b010f3d44bffb6f2e0fb700be67b80000b42e6ff7d9389"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.internal_test.exe",
+      "bytes": 1680376,
+      "mtime_ns": 1792991625745281997,
+      "sha256": "fa6d991509c86a0eba60ccb81fe4f76ffa6db227a6606d94241be13dcec2757d"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.whitebox_test.exe",
+      "bytes": 4243080,
+      "mtime_ns": 1792991625693282253,
+      "sha256": "43d4a9866cde7830b55465438230aaf862c46b523596bdfc9e558071772789ee"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.blackbox_test.exe",
+      "bytes": 328628760,
+      "mtime_ns": 1792991629189264921,
+      "sha256": "f95164bacbd69d5722829f59774cce9c1d6d5d779b287fc6f412d7aadecd3b1a"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.internal_test.exe",
+      "bytes": 82112208,
+      "mtime_ns": 1792991629685262461,
+      "sha256": "325d60d8fc0823f83f396285781d4bdda8d40d7f27471e96a8dca580b8895b21"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.whitebox_test.exe",
+      "bytes": 219797368,
+      "mtime_ns": 1792991627101275275,
+      "sha256": "db85386769b77e78c302221e6cc7be82c79314af4544c3a0034c51c5b1801c7b"
+    },
+    {
+      "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.blackbox_test.exe",
+      "bytes": 77722480,
+      "mtime_ns": 1792991881459994820,
+      "sha256": "08632f209e6d2590e6396e18206e7a36dcb63a95dd0cacd055d8951b2bb72e0e"
+    },
+    {
+      "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.internal_test.exe",
+      "bytes": 966728,
+      "mtime_ns": 1792991880300000733,
+      "sha256": "e8320d7cb13d6f47278b730aa7e8cb7e70b89591340c3e43cf90ee389734fab2"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.blackbox_test.exe",
+      "bytes": 969872,
+      "mtime_ns": 1792991880352000467,
+      "sha256": "083538b1a23ff547fcc14b0c97eb93db8b790f7529335d51bfaead9f451e14e0"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.internal_test.exe",
+      "bytes": 965736,
+      "mtime_ns": 1792991880376000345,
+      "sha256": "b5e1bd8639a86348f710075e302760f926eb97c8caf1a53809f778b3bc6483bd"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.whitebox_test.exe",
+      "bytes": 2900984,
+      "mtime_ns": 1792991880332000571,
+      "sha256": "e9bdf02673116483ef232f58b46fb04f45ed9218e6a4b3e7b90e1b6cb6e38870"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.blackbox_test.exe",
+      "bytes": 967208,
+      "mtime_ns": 1792991880463999896,
+      "sha256": "acdb4fb1e1f5e2c9935664738f840ab8754c5e108f4d0de1d1f8c19aea3d42ff"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.internal_test.exe",
+      "bytes": 962848,
+      "mtime_ns": 1792991880483999796,
+      "sha256": "462f87d8366b2a23452697f23c8a3eabe2cf32549d3468ffb588647c598f77ae"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.whitebox_test.exe",
+      "bytes": 10957192,
+      "mtime_ns": 1792991880440000019,
+      "sha256": "bf186afbd7c3e3cfb21458b2455efdf2e3b19a414c3106953d58c79a1f5c18e9"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.blackbox_test.exe",
+      "bytes": 19338560,
+      "mtime_ns": 1792991880851997920,
+      "sha256": "cc4fdb85d012278c15acf7333b1b76fb751f919d2011eec7800f863b4a3748dc"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.internal_test.exe",
+      "bytes": 38355280,
+      "mtime_ns": 1792991881043996939,
+      "sha256": "e373ce4d3d0e9dab5e12dc744f13742330fd3848cd94db88aa6113bb8ec259e9"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.whitebox_test.exe",
+      "bytes": 58415488,
+      "mtime_ns": 1792991880767998348,
+      "sha256": "cea251488e56d57496412b8f1b5ee76ce06892f4fc0e2d0eb1ed398ff618ba78"
+    },
+    {
+      "path": "_build/native/debug/test/validate_proof/validate_proof.blackbox_test.exe",
+      "bytes": 1610712,
+      "mtime_ns": 1792991898799906345,
+      "sha256": "7258d6aa1f39e577fa21f9e5b682163b3d411628a6e3a8410bd17f8cd7ca8992"
+    },
+    {
+      "path": "_build/native/debug/test/validate_proof/validate_proof.internal_test.exe",
+      "bytes": 965968,
+      "mtime_ns": 1792991898823906225,
+      "sha256": "7d7ec4ecbd943c7164a47a4e40271db6150d864ea18007b2121a832cbefc28c4"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.blackbox_test.exe",
+      "bytes": 6390776,
+      "mtime_ns": 1792991898863906020,
+      "sha256": "e17f8434284d4f8c738a6077e6ced6a622ffa39b7a20fa7d4a5d855ee6c18adb"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.internal_test.exe",
+      "bytes": 965968,
+      "mtime_ns": 1792991898771906490,
+      "sha256": "f481ee9b8d65b9d32c935082cdfa8882df5a2d6a2a3dd8dceb82957d9ecccaa1"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.whitebox_test.exe",
+      "bytes": 6664048,
+      "mtime_ns": 1792991898747906611,
+      "sha256": "0d179fa7a1eb6f0b1fe38c150d427f0b4468ff939ff75c6833f46acc2d581146"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.blackbox_test.exe",
+      "bytes": 17916280,
+      "mtime_ns": 1792991898587907428,
+      "sha256": "dfa261e54fa2b7b77f6a5b44bd1c0f21f816071d8be08c4e8be759a3f391b89e"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.internal_test.exe",
+      "bytes": 21658752,
+      "mtime_ns": 1792991898703906837,
+      "sha256": "ab16b9f8ca1d770ab7049d1739644f3dbd7ecdb42256927a46f7d7c36e18bd7d"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.whitebox_test.exe",
+      "bytes": 15752080,
+      "mtime_ns": 1792991898491907920,
+      "sha256": "8f28f96ea376a0810e5bced985355bbedd1c899cb5bcf50014ad7b78e999be29"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.blackbox_test.exe",
+      "bytes": 3925632,
+      "mtime_ns": 1792991898359908591,
+      "sha256": "fc05b927edd3108cb4921bd19f4fac30bb40c91c0feb9c4affa417c5d44facfe"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.internal_test.exe",
+      "bytes": 4475160,
+      "mtime_ns": 1792991898399908387,
+      "sha256": "8a507bc561c2e80c3a16d81086bc31f158598685ea7ffdec3d60c25f9641ff88"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.whitebox_test.exe",
+      "bytes": 5981744,
+      "mtime_ns": 1792991898327908756,
+      "sha256": "b935c0b8ad3b4f5930a77c0b842eff57b980e06334ffc33dfd0416a7648e62fd"
+    }
+  ],
+  "oracle_version": "wasm-opt version 133 (version_133)",
+  "oracle_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+  "gate_stack_limit": [
+    67108864,
+    -1
+  ],
+  "source_note": "Measurement-to-gate changes are documentation only. The full gate rebuilt and tested the frozen source. Post-gate additions below are documentation only."
+}
