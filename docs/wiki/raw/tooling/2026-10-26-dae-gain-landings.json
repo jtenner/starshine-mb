@@ -1,0 +1,1454 @@
+{
+  "scope": "Eight measured Starshine DAE gains landing; not broad Binaryen parity closeout",
+  "measurement_master": "c9f8af8d3d465c39bcabf2cf29b837887d984efa",
+  "master_before_docs_closeout": "bb3ddd412f4986348b22e8964290d1d2507747e7",
+  "benchmark_rows": 85,
+  "benchmark_tables": {
+    "1": {
+      "branch": "measure/dae-items-1259",
+      "head": "b975e3970c5995614c17f519b70c95f65e5d4f4a",
+      "tables": [
+        "| Workload / pass | Untraced CLI master \u2192 candidate ms | Paired change | Same-build A/A | Pass timer master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| HOT wide / dae | 184.260 \u2192 172.475 | -6.16% | +0.38% / -0.03% | 353.537 \u2192 339.449 | -3.60% | 20,668 \u2192 20,584 |\n| HOT wide / dae-optimizing | 356.740 \u2192 337.624 | -4.80% | -0.33% / +0.01% | 548.636 \u2192 531.800 | -3.07% | 32,980 \u2192 33,036 |\n| Raw wide / dae | 113.046 \u2192 114.061 | +1.04% | -2.47% / +0.11% | 270.879 \u2192 274.772 | +0.13% | 17,632 \u2192 17,500 |\n| Raw wide / dae-optimizing | 243.517 \u2192 243.406 | -0.19% | -0.06% / -0.49% | 425.101 \u2192 425.900 | +0.08% | 32,876 \u2192 32,956 |\n| Tiny HOT / dae | 3.394 \u2192 3.005 | -14.04% | -7.76% / +0.38% | 0.392 \u2192 0.368 | -4.27% | 13,912 \u2192 13,848 |\n| Tiny HOT / dae-optimizing | 3.561 \u2192 3.626 | +2.00% | -1.88% / -6.04% | 0.612 \u2192 0.583 | -3.36% | 14,504 \u2192 14,400 |"
+      ]
+    },
+    "5": {
+      "branch": "measure/dae-items-1259",
+      "head": "b975e3970c5995614c17f519b70c95f65e5d4f4a",
+      "tables": [
+        "| Direct IR case | Master \u2192 candidate ms/call | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| Recursive GC + descriptors + continuations | 2.708 \u2192 0.580 | -78.67% | +0.35% / +0.20% | 9,944 \u2192 9,968 |\n| Same graph + embedded definition | 2.654 \u2192 0.585 | -77.87% | +0.15% / +0.04% | 9,992 \u2192 9,996 |\n| Unchanged admission gate | about 0.002 \u2192 0.002 | -0.13% | -0.26% / -0.62% | 10,008 \u2192 10,020 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| Identity collapse / dae2 | 7.783 \u2192 7.690 | -0.62% | +0.22% / -0.87% | 2.658 \u2192 2.283 | -14.10% | 15,788 \u2192 15,756 |\n| Identity collapse / dae2-optimizing | 8.996 \u2192 8.524 | -4.51% | -1.14% / +0.01% | 3.889 \u2192 3.591 | -7.65% | 17,192 \u2192 17,072 |\n| Identity split / dae2 | 7.419 \u2192 7.419 | -2.78% | -1.17% / -0.41% | 2.592 \u2192 2.244 | -13.32% | 13,712 \u2192 13,720 |\n| Identity split / dae2-optimizing | 8.853 \u2192 8.562 | -3.14% | -0.04% / +3.23% | 3.890 \u2192 3.655 | -6.65% | 16,300 \u2192 16,472 |\n| Output-unchanged family / dae2 | 7.543 \u2192 7.086 | -1.40% | -3.01% / -1.63% | 2.582 \u2192 2.237 | -12.54% | 13,828 \u2192 13,716 |\n| Output-unchanged family / dae2-optimizing | 7.969 \u2192 7.752 | -4.22% | -1.87% / +0.36% | 3.242 \u2192 2.926 | -9.88% | 15,320 \u2192 15,420 |\n| Tiny collapse / dae2 | 3.285 \u2192 3.494 | +4.23% | +0.62% / -10.57% | 0.313 \u2192 0.330 | -10.57% | 13,720 \u2192 13,628 |\n| Tiny collapse / dae2-optimizing | 3.338 \u2192 3.413 | +3.88% | -0.75% / -6.84% | 0.473 \u2192 0.444 | -15.30% | 15,124 \u2192 15,048 |"
+      ]
+    },
+    "3": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| dense | 0.482 \u2192 0.495 | +2.69% | +0.44% / +0.49% | 8236.000 \u2192 8220.000 |\n| no-fallback | 0.007 \u2192 0.004 | -38.13% | -0.39% / +1.95% | 6224.000 \u2192 6196.000 |\n| sparse | 0.169 \u2192 0.056 | -66.90% | +0.81% / +5.83% | 6180.000 \u2192 6212.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| dense-control / dae2 | 4.642 \u2192 4.317 | -5.20% | -5.38% / -7.39% | 0.726 \u2192 0.722 | -1.51% | 13900.000 \u2192 14020.000 |\n| dense-control / dae2-optimizing | 4.798 \u2192 5.400 | -0.18% | -16.24% / -8.31% | 1.722 \u2192 1.739 | +1.40% | 16832.000 \u2192 16760.000 |\n| no-fallback / dae2 | 12.839 \u2192 12.254 | -0.13% | -0.13% / -3.59% | 9.550 \u2192 9.526 | -0.16% | 14484.000 \u2192 14508.000 |\n| no-fallback / dae2-optimizing | 14.884 \u2192 15.532 | +1.59% | +0.28% / +0.25% | 11.895 \u2192 11.843 | +0.29% | 15472.000 \u2192 15604.000 |\n| sparse-control / dae2 | 3.130 \u2192 3.023 | -3.42% | -19.54% / -4.76% | 0.202 \u2192 0.203 | +3.12% | 11848.000 \u2192 11904.000 |\n| sparse-control / dae2-optimizing | 7.307 \u2192 7.335 | -1.47% | -0.52% / -1.19% | 4.288 \u2192 4.388 | +1.22% | 16816.000 \u2192 16776.000 |"
+      ]
+    },
+    "4": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| absolute | 1.380 \u2192 1.387 | +0.51% | +0.13% / -0.05% | 5884.000 \u2192 5884.000 |\n| numeric | 0.341 \u2192 0.342 | -0.36% | -0.75% / -1.08% | 5896.000 \u2192 5872.000 |\n| relative | 10.466 \u2192 1.414 | -86.47% | +0.12% / -0.89% | 5848.000 \u2192 5920.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| dropped-numeric / dae | 31.228 \u2192 31.183 | -0.54% | +1.53% / -1.32% | 29.266 \u2192 29.372 | +1.08% | 13408.000 \u2192 13432.000 |\n| dropped-numeric / dae-optimizing | 84.803 \u2192 84.186 | -0.60% | +1.04% / +0.41% | 98.633 \u2192 97.994 | -0.65% | 22592.000 \u2192 22548.000 |\n| dropped-reference / dae | 31.124 \u2192 31.684 | +2.03% | +0.84% / +0.11% | 29.472 \u2192 29.487 | -0.22% | 13392.000 \u2192 13620.000 |\n| dropped-reference / dae-optimizing | 84.767 \u2192 84.299 | -1.14% | +1.73% / -0.03% | 97.687 \u2192 97.880 | -0.31% | 22628.000 \u2192 22604.000 |\n| unread-numeric / dae | 48.641 \u2192 47.729 | -1.01% | +0.09% / +1.09% | 45.161 \u2192 45.528 | +0.54% | 13656.000 \u2192 13628.000 |\n| unread-numeric / dae-optimizing | 53.344 \u2192 53.419 | -0.18% | +0.51% / +0.08% | 58.302 \u2192 58.084 | -0.89% | 15960.000 \u2192 15864.000 |\n| unread-reference / dae | 49.300 \u2192 49.334 | +1.22% | +0.44% / +0.16% | 46.209 \u2192 46.045 | -0.45% | 13716.000 \u2192 13616.000 |\n| unread-reference / dae-optimizing | 55.146 \u2192 55.386 | +0.43% | -0.00% / -0.39% | 59.828 \u2192 60.084 | +0.20% | 16052.000 \u2192 15924.000 |\n| dropped-batch-reference / dae | 31.362 \u2192 31.814 | +2.86% | -0.33% / -2.02% | 26.697 \u2192 26.809 | -0.11% | 13232.000 \u2192 13140.000 |\n| dropped-batch-reference / dae-optimizing | 1271.974 \u2192 1264.762 | -0.60% | +0.03% / -2.80% | 1279.941 \u2192 1276.613 | -0.26% | 24512.000 \u2192 24512.000 |\n| unread-batch-reference / dae | 351.293 \u2192 351.467 | -0.42% | -1.61% / +0.56% | 347.584 \u2192 344.091 | -1.00% | 15724.000 \u2192 15696.000 |\n| unread-batch-reference / dae-optimizing | 1597.101 \u2192 1591.460 | -0.23% | +0.73% / -0.00% | 1592.572 \u2192 1581.612 | -0.45% | 18128.000 \u2192 18120.000 |"
+      ]
+    },
+    "6": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| flat-control | 0.013 \u2192 0.011 | -16.22% | +1.71% / -0.76% | 7356.000 \u2192 7376.000 |\n| late-rejection | 0.023 \u2192 0.012 | -49.65% | +1.35% / -0.10% | 7316.000 \u2192 7432.000 |\n| local-flow-success | 0.025 \u2192 0.026 | +3.76% | +0.00% / +0.21% | 7348.000 \u2192 7356.000 |\n| qualified-rejected | 0.063 \u2192 0.063 | -0.89% | +4.17% / +0.08% | 7372.000 \u2192 7384.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| flat-control / dae2 | 5.463 \u2192 5.298 | -0.77% | +0.37% / +3.49% | 1.509 \u2192 1.501 | -1.96% | 14432.000 \u2192 14400.000 |\n| flat-control / dae2-optimizing | 5.568 \u2192 5.572 | +0.18% | +1.74% / +5.67% | 1.720 \u2192 1.656 | -2.89% | 15788.000 \u2192 15812.000 |\n| late-rejection / dae2 | 17.122 \u2192 17.150 | -0.33% | +2.89% / -1.69% | 10.208 \u2192 10.107 | -0.52% | 21324.000 \u2192 21268.000 |\n| late-rejection / dae2-optimizing | 20.927 \u2192 21.029 | -2.04% | +0.70% / -1.84% | 15.682 \u2192 15.518 | -0.87% | 23032.000 \u2192 23008.000 |\n| local-flow-success / dae2 | 6.639 \u2192 6.422 | -1.83% | -1.43% / +1.14% | 2.510 \u2192 2.521 | +0.40% | 14880.000 \u2192 14932.000 |\n| local-flow-success / dae2-optimizing | 7.367 \u2192 7.377 | +1.75% | -2.88% / +0.06% | 3.430 \u2192 3.366 | -1.63% | 17420.000 \u2192 17480.000 |\n| qualified-rejected / dae2 | 5.653 \u2192 5.291 | -7.56% | -6.31% / -2.37% | 1.962 \u2192 1.949 | +0.15% | 12720.000 \u2192 12880.000 |\n| qualified-rejected / dae2-optimizing | 10.463 \u2192 10.329 | -1.18% | -0.11% / +2.95% | 7.343 \u2192 7.309 | -2.00% | 15312.000 \u2192 15356.000 |"
+      ]
+    },
+    "8": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| distinct-wide | 2.320 \u2192 1.916 | -17.18% | -0.70% / -0.55% | 6744.000 \u2192 8816.000 |\n| equivalent-wide | 1.830 \u2192 1.694 | -7.21% | -1.50% / +0.07% | 6752.000 \u2192 6776.000 |\n| recursive | 1.599 \u2192 0.584 | -63.36% | +0.02% / -0.95% | 6760.000 \u2192 6708.000 |\n| small-scalar | 0.002 \u2192 0.002 | -33.35% | +0.67% / -8.85% | 4668.000 \u2192 4708.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| distinct-wide / dae | 58.888 \u2192 55.983 | -4.34% | -0.28% / +0.47% | 53.082 \u2192 50.854 | -3.73% | 15800.000 \u2192 15660.000 |\n| distinct-wide / dae-optimizing | 59.147 \u2192 55.953 | -5.03% | +1.33% / +1.55% | 57.994 \u2192 55.450 | -4.73% | 17108.000 \u2192 16976.000 |\n| equivalent-wide / dae | 54.149 \u2192 53.321 | -1.69% | +0.92% / +0.42% | 48.568 \u2192 47.260 | -2.53% | 15784.000 \u2192 15684.000 |\n| equivalent-wide / dae-optimizing | 54.059 \u2192 52.921 | -1.58% | +1.18% / -0.14% | 53.810 \u2192 52.207 | -2.42% | 16980.000 \u2192 17048.000 |\n| recursive / dae | 14.464 \u2192 14.504 | -1.83% | +0.18% / +1.50% | 10.514 \u2192 10.550 | +0.41% | 13664.000 \u2192 13628.000 |\n| recursive / dae-optimizing | 15.390 \u2192 15.463 | +2.21% | -7.34% / -6.78% | 14.386 \u2192 14.524 | +1.02% | 16064.000 \u2192 16088.000 |\n| small-scalar / dae | 4.702 \u2192 4.866 | +2.26% | -0.24% / +0.75% | 1.791 \u2192 1.726 | -3.25% | 13608.000 \u2192 13644.000 |\n| small-scalar / dae-optimizing | 6.102 \u2192 6.267 | +1.53% | -13.14% / -10.96% | 4.778 \u2192 4.776 | -0.04% | 15964.000 \u2192 15944.000 |"
+      ]
+    },
+    "10": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| many-types-functions | 0.505 \u2192 0.472 | -6.26% | -0.31% / +0.40% | 11456.000 \u2192 11504.000 |\n| mixed-imports | 0.508 \u2192 0.483 | -5.09% | +1.86% / -2.19% | 11448.000 \u2192 11464.000 |\n| no-op-cleanup | 0.318 \u2192 0.293 | -8.58% | +0.07% / +0.76% | 11456.000 \u2192 11432.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| many-types-functions / dae2 | 6.223 \u2192 6.227 | +2.60% | +1.57% / -13.73% | 0.809 \u2192 0.810 | -1.88% | 13488.000 \u2192 13448.000 |\n| many-types-functions / dae2-optimizing | 15.041 \u2192 14.904 | -1.02% | +0.56% / -2.60% | 12.432 \u2192 12.372 | -0.23% | 19280.000 \u2192 18976.000 |\n| mixed-imports / dae2 | 6.344 \u2192 6.215 | +1.00% | -2.42% / +2.21% | 0.824 \u2192 0.801 | -1.12% | 13516.000 \u2192 13500.000 |\n| mixed-imports / dae2-optimizing | 14.966 \u2192 14.757 | -1.15% | +0.81% / +0.38% | 12.415 \u2192 12.600 | +1.20% | 18856.000 \u2192 16916.000 |\n| no-op-cleanup / dae2 | 5.976 \u2192 6.123 | +2.17% | -3.08% / +5.06% | 0.788 \u2192 0.805 | +0.88% | 13400.000 \u2192 13384.000 |\n| no-op-cleanup / dae2-optimizing | 7.280 \u2192 7.220 | -2.15% | +2.39% / +3.79% | 2.194 \u2192 2.159 | -0.60% | 15044.000 \u2192 15012.000 |"
+      ]
+    },
+    "11": {
+      "branch": "measure/dae-items-3468101112",
+      "head": "c05b30a8486b637af3d0a2e64337476181896233",
+      "tables": [
+        "| Direct case | Master \u2192 candidate ms | Paired change | A/A master / candidate | Peak process RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: |\n| imported-only | 0.000 \u2192 0.000 | -1.03% | -0.34% / +0.35% | 9344.000 \u2192 9384.000 |\n| many-imported-tags | 0.104 \u2192 0.065 | -38.32% | -0.76% / -3.20% | 9376.000 \u2192 9312.000 |\n| tagless | 0.000 \u2192 0.000 | +1.05% | -0.72% / +1.06% | 7320.000 \u2192 7328.000 |",
+        "| Workload / pass | CLI master \u2192 candidate ms | Paired CLI change | CLI A/A master / candidate | Pass master \u2192 candidate ms | Paired pass change | Peak RSS master \u2192 candidate KiB |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| imported-only / dae2 | 3.984 \u2192 4.557 | +9.42% | +12.86% / -1.60% | 0.304 \u2192 0.304 | +0.00% | 13788.000 \u2192 13876.000 |\n| imported-only / dae2-optimizing | 5.214 \u2192 5.460 | +4.76% | -1.75% / +2.69% | 1.484 \u2192 1.477 | -3.12% | 16560.000 \u2192 16672.000 |\n| many-imported-tags / dae2 | 5.498 \u2192 5.970 | +8.46% | +0.43% / +2.24% | 0.327 \u2192 0.328 | -0.31% | 13812.000 \u2192 13768.000 |\n| many-imported-tags / dae2-optimizing | 5.654 \u2192 5.469 | +0.98% | +1.74% / +3.63% | 1.465 \u2192 1.451 | +0.07% | 16692.000 \u2192 16456.000 |\n| tagless / dae2 | 3.547 \u2192 3.507 | -0.73% | +0.57% / -4.53% | 0.235 \u2192 0.236 | +2.18% | 11416.000 \u2192 11348.000 |\n| tagless / dae2-optimizing | 3.865 \u2192 3.896 | -0.42% | +0.75% / -0.09% | 0.706 \u2192 0.693 | -3.82% | 12976.000 \u2192 12992.000 |\n| many-imported-tags-productive / dae2 | 5.573 \u2192 5.171 | -1.46% | +7.07% / -12.45% | 1.031 \u2192 1.041 | -4.59% | 14716.000 \u2192 14824.000 |\n| many-imported-tags-productive / dae2-optimizing | 6.491 \u2192 6.416 | +0.11% | -10.83% / +5.65% | 2.051 \u2192 2.085 | -4.44% | 16704.000 \u2192 16852.000 |"
+      ]
+    }
+  },
+  "item_records": [
+    {
+      "item": 1,
+      "candidate": "14f954374bafefac6fd68ae3bd5b89aa25cd5b3d",
+      "native_total": 15488,
+      "native_passed": 15488,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1335,
+          "passed": 1335,
+          "failed": 0
+        },
+        {
+          "total": 1208,
+          "passed": 1208,
+          "failed": 0
+        },
+        {
+          "total": 955,
+          "passed": 955,
+          "failed": 0
+        },
+        {
+          "total": 2790,
+          "passed": 2790,
+          "failed": 0
+        },
+        {
+          "total": 3967,
+          "passed": 3967,
+          "failed": 0
+        },
+        {
+          "total": 2017,
+          "passed": 2017,
+          "failed": 0
+        },
+        {
+          "total": 2139,
+          "passed": 2139,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100772,
+      "fuzz_seed": 117504205198248316,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504205198248316,
+          "attempts": 108,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504205198248316,
+          "attempts": 108,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504205198248316,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504205198248316,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504205198248316,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504205198248316,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504205198248316,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504205198248316,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504205198248316,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504205198248316,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504205198248316,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504205198248316,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504205198248316,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504205198248316,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "merge": "642abea01b8a9348dc10f7dcf777bb879f060d14",
+      "source_branch": "dae/item-01-block-liveness",
+      "source_head": "8582c26a234d3fd77cb0770e7f755fb992b191f0",
+      "checkpoint": "6d5d84684ad2ca1d2c3e049a95a6f924552b66a6",
+      "checkpoint_push": {
+        "item": 1,
+        "head": "6d5d84684ad2ca1d2c3e049a95a6f924552b66a6",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   1f67ff580..6d5d84684  master -> master\n",
+        "time": "2026-10-26T00:10:14.452764+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118095072,
+          "sha256": "9f1d8c310dcebff2775e3cb90f4c5729ef99d544325c3161c9310d5a045357bd"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87840112,
+          "sha256": "9dc53e935ad182336ad1c2f412a3336596dac86071b51c92fd0bdaa92146b5f5"
+        }
+      }
+    },
+    {
+      "item": 3,
+      "candidate": "5c8260aa8e84d8c5fd0c883e32addcb826800c95",
+      "native_total": 15491,
+      "native_passed": 15491,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1335,
+          "passed": 1335,
+          "failed": 0
+        },
+        {
+          "total": 1208,
+          "passed": 1208,
+          "failed": 0
+        },
+        {
+          "total": 958,
+          "passed": 958,
+          "failed": 0
+        },
+        {
+          "total": 2790,
+          "passed": 2790,
+          "failed": 0
+        },
+        {
+          "total": 3967,
+          "passed": 3967,
+          "failed": 0
+        },
+        {
+          "total": 2017,
+          "passed": 2017,
+          "failed": 0
+        },
+        {
+          "total": 2139,
+          "passed": 2139,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100767,
+      "fuzz_seed": 117504304333854712,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504304333854712,
+          "attempts": 108,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504304333854712,
+          "attempts": 108,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504304333854712,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504304333854712,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504304333854712,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504304333854712,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504304333854712,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504304333854712,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504304333854712,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504304333854712,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504304333854712,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504304333854712,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504304333854712,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504304333854712,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-03-write-buckets",
+      "source_head": "eb403d287218b0660865784be6a4cc749245ba13",
+      "merge": "050e89360e7b7be32aa78366f1d35e515b2916b2",
+      "push": {
+        "item": 3,
+        "head": "050e89360e7b7be32aa78366f1d35e515b2916b2",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   6d5d84684..050e89360  master -> master\n",
+        "time": "2026-10-26T00:13:47.634413+00:00",
+        "force": false
+      },
+      "checkpoint": "5819b139ed12fb147c1a9fa0c3598bdb5ff80c89",
+      "checkpoint_push": {
+        "item": 3,
+        "head": "5819b139ed12fb147c1a9fa0c3598bdb5ff80c89",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   050e89360..5819b139e  master -> master\n",
+        "time": "2026-10-26T00:14:19.789043+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118095496,
+          "sha256": "ba811a850a5936c2aa7efe2663631b0f9ee4c6bf9307636f321b23252bdc0986"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87840152,
+          "sha256": "7d219c6e2a422e6293cb3f006e66aab85f34ea65617c1453973bc8b153e71d2b"
+        }
+      }
+    },
+    {
+      "item": 4,
+      "candidate": "c0fbb068c4b6718414b0c41c3a0cc2812e01f5bc",
+      "native_total": 15496,
+      "native_passed": 15496,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1335,
+          "passed": 1335,
+          "failed": 0
+        },
+        {
+          "total": 1208,
+          "passed": 1208,
+          "failed": 0
+        },
+        {
+          "total": 958,
+          "passed": 958,
+          "failed": 0
+        },
+        {
+          "total": 2795,
+          "passed": 2795,
+          "failed": 0
+        },
+        {
+          "total": 3967,
+          "passed": 3967,
+          "failed": 0
+        },
+        {
+          "total": 2017,
+          "passed": 2017,
+          "failed": 0
+        },
+        {
+          "total": 2139,
+          "passed": 2139,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100764,
+      "fuzz_seed": 117504364697794335,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504364697794335,
+          "attempts": 107,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504364697794335,
+          "attempts": 107,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504364697794335,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504364697794335,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504364697794335,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504364697794335,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504364697794335,
+          "attempts": 10,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504364697794335,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504364697794335,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504364697794335,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504364697794335,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504364697794335,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504364697794335,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504364697794335,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-04-group-base",
+      "source_head": "28a5949d314bbad4078a0c8819c76def4f0e6f4f",
+      "merge": "eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37",
+      "push": {
+        "item": 4,
+        "head": "eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   5819b139e..eb0a9a2a9  master -> master\n",
+        "time": "2026-10-26T00:30:19.572498+00:00",
+        "force": false
+      },
+      "checkpoint": "d95fd0a841f38ea13cbe3aa733a8c66a4f545036",
+      "checkpoint_push": {
+        "item": 4,
+        "head": "d95fd0a841f38ea13cbe3aa733a8c66a4f545036",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   eb0a9a2a9..d95fd0a84  master -> master\n",
+        "time": "2026-10-26T00:30:28.407554+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118100000,
+          "sha256": "730d30b208ebfd4197bfcbeccb3c8719f706868e72f25a0921d62f3b7a3e9bec"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87843280,
+          "sha256": "bea2e6e3388607718223da4f83a0cebf3a223407130f361680afae6de1ceaf1e"
+        }
+      }
+    },
+    {
+      "item": 5,
+      "candidate": "518f949c9fb2b5a785705f716b3aa90ab08d7270",
+      "native_total": 15501,
+      "native_passed": 15501,
+      "native_batches": [
+        {
+          "total": 1078,
+          "passed": 1078,
+          "failed": 0
+        },
+        {
+          "total": 1335,
+          "passed": 1335,
+          "failed": 0
+        },
+        {
+          "total": 1208,
+          "passed": 1208,
+          "failed": 0
+        },
+        {
+          "total": 962,
+          "passed": 962,
+          "failed": 0
+        },
+        {
+          "total": 2794,
+          "passed": 2794,
+          "failed": 0
+        },
+        {
+          "total": 3968,
+          "passed": 3968,
+          "failed": 0
+        },
+        {
+          "total": 2017,
+          "passed": 2017,
+          "failed": 0
+        },
+        {
+          "total": 2139,
+          "passed": 2139,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100779,
+      "fuzz_seed": 117504419113374922,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504419113374922,
+          "attempts": 114,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504419113374922,
+          "attempts": 114,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504419113374922,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504419113374922,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504419113374922,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504419113374922,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504419113374922,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504419113374922,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504419113374922,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504419113374922,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504419113374922,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504419113374922,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504419113374922,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504419113374922,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-05-subtype-trees",
+      "source_head": "d20dd9102639d92893f65468d80f26120a6ee403",
+      "merge": "fb1e9cc9da182407813c01adbd3a58adcc2456ca",
+      "push": {
+        "item": 5,
+        "head": "fb1e9cc9da182407813c01adbd3a58adcc2456ca",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   d95fd0a84..fb1e9cc9d  master -> master\n",
+        "time": "2026-10-26T00:42:55.857511+00:00",
+        "force": false
+      },
+      "checkpoint": "1ee09a83cac8fbb08a5798e55b6df08cb387dc71",
+      "checkpoint_push": {
+        "item": 5,
+        "head": "1ee09a83cac8fbb08a5798e55b6df08cb387dc71",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   fb1e9cc9d..1ee09a83c  master -> master\n",
+        "time": "2026-10-26T00:43:24.517313+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118126496,
+          "sha256": "53e08da6019b40441d365ec65204727c25191f4b6d68316ee4b453f8b535fceb"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87858544,
+          "sha256": "a6e93bbe12f8f6e8bf1a3666e44f525afaa352747b27872a181402fca032633b"
+        }
+      }
+    },
+    {
+      "item": 6,
+      "candidate": "faeee882a587ca317bfa5d7355f67688d477b66b",
+      "native_total": 15504,
+      "native_passed": 15504,
+      "native_batches": [
+        {
+          "total": 1078,
+          "passed": 1078,
+          "failed": 0
+        },
+        {
+          "total": 1335,
+          "passed": 1335,
+          "failed": 0
+        },
+        {
+          "total": 1208,
+          "passed": 1208,
+          "failed": 0
+        },
+        {
+          "total": 965,
+          "passed": 965,
+          "failed": 0
+        },
+        {
+          "total": 2793,
+          "passed": 2793,
+          "failed": 0
+        },
+        {
+          "total": 3965,
+          "passed": 3965,
+          "failed": 0
+        },
+        {
+          "total": 2021,
+          "passed": 2021,
+          "failed": 0
+        },
+        {
+          "total": 2139,
+          "passed": 2139,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100765,
+      "fuzz_seed": 117504469504920149,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504469504920149,
+          "attempts": 107,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504469504920149,
+          "attempts": 107,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504469504920149,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504469504920149,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504469504920149,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504469504920149,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504469504920149,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504469504920149,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504469504920149,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504469504920149,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504469504920149,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504469504920149,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504469504920149,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504469504920149,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-06-preflight-share",
+      "source_head": "4192c02791efd685afc171c93d16a483ccbda698",
+      "merge": "377c0bd58da20a00c43d1f0addf734a98bec0a26",
+      "push": {
+        "item": 6,
+        "head": "377c0bd58da20a00c43d1f0addf734a98bec0a26",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   1ee09a83c..377c0bd58  master -> master\n",
+        "time": "2026-10-26T00:55:57.934764+00:00",
+        "force": false
+      },
+      "checkpoint": "34faa808b00101997518998ba4596ad0a8db9ba0",
+      "checkpoint_push": {
+        "item": 6,
+        "head": "34faa808b00101997518998ba4596ad0a8db9ba0",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   377c0bd58..34faa808b  master -> master\n",
+        "time": "2026-10-26T00:56:08.316362+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118126976,
+          "sha256": "9994f02b3278b6f7df7a8f4193c7ed4fd072075d2ea751e884401022217b3445"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87859152,
+          "sha256": "199c1602a96e1c6c432abc60b24e94c8308aae46427868d31516464e76491171"
+        }
+      }
+    },
+    {
+      "item": 8,
+      "candidate": "42b8b4ab011dfd56a1c2adc811fc9033a3915b1e",
+      "native_total": 15512,
+      "native_passed": 15512,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1337,
+          "passed": 1337,
+          "failed": 0
+        },
+        {
+          "total": 1202,
+          "passed": 1202,
+          "failed": 0
+        },
+        {
+          "total": 967,
+          "passed": 967,
+          "failed": 0
+        },
+        {
+          "total": 2801,
+          "passed": 2801,
+          "failed": 0
+        },
+        {
+          "total": 3962,
+          "passed": 3962,
+          "failed": 0
+        },
+        {
+          "total": 2017,
+          "passed": 2017,
+          "failed": 0
+        },
+        {
+          "total": 2149,
+          "passed": 2149,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100771,
+      "fuzz_seed": 117504530116234628,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504530116234628,
+          "attempts": 110,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504530116234628,
+          "attempts": 110,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504530116234628,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504530116234628,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504530116234628,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504530116234628,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504530116234628,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504530116234628,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504530116234628,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504530116234628,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504530116234628,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504530116234628,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504530116234628,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504530116234628,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-08-signature-keys",
+      "source_head": "5a53e2a90deb275ae3a0adb675a001faaecbc306",
+      "merge": "d3f2307acb491895c28adb78bfb6e043e4a76697",
+      "push": {
+        "item": 8,
+        "head": "d3f2307acb491895c28adb78bfb6e043e4a76697",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   34faa808b..d3f2307ac  master -> master\n",
+        "time": "2026-10-26T01:11:14.487551+00:00",
+        "force": false
+      },
+      "integration_commit": "42b8b4ab011dfd56a1c2adc811fc9033a3915b1e",
+      "integration_focused": {
+        "native": {
+          "focused": 21,
+          "recursive_regression": 1
+        },
+        "release_wasmgc": {
+          "focused": 21,
+          "recursive_regression": 1
+        },
+        "pre_repair_native_type_errors": 4
+      },
+      "checkpoint": "6792b6fb3608c1205eca9cb0cc11f6ef231daa96",
+      "checkpoint_push": {
+        "item": 8,
+        "head": "6792b6fb3608c1205eca9cb0cc11f6ef231daa96",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   d3f2307ac..6792b6fb3  master -> master\n",
+        "time": "2026-10-26T01:11:51.751205+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118243568,
+          "sha256": "d8516e961f50e785524826da73dbb17f1ecf23115b317ddb8d6508b9de80c8bb"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87943440,
+          "sha256": "187b3dc9a30ba8c944806f9c8dfcdfbf948bdf8ce38e45fbcf8c50a5547a067c"
+        }
+      }
+    },
+    {
+      "item": 10,
+      "candidate": "28034c3a1bc7dfc82299b544a360cc43375d1503",
+      "native_total": 15518,
+      "native_passed": 15518,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1337,
+          "passed": 1337,
+          "failed": 0
+        },
+        {
+          "total": 1202,
+          "passed": 1202,
+          "failed": 0
+        },
+        {
+          "total": 973,
+          "passed": 973,
+          "failed": 0
+        },
+        {
+          "total": 2591,
+          "passed": 2591,
+          "failed": 0
+        },
+        {
+          "total": 4167,
+          "passed": 4167,
+          "failed": 0
+        },
+        {
+          "total": 2020,
+          "passed": 2020,
+          "failed": 0
+        },
+        {
+          "total": 2151,
+          "passed": 2151,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100779,
+      "fuzz_seed": 117504577984795564,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504577984795564,
+          "attempts": 114,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504577984795564,
+          "attempts": 114,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504577984795564,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504577984795564,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504577984795564,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504577984795564,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504577984795564,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504577984795564,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504577984795564,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504577984795564,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504577984795564,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504577984795564,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504577984795564,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504577984795564,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-10-cleanup-context",
+      "source_head": "913de7a89adb2aa1a0d471b5d8a49d06a3aa79af",
+      "merge": "af3e41daeef60aec9bdaa733dd8558865af97471",
+      "push": {
+        "item": 10,
+        "head": "af3e41daeef60aec9bdaa733dd8558865af97471",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   6792b6fb3..af3e41dae  master -> master\n",
+        "time": "2026-10-26T01:23:35.351584+00:00",
+        "force": false
+      },
+      "checkpoint": "0b537ae8afcf2a4ce8cec593df4a0df9cb3b1972",
+      "checkpoint_push": {
+        "item": 10,
+        "head": "0b537ae8afcf2a4ce8cec593df4a0df9cb3b1972",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   af3e41dae..0b537ae8a  master -> master\n",
+        "time": "2026-10-26T01:24:31.629103+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118244040,
+          "sha256": "40b954e7f08524e36e0cd1f8ab6f0fcba179b3ab23c6b8cc53ac150684b0a98d"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87943864,
+          "sha256": "f166f4a4b35e08e026ac6d6fb3ebfb6cc487f7e2582bdd254143b8deefeb5510"
+        }
+      }
+    },
+    {
+      "item": 11,
+      "candidate": "97f9bf983935895769677beff11b420bfed89450",
+      "native_total": 15522,
+      "native_passed": 15522,
+      "native_batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1337,
+          "passed": 1337,
+          "failed": 0
+        },
+        {
+          "total": 1202,
+          "passed": 1202,
+          "failed": 0
+        },
+        {
+          "total": 977,
+          "passed": 977,
+          "failed": 0
+        },
+        {
+          "total": 2590,
+          "passed": 2590,
+          "failed": 0
+        },
+        {
+          "total": 4168,
+          "passed": 4168,
+          "failed": 0
+        },
+        {
+          "total": 2020,
+          "passed": 2020,
+          "failed": 0
+        },
+        {
+          "total": 2151,
+          "passed": 2151,
+          "failed": 0
+        }
+      ],
+      "fuzz_suites": 14,
+      "fuzz_attempts": 100783,
+      "fuzz_seed": 117504630514004640,
+      "fuzz_runs": [
+        {
+          "suite": "wast-roundtrip",
+          "seed": 117504630514004640,
+          "attempts": 116,
+          "pass": true
+        },
+        {
+          "suite": "wat-roundtrip",
+          "seed": 117504630514004640,
+          "attempts": 116,
+          "pass": true
+        },
+        {
+          "suite": "wast-validate-roundtrip",
+          "seed": 117504630514004640,
+          "attempts": 256,
+          "pass": true
+        },
+        {
+          "suite": "gen-valid-wat-validate-roundtrip",
+          "seed": 117504630514004640,
+          "attempts": 128,
+          "pass": true
+        },
+        {
+          "suite": "valid-multi-module-linking",
+          "seed": 117504630514004640,
+          "attempts": 16,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid",
+          "seed": 117504630514004640,
+          "attempts": 5000,
+          "pass": true
+        },
+        {
+          "suite": "validate-valid-metamorphic",
+          "seed": 117504630514004640,
+          "attempts": 11,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-ast",
+          "seed": 117504630514004640,
+          "attempts": 2650,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-binary",
+          "seed": 117504630514004640,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text",
+          "seed": 117504630514004640,
+          "attempts": 400,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-text-dynamic",
+          "seed": 117504630514004640,
+          "attempts": 384,
+          "pass": true
+        },
+        {
+          "suite": "validate-invalid-spec-seed",
+          "seed": 117504630514004640,
+          "attempts": 390,
+          "pass": true
+        },
+        {
+          "suite": "binary-roundtrip",
+          "seed": 117504630514004640,
+          "attempts": 86820,
+          "pass": true
+        },
+        {
+          "suite": "cmd-harness",
+          "seed": 117504630514004640,
+          "attempts": 4096,
+          "pass": true
+        }
+      ],
+      "source_branch": "dae/item-11-tag-count",
+      "source_head": "4ab0acbd80f7620bd07e24cfe1572b175c6453e5",
+      "merge": "f5c813d8f1c631996efe4ec6afaa36bd9a170159",
+      "push": {
+        "item": 11,
+        "head": "f5c813d8f1c631996efe4ec6afaa36bd9a170159",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   0b537ae8a..f5c813d8f  master -> master\n",
+        "time": "2026-10-26T01:36:33.465928+00:00",
+        "force": false
+      },
+      "checkpoint": "bb3ddd412f4986348b22e8964290d1d2507747e7",
+      "checkpoint_push": {
+        "item": 11,
+        "head": "bb3ddd412f4986348b22e8964290d1d2507747e7",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "remote: Bypassed rule violations for refs/heads/master:        \nremote: \nremote: - 3 of 3 required status checks are expected.        \nremote: \nTo https://github.com/jtenner/starshine-mb.git\n   f5c813d8f..bb3ddd412  master -> master\n",
+        "time": "2026-10-26T01:36:49.364601+00:00",
+        "force": false
+      },
+      "tested_native_artifacts": {
+        "cmd_whitebox": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+          "bytes": 118245288,
+          "sha256": "96727a266999d5730ee67e20d589d9f5218c2152333e17117bb31457d6031048"
+        },
+        "fuzz_after_build": {
+          "path": "/tmp/dae-landing-run/_build/native/debug/build/fuzz/fuzz.exe",
+          "bytes": 87945160,
+          "sha256": "faf186a6e66d0366517b800e37b648da6508918d13201d1378a6bd76a229c016"
+        }
+      }
+    }
+  ],
+  "native_test_sum": 124032,
+  "ci_fuzz_suites": 112,
+  "ci_fuzz_attempts": 806180,
+  "selected_items_not_landed": [],
+  "excluded": {
+    "2": "NEUTRAL",
+    "9": "NEUTRAL",
+    "12": "INCONCLUSIVE, warmup exit 134; separate harness repair/remeasurement",
+    "7": "outside assignment"
+  }
+}

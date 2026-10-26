@@ -1,5 +1,7 @@
 ### 2026-10-25 — Measured DAE gains landing
 
+- All eight gain items (1, 3, 4, 5, 6, 8, 10, 11) are landed and pushed. Every item has a complete corrected native gate and 14 green CI fuzz suites. [Immutable source/gate/benchmark/push evidence](raw/tooling/2026-10-26-dae-gain-landings.json) preserves all 85 measured rows and the accepted item 8 RSS trade. The lease is released to the reserved Starshine-versus-Binaryen comparison lane.
+
 - Item 11 lands as `f5c813d8f1c631996efe4ec6afaa36bd9a170159`. Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**. Gates: 15,522/15,522 native tests, 14/14 CI fuzz suites, 100,783 attempts, seed 117504630514004640; complete [landing record](../../experiment-results.md#item-11--landed-under-the-corrected-procedure).
 
 - Item 10 lands as `af3e41daeef60aec9bdaa733dd8558865af97471`. Many-type/function cleanup **0.505 → 0.472 ms/call (-6.26%)**, peak RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. CLI evidence is neutral; mixed-import optimizing pass timing costs +1.20%. Gates: 15,518/15,518 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504577984795564; complete [landing record](../../experiment-results.md#item-10--landed-under-the-corrected-procedure).

@@ -7,23 +7,23 @@
 - DONE: reproduce the shared failure on current master through the exact full native gate entrypoint and isolate launcher-induced Binaryen version drift as **BATCH CONTEXT**.
 - DONE: reproduce the separate missing `.tmp` parent failure and its 0/1 → 1/1 correction without source or fixture edits.
 - DONE: corrected unwrapped master control is green: **15,487/15,487 native tests and 14/14 CI fuzz suites, 100,775 attempts**, seed `117504144017018061`. All eight native batches and every fuzz stage ran.
-- DONE: item 1 landed as `642abea01b8a9348dc10f7dcf777bb879f060d14` after 15,488 native passes and 14 green CI fuzz suites; benchmark medians/RSS are in its landing row.
+- DONE: item 1 landed as `642abea01b8a9348dc10f7dcf777bb879f060d14`; 15,488/15,488 native tests, 14/14 CI fuzz suites, 100,772 attempts. GAIN, HOT-wide/dae CLI: **184.260 → 172.475 ms (-6.16%)**, RSS **20,668 → 20,584 KiB**. HOT-wide/dae-optimizing: **356.740 → 337.624 ms (-4.80%)**, RSS **32,980 → 33,036 KiB**. Raw controls remain near noise, with the recorded +1.04% raw/dae control uncertainty; tiny CLI controls are noisy. No general memory/allocation gain is claimed.
 - DONE: all eight selected items passed their complete corrected native/fuzz gates and landed on local master.
-- DONE: item 3 landed as `050e89360e7b7be32aa78366f1d35e515b2916b2` after 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts, seed 117504304333854712; measured numbers and RSS remain in its landing row.
-- DONE: item 4 landed as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37` after 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts, seed 117504364697794335; measured numbers and RSS remain in its landing row.
-- DONE: item 5 landed as `fb1e9cc9da182407813c01adbd3a58adcc2456ca` after 15,501/15,501 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504419113374922; measured numbers and RSS remain in its landing row.
-- DONE: item 6 landed as `377c0bd58da20a00c43d1f0addf734a98bec0a26` after 15,504/15,504 native tests, 14/14 CI fuzz suites, 100,765 attempts, seed 117504469504920149; measured numbers and RSS remain in its landing row.
-- DONE: item 8 landed as `d3f2307acb491895c28adb78bfb6e043e4a76697` after 15,512/15,512 native tests, 14/14 CI fuzz suites, 100,771 attempts, seed 117504530116234628; measured numbers and RSS remain in its landing row.
-- DONE: item 10 landed as `af3e41daeef60aec9bdaa733dd8558865af97471` after 15,518/15,518 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504577984795564; measured numbers and RSS remain in its landing row.
-- DONE: item 11 landed as `f5c813d8f1c631996efe4ec6afaa36bd9a170159` after 15,522/15,522 native tests, 14/14 CI fuzz suites, 100,783 attempts, seed 117504630514004640; measured numbers and RSS remain in its landing row.
-- OPEN: audit final outcomes, record final master and explicitly release the lease to the Starshine-versus-Binaryen comparison test.
+- DONE: item 3 landed as `050e89360e7b7be32aa78366f1d35e515b2916b2`; 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts. **GAIN:** Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established.
+- DONE: item 4 landed as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`; 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts. **GAIN:** Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**.
+- DONE: item 5 landed as `fb1e9cc9da182407813c01adbd3a58adcc2456ca`; 15,501/15,501 native tests, 14/14 CI fuzz suites, 100,779 attempts. **GAIN:** Recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, peak RSS **9,944 → 9,968 KiB**; embedded definition **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Pass-local gains have limited enclosing CLI benefit; no general memory gain.
+- DONE: item 6 landed as `377c0bd58da20a00c43d1f0addf734a98bec0a26`; 15,504/15,504 native tests, 14/14 CI fuzz suites, 100,765 attempts. **GAIN:** Late rejection **0.023 → 0.012 ms/call (-49.65%)**, peak RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**. CLI evidence is neutral.
+- DONE: item 8 landed as `d3f2307acb491895c28adb78bfb6e043e4a76697`; 15,512/15,512 native tests, 14/14 CI fuzz suites, 100,771 attempts. **GAIN:** Distinct-wide/dae CLI **58.888 → 55.983 ms (-4.34%)**, peak RSS **15,800 → 15,660 KiB**; optimizing CLI **59.147 → 55.953 ms (-5.03%)**, RSS **17,108 → 16,976 KiB**. Direct distinct index **2.320 → 1.916 ms/call (-17.18%)** carries the accepted peak RSS loss **6,744 → 8,816 KiB (+30.78%)**. Recursive index **1.599 → 0.584 ms (-63.36%)**, RSS **6,760 → 6,708 KiB**.
+- DONE: item 10 landed as `af3e41daeef60aec9bdaa733dd8558865af97471`; 15,518/15,518 native tests, 14/14 CI fuzz suites, 100,779 attempts. **GAIN:** Many-type/function cleanup **0.505 → 0.472 ms/call (-6.26%)**, peak RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. CLI evidence is neutral; mixed-import optimizing pass timing costs +1.20%.
+- DONE: item 11 landed as `f5c813d8f1c631996efe4ec6afaa36bd9a170159`; 15,522/15,522 native tests, 14/14 CI fuzz suites, 100,783 attempts. **GAIN:** Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**.
+- DONE: audit all eight gated merges, docs-only checkpoints, unchanged original refs, all 85 frozen benchmark rows and successful origin pushes; release the lease to the reserved Starshine-versus-Binaryen comparison lane.
 - EXCLUDED: items 2 and 9 are NEUTRAL; item 12 remains outside this landing set for separate repair/remeasurement; item 7 is outside this assignment.
 
 ## Authority and evidence
 
 Joshua directed on 2026-10-25: “If all those items are good make sure they land.”
 This campaign lands on `master`. Joshua subsequently authorized **pushes to origin after each landing**, starting with item 1. Record each push result; never force a rejected push.
-The overnight tender explicitly granted this campaign the single global lease after thread `mcp:1e53916f-ffaa-4261-8380-34a667d8082f` released it. Lease state: **HELD by this DAE landing campaign**. The Starshine-versus-Binaryen comparison test is next. The grant confirms Joshua accepts item 8's distinct-key peak RSS cost; no approval question remains for that item.
+The overnight tender explicitly granted this campaign the single global lease after thread `mcp:1e53916f-ffaa-4261-8380-34a667d8082f` released it. Lease state: **RELEASED after all eight corrected native/fuzz gates and landings**. The Starshine-versus-Binaryen comparison test is next. The grant confirms Joshua accepts item 8's distinct-key peak RSS cost; no approval question remains for that item.
 
 Measurement sources, read before preparation:
 
@@ -31,7 +31,7 @@ Measurement sources, read before preparation:
 - `measure/dae-items-3468101112` at `c05b30a84`: `experiment-results.md` and its `experiment-evidence/` files.
 - Both cohorts measured against `c9f8af8d3d465c39bcabf2cf29b837887d984efa`.
 
-The supplied campaign state file `~/workspace/goals/slipstream-wasm-engine/hidden_files/landing-followup-state.md` is absent on this host. The connected file service reports no online device. The lease holder has been asked for the tender identity and state-file location. This missing input is recorded; it is not replaced with an inferred lease grant.
+The supplied campaign state file `~/workspace/goals/slipstream-wasm-engine/hidden_files/landing-followup-state.md` is absent on this host. The connected file service reports no online device. The tender administrator ID was not supplied here. The explicit later grant above is the authority; this missing historical file did not prevent the authorized landing run.
 
 ## Shared gate investigation — BATCH CONTEXT, corrected procedure
 
@@ -50,13 +50,13 @@ The supplied campaign state file `~/workspace/goals/slipstream-wasm-engine/hidde
 - Forcing absolute v133 in the traced full master run clears batch 1: **1,077/1,077 pass**. Batch 2 then exposes an independent setup failure: the ignored `.tmp` parent is absent in the fresh worktree. The native test cannot create its child output directory.
 - Controlled unchanged-source test `emit_gen_valid_batch_to_dir creates the output directory for selected modules`: absent parent **0/1 pass**, exit 2; after `mkdir -p .tmp`, **1/1 pass**, exit 0. Evidence: `investigation-master-tmp-absent` / `investigation-master-tmp-present` logs and JSON. This is a clean-checkout directory precondition, not a compiler source repair. TMPDIR alone would not create that relative parent.
 
-### Corrected procedure and pending validation
+### Corrected procedure and completed validation
 
 1. Preserve the configured post-launch tool PATH, prepend the verified v133 bin directory, and invoke the captured **absolute Bun ELF**. Do not re-enter the mise/Bun package launcher for gate scripts.
 2. Use a 64 MiB process stack, `RAYON_NUM_THREADS=1`, `TOKIO_WORKER_THREADS=1`, one Moon build worker and sequential 300-source-file batches. Create the already-ignored worktree `.tmp` parent first. Do not disable tests or fuzz stages.
 3. Inside the actual Bun process, preflight resolved `wasm-opt`, version **133** and executable SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`. Remove the trace-wrapper directory from final validation PATH. Source is clean current master; retain source tree, executable identities, PATH and limits.
 4. Run the unchanged repository `runValidateTest` native entrypoint, then all CI native fuzz suites with a recorded seed and JSON report. The procedure wrapper is `/tmp/dae-gate-investigation/native-gate.ts`; it changes setup and checks tool identity, not source or test behavior. `corrected-path.txt`, `actual-bun.txt` and `corrected-master-process-state.json` retain the local launch identity.
-5. Corrected unwrapped master validation is running as `corrected-master-native`, then `corrected-master-fuzz` only on native success. A first-batch success is not a full-suite success. After green master control, rerun the eight candidates sequentially with this same procedure and retain each native/fuzz count, source/build identity, benchmark medians/RSS, merge and checkpoint.
+5. Corrected unwrapped master validation completed green as `corrected-master-native` (15,487/15,487), then `corrected-master-fuzz` (14/14 suites, 100,775 attempts). All eight candidates subsequently passed this complete procedure sequentially; their source/build identities, counts, benchmark medians/RSS, merges and checkpoints are retained below.
 
 Astra independently assessed the causal evidence and agreed with the BATCH CONTEXT classification and corrected procedure, while requiring final unwrapped master validation and the present-parent control. Both limits are tracked here; the present-parent control is now green. The earlier static-invalid-fixture hypothesis is rejected by the captured v133 successes. Temperature, resource pressure, filename collisions and candidate semantics are not needed to explain this observed failure; no claim is made that all possible unrelated risks were exhaustively excluded.
 
@@ -82,7 +82,7 @@ No general allocation reduction, production code-size improvement, or controlled
 ## Required benchmark evidence for every landing
 
 - **DONE:** carry the pinned per-item benchmark tables below into the main landing record before any merge. The final consolidated report must also show each landed item's workload, control median, candidate median, paired percent change and recorded RSS, beside its gates and merge SHA. A landing without its numbers is incomplete.
-- **OPEN:** attach the final suite/fuzz counts and merge SHA to each numbered item as it lands or is formally stopped. All benchmark rows below are existing DAE batch measurements; no new timing run is implied.
+- **DONE:** attach final suite/fuzz counts, merge SHA and push result to each of the eight landed items. All benchmark rows below are existing DAE batch measurements; no new timing run is implied.
 - Control is the fixed measurement master `c9f8af8d3d465c39bcabf2cf29b837887d984efa`. Each candidate is the exact measured source head in the Selected items table. The columns marked `master → candidate` give the control and candidate medians. Times are milliseconds; direct helper tables are milliseconds per call. Percentages are medians of matched-pair changes and must not be recalculated from separate cohort medians. Negative timing changes mean faster.
 - RSS is peak process RSS in KiB, including setup, not pass-only live heap or allocations. Keep all recorded adverse controls. Item 8's **6,744 → 8,816 KiB (+30.78%)** distinct-key memory rise is accepted by Joshua and appears beside its runtime rows below; no approval question remains.
 
@@ -377,7 +377,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Initial native invocation exited 1 before any test ran: MoonBit `v0.10.15+943464bfa` reported `Stack overflow` during `moonc link-core` for the command white-box test driver. Zero test results; fuzz was not started. Exact original log/status are retained as `01-native-initial-stack-overflow.{log,json}`.
 - Setup retry uses a 64 MiB process stack and process-local PATH selecting verified Binaryen 133 at `/home/dev/.local/share/mise/installs/github-web-assembly-binaryen/ersion_133/bin/wasm-opt`. The default system executable is version 116 and is not used for the corrected gate. No compiler source, test, global tool setting or candidate commit was changed.
 
-### Item 1 — NOT LANDED; formally stopped
+### Historical item 1 gate stop — superseded by corrected qualification
 
 - Source `dae/item-01-block-liveness` at `8582c26a234d3fd77cb0770e7f755fb992b191f0`; candidate `14f954374bafefac6fd68ae3bd5b89aa25cd5b3d`; master base `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - Verdict remains GAIN. HOT-wide/dae CLI median **184.260 → 172.475 ms (-6.16% paired)**, RSS **20,668 → 20,584 KiB**; optimizing **356.740 → 337.624 ms (-4.80%)**, RSS **32,980 → 33,036 KiB**. All six original workload rows and limits are carried above.
@@ -394,7 +394,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - A wiki-log conflict in the first test commit was reported immediately and preserved under `/tmp/dae-landing-gates-20261025/03-rebase-conflict/`; both independent atomic and DAE2 ownership entries remain. No production conflict was resolved.
 - Native gate uses the corrected 64 MiB stack and verified Binaryen 133 PATH. CI native fuzz runs only if the complete native suite passes. Item 1 is not included.
 
-### Item 3 — NOT LANDED; formally stopped
+### Historical item 3 gate stop — superseded by corrected qualification
 
 - Source `dae/item-03-write-buckets` at `eb403d287218b0660865784be6a4cc749245ba13`; candidate `fc971e058571b28c6f77bef96a97405235f4bcf4`; base remains `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - GAIN: sparse direct fallback **0.169 → 0.056 ms/call (-66.90%)**, RSS **6,180 → 6,212 KiB**. Dense direct fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. All original rows remain above; CLI gains were not established.
@@ -408,7 +408,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Wiki-log conflict reported and saved under `/tmp/dae-landing-gates-20261025/04-rebase-conflict/`; both independent entries retained. No production-source conflict.
 - Full native suite starts under the lease; CI native fuzz follows only on success. Stopped items 1 and 3 are excluded.
 
-### Item 4 — NOT LANDED; formally stopped
+### Historical item 4 gate stop — superseded by corrected qualification
 
 - Source `dae/item-04-group-base` at `28a5949d314bbad4078a0c8819c76def4f0e6f4f`; candidate `2a9e905e31c1ceb15beb6caaa0a9c2e4d27bf146`; base remains `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - GAIN: direct relative-reference lookup **10.466 → 1.414 ms/call (-86.47%)**, RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls are neutral; non-batch dropped-reference/dae costs +2.03%. All original control/candidate medians and RSS rows remain above.
@@ -423,7 +423,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Conflicts in the DAE2 implementation page and wiki log were reported and saved under `/tmp/dae-landing-gates-20261025/05-rebase-conflict/`. The dependency visitor text remains under its existing identity section, followed by the complete host-type section; both log entries and all frontmatter citations remain. No production-source resolution.
 - Full native gate is running under the corrected setup; CI native fuzz follows only if it is green. All earlier stopped items are excluded.
 
-### Item 5 — NOT LANDED; formally stopped
+### Historical item 5 gate stop — superseded by corrected qualification
 
 - Source `dae/item-05-subtype-trees` at `d20dd9102639d92893f65468d80f26120a6ee403`; candidate `32d66fef903915446a06ff030e646b80dabfdb4b`; base remains `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - GAIN: recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, RSS **9,944 → 9,968 KiB**; embedded-definition control **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Enclosing pass-local gains and limited CLI evidence remain in all eleven original rows above.
@@ -437,7 +437,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Wiki-log conflict reported and saved under `/tmp/dae-landing-gates-20261025/06-rebase-conflict/`; both independent entries retained. Implementation-page merge reviewed; no production-source conflict.
 - Native suite then CI native fuzz, only on success. No earlier stopped item is included.
 
-### Item 6 — NOT LANDED; formally stopped
+### Historical item 6 gate stop — superseded by corrected qualification
 
 - Source `dae/item-06-preflight-share` at `4192c02791efd685afc171c93d16a483ccbda698`; candidate `b84ec85c0c0d8c81b61ed6474396ba23cc239147`; base remains `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - GAIN: direct late rejection **0.023 → 0.012 ms/call (-49.65%)**, RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**; CLI evidence is neutral. All original rows remain above.
@@ -447,7 +447,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 
 ## Shared native baseline control — confirmed batch-context failure
 
-- Current master `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929` was tested with the **identical first 300-source-file selection**, verified Binaryen 133 PATH, 64 MiB stack, one build worker and sequential test execution. This is a bounded control, not a complete full-master-suite claim.
+- Current master `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929` was tested with the **identical first 300-source-file selection**, outer-shell v133 PATH check (later shown insufficient), 64 MiB stack, one build worker and sequential test execution. This is a bounded control, not a complete full-master-suite claim.
 - Result: **1,077 total, 1,076 passed, 1 failed**, exit 1, at the same carried-guard WAT fixture-lowering assertion (`cmd_wbtest.mbt:7553`, `:7612–7614`). Exact evidence: `master-native-batch-control.{log,json}` and `master-native-batch-files.json`.
 - The isolated master test passes 1/1, but the full first-batch context fails. This establishes a **shared native baseline gate failure in batch context**, rather than evidence that five unrelated DAE optimizations each introduced the same fixture defect. The exact cause remains unresolved.
 - This control supersedes the earlier uncertainty about whether current master also fails in batch context. No test is removed, bypassed or weakened. The remaining items will still be processed one at a time with the required gate chain; a failed native gate prevents its fuzz and merge.
@@ -459,7 +459,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Wiki-log conflict reported and saved under `/tmp/dae-landing-gates-20261025/08-rebase-conflict/`; both independent entries retained. No production-source conflict.
 - Full native then CI native fuzz on success. Joshua's accepted memory trade is fixed: distinct-wide direct **2.320 → 1.916 ms (-17.18%)**, RSS **6,744 → 8,816 KiB (+30.78%)**; distinct-wide CLI **58.888 → 55.983 ms (-4.34%)** / **59.147 → 55.953 ms (-5.03%)**. This gate tests correctness/integration, not whether that accepted trade is acceptable.
 
-### Item 8 — NOT LANDED; formally stopped on the native gate
+### Historical item 8 gate stop — superseded by corrected qualification
 
 - Source `dae/item-08-signature-keys` at `5a53e2a90deb275ae3a0adb675a001faaecbc306`; standalone candidate `1dbaf882b1523a22c414ca80076c446c6fa39b6e`; unchanged base `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`. No item 4 or conditional integration repair is included.
 - Accepted GAIN: distinct-wide/dae CLI **58.888 → 55.983 ms (-4.34%)**, RSS **15,800 → 15,660 KiB**; optimizing CLI **59.147 → 55.953 ms (-5.03%)**, RSS **17,108 → 16,976 KiB**. Direct distinct-wide index **2.320 → 1.916 ms/call (-17.18%)** with RSS **6,744 → 8,816 KiB (+30.78%, accepted)**; direct recursive index **1.599 → 0.584 ms (-63.36%)**, RSS **6,760 → 6,708 KiB**. All twelve original rows remain above. Joshua's memory acceptance is not reopened.
@@ -473,7 +473,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - Wiki-log conflict reported and saved under `/tmp/dae-landing-gates-20261025/10-rebase-conflict/`; both entries remain. Automatic merge of `dead_argument_elimination2_types.mbt` was inspected: only the measured cleanup parameter-table removal and borrowed context lookups differ from current master; its host-type repair remains. No production conflict was resolved by hand.
 - Full native then CI native fuzz only on success; no stopped candidate is included.
 
-### Item 10 — NOT LANDED; formally stopped
+### Historical item 10 gate stop — superseded by corrected qualification
 
 - Source `dae/item-10-cleanup-context` at `913de7a89adb2aa1a0d471b5d8a49d06a3aa79af`; candidate `4806d224bd18bbe0111fb6bb24c07dd7f759ff2b`; unchanged base `1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929`.
 - GAIN: many-types/functions direct cleanup **0.505 → 0.472 ms/call (-6.26%)**, RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. Full CLI/pass rows above retain the +1.20% mixed-import optimizing pass-timer cost and neutral CLI evidence.
@@ -481,7 +481,7 @@ The lease starts from the four round-2 landings recorded at `01dc357d4`, `fdae27
 - No failed test is waived and no merge exists. Candidate remains on `gate/dae-item-10`.
 
 
-## Shared native gate investigation — active, 2026-10-25
+## Historical investigation checkpoint — completed by corrected controls below
 
 Joshua directed investigation before further landing gates. Item 6 had already
 finished (1,076/1,077 passed, shared fixture failure); items 8 and 10 also
@@ -515,10 +515,9 @@ carried-guard fixture and the directory-creation test pass without source edits.
 Exact stage: `corrected-master-native.{log,json}`; effective source/tool/limit
 state is also retained in `corrected-master-process-state.json`.
 
-The following CI native fuzz stage is running under the same corrected PATH
-and absolute Bun ELF as `corrected-master-fuzz`, with its resolved seed and
-JSON report retained. No candidate retry has started yet. A complete master
-control requires this stage to pass too.
+The following CI native fuzz stage subsequently passed under the same corrected PATH
+and absolute Bun ELF as `corrected-master-fuzz`; the completed result below
+supersedes this historical native-only checkpoint.
 
 
 ### Corrected master control — complete and green
@@ -532,7 +531,7 @@ control requires this stage to pass too.
 
 ## Corrected sequential landing run
 
-### Item 1 — corrected qualification active
+### Item 1 — qualification start snapshot; completed below
 
 Source `dae/item-01-block-liveness` at
 `8582c26a234d3fd77cb0770e7f755fb992b191f0`; clean candidate
@@ -554,7 +553,7 @@ No merge or post-correction failure is claimed yet.
 - The earlier item 1 stop is superseded by this corrected complete run. No test/fixture was weakened, no stage disabled, and no public API changed. Pass-comparison renewal belongs to the next leased lane.
 
 
-### Item 3 — corrected qualification active
+### Item 3 — qualification start snapshot; completed below
 
 Candidate `gate/dae-corrected-03` at `5c8260aa8e84d8c5fd0c883e32addcb826800c95` rebases only the two item 3 commits onto current master checkpoint `6d5d84684ad2ca1d2c3e049a95a6f924552b66a6`, which includes landed item 1. The rebase is conflict-free, its diff passes whitespace checks, and no public API snapshot changes. Complete corrected native and CI fuzz gates run sequentially. Item 1's benchmark-bearing docs checkpoint is `6d5d84684ad2ca1d2c3e049a95a6f924552b66a6`. Item 3 retains the sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, RSS **6,180 → 6,212 KiB**, and dense **0.482 → 0.495 ms (+2.69%)** cost, RSS **8,236 → 8,220 KiB**. No new timing is inferred.
 
@@ -619,3 +618,29 @@ Joshua authorized pushes after the original local-only landing. `git push origin
 - **GAIN:** Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**. All original workload/control rows remain above. Times are historical matched-pair medians against the pinned measurement master; process RSS is not allocation or live-heap evidence.
 - Corrected gates: **15,522/15,522 native tests**, all 8 batches; **14/14 CI native fuzz suites**, **100,783 attempts**, seed `117504630514004640`; both exit zero. Evidence: `corrected-11-native.json`, `corrected-11-fuzz.json` and adjacent full fuzz report.
 - Earlier stop decisions are superseded by this complete corrected run. No test or stage was disabled. No public `.mbti` changes. Origin push: PASS (exit 0) at `f5c813d8f1c631996efe4ec6afaa36bd9a170159`; no force. Raw result retained in `push-11-merge.json`. This docs-only checkpoint is pushed next.
+
+
+## Final landing audit
+
+All eight selected items are **LANDED**, with no selected item left open. Every merge tree exactly equals its native/fuzz-qualified candidate. Each following checkpoint changes documentation only. Original measured source branches remain unchanged; all 85 workload/control rows above match the pinned measurement records exactly. The [compact immutable landing evidence](docs/wiki/raw/tooling/2026-10-26-dae-gain-landings.json) includes every source/head, candidate, merge, checkpoint, native batch count, fuzz suite/seed/count, executable hash and push result.
+
+| Item | Master merge | Checkpoint pushed to origin | Push result |
+| --- | --- | --- | --- |
+| 1 | `642abea01b8a9348dc10f7dcf777bb879f060d14` | `6d5d84684ad2ca1d2c3e049a95a6f924552b66a6` | PASS, exit 0; no force |
+| 3 | `050e89360e7b7be32aa78366f1d35e515b2916b2` | `5819b139ed12fb147c1a9fa0c3598bdb5ff80c89` | PASS, exit 0; no force |
+| 4 | `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37` | `d95fd0a841f38ea13cbe3aa733a8c66a4f545036` | PASS, exit 0; no force |
+| 5 | `fb1e9cc9da182407813c01adbd3a58adcc2456ca` | `1ee09a83cac8fbb08a5798e55b6df08cb387dc71` | PASS, exit 0; no force |
+| 6 | `377c0bd58da20a00c43d1f0addf734a98bec0a26` | `34faa808b00101997518998ba4596ad0a8db9ba0` | PASS, exit 0; no force |
+| 8 | `d3f2307acb491895c28adb78bfb6e043e4a76697` | `6792b6fb3608c1205eca9cb0cc11f6ef231daa96` | PASS, exit 0; no force |
+| 10 | `af3e41daeef60aec9bdaa733dd8558865af97471` | `0b537ae8afcf2a4ce8cec593df4a0df9cb3b1972` | PASS, exit 0; no force |
+| 11 | `f5c813d8f1c631996efe4ec6afaa36bd9a170159` | `bb3ddd412f4986348b22e8964290d1d2507747e7` | PASS, exit 0; no force |
+
+Across the eight per-item gates: **124,032 passing native test executions**, **112 passing CI fuzz-suite executions**, **806,180 attempts**. Each item has its own full native and 14-suite fuzz run. No test, fixture or stage was disabled. Item 8 also has native and release WasmGC focused integration evidence, each **21/21 plus 1/1**. No public `.mbti` change or new combined-build timing claim.
+
+The final code-bearing merge is `f5c813d8f1c631996efe4ec6afaa36bd9a170159`; its pushed docs checkpoint is `bb3ddd412f4986348b22e8964290d1d2507747e7`. This closeout changes documentation only. The final resolved master SHA is recorded in the external final audit and consolidated report after this commit.
+
+Selected items not landed: **none**. Items **2 and 9** are excluded as NEUTRAL; **12** is INCONCLUSIVE (warmup exit 134) and remains excluded for its separate harness repair and remeasurement; **7** is outside this assignment.
+
+The single global lease is explicitly **RELEASED**. All owned gate processes have completed. The reserved Starshine-versus-Binaryen comparison test is next; this record makes no new comparison-lane or broad pass-parity signoff claim.
+
+DAE LANDINGS COMPLETE

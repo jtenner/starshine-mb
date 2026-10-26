@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Eight measured DAE gains landed](../../experiment-results.md#final-landing-audit) — All eight native gates and 112 CI fuzz-suite executions pass; all 85 frozen benchmark rows, accepted RSS cost, merge/checkpoint heads and successful pushes are retained. Global lease released to the reserved comparison lane.
+
 - [Measured DAE item 11](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-11) — Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**. Gates: 15,522 native tests and 14 CI fuzz suites pass; merge `f5c813d8f1c631996efe4ec6afaa36bd9a170159`.
 
 - [Measured DAE item 10](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-10) — Many-type/function cleanup **0.505 → 0.472 ms/call (-6.26%)**, peak RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. CLI evidence is neutral; mixed-import optimizing pass timing costs +1.20%. Gates: 15,518 native tests and 14 CI fuzz suites pass; merge `af3e41daeef60aec9bdaa733dd8558865af97471`.
@@ -16,11 +18,9 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Measured DAE item 4](binaryen/passes/dead-argument-elimination/starshine-strategy.md#measured-item-4) — Relative recursive-group lookup **10.466 → 1.414 ms/call (-86.47%)**, peak RSS **5,848 → 5,920 KiB**. Absolute/numeric and batch CLI controls remain neutral; the non-batch dropped-reference/dae CLI costs **31.124 → 31.684 ms (+2.03%)**, RSS **13,392 → 13,620 KiB**. Gates: 15,496 native tests and 14 CI fuzz suites pass; merge `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37`.
 
-
 - [Measured DAE item 3](binaryen/passes/dae2/starshine-strategy.md#measured-item-3) — Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established. Gates: 15,491 native tests and 14 CI fuzz suites pass; merge `050e89360e7b7be32aa78366f1d35e515b2916b2`.
 
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
-
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.
