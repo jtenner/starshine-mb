@@ -40,7 +40,7 @@ related:
 
 ## Overview
 
-Publication remains gated on the current measurement backlog and release validation in [`agent-todo.md`](../../../agent-todo.md). Earlier release authorization is historical.
+Version `0.3.0` was published on October 17, 2026. The current measurement backlog and release validation gate the next release. See [`agent-todo.md`](../../../agent-todo.md).
 
 Use this page when preparing a Starshine release, reviewing a release-prep branch, or deciding whether a change is release-blocking. It turns the compact repo policy in [`AGENTS.md`](../../../AGENTS.md) and [`docs/README.md`](../../README.md) into a concrete checklist with package-surface, validation, release-notes, and publication boundaries.
 
