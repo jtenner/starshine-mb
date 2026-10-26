@@ -268,7 +268,7 @@ test "dae lookup keeps first signatures across late recursive groups" {
       [relative_result],
     )
     assert_eq(
-      index.signatures.get(dae_simple_func_type_key(params, results)),
+      index.signatures.get(dae_structural_func_type_key(params, results)),
       Some(owner),
     )
     // Relative heap indices are not directly encodable. Check the borrowed
@@ -290,17 +290,19 @@ test "dae lookup keeps first signatures across late recursive groups" {
     [singleton_ref],
   )
   assert_eq(
-    index.signatures.get(dae_simple_func_type_key([], singleton_results)),
+    index.signatures.get(dae_structural_func_type_key([], singleton_results)),
     Some(@lib.TypeIdx::new(36U)),
   )
   assert_eq(
     index.signatures.get(
-      dae_simple_func_type_key([absolute_param], [absolute_result]),
+      dae_structural_func_type_key([absolute_param], [absolute_result]),
     ),
     Some(@lib.TypeIdx::new(1U)),
   )
   assert_eq(
-    index.signatures.get(dae_simple_func_type_key([], [@lib.ValType::i64()])),
+    index.signatures.get(
+      dae_structural_func_type_key([], [@lib.ValType::i64()]),
+    ),
     Some(@lib.TypeIdx::new(38U)),
   )
   assert_eq(
@@ -350,6 +352,54 @@ test "panic dae lookup rejects a relative reference with a negative signed slot"
     @lib.RefType::new(true, @lib.HeapType::new(@lib.rec_idx(0xffffffffU))),
   )
   let _ = dae_simple_func_type_lookup(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [invalid])),
+      ),
+    ]),
+  )
+}
+
+///|
+test "panic dae structural index rejects an invalid singleton relative reference" {
+  // RecIdx(1) is invalid in a singleton, even if a following type exists.
+  let invalid = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.rec_idx(1U))),
+  )
+  let _ = DaeTypeUpdateIndex::new(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([invalid], [])),
+      ),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+    ]),
+  )
+}
+
+///|
+test "panic dae structural index rejects a relative reference at the group length" {
+  // The owner is member 1; using its index as the base would accept this.
+  let invalid = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.rec_idx(2U))),
+  )
+  let _ = DaeTypeUpdateIndex::new(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+      @lib.RecType::group([
+        @lib.SubType::comp_type(@lib.CompType::struct_([])),
+        @lib.SubType::comp_type(@lib.CompType::func([], [invalid])),
+      ]),
+    ]),
+  )
+}
+
+///|
+test "panic dae structural index rejects a relative reference with a negative signed slot" {
+  // Reinterpreting this malformed unsigned member gives -1.
+  let invalid = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.rec_idx(0xffffffffU))),
+  )
+  let _ = DaeTypeUpdateIndex::new(
     @lib.TypeSec::new([
       @lib.RecType::new(
         @lib.SubType::comp_type(@lib.CompType::func([], [invalid])),
