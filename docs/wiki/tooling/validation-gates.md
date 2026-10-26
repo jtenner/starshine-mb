@@ -1,8 +1,10 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-20
+last_reviewed: 2026-10-26
 sources:
+  - ../raw/tooling/2026-10-26-dae-native-launcher-resolution.json
+  - ../../../experiment-results.md
   - ../raw/tooling/2026-10-20-master-ci.json
   - ../../../ffi/src/ffi/export-schema.generated.json
   - ../../../.github/actions/setup-moonbit/action.yml
@@ -81,6 +83,39 @@ related:
 ---
 
 # Validation Gates
+
+## October 26, 2026: native gate launcher control
+
+The DAE landing campaign reproduced a native fixture-lowering failure on master
+`1f67ff580` through the full test entrypoint: 1,076/1,077 passed before the first
+batch stopped. The same source test passed alone. This was **BATCH CONTEXT**,
+not an optimizer-item defect: the configured mise/Bun launcher rebuilt PATH and
+selected TinyGo's Binaryen 116 after the outer shell had checked v133.
+
+Captured isolated and batch fixture bytes match. With that same input, absolute
+v133 → v116 → v133 gives exit 0 → 1 → 0 and equal v133 output hashes. An absolute
+Bun ELF preserves the pinned oracle path. Checking a version before a launcher
+runs is therefore insufficient evidence of the tool used by its descendants.
+The earlier failed runs remain historical evidence, not verified-v133 signoff.
+
+A separate clean-worktree precondition also surfaced: a native generated-output
+test requires the ignored `.tmp` parent. It fails 0/1 without the parent and
+passes 1/1 after directory creation. No source or fixture was changed.
+
+The corrected local procedure keeps the configured tool environment, prepends
+verified v133, invokes absolute Bun, checks oracle resolution/version/hash
+inside that runtime, creates `.tmp`, and uses a 64 MiB stack, one build worker
+and sequential source batches of at most 300 files. The unwrapped master run
+passes **15,487/15,487 native tests**, then **14/14 CI native fuzz suites**,
+**100,775 attempts**, seed `117504144017018061`. No test or stage is disabled.
+
+The [compact raw control](../raw/tooling/2026-10-26-dae-native-launcher-resolution.json)
+retains source, tool/input hashes, counterfactuals and all batch/suite counts.
+The [landing record](../../../experiment-results.md#shared-gate-investigation--batch-context-corrected-procedure)
+contains exact local launch commands, original failed results, supersession and
+per-item requalification. Benchmark verdicts remain their separately pinned
+Starshine-versus-master measurements; this does not relabel any unverified
+oracle run as v133 or replace pass-comparison evidence.
 
 > **Comparison baseline — October 4, 2026:** new comparisons use [Binaryen 133](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v133 signoff.
 

@@ -1,0 +1,202 @@
+{
+  "schema": "starshine.native-gate-launcher-control.v1",
+  "classification": "BATCH CONTEXT",
+  "observed_date": "2026-10-25",
+  "recorded_date": "2026-10-26",
+  "master": "1f67ff5800b3b9cdadfbe0b607b0e5d36c40e929",
+  "fixture_sha256": "18983f673c2d51cfde833f4fd81126000894e4dbcda66f98943b7445072817c5",
+  "fixture_bytes": 1460,
+  "mechanism": "The configured mise/Bun launcher rebuilt PATH and selected TinyGo Binaryen116 after the outer shell selected installed133. Absolute Bun preserves the pinned133 path.",
+  "launcher": "mise shim -> actual bun.native",
+  "actual_bun_sha256": "a83d263767d839e4d2649ca8e35d07159c7afc99afdc96d731ced29e056dda0c",
+  "controlled_oracles": [
+    {
+      "version": "wasm-opt version 133 (version_133)",
+      "exe_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+      "input_sha256": "18983f673c2d51cfde833f4fd81126000894e4dbcda66f98943b7445072817c5",
+      "exit_code": 0,
+      "output_sha256": "25b4fa9ce540ae2ff292810112b907d38f79ed091466b47bd76f8a7c16b4a4a8"
+    },
+    {
+      "version": "wasm-opt version 116",
+      "exe_sha256": "58618f4aafb14d4b9ff5a52d78f0d02be772a1539491b4de134f51ef0a248abb",
+      "input_sha256": "18983f673c2d51cfde833f4fd81126000894e4dbcda66f98943b7445072817c5",
+      "exit_code": 1,
+      "output_sha256": null
+    },
+    {
+      "version": "wasm-opt version 133 (version_133)",
+      "exe_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+      "input_sha256": "18983f673c2d51cfde833f4fd81126000894e4dbcda66f98943b7445072817c5",
+      "exit_code": 0,
+      "output_sha256": "25b4fa9ce540ae2ff292810112b907d38f79ed091466b47bd76f8a7c16b4a4a8"
+    }
+  ],
+  "historical_resolution_limit": "Historical failed child exec paths were not directly traced; attribution is supported by same-launcher reproduction and matching116 stderr.",
+  "directory_control": {
+    "without_tmp_parent": {
+      "total": 1,
+      "passed": 0,
+      "exit_code": 2
+    },
+    "with_ignored_tmp_parent": {
+      "total": 1,
+      "passed": 1,
+      "exit_code": 0
+    }
+  },
+  "corrected_procedure": {
+    "actual_runtime": "absolute Bun ELF; no launcher reentry",
+    "binaryen_version": 133,
+    "binaryen_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+    "stack_bytes": 67108864,
+    "RAYON_NUM_THREADS": 1,
+    "TOKIO_WORKER_THREADS": 1,
+    "moon_jobs": 1,
+    "source_batch_limit": 300,
+    "scratch_parent": ".tmp",
+    "source_or_fixture_edit": false,
+    "disabled_test_or_stage": false
+  },
+  "corrected_master_native": {
+    "exit_code": 0,
+    "batches": [
+      {
+        "total": 1077,
+        "passed": 1077,
+        "failed": 0
+      },
+      {
+        "total": 1335,
+        "passed": 1335,
+        "failed": 0
+      },
+      {
+        "total": 1208,
+        "passed": 1208,
+        "failed": 0
+      },
+      {
+        "total": 955,
+        "passed": 955,
+        "failed": 0
+      },
+      {
+        "total": 2789,
+        "passed": 2789,
+        "failed": 0
+      },
+      {
+        "total": 3967,
+        "passed": 3967,
+        "failed": 0
+      },
+      {
+        "total": 2017,
+        "passed": 2017,
+        "failed": 0
+      },
+      {
+        "total": 2139,
+        "passed": 2139,
+        "failed": 0
+      }
+    ],
+    "total": 15487
+  },
+  "corrected_master_fuzz": {
+    "schema": "starshine.fuzz.summary.v1",
+    "suite": "all",
+    "profile": "ci",
+    "base_seed": 117504144017018061,
+    "run_count": 14,
+    "pass": true,
+    "attempts": 100775,
+    "runs": [
+      {
+        "suite": "wast-roundtrip",
+        "seed": 117504144017018061,
+        "attempts": 112,
+        "pass": true
+      },
+      {
+        "suite": "wat-roundtrip",
+        "seed": 117504144017018061,
+        "attempts": 112,
+        "pass": true
+      },
+      {
+        "suite": "wast-validate-roundtrip",
+        "seed": 117504144017018061,
+        "attempts": 256,
+        "pass": true
+      },
+      {
+        "suite": "gen-valid-wat-validate-roundtrip",
+        "seed": 117504144017018061,
+        "attempts": 128,
+        "pass": true
+      },
+      {
+        "suite": "valid-multi-module-linking",
+        "seed": 117504144017018061,
+        "attempts": 16,
+        "pass": true
+      },
+      {
+        "suite": "validate-valid",
+        "seed": 117504144017018061,
+        "attempts": 5000,
+        "pass": true
+      },
+      {
+        "suite": "validate-valid-metamorphic",
+        "seed": 117504144017018061,
+        "attempts": 11,
+        "pass": true
+      },
+      {
+        "suite": "validate-invalid-ast",
+        "seed": 117504144017018061,
+        "attempts": 2650,
+        "pass": true
+      },
+      {
+        "suite": "validate-invalid-binary",
+        "seed": 117504144017018061,
+        "attempts": 400,
+        "pass": true
+      },
+      {
+        "suite": "validate-invalid-text",
+        "seed": 117504144017018061,
+        "attempts": 400,
+        "pass": true
+      },
+      {
+        "suite": "validate-invalid-text-dynamic",
+        "seed": 117504144017018061,
+        "attempts": 384,
+        "pass": true
+      },
+      {
+        "suite": "validate-invalid-spec-seed",
+        "seed": 117504144017018061,
+        "attempts": 390,
+        "pass": true
+      },
+      {
+        "suite": "binary-roundtrip",
+        "seed": 117504144017018061,
+        "attempts": 86820,
+        "pass": true
+      },
+      {
+        "suite": "cmd-harness",
+        "seed": 117504144017018061,
+        "attempts": 4096,
+        "pass": true
+      }
+    ]
+  }
+}

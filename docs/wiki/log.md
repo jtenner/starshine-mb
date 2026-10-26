@@ -1,11 +1,15 @@
 ### 2026-10-25 — Measured DAE gains landing
 
+- Item 3 lands as `050e89360e7b7be32aa78366f1d35e515b2916b2`. Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established. Gates: 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts, seed 117504304333854712; complete [landing record](../../experiment-results.md#item-3--landed-under-the-corrected-procedure).
+
 - Corrected the native gate's launcher resolution: the mise/Bun path selected
   Binaryen 116 after an outer-shell v133 check. Identical-fixture controls prove
   the version drift; absolute Bun with pinned v133 and an existing ignored
   `.tmp` parent passes all 15,487 native master tests and 14 CI fuzz suites.
   The [investigation](../../experiment-results.md#shared-gate-investigation--batch-context-corrected-procedure)
   supersedes prior item-stop decisions without changing tests or fixtures.
+  The durable [launcher-control record](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control)
+  and compact raw source preserve the mechanism and complete master controls.
 - Item 1 lands as `642abea01b8a9348dc10f7dcf777bb879f060d14`: HOT-wide/dae CLI
   **184.260 → 172.475 ms (-6.16%)**, RSS **20,668 → 20,584 KiB**; optimizing
   **356.740 → 337.624 ms (-4.80%)**, RSS **32,980 → 33,036 KiB**.

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-26
 sources:
   - ../../../raw/tooling/2026-10-18-dae2-cleanup-allocation.json
   - ../../../../../src/passes/vacuum_predicate_rows.mbt
@@ -228,6 +228,14 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## October 25, 2026: measured gains landing
+
+### Measured item 3
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established.
+
+Source `dae/item-03-write-buckets` at `eb403d287218b0660865784be6a4cc749245ba13` lands as `050e89360e7b7be32aa78366f1d35e515b2916b2` after 15,491/15,491 native tests, 14/14 CI fuzz suites, 100,767 attempts, seed 117504304333854712. The [campaign record](../../../../../experiment-results.md#item-3--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
 
 **Native counter scope correction (September 30):** the callback section below
 also supersedes earlier descriptions of allocator or query-call counts as
