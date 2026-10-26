@@ -1,0 +1,7 @@
+[
+  {
+    "path": "docs/wiki/wast/static-assertion-harness.md",
+    "old": "No suite, fuzz, benchmark, or timing run was made for this fix. The changed\npath is legacy argument setup, outside optimizer passes. Future measurement,\nif required, should compare normalization with few and many arguments and\nshort, long, or whitespace-heavy file names; no measured speed or memory claim\nis made here.",
+    "new": "Daybreak F14 matched native measurements cover zero, one, 64 and 512 paths,\nincluding short, long and whitespace-heavy names. One ordinary path improves\n34.41\u201340.99%; 512 ordinary paths improve 89.44\u201389.54%. Raw allocations fall\nfrom 521.037 to 9.003 per 512-path call; the no-path control is neutral. All\nthree paired rounds and same-build controls use the exact function extracted\nverbatim into white-box files. This measures the argument function only; the\nlegacy executable and file reads remain outside this evidence. Full native\nvalidation passes {native_tests} tests and all 14 CI fuzz suites pass\n({fuzz_attempts} attempts), with Binaryen 133 and .tmp present. See the\n[raw signoff and limits](../raw/tooling/2026-10-26-daybreak19/F14-signoff.json)."
+  }
+]

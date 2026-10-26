@@ -1,0 +1,7 @@
+{
+  "item": "F14",
+  "original_branch": "fix/db-14-spec-runner-path-trim",
+  "original_head": "1aa8a77a571c491e3e1b553bfac60dce90a3a41b",
+  "baseline_master": "82dea24a86a67a15594c3ddd4a4278d93fe93940",
+  "rebased_fix_head": "7eae980992b867159d0fc99cf9bc3d88f1fb1cf4"
+}

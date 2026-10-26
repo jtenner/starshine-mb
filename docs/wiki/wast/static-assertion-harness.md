@@ -133,11 +133,16 @@ The temporary package does not build the legacy executable or test file reads.
 Those integration gaps remain separate work. This finding does not establish
 a defect in the active `starshine spec` command.
 
-No suite, fuzz, benchmark, or timing run was made for this fix. The changed
-path is legacy argument setup, outside optimizer passes. Future measurement,
-if required, should compare normalization with few and many arguments and
-short, long, or whitespace-heavy file names; no measured speed or memory claim
-is made here.
+Daybreak F14 matched native measurements cover zero, one, 64 and 512 paths,
+including short, long and whitespace-heavy names. One ordinary path improves
+34.41–40.99%; 512 ordinary paths improve 89.44–89.54%. Raw allocations fall
+from 521.037 to 9.003 per 512-path call; the no-path control is neutral. All
+three paired rounds and same-build controls use the exact function extracted
+verbatim into white-box files. This measures the argument function only; the
+legacy executable and file reads remain outside this evidence. Full native
+validation passes 15532 tests and all 14 CI fuzz suites pass
+(100757 attempts), with Binaryen 133 and .tmp present. See the
+[raw signoff and limits](../raw/tooling/2026-10-26-daybreak19/F14-signoff.json).
 
 A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks. `WastSpecFileReport.command_reports` records zero-based command outcomes as `Passed`, `KnownSkipped(reason)`, `Blocked(reason)`, or `Failed(msg)`; aggregate `checked_commands`, `skipped_commands`, and `blocked_commands` remain available for summary consumers.
 

@@ -1,0 +1,107 @@
+[
+  {
+    "case": "no path arguments",
+    "count": 0,
+    "shape": 0,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "1 paths / short ordinary",
+    "count": 1,
+    "shape": 0,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "1 paths / long ordinary",
+    "count": 1,
+    "shape": 1,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "1 paths / leading and trailing spaces",
+    "count": 1,
+    "shape": 2,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "1 paths / whitespace-only",
+    "count": 1,
+    "shape": 3,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "64 paths / short ordinary",
+    "count": 64,
+    "shape": 0,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "64 paths / long ordinary",
+    "count": 64,
+    "shape": 1,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "64 paths / leading and trailing spaces",
+    "count": 64,
+    "shape": 2,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "64 paths / whitespace-only",
+    "count": 64,
+    "shape": 3,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "512 paths / short ordinary",
+    "count": 512,
+    "shape": 0,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "512 paths / long ordinary",
+    "count": 512,
+    "shape": 1,
+    "comparable": true,
+    "baseline_expected_paths_preserved": true,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "512 paths / leading and trailing spaces",
+    "count": 512,
+    "shape": 2,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  },
+  {
+    "case": "512 paths / whitespace-only",
+    "count": 512,
+    "shape": 3,
+    "comparable": false,
+    "baseline_expected_paths_preserved": false,
+    "candidate_expected_paths_preserved": true
+  }
+]

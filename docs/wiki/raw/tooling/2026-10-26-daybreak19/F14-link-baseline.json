@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/usr/bin/cc",
+    "-o",
+    "./_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.alloc.exe",
+    "-I/home/dev/.moon/include",
+    "-fwrapv",
+    "-fno-strict-aliasing",
+    "-O2",
+    "-DMOONBIT_ALLOCATOR=MOONBIT_ALLOCATOR_MIMALLOC",
+    "/home/dev/.moon/lib/libmoonbitrun.o",
+    "/tmp/daybreak19/F14/alloc-link-baseline/instrumented.c",
+    "/tmp/daybreak19/F14/alloc-link-baseline/libruntime-4970e3622c72d37e.a",
+    "-lm",
+    "/home/dev/.moon/lib/libbacktrace.a"
+  ],
+  "cwd": "/tmp/daybreak19/F14/baseline",
+  "state": "exited",
+  "compiler_parallelism": 2,
+  "start": "2026-10-26T10:29:22.491829+00:00",
+  "instrumented_c_sha256": "50d7d278a3513da147ff93aa18fb4c9abd23230492b1c41634859f30e8a8c91d",
+  "counter_object_sha256": "efc18fe4769de6d0866835a987f56cf6bf37ede79f597a20ffa3eeb98d8dba00",
+  "exit_code": 0,
+  "end": "2026-10-26T10:29:41.010758+00:00"
+}

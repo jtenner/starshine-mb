@@ -1,0 +1,42 @@
+commit 1aa8a77a571c491e3e1b553bfac60dce90a3a41b
+Author:     jtenner <tenner.joshua@gmail.com>
+AuthorDate: Sun Oct 25 14:50:54 2026 +0000
+Commit:     jtenner <tenner.joshua@gmail.com>
+CommitDate: Sun Oct 25 14:50:54 2026 +0000
+
+    fix: preserve legacy spec runner path arguments
+
+    The legacy runner trimmed every argument and discarded empty trim results
+    before file reads. This changed valid POSIX names with leading or trailing
+    spaces and dropped whitespace-only names. Skip argv[0], then copy each path
+    unchanged and in order, using the existing array loop.
+
+    Changed files:
+    - src/spec_runner/spec_runner.mbt: remove trimming and filtering so the
+      reader receives the original argument spelling.
+    - tests/spec_runner/README.md: record retained red evidence and the passing
+      focused native run after the repair.
+    - docs/wiki/wast/static-assertion-harness.md: document path preservation,
+      verification provenance, legacy integration limits and deferred measurement.
+    - docs/wiki/log.md: record the repair and focused validation.
+    - agent-todo.md: keep the missing legacy package and stale filesystem/WASI
+      integration visible as separate work; F14 normalization itself is fixed.
+
+    Validation:
+    - Retained red evidence from verification commit 7e10d18d on exactly matching
+      source and tests: exit 2, 1 passed and 3 failed. No duplicate red run.
+    - python3 tests/spec_runner/verify_path_args.py: exit 0; 4 passed, 0 failed.
+      The helper compiled the production function verbatim in one temporary
+      native package. Moon reported an unused-function warning only.
+    - Added local documentation links and anchors: 7 passed.
+    - git diff --cached --check: passed; staged diff reviewed.
+    - No public API or generated interface changes. No full suite, fuzzing,
+      benchmarks, timing, worker launch or independent review was performed.
+
+    Notes:
+    - Unit evidence only: the legacy executable still lacks moon.pkg and has
+      stale filesystem/WASI integration, so no executable/file-read claim is made.
+    - READY TO MEASURE after this commit on fix/db-14-spec-runner-path-trim:
+      spec_runner_normalize_args in src/spec_runner/spec_runner.mbt. Proposed
+      workloads cover few/many arguments and short/long/whitespace-heavy paths.
+      No measured runtime or memory claim is made; optimizer paths are unchanged.

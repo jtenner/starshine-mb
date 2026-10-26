@@ -19,6 +19,7 @@ if label.startswith('allocation'):
   meta[arm]['allocation_binary']={'path':str(binary),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'bytes':binary.stat().st_size}
 meta.update(environment={'uname':platform.uname()._asdict(),'cpu_affinity':[2], 'sensor':str(sensor),'sample_start_max_c':start_max,'mode':mode,'discard_peak_above_c':80,'timing_allocator':'normal MoonBit mimalloc','allocation_scope':'separate instrumented raw allocator in generated C and runtime; whole-process counts divided by callback count; headers/fixture/runner overhead included','allocation_counter_runtime_sha256':hashlib.sha256(pathlib.Path('/tmp/daybreak19/runtime-count.c').read_bytes()).hexdigest()})
 meta['measurement_tools']={name:hashlib.sha256(pathlib.Path('/tmp/daybreak19',name).read_bytes()).hexdigest() for name in ['sample.py','link-allocation.py','runtime-count.c','rss-run.c','rss-run']}
+meta['cases_sha256']=hashlib.sha256((root/'cases.json').read_bytes()).hexdigest()
 meta['harness_sha256']=hashlib.sha256((root/'harness.mbt').read_bytes()).hexdigest()
 (root/('provenance-'+label+'.json')).write_text(json.dumps(meta,indent=2)+'\n')
 # Balanced paired rounds, then two same-build pairs for each arm.
@@ -31,6 +32,7 @@ if log.exists():
  for line in log.read_text().splitlines():
   r=json.loads(line)
   if r.get('accepted'):completed.add((r['index'],r['round'],r['arm']))
+case_specs=json.loads((root/'cases.json').read_text()) if (root/'cases.json').exists() else [{} for _ in indexes]
 for index in indexes:
  for round_,arm in orders:
   if (root/'STOP').exists():raise SystemExit('Stopped after completed sample')
@@ -76,8 +78,8 @@ for index in indexes:
    alloc=re.search(r'DB19_ALLOC=(\{.*\})',stderr)
    record=dict(index=index,round=round_,arm=arm,attempt=attempt,command=cmd,exit_code=p.returncode,wall_start=wall_start,wall_end=datetime.datetime.now(datetime.timezone.utc).isoformat(),start_c=start,peak_c=peak,accepted=p.returncode==0 and peak<=80,summary=summary,callbacks=callbacks,peak_rss_kib=rss,python_child_kernel_peak_kib=launch_rss,small_launcher_current_rss_kib=small_launcher_rss,peak_rss_scope='target child from small native launcher',stdout=stamp+'.stdout',stderr=stamp+'.stderr')
    if alloc:record['allocation']=json.loads(alloc[1]);record['alloc_calls_per_callback']=record['allocation']['calls']/callbacks;record['alloc_bytes_per_callback']=record['allocation']['bytes']/callbacks
-   if label.startswith('allocation') and index==0:
-    minimum=json.loads((root/'cases.json').read_text())[0].get('min_allocations_per_callback',256) if (root/'cases.json').exists() else 256
+   if label.startswith('allocation') and case_specs[index].get('allocation_sanity_check',index==0):
+    minimum=case_specs[index].get('min_allocations_per_callback',256) if (root/'cases.json').exists() else 256
     assert record.get('alloc_calls_per_callback',0)>minimum, 'Counter misses known per-callback allocations'
    with log.open('a') as stream:stream.write(json.dumps(record)+'\n');stream.flush();os.fsync(stream.fileno())
    print(json.dumps(record),flush=True)

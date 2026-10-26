@@ -32,6 +32,20 @@ for index,case in enumerate(cases):
   for x in samples:
    if x['arm']!=arm:continue
    output=(root/x['stdout']).read_text()
+   expected_changes=case.get(arm+'_expected_change_count')
+   if expected_changes is not None:assert int(re.search(r'DB19_DIFF_COUNT=(\d+)',output)[1])==expected_changes,(arm,'wrong diff change count')
+   paths=case.get(arm+'_expected_paths_preserved')
+   if paths is not None:assert f'DB19_PATHS_PRESERVED={str(paths).lower()}' in output,(arm,'path preservation mismatch')
+   equal=case.get(arm+'_expected_equal_result')
+   if equal is not None:assert f'DB19_EQUAL_RESULT={str(equal).lower()}' in output,(index,arm,'wrong equality result')
+   if case.get('expected_inputs_unchanged'):assert 'DB19_INPUTS_UNCHANGED=true' in output,(index,arm,'input mutation')
+   names=case.get(arm+'_expected_utf8_names_preserved')
+   if names is not None:assert f'DB19_UTF8_NAMES_PRESERVED={str(names).lower()}' in output,(index,arm,'wrong UTF-8 names')
+   if 'expected_import_count' in case:assert int(re.search(r'DB19_IMPORT_COUNT=(\d+)',output)[1])==case['expected_import_count'],(index,arm,'wrong import count')
+   groups=case.get(arm+'_expected_group_layout_preserved')
+   if groups is not None:assert f'DB19_GROUP_LAYOUT_PRESERVED={str(groups).lower()}' in output,(index,arm,'unexpected group layout')
+   roundtrip=case.get(arm+'_expected_roundtrip_preserved')
+   if roundtrip is not None:assert f'DB19_ROUNDTRIP_PRESERVED={str(roundtrip).lower()}' in output,(index,arm,'unexpected roundtrip')
    expected_value=case.get(arm+'_expected_first_i32')
    if expected_value is not None:
     value=re.search(r'DB19_FIRST_I32=(-?\d+)',output);assert value and int(value[1])==expected_value,(index,arm,'unexpected lowered i32')

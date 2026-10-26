@@ -1,0 +1,43 @@
+{
+  "baseline": {
+    "head": "35372878a1ace4562ce863d6b616a6e004268307",
+    "binary": "/tmp/daybreak19/F14/baseline/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+    "binary_sha256": "f778fa9c5184b7690866a0ce37782493b7f91b3ff69703c56de61bf4c15fec41",
+    "binary_bytes": 2587496
+  },
+  "candidate": {
+    "head": "98773e893a1d852de3fc862cf1f84c16f366bae7",
+    "binary": "/tmp/daybreak19/F14/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+    "binary_sha256": "1c44a5d427658613ab92e3c399211ab8f8ceb3dcf2e6c6e6713728a2172632c8",
+    "binary_bytes": 2587496
+  },
+  "environment": {
+    "uname": {
+      "system": "Linux",
+      "node": "t3",
+      "release": "6.12.113+deb13-amd64",
+      "version": "#1 SMP PREEMPT_DYNAMIC Debian 6.12.113-1 (2026-10-15)",
+      "machine": "x86_64",
+      "processor": ""
+    },
+    "cpu_affinity": [
+      2
+    ],
+    "sensor": "/sys/class/hwmon/hwmon8/temp1_input",
+    "sample_start_max_c": 65,
+    "mode": "full",
+    "discard_peak_above_c": 80,
+    "timing_allocator": "normal MoonBit mimalloc",
+    "allocation_scope": "separate instrumented raw allocator in generated C and runtime; whole-process counts divided by callback count; headers/fixture/runner overhead included",
+    "allocation_counter_runtime_sha256": "0edba2ca0970cd661714d748a0bf7b4c10fabc4bee3e4cc6794f840bfe5f6fd7"
+  },
+  "measurement_tools": {
+    "sample.py": "a547bd15f32810db83bffaada2ef5722fad8d1c6f5f96023ccfb47f6138bf2a6",
+    "link-allocation.py": "7e63dd698503bf1a0d4f730d49a7b2cd40cba45dfa7f555e8e1d0defa556178a",
+    "runtime-count.c": "0edba2ca0970cd661714d748a0bf7b4c10fabc4bee3e4cc6794f840bfe5f6fd7",
+    "rss-run.c": "e4c45d2cbaa0c90706f1fdfee2d5b2a47339193afc7c9363950468cc9e588ee4",
+    "rss-run": "ac88f1b0f9e0322bcb900386a3b772b30fdb0143f0f9f3b0b39fd512a6fcfaa0"
+  },
+  "cases_sha256": "32183d23c30f5b5bfebc9787e7f4320dd12e62fefe3df4b4cde443d0a7f33811",
+  "harness_sha256": "5ee503f5a572ff4c0ea97a53214dfc403858317e61202c56c15e2b495ce2e5e2"
+}

@@ -1,0 +1,12 @@
+{
+  "baseline": {
+    "source": "src/spec_runner/spec_runner.mbt",
+    "function_sha256": "288cfb36b495af0993d519f19272f30b471da5b1be5138c220d184b1b2adff8d",
+    "verbatim": true
+  },
+  "candidate": {
+    "source": "src/spec_runner/spec_runner.mbt",
+    "function_sha256": "69f9362fec3329ff4ec5db51ed67ae8828853b00daf77294eb32f7f23c30c0c2",
+    "verbatim": true
+  }
+}
