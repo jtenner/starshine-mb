@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -29,6 +29,16 @@ related:
 ---
 
 # DAE2 source and tests
+
+## October 25, 2026: measured gains landing
+
+### Measured item 5
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, peak RSS **9,944 → 9,968 KiB**; embedded definition **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Pass-local gains have limited enclosing CLI benefit; no general memory gain.
+
+Source `dae/item-05-subtype-trees` at `d20dd9102639d92893f65468d80f26120a6ee403` lands as `fb1e9cc9da182407813c01adbd3a58adcc2456ca` after 15,501/15,501 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504419113374922. The [campaign record](../../../../../experiment-results.md#item-5--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
+## Implementation map
 
 The September 10 Binaryen 132 implementation replaces the earlier research-only
 code map and its obsolete exclusion of unused function results.
