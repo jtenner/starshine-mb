@@ -16,14 +16,14 @@ related:
 
 # `simplify-locals-nostructure` WAT Shapes
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
 
 This page is the beginner-friendly shape catalog for Binaryen’s `simplify-locals-nostructure` pass.
 
-The current comparison oracle is Binaryen `version_132`; the v130 source refresh below remains historical evidence. The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
+New comparisons require verified Binaryen `version_133`; the v130 source refresh below remains historical evidence. The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
 
 ## Read this page with one mental model
 

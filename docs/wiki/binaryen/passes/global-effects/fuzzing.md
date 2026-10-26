@@ -21,15 +21,15 @@ related:
 
 # `global-effects` fuzzing status
 
-## Current status: planned only
+## Current status: harness admitted; metadata parity planned
 
 Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane for `global-effects` today.
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) classifies `global-effects` as an active module pass. Current direct tests cover the fresh-resume rewrite, not Binaryen metadata generation.
-- [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not admit `--global-effects` in `SUPPORTED_PASS_FLAGS`; the harness rejects the argument before it generates input or runs either optimizer.
+- [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) admits `--global-effects` and maps it to Binaryen `--generate-global-effects`. The passes have different contracts, so admission alone does not establish parity.
 - Upstream publishes this pass as `generate-global-effects`. It produces persistent per-function `Function.effects` metadata, so its standalone Core Wasm text normally remains unchanged. A WAT-only match would not prove summary correctness.
 
-The rejected command is a **status check**, not a smoke result or Binaryen-parity evidence. Follow the four gates in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
+Harness admission is a status check, not Binaryen-parity evidence. Follow the gates in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
 
 Use this harmless command only to inspect the current harness roster:
 
@@ -58,11 +58,11 @@ See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 
 ## Future admission gates
 
-A future lane must not become runnable until all of the following are true:
+A metadata parity lane needs all of the following:
 
 1. an active Starshine module pass produces persistent per-function global read/write summaries;
 2. the registry and dispatcher expose the intended contract distinctly from the existing resume rewrite;
-3. `SUPPORTED_PASS_FLAGS` accepts the local spelling and maps it explicitly to Binaryen `--generate-global-effects`; and
+3. the existing harness mapping to Binaryen `--generate-global-effects` is retained; and
 4. a metadata-observer adapter or in-process test plus a paired consumer corpus provides a meaningful nonzero `--min-compared` threshold.
 
 Only after those gates are green may a **secondary** consumer-composition command resemble:

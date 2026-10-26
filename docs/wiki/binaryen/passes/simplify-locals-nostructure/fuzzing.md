@@ -118,13 +118,13 @@ Node cannot execute the Binaryen output in 1,683 of the Starshine/original
 matches above. The shared audit classifies these as runtime coverage gaps,
 not observed wrong results or full three-way agreement.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Historical v131 local-lifetime repair checks (2026-09-10)
 
 This is the latest recorded evidence after the branch-join, carried-value, and
 replacement-order fixes. Its Binaryen comparisons use v131; new comparison runs
-must use the current verified v132 oracle described in the shared
+must use the verified v133 oracle described in the shared
 [compare-pass guide](../../../tooling/pass-fuzz-compare.md). It supersedes the
 four source-failure blockers in the earlier loop-counter run below. The native
 release optimizer SHA-256 is

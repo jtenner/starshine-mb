@@ -36,7 +36,7 @@ The exact local facts are:
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `global-effects` as `ModulePass`.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches [`global_effects.mbt`](../../../../../src/passes/global_effects.mbt).
 - The owner replaces `ref.func F; cont.new T; resume T` with `call F` when handlers are empty and a conservative scan proves locally defined `F` cannot suspend.
-- Candidate discovery and rewriting currently descend through `block`, `loop`, and `if`, but not through legacy `try` or modern `try_table`. Those nested forms remain an open correctness/parity gap.
+- Candidate discovery and rewriting descend through structured control, including legacy `try` and `try_table`. See [`global_effects_wbtest.mbt`](../../../../../src/passes/global_effects_wbtest.mbt) for nested-region tests.
 - [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) lines `207-210` prove `--global-effects` is accepted by CLI parsing and normalized to the `global-effects` pass flag.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) lines `1721-1731` and `1919-1923` keep the hot-pipeline pass-flag path explicit.
 - [`src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt) lines `118-120` and `318-338` keep the shared local effects analysis path explicit.

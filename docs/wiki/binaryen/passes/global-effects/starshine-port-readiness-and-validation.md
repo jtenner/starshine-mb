@@ -127,7 +127,7 @@ Do not fold consumer rewrites into the producer pass. The visible before/after b
 ### Registry tests
 
 - current slice: `--global-effects` runs the guarded fresh-resume rewrite
-- after implementation: `pass_registry_category("global-effects")` becomes module-pass and dispatcher support exists
+- the existing registry category is module-pass; a metadata producer would need separate contract tests
 - no accidental preset scheduling until consumer payoff is intentionally enabled
 
 ### Binaryen oracle tests

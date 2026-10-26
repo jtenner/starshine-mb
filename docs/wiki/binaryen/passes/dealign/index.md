@@ -35,13 +35,7 @@ The pass now scans memory arguments without rebuilding expressions and rewrites 
 
 `dealign` is a public Binaryen pass that deliberately weakens selected memory-access alignment metadata to `1`.
 
-In Starshine today it is **upstream-only**:
-
-- it is not an active HotPass or ModulePass
-- it is not boundary-only or removed in `src/passes/optimize.mbt`
-- explicit requests therefore fail as an unknown pass name
-- it is not part of the canonical no-DWARF `-O` / `-Os` path
-- `agent-todo.md` has no dedicated `dealign` slice
+Starshine registers `dealign` as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). Its [implementation](../../../../../src/passes/dealign.mbt) sets non-atomic scalar, SIMD, and array memory access alignment to one. The [matrix tests](../../../../../src/passes/binaryen133_dealign_matrix_wbtest.mbt) cover nested control and memory operands. [Separate tests](../../../../../src/passes/binaryen133_dealign_red_wbtest.mbt) cover atomic accesses.
 
 ## Why this dossier exists
 
@@ -102,13 +96,13 @@ It does not directly rewrite:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Source/test map for `DeAlign.cpp`, `pass.cpp`, and `dealign.wast`, including the lit-vs-source proof split.
 - [`./align-one-rewrite-surface-and-alignment-lowering-split.md`](./align-one-rewrite-surface-and-alignment-lowering-split.md) - Focused guide to the `align=1` rewrite surface and the corrected split from `alignment-lowering`.
 - [`./wat-shapes.md`](./wat-shapes.md) - Beginner-friendly before/after catalog for scalar and source-confirmed SIMDLoad shapes plus no-op and non-goal families.
-- [`./fuzzing.md`](./fuzzing.md) - Planned-only comparison status: current unknown-pass and harness-admission barriers, memory-access reachability requirements, and the future `align=1` parity matrix.
-- [`./starshine-strategy.md`](./starshine-strategy.md) - Current Starshine status bridge: no registry spelling, unknown-pass rejection, no backlog slice, and future-port implications.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - Future implementation bridge: first-slice order, local memarg code anchors, validation ladder, Binaryen oracle plan, and SIMD caveats.
+- [`./fuzzing.md`](./fuzzing.md) - Comparison lane requirements and memory-access reachability.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - Current status and historical port plan.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - Historical port plan and validation ladder.
 
 ## Maintenance rule
 
-Treat this folder as the canonical home for future `dealign` research. Keep [`./fuzzing.md`](./fuzzing.md) planned-only until an active local transform, harness admission, and memory-access-reaching profile exist. Treat research note 0221 as historical and superseded for mechanics where it mentions a no-memory bailout, `SIMDStore`, an `align > 1` branch, or broad lit-backed scalar type coverage.
+Treat this folder as the canonical home for `dealign` research. Use [`./fuzzing.md`](./fuzzing.md) for comparison lane requirements. Treat research note 0221 as historical and superseded for mechanics where it mentions a no-memory bailout, `SIMDStore`, an `align > 1` branch, or broad lit-backed scalar type coverage.
 
 ## Sources
 

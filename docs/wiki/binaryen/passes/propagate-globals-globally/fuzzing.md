@@ -11,7 +11,7 @@ sources:
 
 # `propagate-globals-globally` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Dedicated profiles
 
@@ -30,7 +30,7 @@ The GC leaf deliberately avoids stringref so the external wasm-tools admission c
 ## Historical v131 closeout commands
 
 The commands and results in this section preserve the 2026-09-02 v131 run.
-New comparison runs must use the current verified Binaryen 132 oracle described
+New comparison runs must use the verified Binaryen 133 oracle described
 in the shared [compare-pass guide](../../../tooling/pass-fuzz-compare.md).
 
 All 2026-09-02 evidence used native Starshine CLI SHA-256 `e0d4be3a50ddbfeb08080f866fe5e56b77cdc03fcbd8dac6b7ebd9e0f8c47ae4`, GenValid SHA-256 `436bf5f07717225438825ba3896864146173aa5eea5d6d9d954c37a67be5e2a9`, and official Binaryen v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`:

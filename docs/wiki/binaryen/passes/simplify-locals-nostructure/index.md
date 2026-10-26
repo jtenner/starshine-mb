@@ -27,7 +27,7 @@ related:
 
 # `simplify-locals-nostructure`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 The 2026-09-10 [loop-counter repair](./implementation-structure-and-tests.md#aliased-loop-counter-repair-2026-09-10)
 fixes a runtime hang that validation did not detect. A following-expression
@@ -51,7 +51,7 @@ Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7115` ex
   - top-level slot `22`
 - The repo backlog previously tracked the remaining ordered-slot follow-up under `SLNS`; that exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay is now proven and the standalone slice is closed.
 - The current Starshine tuple-slot gate still sees the no-structure pass as active, and the public presets still stay conservative, but the remaining caution now belongs to neighboring tuple/local-cluster slices rather than this pass's own ordered-slot proof.
-- The current comparison oracle is official Binaryen `version_132`; the v131 renewal below remains historical evidence. The 2026-07-27 renewal confirmed that the dedicated no-structure tests, `SimplifyLocals.cpp`, and reviewed locals helpers are unchanged from v130; shared pass/global-effect drift was probed directly. The refreshed aggregate and idempotence evidence below supersedes the earlier v130 profile.
+- New comparisons require verified Binaryen `version_133`; the v131 renewal below remains historical evidence. The 2026-07-27 renewal confirmed that the dedicated no-structure tests, `SimplifyLocals.cpp`, and reviewed locals helpers are unchanged from v130; shared pass/global-effect drift was probed directly. The refreshed aggregate and idempotence evidence below supersedes the earlier v130 profile.
 
 ## Beginner summary
 

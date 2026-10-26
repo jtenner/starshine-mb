@@ -57,7 +57,7 @@ The fastest read-along path through the current Starshine status is:
   - [research note 0063](../../../ir2/registry-map.md)
     - `simplify-globals` is grouped with type/global/signature shaping and whole-module transforms, not HOT-local cleanup
 - scheduler context for the shared optimizing sibling
-  - [`../../no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41)
+  - [`../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape`](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
     - the canonical no-DWARF late path uses `simplify-globals-optimizing`, not plain `simplify-globals`, and the optimizing sibling owns the extra nested default-function rerun
 - current backlog reality
   - [Active SGO performance slice](../../../../../agent-todo.md#p10--sgo-nested-cleanup-and-typed-loop-breadth-ir2-perf-sgo)

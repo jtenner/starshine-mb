@@ -107,7 +107,7 @@ That path recovers both the upstream mechanics and the current in-repo status.
 
 ## Porting checklist
 
-A future Starshine port should preserve:
+The historical port plan called for:
 
 - public spelling: `dealign`
 - no registry exposure until the implementation actually exists

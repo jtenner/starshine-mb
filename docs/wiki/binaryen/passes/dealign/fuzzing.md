@@ -15,13 +15,13 @@ related:
 
 # `dealign` Fuzzing Status
 
-## Current status: planned-only
+## Current status
 
-Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane for `dealign` today.
+The harness admits `--dealign`, and Starshine registers it as a module pass. Admission alone does not prove parity.
 
-- `--dealign` is absent from `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts), so the harness rejects the request before it generates a module or invokes either optimizer.
-- `dealign` is absent from Starshine's active, boundary-only, and removed registry lists in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). An explicit request therefore reaches the unknown-pass path; it does not execute a transform.
-- Thus a parser rejection, unknown-pass error, or zero compared cases cannot be presented as Binaryen-parity evidence.
+- [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) admits `--dealign`.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers the pass and [`src/passes/dealign.mbt`](../../../../../src/passes/dealign.mbt) implements it.
+- Zero compared cases cannot be presented as Binaryen-parity evidence.
 
 The upstream `align=1` rewrite contract is retained in [`./binaryen-strategy.md`](./binaryen-strategy.md) and the port-readiness digest [research note 0389](./index.md). This page corrects only the local lane-admission claim.
 
@@ -33,7 +33,9 @@ bun fuzz compare-pass --list-passes
 
 This inspects the current harness roster only. It neither runs `dealign` nor proves parity.
 
-## Future runnable-lane template
+## Historical lane template
+
+This earlier template predates the current signoff rules. Use [`docs/README.md`](../../../../README.md) for the current command and verified Binaryen 133 oracle requirements.
 
 Use this only after every admission gate is satisfied:
 
@@ -48,8 +50,8 @@ bun fuzz compare-pass --pass dealign --count 10000 --seed 0x5eed \
 
 ### Admission gates
 
-1. **Harness:** add `--dealign` to `SUPPORTED_PASS_FLAGS`, verify the direct Binaryen `--dealign` mapping, and expose it through `--list-passes`.
-2. **Starshine:** choose an honest registry status, then add an active owner/dispatcher and focused tests; unknown-pass behavior is not a transform.
+1. **Harness:** verify the direct Binaryen `--dealign` mapping and expose it through `--list-passes`.
+2. **Starshine:** retain focused tests for the active owner and dispatcher.
 3. **Reachability:** add memory-bearing fixtures or a profile that reaches scalar `load` / `store` and source-confirmed `SIMDLoad` nodes with non-`1` alignments.
 4. **Correctness:** set a nonzero `--min-compared` threshold and cover default, `align=1`, and larger explicit alignments while proving that offsets, widths, children, result types, and atomic/bulk-memory non-goals remain intact.
 

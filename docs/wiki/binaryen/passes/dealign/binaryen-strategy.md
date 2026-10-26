@@ -163,9 +163,9 @@ A narrow 2026-04-26 current-`main` recheck on `DeAlign.cpp`, `pass.cpp`, and `de
 
 ## What a faithful port must preserve
 
-A future Starshine port should preserve:
+The historical Starshine port plan called for:
 
-- public pass identity if the local registry decides to track it: `dealign`
+- public pass identity: `dealign`
 - exact visited surface unless intentionally widened: `Load`, `Store`, `SIMDLoad`
 - direct alignment-field rewrite to `1`
 - preserved offsets, widths, signedness, child expressions, and control flow

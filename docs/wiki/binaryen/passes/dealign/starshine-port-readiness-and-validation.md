@@ -25,9 +25,9 @@ related:
 
 # `dealign`: Starshine port readiness and validation
 
-This page is a future-implementation bridge. It does **not** mean Starshine implements `dealign` today; the current truth remains the status page in [`./starshine-strategy.md`](./starshine-strategy.md): the name is absent from the registry and explicit requests fail as unknown.
+> **Superseded local plan:** Starshine now registers `dealign` as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). [`src/passes/dealign.mbt`](../../../../../src/passes/dealign.mbt) implements it. The following text records the earlier port plan, not current status.
 
-Use this page when deciding whether to add the pass and how to validate the first local slice.
+The pass is implemented and dispatched. See [`./starshine-strategy.md`](./starshine-strategy.md) for current status. The following plan records earlier implementation and validation guidance.
 
 ## Faithful target
 
@@ -40,14 +40,14 @@ A faithful Starshine port should match Binaryen's small source-backed contract:
 5. avoid chunk splitting, helper locals, and address rewriting; and
 6. keep `SIMDStore`, atomics, and bulk-memory outside the pass unless a fresh upstream source review or explicit local divergence says otherwise.
 
-## Current local substrate
+## Historical local substrate
 
 Starshine already carries most of the representation needed for a small scalar first slice:
 
 | Surface | Code location | Why it matters |
 | --- | --- | --- |
-| Pass registry status | [`src/passes/optimize.mbt:127-153`](../../../../../src/passes/optimize.mbt#L127-L153) | `dealign` is still absent from boundary-only and removed names, so registry honesty is the first decision. |
-| Unknown-pass behavior | [`src/passes/optimize.mbt:446-466`](../../../../../src/passes/optimize.mbt#L446-L466) | Current `--pass dealign` behavior is a generic unknown-pass error, not no-op behavior. |
+| Pass registry status | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `dealign` is now registered as a module pass. |
+| Dispatch | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | The pass manager now dispatches `dealign` to its module implementation. |
 | Text memarg parsing | [`src/wast/parser.mbt:1323-1342`](../../../../../src/wast/parser.mbt#L1323-L1342) | Parses `offset=` and `align=` fields before lowering. |
 | Text-to-library lowering | [`src/wast/lower_to_lib.mbt:207-229`](../../../../../src/wast/lower_to_lib.mbt#L207-L229) | Converts text alignment bytes to exponent-form `@lib.MemArg`; `align=1` is exponent `0`. |
 | Library IR memarg | [`src/lib/types.mbt:8191-8193`](../../../../../src/lib/types.mbt#L8191-L8193) | Stores alignment, optional memory index, and offset in the shared representation a simple module traversal could update. |
@@ -84,7 +84,7 @@ Binaryen source covers `SIMDLoad`, but the dedicated lit file does not isolate i
 
 A future local port should sign off in layers:
 
-1. **Registry behavior:** unknown today; boundary-only/removed/active status after the decision must be tested honestly.
+1. **Registry behavior:** the pass is now active; registry and dispatch behavior require coverage.
 2. **Reduced WAT fixtures:** scalar load/store, offset preservation, idempotent `align=1`, and child-expression preservation.
 3. **Binaryen oracle:** focused `wasm-opt --dealign` comparisons on the same fixtures.
 4. **Negative fixtures:** `memory.copy`, `memory.fill`, atomics, and `SIMDStore` should not be rewritten by the faithful first port.

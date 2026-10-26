@@ -16,7 +16,7 @@ related:
 
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 Use this page with the [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and direct historical `version_129` source URLs cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 Binaryen `version_132` is the repo-wide public release baseline. This implementation map's latest bounded evidence remains the 2026-07-11 `version_130`/current-`main` reconciliation, which did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

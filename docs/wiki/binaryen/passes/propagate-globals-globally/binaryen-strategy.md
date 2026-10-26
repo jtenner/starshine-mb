@@ -16,11 +16,11 @@ related:
 
 # Binaryen `propagate-globals-globally` Strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as the reviewed historical tagged source oracle for this pass; new comparisons use the verified `version_132` baseline. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).
+Treat Binaryen `version_129` as the reviewed historical tagged source oracle for this pass; new comparisons require a verified `version_133` oracle. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).
 
 Primary source URLs:
 
@@ -121,7 +121,7 @@ The 2026-05-05 current-main recheck on `SimplifyGlobals.cpp`, `pass.cpp`, and `p
 
 ## Relationship to Starshine
 
-Starshine currently keeps this pass as boundary-only and rejects explicit requests before dispatch. The implementation path, if chosen later, should be a module pass over `GlobalSec`, active `ElemSec` offsets, and active `DataSec` offsets, not a HOT function pass. See [`./starshine-strategy.md`](./starshine-strategy.md).
+Starshine implements this as a module pass over global initializers and active element and data offsets. The registry and pass manager dispatch the pass to `src/passes/propagate_globals_globally.mbt`. See [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Superseded older claims
 

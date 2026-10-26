@@ -18,14 +18,14 @@ related:
 
 # Binaryen `simplify-locals-nostructure` Strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
 
 ## Upstream source rule
 
-- Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 source review remains historical provenance.
+- Use a verified Binaryen `version_133` oracle for new comparisons for this pass; the v131 source review remains historical provenance.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -35,7 +35,7 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The current local oracle reports `wasm-opt version 131 (version_131)`. The 2026-07-27 renewal found `SimplifyLocals.cpp` and the reviewed locals helpers unchanged from v130, then exercised shared pass/global-effect drift through focused and generated lanes. The earlier v130 source inventory remains historical detail; see [research note 1399](./index.md).
+- The recorded local oracle reported `wasm-opt version 131 (version_131)`. The 2026-07-27 renewal found `SimplifyLocals.cpp` and the reviewed locals helpers unchanged from v130, then exercised shared pass/global-effect drift through focused and generated lanes. The earlier v130 source inventory remains historical detail; see [research note 1399](./index.md).
 
 Primary source URLs:
 

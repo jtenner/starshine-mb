@@ -22,72 +22,11 @@ related:
 
 # Starshine Strategy For `dealign`
 
-Use this page together with the retained port-readiness digest in [research note 0389](./index.md).
-The goal here is to show the exact current Starshine status and the concrete local files a future port would need to touch, not to imply that a local implementation already exists. The implementation-order and validation details live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+> **Superseded local plan:** Starshine now registers `dealign` as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). [`src/passes/dealign.mbt`](../../../../../src/passes/dealign.mbt) implements it. The following text records the earlier port plan, not current status.
 
-## The honest current status
+The current module pass is implemented in [`src/passes/dealign.mbt`](../../../../../src/passes/dealign.mbt) and dispatched by [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt). Its matrix and atomic regression tests are in `src/passes/binaryen133_dealign_matrix_wbtest.mbt` and `src/passes/binaryen133_dealign_red_wbtest.mbt`. The sections below preserve the earlier planning context.
 
-`dealign` is **not implemented** in Starshine.
-
-More specifically, it is currently upstream-only rather than even boundary-only:
-
-- no `src/passes/dealign.mbt` owner file exists
-- `src/passes/optimize.mbt` does not list `dealign` in active, module, boundary-only, or removed registry names
-- explicit `--pass dealign` requests therefore fail through the generic unknown-pass path
-- the old pass-port map names neighboring `alignment-lowering`, but not `dealign`
-- `agent-todo.md` has no dedicated `dealign` slice
-- the canonical no-DWARF Binaryen path does not schedule `dealign`
-
-So this page is a **status and future-port boundary page**, not a code-map for an existing transform.
-
-## Exact local code map today
-
-The fastest read-along path is:
-
-- current known-pass registry lists
-  - [`src/passes/optimize.mbt#L127-L153`](../../../../../src/passes/optimize.mbt#L127-L153)
-    - `pass_registry_boundary_only_names()` includes `alignment-lowering` but not `dealign`
-    - `pass_registry_removed_names()` also omits `dealign`
-- request rejection path for names absent from the registry
-  - [`src/passes/optimize.mbt#L446-L466`](../../../../../src/passes/optimize.mbt#L446-L466)
-    - `run_hot_pipeline_expand_passes(...)` returns `unknown pass flag {name}` when lookup fails
-- pass-port planning map
-  - [research note 0063](../../../ir2/registry-map.md)
-    - the layout bucket includes `alignment-lowering`; it does not include `dealign`
-- canonical no-DWARF path context
-  - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-    - no current default-route role for `dealign`
-- backlog context
-  - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-    - no dedicated `dealign` slice today
-- neighboring local status bridge
-  - [`../alignment-lowering/starshine-strategy.md`](../alignment-lowering/starshine-strategy.md)
-    - `alignment-lowering` is tracked boundary-only, while `dealign` is currently not tracked in the registry at all
-
-## What Starshine currently does for this pass name
-
-Today Starshine's behavior is simply:
-
-- it does not recognize `dealign` as a known pass name
-- it does not silently no-op the request
-- it returns the generic unknown-pass error through the registry expansion path
-
-That is an important distinction from many neighboring upstream passes, which are tracked as boundary-only or removed. If future work decides `dealign` should be user-visible, the first local change should probably be a registry/status decision before any transform work.
-
-## Why the local strategy is different from `alignment-lowering`
-
-`alignment-lowering` is locally tracked as boundary-only because older port maps and neighboring memory-lowering plans already named it.
-
-`dealign` is different:
-
-- it is not in the current local registry
-- it is not in the older pass-port map
-- it has no backlog slice
-- its main value today is explanatory: it keeps the `alignment-lowering` sibling boundary precise
-
-So future work should not assume that `dealign` must be ported merely because `alignment-lowering` is tracked.
-
-## Future port contract if the repo chooses to add it
+## Historical port contract
 
 If Starshine later chooses to implement or at least recognize `dealign`, the source-backed contract is small:
 
@@ -102,7 +41,7 @@ If Starshine later chooses to implement or at least recognize `dealign`, the sou
 - do not split accesses into chunks
 - do not claim `SIMDStore`, atomics, or bulk-memory coverage without fresh source-backed justification
 
-## Likely local landing options
+## Historical landing options
 
 Because the pass is metadata-only, a future implementation could plausibly land in more than one place:
 
@@ -110,7 +49,7 @@ Because the pass is metadata-only, a future implementation could plausibly land 
 2. a HOT-side memory-access rewrite if HOT reliably carries all relevant memarg alignment fields; or
 3. a late boundary/emit-side normalization if the main use case is testing or backend stress.
 
-The repo has not chosen among those options. Keep that uncertainty explicit until a real implementation plan lands.
+The implementation now uses a module traversal.
 
 ## Validation plan for a future port
 
@@ -127,15 +66,9 @@ A future local implementation should include reduced tests for:
 
 Then compare the pass directly against Binaryen on focused WAT fixtures before adding any preset role.
 
-## Bottom line
+## Current status
 
-Current Starshine `dealign` strategy is **do not pretend it exists locally**:
-
-- Binaryen has a real tiny pass, documented in [`./binaryen-strategy.md`](./binaryen-strategy.md)
-- Starshine does not track the name in [`src/passes/optimize.mbt#L127-L153`](../../../../../src/passes/optimize.mbt#L127-L153)
-- explicit requests fall through the unknown-pass path at [`src/passes/optimize.mbt#L446-L466`](../../../../../src/passes/optimize.mbt#L446-L466)
-- no backlog, port-map, or no-DWARF route currently assigns local work to it
-- the main local value today is keeping the [`alignment-lowering`](../alignment-lowering/index.md) boundary precise
+Starshine registers and dispatches `dealign` as a module pass. The owner rewrites non-atomic scalar, SIMD, and array memory access alignments. Atomic regression cases are covered separately.
 
 ## Sources
 

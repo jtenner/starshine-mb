@@ -54,7 +54,7 @@ the generated returns and movement profiles. These are size wins with the same
 function exit behavior. Binaryen v133 also folds the focused arithmetic fixture
 to one `i32.add`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 > **Superseding status (2026-07-19):** implementation breadth, externally validated direct four-lane parity, dedicated family generation, public preset scheduling, and pass-local performance are complete. The focused suite has 193 tests and the recorded v131 lanes are documented in [`./fuzzing.md`](./fuzzing.md). An externally detected typed-tail-region invalid fold is guarded, representative outputs validate with `wasm-tools`, and final five-run medians are `1.70x` Binaryen on the candidate fixture and `1.98x` on the large artifact. The staged plan below is retained as historical implementation rationale; items claiming missing direct breadth, a missing preset slot, or an open timing blocker are no longer active. Classified post-pass cleanup-shape gaps remain under preset reconciliation.
 

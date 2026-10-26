@@ -24,7 +24,7 @@ Upstream Binaryen publishes the actual pass as `generate-global-effects`.
 
 That distinction matters because a future port needs to keep at least three names straight:
 
-- local registry placeholder: `global-effects`
+- local registry name: `global-effects` (an active resume rewrite)
 - upstream producer pass: `generate-global-effects`
 - upstream lifecycle sibling: `discard-global-effects`
 

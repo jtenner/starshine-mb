@@ -60,7 +60,7 @@ In a mixed module where one fresh resume does rewrite, the pass now keeps functi
 - The 2026-05-06 current-main recheck confirms the same teaching contract on the reviewed surfaces, and the 2026-05-05 line-anchor refresh still keeps the SCC-shaped current-main implementation note explicit while tightening the exact local code-map anchors used by the living dossier.
 - The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
 - The 2026-04-27 port-readiness bridge adds the missing local implementation ladder: analyzer-only first slice, per-function summary storage, SCC/fixed-point propagation choice, consumer sequencing, and paired Binaryen validation lanes.
-- The repo-wide Binaryen release horizon now reaches `version_130`; this page keeps the detailed contract anchored to the reviewed `version_129` / current-main surfaces because the teaching-relevant behavior did not drift on the 2026-05-06 recheck.
+- The detailed contract remains anchored to the reviewed `version_129` / current-main surfaces because the teaching-relevant behavior did not drift on the 2026-05-06 recheck.
 
 ## Why this pass matters
 
@@ -87,7 +87,7 @@ So the pass is best taught as:
 ## Most important durable takeaways
 
 - The official upstream public name is `generate-global-effects`.
-- The local Starshine registry currently shortens that to `global-effects`.
+- The local registry uses `global-effects` for the distinct resume rewrite.
 - Binaryen `version_129` does **not** schedule this in the default optimize pipeline.
 - In `version_129`, the pass computes shallow per-function summaries first, records direct callees plus unknown-call effects, propagates static callees, marks recursive chains as trapping, merges callee summaries, and writes each function's summary.
 - Current Binaryen `main` keeps the same source-backed contract but refactors propagation through explicit SCC component aggregation.
@@ -106,11 +106,11 @@ So the pass is best taught as:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing which call/global patterns gain precision, which stay conservative, and why the WAT often stays textually unchanged.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: active module-pass resume rewrite, its conservative non-suspension scan, its current `try` / `try_table` traversal gap, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful metadata-producer port remains module/call-graph work.
+  Current Starshine status and future-port map: active module-pass resume rewrite, its conservative non-suspension scan, its `try` / `try_table` traversal, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful metadata-producer port remains module/call-graph work.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Concrete future implementation ladder: no-rewrite analyzer, summary model, solver choice, registry/dispatcher sequencing, consumer sequencing, Binaryen oracle lanes, and first-port definition of done.
 - [`./fuzzing.md`](./fuzzing.md)
-  Current planned-only harness status and future metadata-first signoff: standalone WAT is not an oracle for this producer, so paired consumer and cleanup composition evidence is required.
+  Current harness admission and future metadata-first signoff: standalone WAT is not an oracle for this producer, so paired consumer and cleanup composition evidence is required.
 
 ## Current maintenance rule
 

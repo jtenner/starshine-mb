@@ -203,7 +203,7 @@ The fast read-along path is:
   - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
     - local `optimize` / `shrink` presets include the late suffix `duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`.
 - canonical Binaryen placement
-  - [`../../no-dwarf-default-optimize-path.md#L35-L48`](../../no-dwarf-default-optimize-path.md#L35-L48)
+  - [`../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape`](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
     - the no-DWARF late post-pass phase places `simplify-globals-optimizing` after `duplicate-import-elimination` and before `remove-unused-module-elements`; the nested rerun rule records that this sibling reruns default function passes without the `precompute-propagate` prefix
 - backlog slice
   - [Active SGO performance slice](../../../../../agent-todo.md#p10--sgo-nested-cleanup-and-typed-loop-breadth-ir2-perf-sgo)
