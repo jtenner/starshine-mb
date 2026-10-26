@@ -1106,11 +1106,6 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
-- [ ] **READY TO MEASURE — item 10:** measure the existing-context parameter
-  reuse in `dae2_cleanup_captures` on many-type/many-function modules, mixed
-  imports and no-op cleanup bodies. Preserve context lifetime, lazy validation
-  and per-function census; no runtime, allocation or memory gain is claimed.
-  [Source and bounded tests](docs/wiki/binaryen/passes/dae2/implementation-structure-and-tests.md#cleanup-parameter-reuse--2026-10-25).
 - **Goal / owners:** reduce remaining raw SimplifyLocals/Vacuum normalization,
   query/typechecking and function-envelope work without losing V47/V69/V83
   quality gains. Complete profiles have nested scopes: named pass transforms

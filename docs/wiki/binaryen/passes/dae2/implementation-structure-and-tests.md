@@ -46,6 +46,13 @@ This completed landing supersedes this item's earlier measurement-pending wordin
 Source `dae/item-06-preflight-share` at `4192c02791efd685afc171c93d16a483ccbda698` lands as `377c0bd58da20a00c43d1f0addf734a98bec0a26` after 15,504/15,504 native tests, 14/14 CI fuzz suites, 100,765 attempts, seed 117504469504920149. The [campaign record](../../../../../experiment-results.md#item-6--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
 
 
+### Measured item 10
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Many-type/function cleanup **0.505 → 0.472 ms/call (-6.26%)**, peak RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. CLI evidence is neutral; mixed-import optimizing pass timing costs +1.20%.
+
+Source `dae/item-10-cleanup-context` at `913de7a89adb2aa1a0d471b5d8a49d06a3aa79af` lands as `af3e41daeef60aec9bdaa733dd8558865af97471` after 15,518/15,518 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504577984795564. The [campaign record](../../../../../experiment-results.md#item-10--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
+
 ## Implementation map
 
 The September 10 Binaryen 132 implementation replaces the earlier research-only
