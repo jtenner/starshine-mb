@@ -1,31 +1,50 @@
 ///|
-fn db19_f05_fixture(count : Int, mode : Int) -> @lib.Module {
+fn db19_f05_fixture(count : Int32, mode : Int32) -> @lib.Module {
   let catches : Array[@lib.LegacyCatch] = []
   if mode == 3 || mode == 4 {
-    catches.push(@lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()])))
+    catches.push(
+      @lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()])),
+    )
   }
   for _ in 0..<count {
-    catches.push(@lib.LegacyCatch::tagged(@lib.TagIdx::new(0U), @lib.Expr::new([@lib.Instruction::nop()])))
+    catches.push(
+      @lib.LegacyCatch::tagged(
+        @lib.TagIdx::new(0U),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    )
   }
   if mode == 2 || mode == 4 {
-    catches.push(@lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()])))
+    catches.push(
+      @lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()])),
+    )
   }
   let body = if mode == 0 {
     @lib.Expr::new([@lib.Instruction::nop()])
   } else {
-    @lib.Expr::new([@lib.Instruction::try_(
-      @lib.BlockType::void_(), @lib.Expr::new([@lib.Instruction::nop()]), catches,
-    )])
+    @lib.Expr::new([
+      @lib.Instruction::try_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+        catches,
+      ),
+    ])
   }
   @lib.Module::new()
-    .with_type_sec(@lib.TypeSec::new([@lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], [])))]))
-    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
-    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
-    .with_code_sec(@lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), body)]))
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+  .with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), body)]),
+  )
 }
 
 ///|
-fn db19_f05_bench(it : @bench.T, count : Int, mode : Int) -> Unit {
+fn db19_f05_bench(it : @bench.T, count : Int32, mode : Int32) -> Unit {
   let input = db19_f05_fixture(count, mode)
   let mut callbacks = 0
   it.bench(count=5, fn() {
@@ -76,7 +95,9 @@ test "bench db19 F05 typed catches=256 final_all=true" (it : @bench.T) {
 }
 
 ///|
-test "bench db19 F05 invalid early catch_all before 16 typed catches" (it : @bench.T) {
+test "bench db19 F05 invalid early catch_all before 16 typed catches" (
+  it : @bench.T,
+) {
   db19_f05_bench(it, 16, 3)
 }
 

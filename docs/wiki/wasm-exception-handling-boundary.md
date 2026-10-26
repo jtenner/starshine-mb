@@ -205,3 +205,9 @@ specific `legacy catch_all must be the last catch` error.
 
 F05 retains the 60 C start gate and full protocol. All fresh samples start at
 or below 60 C; none is paused. The full native gate passes 15525/15525 tests. All 14 CI fuzz suites pass (100757 attempts, seed 24301); both processes exit zero. [Gate and executable identity](raw/tooling/2026-10-26-daybreak19/F05-signoff.json) binds these results to frozen source `03586a339938cff3f4483fd3b05b15c9b7ad1824`.
+
+The dedicated benchmark fixture is formatted after signoff. Its tokens are
+equal after whitespace, optional commas, and the private `Int`/`Int32` alias
+are normalized. The formatter check and native benchmark build both exit
+zero. Production validation and ordinary regression tests are unchanged.
+[Measured executables remain retained](raw/tooling/2026-10-26-daybreak19/F05-measured-artifact-preservation.json); no new timing result is claimed for the formatted fixture.

@@ -1,0 +1,13 @@
+{
+  "changed_files": [
+    "src/daybreak19_measure/daybreak19_f05_perf_wbtest.mbt"
+  ],
+  "formatter_check_exit_code": 0,
+  "normalized_tokens_equal": true,
+  "normalization": "Ignore whitespace, comments and optional commas; Int is the Int32 alias. String literals remain exact.",
+  "production_source_unchanged": true,
+  "ordinary_regression_tests_unchanged": true,
+  "fixture_build_exit_code": 0,
+  "full_native_and_fuzz_rerun": false,
+  "reason": "Only benchmark formatting and private Int/Int32 aliases changed. Production validator source and all ordinary regressions are unchanged from the fully tested gate head. The measured executables are retained separately."
+}
