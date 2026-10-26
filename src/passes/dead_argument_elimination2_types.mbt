@@ -1311,7 +1311,6 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   if funcs.is_empty() {
     return mod_
   }
-  let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
   let mut module_env : @validate.Env? = None
   let stack_effects = Some(fn(instr) {
@@ -1320,13 +1319,10 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   let mut output : (Array[@lib.Func], Array[Array[Int32]?], Array[Bool])? = None
   let imported = rl_imported_func_count(mod_)
   for index = 0; index < funcs.length(); index = index + 1 {
+    let @lib.FuncType(params, _) = module_ctx.func_types[imported + index]
     // Classify and consume one body at a time. The local census must not be
     // retained across functions or across a body/signature change.
-    let admission = dae2_cleanup_admit_func(
-      funcs[index],
-      params[index],
-      module_ctx,
-    )
+    let admission = dae2_cleanup_admit_func(funcs[index], params, module_ctx)
     if !admission.may_change() {
       continue
     }
@@ -1376,7 +1372,7 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
     let (body, mapping) = pass_lower_compact_captures_with_map(
       input,
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
-      params[index],
+      params,
       stack_effects~,
       propagate_parameter_aliases=true,
       reorder_body_locals=true,

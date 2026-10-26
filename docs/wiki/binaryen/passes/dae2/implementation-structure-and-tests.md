@@ -8,6 +8,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/pull/8994
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
+  - ../../../../../src/passes/dae2_cleanup_context_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
   - ../../../../../src/passes/dae2_identity_dependencies_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
@@ -119,6 +120,27 @@ forward-resource, local-flow, conditional, forward-label, loop and raw-analysis
 files. The compiled package runner used explicit file/index ranges after the
 `moon test` wrapper hit the host's thread limit. Performance and v133 comparison
 evidence remain pending; this task ran no full suite, fuzz or timing tests.
+
+## Cleanup parameter reuse — 2026-10-25
+
+Report item 10 from `research/dae-perf-opportunities:docs/dae-perf-opportunities.md`
+removes the redundant defined-function parameter table in
+[`dae2_cleanup_captures`](../../../../../src/passes/dead_argument_elimination2_types.mbt).
+Each body uses the existing `HotModuleContext.func_types` signature at the
+imported-function count plus its defined-function index. Context lifetime,
+the lazy validation environment, per-function census and cleanup order stay
+unchanged. The shared parameter-cache helper stays available to other callers.
+
+The [bounded context tests](../../../../../src/passes/dae2_cleanup_context_wbtest.mbt)
+check mixed imports, absolute type indices within recursive groups, unchanged
+input ownership, public dispatch and a no-op cohort. Unresolved, non-function
+and recursive-local function declarations still reject as invalid direct input.
+The existing preflight, census and module-environment tests cover the retained
+cleanup boundaries.
+
+Status: **READY TO MEASURE**. No runtime, allocation or memory gain is claimed.
+Measure many-type/many-function modules, mixed imports and no-op cleanup bodies
+before claiming a gain on the optimizing dispatch path.
 
 ## Checked fields during expression rewriting
 

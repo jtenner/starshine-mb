@@ -107,6 +107,16 @@
   main, white-box and shape checks after the host's thread limit cleared.
   Full gates, fuzz and timing remain unrun. The linked status records exact
   selections and the aborted independent review; landing awaits full gates.
+### 2026-10-25 — Reuse DAE2 cleanup context signatures
+
+- [Item 10](binaryen/passes/dae2/implementation-structure-and-tests.md#cleanup-parameter-reuse--2026-10-25)
+  replaces one redundant parameter table with existing context signatures at
+  imported-function offsets. Bounded tests cover mixed imports, recursive
+  groups, no-op bodies and invalid-declaration rejection. Context lifetime,
+  validation environment and census stay unchanged. Performance is ready to
+  measure; no runtime or memory gain is claimed. Focused validation passed
+  15 cleanup tests and 3 command-dispatch tests; no full suite, fuzz or timing
+  was run.
 
 ### 2026-10-25 — Complete flatten scratch write-set suite gates
 
