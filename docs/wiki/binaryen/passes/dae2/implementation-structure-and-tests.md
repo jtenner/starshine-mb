@@ -83,6 +83,36 @@ changes. HOT verification and final module validation are separate checks;
 execution, normalized opportunity parity and cost need the dedicated lanes in
 [fuzzing](fuzzing.md) and the [upgrade evidence](../../version-132-upgrade.md).
 
+## Shared raw forward-control preflight
+
+The fallback contract covered by
+[`dae2_shared_preflight_wbtest.mbt`](../../../../../src/passes/dae2_shared_preflight_wbtest.mbt)
+requires one count/qualification result for the exact immutable body and module
+context after conditional qualification fails. Rejection must leave the graph
+untouched. On success, local-flow planning precedes forward planning; each
+planner owns a fresh plan and a separate `64 + 8 * count` work budget.
+Standalone planner wrappers must retain their own admission checks.
+
+[`dae2_raw_conditional_dependency_plan`](../../../../../src/passes/dae2_raw_conditionals.mbt)
+now owns that count and returns immediately on rejection. It passes a successful
+count to the private `_with_count` workers in
+[`dae2_raw_local_flow.mbt`](../../../../../src/passes/dae2_raw_local_flow.mbt) and
+[`dae2_raw_forward_labels.mbt`](../../../../../src/passes/dae2_raw_forward_labels.mbt).
+The count's overflow limit and branch-table target accounting are unchanged.
+No mutable plan, spent budget, or count from a different body/context is reused.
+This removes the second preflight when local-flow planning rejects; it does not
+remove either planner's dependency work or change flat/conditional routing.
+
+The bounded cases cover late unsupported instructions, local-flow budget
+exhaustion followed by forward success, successful local flow, flat controls,
+branch tables and indexed scalar loops. They compare plan fields, boundary and
+write demand, encoded output, and unchanged input with the existing HOT path.
+All 55 selected tests pass across that file and the existing local-flow boundary,
+forward-resource, local-flow, conditional, forward-label, loop and raw-analysis
+files. The compiled package runner used explicit file/index ranges after the
+`moon test` wrapper hit the host's thread limit. Performance and v133 comparison
+evidence remain pending; this task ran no full suite, fuzz or timing tests.
+
 ## Checked fields during expression rewriting
 
 The call-prefix filter reads the current opcode with `hot_node_op`. Child-span

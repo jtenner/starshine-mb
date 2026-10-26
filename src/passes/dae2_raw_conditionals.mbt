@@ -483,15 +483,21 @@ fn dae2_raw_conditional_dependency_plan(
     _ => ()
   }
   if !dae2_raw_conditional_qualified(instructions, context) {
+    // Both fallback planners qualify the same immutable body and context.
+    // Share rejection as well as success, but keep their plans/budgets separate.
+    let count = dae2_raw_forward_instruction_count(instructions, context)
+    if count < 0 {
+      return None
+    }
     match
-      dae2_raw_local_flow_dependency_plan(
-        graph, infos, index, type_infos, body, intrinsic_imports, context,
+      dae2_raw_local_flow_dependency_plan_with_count(
+        graph, infos, index, type_infos, body, intrinsic_imports, context, count,
       ) {
       Some(plan) => return Some(plan)
       None => ()
     }
-    return dae2_raw_forward_dependency_plan(
-      graph, infos, index, type_infos, body, intrinsic_imports, context,
+    return dae2_raw_forward_dependency_plan_with_count(
+      graph, infos, index, type_infos, body, intrinsic_imports, context, count,
     )
   }
   let plan = Dae2RawPlan::new(graph.used.length())

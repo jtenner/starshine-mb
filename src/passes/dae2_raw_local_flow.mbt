@@ -532,11 +532,30 @@ fn dae2_raw_local_flow_dependency_plan(
   intrinsic_imports : Array[Bool]?,
   context : @ir.HotModuleContext?,
 ) -> Dae2RawPlan? {
-  let @lib.Func(locals, @lib.Expr(instructions)) = body
+  let @lib.Func(_, @lib.Expr(instructions)) = body
   let count = dae2_raw_forward_instruction_count(instructions, context)
   if count < 0 {
     return None
   }
+  dae2_raw_local_flow_dependency_plan_with_count(
+    graph, infos, index, type_infos, body, intrinsic_imports, context, count,
+  )
+}
+
+///|
+// Count must be a successful preflight of this exact body and context.
+// Only the immutable count is shared; this worker owns its plan and budget.
+fn dae2_raw_local_flow_dependency_plan_with_count(
+  graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  index : Int32,
+  type_infos : Array[Int32],
+  body : @lib.Func,
+  intrinsic_imports : Array[Bool]?,
+  context : @ir.HotModuleContext?,
+  count : Int32,
+) -> Dae2RawPlan? {
+  let @lib.Func(locals, @lib.Expr(instructions)) = body
   let plan = Dae2RawPlan::new(graph.used.length())
   let flow = Dae2RawLocalFlow::new(
     Dae2RawControlState::new(
