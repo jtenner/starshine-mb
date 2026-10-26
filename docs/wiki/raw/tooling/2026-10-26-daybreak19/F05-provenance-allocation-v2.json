@@ -1,0 +1,51 @@
+{
+  "baseline": {
+    "head": "df0fe42dc7e3e7e44b0941f7701be1cf04096be8",
+    "binary": "/tmp/daybreak19/F05/baseline/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+    "binary_sha256": "050c3d45c1e077a41c9ac0ffa9b227418d6d9023859e3ed7d8b4b8ef246cef0d",
+    "binary_bytes": 1728104,
+    "allocation_binary": {
+      "path": "/tmp/daybreak19/F05/baseline/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.alloc.exe",
+      "sha256": "3c1d5ccab2325510ab878ff5f0578347efc86558209781d12e240f3cfa48ce01",
+      "bytes": 1670624
+    }
+  },
+  "candidate": {
+    "head": "27ef831a8464f2ce5d6dbd810c098476d22bb9c1",
+    "binary": "/tmp/daybreak19/F05/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+    "binary_sha256": "88c34d12eff7ebfd2340c44d284b4d0b8df0cfd31e2e83f3d03ba6a6e6c0c240",
+    "binary_bytes": 1732488,
+    "allocation_binary": {
+      "path": "/tmp/daybreak19/F05/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.alloc.exe",
+      "sha256": "4644eea2850b0d76a69f134b6e1d79e0632855ee41292ea96971f9d9998aa32e",
+      "bytes": 1670912
+    }
+  },
+  "environment": {
+    "uname": {
+      "system": "Linux",
+      "node": "t3",
+      "release": "6.12.113+deb13-amd64",
+      "version": "#1 SMP PREEMPT_DYNAMIC Debian 6.12.113-1 (2026-10-15)",
+      "machine": "x86_64",
+      "processor": ""
+    },
+    "cpu_affinity": [
+      2
+    ],
+    "sensor": "/sys/class/hwmon/hwmon8/temp1_input",
+    "sample_start_max_c": 60,
+    "discard_peak_above_c": 80,
+    "timing_allocator": "normal MoonBit mimalloc",
+    "allocation_scope": "separate instrumented raw allocator in generated C and runtime; whole-process counts divided by callback count; headers/fixture/runner overhead included",
+    "allocation_counter_runtime_sha256": "0edba2ca0970cd661714d748a0bf7b4c10fabc4bee3e4cc6794f840bfe5f6fd7"
+  },
+  "measurement_tools": {
+    "sample.py": "798a0433d27837dd9cb26ed8d5cb0f337e340b0946bb3b3792699a939acce4b5",
+    "link-allocation.py": "831ce40571b4b5f9955ee5f420693eb03b59158fe9939e6f4138015d156eed80",
+    "runtime-count.c": "0edba2ca0970cd661714d748a0bf7b4c10fabc4bee3e4cc6794f840bfe5f6fd7",
+    "rss-run.c": "e4c45d2cbaa0c90706f1fdfee2d5b2a47339193afc7c9363950468cc9e588ee4",
+    "rss-run": "ac88f1b0f9e0322bcb900386a3b772b30fdb0143f0f9f3b0b39fd512a6fcfaa0"
+  },
+  "harness_sha256": "f3cd63bfe8b4ca0d9de05f021c28900668aa913a69260dc8dcc0d57433ce1965"
+}

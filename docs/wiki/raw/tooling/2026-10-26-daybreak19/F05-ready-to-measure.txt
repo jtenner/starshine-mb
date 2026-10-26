@@ -1,0 +1,41 @@
+commit 339555ac4cd2df3d28688a25d5f774ebcd3c2ccd
+Author:     jtenner <tenner.joshua@gmail.com>
+AuthorDate: Sun Oct 25 14:29:05 2026 +0000
+Commit:     jtenner <tenner.joshua@gmail.com>
+CommitDate: Sun Oct 25 14:29:05 2026 +0000
+
+    fix: reject catches after legacy catch_all
+
+    The legacy try validator checked each handler independently, so it accepted
+    both duplicate catch_all clauses and a typed catch after catch_all. Require
+    LegacyCatchAll to be the final handler while processing the existing catch
+    match. Keep all existing tag, body and stack validation in place.
+
+    Changed files:
+    - src/validate/typecheck.mbt: enumerate handlers and reject nonfinal catch_all
+      without adding a separate traversal or collection.
+    - src/validate/daybreak_bug_hunt_wbtest.mbt: apply formatter-only changes to
+      the retained verification tests; preserve all fixtures and assertions.
+    - docs/wiki/wasm-exception-handling-boundary.md: record the resolved invariant,
+      red/green evidence and proposed lease-gated performance workloads.
+    - docs/wiki/index.md and docs/wiki/log.md: link the resolved F05 record.
+    - agent-todo.md: remove the completed F05 repair from active work.
+
+    Validation:
+    - Before implementation, moon test src/validate/daybreak_bug_hunt_wbtest.mbt
+      failed both rejection tests and passed the valid-order control on unchanged
+      master 6d020542e; retained in test checkpoint bc04efcc1.
+    - After implementation, the same focused command passed all 3 tests.
+    - moon test src/validate/binaryen132_continuation_wbtest.mbt
+      src/validate/p00_rethrow_wbtest.mbt: all 4 existing tests passed.
+    - moon fmt src/validate and moon fmt --check src/validate: passed.
+    - git diff --cached --check: passed; staged diff reviewed. No public API change.
+
+    Performance:
+    - READY TO MEASURE on fix/db-05-catch-after-catch-all. The changed path is
+      typecheck_legacy_try's handler loop in src/validate/typecheck.mbt.
+    - Compare bc04efcc1 against this commit with matched native builds: modules
+      without legacy try; valid tries with 1, 16 and 256 typed catches with and
+      without final catch_all; invalid tries with early catch_all. Measure
+      validation cost and allocations after obtaining the suite lease.
+    - No full suite, fuzzing, timing or external oracle runs were performed.

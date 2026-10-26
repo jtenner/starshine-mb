@@ -1,0 +1,11 @@
+{
+  "authority": "User tender note: owner thread mcp:a499289f completed, verified around 04:36 UTC; no further owner hold message is needed. Proceed with fresh F05 when gate permits.",
+  "reported_host": {
+    "load_approx": 0.8,
+    "Tctl_C": 44.1,
+    "container_tasks": 355,
+    "task_limit": 8192
+  },
+  "lease": "Still held by this coordinator, without transfer",
+  "disposition": "All quarantined partial samples remain excluded. Fresh profiling uses the same committed source and frozen executables."
+}

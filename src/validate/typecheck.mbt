@@ -1758,7 +1758,7 @@ fn typecheck_legacy_try(
     Ok(_) => ()
   }
   let mut any_reachable = checked_body.reachable
-  for catch_ in catches {
+  for index, catch_ in catches {
     let initial_types = match catch_ {
       @lib.LegacyCatch(tag, _) => {
         if Validate::validate(tag, st.env) is Err(err) {
@@ -1770,7 +1770,12 @@ fn typecheck_legacy_try(
         }
         tag_payload_types(st.env, tag)
       }
-      @lib.LegacyCatchAll(_) => []
+      @lib.LegacyCatchAll(_) => {
+        if index + 1 != catches.length() {
+          return Err("legacy catch_all must be the last catch")
+        }
+        []
+      }
     }
     let catch_body = match catch_ {
       @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>

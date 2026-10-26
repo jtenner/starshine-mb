@@ -1,0 +1,21 @@
+{
+  "time": "2026-10-26T04:34:53.190314+00:00",
+  "reason": "External Vitest run in /home/dev/.t3/worktrees/t3code/feat-combined-cli-fixes consumes CPU and holds Tctl above 60 C. No lease transfer was granted.",
+  "owned_samplers_stopped": [
+    {
+      "runner_pid": 1499495,
+      "children_waited": []
+    }
+  ],
+  "external_parent_pid": 1507586,
+  "external_vite_pid": 1507525,
+  "external_worker_pid_observed": 1557435,
+  "lease": "HELD by this coordinator; no transfer",
+  "owner_thread": "mcp:a499289f-214e-46cc-96f8-1a43476ff456",
+  "owner_created_at": "2026-10-26T04:09:03.213Z",
+  "owner_run_completed_at": "2026-10-26T04:35:35.691Z",
+  "observed_full_suite_start": "2026-10-26T04:23:37Z",
+  "observed_full_suite_duration_seconds": 655.55,
+  "earlier_completed_items": "F04 samples ended at 03:56:06Z, before this owner thread was created. This observed run does not overlap F01\u2013F04.",
+  "sample_disposition": "All 18 partial F05 accepted samples are quarantined and excluded. A fresh complete F05 run is required. Any empty not-started sample file is retained in the bundle."
+}

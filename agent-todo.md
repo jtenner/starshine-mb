@@ -25,6 +25,13 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   the next leased lane; retain key, type-update and batch regressions. The
   [measured landing](experiment-results.md#item-8--landed-under-the-corrected-procedure)
   closes the prior measurement task, with its accepted RSS cost explicit.
+## Next unreleased patch — Legacy catch ordering [IR2-VALIDATE-F05]
+
+- **Goal / why:** reject duplicate `catch_all` clauses and typed catches after `catch_all` in legacy `try`.
+- **Deliverables / tasks:** enforce final catch-all placement in `typecheck_legacy_try`.
+- **APIs / invariants:** no API change; preserve valid handler order and catch body checks.
+- **Dependencies / exit / tests:** fix both failing rejection tests in `src/validate/daybreak_bug_hunt_wbtest.mbt`; keep its valid-order control passing.
+- **Evidence:** [F05 record](docs/wiki/wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering); the test checkpoint has two failures and one pass.
 
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 

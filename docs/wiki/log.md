@@ -1,3 +1,11 @@
+### 2026-10-26 — F05 full landing gates pass
+
+- The frozen F05 source passes 15525/15525 native tests and all 14 CI fuzz suites (100757 attempts, seed 24301), with both gates at exit zero. [Signoff](raw/tooling/2026-10-26-daybreak19/F05-signoff.json) records source, executables, verified Binaryen 133, .tmp setup, and the neutral measurement verdict with small costs. No merge or push is claimed before the landing step.
+
+### 2026-10-26 — F05 leased measurement before landing gates
+
+- Legacy catch-order validation has a neutral measurement verdict with small retained costs (-0.90% to +2.43% on valid cases), equal raw allocation cost, and native RSS within controls. [The complete F05 record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) preserves all 180 fresh samples and excludes the 18-sample contention run. Full native and CI fuzz gates were pending at that checkpoint; the later signoff entry above supersedes it. No landing was claimed at the measurement checkpoint.
+
 ### 2026-10-25 — Measured DAE gains landing
 
 - All eight gain items (1, 3, 4, 5, 6, 8, 10, 11) are landed and pushed. Every item has a complete corrected native gate and 14 green CI fuzz suites. [Immutable source/gate/benchmark/push evidence](raw/tooling/2026-10-26-dae-gain-landings.json) preserves all 85 measured rows and the accepted item 8 RSS trade. The lease is released to the reserved Starshine-versus-Binaryen comparison lane.
@@ -178,6 +186,17 @@
   Runtime, allocation and
   peak-memory measurements remain pending for branch-carried values with many
   shared operands/locals, raw-admitted controls and tiny bodies.
+### 2026-10-25 — Retain Daybreak F05 catch-order regressions
+### 2026-10-25 — Repair Daybreak F05 legacy catch ordering
+
+- Test checkpoint `bc04efcc1` copied the three verification tests from `3fa354e3`
+  unchanged and reproduced both invalid-order acceptance defects on master.
+- The legacy catch loop now rejects nonfinal catch-all clauses. All three F05
+  tests and four existing tag/rethrow tests pass; test changes after the checkpoint
+  are formatter-only. The completed F05 repair is removed from the active backlog.
+- The [F05 record](wasm-exception-handling-boundary.md#october-25-2026--f05-legacy-catch-ordering)
+  retains the baseline, results and proposed lease-gated performance workloads.
+  No full suite, fuzzing, timing or external oracle run was performed.
 
 ### 2026-10-20 — Repair IR ownership and control-flow corruption defects
 

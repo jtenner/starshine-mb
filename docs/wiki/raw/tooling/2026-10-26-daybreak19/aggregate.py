@@ -1,0 +1,50 @@
+import pathlib,json,statistics,re,sys
+root=pathlib.Path(sys.argv[1]);cases=json.loads((root/'cases.json').read_text())
+raw=[json.loads(x) for x in (root/'paired.jsonl').read_text().splitlines()];allocation=[json.loads(x) for x in (root/'allocation-v2.jsonl').read_text().splitlines()];memory=[json.loads(x) for x in (root/'memory-v2.jsonl').read_text().splitlines()] if (root/'memory-v2.jsonl').exists() else [];rows=[]
+for index,case in enumerate(cases):
+ samples=[x for x in raw if x['index']==index and x.get('accepted')];counted=[x for x in allocation if x['index']==index and x.get('accepted')];assert len(samples)==len(counted)==10,(index,len(samples),len(counted))
+ row={'index':index,**case}
+ for arm in ['baseline','candidate']:
+  paired=[x for x in samples if x['arm']==arm and x['round'].startswith('pair')]
+  row[arm+'_us']=statistics.median(x['summary']['median'] for x in paired);memory_pair=[x for x in memory if x['index']==index and x['arm']==arm and x.get('accepted') and x['round'].startswith('pair')]
+  if memory:assert len(memory_pair)==3
+  row[arm+'_peak_rss_kib']=statistics.median(x['peak_rss_kib'] for x in (memory_pair if memory else paired))
+  row['peak_rss_scope']='target child from separate memory lane and small native launcher' if memory else paired[0].get('peak_rss_scope','Python-child kernel peak includes pre-exec launcher floor')
+  ca=[x for x in counted if x['arm']==arm and x['round'].startswith('pair')]
+  for metric in ['alloc_calls_per_callback','alloc_bytes_per_callback']:row[arm+'_'+metric]=statistics.median(x[metric] for x in ca)
+  controls=[x for x in samples if x['arm']==arm and not x['round'].startswith('pair')];row[arm+'_same_build_delta_percent']=100*(controls[1]['summary']['median']/controls[0]['summary']['median']-1)
+  rss_controls=[x for x in (memory if memory else samples) if x['index']==index and x['arm']==arm and x.get('accepted') and not x['round'].startswith('pair')]
+  row[arm+'_rss_same_build_delta_percent']=100*(rss_controls[1]['peak_rss_kib']/rss_controls[0]['peak_rss_kib']-1)
+  for metric in ['alloc_calls_per_callback','alloc_bytes_per_callback']:
+   controls=[x for x in counted if x['arm']==arm and not x['round'].startswith('pair')];row[arm+'_'+metric+'_same_build_delta_percent']=100*(controls[1][metric]/controls[0][metric]-1)
+  mutation=set()
+  for x in samples:
+   if x['arm']!=arm:continue
+   m=re.search(r'DB19_MUTATION_ISOLATED=(true|false)',(root/x['stdout']).read_text())
+   if m:mutation.add(m[1]=='true')
+  if mutation:
+   assert len(mutation)==1
+   row[arm+'_mutation_isolated']=next(iter(mutation))
+   expected=case.get(arm+'_expected_mutation_isolated')
+   if expected is not None:assert row[arm+'_mutation_isolated']==expected,(index,arm,row)
+ for arm in ['baseline','candidate']:
+  observed=set();errors=set()
+  for x in samples:
+   if x['arm']!=arm:continue
+   output=(root/x['stdout']).read_text();m=re.search(r'DB19_VALIDATION_ACCEPTED=(true|false)',output)
+   if m:observed.add(m[1]=='true')
+   expected_error=case.get(arm+'_expected_validation_error_contains')
+   if expected_error:assert expected_error in output,(index,arm,'unexpected rejection reason')
+   error=re.search(r'DB19_VALIDATION_ERROR=(.*)',output)
+   if error:errors.add(error[1])
+  if observed:
+   assert len(observed)==1
+   row[arm+'_validation_accepted']=next(iter(observed))
+   expected=case.get(arm+'_expected_validation_accepted')
+   if expected is not None:assert row[arm+'_validation_accepted']==expected,(index,arm,'unexpected validation result')
+   row[arm+'_validation_errors']=sorted(errors)
+ for metric in ['us','peak_rss_kib','alloc_calls_per_callback','alloc_bytes_per_callback']:row[metric+'_delta_percent']=100*(row['candidate_'+metric]/row['baseline_'+metric]-1)
+ rows.append(row)
+accepted=[x for x in raw+allocation+memory if x.get('accepted')]
+summary={'rows':rows,'runtime_samples':len(raw),'allocation_samples':len(allocation),'runtime_samples_accepted':sum(x.get('accepted',False) for x in raw),'allocation_samples_accepted':sum(x.get('accepted',False) for x in allocation),'maximum_sample_start_c':max(x['start_c'] for x in raw+allocation+memory),'maximum_sample_peak_c':max(x['peak_c'] for x in accepted),'memory_samples_accepted':sum(x.get('accepted',False) for x in memory),'discarded_samples':len(raw)+len(allocation)+len(memory)-len(accepted),'allocation_scope':'Raw MoonBit allocations in generated C and runtime, including headers. Whole-process counts divided by all callbacks; setup/fixture/benchmark overhead remains. Instrumented speed is excluded. RSS is uninstrumented whole-process kernel peak, not logical live memory.'}
+(root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary,indent=2))

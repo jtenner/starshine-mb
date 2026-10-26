@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-25
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../src/lib/types.mbt
@@ -106,6 +106,35 @@ Validation accepts a nullable `exnref` operand. Execution still observes the ope
 | Fuzzing and generators | GenValid and WAST arbitrary surfaces include exception/tag coverage; invalid lanes keep tag and catch-family diagnostics visible. | [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md). |
 | Optimizer passes | Any transform that deletes, moves, or rewrites tag/catch/throw carriers must preserve tag indices, catch label payloads, operand evaluation, and null-trap/rethrow behavior. | Pass-specific Binaryen dossiers plus [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md). |
 
+## October 25, 2026 — F05 legacy catch ordering
+
+The tests from verification head `3fa354e3` are retained in
+[`daybreak_bug_hunt_wbtest.mbt`](../../src/validate/daybreak_bug_hunt_wbtest.mbt),
+with formatter-only changes after the unchanged test checkpoint `bc04efcc1`.
+On unchanged master source `6d020542e5c54e2d1ace8db7c52e4949ff8da5de`,
+`moon test src/validate/daybreak_bug_hunt_wbtest.mbt` failed both rejection tests
+and passed the valid-order control (three tests, exit 2). The legacy catch loop
+validated handler bodies without requiring `catch_all` to be the final clause.
+
+**Resolved:** [`typecheck_legacy_try`](../../src/validate/typecheck.mbt) now uses
+the handler index to reject a nonfinal `LegacyCatchAll` in the existing match.
+This rejects duplicate catch-all clauses and typed catches after catch-all,
+while retaining the existing body, tag and stack checks. The focused regression
+run passes all three tests. The separate focused run of
+[`binaryen132_continuation_wbtest.mbt`](../../src/validate/binaryen132_continuation_wbtest.mbt)
+and [`p00_rethrow_wbtest.mbt`](../../src/validate/p00_rethrow_wbtest.mbt) passes
+all four existing tag/rethrow tests. These historical filenames do not claim
+new Binaryen oracle evidence. `moon fmt src/validate` passes.
+
+Performance measurement is pending a suite lease. The changed path is legacy
+try validation: one handler index and a final-position check in the catch-all
+arm, with no new collection or traversal. Proposed workloads compare the test
+checkpoint and fixed native builds on modules without legacy try (control),
+valid tries with 1, 16 and 256 typed handlers with and without a final catch-all,
+and invalid tries with an early catch-all. Measure validation cost and allocation
+counts with identical fixtures and build settings. No full suite, fuzzing,
+timing or external oracle run was performed for this fix.
+
 ## Current Gaps And Caveats
 
 - **The resultful-tag declaration gap is resolved.** The Binaryen 132 upgrade allows tag function results and checks the empty-result restriction at `throw`, tagged catch and `resume_throw` uses. [Positive and negative tests](../../src/validate/binaryen132_continuation_wbtest.mbt) cover the change.
@@ -157,3 +186,22 @@ per catch context. A rethrow inside a local-set result block therefore forces
 exception capture instead of targeting a synthetic ordinary block.
 [Operand regressions](../../src/ir/p00_rethrow_operand_wbtest.mbt) check the
 capture local, catch opcode, nested ordinal and encoded validity.
+
+### October 26, 2026 — leased F05 measurement
+
+The catch-order repair was measured against master `749af223c`, using the same
+committed fixture on baseline `df0fe42dc` and candidate `27ef831a8`.
+[The complete record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) retains
+all 180 fresh paired/control samples, native RSS, allocation bytes, tool and
+binary identities, and the excluded 18-sample contention run.
+
+The verdict is neutral within observed variation, with small recorded costs:
+valid medians range from -0.90% to +2.43%; raw allocations and bytes stay equal.
+The 16-typed/no-final-all case costs +1.96%, and 256-typed cases cost +2.39% to
++2.43%; a wide-case same-build control drifts +9.05%. No speed or zero-cost
+claim is made. Invalid early/duplicate catch-all times are diagnostic only.
+All valid cases pass on both builds. Invalid candidate cases report the
+specific `legacy catch_all must be the last catch` error.
+
+F05 retains the 60 C start gate and full protocol. All fresh samples start at
+or below 60 C; none is paused. The full native gate passes 15525/15525 tests. All 14 CI fuzz suites pass (100757 attempts, seed 24301); both processes exit zero. [Gate and executable identity](raw/tooling/2026-10-26-daybreak19/F05-signoff.json) binds these results to frozen source `03586a339938cff3f4483fd3b05b15c9b7ad1824`.

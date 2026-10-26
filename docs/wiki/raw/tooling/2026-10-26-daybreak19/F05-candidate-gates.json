@@ -1,0 +1,103 @@
+{
+  "state": "passed",
+  "controller_pid": 1591055,
+  "arm": "candidate",
+  "head": "03586a339938cff3f4483fd3b05b15c9b7ad1824",
+  "cwd": "/tmp/daybreak19/F05/candidate",
+  "source_status": "",
+  "oracle": "/home/dev/.local/share/mise/installs/github-web-assembly-binaryen/ersion_133/bin/wasm-opt",
+  "oracle_version": "wasm-opt version 133 (version_133)",
+  "oracle_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+  "stack_limit": [
+    67108864,
+    -1
+  ],
+  "environment": {
+    "PATH": "/home/dev/.local/share/mise/installs/github-web-assembly-binaryen/ersion_133/bin:/home/dev/.local/share/vite-plus/package_manager/bun/1.4.2/bun/bin:/home/dev/.local/share/mise/installs/node/24.21.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/dev/.local/share/vite-plus/bin:/home/dev/.local/bin:/home/dev/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/home/dev/.local/share/vite-plus/fallback-bin",
+    "RAYON_NUM_THREADS": "1",
+    "TOKIO_WORKER_THREADS": "1"
+  },
+  "phases": [
+    {
+      "name": "native",
+      "command": [
+        "/home/dev/.local/share/vite-plus/package_manager/bun/1.4.2/bun/bin/bun.native",
+        "/tmp/daybreak19/native-gate.ts"
+      ],
+      "state": "exited",
+      "start": "2026-10-26T05:09:56.458061+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T05:18:22.373211+00:00",
+      "batches": [
+        {
+          "total": 1077,
+          "passed": 1077,
+          "failed": 0
+        },
+        {
+          "total": 1337,
+          "passed": 1337,
+          "failed": 0
+        },
+        {
+          "total": 1200,
+          "passed": 1200,
+          "failed": 0
+        },
+        {
+          "total": 977,
+          "passed": 977,
+          "failed": 0
+        },
+        {
+          "total": 2586,
+          "passed": 2586,
+          "failed": 0
+        },
+        {
+          "total": 4173,
+          "passed": 4173,
+          "failed": 0
+        },
+        {
+          "total": 2021,
+          "passed": 2021,
+          "failed": 0
+        },
+        {
+          "total": 2154,
+          "passed": 2154,
+          "failed": 0
+        }
+      ],
+      "total": 15525
+    },
+    {
+      "name": "fuzz",
+      "command": [
+        "/home/dev/.local/share/vite-plus/package_manager/bun/1.4.2/bun/bin/bun.native",
+        "scripts/fuzz.ts",
+        "run",
+        "--suite",
+        "all",
+        "--profile",
+        "ci",
+        "--target",
+        "native",
+        "--seed",
+        "0x5eed",
+        "--output",
+        "jsonl",
+        "--report-json",
+        "/tmp/daybreak19/F05/candidate-fuzz-report.json"
+      ],
+      "state": "exited",
+      "start": "2026-10-26T05:18:22.373747+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T05:22:03.579410+00:00",
+      "suites": 14,
+      "attempts": 100757,
+      "base_seed": 24301
+    }
+  ]
+}

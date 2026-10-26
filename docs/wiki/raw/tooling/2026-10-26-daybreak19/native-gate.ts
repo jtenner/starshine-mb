@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+const root=process.cwd();
+const oracle=process.env.DAYBREAK19_ORACLE!;
+const hash=crypto.createHash('sha256').update(fs.readFileSync(oracle)).digest('hex');
+const expected='8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b';
+const resolved=spawnSync('/bin/sh',['-c','command -v wasm-opt'],{encoding:'utf8'});
+if(resolved.status!==0 || resolved.stdout.trim()!==oracle)throw new Error('Gate PATH does not resolve verified Binaryen 133');
+const version=spawnSync(oracle,['--version'],{encoding:'utf8'});
+if(version.status!==0 || !version.stdout.includes('version 133 ') || hash!==expected)throw new Error('Binaryen identity differs from verified v133');
+fs.mkdirSync(path.join(root,'.tmp'),{recursive:true});
+console.log(JSON.stringify({event:'daybreak19-native-preflight',oracle,oracleSha256:hash,version:version.stdout.trim(),execPath:process.execPath,path:process.env.PATH,cwd:root,scratchParent:'.tmp'}));
+const {runValidateTest,parseValidateTestArgs}=await import(path.join(root,'scripts/lib/validate-task.ts'));
+const {runOrThrow}=await import(path.join(root,'scripts/lib/task-runtime.ts'));
+runValidateTest(parseValidateTestArgs(['--target','native']),{parallelism:1,run:(bin:string,args:string[],opts:object)=>runOrThrow(bin,[...args,'--warn-list','-a','--no-parallelize'],opts)});
