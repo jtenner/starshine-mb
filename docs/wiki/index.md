@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Measured DAE item 11](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-11) — Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**. Gates: 15,522 native tests and 14 CI fuzz suites pass; merge `f5c813d8f1c631996efe4ec6afaa36bd9a170159`.
+
 - [Measured DAE item 10](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-10) — Many-type/function cleanup **0.505 → 0.472 ms/call (-6.26%)**, peak RSS **11,456 → 11,504 KiB**; mixed imports **0.508 → 0.483 ms (-5.09%)**, RSS **11,448 → 11,464 KiB**; no-op cleanup **0.318 → 0.293 ms (-8.58%)**, RSS **11,456 → 11,432 KiB**. CLI evidence is neutral; mixed-import optimizing pass timing costs +1.20%. Gates: 15,518 native tests and 14 CI fuzz suites pass; merge `af3e41daeef60aec9bdaa733dd8558865af97471`.
 
 - [Measured DAE item 8](binaryen/passes/dead-argument-elimination/starshine-strategy.md#measured-item-8) — Distinct-wide/dae CLI **58.888 → 55.983 ms (-4.34%)**, peak RSS **15,800 → 15,660 KiB**; optimizing CLI **59.147 → 55.953 ms (-5.03%)**, RSS **17,108 → 16,976 KiB**. Direct distinct index **2.320 → 1.916 ms/call (-17.18%)** carries the accepted peak RSS loss **6,744 → 8,816 KiB (+30.78%)**. Recursive index **1.599 → 0.584 ms (-63.36%)**, RSS **6,760 → 6,708 KiB**. Gates: 15,512 native tests and 14 CI fuzz suites pass; merge `d3f2307acb491895c28adb78bfb6e043e4a76697`.
@@ -19,7 +21,6 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
 
-- [DAE2 imported tag count](binaryen/passes/dae2/implementation-structure-and-tests.md#imported-tag-count-during-finalization) — Item 11 removes a count-only HOT context construction. Tag identity and invalid-input controls are covered; performance measurement is pending.
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.

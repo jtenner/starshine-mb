@@ -53,6 +53,13 @@ This completed landing supersedes this item's earlier measurement-pending wordin
 Source `dae/item-10-cleanup-context` at `913de7a89adb2aa1a0d471b5d8a49d06a3aa79af` lands as `af3e41daeef60aec9bdaa733dd8558865af97471` after 15,518/15,518 native tests, 14/14 CI fuzz suites, 100,779 attempts, seed 117504577984795564. The [campaign record](../../../../../experiment-results.md#item-10--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
 
 
+### Measured item 11
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**.
+
+Source `dae/item-11-tag-count` at `4ab0acbd80f7620bd07e24cfe1572b175c6453e5` lands as `f5c813d8f1c631996efe4ec6afaa36bd9a170159` after 15,522/15,522 native tests, 14/14 CI fuzz suites, 100,783 attempts, seed 117504630514004640. The [campaign record](../../../../../experiment-results.md#item-11--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
+
 ## Implementation map
 
 The September 10 Binaryen 132 implementation replaces the earlier research-only
