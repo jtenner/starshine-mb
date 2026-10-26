@@ -10,10 +10,12 @@ test "scalar f32 literals preserve signed zero and NaN payload bits" {
       ("+nan", 0x7fc00000),
       ("-nan", 0xffc00000),
       ("nan:0x1", 0x7f800001),
+      ("+nan:0x1", 0x7f800001),
       ("-nan:0x1", 0xff800001),
       ("+nan:0x400001", 0x7fc00001),
       ("-nan:0x400001", 0xffc00001),
       ("nan:0x7fffff", 0x7fffffff),
+      ("+nan:0x7fffff", 0x7fffffff),
       ("-nan:0x7fffff", 0xffffffff),
       ("nan:0x40_0001", 0x7fc00001),
     ] {

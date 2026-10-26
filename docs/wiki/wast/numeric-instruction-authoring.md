@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 sources:
   - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../../../src/wast/keywords.mbt
@@ -101,6 +101,13 @@ native suites pass; V18's signed/signalling f32/f64 text-frontend witnesses
 match integer-bit observations across eleven passes and verified v133 output.
 This supersedes the earlier payload-canonicalization limitation for scalar body
 constants, while assertion and printing paths keep their separate contracts.
+
+For MoonBit core compatibility, `wt_parse_f32` narrows the validated `UInt64`
+NaN bits with `to_uint()` and calls `Float::reinterpret_from_uint(...)`.
+Both the 20261012 and 20261023 cores provide these operations; the latter
+removed `Int::reinterpret_as_float`. The unsigned narrowing retains all 32
+bits, including the sign bit. The reinterpret still uses
+`%i32.to_f32_reinterpret`, with no numeric conversion or added allocation.
 
 ### Scalar i32 literal range (Daybreak F06)
 

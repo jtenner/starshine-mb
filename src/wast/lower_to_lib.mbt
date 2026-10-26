@@ -814,7 +814,8 @@ fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
     wt_parse_nan_payload_bits(
       text, 0x7f800000UL, 0x00400000UL, 0x007fffffUL, 0x80000000UL, "f32",
     ) {
-    Ok(Some(bits)) => return Ok(@lib.F32(bits.to_int().reinterpret_as_float()))
+    Ok(Some(bits)) =>
+      return Ok(@lib.F32(Float::reinterpret_from_uint(bits.to_uint())))
     Ok(None) => ()
     Err(error) => return Err(error)
   }
