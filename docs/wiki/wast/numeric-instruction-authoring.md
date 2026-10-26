@@ -122,12 +122,23 @@ formatter changes. After the fix, all 3 pass. The bounded adjacent command
 5 tests. This supersedes the open F06 defect; other scalar literal paths keep
 their separate contracts.
 
-Performance measurement is deferred. The changed path is scalar WAST
-`i32.const` lowering: two range comparisons precede the existing conversion,
-with no added allocation on valid inputs. Later native workloads should cover
-many valid signed constants, many valid unsigned bit patterns, and rejected
-values at both limits. No runtime or memory impact was measured. No full
-suite, fuzz, benchmark, or timing lane was run for this fix.
+The Daybreak release measurement replaces the earlier deferred status. Three
+paired rounds with AA/BB controls cover seven native WAST parser/lowerer cases.
+For 256 valid constants, signed-small input takes 72.954 -> 71.320 us (-2.24%);
+signed-minimum input takes 85.392 -> 83.038 us (-2.76%); the two unsigned cases
+change by -1.98% and -2.43%. The no-constant control is +0.65%, and valid-case
+same-build drift reaches 2.07%, so the verdict is conservatively neutral.
+Valid-input raw allocation counts and bytes stay unchanged within amortized
+setup noise; native peak RSS stays within the controls. Both out-of-range
+inputs reject with the expected error. Their changed behavior makes their
+shorter runtime diagnostic only. All 140 samples start at or below 65 C; no
+sample was paused or discarded.
+
+The full native suite passes 15528/15528 tests. All 14 CI
+fuzz suites pass (100757 attempts); both gates exit zero with Binaryen
+133 on PATH and `.tmp` present. [Raw figures, controls and gate identity](../raw/tooling/2026-10-26-daybreak19/F06-signoff.json)
+bind this evidence to the frozen source. RSS is process peak, not live IR
+memory, and the workload includes parsing and lowering together.
 
 ### Tests and comparisons produce `i32`
 

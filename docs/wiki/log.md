@@ -1,3 +1,7 @@
+### 2026-10-26 — Daybreak F06 measured and gated
+
+- Valid scalar WAST lowering costs 72.954 -> 71.320 us for 256 signed-small constants (-2.24%); signed minimum 85.392 -> 83.038 us (-2.76%); unsigned cases -1.98% and -2.43%. The unchanged no-constant control is +0.65%; AA/BB drift reaches 2.07% for valid cases. Treat these small gains conservatively as neutral. Valid-input raw allocations and bytes are unchanged within amortized setup noise; native RSS is within same-build variation. Both invalid bounds now reject with the expected range error; their shorter rejection paths are diagnostic only. All 140 samples started at or below 65 C (maximum 64.875 C), peak 77.75 C; none paused or discarded. Full native: 15528 passed, zero failed. All 14 CI fuzz suites pass (100757 attempts). Both gates exit zero with verified Binaryen 133 and .tmp present. [Frozen source, raw samples and gate identity](raw/tooling/2026-10-26-daybreak19/F06-signoff.json).
+
 ### 2026-10-26 — F05 full landing gates pass
 
 - The frozen F05 source passes 15525/15525 native tests and all 14 CI fuzz suites (100757 attempts, seed 24301), with both gates at exit zero. [Signoff](raw/tooling/2026-10-26-daybreak19/F05-signoff.json) records source, executables, verified Binaryen 133, .tmp setup, and the neutral measurement verdict with small costs. No merge or push is claimed before the landing step.

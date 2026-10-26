@@ -1,6 +1,9 @@
 import os,sys,time,json,hashlib,subprocess,re,pathlib,platform,datetime
 root=pathlib.Path(sys.argv[1]).resolve(); selection=sys.argv[2]; count=int(sys.argv[3]); indexes=list(range(count))
 label=sys.argv[4] if len(sys.argv)>4 else 'paired'
+start_max=65 if int(root.name[1:])>=6 else 60
+mode=sys.argv[5] if len(sys.argv)>5 else 'full'
+assert mode in ['full','round1']
 sensor=pathlib.Path('/sys/class/hwmon/hwmon8/temp1_input'); assert sensor.with_name('temp1_label').read_text().strip()=='Tctl'
 def temp(): return int(sensor.read_text())/1000
 meta={}
@@ -14,12 +17,13 @@ if label.startswith('allocation'):
  for arm in ['baseline','candidate']:
   binary=pathlib.Path(meta[arm]['binary']);binary=binary.with_name(binary.stem+'.alloc.exe')
   meta[arm]['allocation_binary']={'path':str(binary),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'bytes':binary.stat().st_size}
-meta.update(environment={'uname':platform.uname()._asdict(),'cpu_affinity':[2], 'sensor':str(sensor),'sample_start_max_c':60,'discard_peak_above_c':80,'timing_allocator':'normal MoonBit mimalloc','allocation_scope':'separate instrumented raw allocator in generated C and runtime; whole-process counts divided by callback count; headers/fixture/runner overhead included','allocation_counter_runtime_sha256':hashlib.sha256(pathlib.Path('/tmp/daybreak19/runtime-count.c').read_bytes()).hexdigest()})
+meta.update(environment={'uname':platform.uname()._asdict(),'cpu_affinity':[2], 'sensor':str(sensor),'sample_start_max_c':start_max,'mode':mode,'discard_peak_above_c':80,'timing_allocator':'normal MoonBit mimalloc','allocation_scope':'separate instrumented raw allocator in generated C and runtime; whole-process counts divided by callback count; headers/fixture/runner overhead included','allocation_counter_runtime_sha256':hashlib.sha256(pathlib.Path('/tmp/daybreak19/runtime-count.c').read_bytes()).hexdigest()})
 meta['measurement_tools']={name:hashlib.sha256(pathlib.Path('/tmp/daybreak19',name).read_bytes()).hexdigest() for name in ['sample.py','link-allocation.py','runtime-count.c','rss-run.c','rss-run']}
 meta['harness_sha256']=hashlib.sha256((root/'harness.mbt').read_bytes()).hexdigest()
 (root/('provenance-'+label+'.json')).write_text(json.dumps(meta,indent=2)+'\n')
 # Balanced paired rounds, then two same-build pairs for each arm.
 orders=[('pair1','baseline'),('pair1','candidate'),('pair2','candidate'),('pair2','baseline'),('pair3','baseline'),('pair3','candidate'),('AA1','baseline'),('AA2','baseline'),('BB1','candidate'),('BB2','candidate')]
+if mode=='round1':orders=[x for x in orders if x[0] in ['pair1','AA1','AA2','BB1','BB2']]
 # Allocation samples use the same paired rounds and same-build controls.
 log=root/(label+'.jsonl')
 completed=set()
@@ -32,7 +36,7 @@ for index in indexes:
   if (root/'STOP').exists():raise SystemExit('Stopped after completed sample')
   if (index,round_,arm) in completed:continue
   for attempt in range(6):
-   while temp()>60:
+   while temp()>start_max:
     if (root/'STOP').exists():raise SystemExit('Stopped while cooling; no sample started')
     time.sleep(1)
    if (root/'STOP').exists():raise SystemExit('Stopped before sample launch')
@@ -41,7 +45,11 @@ for index in indexes:
    cmd=['/tmp/daybreak19/rss-run','taskset','-c','2',str(binary),f'daybreak19_{root.name.lower()}_perf_wbtest.mbt:{index}-{index+1}']
    stamp=f'{label}-{index:02}-{round_}-{arm}-{attempt}'
    wall_start=datetime.datetime.now(datetime.timezone.utc).isoformat()
-   start=temp(); peak=start
+   start=temp()
+   while start>start_max:
+    if (root/'STOP').exists():raise SystemExit('Stopped at final launch gate; no sample started')
+    time.sleep(1);start=temp()
+   peak=start
    with (root/(stamp+'.stdout')).open('w') as out,(root/(stamp+'.stderr')).open('w') as err:
     p=subprocess.Popen(cmd,stdout=out,stderr=err,cwd=root/arm,env={**os.environ,'RAYON_NUM_THREADS':'1','TOKIO_WORKER_THREADS':'1'})
     while True:

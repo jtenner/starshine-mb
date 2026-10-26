@@ -1,0 +1,7 @@
+{
+  "item": "F06",
+  "original_branch": "fix/db-06-i32-const-wrap",
+  "original_head": "dc427a00595ae82c4cde0e8e6f2959e55f153aa6",
+  "baseline_master": "834a5cce08bde4287d8ba25eecc90b984e3c392b",
+  "rebased_fix_head": "89bed8b47215c0bf80d667166fbdd7655ecd26f6"
+}

@@ -1,0 +1,42 @@
+commit dc427a00595ae82c4cde0e8e6f2959e55f153aa6
+Author:     jtenner <tenner.joshua@gmail.com>
+AuthorDate: Sun Oct 25 14:48:28 2026 +0000
+Commit:     jtenner <tenner.joshua@gmail.com>
+CommitDate: Sun Oct 25 14:48:28 2026 +0000
+
+    fix: reject out-of-range scalar i32 constants
+
+    Changed files:
+    - src/wast/lower_to_lib.mbt: check the parsed Int64 against the inclusive
+      -2147483648..4294967295 bit-pattern range before narrowing it. Use the
+      existing SIMD i32x4 range-check idiom and return a range error for invalid
+      literals. Keep valid unsigned i32 bit patterns, including 4294967295.
+    - src/wast/daybreak_bug_hunt_test.mbt: copy the committed F06 verification
+      tests from 1803fd744e3a149b3e557840f3f468fd36f23e07, with formatter changes
+      only. Keep independent overflow rejections and signed/unsigned boundaries.
+    - docs/wiki/wast/numeric-instruction-authoring.md: document the accepted
+      range, root cause, retained red evidence, focused green results, and
+      deferred performance workloads.
+    - docs/wiki/index.md and docs/wiki/log.md: link the durable F06 repair record.
+
+    Validation:
+    - Reused verification red evidence: moon test src/wast/daybreak_bug_hunt_test.mbt
+      reported 1 passed, 2 failed, exit 2 at 1803fd74. Before implementation,
+      both the copied tests and production lowerer matched that commit byte for
+      byte. No duplicate red run was needed.
+    - moon test src/wast/daybreak_bug_hunt_test.mbt: 3 passed, 0 failed; passed
+      again after formatting the copied tests.
+    - moon test src/wast/lower_to_lib.mbt --filter '*v128.const*': 5 passed,
+      0 failed.
+    - moon fmt --check src/wast: passed after formatting the copied tests.
+    - git diff --cached --check and local source-link checks: passed.
+
+    Notes:
+    - Work began on fix/db-06-i32-const-wrap at 6d020542e with a clean worktree;
+      no stopped-worker edits or F06 implementation commits were present.
+    - No public API change. No full suite, fuzz, benchmark, or timing run;
+      suite-class validation has no lease in this wave.
+    - READY TO MEASURE: scalar WAST i32.const lowering adds two range comparisons
+      and no allocation for valid inputs. Proposed native workloads cover many
+      valid signed constants, many valid unsigned bit patterns, and rejection at
+      both range limits. Runtime and memory effects remain unmeasured.

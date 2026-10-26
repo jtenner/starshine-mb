@@ -1,0 +1,584 @@
+{
+  "rows": [
+    {
+      "index": 0,
+      "name": "no scalar constant",
+      "comparable": true,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": true,
+      "min_allocations_per_callback": 1,
+      "baseline_us": 1.8206829974766323,
+      "baseline_peak_rss_kib": 5168,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 128.00406260052023,
+      "baseline_alloc_bytes_per_callback": 4808.222052525069,
+      "baseline_same_build_delta_percent": -1.7607814456101711,
+      "baseline_rss_same_build_delta_percent": 0.0,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": 1.8846065397148948e-05,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": 2.593040571152727e-05,
+      "candidate_us": 1.8325667024983319,
+      "candidate_peak_rss_kib": 5236,
+      "candidate_alloc_calls_per_callback": 128.00413656865956,
+      "candidate_alloc_bytes_per_callback": 4808.226170244042,
+      "candidate_same_build_delta_percent": 0.6940273176988088,
+      "candidate_rss_same_build_delta_percent": -1.1520737327188946,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": 7.710258000948045e-05,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": 0.0001122285317789462,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": true,
+      "candidate_validation_errors": [],
+      "us_delta_percent": 0.6527058822524134,
+      "peak_rss_kib_delta_percent": 1.3157894736842035,
+      "alloc_calls_per_callback_delta_percent": 5.77857747874333e-05,
+      "alloc_bytes_per_callback_delta_percent": 8.56391183301497e-05
+    },
+    {
+      "index": 1,
+      "name": "signed small x256",
+      "comparable": true,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": true,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": -17,
+      "candidate_expected_first_i32": -17,
+      "baseline_us": 72.9536865781711,
+      "baseline_peak_rss_kib": 5224,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 4999.615078236131,
+      "baseline_alloc_bytes_per_callback": 141006.24608819347,
+      "baseline_same_build_delta_percent": -0.04349217078213341,
+      "baseline_rss_same_build_delta_percent": 3.1709203402938924,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": -0.00010779895112111859,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": -0.00015687505158235027,
+      "candidate_us": 71.31977872947895,
+      "candidate_peak_rss_kib": 5188,
+      "candidate_alloc_calls_per_callback": 4999.604755244755,
+      "candidate_alloc_bytes_per_callback": 141005.82116550117,
+      "candidate_same_build_delta_percent": -0.6417005179724655,
+      "candidate_rss_same_build_delta_percent": -2.8273809523809534,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": 0.00020102334035154712,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": 0.00029342206160354323,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": true,
+      "candidate_validation_errors": [],
+      "us_delta_percent": -2.2396508323693665,
+      "peak_rss_kib_delta_percent": -0.6891271056661541,
+      "alloc_calls_per_callback_delta_percent": -0.000206475722908106,
+      "alloc_bytes_per_callback_delta_percent": -0.0003013502621995734
+    },
+    {
+      "index": 2,
+      "name": "signed minimum x256",
+      "comparable": true,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": true,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": -2147483648,
+      "candidate_expected_first_i32": -2147483648,
+      "baseline_us": 85.39193071000855,
+      "baseline_peak_rss_kib": 5212,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 4999.677389033943,
+      "baseline_alloc_bytes_per_callback": 147153.86725848564,
+      "baseline_same_build_delta_percent": -0.37905366949695374,
+      "baseline_rss_same_build_delta_percent": 0.22658610271903967,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": 5.624739376486332e-05,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": 7.748664538897998e-05,
+      "candidate_us": 83.03809523809524,
+      "candidate_peak_rss_kib": 5184,
+      "candidate_alloc_calls_per_callback": 4999.672821576763,
+      "candidate_alloc_bytes_per_callback": 147153.67562240665,
+      "candidate_same_build_delta_percent": 1.970100087663651,
+      "candidate_rss_same_build_delta_percent": 2.3628048780487854,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": 0.00019264083095382745,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": 0.00027800915989306674,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": true,
+      "candidate_validation_errors": [],
+      "us_delta_percent": -2.756508082604381,
+      "peak_rss_kib_delta_percent": -0.5372217958557135,
+      "alloc_calls_per_callback_delta_percent": -9.135503801216416e-05,
+      "alloc_bytes_per_callback_delta_percent": -0.00013022836746756639
+    },
+    {
+      "index": 3,
+      "name": "unsigned maximum x256",
+      "comparable": true,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": true,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": -1,
+      "candidate_expected_first_i32": -1,
+      "baseline_us": 85.0143231292517,
+      "baseline_peak_rss_kib": 5292,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 4999.667971163749,
+      "baseline_alloc_bytes_per_callback": 146385.3332646756,
+      "baseline_same_build_delta_percent": 0.35010319526438405,
+      "baseline_rss_same_build_delta_percent": -0.5355776587605221,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": -0.00011847669366682467,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": -0.00016866901604295492,
+      "candidate_us": 83.32803675856307,
+      "candidate_peak_rss_kib": 5320,
+      "candidate_alloc_calls_per_callback": 4999.663868986694,
+      "candidate_alloc_bytes_per_callback": 146385.16223132037,
+      "candidate_same_build_delta_percent": 1.646125582534208,
+      "candidate_rss_same_build_delta_percent": 3.640588690937263,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": 0.0003079522393534262,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": 0.00044821402802597277,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": true,
+      "candidate_validation_errors": [],
+      "us_delta_percent": -1.9835320786179444,
+      "peak_rss_kib_delta_percent": 0.5291005291005346,
+      "alloc_calls_per_callback_delta_percent": -8.204898962471674e-05,
+      "alloc_bytes_per_callback_delta_percent": -0.00011683776742765772
+    },
+    {
+      "index": 4,
+      "name": "unsigned upper half x256",
+      "comparable": true,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": true,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": -2147483648,
+      "candidate_expected_first_i32": -2147483648,
+      "baseline_us": 85.26228983050848,
+      "baseline_peak_rss_kib": 5336,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 4999.670041322314,
+      "baseline_alloc_bytes_per_callback": 146385.4262396694,
+      "baseline_same_build_delta_percent": -1.7436266063945771,
+      "baseline_rss_same_build_delta_percent": 0.6001500375093727,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": 0.0,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": 2.9624557695839826e-06,
+      "candidate_us": 83.19190793918919,
+      "candidate_peak_rss_kib": 5296,
+      "candidate_alloc_calls_per_callback": 4999.663529411765,
+      "candidate_alloc_bytes_per_callback": 146385.14434782608,
+      "candidate_same_build_delta_percent": 2.070407343827707,
+      "candidate_rss_same_build_delta_percent": -2.987303958177745,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": 4.838177318777781e-05,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": 6.614467997767548e-05,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": true,
+      "candidate_validation_errors": [],
+      "us_delta_percent": -2.4282503970219027,
+      "peak_rss_kib_delta_percent": -0.7496251874062998,
+      "alloc_calls_per_callback_delta_percent": -0.00013024680619588835,
+      "alloc_bytes_per_callback_delta_percent": -0.000192568243007063
+    },
+    {
+      "index": 5,
+      "name": "invalid above unsigned maximum",
+      "comparable": false,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": false,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": 0,
+      "candidate_expected_validation_error_contains": "i32 literal out of range",
+      "baseline_us": 2.1454784647187948,
+      "baseline_peak_rss_kib": 5196,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 142.00465241530256,
+      "baseline_alloc_bytes_per_callback": 5183.2530925383735,
+      "baseline_same_build_delta_percent": -0.13569000219747496,
+      "baseline_rss_same_build_delta_percent": 1.577287066246047,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": 1.5610256176579185e-05,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": 2.327280337333093e-05,
+      "candidate_us": 1.8318844411410775,
+      "candidate_peak_rss_kib": 5172,
+      "candidate_alloc_calls_per_callback": 126.00408555818622,
+      "candidate_alloc_bytes_per_callback": 4377.223023262305,
+      "candidate_same_build_delta_percent": 0.09887647160167212,
+      "candidate_rss_same_build_delta_percent": 3.1104199066874116,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": -1.2374756996891279e-05,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": -1.9436303755338002e-05,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": false,
+      "candidate_validation_errors": [
+        "i32 literal out of range: 4294967296"
+      ],
+      "us_delta_percent": -14.616507633826082,
+      "peak_rss_kib_delta_percent": -0.46189376443418473,
+      "alloc_calls_per_callback_delta_percent": -11.267635661908848,
+      "alloc_bytes_per_callback_delta_percent": -15.55066007554986
+    },
+    {
+      "index": 6,
+      "name": "invalid below signed minimum",
+      "comparable": false,
+      "baseline_expected_validation_accepted": true,
+      "candidate_expected_validation_accepted": false,
+      "min_allocations_per_callback": 1,
+      "baseline_expected_first_i32": 2147483647,
+      "candidate_expected_validation_error_contains": "i32 literal out of range",
+      "baseline_us": 2.1106356860933824,
+      "baseline_peak_rss_kib": 5272,
+      "peak_rss_scope": "target child from small native launcher",
+      "baseline_alloc_calls_per_callback": 142.0046241821706,
+      "baseline_alloc_bytes_per_callback": 5186.251573131427,
+      "baseline_same_build_delta_percent": -2.26634757780958,
+      "baseline_rss_same_build_delta_percent": 1.3964313421256813,
+      "baseline_alloc_calls_per_callback_same_build_delta_percent": -5.976552057695983e-05,
+      "baseline_alloc_bytes_per_callback_same_build_delta_percent": -8.441864508546004e-05,
+      "candidate_us": 1.7966940732758623,
+      "candidate_peak_rss_kib": 5200,
+      "candidate_alloc_calls_per_callback": 126.00404791117727,
+      "candidate_alloc_bytes_per_callback": 4382.220990807973,
+      "candidate_same_build_delta_percent": -0.8228519158107295,
+      "candidate_rss_same_build_delta_percent": -1.5003750937734428,
+      "candidate_alloc_calls_per_callback_same_build_delta_percent": -1.959131779027956e-05,
+      "candidate_alloc_bytes_per_callback_same_build_delta_percent": -3.2373958203102404e-05,
+      "baseline_validation_accepted": true,
+      "baseline_validation_errors": [],
+      "candidate_validation_accepted": false,
+      "candidate_validation_errors": [
+        "i32 literal out of range: -2147483649"
+      ],
+      "us_delta_percent": -14.874268206779018,
+      "peak_rss_kib_delta_percent": -1.365705614567525,
+      "alloc_calls_per_callback_delta_percent": -11.267644531397092,
+      "alloc_bytes_per_callback_delta_percent": -15.503115708634729
+    }
+  ],
+  "runtime_samples": 70,
+  "allocation_samples": 70,
+  "runtime_samples_accepted": 70,
+  "allocation_samples_accepted": 70,
+  "maximum_sample_start_c": 64.875,
+  "maximum_sample_peak_c": 77.75,
+  "memory_samples_accepted": 0,
+  "discarded_samples": 0,
+  "allocation_scope": "Raw MoonBit allocations in generated C and runtime, including headers. Whole-process counts divided by all callbacks; setup/fixture/benchmark overhead remains. Instrumented speed is excluded. RSS is uninstrumented whole-process kernel peak, not logical live memory.",
+  "verdict": "neutral with small observed valid-input gains",
+  "reason": "Valid scalar WAST lowering costs 72.954 -> 71.320 us for 256 signed-small constants (-2.24%); signed minimum 85.392 -> 83.038 us (-2.76%); unsigned cases -1.98% and -2.43%. The unchanged no-constant control is +0.65%; AA/BB drift reaches 2.07% for valid cases. Treat these small gains conservatively as neutral. Valid-input raw allocations and bytes are unchanged within amortized setup noise; native RSS is within same-build variation. Both invalid bounds now reject with the expected range error; their shorter rejection paths are diagnostic only. All 140 samples started at or below 65 C (maximum 64.875 C), peak 77.75 C; none paused or discarded.",
+  "limits": "Whole-module parser/lowerer workload; no isolated parser-only speed claim. Counts include amortized fixture and runner overhead; RSS is process peak rather than live IR memory.",
+  "gates": {
+    "item": "F06",
+    "original_branch": "fix/db-06-i32-const-wrap",
+    "original_head": "dc427a00595ae82c4cde0e8e6f2959e55f153aa6",
+    "baseline_master": "834a5cce08bde4287d8ba25eecc90b984e3c392b",
+    "rebased_fix_head": "89bed8b47215c0bf80d667166fbdd7655ecd26f6",
+    "gate_head": "b562e1a85e3c79e4b0658e9a07b84123f38eef6c",
+    "native_tests_passed": 15528,
+    "native_tests_failed": 0,
+    "ci_fuzz_suites_passed": 14,
+    "ci_fuzz_attempts": 100757,
+    "native_exit_code": 0,
+    "fuzz_exit_code": 0,
+    "verdict": "neutral with small observed valid-input gains",
+    "measurement_reason": "Valid scalar WAST lowering costs 72.954 -> 71.320 us for 256 signed-small constants (-2.24%); signed minimum 85.392 -> 83.038 us (-2.76%); unsigned cases -1.98% and -2.43%. The unchanged no-constant control is +0.65%; AA/BB drift reaches 2.07% for valid cases. Treat these small gains conservatively as neutral. Valid-input raw allocations and bytes are unchanged within amortized setup noise; native RSS is within same-build variation. Both invalid bounds now reject with the expected range error; their shorter rejection paths are diagnostic only. All 140 samples started at or below 65 C (maximum 64.875 C), peak 77.75 C; none paused or discarded.",
+    "tested_native_artifacts": [
+      {
+        "path": "_build/native/debug/build/fuzz/fuzz.exe",
+        "bytes": 87946368,
+        "sha256": "4d4c11dfc37618ded2922be78eee2f7ca336b169112a7fee2d9abc693d36197b"
+      },
+      {
+        "path": "_build/native/debug/test/binary/binary.blackbox_test.exe",
+        "bytes": 967744,
+        "sha256": "54cecfd964b465876f8708d309c5a5bb0c244ca0e864c86a6b5e560c6c6547ad"
+      },
+      {
+        "path": "_build/native/debug/test/binary/binary.internal_test.exe",
+        "bytes": 963384,
+        "sha256": "3d9d6092bf2beedd9e57295aef249600e447faee0a4e4fd04e735ee785894fa5"
+      },
+      {
+        "path": "_build/native/debug/test/binary/binary.whitebox_test.exe",
+        "bytes": 34896920,
+        "sha256": "d19dbe275f47238daba1b5e43b98ebff8e4e2de8ac5573b809dc36507a836dbf"
+      },
+      {
+        "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.blackbox_test.exe",
+        "bytes": 969296,
+        "sha256": "30cc337232bfc9b32cf46ab14bb49230a0415fb80735312196fa6c78eca222af"
+      },
+      {
+        "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.internal_test.exe",
+        "bytes": 965160,
+        "sha256": "a1a25fc71c57a9ecff62f6ebbb0cb5b138a029f521a8bc4c4225838742cb9442"
+      },
+      {
+        "path": "_build/native/debug/test/bitset/bitset.blackbox_test.exe",
+        "bytes": 1549096,
+        "sha256": "ce2eb8f2bdfc28b6c3651978654e2b4d5e3e051664184a99ec8f6e4fc2063833"
+      },
+      {
+        "path": "_build/native/debug/test/bitset/bitset.internal_test.exe",
+        "bytes": 963384,
+        "sha256": "3461ff1b328ffafd84f2a94ff5e45a6eb642658f9b6a75df354a037636e52a45"
+      },
+      {
+        "path": "_build/native/debug/test/cli/cli.blackbox_test.exe",
+        "bytes": 2747328,
+        "sha256": "431b9479a87ce7ea3bb0d664b2107d0c3893d87ff220dc843815a16213017d1f"
+      },
+      {
+        "path": "_build/native/debug/test/cli/cli.internal_test.exe",
+        "bytes": 962584,
+        "sha256": "649e2910754c4f80c215f9055d20e734b63182aff7b94f8e5eba1eda9a6cb228"
+      },
+      {
+        "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.blackbox_test.exe",
+        "bytes": 2094456,
+        "sha256": "32386f7f58fb876bf22ff1ecd56754d61bc127bc81ef27277c3744332cc4989c"
+      },
+      {
+        "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.internal_test.exe",
+        "bytes": 966200,
+        "sha256": "461423aa912afa3986d61ba2fb8257281e32cadd05a1b561e0f94deb2e151b74"
+      },
+      {
+        "path": "_build/native/debug/test/cmd/cmd.blackbox_test.exe",
+        "bytes": 84092920,
+        "sha256": "dd8ded98ea256376e90a341071d801f8665242aef82aea35818f2829ff7160b1"
+      },
+      {
+        "path": "_build/native/debug/test/cmd/cmd.internal_test.exe",
+        "bytes": 90254008,
+        "sha256": "c264331577ba81ea63906248f1f183b37864b0f6dccbe02d23382fe46560a3bf"
+      },
+      {
+        "path": "_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+        "bytes": 118246880,
+        "sha256": "90d3275c89cfe4924d0764dbb3b453ec42a5bc309f9287230ef1e035434ec5d6"
+      },
+      {
+        "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.blackbox_test.exe",
+        "bytes": 971160,
+        "sha256": "d40b48464b77149582d1937b9c9f859680197660f43acb5041bdfc4ac3a05676"
+      },
+      {
+        "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.internal_test.exe",
+        "bytes": 967032,
+        "sha256": "fda875938d60f31dd798dff204922b95a778373bfff2654ebacfa7ce05a4fa36"
+      },
+      {
+        "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+        "bytes": 967032,
+        "sha256": "73e9de2adb68c9d131ca14560845935dfe57834294fc8e948242fbc7b48c4cd2"
+      },
+      {
+        "path": "_build/native/debug/test/diff/diff.blackbox_test.exe",
+        "bytes": 1704688,
+        "sha256": "81c262b2f4b9e91600917794618c508d73c8b460f7f9b0ad15c58f67eef8ac30"
+      },
+      {
+        "path": "_build/native/debug/test/diff/diff.internal_test.exe",
+        "bytes": 962848,
+        "sha256": "21eafe4cf455f3f3dbe0161697151efaabe5997585c28b7076a25e3b6a057ec5"
+      },
+      {
+        "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.blackbox_test.exe",
+        "bytes": 91577928,
+        "sha256": "be66a93c3d8cfaa40719b79494d536c42e9759763265a74f7ef2a1993dac6233"
+      },
+      {
+        "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.internal_test.exe",
+        "bytes": 1463736,
+        "sha256": "bf2004ca6691effd69eb0e72a2188ae5f00341f978d4fceaec031fdeb9948b8f"
+      },
+      {
+        "path": "_build/native/debug/test/fs/fs.blackbox_test.exe",
+        "bytes": 1726768,
+        "sha256": "92915625d1d0b197e231941b1ccb7fe1fdf41e5604fce7005d956303e3cb3137"
+      },
+      {
+        "path": "_build/native/debug/test/fs/fs.internal_test.exe",
+        "bytes": 962320,
+        "sha256": "a1743a279b12cda6615c0d9ac61a6aab9941fb4a41a9d7a823e1ef2178a74e1f"
+      },
+      {
+        "path": "_build/native/debug/test/fuzz/fuzz.blackbox_test.exe",
+        "bytes": 103425168,
+        "sha256": "402fc57a570a7b6b33e66d9ba7d97d1e5cfeaeaca7ec2d76e7c16ff9fbcdc982"
+      },
+      {
+        "path": "_build/native/debug/test/fuzz/fuzz.internal_test.exe",
+        "bytes": 962848,
+        "sha256": "35c7ef820a77ad2d61e3c02ce6f2927932057b862bd4a99bcba8424a62b35edd"
+      },
+      {
+        "path": "_build/native/debug/test/fuzz/fuzz.whitebox_test.exe",
+        "bytes": 127232608,
+        "sha256": "bb8128c7c0053578b2f990b3e7ec507e88a6872f55a9e0df0d22c88f87f85e2e"
+      },
+      {
+        "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.blackbox_test.exe",
+        "bytes": 15517504,
+        "sha256": "8072d2381b07f175a7e3cf265449202448e63e471f2099509b141616a97b491c"
+      },
+      {
+        "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.internal_test.exe",
+        "bytes": 967256,
+        "sha256": "b0950132f215857f720952b7e160a65f5f96414370288a334cf95d8702257e74"
+      },
+      {
+        "path": "_build/native/debug/test/ir/ir.blackbox_test.exe",
+        "bytes": 29746824,
+        "sha256": "3b890c8435a4c9d6f2064cc4ea9bb47884037770348b43ce6ffa1af0a779a57d"
+      },
+      {
+        "path": "_build/native/debug/test/ir/ir.internal_test.exe",
+        "bytes": 7291368,
+        "sha256": "a81e6eb5ac04b69466add15158a65b01a9f45fb1f78a2c09abc03e60bbb343d1"
+      },
+      {
+        "path": "_build/native/debug/test/ir/ir.whitebox_test.exe",
+        "bytes": 44022240,
+        "sha256": "b4d95456cfaaab5e34bb16581d4526955c73d9c1269afff6853da583daf2beeb"
+      },
+      {
+        "path": "_build/native/debug/test/lib/lib.blackbox_test.exe",
+        "bytes": 2415648,
+        "sha256": "9f0a9d02af6391025c83eeff40cf5341c38f1abb310cea7597741ef46fed20c4"
+      },
+      {
+        "path": "_build/native/debug/test/lib/lib.internal_test.exe",
+        "bytes": 1680376,
+        "sha256": "94b4c7ac590bff5a6751d5526e6c65821ff0a1f431c6b5228241399c73adde43"
+      },
+      {
+        "path": "_build/native/debug/test/lib/lib.whitebox_test.exe",
+        "bytes": 4243080,
+        "sha256": "61e6dd9e57e39ef693e9e2e641c98ec2f1831efbe9676744d32a3774df9cfe10"
+      },
+      {
+        "path": "_build/native/debug/test/passes/passes.blackbox_test.exe",
+        "bytes": 328629352,
+        "sha256": "d699d531f0953bec97c66132879a019692af94e3a6008cb90e3b4ed1a72e4e5f"
+      },
+      {
+        "path": "_build/native/debug/test/passes/passes.internal_test.exe",
+        "bytes": 82112800,
+        "sha256": "e7be7e9428c400c2233fb96aa7a230df143fd164c502759b249de7b5c64cf867"
+      },
+      {
+        "path": "_build/native/debug/test/passes/passes.whitebox_test.exe",
+        "bytes": 219797960,
+        "sha256": "db2d829705ed7d418c89d7452754d51b888bd8f7bdae734c600714bfadc209e2"
+      },
+      {
+        "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.blackbox_test.exe",
+        "bytes": 77723072,
+        "sha256": "5f22163b7c41392498f8e8aeeec2340b1aef8fbe0fbd319761e945f0fb507201"
+      },
+      {
+        "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.internal_test.exe",
+        "bytes": 966728,
+        "sha256": "4405c0d06f5f143214a0b9649af911c11a2d09800850802f277f80bac15cfe86"
+      },
+      {
+        "path": "_build/native/debug/test/representation/representation.blackbox_test.exe",
+        "bytes": 969872,
+        "sha256": "338982d4a81e2f1817a7b7def4ecb4a8b7ab35764cb46eb521caea5b2e3e7ca0"
+      },
+      {
+        "path": "_build/native/debug/test/representation/representation.internal_test.exe",
+        "bytes": 965736,
+        "sha256": "ba4add5e8393d4259339a3784762f0e4e86f28557c1f1c6a3ad1eddec228197d"
+      },
+      {
+        "path": "_build/native/debug/test/representation/representation.whitebox_test.exe",
+        "bytes": 2900984,
+        "sha256": "35e5a03ad076c1423ecf7eeff4421a16af8ec5fb72e5acbdc1c7e45d2fae3f15"
+      },
+      {
+        "path": "_build/native/debug/test/rume/rume.blackbox_test.exe",
+        "bytes": 967208,
+        "sha256": "1f4d600b92c873a0fc070f2045bbfb4a6adee2f202f3ded41bc123202ca222d2"
+      },
+      {
+        "path": "_build/native/debug/test/rume/rume.internal_test.exe",
+        "bytes": 962848,
+        "sha256": "ae5e9fb3dc96393b214bf4eac26e7f74b6cf25db4e5cea67cd1273865db23bd8"
+      },
+      {
+        "path": "_build/native/debug/test/rume/rume.whitebox_test.exe",
+        "bytes": 10957192,
+        "sha256": "c65c129d9c5b628c2df7302285266bbcc9f8182abe1bd46a845e77d542ffba3c"
+      },
+      {
+        "path": "_build/native/debug/test/validate/validate.blackbox_test.exe",
+        "bytes": 19338560,
+        "sha256": "fd8d23e78bafc3baf13ad35aabbeaf889e0e1210d888f3299ac1cb5ddcacda00"
+      },
+      {
+        "path": "_build/native/debug/test/validate/validate.internal_test.exe",
+        "bytes": 38355280,
+        "sha256": "05856a1f19b3ad4edf40aa9e5eec16cd3d2850f22031ab762385ffef103b0aff"
+      },
+      {
+        "path": "_build/native/debug/test/validate/validate.whitebox_test.exe",
+        "bytes": 58415488,
+        "sha256": "f42aeebf9895495c15c9bbeb026da2250e3f9892016c46d38fdce8c8d0c00fe9"
+      },
+      {
+        "path": "_build/native/debug/test/validate_proof/validate_proof.blackbox_test.exe",
+        "bytes": 1610712,
+        "sha256": "1f1477eb3ab7100a6188a3a0aa400ba5ded8d5b287f5c71e4eae0d3933253e03"
+      },
+      {
+        "path": "_build/native/debug/test/validate_proof/validate_proof.internal_test.exe",
+        "bytes": 965968,
+        "sha256": "e3a57c455ad04a8cf575019eb8ad84a7b8b4491ea092824e7409ca83c23fbab3"
+      },
+      {
+        "path": "_build/native/debug/test/validate_trace/validate_trace.blackbox_test.exe",
+        "bytes": 6390776,
+        "sha256": "f108a4b07d9c1f403bac9d22b09b008d2851d65f3476900037977346896f17c7"
+      },
+      {
+        "path": "_build/native/debug/test/validate_trace/validate_trace.internal_test.exe",
+        "bytes": 965968,
+        "sha256": "a2ba5079033ffa98eb151fcdaea6e83ee6e33fad16e3ba91b2b3dffc82c18bed"
+      },
+      {
+        "path": "_build/native/debug/test/validate_trace/validate_trace.whitebox_test.exe",
+        "bytes": 6664048,
+        "sha256": "e09ce3020c6f06e97db22f295d6e1c89da2494e43c35e37d53500863a71ab3ed"
+      },
+      {
+        "path": "_build/native/debug/test/wast/wast.blackbox_test.exe",
+        "bytes": 17963800,
+        "sha256": "721a190fdeb4e50fcc73f7ce2880a3852e2e82ec534f9fe94df30f88314d22f7"
+      },
+      {
+        "path": "_build/native/debug/test/wast/wast.internal_test.exe",
+        "bytes": 21659344,
+        "sha256": "8303cef22084e657891adc58083dac23c05afe010e07f27020dc29546b637958"
+      },
+      {
+        "path": "_build/native/debug/test/wast/wast.whitebox_test.exe",
+        "bytes": 15752672,
+        "sha256": "3cda6208de4c48de5e11578b11998f2d355f6f7a7a45a832c17654ee7c9ec4e7"
+      },
+      {
+        "path": "_build/native/debug/test/wat/wat.blackbox_test.exe",
+        "bytes": 3925632,
+        "sha256": "2d2eb20ebf285c66060fdccb1b8d914b959f26c007eb91d73de09589952564fc"
+      },
+      {
+        "path": "_build/native/debug/test/wat/wat.internal_test.exe",
+        "bytes": 4475160,
+        "sha256": "883a72d3fdb7eaddcb6228fba1806487b0a9c10398f3f92bdd317a0dbf1f6736"
+      },
+      {
+        "path": "_build/native/debug/test/wat/wat.whitebox_test.exe",
+        "bytes": 5982336,
+        "sha256": "08e6f582e2267878cdbc132f3faa54b460c2d4914f707de04195662366684768"
+      }
+    ],
+    "oracle_version": "wasm-opt version 133 (version_133)",
+    "oracle_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+    "source_note": "All source is frozen at gate_head. Only documentation and evidence are added after gates."
+  }
+}
