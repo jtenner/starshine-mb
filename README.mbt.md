@@ -8,10 +8,8 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 ## Install in MoonBit
 
-The published package may differ from this source checkout.
-
 ```sh
-moon add jtenner/starshine@0.2.2
+moon add jtenner/starshine@0.3.0
 ```
 
 ## What You Can Do

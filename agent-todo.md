@@ -115,18 +115,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - Mooncakes `0.2.2` is published. The downloaded registry ZIP has 2,157
   members, all byte-identical to source checkpoint `0f9460d32`. Its tutorial
   is the baseline for the [0.3.0 release notes](docs/releases/0.3.0.md).
-- The owner previously authorized `0.3.0` for both registries, a full local test,
-  and an annotated tag with a detailed GitHub changelog. This superseded the old
+- The owner authorized `0.3.0` for both registries, a full local test, and an
+  annotated tag with a detailed GitHub changelog. This supersedes the old
   restriction that treated synchronized npm `0.2.2` as a private candidate.
   Its runtime/dependency guidance is superseded by the published `0.2.2` tutorial.
-- Mooncakes `0.2.2` is published and its default/latest overview renders the
-  complete reviewed MoonBit tutorial. The registry ZIP exactly matches the
+- Historical `0.2.2` qualification: Mooncakes `0.2.2` was published and its
+  default/latest overview rendered the complete reviewed MoonBit tutorial.
+  The registry ZIP exactly matches the
   qualified archive; literal registry tutorial/API consumers pass on WasmGC and
   native targets, including Node-free MoonGC, file/error checks and answer 42.
   All three eligible exact-head protected checks and package CI pass. Normal
   master advancement to `0f9460d32` completed without bypass or force; ordinary
   master workflow repeats are separate from preparation qualification.
-  npm remains `0.2.0`; synchronized npm `0.2.2` is an unpublished candidate.
+  At that checkpoint, npm remained `0.2.0`; synchronized npm `0.2.2` was an
+  unpublished candidate. That status is superseded by the published `0.3.0` release.
 - The automatic FFI-backed declarations, six-pass self-build and packed runtime
   boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
   Unsupported ABI mappings fail generation; root/subpaths share async ESM
@@ -144,9 +146,11 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   7,747 structural differences and raw total growth 25,882 remain open parity
   gaps. Preserve saved aggregate's zero-tee coverage limit and targeted profile
   evidence in [Vacuum signoff](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
-- The earlier release authorization is historical. Publication remains gated on
-  the current measurement backlog and release validation. Preserve open
-  memory and parity follow-ups.
+- `0.3.0` is published on npm and Mooncakes. The `v0.3.0` tag and GitHub
+  release were published on October 17, 2026. The measurement backlog and
+  release validation gate the next release. Preserve other worktrees, held
+  optimizer refs, and the open memory and parity follow-ups. Account permissions
+  and branch protections are unchanged.
 
 ### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
 
