@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Measured DAE item 8](binaryen/passes/dead-argument-elimination/starshine-strategy.md#measured-item-8) — Distinct-wide/dae CLI **58.888 → 55.983 ms (-4.34%)**, peak RSS **15,800 → 15,660 KiB**; optimizing CLI **59.147 → 55.953 ms (-5.03%)**, RSS **17,108 → 16,976 KiB**. Direct distinct index **2.320 → 1.916 ms/call (-17.18%)** carries the accepted peak RSS loss **6,744 → 8,816 KiB (+30.78%)**. Recursive index **1.599 → 0.584 ms (-63.36%)**, RSS **6,760 → 6,708 KiB**. Gates: 15,512 native tests and 14 CI fuzz suites pass; merge `d3f2307acb491895c28adb78bfb6e043e4a76697`.
+
 - [Measured DAE item 6](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-6) — Late rejection **0.023 → 0.012 ms/call (-49.65%)**, peak RSS **7,316 → 7,432 KiB**. Successful local flow costs **0.025 → 0.026 ms (+3.76%)**, RSS **7,348 → 7,356 KiB**. CLI evidence is neutral. Gates: 15,504 native tests and 14 CI fuzz suites pass; merge `377c0bd58da20a00c43d1f0addf734a98bec0a26`.
 
 - [Measured DAE item 5](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-5) — Recursive GC/descriptor/continuation dependency discovery **2.708 → 0.580 ms/call (-78.67%)**, peak RSS **9,944 → 9,968 KiB**; embedded definition **2.654 → 0.585 ms (-77.87%)**, RSS **9,992 → 9,996 KiB**. Pass-local gains have limited enclosing CLI benefit; no general memory gain. Gates: 15,501 native tests and 14 CI fuzz suites pass; merge `fb1e9cc9da182407813c01adbd3a58adcc2456ca`.
@@ -15,7 +17,6 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
 
-- [DAE structural signature keys](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-structural-existing-signature-keys) — Item 8 contract, focused checks and pending measurement workloads.
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.
 - [October 17 rough pass performance matrix](tooling/tracing-playbook.md#october-17-2026-rough-comparison-across-active-passes) — 61 paired pass sequences on small/mixed inputs and 59 on the large compiler, verified v133, corrected raw-path timer attribution, complete samples/sizes/coverage, and provisional improvement leads under host contention.

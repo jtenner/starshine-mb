@@ -54,6 +54,13 @@ This completed landing supersedes this item's earlier measurement-pending wordin
 Source `dae/item-04-group-base` at `28a5949d314bbad4078a0c8819c76def4f0e6f4f` lands as `eb0a9a2a9ce2278629cd717aca2e2e8e378f5d37` after 15,496/15,496 native tests, 14/14 CI fuzz suites, 100,764 attempts, seed 117504364697794335. The [campaign record](../../../../../experiment-results.md#item-4--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
 
 
+### Measured item 8
+
+This completed landing supersedes this item's earlier measurement-pending wording below. **GAIN:** Distinct-wide/dae CLI **58.888 → 55.983 ms (-4.34%)**, peak RSS **15,800 → 15,660 KiB**; optimizing CLI **59.147 → 55.953 ms (-5.03%)**, RSS **17,108 → 16,976 KiB**. Direct distinct index **2.320 → 1.916 ms/call (-17.18%)** carries the accepted peak RSS loss **6,744 → 8,816 KiB (+30.78%)**. Recursive index **1.599 → 0.584 ms (-63.36%)**, RSS **6,760 → 6,708 KiB**.
+
+Source `dae/item-08-signature-keys` at `5a53e2a90deb275ae3a0adb675a001faaecbc306` lands as `d3f2307acb491895c28adb78bfb6e043e4a76697` after 15,512/15,512 native tests, 14/14 CI fuzz suites, 100,771 attempts, seed 117504530116234628. The [campaign record](../../../../../experiment-results.md#item-8--landed-under-the-corrected-procedure) retains every workload/control row and the corrected gate investigation. No fresh general parity or combined-build timing claim is made.
+
+
 ## October 25, 2026: block-only liveness in the HOT fallback
 
 DAE and DAE-optimizing now call the existing

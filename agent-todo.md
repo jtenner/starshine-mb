@@ -11,22 +11,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
-## Next unreleased patch — DAE signature-key measurement [IR2-DAE-PERF-08]
+## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
-- **Goal / why:** measure the item 8 structural key change after the shared-host
-  restriction ends; removed string formatting does not itself prove a gain.
-- **Deliverables / tasks:** compare repeated equivalent and distinct wide
-  signatures, recursive signatures and small scalar controls; record allocation,
-  memory, pass-local and command costs.
-- **APIs / invariants:** `dae_simple_func_type_lookup`,
-  `dae_update_defined_func_type`, unread-parameter and dropped-result batches;
-  preserve metadata admission, exact spelling, first index and batch lifetime.
-- **Known risk:** the old renderer omits shared metadata in embedded subtype
-  definitions. Item 8 preserves that key equivalence; assess it in the separate
-  correctness sweep before changing key identity.
-- **Dependencies / exit / tests:** a host available for measurement and renewed
-  verified-v133 parity evidence; retain focused key, type-update and batch tests.
-  See the [implementation contract](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-structural-existing-signature-keys).
+- **Goal / why:** assess the existing embedded-subtype shared-metadata key
+  equivalence in the separate correctness sweep. The old renderer omits that
+  metadata; the landed structural key preserves the same equivalence.
+- **Deliverables / tasks:** establish a reachable semantic repro before changing
+  key identity; preserve exact spelling, metadata admission, first index,
+  ownership and batch lifetime. This is not a new memory-trade decision.
+- **APIs / invariants:** `dae_structural_func_type_lookup`,
+  `dae_update_defined_func_type`, unread-parameter and dropped-result batches.
+- **Dependencies / exit / tests:** renewed verified-v133 comparison evidence in
+  the next leased lane; retain key, type-update and batch regressions. The
+  [measured landing](experiment-results.md#item-8--landed-under-the-corrected-procedure)
+  closes the prior measurement task, with its accepted RSS cost explicit.
 
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
