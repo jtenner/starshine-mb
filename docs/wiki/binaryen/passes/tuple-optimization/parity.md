@@ -22,7 +22,7 @@ related:
 
 # `tuple-optimization` Binaryen Parity
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Durable Conclusions
 
@@ -390,7 +390,7 @@ Do not call tuple-opt done until all of these are true:
 - the explicit pass remains green on reduced native Binaryen comparison
 - the remaining exact-shape white-box failures are resolved or intentionally rebaselined
 - the pass lands in the real Binaryen slot with feature-off coverage
-- `moon build --target native --release src/cmd` followed by `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` is the current signoff shape; a merely present `target/native/...` artifact is not evidence of freshness without a timestamp/hash check (see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md))
+- Build the native command, then use the `tuple-optimization-all` profile with 10000 cases, a verified Binaryen v133 oracle, `--require-binaryen-version 133`, `--jobs auto`, `--max-subprocesses 8`, `--max-mismatch-artifacts 20`, and `--starshine-bin _build/native/release/build/cmd/cmd.exe`; see [`fuzzing.md`](fuzzing.md). A `target/native/...` artifact needs a timestamp or hash check to prove freshness.
 - the full debug-artifact compare stays canonically green enough to remain out of the active parity-blocker backlog
 
 ## Sources

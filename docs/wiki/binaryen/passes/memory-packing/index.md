@@ -29,7 +29,7 @@ related:
 
 # `memory-packing`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## September 25, 2026 partial-overlap interval union
 
@@ -109,7 +109,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Starshine now implements that released rule; existing v130 signoff remains historical, while the current closeout is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md). See [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
+- The v131 release includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Starshine now implements that released rule; existing v130 signoff remains historical, while the historical v131 closeout is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md). See [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
 
 ## Biggest beginner correction
 
@@ -170,7 +170,7 @@ The 2026-04-22 direct comparison and v130 closeout remain historical provenance,
 
 So the durable rule is:
 
-- use v132 for current release-anchored Starshine signoff; retain v131 signoff as historical evidence;
+- use v133 for current release-anchored Starshine signoff; retain v131 signoff as historical evidence;
 - treat the imported/zero-filled/in-allocation/source-order path as required released behavior, not arbitrary-overlap permission; and
 - keep checked bounds, page-size, memory64, source-order, and instantiation-trap conditions explicit whenever this folder discusses overlap.
 

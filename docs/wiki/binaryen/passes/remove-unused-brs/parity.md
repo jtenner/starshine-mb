@@ -26,7 +26,7 @@ related:
 
 # `remove-unused-brs` Binaryen Parity
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Durable Conclusions
 
@@ -136,7 +136,7 @@ related:
 - CLI and artifact replay coverage:
   [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - Local release-oracle watch:
-  Binaryen `version_131` was the oracle for this recorded parity matrix; current comparisons use v132. Its `RemoveUnusedBrs.cpp` is unchanged from v130, preserving the 2026-02-27 branch-to-trap behavior and relaxed JumpThreader one-child block retargeting behavior.
+  Binaryen `version_131` was the oracle for this recorded parity matrix; current comparisons use v133. Its `RemoveUnusedBrs.cpp` is unchanged from v130, preserving the 2026-02-27 branch-to-trap behavior and relaxed JumpThreader one-child block retargeting behavior.
 
 ## What Is Already In Good Shape
 

@@ -34,7 +34,7 @@ The branch-to-trap rewrite used to allocate a boolean array sized to the whole f
 
 The native-release helper benchmark in `src/passes/remove_unused_brs_sparse_seen_perf_wbtest.mbt` measured a one-node subtree in a 1,024-node arena at **289.96 to 73.21 ns** and a 4,096-node arena at **954.42 to 72.86 ns**. The 64-node control stayed at **67.37 to 64.76 ns**; a 128-node subtree stayed near **12 µs** (`11.92 → 12.11 µs` in a paired run). A focused test checks duplicate suppression across both promotion paths. Full-pass impact and allocated bytes remain unmeasured.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 Use this page together with the direct Binaryen `version_131` source/test URLs and the 2026-07-30 closeout evidence cited by the living dossier.
 For the compact strategy overview, see [`./starshine-strategy.md`](./starshine-strategy.md).

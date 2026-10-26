@@ -33,7 +33,7 @@ related:
 
 # Starshine Strategy For `string-lowering`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 Use this page together with its original `version_129` source URLs and the released v131 tag-type repair captured in the [v131 release-impact audit](../../release-horizon-and-oracles.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code surfaces that already handle wasm strings, and the main uncertainty a future parity port must resolve.

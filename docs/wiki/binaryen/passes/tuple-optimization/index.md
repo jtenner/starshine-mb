@@ -486,7 +486,7 @@ Scalar copy-source resolution now walks an alias chain iteratively and appends e
 
 The root passthrough-chain finder now collects local tee/set ancestors in one mutable array instead of copying a growing array on every recursive step. Its [native white-box benchmark](../../../../../src/passes/tuple_passthrough_chain_perf_wbtest.mbt) uses a constant nested through local tees and a terminal set: at 128 tees, mean helper time fell from `6.20` to `1.18 µs` (5.25×); at 256, from `13.05` to `2.22 µs` (5.88×). The direct chain-order assertion and 61 existing tuple optimization white-box tests pass. This is helper-level evidence, with full-pass impact still unmeasured.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## 2026-09-01 production candidate-free raw gate
 

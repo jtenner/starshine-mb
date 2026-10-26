@@ -21,7 +21,7 @@ related:
 
 # `memory-packing` Binaryen parity
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## September 12 size and scalability follow-up
 
@@ -155,7 +155,7 @@ The 2026-06-07 gap audit originally kept one main documented Binaryen gap around
 
 The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: local `wasm-opt --version` reported `version_130`, and the then-reviewed `main` source was byte-identical. It is no longer a current-main claim. Merged PR #8882 changed `MemoryPacking.cpp` on 2026-07-10 without adding a new pass option: when `zeroFilledMemory` is true and the sole memory is imported, Binaryen can handle a provably-in-allocation overlap by neutralizing earlier bytes trampled by later active segments before ordinary packing. See [`index.md`](index.md).
 
-This became a concrete released v131 parity gap and is now closed. Starshine's implementation follows the full source-order, checked bounds, fixed page-size, and memory64 proof rather than broadly permitting imported overlap. Existing v130 closeout evidence remains historical; the current signoff is the explicit-v131 closeout above.
+This became a concrete released v131 parity gap and is now closed. Starshine's implementation follows the full source-order, checked bounds, fixed page-size, and memory64 proof rather than broadly permitting imported overlap. Existing v130 closeout evidence remains historical; the explicit-v131 closeout above is historical evidence.
 
 ## Current evidence
 

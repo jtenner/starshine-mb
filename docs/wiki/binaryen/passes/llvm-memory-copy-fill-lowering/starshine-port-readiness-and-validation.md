@@ -21,7 +21,7 @@ related:
 
 ## Current hold point
 
-Starshine should still treat `llvm-memory-copy-fill-lowering` as **unknown** today. The public registry arrays in `src/passes/optimize.mbt:118-129` do not list the spelling as boundary-only, removed, or implemented.
+Starshine should still treat `llvm-memory-copy-fill-lowering` as **unknown** today. The public registry arrays in `src/passes/optimize.mbt` do not list the spelling as boundary-only, removed, or implemented.
 
 The local codebase already models the source opcodes, but a faithful port needs module-level helper-function synthesis and feature/validation policy, not just a single HOT rewrite.
 

@@ -18,11 +18,11 @@ related:
 
 # Binaryen `pick-load-signs` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Upstream source rule
 
-Treat Binaryen `version_131` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [research note 1572](./index.md).
+Treat Binaryen `version_131` as historical primary source provenance for this pass; new comparisons use a verified `version_133` baseline. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [research note 1572](./index.md).
 
 Primary files:
 

@@ -28,7 +28,7 @@ related:
 
 # Binaryen `remove-unused-brs` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 This page is the source-backed answer to four questions:
 
@@ -39,7 +39,7 @@ This page is the source-backed answer to four questions:
 
 ## Upstream source rule
 
-The recorded v131 closeout used Binaryen `version_131` as the normative oracle for this page; current comparisons use v132. The 2026-07-30 closeout used the verified official `wasm-opt version 131 (version_131)` binary, and the tagged `RemoveUnusedBrs.cpp` is unchanged from v130.
+The recorded v131 closeout used Binaryen `version_131` as the normative oracle for this page; current comparisons use v133. The 2026-07-30 closeout used the verified official `wasm-opt version 131 (version_131)` binary, and the tagged `RemoveUnusedBrs.cpp` is unchanged from v130.
 
 The core source stack is:
 

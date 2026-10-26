@@ -35,7 +35,7 @@ The local codebase does already understand the underlying instructions, and the 
 - Binary encoding writes the bulk-memory prefix/opcodes for `MemoryCopy` and `MemoryFill` in `src/binary/encode.mbt:3055-3074`.
 - Typechecking dispatches to `typecheck_memory_copy` and `typecheck_memory_fill` in `src/validate/typecheck.mbt:3137-3138`.
 - HOT lift/lower can roundtrip `MemoryCopy` and `MemoryFill` via `src/ir/hot_lift.mbt:717-718` and `src/ir/hot_lower.mbt:970-977`.
-- The pass registry arrays in `src/passes/optimize.mbt:107-129` do not list `llvm-memory-copy-fill-lowering` as hot, module, boundary-only, or removed.
+- The pass registry arrays in `src/passes/optimize.mbt` do not list `llvm-memory-copy-fill-lowering` as hot, module, boundary-only, or removed.
 
 So the honest local status is: representation yes, transformation pass no.
 

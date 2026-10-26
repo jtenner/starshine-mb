@@ -38,7 +38,7 @@ related:
 
 # Starshine Strategy For `reorder-globals`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 Use this page together with the retained current-main freshness research recheck in [research note 0689](./index.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas around the accepted public late-tail suffix and any broader widening beyond it.
@@ -99,7 +99,7 @@ The fastest read-along path through the current Starshine status is:
   - [`agent-todo.md`](../../../../../agent-todo.md)
     - the dedicated `RG` replay blocker is closed; remaining broader-widening gating now lives under shared late-tail scheduling work
 - canonical scheduler context
-  - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
+  - [`../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape`](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
     - the canonical late-tail slot `string-gathering -> reorder-globals -> directize`
 - neighboring living dossiers the accepted public late-tail suffix still must line up with
   - [`../string-gathering/index.md`](../string-gathering/index.md)
@@ -271,7 +271,7 @@ Current Starshine `reorder-globals` strategy is direct public-pass support plus 
 - focused coverage lives in [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
 - `reorder-globals` is registered as an active module pass while `reorder-globals-always` remains boundary-only
 - [`agent-todo.md`](../../../../../agent-todo.md) records the remaining broader-widening follow-up under shared scheduling work rather than a dedicated `RG` replay item
-- the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
+- the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape`](../../no-dwarf-default-optimize-path.md#canonical-full-top-level-shape)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers define the remaining landing zone
 
 So the right mental model today is:

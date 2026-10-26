@@ -30,7 +30,7 @@ related:
 
 # Starshine `precompute` port readiness and validation
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 This page is the maintenance and validation bridge for Starshine's active `precompute` pass. The July 26, 2026 correctness-repair renewal historically re-established Binaryen-v131-or-better behavior parity for the public plain and propagating variants while retaining Starshine's stricter reachable-`atomic.fence` ordering boundary.
 The direct oracle for that renewal was Binaryen [`version_131`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Precompute.cpp). Its `Precompute.cpp` was byte-identical to the previously reviewed v130 source, and the full v131 fixture, fuzz, runtime/idempotence, self-hosting, and performance matrix was rerun explicitly against v131. New signoff uses the verified Binaryen 132 oracle documented in the current fuzzing pages.
@@ -117,9 +117,9 @@ Starshine covers the v131 responsibilities that matter to public pass behavior: 
 
 Before changing rewrite semantics, keep these public surfaces green:
 
-- [`src/passes/optimize.mbt:207-215`](../../../../../src/passes/optimize.mbt) registers the active `precompute` hot pass.
-- [`src/passes/optimize.mbt:254-276`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:394-417`](../../../../../src/passes/optimize.mbt) keep two `precompute` slots in both optimize and shrink presets.
-- [`src/passes/registry_test.mbt:110-166`](../../../../../src/passes/registry_test.mbt) and [`src/passes/optimize_test.mbt:290-334`](../../../../../src/passes/optimize_test.mbt) prove those user-visible placements.
+- [`src/passes/optimize.mbt:220-222`](../../../../../src/passes/optimize.mbt) registers the active `precompute` hot pass.
+- [`src/passes/optimize.mbt:939-941`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:977-979`](../../../../../src/passes/optimize.mbt) select `precompute` or `precompute-propagate` at two function-pipeline slots according to the optimization and shrink levels.
+- [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) and [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) prove those user-visible placements.
 
 ### 2. Prefer small trap-free scalar or module-constant additions
 
@@ -145,7 +145,7 @@ Use this order for future work:
 
 1. Add or update a focused `src/passes/precompute_test.mbt` case for the exact before/after shape.
 2. Confirm registry, preset, and raw-skip trace tests still pass if the user-visible summary, pass placement, or pass-manager shortcut behavior changes.
-3. Compare the new family against Binaryen with pass-targeted fuzzing where possible: `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass precompute ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` in this checkout, or the repository's equivalent pass-fuzz command with the same explicit parallel/binary flags. Use `target/native/release/build/cmd/cmd.exe` only if a future build actually restores that path.
+3. Compare the new family with pass-targeted fuzzing: build with `moon build --target native --release src/cmd`, then use the documented `precompute-all` profile with a verified Binaryen v133 oracle, `--require-binaryen-version 133`, `--jobs auto`, `--max-subprocesses 8`, `--max-mismatch-artifacts 20`, and `--starshine-bin _build/native/release/build/cmd/cmd.exe`. See [`fuzzing.md`](fuzzing.md). Treat `target/native/...` as stale unless its timestamp or hash proves it was refreshed.
 4. For control/root-shape rewrites, run full-module validation and keep the `skip-invalid-lower` trace negative unless the test intentionally proves a skip.
 5. For artifact-sensitive changes, replay the existing `src/cmd/cmd_wbtest.mbt` lanes before claiming parity improvement.
 

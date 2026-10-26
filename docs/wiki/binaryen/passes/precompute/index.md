@@ -45,7 +45,7 @@ length. An unknown length can be negative and trap before `ref.is_null` returns;
 the [dynamic-length regression](../../../../../src/passes/precompute_array_trap_campaign_test.mbt)
 failed before the guard and passes afterward.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Binaryen 132 update
 
@@ -105,7 +105,7 @@ Wasm abstract execution and the v132 oracle do not expose.
 ## Role
 
 - `precompute` is an active implemented **hot pass** in Starshine.
-- The historical Binaryen `version_131` source and executable reconciliation confirmed that the upstream family has **two public names**; new comparisons use the v132 baseline:
+- The historical Binaryen `version_131` source and executable reconciliation confirmed that the upstream family has **two public names**; new comparisons use the v133 baseline:
   - `precompute`
   - `precompute-propagate`
   The older `version_129` investigation remains historical provenance; it is no longer the current release baseline.

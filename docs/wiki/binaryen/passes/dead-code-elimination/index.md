@@ -38,7 +38,7 @@ related:
 
 # `dead-code-elimination`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Role
 
@@ -138,7 +138,7 @@ The same date's direct debug-artifact compare first exposed type-index-only cano
 
 So the tagged source remains a strong current oracle for this folder, and the active Starshine direct pass plus the ordered DCE prefix are re-proven under the refreshed mixed-generator compare lane.
 
-The July 17 batch-writeback repair added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize. The recorded measurements used historical Binaryen v130; new comparison signoff uses Binaryen 132.
+The July 17 batch-writeback repair added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize. The recorded measurements used historical Binaryen v130; new comparison signoff uses Binaryen 133.
 
 ## 2026-09-02 artifact-scale performance closure
 

@@ -130,7 +130,7 @@ the fixed fixture. It does not measure engine speed or pass wall time and does
 not classify other merge-blocks shapes. Exact measurement and replay records are
 local at `/tmp/starshine-small-shape-review/{measurements,live-summary,aggregate-hash-summary}.json`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Earlier sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 Durable baseline totals and tool identities are in the
 [October 9 evidence ledger](../../../raw/tooling/2026-10-09-output-differences-v133.json).

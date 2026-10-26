@@ -27,7 +27,7 @@ related:
 
 Starshine currently has no `llvm-memory-copy-fill-lowering` pass.
 
-This is stronger than “not implemented yet but tracked”: the public pass registry arrays do not include the upstream name in `src/passes/optimize.mbt:107-129`. A user request for this exact pass should therefore be treated as unknown unless a future registry-honesty change adds it as `BoundaryOnly`, `Removed`, or implemented.
+This is stronger than “not implemented yet but tracked”: the public pass registry entries do not include the upstream name in `src/passes/optimize.mbt`. A user request for this exact pass should therefore be treated as unknown unless a future registry-honesty change adds it as `BoundaryOnly`, `Removed`, or implemented.
 
 ## Existing reusable infrastructure
 

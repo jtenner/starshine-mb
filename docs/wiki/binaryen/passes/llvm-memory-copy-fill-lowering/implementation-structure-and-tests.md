@@ -60,7 +60,7 @@ Minimum owner responsibilities:
 | `src/validate/validate.mbt:2086-2118` | Data-count requirement tracks `MemoryInit` / `DataDrop`, not `MemoryCopy` / `MemoryFill`. |
 | `src/ir/hot_lift.mbt:717-718` | HOT lift recognizes `MemoryCopy` and `MemoryFill`. |
 | `src/ir/hot_lower.mbt:970-977` | HOT lower can emit `MemoryCopy` and `MemoryFill` back to lib IR. |
-| `src/passes/optimize.mbt:118-129` | Public boundary-only registry names omit `llvm-memory-copy-fill-lowering`; current requests should be unknown, not boundary-only. |
+| `src/passes/optimize.mbt` | Public boundary-only registry names omit `llvm-memory-copy-fill-lowering`; current requests should be unknown, not boundary-only. |
 
 ## Regression tests to add if implemented
 

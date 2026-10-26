@@ -38,7 +38,7 @@ It is a small function-parallel postwalk that:
 
 ## Upstream source rule
 
-Use Binaryen `version_132` as the current comparison oracle for this pass; the v130 source review remains historical provenance.
+Use a verified Binaryen `version_133` oracle for new comparisons for this pass; the v130 source review remains historical provenance.
 
 Primary files:
 
