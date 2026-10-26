@@ -1,6 +1,6 @@
 ### 2026-10-26, Baseline documentation refresh audit
 
-- Reviewed assigned historical sources and log scope against master `984523889116a32341718f66f34554bb5d464d43`. Historical raw captures and dated log entries retain their original context. The [release and measurement backlog](../../agent-todo.md) remains open; this refresh does not establish release signoff.
+- Reviewed assigned historical sources and log scope against master `984523889116a32341718f66f34554bb5d464d43`. Historical raw captures and dated log entries retain their original context. The [measurement backlog](../../agent-todo.md) remains open for the next release; this refresh does not establish that release's signoff.
 
 ### 2026-10-26 — Daybreak F14 measured and gated
 
