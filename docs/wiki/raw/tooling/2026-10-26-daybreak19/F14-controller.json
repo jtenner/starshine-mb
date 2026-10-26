@@ -1,0 +1,139 @@
+{
+  "phases": [
+    {
+      "phase": "build-baseline",
+      "command": [
+        "moon",
+        "bench",
+        "--build-only",
+        "--target",
+        "native",
+        "--release",
+        "--warn-list",
+        "-a",
+        "--package",
+        "jtenner/starshine/daybreak19_measure",
+        "--file",
+        "daybreak19_f14_perf_wbtest.mbt"
+      ],
+      "cwd": "/tmp/daybreak19/F14/baseline",
+      "state": "exited",
+      "start": "2026-10-26T10:25:36.477731+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:25:56.860452+00:00"
+    },
+    {
+      "phase": "build-candidate",
+      "command": [
+        "moon",
+        "bench",
+        "--build-only",
+        "--target",
+        "native",
+        "--release",
+        "--warn-list",
+        "-a",
+        "--package",
+        "jtenner/starshine/daybreak19_measure",
+        "--file",
+        "daybreak19_f14_perf_wbtest.mbt"
+      ],
+      "cwd": "/tmp/daybreak19/F14/candidate",
+      "state": "exited",
+      "start": "2026-10-26T10:25:56.860738+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:26:17.556884+00:00"
+    },
+    {
+      "phase": "runtime-round1",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/sample.py",
+        "/tmp/daybreak19/F14",
+        "daybreak19_measure",
+        "13",
+        "paired",
+        "round1"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:26:22.348861+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:28:11.897094+00:00"
+    },
+    {
+      "phase": "evaluate-round1",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/round1.py",
+        "/tmp/daybreak19/F14"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:28:11.897302+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:28:11.931260+00:00"
+    },
+    {
+      "phase": "runtime",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/sample.py",
+        "/tmp/daybreak19/F14",
+        "daybreak19_measure",
+        "13"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:28:11.981145+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:29:22.329655+00:00"
+    },
+    {
+      "phase": "build-allocation",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/link-allocation.py",
+        "/tmp/daybreak19/F14",
+        "daybreak19_measure"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:29:22.329928+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:29:41.016950+00:00"
+    },
+    {
+      "phase": "allocation",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/sample.py",
+        "/tmp/daybreak19/F14",
+        "daybreak19_measure",
+        "13",
+        "allocation-v2"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:29:41.017243+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:32:32.673096+00:00"
+    },
+    {
+      "phase": "aggregate",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/aggregate.py",
+        "/tmp/daybreak19/F14"
+      ],
+      "cwd": "/tmp/daybreak19/F14",
+      "state": "exited",
+      "start": "2026-10-26T10:32:32.673377+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T10:32:32.712934+00:00"
+    }
+  ],
+  "controller_pid": 2124480,
+  "state": "complete",
+  "stage": "finish"
+}

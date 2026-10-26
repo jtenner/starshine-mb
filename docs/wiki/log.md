@@ -1,3 +1,7 @@
+### 2026-10-26 — Daybreak F14 measured and gated
+
+- F14 has measured native argument-normalization gains with no confirmed loss. One ordinary path costs 0.05258 -> 0.03102 us (-40.99%) for a short path and 0.05105 -> 0.03348 us (-34.41%) for a long path. 64 ordinary paths improve 87.25-87.55%; 512 short paths improve 12.78056 -> 1.33663 us (-89.54%) and long paths improve 89.44%. Raw allocations fall 70.004 -> 6.001 per 64-path call and 521.037 -> 9.003 per 512-path call, removing one temporary per ordinary argument. No-path control time is neutral (-0.62%) and allocations remain 2.000. All candidate observations retain exact leading/trailing/whitespace-only paths and order. These changed-output cases are diagnostic; their speed differences are not used as same-work performance gains. Full native: 15532 passed, zero failed. All 14 CI fuzz suites pass (100757 attempts). Both gates exit zero with verified Binaryen 133 and .tmp present. [Frozen source, raw samples and gate identity](raw/tooling/2026-10-26-daybreak19/F14-signoff.json).
+
 ### 2026-10-26 — Daybreak F06 measured and gated
 
 - Valid scalar WAST lowering costs 72.954 -> 71.320 us for 256 signed-small constants (-2.24%); signed minimum 85.392 -> 83.038 us (-2.76%); unsigned cases -1.98% and -2.43%. The unchanged no-constant control is +0.65%; AA/BB drift reaches 2.07% for valid cases. Treat these small gains conservatively as neutral. Valid-input raw allocations and bytes are unchanged within amortized setup noise; native RSS is within same-build variation. Both invalid bounds now reject with the expected range error; their shorter rejection paths are diagnostic only. All 140 samples started at or below 65 C (maximum 64.875 C), peak 77.75 C; none paused or discarded. Full native: 15528 passed, zero failed. All 14 CI fuzz suites pass (100757 attempts). Both gates exit zero with verified Binaryen 133 and .tmp present. [Frozen source, raw samples and gate identity](raw/tooling/2026-10-26-daybreak19/F06-signoff.json).
@@ -28267,3 +28271,13 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Added bounded tests for imported/defined tag identity, unrelated import kinds, unchanged declarations, absent/empty imports, and invalid function types. The invalid-type test first failed in the old HOT context builder.
 - Focused validation passes 22/22 tests (21 white-box and one internal). The `moon test` launcher hit the shared host process limit after compilation; direct `moonrun` execution of the current compiled test drivers passed the selected files and indices.
 - Performance remains unmeasured. Defined-tag modules with many unrelated declarations, with/without foldable catches, and tagless/imported-only controls await a measurement slot. No full suite, fuzz, or timing runs are part of this change.
+### 2026-10-25 — Preserve legacy spec runner path arguments
+
+- Fixed F14 by copying each argument after `argv[0]` unchanged, without
+  trimming or filtering. Leading, trailing, and whitespace-only names survive.
+- Retained the committed verification harness and exact-source red evidence
+  from `7e10d18d` (1 passed, 3 failed); the focused native package now passes
+  all 4 tests. No suite, fuzz, benchmark, timing, or agent run was made.
+- Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
+  Legacy package/filesystem/WASI integration remains active backlog work;
+  these unit tests do not establish a working legacy executable.

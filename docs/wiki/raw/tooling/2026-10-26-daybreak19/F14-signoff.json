@@ -1,0 +1,321 @@
+{
+  "item": "F14",
+  "original_branch": "fix/db-14-spec-runner-path-trim",
+  "original_head": "1aa8a77a571c491e3e1b553bfac60dce90a3a41b",
+  "baseline_master": "82dea24a86a67a15594c3ddd4a4278d93fe93940",
+  "rebased_fix_head": "7eae980992b867159d0fc99cf9bc3d88f1fb1cf4",
+  "gate_head": "98773e893a1d852de3fc862cf1f84c16f366bae7",
+  "native_tests_passed": 15532,
+  "native_tests_failed": 0,
+  "ci_fuzz_suites_passed": 14,
+  "ci_fuzz_attempts": 100757,
+  "native_exit_code": 0,
+  "fuzz_exit_code": 0,
+  "verdict": "gain",
+  "measurement_reason": "F14 has measured native argument-normalization gains with no confirmed loss. One ordinary path costs 0.05258 -> 0.03102 us (-40.99%) for a short path and 0.05105 -> 0.03348 us (-34.41%) for a long path. 64 ordinary paths improve 87.25-87.55%; 512 short paths improve 12.78056 -> 1.33663 us (-89.54%) and long paths improve 89.44%. Raw allocations fall 70.004 -> 6.001 per 64-path call and 521.037 -> 9.003 per 512-path call, removing one temporary per ordinary argument. No-path control time is neutral (-0.62%) and allocations remain 2.000. All candidate observations retain exact leading/trailing/whitespace-only paths and order. These changed-output cases are diagnostic; their speed differences are not used as same-work performance gains.",
+  "tested_native_artifacts": [
+    {
+      "path": "_build/native/debug/build/fuzz/fuzz.exe",
+      "bytes": 87946368,
+      "sha256": "f45973296bd6ef51b7fea8561cf8afed2a4834b79ead37f8c58eb1b57d367bc0"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.blackbox_test.exe",
+      "bytes": 967744,
+      "sha256": "eda52680106a8ebdcd66ae12b0c9d24a2b5e765a036ae6a5977f5ed25e59616c"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.internal_test.exe",
+      "bytes": 963384,
+      "sha256": "81cf9f674e7fd55a5c0ea6de49d3fcb51fbadb314ae249d8582453d20ccce453"
+    },
+    {
+      "path": "_build/native/debug/test/binary/binary.whitebox_test.exe",
+      "bytes": 34896920,
+      "sha256": "627f589d54745407f22f1507f4c63f1942e8456f8fab7617effaf9b87f16ec34"
+    },
+    {
+      "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.blackbox_test.exe",
+      "bytes": 969296,
+      "sha256": "36f0a4cc622916aca203ce451ea64c216f7022d4258b425fd9a6cc71c3ea9934"
+    },
+    {
+      "path": "_build/native/debug/test/binary_fuzz/binary_fuzz.internal_test.exe",
+      "bytes": 965160,
+      "sha256": "03d6e999a2a73140e7b5138e3e6c746facbf896c915b89b2018bc270695b0301"
+    },
+    {
+      "path": "_build/native/debug/test/bitset/bitset.blackbox_test.exe",
+      "bytes": 1549096,
+      "sha256": "f499b51ef81b3844058d3bb3ed1755f07733646e41f625e4294a9fb9a0b91384"
+    },
+    {
+      "path": "_build/native/debug/test/bitset/bitset.internal_test.exe",
+      "bytes": 963384,
+      "sha256": "662d25a171e3a30480d575e504c174fe17fa523582c27d71cb5b0d52248fd232"
+    },
+    {
+      "path": "_build/native/debug/test/cli/cli.blackbox_test.exe",
+      "bytes": 2747328,
+      "sha256": "27ee19e3e7fcee3ff4eb6bfb3780c228159b8a27a9a6a5f0fab84493201acbb8"
+    },
+    {
+      "path": "_build/native/debug/test/cli/cli.internal_test.exe",
+      "bytes": 962584,
+      "sha256": "4d966097cc64db4df8c1188fc5fa3883fee628ef1b3b7a7268d05719d2ca5388"
+    },
+    {
+      "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.blackbox_test.exe",
+      "bytes": 2094456,
+      "sha256": "9e6bd326bf3a6bd2da6b62059872a008a3fa188cbf1bc6666fc1975423f08138"
+    },
+    {
+      "path": "_build/native/debug/test/cli-benchmarks/cli-benchmarks.internal_test.exe",
+      "bytes": 966200,
+      "sha256": "6dfc0aaa099dddd7d4a8ad189666ad1494bdea0a47ee66e8a966a64e8453df59"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.blackbox_test.exe",
+      "bytes": 84092920,
+      "sha256": "23f69c67ee2fe54eb1c3974d34fe52f7e62f0ac74d942e9a5ca94b7e3a44e813"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.internal_test.exe",
+      "bytes": 90254008,
+      "sha256": "2ba8cdd7719da3300b075726f54dc8185416d824443393f2ed0227aa02da394b"
+    },
+    {
+      "path": "_build/native/debug/test/cmd/cmd.whitebox_test.exe",
+      "bytes": 118246880,
+      "sha256": "4a5159c0d846ecb0efe894a27bbcc4b3cb60c412015851250ee18afc39ad19a0"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.blackbox_test.exe",
+      "bytes": 971160,
+      "sha256": "7e51747bb43c434d121ea4e5519461dd7a683535e5a2e4b59a731fe443cd75e1"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.internal_test.exe",
+      "bytes": 967032,
+      "sha256": "ce96c7c0555b972cdd5e91c2c7c7338d82dd15149e85f2ab4374b1e1bbba41e2"
+    },
+    {
+      "path": "_build/native/debug/test/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+      "bytes": 1477128,
+      "sha256": "074f6b8b0d84b191bc0b72f2b29584dc684b5843ecd34be05c45d8926beb8850"
+    },
+    {
+      "path": "_build/native/debug/test/diff/diff.blackbox_test.exe",
+      "bytes": 1704688,
+      "sha256": "f97cdffe3aee2e71fc7dca6db47ff9826737d39f28ea045006cda6f7bcd2f463"
+    },
+    {
+      "path": "_build/native/debug/test/diff/diff.internal_test.exe",
+      "bytes": 962848,
+      "sha256": "3534e829718965e4b8bbabdad99a168e059e4ce7807beec6478bb016c782201d"
+    },
+    {
+      "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.blackbox_test.exe",
+      "bytes": 91577928,
+      "sha256": "282845947a3476537440b591d48d73cdea3ea34e8bc6f5176b84f16a16026375"
+    },
+    {
+      "path": "_build/native/debug/test/ffi_bridge/ffi_bridge.internal_test.exe",
+      "bytes": 1463736,
+      "sha256": "7c1a358c793c501b13872fb2358dd946731f2fb4df01e646e23d53f839ea6508"
+    },
+    {
+      "path": "_build/native/debug/test/fs/fs.blackbox_test.exe",
+      "bytes": 1726768,
+      "sha256": "62ba59a2d19c6d8c2a9a0d8ff219c9a3afddd1a2ba44ca183d570be2d5528c0a"
+    },
+    {
+      "path": "_build/native/debug/test/fs/fs.internal_test.exe",
+      "bytes": 962320,
+      "sha256": "b5d001f90bcf5824b08a9466bef6bd2f88ea70bd901ba8fe614f5aa6caa497e0"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.blackbox_test.exe",
+      "bytes": 103425168,
+      "sha256": "2db7708a224f56dfe23eb3ee983e4be4aefb958386e39dc06ec0410998688ee3"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.internal_test.exe",
+      "bytes": 962848,
+      "sha256": "1a618ca5602f7f22358be86ff31fed79638df2c6b3beb9f5d56a93f0741726b6"
+    },
+    {
+      "path": "_build/native/debug/test/fuzz/fuzz.whitebox_test.exe",
+      "bytes": 127232608,
+      "sha256": "c99985ec648febd3ea90c0db2c0c07b1b98c2613275a8bde4d960088499b232c"
+    },
+    {
+      "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.blackbox_test.exe",
+      "bytes": 15517504,
+      "sha256": "5132f6b1918b18de68a2d58e62e99fe0751201c512b126bad00de78703c3e619"
+    },
+    {
+      "path": "_build/native/debug/test/hot_identity_trace/hot_identity_trace.internal_test.exe",
+      "bytes": 967256,
+      "sha256": "c25b8cd94762255f7f950155b3ea5f3392cb0deaab028abb4d60cb97058ed510"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.blackbox_test.exe",
+      "bytes": 29746824,
+      "sha256": "361964c0e23f78ef182718b24c60e0503806ce07c34b7b87aefd4d19a6d4e52c"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.internal_test.exe",
+      "bytes": 7291368,
+      "sha256": "59270edec8f7ff3d922631ece35272b011a710f2f31554b54f651b11e380d7a1"
+    },
+    {
+      "path": "_build/native/debug/test/ir/ir.whitebox_test.exe",
+      "bytes": 44022240,
+      "sha256": "ee9d0627a1e075bd1c14b309182e6102fe197838f436f9fe3ac89a9249f6ab80"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.blackbox_test.exe",
+      "bytes": 2415648,
+      "sha256": "32100f5aa258ae199e56703957345bfcdaf451f24f73691e38d289dd65e88d84"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.internal_test.exe",
+      "bytes": 1680376,
+      "sha256": "2718860bffdf27e2405703823b0453f1e35b162cf428f51ffaa95152ac68c04a"
+    },
+    {
+      "path": "_build/native/debug/test/lib/lib.whitebox_test.exe",
+      "bytes": 4243080,
+      "sha256": "48485e461811cafe90933d0165a5744fbb680b49d1149f9ef502384e6117bacf"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.blackbox_test.exe",
+      "bytes": 328629352,
+      "sha256": "7bdcacd4789b6974fae915b4f83eb81e84bb426b8650e399f71b3e36b1929a56"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.internal_test.exe",
+      "bytes": 82112800,
+      "sha256": "a5bc9e9f4c494f63a723440bb25fe4f02b7eb565aa0f8da44147126232cf9aad"
+    },
+    {
+      "path": "_build/native/debug/test/passes/passes.whitebox_test.exe",
+      "bytes": 219797960,
+      "sha256": "a8327311c87854bdf1321ceac00f42a192236782ecff104d90cd18ba6d63e9f2"
+    },
+    {
+      "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.blackbox_test.exe",
+      "bytes": 77723072,
+      "sha256": "c91c2cafd4d5b2077746169a37efe6fd006a5de55841588235023baac291c305"
+    },
+    {
+      "path": "_build/native/debug/test/passes_perf_long/passes_perf_long.internal_test.exe",
+      "bytes": 966728,
+      "sha256": "1ef02b6f43e7063aec899c8835abbe2b05ce34c0186155bca606dbeaf1538dbe"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.blackbox_test.exe",
+      "bytes": 969872,
+      "sha256": "68b7eabdcadf382660a168fb945fa33f2c395252924cca3e9bafa15c7259fd19"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.internal_test.exe",
+      "bytes": 965736,
+      "sha256": "75bc5bc61e4352823bd8f3b94f0853d11d169216c11268fbb6f273be9afbd6e0"
+    },
+    {
+      "path": "_build/native/debug/test/representation/representation.whitebox_test.exe",
+      "bytes": 2900984,
+      "sha256": "d26e0fe8168267ab22be871455d4e5812bc55023ebf1ca45f0610edff7943bd8"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.blackbox_test.exe",
+      "bytes": 967208,
+      "sha256": "b171699498ea01c10d3bd6f984dde5145a39c9a27c68654eea39110d42c441a3"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.internal_test.exe",
+      "bytes": 962848,
+      "sha256": "fed33e0bafd97753b36116714be511eb7a74fa6567ae9130665beb2e332055bb"
+    },
+    {
+      "path": "_build/native/debug/test/rume/rume.whitebox_test.exe",
+      "bytes": 10957192,
+      "sha256": "148b9871769acb9096eda5cdce72117e6367bc7c242f6baa046e9146004a3d0e"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.blackbox_test.exe",
+      "bytes": 19338560,
+      "sha256": "ce3e38af63507ac70fa50edb1576df528c8464b06439f49a8d4b1c37b5f6bb27"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.internal_test.exe",
+      "bytes": 38355280,
+      "sha256": "6489f9ba711f81afc4d74ab36e71aa5508057b2ddca89b1e393627b047074e3a"
+    },
+    {
+      "path": "_build/native/debug/test/validate/validate.whitebox_test.exe",
+      "bytes": 58415488,
+      "sha256": "7657d34408c53acdda2b980fee10453f82637f7c345e61773ff3e578f70eeba3"
+    },
+    {
+      "path": "_build/native/debug/test/validate_proof/validate_proof.blackbox_test.exe",
+      "bytes": 1610712,
+      "sha256": "f4c8b2acd798c8f31990649a76f292584cafaecffba5d6ffab18f4d6e1fba293"
+    },
+    {
+      "path": "_build/native/debug/test/validate_proof/validate_proof.internal_test.exe",
+      "bytes": 965968,
+      "sha256": "aafb304df08869ff597343ec4008f3bf7c225297f1d63ccae6a2e163e95f7fcc"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.blackbox_test.exe",
+      "bytes": 6390776,
+      "sha256": "cd06971fcc8f940c5e3d8b50636368a8f60aa1e6afdf4c1352246530839df735"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.internal_test.exe",
+      "bytes": 965968,
+      "sha256": "7c95a80990f8da64f6e26c377ca495a55e00a21dcb098f943a8d0a823f5d62bd"
+    },
+    {
+      "path": "_build/native/debug/test/validate_trace/validate_trace.whitebox_test.exe",
+      "bytes": 6664048,
+      "sha256": "c7d385b3f988473e71ee8b0bb4c0918201869468c81d3cd031b9c4c6630be493"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.blackbox_test.exe",
+      "bytes": 17963800,
+      "sha256": "9cbab27a27c3018d97be94710c3f6b0732c327b4da7458464a96756650795a00"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.internal_test.exe",
+      "bytes": 21659344,
+      "sha256": "35674f02bc0d7f0dc32763012cfec12075ddd295562246bea17b8a03ef1da161"
+    },
+    {
+      "path": "_build/native/debug/test/wast/wast.whitebox_test.exe",
+      "bytes": 15752672,
+      "sha256": "bf1e67e079b4ac6463b55dbd617f861f2518fbc38c94b1a26d42a04fdfb2b8df"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.blackbox_test.exe",
+      "bytes": 3925632,
+      "sha256": "a84b3ff5c943ad93f52880899e7fd02b53f80cfeb1c4120633defe5e48403eb2"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.internal_test.exe",
+      "bytes": 4475160,
+      "sha256": "f9cf0c8dd225edebd9525a3ffcb853f71ceea29049eaeb90c3d1af94ac5e27d3"
+    },
+    {
+      "path": "_build/native/debug/test/wat/wat.whitebox_test.exe",
+      "bytes": 5982336,
+      "sha256": "b0b7d7bb70209610a33a2b9dafacb0d4753d567f08eb371d555b09024b3d648f"
+    }
+  ],
+  "oracle_version": "wasm-opt version 133 (version_133)",
+  "oracle_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+  "source_note": "All source is frozen at gate_head. Only documentation and evidence are added after gates."
+}

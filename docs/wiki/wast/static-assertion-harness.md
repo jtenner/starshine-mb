@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-06
+last_reviewed: 2026-10-25
 sources:
   - https://github.com/WebAssembly/spec/tree/main/interpreter
   - ../../../src/wast/spec_harness.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/types.mbt
   - ../../../src/spec_runner/spec_runner.mbt
+  - ../../../tests/spec_runner/path_args_wbtest.mbt
+  - ../../../tests/spec_runner/verify_path_args.py
   - ../../../src/fuzz/invalid_text.mbt
   - ../../../src/fuzz/invalid_text_wbtest.mbt
 related:
@@ -102,6 +104,45 @@ The current static evaluator does not instantiate modules or resolve imports. It
 2. call [`run_wast_spec_suite(...)`](../../../src/wast/spec_harness.mbt);
 3. print aggregate `total`, `passed`, `skipped`, and `failed` file counts;
 4. preview up to twenty failed files and return a nonzero exit code if any file failed.
+
+### October 25, 2026 — F14 path argument preservation
+
+`spec_runner_normalize_args` skips only `argv[0]` and copies all remaining
+arguments unchanged, in order. Leading spaces, trailing spaces, and file names
+made only of spaces are preserved. `run_spec_runner` passes each copied path
+to `spec_runner_read_source`; that function passes the path to `read_file_sync`.
+An empty path is also passed to the reader instead of being silently removed.
+
+The [focused native tests](../../../tests/spec_runner/path_args_wbtest.mbt)
+compile the production normalization function verbatim through the
+[temporary-package helper](../../../tests/spec_runner/verify_path_args.py).
+`python3 tests/spec_runner/verify_path_args.py` now exits **0**: **4 passed,
+0 failed**. Retained red evidence at verification commit `7e10d18d` reports
+exit **2**, **1 passed, 3 failed**, on source commit `6d020542e`:
+`" case.wast"` and `"case.wast "` became `"case.wast"`, and `" "` was discarded.
+The source and tests matched the verified files byte-for-byte before this fix;
+the red run was not repeated.
+
+This proves argument preservation at the unit boundary. The legacy directory
+still has no `moon.pkg`, as recorded in the
+[package map](../tooling/moonbit-workspace-package-map.md). Its
+[`imports.mbt`](../../../src/spec_runner/imports.mbt) uses legacy `@wasi`
+imports, and the reader expects a throwing file read with `.text()`, while
+[`src/fs/fs.mbt`](../../../src/fs/fs.mbt) returns `Result[String, String]`.
+The temporary package does not build the legacy executable or test file reads.
+Those integration gaps remain separate work. This finding does not establish
+a defect in the active `starshine spec` command.
+
+Daybreak F14 matched native measurements cover zero, one, 64 and 512 paths,
+including short, long and whitespace-heavy names. One ordinary path improves
+34.41–40.99%; 512 ordinary paths improve 89.44–89.54%. Raw allocations fall
+from 521.037 to 9.003 per 512-path call; the no-path control is neutral. All
+three paired rounds and same-build controls use the exact function extracted
+verbatim into white-box files. This measures the argument function only; the
+legacy executable and file reads remain outside this evidence. Full native
+validation passes 15532 tests and all 14 CI fuzz suites pass
+(100757 attempts), with Binaryen 133 and .tmp present. See the
+[raw signoff and limits](../raw/tooling/2026-10-26-daybreak19/F14-signoff.json).
 
 A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks. `WastSpecFileReport.command_reports` records zero-based command outcomes as `Passed`, `KnownSkipped(reason)`, `Blocked(reason)`, or `Failed(msg)`; aggregate `checked_commands`, `skipped_commands`, and `blocked_commands` remain available for summary consumers.
 

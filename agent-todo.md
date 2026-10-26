@@ -46,6 +46,17 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - **Dependencies / exit / tests:** full gates are green at `294899119`; retain
   the [fixtures and contract](docs/wiki/ir2/architecture-rules.md#atomic-public-flags).
   Later controlled evidence is required before any performance claim.
+### Legacy spec runner integration [CLI-SPEC-RUNNER-INTEGRATION]
+
+- **Goal / why:** restore a buildable legacy executable; F14 path preservation
+  is fixed and has focused native unit coverage, but file reads are not tested.
+- **Deliverables / tasks:** add package metadata and update the legacy
+  filesystem and argument/exit imports in a separate change.
+- **APIs / invariants:** preserve path spelling and order, shared WAST
+  evaluation, and load-failure exit code 2.
+- **Dependencies / exit / tests:** resolve the missing `moon.pkg` and stale
+  filesystem/WASI APIs; build the executable and test reads of space-bearing
+  paths. See [the limits and unit evidence](docs/wiki/wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
 
 ### Cast aggregate coverage [IR2-CAST-PROFILE]
 
