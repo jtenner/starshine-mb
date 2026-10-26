@@ -83,6 +83,77 @@ fn dae2_identity_subtype(
 }
 
 ///|
+fn dae2_identity_visit_value(
+  value : @lib.ValType,
+  visit : (@lib.TypeIdx) -> Unit,
+  embedded : Array[Bool],
+) -> Unit {
+  match value {
+    @lib.RefTypeValType(rt) =>
+      match rt.get_heap_type() {
+        @lib.HeapType(index) => visit(index)
+        @lib.DefTypeHeapType(_) => embedded[0] = true
+        _ => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn dae2_identity_visit_field(
+  field : @lib.FieldType,
+  visit : (@lib.TypeIdx) -> Unit,
+  embedded : Array[Bool],
+) -> Unit {
+  let @lib.FieldType(storage, _) = field
+  match storage {
+    @lib.ValTypeStorageType(value) =>
+      dae2_identity_visit_value(value, visit, embedded)
+    _ => ()
+  }
+}
+
+///|
+// Match the constructing visitor's reference order without rebuilding types.
+// Embedded definitions only set the fallback flag; their internals are not
+// module-owned identities. Continue visiting later references after the flag.
+fn dae2_identity_visit_subtype(
+  subtype : @lib.SubType,
+  visit : (@lib.TypeIdx) -> Unit,
+  embedded : Array[Bool],
+) -> Unit {
+  match subtype.get_comptype() {
+    @lib.FuncCompType(params, results) => {
+      for value in params {
+        dae2_identity_visit_value(value, visit, embedded)
+      }
+      for value in results {
+        dae2_identity_visit_value(value, visit, embedded)
+      }
+    }
+    @lib.StructCompType(fields) =>
+      for field in fields {
+        dae2_identity_visit_field(field, visit, embedded)
+      }
+    @lib.ArrayCompType(field) =>
+      dae2_identity_visit_field(field, visit, embedded)
+    @lib.ContCompType(target) => visit(target)
+  }
+  let { describes, descriptor, .. } = subtype.metadata()
+  match describes {
+    Some(index) => visit(index)
+    None => ()
+  }
+  match descriptor {
+    Some(index) => visit(index)
+    None => ()
+  }
+  for index in subtype.super_types() {
+    visit(index)
+  }
+}
+
+///|
 fn dae2_identity_partition(types : @lib.TypeSec) -> Array[Int32] {
   let @lib.TypeSec(groups) = types
   let identities : Array[Int32] = []
@@ -147,15 +218,10 @@ fn dae2_identity_dependencies(
       // One member's identity depends on all siblings in its recursive group.
       dependencies.edge(owner, base)
       dependencies.edge(base, owner)
-      ignore(
-        dae2_identity_subtype(
-          members[offset],
-          fn(index) {
-            dependencies.edge(owner, dae2_type_slot(index, base))
-            index
-          },
-          embedded,
-        ),
+      dae2_identity_visit_subtype(
+        members[offset],
+        fn(index) { dependencies.edge(owner, dae2_type_slot(index, base)) },
+        embedded,
       )
     }
     base += members.length()
