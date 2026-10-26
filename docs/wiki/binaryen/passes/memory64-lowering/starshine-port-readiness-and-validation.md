@@ -37,7 +37,7 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 - `src/lib/types.mbt:1263` maps limits to address value types, and `src/lib/types.mbt:1366` models mixed-width copy length selection.
 - [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) already rejects high static memory-operation `offset=` immediates for i32 memories.
 - [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558), [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571), [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609), and [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derive memory stack types from memory limits.
-- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the current refresh in [`index.md`](index.md) records this local/spec divergence.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L3496-L3515) uses the selected memory address type for both destination and length, and `i32` for the value.
 - [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` table index/result positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`index.md`](index.md) records this local/spec divergence.
 
 ## Port goal
@@ -106,7 +106,7 @@ Exit criteria:
 - Lower `memory.init`, `memory.fill`, and `memory.copy` operands positionally.
 - Preserve the official `memory.init` split: destination follows the selected memory address type, while passive-data source offset and length stay `i32`.
 - Preserve the Binaryen rule that copy length becomes i64 only when both participating memories are 64-bit before lowering; mixed-width cases are positional.
-- Treat `memory.fill` as destination `at`, byte value `i32`, length `at`; fix the current local validator length caveat before using Starshine validation as positive evidence for memory64 `memory.fill`, and keep the shared validator matrix in [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md) in sync.
+- Treat `memory.fill` as destination `at`, byte value `i32`, length `at`; keep the shared validator matrix in [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md) in sync.
 - Add SIMD and atomic address operand wrapping after scalar memory tests are green.
 
 Exit criteria:
@@ -147,7 +147,7 @@ For every Starshine fixture, compare:
 - Do not optimize address arithmetic.
 - Do not infer dynamic in-range facts.
 - Do not fold dynamic `i64.const` address operands into static high-offset traps; Binaryen's corrected contract wraps stack operands and reserves the high-offset trap family for static `MemArg.offset` immediates.
-- Do not advertise full local memory64 bulk-memory validation until the `memory.fill` length caveat is resolved.
+- Check each bulk-memory operand width separately in the lowerer fixtures.
 - Do not advertise table64 parity until table operation typechecking is coherent, including the `table.fill` length rule.
 
 ## Open questions

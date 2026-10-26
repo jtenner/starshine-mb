@@ -1076,7 +1076,7 @@ parity/size gaps are not closed by validation or smaller output alone.
 
 Local results: `.tmp/pass-perf-next-20260927/final-fuzz-optimize-instructions/result.json`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

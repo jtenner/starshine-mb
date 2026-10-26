@@ -23,7 +23,7 @@ related:
 
 ## Overview
 
-`mark-js-called` is Binaryen's configureAll-driven pass for adding the `@binaryen.js.called` toolchain annotation to functions. It should be read as an annotation-synthesis pass, not as generic JS-interface legalization, export pruning, or ordinary call-graph optimization. The release-horizon page treats `version_130` as the reviewed public Binaryen baseline. The 2026-07-11 source recheck in [`../remove-exports/index.md`](../remove-exports/index.md) found no behavior-bearing drift between the reviewed `version_130` and current-`main` owner/fixture contract; the 2026-06-04 capture remains historical provenance.
+`mark-js-called` is Binaryen's configureAll-driven pass for adding the `@binaryen.js.called` toolchain annotation to functions. It should be read as an annotation-synthesis pass, not as generic JS-interface legalization, export pruning, or ordinary call-graph optimization. The reviewed source baseline for this page is `version_130`. New comparisons use `version_133`. The 2026-07-11 source recheck in [`../remove-exports/index.md`](../remove-exports/index.md) found no behavior-bearing drift between the reviewed `version_130` and current-`main` owner/fixture contract; the 2026-06-04 capture remains historical provenance.
 
 For a beginner: WebAssembly function bodies are not the only facts an optimizer tracks. Binaryen also carries function annotations. `@binaryen.js.called` marks a function as observable from a JavaScript-call boundary, which can matter to later passes that would otherwise treat the function as internally callable only. The pass does not itself call JavaScript or change a function signature; it writes metadata.
 

@@ -220,7 +220,7 @@ Those may still appear around a rewritten tee, but they are not candidate kinds 
 
 ## Sources
 
-- Current Binaryen v132 owner and focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Untee.cpp> and <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/untee.wast>
+- Historical Binaryen v132 owner and focused fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Untee.cpp> and <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/untee.wast>
 - [research note 0347](./index.md)
 - [research note 0185](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

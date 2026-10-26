@@ -121,7 +121,7 @@ cases reproduce the starting compiler bytes, as recorded in the shared replay.
 
 Local reports: `.tmp/pass-perf-work-20260926/final4-fuzz-inlining/result.json`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## Admission
 

@@ -17,14 +17,14 @@ related:
 
 # Binaryen `simplify-locals-notee-nostructure` Strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
 
 ## Upstream source rule
 
-- Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 source review remains historical provenance; the older v129 walk remains valid historical detail because the owner contract did not change.
+- Use a verified Binaryen `version_133` oracle for new comparisons for this pass; the v131 source review remains historical provenance; the older v129 walk remains valid historical detail because the owner contract did not change.
 A 2026-05-05 current-main recheck on `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated test pair found no teaching-relevant drift on the reviewed surfaces.
 - Use the retained 2026-04-25 source bridge plus the direct upstream URLs below for provenance, current-main spot-check scope, and the exact reviewed source/test URL set.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.

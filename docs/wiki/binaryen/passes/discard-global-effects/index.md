@@ -65,9 +65,9 @@ Outputs:
 
 - This is a **pass-state cleanup transformation**, not an instruction optimizer.
 - The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` / `pass.h` and lifecycle-confirmed through `generate-global-effects` consumers.
-- Starshine does **not** currently expose a `discard-global-effects` registry name. Its local `global-effects` entry is boundary-only and covers the producer-side compatibility name, not this cleanup sibling.
+- Starshine does **not** currently expose a `discard-global-effects` registry name. The local `global-effects` entry is an active module pass for fresh resume folding, not this cleanup sibling. See [`global_effects.mbt`](../../../../../src/passes/global_effects.mbt).
 - The 2026-07-11 current-main recheck preserves the cleanup contract and narrows one ownership claim: the public cleanup pass resets every `Function.effects` summary; it must not be described as proven to clear every producer-side module cache such as `module->indirectCallEffects`.
-- The repo-wide Binaryen release horizon now reaches `version_130`; this page stays anchored to the reviewed `version_129` cleanup surfaces because the cleanup contract itself did not drift.
+- The repo-wide comparison target is `version_133`. This page stays anchored to the reviewed `version_129` cleanup surfaces and the later source recheck.
 
 ## Validation guidance
 

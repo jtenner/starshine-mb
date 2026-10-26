@@ -24,7 +24,7 @@ related:
 Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` smoke lane for `discard-global-effects` today.
 
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not include `--discard-global-effects` in `SUPPORTED_PASS_FLAGS`, so the harness rejects the argument before input generation or either optimizer runs.
-- Starshine has no `discard-global-effects` registry entry or dispatcher implementation in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). Its boundary-only `global-effects` entry is a different, producer-side compatibility name.
+- Starshine has no `discard-global-effects` registry entry or dispatcher implementation in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). Its active `global-effects` module pass folds fresh resumes and is a different pass.
 - More fundamentally, the upstream pass clears in-memory `Function.effects` metadata while leaving the module's Wasm text unchanged. A canonical WAT match—or a run with zero meaningful metadata observations—would not prove cleanup correctness. See [`index.md`](index.md), [`metadata-shapes.md`](metadata-shapes.md), and the upstream source capture [research note 0460](./index.md).
 
 A rejected command is therefore a **status check**, not a failed smoke lane or Binaryen-parity evidence. Apply the four pass-admission gates in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
@@ -77,7 +77,7 @@ bun fuzz compare-pass --pass global-effects --pass discard-global-effects \
   --min-compared <meaningful-count>
 ```
 
-This is deliberately a future template, not current guidance. The future harness also needs an explicit policy for how `generate-global-effects` is spelled locally (`global-effects` today is boundary-only) and how it observes metadata rather than inferring correctness from unchanged WAT.
+This is deliberately a future template, not current guidance. The harness maps `global-effects` to `generate-global-effects`. A future cleanup lane also needs a metadata observer rather than an inference from unchanged WAT.
 
 ## Required targeted cases before signoff
 

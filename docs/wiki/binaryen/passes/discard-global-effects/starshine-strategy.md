@@ -26,18 +26,18 @@ related:
 
 Starshine does **not** currently implement or register `discard-global-effects`.
 
-The 2026-07-11 current-main/local-source recheck did not change that status. It also sharpens the upstream comparison: Binaryen's public cleanup resets persistent per-function `Function.effects` summaries, while Starshine currently has only revision-keyed function-local HOT cache entries.
+The 2026-07-11 current-main/local-source recheck did not change that status. It also sharpens the upstream comparison: Binaryen's public cleanup resets persistent per-function `Function.effects` summaries, while Starshine has revision-keyed function-local HOT cache entries and a separate active `global-effects` transform.
 
-This is different from [`../global-effects/starshine-strategy.md`](../global-effects/starshine-strategy.md): Starshine has a boundary-only `global-effects` compatibility name for the producer-side concept, but no public cleanup sibling name.
+This is different from [`../global-effects/starshine-strategy.md`](../global-effects/starshine-strategy.md): Starshine has an active `global-effects` module pass that folds fresh resumes of non-suspending functions, but no public cleanup sibling name.
 
 ## Exact local code map
 
 Current relevant local surfaces:
 
 - [`../../../../../src/passes/optimize.mbt:129-133`](../../../../../src/passes/optimize.mbt)
-  - lists boundary-only names including `global-effects`, but not `discard-global-effects`.
+  - registers `global-effects` as a module pass, but does not register `discard-global-effects`.
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - owns pass expansion and the boundary-only/unknown-name rejection paths; an unregistered `discard-global-effects` request remains an unknown pass rather than the producer's boundary-only path.
+  - owns pass expansion and the boundary-only/unknown-name rejection paths; an unregistered `discard-global-effects` request remains an unknown pass and does not invoke `global-effects`.
 - [`../../../../../src/ir/effects.mbt:5-32`](../../../../../src/ir/effects.mbt)
   - defines Starshine's function-local HOT effect-mask bits.
 - [`../../../../../src/ir/effects.mbt:131-279`](../../../../../src/ir/effects.mbt)
@@ -72,7 +72,7 @@ So a public `discard-global-effects` pass would have nothing Binaryen-equivalent
 
 A faithful future Starshine implementation should be conditional on first adding a real persistent producer:
 
-1. implement or design `global-effects` as module-level interprocedural metadata,
+1. design persistent module-level interprocedural metadata alongside the existing `global-effects` transform,
 2. decide where summaries live: module fields, pass-manager side table, or module-analysis cache,
 3. teach downstream passes how to consult those summaries safely,
 4. add invalidation rules for transforms that can add effects,

@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline. The 2026-05-05 recheck remains preserved as [research note 0488](./index.md); the direct tagged URLs below preserve the `version_129` source catalog after the source capture is consumed.
+Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_133` baseline. The 2026-05-05 recheck remains preserved as [research note 0488](./index.md); the direct tagged URLs below preserve the `version_129` source catalog after the source capture is consumed.
 
 Primary files:
 

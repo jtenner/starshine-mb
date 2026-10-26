@@ -18,7 +18,7 @@ Fresh native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97
 
 Retained cases 1 and 3 show exact-reference declaration and loop-shape differences. These are still output-parity gaps; validation and canonical size alone do not prove a Starshine win. The repaired bottom `call_ref` case has its own direct regression and verified Binaryen 133 shape check.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## Dedicated family aggregate
 

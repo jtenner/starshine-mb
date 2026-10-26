@@ -28,16 +28,16 @@ related:
 
 Starshine does **not** currently implement or register `discard-global-effects`.
 
-That is intentional. The local codebase currently has only a revision-keyed HOT effect-cache analogue, not persistent module-level `Function.effects` metadata to clear.
+That is intentional. The local codebase has a revision-keyed HOT effect cache and an active `global-effects` resume-folding pass. It does not store persistent module-level `Function.effects` metadata to clear.
 
 ## Exact local code map
 
 Current relevant local surfaces:
 
 - [`../../../../../src/passes/optimize.mbt:127-134`](../../../../../src/passes/optimize.mbt)
-  - lists boundary-only names such as `global-effects`, but not `discard-global-effects`.
+  - registers `global-effects` as a module pass, but does not register `discard-global-effects`.
 - [`../../../../../src/passes/optimize.mbt:307-310`](../../../../../src/passes/optimize.mbt)
-  - installs those boundary-only names into the registry.
+  - installs the active module-pass entry.
 - [`../../../../../src/passes/optimize.mbt:518-524`](../../../../../src/passes/optimize.mbt)
   - rejects boundary-only and removed pass names during hot-pipeline expansion.
 - [`../../../../../src/ir/effects.mbt:5-32`](../../../../../src/ir/effects.mbt)

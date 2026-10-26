@@ -52,4 +52,4 @@ bun fuzz compare-pass --pass memory64-lowering --count 10000 --seed 0x5eed \
 bun fuzz compare-pass --pass table64-lowering ...
 ```
 
-Before calling either lane signoff, compare both aliases on the same mixed modules and retain reduced fixtures for dynamic `i64` operands, static high offsets, active data/element offsets, grow failure sentinels, mixed-width copy/fill/init positions, SIMD/atomic addresses, and table64 operations. Keep local `memory.fill` and table typing caveats visible through [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+Before calling either lane signoff, compare both aliases on the same mixed modules and retain reduced fixtures for dynamic `i64` operands, static high offsets, active data/element offsets, grow failure sentinels, mixed-width copy/fill/init positions, SIMD/atomic addresses, and table64 operations. Keep local table typing caveats visible through [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).

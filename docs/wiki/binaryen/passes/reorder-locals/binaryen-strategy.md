@@ -17,11 +17,11 @@ related:
 
 # Binaryen `reorder-locals` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## Upstream source rule
 
-Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 audit found the owner and dedicated lit files byte-identical to `version_130`, and remains historical source provenance. Older v129/v130 prose remains valid as unchanged-contract provenance.
+Use a verified Binaryen `version_133` oracle for new comparisons for this pass; the v131 audit found the owner and dedicated lit files byte-identical to `version_130`, and remains historical source provenance. Older v129/v130 prose remains valid as unchanged-contract provenance.
 For the retained v130 manifest and unchanged-contract provenance, see [`index.md`](index.md) and [research note 1400](./index.md). The v131 closeout and local validation bridge are current in [`./parity.md`](./parity.md), [`./fuzzing.md`](./fuzzing.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
@@ -51,7 +51,7 @@ Durable result:
 
 - all reviewed owner/lit surfaces match `version_130` exactly;
 - the explicit oracle reports `wasm-opt version 131 (version_131)`;
-- the recorded audit evidence cites `version_131` while preserving older manifests as unchanged-contract provenance; new comparisons use v132.
+- the recorded audit evidence cites `version_131` while preserving older manifests as unchanged-contract provenance; new comparisons use v133.
 
 ## File landmarks worth keeping explicit
 

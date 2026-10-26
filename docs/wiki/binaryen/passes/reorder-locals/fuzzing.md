@@ -46,7 +46,7 @@ it. Local evidence:
 `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/reorder-locals/`
 and `.tmp/report-optimization-20261014/reorder-locals-family-repro-v3/`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 Dedicated GenValid aggregate: `reorder-locals-all`. It selects among ten transform-family leaves:
 

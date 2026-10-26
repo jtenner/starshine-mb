@@ -76,7 +76,7 @@ Together these exact locations make current request behavior an unknown-pass cas
 - [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558) and [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571) derive their types from `mem_at_of(...)`.
 - [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609) derives `memory.init` destination width from the selected memory while keeping passive-data source and length as `i32`.
 - [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derives `memory.copy` destination, source, and length widths from the participating memories.
-- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`index.md`](index.md) records this local/spec divergence.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L3496-L3515) uses the selected memory address type for both destination and length, and `i32` for the value.
 - [`typecheck_table_copy(...)`](../../../../../src/validate/typecheck.mbt#L1431-L1461) and [`typecheck_table_init(...)`](../../../../../src/validate/typecheck.mbt#L1464-L1492) use table limits for address-width positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) only uses the table limit for the destination/start operand and still types length as `i32`.
 - [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` positions, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet. The current focused correction is [`index.md`](index.md).
 
@@ -106,7 +106,7 @@ Recommended implementation phases:
 5. **Mixed-width copy/fill/init tests**
    - Copy operations need independent destination, source, and length rules.
    - `memory.init` keeps passive-data source offset and length as `i32`, even when the destination memory is memory64.
-   - `memory.fill` needs independent destination/value/length assertions: destination and length are selected-memory address width, while the byte value is `i32`. Current Starshine validation still needs a memory64-length fix before local positive tests can prove the full rule.
+   - `memory.fill` needs independent destination/value/length assertions: destination and length are selected-memory address width, while the byte value is `i32`.
 6. **Validation cleanup**
    - Audit table64 typechecking first, especially the hard-coded `i32` table operations and the partially widened `table.fill` length rule.
 
@@ -135,7 +135,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - `memory.grow` receives delta lowering plus failure-sentinel-aware result repair.
 - `memory.init` destination versus data-offset/length widths are tested.
 - `memory.copy` mixed-width cases match Binaryen.
-- `memory.fill` destination/value/length rules match the official memory64 matrix after the local validator length caveat is resolved.
+- `memory.fill` destination/value/length rules match the official memory64 matrix in the lowered output.
 - The `table64-lowering` alias is either accepted by the same combined pass or rejected consistently with `memory64-lowering`; it must not imply a different transform scope.
 - Table64 typechecking is made coherent before table lowering is advertised.
 - Binaryen lit files are mirrored as local fixtures or pass-fuzz seeds.
@@ -143,7 +143,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 ## Current uncertainty
 
 - The 2026-04-25 static-offset correction narrowed earlier wording: static high `offset=` immediates are the clear high-offset `unreachable` family, while dynamic operand constants wrap, active offsets lower as expressions, and grow deltas are handled through lowered-grow result repair. Impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
-- The 2026-06-04 memory/table address-width refresh narrows local-readiness wording: Starshine already has the representation and most validation helpers for memory64 bulk memory, but `memory.fill` length is still locally typed as `i32`; do not claim full memory64 `memory.fill` validation until that is fixed.
+- The 2026-06-04 refresh recorded an `i32` length limitation. Current `typecheck_memory_fill` uses the selected memory address type for the length, superseding that limitation.
 - Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`; the 2026-06-04 refresh also keeps `table.fill` readiness narrowed to destination-only widening. A table64-lowering port therefore has a prerequisite validation cleanup.
 
 ## Sources

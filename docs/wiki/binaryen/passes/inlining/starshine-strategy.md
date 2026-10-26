@@ -102,7 +102,7 @@ In the [native helper benchmark](../../../../../src/passes/inlining_marked_suffi
 
 The private-function collapse path has a separate query that recognizes only top-level calls after a top-level `unreachable` or one void block containing only `unreachable`. It now walks that body once and checks each call target against the marked array, rather than rescanning the body for every marked function. The [native helper benchmark](../../../../../src/passes/inlining_dead_suffix_marked_perf_wbtest.mbt) improved **21.33 µs → 171.24 ns** for 128 marked targets and 128 numeric pairs, and **83.38 µs → 329.25 ns** for 256 of each. Boundary tests preserve before/after-root, tail-call, nested-call, and invalid-index behavior; 30 existing Inlining white-box tests pass. Full-pass impact remains unmeasured.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline, September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## September 25, 2026 signature-key builder measurement
 
