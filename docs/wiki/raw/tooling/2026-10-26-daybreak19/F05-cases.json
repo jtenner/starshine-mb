@@ -1,0 +1,85 @@
+[
+  {
+    "case": "no legacy try",
+    "count": 0,
+    "mode": 0,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=1 final_all=false",
+    "count": 1,
+    "mode": 1,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=1 final_all=true",
+    "count": 1,
+    "mode": 2,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=16 final_all=false",
+    "count": 16,
+    "mode": 1,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=16 final_all=true",
+    "count": 16,
+    "mode": 2,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=256 final_all=false",
+    "count": 256,
+    "mode": 1,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "typed catches=256 final_all=true",
+    "count": 256,
+    "mode": 2,
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "case": "invalid early catch_all before 16 typed catches",
+    "count": 16,
+    "mode": 3,
+    "comparable": false,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": false,
+    "min_allocations_per_callback": 1,
+    "candidate_expected_validation_error_contains": "legacy catch_all must be the last catch"
+  },
+  {
+    "case": "invalid duplicate catch_all",
+    "count": 0,
+    "mode": 4,
+    "comparable": false,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": false,
+    "min_allocations_per_callback": 1,
+    "candidate_expected_validation_error_contains": "legacy catch_all must be the last catch"
+  }
+]

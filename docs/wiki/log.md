@@ -1,3 +1,7 @@
+### 2026-10-26 — F05 leased measurement before landing gates
+
+- Legacy catch-order validation has a neutral measurement verdict with small retained costs (-0.90% to +2.43% on valid cases), equal raw allocation cost, and native RSS within controls. [The complete F05 record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) preserves all 180 fresh samples and excludes the 18-sample contention run. Full native and CI fuzz gates remain pending; no landing is claimed.
+
 ### 2026-10-25 — Measured DAE gains landing
 
 - All eight gain items (1, 3, 4, 5, 6, 8, 10, 11) are landed and pushed. Every item has a complete corrected native gate and 14 green CI fuzz suites. [Immutable source/gate/benchmark/push evidence](raw/tooling/2026-10-26-dae-gain-landings.json) preserves all 85 measured rows and the accepted item 8 RSS trade. The lease is released to the reserved Starshine-versus-Binaryen comparison lane.

@@ -186,3 +186,22 @@ per catch context. A rethrow inside a local-set result block therefore forces
 exception capture instead of targeting a synthetic ordinary block.
 [Operand regressions](../../src/ir/p00_rethrow_operand_wbtest.mbt) check the
 capture local, catch opcode, nested ordinal and encoded validity.
+
+### October 26, 2026 — leased F05 measurement
+
+The catch-order repair was measured against master `749af223c`, using the same
+committed fixture on baseline `df0fe42dc` and candidate `27ef831a8`.
+[The complete record](raw/tooling/2026-10-26-daybreak19/F05-summary.json) retains
+all 180 fresh paired/control samples, native RSS, allocation bytes, tool and
+binary identities, and the excluded 18-sample contention run.
+
+The verdict is neutral within observed variation, with small recorded costs:
+valid medians range from -0.90% to +2.43%; raw allocations and bytes stay equal.
+The 16-typed/no-final-all case costs +1.96%, and 256-typed cases cost +2.39% to
++2.43%; a wide-case same-build control drifts +9.05%. No speed or zero-cost
+claim is made. Invalid early/duplicate catch-all times are diagnostic only.
+All valid cases pass on both builds. Invalid candidate cases report the
+specific `legacy catch_all must be the last catch` error.
+
+F05 retains the 60 C start gate and full protocol. All fresh samples start at
+or below 60 C; none is paused. The native and CI fuzz landing gates are pending.

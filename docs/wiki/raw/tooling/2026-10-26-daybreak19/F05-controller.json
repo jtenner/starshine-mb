@@ -1,0 +1,97 @@
+{
+  "controller_pid": 1562516,
+  "state": "complete",
+  "fresh_run_after_contention": true,
+  "earlier_controller": "contention-run-01/controller.json",
+  "phases": [
+    {
+      "phase": "build-baseline",
+      "command": [
+        "moon",
+        "bench",
+        "--build-only",
+        "--target",
+        "native",
+        "--release",
+        "--warn-list",
+        "-a",
+        "--package",
+        "jtenner/starshine/daybreak19_measure",
+        "--file",
+        "daybreak19_f05_perf_wbtest.mbt"
+      ],
+      "cwd": "/tmp/daybreak19/F05/baseline",
+      "state": "exited",
+      "start": "2026-10-26T04:20:26.973247+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T04:20:42.378351+00:00"
+    },
+    {
+      "phase": "build-candidate",
+      "command": [
+        "moon",
+        "bench",
+        "--build-only",
+        "--target",
+        "native",
+        "--release",
+        "--warn-list",
+        "-a",
+        "--package",
+        "jtenner/starshine/daybreak19_measure",
+        "--file",
+        "daybreak19_f05_perf_wbtest.mbt"
+      ],
+      "cwd": "/tmp/daybreak19/F05/candidate",
+      "state": "exited",
+      "start": "2026-10-26T04:20:42.378582+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T04:21:11.127342+00:00"
+    },
+    {
+      "phase": "build-allocation",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/link-allocation.py",
+        "/tmp/daybreak19/F05",
+        "daybreak19_measure"
+      ],
+      "cwd": "/tmp/daybreak19/F05",
+      "state": "exited",
+      "start": "2026-10-26T04:21:11.127738+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T04:21:38.972343+00:00"
+    },
+    {
+      "phase": "runtime",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/sample.py",
+        "/tmp/daybreak19/F05",
+        "daybreak19_measure",
+        "9"
+      ],
+      "cwd": "/tmp/daybreak19/F05",
+      "state": "exited",
+      "start": "2026-10-26T04:40:00.689781+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T04:43:08.507401+00:00"
+    },
+    {
+      "phase": "allocation",
+      "command": [
+        "python3",
+        "/tmp/daybreak19/sample.py",
+        "/tmp/daybreak19/F05",
+        "daybreak19_measure",
+        "9",
+        "allocation-v2"
+      ],
+      "cwd": "/tmp/daybreak19/F05",
+      "state": "exited",
+      "start": "2026-10-26T04:43:08.507836+00:00",
+      "exit_code": 0,
+      "end": "2026-10-26T04:46:13.843032+00:00"
+    }
+  ]
+}
