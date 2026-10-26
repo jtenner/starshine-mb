@@ -30,7 +30,7 @@ related:
 
 # `directize`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 ## Binaryen v131 status
 
@@ -59,7 +59,7 @@ Default direct-pass Binaryen v131 parity is **closed and renewed on 2026-07-30**
   - slot `56`
 - The saved Binaryen debug log shows it is real, but small, in that captured run:
   - about `0.0198565` seconds total around the directize stage
-- The backlog already tracks it as slice `DIR` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- Consult [`../../../../../agent-todo.md`](../../../../../agent-todo.md) for the active release backlog.
 - `pass.cpp` explicitly says this final rewrite can enable more `inlining` / `dae` opportunities, but that you need `--converge` to come back and exploit them.
 
 That makes `directize` a very important late-tail dossier even though the implementation file is short.

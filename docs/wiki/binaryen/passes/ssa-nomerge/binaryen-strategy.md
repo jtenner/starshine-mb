@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline. The retained 2026-05-01 implementation-structure research digest and the retained 2026-06-13 source refresh support the owner-file and test-surface map; [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) is the maintained explanatory page for that map.
+Treat Binaryen `version_129` as historical primary source provenance for this pass; new comparisons require a verified `version_133` oracle. The retained 2026-05-01 implementation-structure research digest and the retained 2026-06-13 source refresh support the owner-file and test-surface map; [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) is the maintained explanatory page for that map.
 
 Primary files:
 

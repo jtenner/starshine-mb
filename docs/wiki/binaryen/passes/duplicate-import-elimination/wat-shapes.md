@@ -15,7 +15,7 @@ related:
 
 # `duplicate-import-elimination` WAT and module shape guide
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 > **Current Starshine contract — September 22, 2026:** default direct DIE keeps all repeated imported-function lookups distinct because host property gets and returned function identities are observable. The positive merge shapes below document Binaryen and Starshine's explicit `duplicate-import-elimination-assume-stable-bindings` variant. That spelling is valid only when repeated resolution is side-effect-free and resolves to the same WebAssembly function identity after embedding conversion; `--closed-world` alone is insufficient.
 

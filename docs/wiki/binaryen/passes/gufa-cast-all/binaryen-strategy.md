@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline. The [`2026-07-11 shared-oracle refresh`](../gufa/index.md) remains current-main owner-map evidence. Archived research records that the consumed 2026-05-04 recheck found no teaching-relevant drift; direct tagged URLs elsewhere in this dossier preserve the reviewed-source catalog.
+Treat Binaryen `version_129` as historical tagged source provenance for this pass; new comparisons require a verified `version_133` oracle. The [`2026-07-11 shared-oracle refresh`](../gufa/index.md) remains current-main owner-map evidence. Archived research records that the consumed 2026-05-04 recheck found no teaching-relevant drift; direct tagged URLs elsewhere in this dossier preserve the reviewed-source catalog.
 
 The core implementation is the shared `src/passes/GUFA.cpp` engine. Public registration comes from `src/passes/pass.cpp`, whole-program facts come from `src/ir/possible-contents.h`, and the strongest dedicated behavior file is `test/lit/passes/gufa-cast-all.wast`.
 

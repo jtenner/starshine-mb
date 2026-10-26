@@ -36,7 +36,7 @@ related:
 
 # Starshine Strategy For `directize`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 Use this page together with the retained 2026-05-05 current-main recheck in [research note 0476](./index.md) and the 2026-04-26 port-readiness digest in [research note 0380](./index.md), which preserve direct tagged and current source/test URLs for the documented contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
@@ -235,7 +235,7 @@ Current Starshine `directize` strategy is an active explicit module pass plus la
 
 - the pass name is intentionally preserved in `src/passes/optimize.mbt` as an active module pass
 - `src/passes/directize.mbt` implements default directize behavior for direct calls, known traps, and narrow select lowering
-- `agent-todo.md` now leaves only the optional pass-arg / broader-widening follow-up; the accepted public late-tail suffix is already scheduled in `optimize` / `shrink`
+- the accepted public late-tail suffix is scheduled in `optimize` / `shrink`
 - the canonical slot is already documented in the no-DWARF optimizer notes and the accepted public suffix now matches that order
 - the surrounding `duplicate-import-elimination`, `simplify-globals-optimizing`, `remove-unused-module-elements`, `string-gathering`, and `reorder-globals` dossiers already define the practical landing zone for scheduled tail integration
 

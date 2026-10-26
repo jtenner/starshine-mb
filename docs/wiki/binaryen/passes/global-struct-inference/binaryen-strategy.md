@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_130` as historical released source provenance for this pass; new comparisons use the verified `version_132` baseline. The retained released/current source bridge is Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp); the older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
+Treat Binaryen `version_130` as historical released source provenance for this pass; new comparisons require a verified `version_133` oracle. The retained released/current source bridge is Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp); the older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
 
 Primary files:
 
@@ -425,7 +425,7 @@ The 2026-07-11 `version_130` / current-main recheck found no behavior-bearing dr
 - current `main` still shows the plain `gsi` / sibling `gsi-desc-cast` factory split
 - current `main` `gsi.wast` remains the dedicated plain-pass proof surface reviewed for this dossier
 
-The wiki should retain `version_130` as historical semantic provenance without an active trunk-drift caveat; current comparisons use v132. The 2026-07-11 check is a focused owner/registration/fixture bridge, not a full semantic diff across all post-release history.
+The wiki should retain `version_130` as historical semantic provenance without an active trunk-drift caveat; current comparisons require verified v133. The 2026-07-11 check is a focused owner/registration/fixture bridge, not a full semantic diff across all post-release history.
 
 ## What a future port or parity pass must preserve
 

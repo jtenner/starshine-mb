@@ -41,9 +41,9 @@ parity/size gaps are not closed by validation or smaller output alone.
 
 Local results: `.tmp/pass-perf-next-20260927/final-fuzz-ssa-nomerge/result.json`.
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
-Recommended dedicated GenValid closeout lane: `--gen-valid-profile ssa-nomerge-all` at `100000` requested cases for final closeout. The 2026-06-16 native final aggregate run is green at that count.
+Use `--gen-valid-profile ssa-nomerge-all` for the dedicated GenValid signoff lane. The 2026-06-16 native aggregate result below is historical evidence.
 
 `ssa-nomerge-all` is a deterministic composite profile. For each selected case it samples one singleton SSA profile from the same root seed and case index, records the requested `config_label` as `ssa-nomerge-all`, and records the sampled `selected_profile` in the GenValid manifest for replay triage.
 
@@ -54,18 +54,11 @@ Current singleton profiles remain available for targeted reproduction and develo
 - `ssa-nomerge-coverage` (`ssa-nomerge` alias): dense SSA coverage and supported/fail-closed boundary facts.
 - `ssa-nomerge-stress`: dense pathological/fail-closed lane, currently matching coverage templates.
 
-Ordinary pass signoff starts with the direct GenValid lane for `--pass ssa-nomerge`; final closeout uses a `1000000`-case broad GenValid lane plus a `100000`-case `ssa-nomerge-all` dedicated GenValid lane. Run wasm-smith only as a separately requested external-generator lane. Use singleton profiles only when narrowing a family, reproducing a manifest row's `selected_profile`, or keeping a lane intentionally focused.
-
-Final dedicated profile command shape:
+For ordinary signoff, build the native CLI and compare 10,000 cases with the aggregate profile. Use a verified Binaryen 133 oracle. Run wasm-smith only when the external-generator lane is requested. Use singleton profiles for targeted reproduction.
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x551a --pass ssa-nomerge --generator gen-valid --gen-valid-profile ssa-nomerge-all --out-dir .tmp/pass-fuzz-ssa-nomerge-genvalid-all-final-100000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-```
-
-Final broad GenValid command shape:
-
-```sh
-bun scripts/pass-fuzz-compare.ts --count 1000000 --seed 0x5eed --pass ssa-nomerge --out-dir .tmp/pass-fuzz-ssa-nomerge-final-1000000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+moon build --target native --release src/cmd
+bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed --pass ssa-nomerge --gen-valid-profile ssa-nomerge-all --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-ssa-nomerge
 ```
 
 ## Native binary path note
@@ -90,7 +83,7 @@ Subsequent classification split those 71 cases into 54 declaration-only residual
 
 ## 2026-07-17 Batch-writeback refresh
 
-The July 17 batch-writeback refresh replaced repeated per-changed-function current-artifact validation with one rollback-capable changed-function batch. The recorded `.tmp/pass-fuzz-ssa-nomerge-batch-writeback-100000-20260717` aggregate used historical Binaryen v130, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe` at SHA-256 `34a21a0bfba0c86520635429047ef8fb4cc0d32f50b0ff060b5d10327d04d680`. It requested/compared `100000/100000`, normalized all `100000`, and had zero cleanup-normalized matches, mismatches, validation/generator/property/command failures; Binaryen cache was `21055/78945`. The direct current artifact completes in deterministic valid byte-identical `43.846s` / `44.954s` wall repeats instead of timing out after `600s`. This is historical behavior-preserving runtime evidence; new comparison signoff uses Binaryen 132.
+The July 17 batch-writeback refresh replaced repeated per-changed-function current-artifact validation with one rollback-capable changed-function batch. The recorded `.tmp/pass-fuzz-ssa-nomerge-batch-writeback-100000-20260717` aggregate used historical Binaryen v130, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe` at SHA-256 `34a21a0bfba0c86520635429047ef8fb4cc0d32f50b0ff060b5d10327d04d680`. It requested/compared `100000/100000`, normalized all `100000`, and had zero cleanup-normalized matches, mismatches, validation/generator/property/command failures; Binaryen cache was `21055/78945`. The direct current artifact completes in deterministic valid byte-identical `43.846s` / `44.954s` wall repeats instead of timing out after `600s`. This is historical behavior-preserving runtime evidence; new comparison signoff uses verified Binaryen 133.
 
 ## 2026-06-16 Final Lane Results
 

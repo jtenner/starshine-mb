@@ -17,7 +17,7 @@ related:
 
 # `simplify-locals-notee`: variant boundaries and registry aliases
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
@@ -27,7 +27,7 @@ related:
 This pass has a small but durable naming problem in this repo:
 
 - upstream public Binaryen name: `simplify-locals-notee`
-- current local removed-registry placeholder: `simplify-locals-no-tee`
+- local compatibility alias: `simplify-locals-no-tee`
 
 That difference is easy to ignore until someone tries to connect:
 
@@ -41,10 +41,10 @@ This page keeps that mapping explicit.
 
 | Meaning | Upstream Binaryen public name | Current local registry spelling |
 | --- | --- | --- |
-| no tees, structure still enabled | `simplify-locals-notee` | `simplify-locals-no-tee` (removed); exact upstream spelling is not registered locally |
-| no tees and no structure | `simplify-locals-notee-nostructure` | `simplify-locals-no-tee-no-structure` |
-| no structure, tees still allowed | `simplify-locals-nostructure` | `simplify-locals-no-structure` |
-| no nesting at all | `simplify-locals-nonesting` | `simplify-locals-no-nesting` |
+| no tees, structure still enabled | `simplify-locals-notee` | `simplify-locals-notee` and `simplify-locals-no-tee` (active alias) |
+| no tees and no structure | `simplify-locals-notee-nostructure` | `simplify-locals-notee-nostructure`; `simplify-locals-no-tee-no-structure` is removed |
+| no structure, tees still allowed | `simplify-locals-nostructure` | `simplify-locals-nostructure` and `simplify-locals-no-structure` (active alias) |
+| no nesting at all | `simplify-locals-nonesting` | `simplify-locals-nonesting` and `simplify-locals-no-nesting` (active alias) |
 
 ## Exact semantic contrast
 
@@ -107,13 +107,8 @@ That is what makes it different from both nearby reduced variants:
 - not `-nostructure`
 - not `-notee-nostructure`
 
-## Why the alias mismatch matters for future Starshine work
+## Registry boundary
 
-A future port or scheduler surface should either:
-
-- use the upstream public names directly, or
-- document the local alias map explicitly at the registry boundary, or
-- support both names with one canonical implementation entry
-
-What should not happen is silent conflation, because that makes the wrong variant easy to implement.
-The 2026-04-24 Starshine follow-up in [`./starshine-strategy.md`](./starshine-strategy.md) records the current exact status: upstream `simplify-locals-notee` is absent from the local registry, while local `simplify-locals-no-tee` is present only as a removed name.
+The canonical names and active aliases are registered separately. The old
+`no-tee-no-structure` spelling is removed. See
+[`./starshine-strategy.md`](./starshine-strategy.md) for the implementation map.

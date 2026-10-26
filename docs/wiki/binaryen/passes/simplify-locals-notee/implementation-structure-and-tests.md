@@ -19,7 +19,7 @@ related:
 
 # `simplify-locals-notee` implementation structure and tests
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
@@ -37,7 +37,7 @@ For this dossier it proves two things:
 - `simplify-locals-notee` is a public Binaryen pass name.
 - The pass is registered beside the other public locals-family variants rather than hidden behind a flag on plain `simplify-locals`.
 
-That matters locally because Starshine's currently tracked name is the alias-like removed spelling `simplify-locals-no-tee`, not the exact upstream spelling.
+Starshine registers `simplify-locals-notee` and the compatibility alias `simplify-locals-no-tee` as active passes.
 
 ### `src/passes/passes.h`
 
@@ -175,7 +175,7 @@ These are not substitutes for the dedicated sibling test, but they are the right
 ## Current-main spot-check result
 
 A narrow 2026-04-24 current-`main` spot check found the public pass name, factory surface, and dedicated test paths still present.
-This page retains its detailed v129 source walk as historical provenance; the current released oracle is `version_131`, whose owner contract is unchanged for this family.
+This page retains its detailed v129 source walk as historical provenance; the historical reviewed oracle is `version_131`, whose owner contract is unchanged for this family.
 
 ## Starshine implication
 

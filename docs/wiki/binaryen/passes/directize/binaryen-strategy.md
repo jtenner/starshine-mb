@@ -19,7 +19,7 @@ related:
 
 # Binaryen `directize` strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 This page is the strategy view of the dossier.
 For the compact owner/test map, use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
@@ -29,7 +29,7 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The retained 2026-05-05 current-`main` recheck is recorded in [research note 0476](./index.md).
 - The retained 2026-04-26 port-readiness digest is [research note 0380](./index.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
-- Those older rechecks describe the pre-v131 segment-driven contract. Treat Binaryen `version_131` as historical released source provenance; new comparisons use the verified `version_132` baseline: it adds table default-initializer classification and a dedicated `directize_init.wast` fixture.
+- Those older rechecks describe the pre-v131 segment-driven contract. Treat Binaryen `version_131` as historical released source provenance. The v132 intake added table default-initializer classification and a dedicated `directize_init.wast` fixture. New comparisons require a verified `version_133` oracle.
 - The core implementation lives in `src/passes/Directize.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

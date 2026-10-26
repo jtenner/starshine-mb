@@ -293,12 +293,9 @@ Representative entry points include the `hso.wasm`, `hso-tee.wasm`, `hso-branch-
 
 That is important because it proves the current implementation can at least run and validate cleanly on both reduced fixtures and the checked-in large artifact.
 
-## Dedicated HSO backlog slice
+## Backlog
 
-`agent-todo.md` now tracks `[O4Z-AUDIT-HSO]` as an active v0.1.0 release-gating audit.
-That slice is the execution surface for the remaining Binaryen-behavior parity work, including source-backed movement families, O4z slot/neighborhood evidence, performance/raw fast-skip evidence, and final closeout.
-
-This strategy page remains the living implementation map, but backlog state should be read from `[O4Z-AUDIT-HSO]` rather than inferred from older indirect cleanup-prefix references.
+Consult [`agent-todo.md`](../../../../../agent-todo.md) for active release work. This page maps the implementation and preserves earlier audit evidence.
 
 ## Fast-skip behavior is part of the local strategy
 

@@ -18,7 +18,7 @@ related:
 
 # `dae-optimizing` implementation structure and tests
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline:** New comparisons require a verified [Binaryen 133](../../release-horizon-and-oracles.md) oracle. Older sources, commands, artifacts, and results retain their original versions.
 
 ## Why this page exists
 
@@ -289,4 +289,4 @@ A faithful Starshine port needs two implementation layers:
 1. a shared module-boundary DAE core mirroring `DeadArgumentElimination.cpp` and its helper dependencies; and
 2. an optimizing-mode scheduler hook mirroring the nested cleanup suffix for the changed-function set.
 
-The current local status page remains the source of truth for Starshine: [`./starshine-strategy.md`](./starshine-strategy.md). As of 2026-05-05, Starshine still has only the descriptive boundary-only name `dead-argument-elimination-optimizing`; exact upstream `dae-optimizing` is not a local alias yet.
+The current local status page remains the source of truth for Starshine: [`./starshine-strategy.md`](./starshine-strategy.md). Starshine registers both `dae-optimizing` and `dead-argument-elimination-optimizing` as module passes.
