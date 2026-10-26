@@ -283,18 +283,33 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(oc.name, "optimize-casts")
   @debug.assert_eq(@ir.hot_pass_requires(oc), [])
   @debug.assert_eq(locals.name, "simplify-locals")
-  @debug.assert_eq(@ir.hot_pass_requires(locals), [])
+  registry_test_assert_requires(locals, [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   @debug.assert_eq(locals_notee.name, "simplify-locals-notee")
-  @debug.assert_eq(@ir.hot_pass_requires(locals_notee), [])
+  registry_test_assert_requires(locals_notee, [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   @debug.assert_eq(locals_nonesting.name, "simplify-locals-nonesting")
-  @debug.assert_eq(@ir.hot_pass_requires(locals_nonesting), [])
+  registry_test_assert_requires(locals_nonesting, [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   @debug.assert_eq(locals_nostructure.name, "simplify-locals-nostructure")
-  @debug.assert_eq(@ir.hot_pass_requires(locals_nostructure), [])
+  registry_test_assert_requires(locals_nostructure, [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   @debug.assert_eq(
     locals_notee_nostructure.name,
     "simplify-locals-notee-nostructure",
   )
-  @debug.assert_eq(@ir.hot_pass_requires(locals_notee_nostructure), [])
+  registry_test_assert_requires(locals_notee_nostructure, [
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::use_def(),
+  ])
   @debug.assert_eq(merge_blocks.name, "merge-blocks")
   @debug.assert_eq(@ir.hot_pass_requires(merge_blocks), [])
   @debug.assert_eq(rse.name, "redundant-set-elimination")
@@ -327,7 +342,7 @@ test "precompute descriptors keep plain SSA-free and propagate SSA-backed" {
 
 ///|
 test "audited pass_require helper metadata contracts stay declared" {
-  // Keep this table aligned with audited direct uses of pass_require_* helpers.
+  // Keep this table aligned with direct and indirect pass_require_* calls.
   // Add a row here when a pass starts requiring a new analysis, or document the
   // pass as intentionally lazy in its descriptor when eager metadata is wrong.
   registry_test_assert_requires(optimize_instructions_descriptor(), [
@@ -353,6 +368,32 @@ test "audited pass_require helper metadata contracts stay declared" {
   registry_test_assert_requires(local_cse_descriptor(), [
     @ir.HotAnalysis::effects(),
   ])
+  // Dead-copy cleanup calls pass_node_use_count -> pass_require_use_def.
+  // The cached use-def builder also requires CFG. Check every registry spelling,
+  // including aliases, and report all omissions instead of stopping at the first.
+  let missing : Array[String] = []
+  for name in [
+    "simplify-locals",
+    "simplify-locals-notee",
+    "simplify-locals-no-tee",
+    "simplify-locals-nonesting",
+    "simplify-locals-no-nesting",
+    "simplify-locals-nostructure",
+    "simplify-locals-no-structure",
+    "simplify-locals-notee-nostructure",
+  ] {
+    let descriptor = match pass_registry_lookup(name) {
+      Some({ descriptor: Some(descriptor), .. }) => descriptor
+      _ => fail("expected hot descriptor for \{name}")
+    }
+    if @ir.hot_pass_requires(descriptor) != [
+        @ir.HotAnalysis::cfg(),
+        @ir.HotAnalysis::use_def(),
+      ] {
+      missing.push(descriptor.name)
+    }
+  }
+  @debug.assert_eq(missing, [])
 }
 
 ///|
