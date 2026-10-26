@@ -15519,7 +15519,7 @@ fn dae_absolutize_lookup_signature_val_type(
 
 ///|
 priv struct DaeTypeUpdateIndex {
-  signatures : @hashmap.HashMap[String, @lib.TypeIdx]
+  signatures : @hashmap.HashMap[DaeSimpleFuncTypeKey, @lib.TypeIdx]
   groups : Array[@lib.RecType]
   mut flat_count : Int32
 }
@@ -15528,7 +15528,7 @@ priv struct DaeTypeUpdateIndex {
 fn DaeTypeUpdateIndex::new(type_sec : @lib.TypeSec) -> DaeTypeUpdateIndex {
   let @lib.TypeSec(groups) = type_sec
   {
-    signatures: dae_simple_func_type_lookup(type_sec),
+    signatures: dae_structural_func_type_lookup(type_sec),
     groups: groups.copy(),
     flat_count: dae_type_sec_flattened_length(type_sec),
   }
@@ -16177,7 +16177,7 @@ fn dae_update_defined_func_type(
     Some(_) => dae_absolutize_signature(type_sec, old_type_idx, params, results)
     None => (params, results)
   }
-  let key = dae_simple_func_type_key(params, results)
+  let key = dae_structural_func_type_key(params, results)
   let equivalent = match type_update_index {
     Some(index) => index.signatures.get(key)
     None => dae_find_equivalent_simple_func_type(type_sec, params, results)
@@ -22843,7 +22843,7 @@ fn dae_try_apply_unread_param_batch(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_type_indices = snapshot.type_indices.copy()
-  let type_lookup = dae_simple_func_type_lookup(type_sec)
+  let type_lookup = dae_structural_func_type_lookup(type_sec)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
@@ -23135,7 +23135,7 @@ fn dae_try_apply_unread_param_batch(
           callee_rewrite.kept_params,
           plan.results,
         )
-        let type_key = dae_simple_func_type_key(next_params, next_results)
+        let type_key = dae_structural_func_type_key(next_params, next_results)
         match type_lookup.get(type_key) {
           Some(existing) => (type_sec, existing)
           None => {
@@ -23371,7 +23371,7 @@ fn dae_try_apply_dropped_result_batch(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_type_indices = snapshot.type_indices.copy()
-  let type_lookup = dae_simple_func_type_lookup(type_sec)
+  let type_lookup = dae_structural_func_type_lookup(type_sec)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
@@ -23496,7 +23496,7 @@ fn dae_try_apply_dropped_result_batch(
       plan.params,
       [],
     )
-    let type_key = dae_simple_func_type_key(next_params, next_results)
+    let type_key = dae_structural_func_type_key(next_params, next_results)
     let next_type_idx = match type_lookup.get(type_key) {
       Some(existing) => existing
       None => {

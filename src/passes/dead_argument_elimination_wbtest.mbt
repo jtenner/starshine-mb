@@ -14484,9 +14484,9 @@ test "dae reuses simple function types inside flattened rec groups" {
     dae_find_first_matching_func_type_idx(type_sec, params, results),
     Some(expected),
   )
-  let lookup = dae_simple_func_type_lookup(type_sec)
+  let lookup = dae_structural_func_type_lookup(type_sec)
   assert_eq(
-    lookup.get(dae_simple_func_type_key(params, results)),
+    lookup.get(dae_structural_func_type_key(params, results)),
     Some(expected),
   )
 }

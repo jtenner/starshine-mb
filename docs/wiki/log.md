@@ -28198,3 +28198,14 @@ arrays/typecheck wrappers from the completed return packaging change.
 
 - Recorded [one shared forward-control qualification/count](binaryen/passes/dae2/implementation-structure-and-tests.md#shared-raw-forward-control-preflight) for the immutable body/context passed to the local-flow and forward planners. Standalone admission, planner order, separate work budgets, overflow limits, and uncommitted graph isolation remain intact.
 - Added bounded plan-field, graph, boundary/write-demand, and output checks for late rejection, local-flow rejection followed by forward success, successful local flow, flat controls, branch tables, and indexed loops. All 55 selected package tests pass through the compiled runner; the `moon test` wrapper hit the shared host's thread limit. The single-count source check passes. No full suite, fuzz, or timing evidence is claimed. Measurement remains in P03d.
+
+### 2026-10-25 — DAE existing-signature structural keys
+
+- Implemented performance-report item 8 only: owned structural keys replace
+  rendered strings while preserving signature admission, spelling distinctions,
+  first-index reuse and batch lifetime. See the
+  [key contract and measurement scope](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-structural-existing-signature-keys).
+- Focused tests pass 12/12, including both DAE command modes; changed-source
+  formatting and diff checks pass. Earlier host process-limit failures were
+  retried successfully. Timing, fuzz and full-suite runs are deferred under the
+  shared-host restriction; no performance gain is claimed.
