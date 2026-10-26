@@ -1,0 +1,20 @@
+[
+  {
+    "original_path": "/tmp/daybreak19/F05/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.exe",
+    "retained_path": "/tmp/daybreak19/F05/measured-artifacts/daybreak19_measure.whitebox_test.exe",
+    "sha256": "88c34d12eff7ebfd2340c44d284b4d0b8df0cfd31e2e83f3d03ba6a6e6c0c240",
+    "measured_head": "27ef831a8"
+  },
+  {
+    "original_path": "/tmp/daybreak19/F05/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.c",
+    "retained_path": "/tmp/daybreak19/F05/measured-artifacts/daybreak19_measure.whitebox_test.c",
+    "sha256": "f36136ac92d7e95a44c7e898c99528ac6244aeabcfc3509a5a4fc5ced5f10780",
+    "measured_head": "27ef831a8"
+  },
+  {
+    "original_path": "/tmp/daybreak19/F05/candidate/_build/native/release/bench/daybreak19_measure/daybreak19_measure.whitebox_test.alloc.exe",
+    "retained_path": "/tmp/daybreak19/F05/measured-artifacts/daybreak19_measure.whitebox_test.alloc.exe",
+    "sha256": "4644eea2850b0d76a69f134b6e1d79e0632855ee41292ea96971f9d9998aa32e",
+    "measured_head": "27ef831a8"
+  }
+]
