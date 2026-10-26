@@ -1,3 +1,17 @@
+### 2026-10-25 — Measured DAE gains landing
+
+- Corrected the native gate's launcher resolution: the mise/Bun path selected
+  Binaryen 116 after an outer-shell v133 check. Identical-fixture controls prove
+  the version drift; absolute Bun with pinned v133 and an existing ignored
+  `.tmp` parent passes all 15,487 native master tests and 14 CI fuzz suites.
+  The [investigation](../../experiment-results.md#shared-gate-investigation--batch-context-corrected-procedure)
+  supersedes prior item-stop decisions without changing tests or fixtures.
+- Item 1 lands as `642abea01b8a9348dc10f7dcf777bb879f060d14`: HOT-wide/dae CLI
+  **184.260 → 172.475 ms (-6.16%)**, RSS **20,668 → 20,584 KiB**; optimizing
+  **356.740 → 337.624 ms (-4.80%)**, RSS **32,980 → 33,036 KiB**.
+  All 15,488 native tests and 14 CI fuzz suites (100,772 attempts) pass.
+  Raw/tiny controls and limits remain in the [measured landing record](../../experiment-results.md#landing-status).
+
 ### 2026-10-25 — Complete DAE2 host-type repair gates
 
 - The [host-type repair](binaryen/passes/dae2/implementation-structure-and-tests.md#host-origin-runtime-type-tests--2026-10-25)

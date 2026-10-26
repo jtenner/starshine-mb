@@ -25,18 +25,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   the [fixtures and contract](docs/wiki/ir2/architecture-rules.md#atomic-public-flags).
   Later controlled evidence is required before any performance claim.
 
-### Native command fixture baseline [IR2-CMD-FIXTURE-BASELINE]
-
-- **Goal / why:** restore the native command gate's known-red carried-guard
-  fixture; the extraction gate passes 824/825 command tests.
-- **Deliverables / tasks:** investigate the existing `wasm-opt` fixture-lowering
-  failure independently of the extracted pass fixes; retain its regression.
-- **APIs / invariants:** preserve the carried-guard validity assertion and the
-  native WAT helper's fixture meaning; no production workaround is authorized.
-- **Dependencies / exit / tests:** reproduce against the pristine baseline and
-  current environment, then pass the existing test and native command package.
-  See the [extraction gate record](docs/pass-audit-extraction.md#final-gates).
-
 ### Cast aggregate coverage [IR2-CAST-PROFILE]
 
 - **Goal / why:** repair a pre-existing generator configuration collapse; seven
@@ -1553,13 +1541,6 @@ quality gates. Keep traced inner and normal command measurements separate.
   [fixed-point controls](src/passes/duplicate_function_fixed_point_perf_wbtest.mbt).
 
 ### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
-
-- [ ] **Item 1 HOT block-only liveness measurement:** the API replacement is
-  implemented; [scope and controls](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-25-2026-block-only-liveness-in-the-hot-fallback).
-  Measure nested branch-carried values with many shared operands/locals, plus
-  raw-admitted and tiny controls in both DAE modes. Preserve CFG flags, exception
-  edges, admission, and the syntactic-read supplement; require output/validation
-  equality and runtime/allocation/peak-memory evidence before landing.
 
 - [ ] **October 15 discovery/setup signoff:** source-invariant sink scans reuse
   one context; empty adjacent roots and result worklists skip unused snapshots

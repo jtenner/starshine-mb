@@ -27,6 +27,23 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## October 25, 2026: measured gains landing
+
+This section supersedes the measurement-pending implementation notes for the
+landed items. The complete paired measurements, adverse controls and gate
+identities are in the [landing record](../../../../../experiment-results.md#landing-status).
+
+- **Item 1, HOT block-only liveness:** source `8582c26a2`, local-master merge
+  `642abea01b8a9348dc10f7dcf777bb879f060d14`. HOT-wide CLI control → candidate
+  **184.260 → 172.475 ms (-6.16%)** for dae and
+  **356.740 → 337.624 ms (-4.80%)** for optimizing. Peak RSS is
+  **20,668 → 20,584 / 32,980 → 33,036 KiB**. Raw controls are near measurement
+  noise (the +1.04% raw/dae cost remains uncertain); tiny CLI controls are noisy.
+  This is a bounded HOT runtime gain, with no general memory/allocation claim.
+  The corrected complete native gate passes **15,488/15,488** and all
+  **14 CI native fuzz suites**, **100,772 attempts**, seed `117504205198248316`.
+  No new combined performance measurement or pass-comparison closure is claimed.
+
 ## October 25, 2026: block-only liveness in the HOT fallback
 
 DAE and DAE-optimizing now call the existing
