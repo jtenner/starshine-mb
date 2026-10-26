@@ -1,0 +1,6 @@
+{
+  "confirmation": "All six R2 owners QUIET; active test ended; zero R2 build/test processes; hold remains until explicit close",
+  "source": "user message in this thread",
+  "lease_transfer": false,
+  "window_closed": "F06 normal and allocation sampling complete, all owned timing processes ended; R2 correctness tests may resume; global lease remains held"
+}

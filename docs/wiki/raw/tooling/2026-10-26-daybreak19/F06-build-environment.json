@@ -1,0 +1,13 @@
+{
+  "baseline": {
+    "head": "fd975c32e0e43da6093d7cb56a8b9384cd393354",
+    "generated_c_sha256": "3eeeaf687869175f20d35c47cc2572125229a2cb3df7c970b531abf5e863cc7d"
+  },
+  "candidate": {
+    "head": "b562e1a85e3c79e4b0658e9a07b84123f38eef6c",
+    "generated_c_sha256": "103173d819c05be43e3a21242c01384d3e79bd9bfcdf95b081dcc260cad59d35"
+  },
+  "moon": "moon 0.1.20261012 (748b63c 2026-10-12) ~/.moon/bin/moon\nmoonc v0.10.15+943464bfa (2026-10-12) ~/.moon/bin/moonc\nmoonrun 0.1.20261012 (748b63c 2026-10-12) ~/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg\n",
+  "cc": "cc (Debian 14.2.0-19) 14.2.0\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "binaryen": "wasm-opt version 133 (version_133)\n"
+}

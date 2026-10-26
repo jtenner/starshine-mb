@@ -1,0 +1,63 @@
+[
+  {
+    "name": "no scalar constant",
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1
+  },
+  {
+    "name": "signed small x256",
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": -17,
+    "candidate_expected_first_i32": -17
+  },
+  {
+    "name": "signed minimum x256",
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": -2147483648,
+    "candidate_expected_first_i32": -2147483648
+  },
+  {
+    "name": "unsigned maximum x256",
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": -1,
+    "candidate_expected_first_i32": -1
+  },
+  {
+    "name": "unsigned upper half x256",
+    "comparable": true,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": true,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": -2147483648,
+    "candidate_expected_first_i32": -2147483648
+  },
+  {
+    "name": "invalid above unsigned maximum",
+    "comparable": false,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": false,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": 0,
+    "candidate_expected_validation_error_contains": "i32 literal out of range"
+  },
+  {
+    "name": "invalid below signed minimum",
+    "comparable": false,
+    "baseline_expected_validation_accepted": true,
+    "candidate_expected_validation_accepted": false,
+    "min_allocations_per_callback": 1,
+    "baseline_expected_first_i32": 2147483647,
+    "candidate_expected_validation_error_contains": "i32 literal out of range"
+  }
+]

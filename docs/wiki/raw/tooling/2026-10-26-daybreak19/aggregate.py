@@ -31,7 +31,11 @@ for index,case in enumerate(cases):
   observed=set();errors=set()
   for x in samples:
    if x['arm']!=arm:continue
-   output=(root/x['stdout']).read_text();m=re.search(r'DB19_VALIDATION_ACCEPTED=(true|false)',output)
+   output=(root/x['stdout']).read_text()
+   expected_value=case.get(arm+'_expected_first_i32')
+   if expected_value is not None:
+    value=re.search(r'DB19_FIRST_I32=(-?\d+)',output);assert value and int(value[1])==expected_value,(index,arm,'unexpected lowered i32')
+   m=re.search(r'DB19_VALIDATION_ACCEPTED=(true|false)',output)
    if m:observed.add(m[1]=='true')
    expected_error=case.get(arm+'_expected_validation_error_contains')
    if expected_error:assert expected_error in output,(index,arm,'unexpected rejection reason')

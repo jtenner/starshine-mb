@@ -1,5 +1,6 @@
 import {
   "jtenner/starshine/lib",
+  "jtenner/starshine/wast",
   "jtenner/starshine/validate",
   "moonbitlang/core/bench",
 } for "wbtest"
