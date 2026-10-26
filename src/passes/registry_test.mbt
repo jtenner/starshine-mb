@@ -372,24 +372,18 @@ test "audited pass_require helper metadata contracts stay declared" {
   // The cached use-def builder also requires CFG. Check every registry spelling,
   // including aliases, and report all omissions instead of stopping at the first.
   let missing : Array[String] = []
-  for name in [
-    "simplify-locals",
-    "simplify-locals-notee",
-    "simplify-locals-no-tee",
-    "simplify-locals-nonesting",
-    "simplify-locals-no-nesting",
-    "simplify-locals-nostructure",
-    "simplify-locals-no-structure",
-    "simplify-locals-notee-nostructure",
-  ] {
+  for
+    name in [
+      "simplify-locals", "simplify-locals-notee", "simplify-locals-no-tee", "simplify-locals-nonesting",
+      "simplify-locals-no-nesting", "simplify-locals-nostructure", "simplify-locals-no-structure",
+      "simplify-locals-notee-nostructure",
+    ] {
     let descriptor = match pass_registry_lookup(name) {
       Some({ descriptor: Some(descriptor), .. }) => descriptor
       _ => fail("expected hot descriptor for \{name}")
     }
-    if @ir.hot_pass_requires(descriptor) != [
-        @ir.HotAnalysis::cfg(),
-        @ir.HotAnalysis::use_def(),
-      ] {
+    if @ir.hot_pass_requires(descriptor) !=
+      [@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()] {
       missing.push(descriptor.name)
     }
   }

@@ -12,15 +12,19 @@
 
 ///|
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
@@ -30,28 +34,36 @@ pub fn simplify_locals_summary() -> String {
 
 ///|
 pub fn simplify_locals_notee_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-notee", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-notee",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
 fn simplify_locals_notee_alias_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-no-tee", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-no-tee",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
@@ -61,28 +73,36 @@ pub fn simplify_locals_notee_summary() -> String {
 
 ///|
 pub fn simplify_locals_nonesting_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-nonesting", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-nonesting",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
 fn simplify_locals_nonesting_alias_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-no-nesting", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-no-nesting",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
@@ -92,41 +112,53 @@ pub fn simplify_locals_nonesting_summary() -> String {
 
 ///|
 pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-nostructure", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-nostructure",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
 fn simplify_locals_nostructure_alias_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-no-structure", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-no-structure",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
 pub fn simplify_locals_notee_nostructure_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("simplify-locals-notee-nostructure", requires=[], invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "simplify-locals-notee-nostructure",
+    requires=[@ir.HotAnalysis::cfg(), @ir.HotAnalysis::use_def()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|
