@@ -1,6 +1,6 @@
 ///|
 fn lift_step_bench(it : @bench.T, width : Int32, structured : Bool) -> Unit {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (param i32) (local i32) ")
   for _ in 0..<width {
     source.write_string(

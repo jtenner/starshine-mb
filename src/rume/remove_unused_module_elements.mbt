@@ -4215,7 +4215,7 @@ fn rume_rewrite_expr(
   data_remap : Array[Int32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     rewritten.push(
       rume_rewrite_instruction(

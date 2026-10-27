@@ -39,7 +39,7 @@ fn lib_func_type_to_wat(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> Result[String, String] {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(func")
   if params.length() > 0 {
     out.write_string(" (param")
@@ -205,7 +205,7 @@ fn lib_block_type_suffix(bt : @lib.BlockType) -> Result[String, String] {
 fn lib_expr_instrs_to_wat(
   instrs : Array[@lib.Instruction],
 ) -> Result[String, String] {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut first = true
   for instr in instrs {
     match lib_instruction_to_wat(instr) {
@@ -290,7 +290,7 @@ fn lib_instruction_to_wat(instr : @lib.Instruction) -> Result[String, String] {
     @lib.Br(idx) => Ok("(br \{lib_label_idx_to_uint(idx)})")
     @lib.BrIf(idx) => Ok("(br_if \{lib_label_idx_to_uint(idx)})")
     @lib.BrTable(labels, default_) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(br_table")
       for label in labels {
         out.write_string(" \{lib_label_idx_to_uint(label)}")
@@ -456,7 +456,7 @@ fn lib_func_to_wat(
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(func (type \{raw_type_idx})")
   for run in local_runs {
     out.write_string(" (local")
@@ -487,7 +487,7 @@ fn lib_func_to_wat(
 ///|
 fn lib_name_to_wat(name : @lib.Name) -> String {
   let @lib.Name(raw) = name
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('"')
   for c in raw.to_owned() {
     if c == '"' || c == '\\' {
@@ -556,7 +556,7 @@ pub fn lib_module_to_wat(mod : @lib.Module) -> Result[String, String] {
       "lib_module_to_wat currently supports type/function/export-only lib modules",
     )
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module")
   match mod.type_sec {
     Some(@lib.TypeSec(rec_types)) =>

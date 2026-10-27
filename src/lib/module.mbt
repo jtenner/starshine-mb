@@ -329,7 +329,7 @@ pub fn Module::pretty_print_func(self : Module, func_idx : FuncIdx) -> String {
   let abs_idx = i.reinterpret_as_int()
   let imported = md_imported_func_count(ctx)
   if abs_idx < imported {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     md_write_line(out, 0, "func abs[\{abs_idx}] import")
     match ctx.func_imports.get(abs_idx) {
       Some(Import(module_name, field_name, FuncExternType(type_idx))) => {
@@ -353,7 +353,7 @@ pub fn Module::pretty_print_defined_func(
   let def_idx_i = def_idx.reinterpret_as_int()
   let imported = md_imported_func_count(ctx)
   let abs_idx = imported + def_idx_i
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let type_idx = match self.func_sec {
     Some(FuncSec(type_idxs)) => type_idxs.get(def_idx_i)
     None => None

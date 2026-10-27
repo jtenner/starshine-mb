@@ -16927,7 +16927,7 @@ test "simplify-locals family coverage profile maps every source-owned row" {
     Ok(_) => ()
     Err(err) => fail(validation_error_message(err))
   }
-  let pretty_out = StringBuilder::new()
+  let pretty_out = StringBuilder()
   for func_idx = 0; func_idx < 10; func_idx = func_idx + 1 {
     pretty_out.write_string(
       generated.wasm_module.pretty_print_func(

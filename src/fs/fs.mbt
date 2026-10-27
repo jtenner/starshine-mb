@@ -11,7 +11,7 @@ fn fs_error_message(error : @xfs.IOError) -> String {
 
 ///|
 fn fs_normalize_path(path : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in path {
     if c == '\\' {
       out.write_char('/')
@@ -161,7 +161,7 @@ pub fn list_files_recursive(root : String) -> Result[Array[String], String] {
     }
     return Ok([])
   }
-  let out = Array::new()
+  let out = Array()
   match fs_list_files_recursive_into(normalized_root, out) {
     Ok(_) => Ok(out)
     Err(e) => Err(e)

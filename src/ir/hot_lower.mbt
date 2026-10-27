@@ -5713,7 +5713,7 @@ fn hot_lower_impl_changed_body_prefix(
   end : Int32,
   reserve_tail~ : Bool = true,
 ) -> Array[Instruction] {
-  let copy = Array::new(capacity=if reserve_tail { body.length() } else { end })
+  let copy = Array(capacity=if reserve_tail { body.length() } else { end })
   for index in 0..<end {
     copy.push(body[index])
   }

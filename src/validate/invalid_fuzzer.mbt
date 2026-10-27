@@ -11509,7 +11509,7 @@ fn validate_invalid_ast_required_failure_messages(
 
 ///|
 fn validate_invalid_ast_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {

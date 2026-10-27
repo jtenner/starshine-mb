@@ -62,7 +62,7 @@ pub struct WastStaticAssertionResult {
 ///|
 #cfg(target="native")
 fn spec_bytes_to_string_lossy(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for b in bytes {
     let i = b.to_int()
     if i >= 0 && i <= 127 {
@@ -81,7 +81,7 @@ fn spec_bytes_to_string_lossy(bytes : Bytes) -> String {
 ///|
 /// inline parser path.
 fn spec_quote_lines_to_source(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < lines.length() {
     out.write_string(lines[i])
@@ -705,7 +705,7 @@ test "wast spec harness no longer skips the repaired catchless legacy try" {
 
 ///|
 test "wast spec harness continues after an exact allowlisted command mismatch" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   for i = 0; i < 103; i = i + 1 {
     ignore(i)
     source.write_string("(module (func))\n")
@@ -1004,7 +1004,7 @@ fn spec_native_list_wast_files() -> Array[String] {
   }
 
   let buf = Bytes::new(4096)
-  let output = StringBuilder::new()
+  let output = StringBuilder()
   while true {
     let read = spec_native_fread(buf, 1UL, buf.length().to_uint64(), pipe)
     if read == 0UL {
@@ -1093,7 +1093,7 @@ fn spec_collect_failed_paths(summary : WastSpecRunSummary) -> Array[String] {
 ///|
 #cfg(target="native")
 fn spec_failed_preview(failed : Array[String], limit : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < failed.length() && i < limit {
     if i > 0 {

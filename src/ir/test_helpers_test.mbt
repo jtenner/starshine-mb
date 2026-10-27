@@ -1,6 +1,6 @@
 ///|
 fn ir_test_join_lines(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < lines.length(); i = i + 1 {
     if i > 0 {
       out.write_string("\n")

@@ -1472,9 +1472,9 @@ pub fn decode_module_with_detail(
   i : Int32,
 ) -> Result[(Module, Int32), ModuleDecodeErrorDetail] {
   let mut i = i
-  let custom = Array::new()
-  let name_secs = Array::new()
-  let name_payloads = Array::new()
+  let custom = Array()
+  let name_secs = Array()
+  let name_payloads = Array()
   let mut mod = Module::new()
   for b in [0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00] {
     if bytes.get(i) != Some(b.to_byte()) {
@@ -2460,7 +2460,7 @@ fn decode_expr_with_depth(
   if depth > MAX_INSTRUCTION_NESTING_DEPTH {
     return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
   }
-  let a = Array::new()
+  let a = Array()
   let mut i = i
   while true {
     match decode_instruction_with_depth(bytes, i, depth + 1) {

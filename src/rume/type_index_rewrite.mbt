@@ -324,7 +324,7 @@ fn dfe_try_rewrite_val_types(
   val_types : Array[@lib.ValType],
   remap : Map[UInt32, UInt32],
 ) -> Array[@lib.ValType]? {
-  let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
+  let rewritten : Array[@lib.ValType] = Array(capacity=val_types.length())
   let mut changed = false
   let mut idx = 0
   while idx < val_types.length() {
@@ -493,7 +493,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt32, UInt32],
 ) -> Array[@lib.Instruction]? {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   let mut idx = 0
   while idx < instrs.length() {
@@ -539,7 +539,7 @@ fn dfe_try_rewrite_locals_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Locals? {
   let runs = locals.runs()
-  let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
+  let rewritten : Array[@lib.LocalRun] = Array(capacity=runs.length())
   let mut changed = false
   let mut idx = 0
   while idx < runs.length() {
@@ -1484,7 +1484,7 @@ fn dfe_rewrite_expr_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     rewritten.push(dfe_rewrite_instruction_type_idxs(instr, remap))
   }
@@ -1497,7 +1497,7 @@ fn _dfe_rewrite_locals_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Locals {
   let runs = locals.runs()
-  let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
+  let rewritten : Array[@lib.LocalRun] = Array(capacity=runs.length())
   for run in runs {
     rewritten.push(
       @lib.LocalRun::new(

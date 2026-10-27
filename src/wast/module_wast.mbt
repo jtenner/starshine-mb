@@ -14,7 +14,7 @@ fn hex_digit(v : Int32) -> Char {
 
 ///|
 fn quote_wast_string(s : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('"')
   for c in s {
     if c == '"' {
@@ -37,7 +37,7 @@ fn quote_wast_string(s : String) -> String {
 
 ///|
 fn quote_wast_bytes(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('"')
   for b in bytes {
     if b >= 0x20 && b <= 0x7e && b != 0x22 && b != 0x5c {
@@ -66,7 +66,7 @@ fn lower_snake_from_pascal(name : String) -> String {
   if name.length() == 0 {
     return ""
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < name.length() {
     let c = name[i]
@@ -213,7 +213,7 @@ fn aggregate_atomic_rmw_suffix(op : @lib.AggregateAtomicRmwOp) -> String {
 
 ///|
 fn render_type_use(type_use : TypeUse) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   match type_use.type_index {
     Some(idx) => {
       out.write_string(" (type ")
@@ -261,7 +261,7 @@ fn render_struct_field(field : StructFieldDef) -> String {
 
 ///|
 fn render_type_metadata(metadata : TypeDefMetadata) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   match metadata.describes {
     Some(idx) => out.write_string(" (describes \{index_text(idx)})")
     None => ()
@@ -282,7 +282,7 @@ fn render_type_def_body(body : TypeDefBody) -> String {
       "(func\{render_type_use(tu)})"
     }
     TypeDefBody::Struct(fields) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(struct")
       for field in fields {
         out.write_char(' ')
@@ -304,7 +304,7 @@ fn render_type_def_body(body : TypeDefBody) -> String {
 
 ///|
 fn render_block_type(bt : BlockType) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   match bt.label {
     Some(label) => {
       out.write_char(' ')
@@ -321,7 +321,7 @@ fn render_block_type(bt : BlockType) -> String {
 
 ///|
 fn render_memarg(ma : MemArg) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   if ma.offset != 0UL {
     out.write_string(" offset=")
     out.write_string("\{ma.offset}")
@@ -333,7 +333,7 @@ fn render_memarg(ma : MemArg) -> String {
 
 ///|
 fn render_v128_const(v : V128Const) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("v128.const ")
   out.write_string(keyword_from_simd_shape(v.shape))
   for value in v.values {
@@ -345,7 +345,7 @@ fn render_v128_const(v : V128Const) -> String {
 
 ///|
 fn render_shuffle_lanes(lanes : ShuffleLanes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < 16; i = i + 1 {
     if i > 0 {
       out.write_char(' ')
@@ -381,7 +381,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     BrOnCastDescEqFail(idx, source, target) =>
       "br_on_cast_desc_eq_fail \{index_text(idx)} \{keyword_from_value_type(source)} \{keyword_from_value_type(target)}"
     BrTable(targets, fallback) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("br_table")
       for idx in targets {
         out.write_char(' ')
@@ -414,7 +414,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Drop => "drop"
     Select(None) => "select"
     Select(Some(vts)) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("select (result")
       for vt in vts {
         out.write_char(' ')
@@ -1070,7 +1070,7 @@ fn write_module_field(
 
 ///|
 fn render_module(mod : Module) -> String raise WastTextError {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module")
   if mod.id is Some(id) {
     out.write_char(' ')
@@ -1114,7 +1114,7 @@ fn render_wast_result(r : WastResult) -> String {
 fn render_action(a : WastActionType) -> String {
   match a {
     Invoke(act) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(invoke")
       if act.module_name is Some(m) {
         out.write_char(' ')
@@ -1130,7 +1130,7 @@ fn render_action(a : WastActionType) -> String {
       out.to_string()
     }
     Get(module_name, global_name) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(get")
       if module_name is Some(m) {
         out.write_char(' ')
@@ -1149,7 +1149,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
   match cmd {
     Module(mod) => render_module(mod)
     ModuleBinary(id, bytes) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(module")
       if id is Some(x) {
         out.write_char(' ')
@@ -1161,7 +1161,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
       out.to_string()
     }
     ModuleQuote(id, strings) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(module")
       if id is Some(x) {
         out.write_char(' ')
@@ -1176,7 +1176,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
       out.to_string()
     }
     Register(name, module_id) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(register ")
       out.write_string(quote_wast_string(name))
       if module_id is Some(id) {
@@ -1188,7 +1188,7 @@ fn render_command(cmd : WastCommand) -> String raise WastTextError {
     }
     Action(action) => "\{render_action(action)}\n"
     AssertReturn(action, results) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(assert_return ")
       out.write_string(render_action(action))
       for r in results {
@@ -1218,7 +1218,7 @@ fn render_module_def(mod_def : WastModuleDef) -> String raise WastTextError {
     Inline(mod) => render_module(mod).trim().to_owned()
     Binary(bytes) => "(module binary \{quote_wast_bytes(bytes)})"
     Quote(lines) => {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string("(module quote")
       for line in lines {
         out.write_char(' ')
@@ -1232,7 +1232,7 @@ fn render_module_def(mod_def : WastModuleDef) -> String raise WastTextError {
 
 ///|
 fn render_script(script : WastScript) -> String raise WastTextError {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for cmd in script.commands {
     out.write_string(render_command(cmd))
   }

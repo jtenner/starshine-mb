@@ -3076,7 +3076,7 @@ pub fn gen_valid_profile_names() -> Array[String] {
 
 ///|
 fn gen_valid_join_profile_names(names : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < names.length(); i = i + 1 {
     if i > 0 {
       out.write_string("|")
@@ -3088,7 +3088,7 @@ fn gen_valid_join_profile_names(names : Array[String]) -> String {
 
 ///|
 fn gen_valid_normalize_profile_name(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -22950,7 +22950,7 @@ fn gen_valid_name(ctx : GenValidContext, base : StringView) -> Name {
   if base.length() <= limit {
     return Name::new(base)
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < limit; i = i + 1 {
     out.write_char('n')
   }
@@ -39244,7 +39244,7 @@ fn gen_valid_collect_template_signature_expr(
 
 ///|
 fn gen_valid_join_template_signature(seen : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut first = true
   for label in seen {
     if first {

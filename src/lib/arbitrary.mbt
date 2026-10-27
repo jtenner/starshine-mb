@@ -220,7 +220,7 @@ pub impl @quickcheck.Arbitrary for Data with fn arbitrary(t, state) {
 ///|
 pub impl @quickcheck.Arbitrary for Name with fn arbitrary(_, state) {
   let count = state.next_positive_int() % 5
-  let sb = StringBuilder::new(size_hint=count)
+  let sb = StringBuilder(size_hint=count)
   let mut remaining = count
   let mut i = state.next_positive_int() % 91799
   while remaining > 0 {

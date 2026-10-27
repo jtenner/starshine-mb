@@ -60,7 +60,7 @@ fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
     index += 1
   }
   let tail = path.exact_view(start=index).to_owned()
-  let segments = Array::new()
+  let segments = Array()
   for part in tail.split("/") {
     let segment = part.to_owned()
     if segment.length() > 0 {
@@ -263,7 +263,7 @@ pub fn normalize_cli_path(path : String) -> String {
   if !cli_path_needs_normalization(path) {
     return path
   }
-  let separators = StringBuilder::new()
+  let separators = StringBuilder()
   for c in path {
     if c == '\\' {
       separators.write_char('/')
@@ -286,7 +286,7 @@ pub fn normalize_cli_path(path : String) -> String {
     index += 1
   }
   let tail = unix_separators.exact_view(start=index).to_owned()
-  let segments = Array::new()
+  let segments = Array()
   for part in tail.split("/") {
     let segment = part.to_owned()
     if segment.length() == 0 || segment == "." {
@@ -302,7 +302,7 @@ pub fn normalize_cli_path(path : String) -> String {
     }
     segments.push(segment)
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(prefix)
   if absolute {
     out.write_char('/')
@@ -418,7 +418,7 @@ pub fn expand_globs(
   patterns : Array[String],
   candidates : Array[String],
 ) -> Array[String] {
-  let normalized_candidates = Array::new()
+  let normalized_candidates = Array()
   let seen_candidates : Set[String] = Set::new()
   for candidate in candidates {
     let normalized = normalize_cli_path(candidate)
@@ -440,12 +440,12 @@ pub fn expand_globs(
     }
   }
 
-  let compiled_patterns = Array::new()
+  let compiled_patterns = Array()
   for pattern in patterns {
     compiled_patterns.push(compile_glob_pattern(pattern))
   }
 
-  let out = Array::new()
+  let out = Array()
   let seen_out : Set[String] = Set::new()
   for pattern in compiled_patterns {
     let candidates_for_pattern = if pattern.path.absolute {

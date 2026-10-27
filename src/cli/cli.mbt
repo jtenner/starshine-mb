@@ -491,7 +491,7 @@ fn parse_extract_functions_value(raw : String) -> Result[String, CliParseError] 
   if normalized_parts.is_empty() {
     return Err(CliParseError::invalid_function_index_list(raw))
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < normalized_parts.length() {
     if i > 0 {
@@ -715,7 +715,7 @@ fn parse_short_option_cluster(
 
 ///|
 pub fn parse_starshine_input_env(raw : String?) -> Array[String] {
-  let out = Array::new()
+  let out = Array()
   match raw {
     Some(text) =>
       for part in text.split(",") {

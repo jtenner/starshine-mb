@@ -100,7 +100,7 @@ pub fn ir_test_assert_verify_and_lower(
 
 ///|
 fn ir_test_join_lines(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < lines.length(); i = i + 1 {
     if i > 0 {
       out.write_string("\n")
@@ -112,7 +112,7 @@ fn ir_test_join_lines(lines : Array[String]) -> String {
 
 ///|
 fn ir_test_join_csv(parts : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < parts.length(); i = i + 1 {
     if i > 0 {
       out.write_string(", ")

@@ -74,7 +74,7 @@ fn MyersContext::new(
 
 ///|
 fn myers_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -87,7 +87,7 @@ fn myers_ascii_lower(input : String) -> String {
 
 ///|
 fn myers_strip_ascii_whitespace(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
       out.write_char(c)
@@ -135,7 +135,7 @@ fn myers_fold_latin1_accent(c : Char) -> Char {
 
 ///|
 fn myers_strip_accents_latin1(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     out.write_char(myers_fold_latin1_accent(c))
   }
@@ -166,11 +166,11 @@ fn myers_split_on_char(text : String, sep : Char) -> Array[String] {
     return []
   }
   let out : Array[String] = []
-  let mut current = StringBuilder::new()
+  let mut current = StringBuilder()
   for c in text {
     if c == sep {
       out.push(current.to_string())
-      current = StringBuilder::new()
+      current = StringBuilder()
     } else {
       current.write_char(c)
     }
@@ -472,7 +472,7 @@ pub fn render_line_diff(
   if changes.is_empty() {
     return "(no changes)\n"
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for change in changes {
     let lhs_context_start = if change.lhs_at > context_lines {
       change.lhs_at - context_lines

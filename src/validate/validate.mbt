@@ -251,7 +251,7 @@ fn validate_phase_totals_line() -> String {
     "elemsec", "datasec", "datacnt", "datacnt_requirement", "startsec", "exportsec",
     "ref_func_declarations", "codesec", "namesec",
   ]
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("phase_totals")
   for phase in phases {
     let calls = validate_phase_timing_total_calls(phase)
@@ -408,7 +408,7 @@ fn validate_hotspot_summary_line() -> String? {
     }
     i += 1
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("hotspots ")
   let mut idx = 0
   while idx < ordered.length() {
@@ -3548,7 +3548,7 @@ pub fn validate_module(
 
 ///|
 fn validate_fuzz_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -4547,7 +4547,7 @@ pub fn validate_valid_feature_actual_count_by_label(
 fn validate_valid_feature_floor_failures_message(
   failures : Array[ValidateValidFeatureFloorFailure],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < failures.length() {
     if i > 0 {

@@ -170,7 +170,7 @@ fn gen_valid_rg_i32_globals(
   count : Int32,
   mutable_~ : Bool = false,
 ) -> Array[Global] {
-  let globals : Array[Global] = Array::new(capacity=count)
+  let globals : Array[Global] = Array(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     globals.push(gen_valid_rg_i32_global(idx, mutable_~))
   }
@@ -227,7 +227,7 @@ fn gen_valid_rg_hot_traffic_module(seed : UInt64) -> Module {
 fn gen_valid_rg_dependency_chain_globals(
   other_position : Int32,
 ) -> Array[Global] {
-  let globals : Array[Global] = Array::new(capacity=129)
+  let globals : Array[Global] = Array(capacity=129)
   let mut chain_old_idx = 0
   for idx = 0; idx < 129; idx = idx + 1 {
     if idx == other_position {
@@ -307,7 +307,7 @@ fn gen_valid_rg_dependency_search_module(seed : UInt64) -> Module {
 
 ///|
 fn gen_valid_rg_imported_module(seed : UInt64) -> Module {
-  let imports : Array[Import] = Array::new(capacity=129)
+  let imports : Array[Import] = Array(capacity=129)
   for idx = 0; idx < 129; idx = idx + 1 {
     imports.push(
       Import::new(
@@ -341,7 +341,7 @@ fn gen_valid_rg_global_imports(
   count : Int32,
   value_type : ValType,
 ) -> Array[Import] {
-  let imports : Array[Import] = Array::new(capacity=count)
+  let imports : Array[Import] = Array(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     imports.push(
       Import::new(

@@ -245,7 +245,7 @@ pub impl Show for HotVerifyError with fn output(self, logger) {
 
 ///|
 fn bitset_debug_dump(bits : Bitset) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[")
   let mut first = true
   bitset_for_each_set_bit(bits, fn(bit) {
@@ -261,7 +261,7 @@ fn bitset_debug_dump(bits : Bitset) -> String {
 
 ///|
 fn bitset_array_debug_dump(values : Array[Bitset]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[")
   let mut first = true
   for value in values {

@@ -4,7 +4,7 @@ fn lift_provenance_demand_bench(
   width : Int32,
   record : Bool,
 ) -> Unit {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("(module (func (param i32) (local i32) ")
   for _ in 0..<width {
     body.write_string("local.get 0 local.set 1 local.get 1 drop ")

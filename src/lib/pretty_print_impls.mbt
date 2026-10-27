@@ -1,6 +1,6 @@
 ///|
 fn pretty_join(parts : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i in 0..<parts.length() {
     if i > 0 {
       out.write_string(sep)
@@ -231,7 +231,7 @@ fn pretty_resolved_type_idx(
 ///|
 fn pretty_type_sec(type_sec : TypeSec) -> String {
   let subtypes = flatten_type_sec(type_sec)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[Types")
   if subtypes.is_empty() {
     out.write_char(']')

@@ -1,7 +1,7 @@
 ///|
 fn normalize_text_for_compare(text : String) -> String {
   // Parser/printer are whitespace-insensitive; normalize by removing all whitespace.
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in text {
     if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
       out.write_char(c)
@@ -12,7 +12,7 @@ fn normalize_text_for_compare(text : String) -> String {
 
 ///|
 fn wast_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())

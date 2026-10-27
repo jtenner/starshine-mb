@@ -56,7 +56,7 @@ pub fn PrettyPrintContext::indent(
   self : PrettyPrintContext,
   level : UInt32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let unit = self.indent_unit()
   let mut i = 0
   while i < level.reinterpret_as_int() {
@@ -89,7 +89,7 @@ fn wrap_line(line : String, ctx : PrettyPrintContext) -> String {
   }
 
   let words = body.split(" ")
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let continuation_prefix = prefix + ctx.indent(ctx.continuation_indent)
   let mut current_prefix = prefix
   out.write_string(current_prefix)
@@ -158,7 +158,7 @@ fn normalize_indent(line : String, ctx : PrettyPrintContext) -> String {
 
 ///|
 pub fn apply_pretty_context(text : String, ctx : PrettyPrintContext) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut first = true
   for line in text.split("\n") {
     if !first {
