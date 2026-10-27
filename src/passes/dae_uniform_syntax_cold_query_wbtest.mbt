@@ -1,6 +1,6 @@
 ///|
 fn dae_syntax_cold_input(calls : Int32, forwarded : Bool) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"m\" \"tick\" (func $tick)) (func $h (param i32) (result i32) local.get 0) ",
   )

@@ -3,7 +3,7 @@ fn dae2_local_index_order_fixture(
   named : Bool,
   retained~ : Int32 = 130,
 ) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (import \"env\" \"consume\" (func $consume (param i32))) (func (export \"run\") (param i32) (local",
   )

@@ -637,7 +637,7 @@ fn invalid_fuzz_string_bytes(text : String) -> Bytes {
 
 ///|
 fn invalid_fuzz_bytes_string(bytes : Bytes) -> Result[String, String] {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for byte in bytes {
     out.write_char(byte.to_int().unsafe_to_char())
   }
@@ -646,7 +646,7 @@ fn invalid_fuzz_bytes_string(bytes : Bytes) -> Result[String, String] {
 
 ///|
 fn invalid_fuzz_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {
@@ -660,7 +660,7 @@ fn invalid_fuzz_join(values : Array[String], sep : String) -> String {
 
 ///|
 fn invalid_fuzz_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -706,7 +706,7 @@ fn invalid_fuzz_reduction_has_log(report : InvalidFuzzFailureReport) -> Bool {
 
 ///|
 fn invalid_fuzz_reduction_log_text(report : InvalidFuzzFailureReport) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   match report.reduction_original_size {
     Some(v) => out.write_string("original_size=" + v.to_string() + "\n")
     None => out.write_string("original_size=\n")
@@ -1983,7 +1983,7 @@ fn invalid_fuzz_text_tokens(text : String) -> Array[String] {
 
 ///|
 fn invalid_fuzz_text_join_tokens(tokens : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < tokens.length(); i = i + 1 {
     if i > 0 {
       out.write_string(" ")
@@ -2091,7 +2091,7 @@ fn invalid_fuzz_clone_module_fields(
 
 ///|
 fn invalid_fuzz_wast_quote(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('"')
   for c in text {
     if c == '\\' {

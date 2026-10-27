@@ -125,7 +125,7 @@ fn dae_original_result_removal_prune_row(
 
 ///|
 test "dae-optimizing limits medium call and bulk-memory modules to dropped-result batches" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (memory 1) (func $callee (param i32)) (func (param i32) local.get 0 call $callee i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -17131,7 +17131,7 @@ test "dae unread parameter batch caches forwarded caller local use" {
 
 ///|
 test "dae unread parameter batch resolves each uniform callsite once" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -17179,7 +17179,7 @@ test "dae unread parameter batch resolves each uniform callsite once" {
 
 ///|
 test "dae uniform actual scan stops after every requested parameter is disproven" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -17660,7 +17660,7 @@ test "dae retained dropped-result graph rebases nested imported and tail-call pa
 
 ///|
 fn dae_test_generated_retained_graph_source(case_idx : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     (
       #|(module
@@ -20090,7 +20090,7 @@ test "dae GC parameter refinement derives concrete ref.func actual types" {
 ///|
 test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
   let function_count = 20
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     (
       #|(module
@@ -20551,7 +20551,7 @@ test "dae global suffix candidates honor unselected empty and truncated callers"
 
 ///|
 fn dae_test_sparse_callee_benchmark_module(caller_count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func)\n  (func)\n  (func)\n  (func)\n")
   let mut caller = 0

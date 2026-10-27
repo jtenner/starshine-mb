@@ -4,7 +4,7 @@ fn gc_copy_test_module(
   arms : Int32,
   rec_prefix~ : Bool = false,
 ) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module")
   if rec_prefix {
     source.write_string(" (rec (type (func)) (type (func (param i32))))")

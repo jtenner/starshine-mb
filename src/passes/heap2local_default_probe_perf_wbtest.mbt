@@ -1,6 +1,6 @@
 ///|
 fn h2l_default_probe_fixture(fields : Int32) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (type (struct")
   for _ in 0..<fields {
     source.write_string(" (field i32)")

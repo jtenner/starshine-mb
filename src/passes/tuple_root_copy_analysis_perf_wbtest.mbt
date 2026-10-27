@@ -1,6 +1,6 @@
 ///|
 fn tuple_root_copy_analysis_perf_fixture(count : Int32) -> String {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0",
   )

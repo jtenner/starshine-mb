@@ -15,7 +15,7 @@ fn flatten_scaling_call_count(instr : @lib.Instruction) -> Int32 {
 #skip("manual native full-pass scaling and allocation benchmark")
 test "flatten independent multivalue controls full-pass scaling" {
   for count in [64, 128, 256, 512] {
-    let text = StringBuilder::new()
+    let text = StringBuilder()
     text.write_string(
       "(module (import \"env\" \"pair\" (func $pair (param i32) (result i32 i32))) (func (export \"run\") (param i32) (result i32) ",
     )

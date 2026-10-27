@@ -4221,7 +4221,7 @@ fn hso_peel_reorderable_value_prefix_roots(
   if hso_sequence_result_type(func, final_root_id) != Some(block_type) {
     return Some([])
   }
-  let prefix_roots : Array[Int32] = Array::new(capacity=roots.length() - 1)
+  let prefix_roots : Array[Int32] = Array(capacity=roots.length() - 1)
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     let root_id = roots[idx]
     let uncaught_call_can_lift = if active_catch_depth == 0 &&
@@ -5121,7 +5121,7 @@ fn hso_process_local_set_chain(
     None => ()
   }
   let scratch_capacity = hso_chain_scratch_capacity(roots.length() - idx)
-  let segment_roots : Array[Int32] = Array::new(capacity=scratch_capacity)
+  let segment_roots : Array[Int32] = Array(capacity=scratch_capacity)
   segment_roots.push(root_id)
   hso_local_order_workspace_begin(local_order)
   let mut segment_local_set_idx = 0
@@ -5335,7 +5335,7 @@ fn hso_process_region(
     }
   }
 
-  let next_roots : Array[Int32] = Array::new(capacity=roots.length())
+  let next_roots : Array[Int32] = Array(capacity=roots.length())
   let mut idx = 0
   while idx < roots.length() {
     let root_id = roots[idx]

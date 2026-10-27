@@ -1398,7 +1398,7 @@ fn run_hot_pipeline_dump_invalid_module(
   for attempt in 0..<128 {
     let suffix = match @env.rand(12) {
       Some(random) => {
-        let token = StringBuilder::new()
+        let token = StringBuilder()
         for idx in 0..<random.length() {
           token.write_string(random[idx].to_hex().pad_start(2, '0'))
         }

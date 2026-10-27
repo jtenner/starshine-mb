@@ -1,7 +1,7 @@
 ///|
 /// Bounded fixtures for the actual rewrite wrapper; no timed mode enters production.
 fn dae2_writer_cut_cold_fixture(kind : Int32, width : Int32) -> @lib.Module {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string(
     "(module (import \"m\" \"effect\" (func $effect (param i32) (result i32))) ",
   )

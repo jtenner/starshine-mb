@@ -40,7 +40,7 @@ fn ReverseAliasReference::replace_reads(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
   let mark = self.undo.length()
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let visit_body = fn(body) { self.replace_reads(body) }
   for instr in instrs {
     let instr = match instr {
@@ -226,7 +226,7 @@ fn reverse_alias_reference_parameter_aliases_remap(
   indices : Array[Int32],
   aliases : Array[Int64],
 ) -> Array[@lib.Instruction] {
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let visit_body = fn(body) {
     reverse_alias_reference_parameter_aliases_remap(body, indices, aliases)
   }

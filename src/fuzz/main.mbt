@@ -169,7 +169,7 @@ fn fuzz_fnv1a64_hex_digit(value : UInt64) -> Char {
 
 ///|
 fn fuzz_fnv1a64_hex(hash : UInt64) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut shift = 60
   while shift >= 0 {
     out.write_char(fuzz_fnv1a64_hex_digit((hash >> shift) & 0xFUL))
@@ -202,7 +202,7 @@ fn fuzz_join_sorted_feature_facts(feature_facts : Array[String]) -> String {
     sorted.push(fact)
   }
   sorted.sort()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i in 0..<sorted.length() {
     if i > 0 {
       out.write_char('\n')
@@ -783,7 +783,7 @@ pub struct FuzzReplayCommand {
 
 ///|
 fn fuzz_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -828,7 +828,7 @@ fn fuzz_profile_names() -> Array[String] {
 
 ///|
 fn fuzz_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {
@@ -1865,7 +1865,7 @@ fn fuzz_has_prefix_text(arg : String, prefix : String) -> Bool {
 
 ///|
 fn fuzz_tail_string(input : String, start : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start
   while i < input.length() {
     out.write_char(input[i].unsafe_to_char())
@@ -3157,7 +3157,7 @@ fn fuzz_zero_pad_decimal(value : Int32, width : Int32) -> String {
   if raw.length() >= width {
     return raw
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = raw.length()
   while i < width {
     out.write_char('0')
@@ -3587,7 +3587,7 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
 fn gen_valid_coverage_floor_failures_message(
   failures : Array[ValidateValidFeatureFloorFailure],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < failures.length() {
     if i > 0 {
@@ -4257,7 +4257,7 @@ fn format_gen_valid_batch_feature_facts_json(
 fn format_gen_valid_batch_feature_keys_json(
   keys : Array[ValidateValidFeatureKey],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < keys.length() {
@@ -4426,7 +4426,7 @@ pub fn parse_gen_valid_batch_manifest_stream_derivations(
 ///|
 fn format_gen_valid_stream_derivations_json(seed : UInt64) -> String {
   let labels = gen_valid_random_stream_labels()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < labels.length() {
@@ -4445,7 +4445,7 @@ fn format_gen_valid_stream_derivations_json(seed : UInt64) -> String {
 
 ///|
 fn format_fuzz_string_array_json(items : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < items.length() {
@@ -4480,7 +4480,7 @@ pub fn fuzz_corpus_promotion_metadata_schema_json() -> String {
 pub fn format_fuzz_corpus_promotion_metadata_json(
   entry : FuzzCorpusPromotionMetadata,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"")
   out.write_string(fuzz_json_escape(entry.id))
   out.write_string("\",\"state\":\"")
@@ -4531,7 +4531,7 @@ fn fuzz_parse_json_string_with_escapes_at(
   if start >= text.length() || text[start] != '"' {
     return None
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start + 1
   while i < text.length() {
     let c = text[i]
@@ -4843,7 +4843,7 @@ pub fn build_fuzz_corpus_replay_command_metadata(
 pub fn format_fuzz_corpus_replay_command_metadata_json(
   replay : FuzzCorpusReplayCommandMetadata,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz-replay-command.v1\",\"case_id\":\"",
   )
@@ -5091,7 +5091,7 @@ pub fn build_fuzz_corpus_case_index(
 
 ///|
 fn format_fuzz_uint64_array_json(items : Array[UInt64]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < items.length() {
@@ -5109,7 +5109,7 @@ fn format_fuzz_uint64_array_json(items : Array[UInt64]) -> String {
 pub fn format_fuzz_corpus_case_index_json(
   index : FuzzCorpusCaseIndex,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz-corpus-case-index.v1\",\"entries\":[",
   )
@@ -5251,7 +5251,7 @@ pub fn classify_fuzz_corpus_dedup_dry_run(
 pub fn format_fuzz_corpus_dedup_dry_run_json(
   plan : FuzzCorpusDedupDryRunPlan,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz-corpus-dedup-dry-run.v1\",\"duplicate_count\":",
   )
@@ -5463,7 +5463,7 @@ fn format_golden_seed_counter_kind(kind : GoldenSeedCounterKind) -> String {
 pub fn format_golden_seed_catalog_entry_json(
   entry : GoldenSeedCatalogEntry,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"id\":\"")
   out.write_string(fuzz_json_escape(entry.id))
   out.write_string("\",\"suite\":\"")
@@ -5498,7 +5498,7 @@ pub fn format_golden_seed_catalog_entry_json(
 pub fn format_golden_seed_catalog_json(
   entries : Array[GoldenSeedCatalogEntry],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\",\"entries\":[",
   )
@@ -5521,7 +5521,7 @@ pub fn golden_seed_catalog_schema_json() -> String {
 
 ///|
 fn format_gen_valid_batch_transform_ids_json(ids : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < ids.length() {
@@ -5864,7 +5864,7 @@ fn gen_valid_engine_state_feature_labels(profile : String) -> Array[String] {
 
 ///|
 fn format_gen_valid_engine_state_execution_facts(profile : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let labels = gen_valid_engine_state_feature_labels(profile)
   let mut i = 0
@@ -5989,7 +5989,7 @@ fn format_gen_valid_engine_state_manifest_entry(
   } else {
     "strict-bits"
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v3\",\"profile_version\":4,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v4\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\"",
   )
@@ -6019,7 +6019,7 @@ fn format_gen_valid_batch_manifest_json(
   args : EmitGenValidBatchArgs,
   selection : GenValidCoverageSelection,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let weighted_cycle_cases = gen_valid_profile_weighted_cycle_cases(
     args.profile,
   )
@@ -6487,7 +6487,7 @@ fn run_fuzz_golden_seed_catalog_validate_valid_case() -> Result[
 pub fn format_fuzz_golden_seed_smoke_report(
   report : FuzzGoldenSeedSmokeReport,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "schema=\{report.schema_id} recipe=\{report.recipe_name} seed=\{report.seed}\n",
   )
@@ -6589,7 +6589,7 @@ fn format_gen_valid_feature_stats_json(stats : GenValidFeatureStats) -> String {
 fn format_validate_valid_feature_floors_json(
   floors : Array[ValidateValidFeatureFloor],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < floors.length() {
@@ -6622,7 +6622,7 @@ fn format_cmd_harness_pass_sequence_details_json(
       "cleanup-v1"
     _ => "named-profile"
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"pass_profile\":\"\{fuzz_json_escape(pass_profile)}\",\"pass_pool\":\"\{pool}\",\"resolved_passes\":[",
   )
@@ -6640,7 +6640,7 @@ fn format_cmd_harness_pass_sequence_details_json(
 fn format_validate_valid_metamorphic_details_json(
   stats : ValidateValidMetamorphicFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"generated\":\{stats.generated},\"transformed\":\{stats.transformed},\"validated\":\{stats.validated},\"transform_ids\":[",
   )
@@ -6684,7 +6684,7 @@ fn format_gen_valid_wat_validate_details_json(
 
 ///|
 fn format_text_differential_adapter_names_json(names : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < names.length() {
@@ -6716,7 +6716,7 @@ fn format_valid_multi_module_linking_details_json(
 fn format_invalid_ast_details_json(
   stats : ValidateInvalidAstFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"seed_profiles\":[")
   let mut p = 0
   while p < stats.seed_profiles.length() {
@@ -6748,7 +6748,7 @@ fn format_invalid_ast_details_json(
 fn format_invalid_binary_details_json(
   stats : ValidateInvalidBinaryFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"seed_profiles\":[")
   let mut p = 0
   while p < stats.seed_profiles.length() {
@@ -6780,7 +6780,7 @@ fn format_invalid_binary_details_json(
 fn format_invalid_text_details_json(
   stats : ValidateInvalidTextFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"strategy_stats\":[")
   let mut i = 0
   while i < stats.strategy_stats.length() {
@@ -6801,7 +6801,7 @@ fn format_invalid_text_details_json(
 fn format_invalid_text_dynamic_details_json(
   stats : ValidateInvalidTextDynamicFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"stream_label\":\"\{fuzz_json_escape(stats.stream_label)}\",\"stream_seed\":\{stats.stream_seed},\"generated\":\{stats.generated},\"mutated\":\{stats.mutated},\"parse_or_lower_rejected\":\{stats.parse_or_lower_rejected},\"validate_rejected\":\{stats.validate_rejected},\"valid_before_link\":\{stats.valid_before_link},\"matched_expected\":\{stats.matched_expected},\"strategy_stats\":[",
   )
@@ -6835,7 +6835,7 @@ fn format_invalid_text_dynamic_details_json(
 fn format_invalid_spec_seed_details_json(
   stats : ValidateInvalidSpecSeedFuzzStats,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{\"seed_stats\":[")
   let mut i = 0
   while i < stats.seed_stats.length() {
@@ -7035,7 +7035,7 @@ pub fn run_fuzz_suite_sweep(
 
 ///|
 fn fuzz_json_escape(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     match c {
       '"' => out.write_string("\\\"")
@@ -7196,7 +7196,7 @@ fn fuzz_uint64_to_lower_hex(value : UInt64) -> String {
     return "0"
   }
   let digits = "0123456789abcdef"
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut started = false
   let mut shift = 60
   while shift >= 0 {
@@ -7274,7 +7274,7 @@ pub fn format_fuzz_run_report_json(
   shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut total_attempts = 0
   let mut total_elapsed_ms = 0UL
   let mut run_budget_timeout_count = 0
@@ -7320,7 +7320,7 @@ fn format_fuzz_suite_ledger_json(
   shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz-suite-ledger.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"run_count\":\{results.length()},\"runs\":[",
   )
@@ -7354,7 +7354,7 @@ fn format_fuzz_replay_manifest_json(
   shard_count : Int32,
   results : Array[FuzzSuiteResult],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "{\"schema\":\"starshine.fuzz-replay-manifest.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"commands\":[",
   )
@@ -7406,7 +7406,7 @@ pub fn persist_fuzz_run_output(
   let result_json = format_fuzz_run_report_json(
     suite, profile, base_seed, seed_count, shard_index, shard_count, results,
   )
-  let cases = StringBuilder::new()
+  let cases = StringBuilder()
   let mut i = 0
   while i < results.length() {
     cases.write_string(
@@ -7499,7 +7499,7 @@ fn fuzz_trim_program_name(argv : Array[String]) -> Array[String] {
   if !should_trim {
     return argv
   }
-  let out = Array::new(capacity=argv.length() - 1)
+  let out = Array(capacity=argv.length() - 1)
   let mut i = 1
   while i < argv.length() {
     out.push(argv[i])

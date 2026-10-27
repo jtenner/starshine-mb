@@ -1,6 +1,6 @@
 ///|
 test "dispatcher merge-blocks keeps nested loop control valid" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (export \"run\") ")
   for _ in 0..<64 {
     source.write_string("block ")

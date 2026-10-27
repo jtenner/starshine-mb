@@ -49,7 +49,7 @@ test "inlining resolves flat trivial modes without HOT lift" {
 
 ///|
 test "inlining skips trivial classification for settled tiny functions" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module")
   for _ in 0..<256 {
     source.write_string(" (func (result i32) i32.const 1)")
@@ -64,7 +64,7 @@ test "inlining skips trivial classification for settled tiny functions" {
 
 ///|
 test "inlining skips dead-suffix preservation queries without targets" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module")
   for _ in 0..<256 {
     source.write_string(" (func)")
@@ -83,7 +83,7 @@ test "inlining skips dead-suffix preservation queries without targets" {
 
 ///|
 test "inlining queries only the function with a dead-suffix target" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module")
   for _ in 0..<255 {
     source.write_string(" (func)")
@@ -160,7 +160,7 @@ test "inlining remaps cached trivial modes and invalidates touched bodies" {
 
 ///|
 test "inlining reconstructs only changed control paths" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func $tiny i32.const 1 drop) (func")
   for _ in 0..<256 {
     source.write_string(" (block nop)")
@@ -184,7 +184,7 @@ test "inlining reconstructs only changed control paths" {
 
 ///|
 test "inlining skips callers without inlineable direct targets" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (import \"env\" \"sink\" (func $sink))")
   for _ in 0..<256 {
     source.write_string(" (func call $sink)")

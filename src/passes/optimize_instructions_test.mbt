@@ -11,7 +11,7 @@ test "optimize-instructions eqz retains values from branches to its block" {
 
 ///|
 fn optimize_instructions_large_local_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -23,7 +23,7 @@ fn optimize_instructions_large_local_fixture() -> String {
 
 ///|
 fn optimize_instructions_large_lowered_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local")
   for i = 0; i < 65; i = i + 1 {
     let _ = i
@@ -40,7 +40,7 @@ fn optimize_instructions_large_lowered_fixture() -> String {
 
 ///|
 fn optimize_instructions_large_effectful_select_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (import \"m\" \"touch\" (func $touch)) " +
     "(func (param i32 i32 i32) (local",
@@ -66,7 +66,7 @@ fn optimize_instructions_structured_gate_fixture(
   extra_calls : Int32,
   extra_writes : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (import \"m\" \"touch\" (func $touch)) (func (local i32)",
   )
@@ -25804,7 +25804,7 @@ test "optimize-instructions raw skip folds nested pure constant add" {
   // dropped add and same-global if sink were fixed, the remaining size loss kept
   // `i32.add (i32.const 6) (i32.const 7)` nested under a dropped multiply inside
   // a raw-skipped large function, while Binaryen folds that add to `i32.const 13`.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -25846,7 +25846,7 @@ test "optimize-instructions raw skip lowers select-wrapped tiny memory copy" {
   // size-1 `memory.copy` that Binaryen lowers to load8/store8. The rewrite is
   // intentionally limited to pure constant select shells, preserving source and
   // destination addresses plus the byte restore contract.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (func (result i32) (local i32 i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -25889,7 +25889,7 @@ test "optimize-instructions raw skip lowers select-wrapped byte memory fill" {
   // size-1 `memory.fill` that Binaryen lowers to `i32.store8`. Keep the rewrite
   // narrow to pure constant select shells so source-visible restore/read
   // behavior is unchanged.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (func (result i32) (local i32 i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -25931,7 +25931,7 @@ test "optimize-instructions raw skip keeps i64 narrow-store masks like Binaryen"
   // the raw-skip dispatcher was still deleting an i64 low-byte mask before an
   // i64.store8. Binaryen version_130 keeps that i64.and, while dropping only
   // exact i32 masks before i32 narrow stores.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -25975,7 +25975,7 @@ test "optimize-instructions raw skip folds constant if and eqz select shells" {
   // adjacent no-result `if` shape where both branches are a single pure value
   // followed by `drop`. Binaryen reshapes that shell to a dropped value-if; it
   // does not delete branch bodies.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26026,7 +26026,7 @@ test "optimize-instructions raw skip reshapes dropped trapping dead if arms" {
   // Binaryen keeps a value-if plus outer drop for the constant-live branch
   // instead of Starshine's size-losing void-if with branch-local drops. Preserve
   // the dead divide-by-zero arm inside the `if` so the trap remains conditional.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (global $g (mut i32) (i32.const 0)) (func (local i32",
   )
@@ -26075,7 +26075,7 @@ test "optimize-instructions raw skip folds identical pure select arms after effe
   // that mutates a private global, preserving the condition as a dropped prefix.
   // Keep this narrow to byte-identical, single-instruction pure arms; trapping
   // or effectful arms must not be reordered across the condition.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (global $g (mut i32) (i32.const 0)) (func (local i32",
   )
@@ -26122,7 +26122,7 @@ test "optimize-instructions raw skip simplifies memory.size nonzero if condition
   // Binaryen uses `memory.size` directly as an if condition, while Starshine kept
   // the equivalent `i32.ne (memory.size) (i32.const 0)` shell. This is only a
   // condition-context rewrite; value-producing `i32.ne` still has 0/1 semantics.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26165,7 +26165,7 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
   // folds the static offset into the constant address. Mirror that narrow raw
   // fallback for nonnegative constant memory32 addresses and non-overflowing
   // memory64 addresses; nonconstant address folding remains out of scope.
-  let source32 = StringBuilder::new()
+  let source32 = StringBuilder()
   source32.write_string("(module (memory 1) (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26747,7 +26747,7 @@ test "optimize-instructions raw skip rewrites memory.size page-byte multiply to 
   // drift where Binaryen rewrites `memory.size * 65536` to `memory.size << 16`
   // inside the guarded end-byte address expression. Keep this as a narrow raw
   // fallback for adjacent memory.size / power-of-two multiply spellings.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26790,7 +26790,7 @@ test "optimize-instructions raw skip folds ordered const eq ne" {
   // ordered adjacent const equality spelling (`7 == 42`) to `i32.const 0`, while
   // keeping the reverse spelling (`42 == 7`). Mirror that narrow raw fallback
   // contract without claiming broader dropped-compare cleanup.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26831,7 +26831,7 @@ test "optimize-instructions raw skip folds scalar sub i64 add sub and wrap const
   // size-losing `oi-effectful-sibling` representative still kept raw-skipped
   // OI-D scalar constant spellings that the HOT pass already folds. Keep the
   // raw escape narrow and pure: adjacent constants with exact scalar opcodes.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26879,7 +26879,7 @@ test "optimize-instructions raw skip rewrites nonnegative signed scalar spelling
   // Keep this narrow: adjacent constants and nonnegative operands; zero
   // div/rem divisors are included only because signed and unsigned integer
   // div/rem both trap before producing a value.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26946,7 +26946,7 @@ test "optimize-instructions raw skip rewrites finite float sub spellings" {
   // subtraction spellings where Binaryen prints add-with-negated-constant. Keep
   // this narrow: adjacent finite nonzero constants and no NaN or signed-zero
   // boundary widening.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -26989,7 +26989,7 @@ test "optimize-instructions raw skip rewrites f64 div by two before finite sub" 
   // float subtraction spellings are gone in the sampled private-global
   // representative, but Binaryen still rewrites the nested finite
   // `(f64.div x 2.0) - c` shell to `f64.add(f64.mul x 0.5, -c)`.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
     let _ = i
@@ -62225,7 +62225,7 @@ test "optimize-instructions keeps global dynamic-size bulk-memory" {
 ///|
 test "optimize-instructions expands tiny bulk-memory inside dead if shells" {
   let trace : Array[String] = []
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -75688,7 +75688,7 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
 fn optimize_instructions_tuple_optimization_effect_boundary_fixture(
   effect_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module")
   for i = 0; i < effect_count; i = i + 1 {
     out.write_string(" (func $side_")
@@ -84122,7 +84122,7 @@ test "optimize-instructions preserves call results added to dynamic comparison f
 
 ///|
 fn optimize_instructions_test_large_sparse_br_table() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (func (param f64) block block block block local.get 0 i64.reinterpret_f64 i64.const 52 i64.shr_u i32.wrap_i64 i32.const 65535 i32.and i32.const 2047 i32.and i32.const 16 i32.shl i32.const 16 i32.shr_s br_table 0 ",
   )
@@ -84156,7 +84156,7 @@ fn optimize_instructions_test_deep_local_tee_max_bits_chain(
   width : String,
   depth : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (param i32) (result ")
   out.write_string(width)
   out.write_string(") (local ")

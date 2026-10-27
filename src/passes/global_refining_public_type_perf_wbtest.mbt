@@ -3,7 +3,7 @@ fn gr_public_type_perf_fixture(
   type_count : Int32,
   global_count : Int32,
 ) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module\n")
   wat.write_string("(type $base (sub (struct)))\n")
   wat.write_string("(type $child (sub $base (struct)))\n")

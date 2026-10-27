@@ -337,9 +337,9 @@ fn text_aggregate_has_false(values : Array[Bool?]) -> Bool {
 pub fn classify_n_way_text_aggregate(
   results : Array[TextAggregateAdapterResult],
 ) -> TextAggregateClassification {
-  let print_values = Array::new()
-  let lower_values = Array::new()
-  let validation_values = Array::new()
+  let print_values = Array()
+  let lower_values = Array()
+  let validation_values = Array()
   let mut any_parse_failed = false
   for result in results {
     if !result.adapter_available {
@@ -400,7 +400,7 @@ pub struct TextDifferentialArtifactPaths {
 
 ///|
 fn text_adapter_result_meta(result : TextAggregateAdapterResult) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("adapter=\{result.adapter_name}\n")
   out.write_string("adapter_available=\{result.adapter_available}\n")
   out.write_string("unsupported_syntax=\{result.unsupported_syntax}\n")
@@ -420,7 +420,7 @@ fn text_differential_adapters_meta(
   local_report : TextParsePrintLowerReport,
   external_results : Array[TextAggregateAdapterResult],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[local]\n")
   out.write_string(
     text_adapter_result_meta(text_aggregate_local_result(local_report)),
@@ -439,7 +439,7 @@ fn text_differential_classification_meta(
   local_report : TextParsePrintLowerReport,
   classification : TextAggregateClassification,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "classification=\{text_aggregate_classification_label(classification)}\n",
   )
@@ -873,7 +873,7 @@ pub fn run_binary_differential_smoke(
 
 ///|
 fn binary_differential_json_escape(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c == '\\' {
       out.write_string("\\\\")
@@ -894,7 +894,7 @@ fn binary_differential_json_escape(input : String) -> String {
 
 ///|
 fn binary_differential_adapter_names_json(names : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < names.length() {
@@ -1203,7 +1203,7 @@ pub fn ExportInvocationFailurePolicy::fail_on_semantic_mismatch() -> ExportInvoc
 pub fn choose_simple_export_invocation_args(
   params : Array[@lib.ValType],
 ) -> Result[Array[String], String] {
-  let args = Array::new(capacity=params.length())
+  let args = Array(capacity=params.length())
   for param in params {
     match param {
       @lib.NumTypeValType(@lib.I32NumType) => args.push("i32:0")
@@ -1315,7 +1315,7 @@ pub fn classify_export_invocation_matrix(
 pub fn export_invocation_semantic_mismatch_reports(
   reports : Array[ExportInvocationComparisonReport],
 ) -> Array[ExportInvocationComparisonReport] {
-  let mismatches = Array::new()
+  let mismatches = Array()
   for report in reports {
     match report.classification {
       SemanticMismatch(_) => mismatches.push(report)
@@ -1530,7 +1530,7 @@ pub fn FuzzFailurePersistIO::new(
 
 ///|
 fn fuzz_clone_passes(values : Array[String]) -> Array[String] {
-  let out = Array::new(capacity=values.length())
+  let out = Array(capacity=values.length())
   for value in values {
     out.push(value)
   }
@@ -1557,7 +1557,7 @@ pub struct FuzzReductionReport[T] {
 
 ///|
 fn[T] fuzz_clone_sequence(values : Array[T]) -> Array[T] {
-  let out = Array::new(capacity=values.length())
+  let out = Array(capacity=values.length())
   for value in values {
     out.push(value)
   }
@@ -1570,7 +1570,7 @@ fn[T] fuzz_without_sequence_range(
   start : Int32,
   len : Int32,
 ) -> Array[T] {
-  let out = Array::new(capacity=values.length())
+  let out = Array(capacity=values.length())
   let end = start + len
   let mut i = 0
   while i < values.length() {
@@ -1782,7 +1782,7 @@ fn fuzz_text_tokens(text : String) -> Array[String] {
 
 ///|
 fn fuzz_text_join_tokens(tokens : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < tokens.length(); i = i + 1 {
     if i > 0 {
       out.write_string(" ")
@@ -2104,7 +2104,7 @@ pub fn FuzzCorpusDedupIndex::record(
 
 ///|
 pub fn FuzzCorpusDedupIndex::to_text(self : FuzzCorpusDedupIndex) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("version=1\n")
   for entry in self.entries {
     out.write_string(
@@ -2122,7 +2122,7 @@ pub fn FuzzCorpusDedupIndex::to_text(self : FuzzCorpusDedupIndex) -> String {
 
 ///|
 fn fuzz_single_line(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in text {
     if c == '\n' || c == '\r' {
       out.write_char(' ')
@@ -2135,7 +2135,7 @@ fn fuzz_single_line(text : String) -> String {
 
 ///|
 fn fuzz_join_csv(values : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {
@@ -2149,7 +2149,7 @@ fn fuzz_join_csv(values : Array[String]) -> String {
 
 ///|
 fn fuzz_slug(value : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut wrote_dash = false
   for c in value {
     let lower = if c >= 'A' && c <= 'Z' {
@@ -2195,7 +2195,7 @@ fn fuzz_reduction_option_int_text(value : Int32?) -> String {
 
 ///|
 fn fuzz_reduction_log_text(report : FuzzFailureReport) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "original_size=\{fuzz_reduction_option_int_text(report.reduction_original_size)}\n",
   )
@@ -2222,7 +2222,7 @@ fn fuzz_failure_meta_text(
   reduced_wasm_path~ : String? = None,
   reduction_log_path~ : String? = None,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("seed=\{report.seed}\n")
   out.write_string("attempt=\{report.attempt}\n")
   out.write_string("generated_valid=\{report.generated_valid}\n")
@@ -2473,7 +2473,7 @@ fn fuzz_minimize_optimizer_nondeterminism(
 
 ///|
 fn differential_adapter_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -3117,7 +3117,7 @@ pub fn run_cmd_fuzz_harness(
 
 ///|
 fn fuzz_profile_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())

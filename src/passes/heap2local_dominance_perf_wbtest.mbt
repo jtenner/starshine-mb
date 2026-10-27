@@ -3,7 +3,7 @@ fn h2l_dominance_perf_fixture(
   prefix_count : Int32,
   read_count : Int32,
 ) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local i32)")
   for _ in 0..<prefix_count {
     source.write_string(" (drop (i32.const 0))")

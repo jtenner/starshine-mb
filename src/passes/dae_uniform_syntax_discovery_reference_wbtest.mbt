@@ -92,7 +92,7 @@ fn dae_s10_discovery_input(
   dead_forward : Bool,
   catch_wrapped~ : Bool = false,
 ) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (import \"m\" \"tick\" (func $tick)) ")
   if catch_wrapped {
     wat.write_string("(tag $e (param i32)) ")
@@ -207,7 +207,7 @@ fn dae_s10_discovery_query(
 
 ///|
 fn dae_s10_single_wide_target_input() -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func $h (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32) local.get 0 ",
   )

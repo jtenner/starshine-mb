@@ -1,6 +1,6 @@
 ///|
 fn perf_test_join_lines(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < lines.length(); i = i + 1 {
     if i > 0 {
       out.write_string("\n")
@@ -42,7 +42,7 @@ fn perf_test_count_occurrences(text : String, needle : String) -> Int32 {
 fn perf_test_make_large_void_if_return_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -82,7 +82,7 @@ fn perf_test_make_large_void_if_return_ladder_module(
 fn perf_test_make_single_root_value_if_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -136,7 +136,7 @@ fn perf_test_make_single_root_value_if_ladder_module(
 fn perf_test_make_structured_return_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -216,12 +216,12 @@ fn perf_test_make_structured_return_ladder_module(
 fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let set_local = i + 2
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then (local.get 0) (call 0) (local.set ")
@@ -236,7 +236,7 @@ fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
@@ -259,13 +259,13 @@ fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
 fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let set_local = i + 2
     let status = if i % 2 == 0 { 0 } else { 1 }
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then (local.get 0) (call 0) (local.set ")
@@ -282,7 +282,7 @@ fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
@@ -305,14 +305,14 @@ fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
 fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let set_local = i + 2
     let scratch_local = repetitions + i + 18
     let status = if i % 2 == 0 { 0 } else { 1 }
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then ")
@@ -341,7 +341,7 @@ fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
@@ -364,14 +364,14 @@ fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
 fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let touched_local = i * 3 + 2
     let merged_local = i * 3 + 3
     let spilled_local = i * 3 + 4
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then ")
@@ -397,7 +397,7 @@ fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -426,7 +426,7 @@ fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
 fn perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
   out.write_string(
@@ -472,7 +472,7 @@ fn perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
 fn perf_test_make_simplify_locals_straight_line_adjacent_tee_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -516,7 +516,7 @@ fn perf_test_make_simplify_locals_straight_line_adjacent_tee_module(
 fn perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -565,11 +565,11 @@ fn perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
 fn perf_test_make_simplify_locals_no_local_writes_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0)")
   let mut i = repetitions - 1
   while i >= 0 {
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string(
       "(block (result i32) (if (result i32) (i32.eq (local.get 0) (i32.const ",
     )
@@ -584,7 +584,7 @@ fn perf_test_make_simplify_locals_no_local_writes_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32 i32) (result i32)\n")
   out.write_string("    ")
@@ -598,12 +598,12 @@ fn perf_test_make_simplify_locals_no_local_writes_module(
 fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let target_local = i + 2
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then ")
@@ -626,7 +626,7 @@ fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
   out.write_string(
@@ -650,7 +650,7 @@ fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
 fn perf_test_make_simplify_locals_large_equivalent_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -735,7 +735,7 @@ fn perf_test_make_simplify_locals_sparse_equivalent_module(
   local_count : Int32,
   copy_pairs : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -790,7 +790,7 @@ fn perf_test_make_simplify_locals_structured_call_heavy_module(
   repetitions : Int32,
   base_locals : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -870,7 +870,7 @@ fn perf_test_make_simplify_locals_large_structured_call_heavy_module(
 
 ///|
 fn perf_test_make_simplify_locals_transformer_structured_call_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -950,7 +950,7 @@ fn perf_test_make_simplify_locals_transformer_structured_call_module() -> String
 
 ///|
 fn perf_test_make_simplify_locals_small_loop_call_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1038,7 +1038,7 @@ fn perf_test_make_simplify_locals_small_loop_call_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1114,7 +1114,7 @@ fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_huge_straight_line_call_builder_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
   )
@@ -1187,7 +1187,7 @@ fn perf_test_make_simplify_locals_huge_straight_line_call_builder_module() -> St
 
 ///|
 fn perf_test_make_simplify_locals_lane_builder_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"array_length\" (func (param i32) (result i32)))\n",
@@ -1259,7 +1259,7 @@ fn perf_test_make_simplify_locals_lane_builder_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_decode_structured_call_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1356,7 +1356,7 @@ fn perf_test_make_simplify_locals_decode_structured_call_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_branchy_decode_fanout_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1423,7 +1423,7 @@ fn perf_test_make_simplify_locals_branchy_decode_fanout_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_stringview_trim_loop_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1520,7 +1520,7 @@ fn perf_test_make_simplify_locals_stringview_trim_loop_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_transformer_catch_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1613,7 +1613,7 @@ fn perf_test_make_simplify_locals_transformer_catch_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_dense_structured_call_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1716,7 +1716,7 @@ fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
   repetitions : Int32,
   base_locals : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1786,7 +1786,7 @@ fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
 
 ///|
 fn perf_test_make_simplify_locals_parserish_call_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1884,7 +1884,7 @@ fn perf_test_make_simplify_locals_parserish_call_module() -> String {
 
 ///|
 fn perf_test_make_simplify_locals_parserish_two_loop_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -1986,7 +1986,7 @@ fn perf_test_make_simplify_locals_parserish_two_loop_module() -> String {
 fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -2084,7 +2084,7 @@ fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
 fn perf_test_make_simplify_locals_low_local_decision_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i64)))\n",
@@ -2122,7 +2122,7 @@ fn perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
   repetitions : Int32,
   extra_locals : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -2177,7 +2177,7 @@ fn perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
   repetitions : Int32,
   extra_locals : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -2241,7 +2241,7 @@ fn perf_test_make_simplify_locals_call_dense_structured_walker_module(
   repetitions : Int32,
   extra_locals : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -2297,7 +2297,7 @@ fn perf_test_make_simplify_locals_call_dense_structured_walker_module(
 fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2388,7 +2388,7 @@ fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
 fn perf_test_make_structured_return_ladder_with_guard_carrier_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2488,7 +2488,7 @@ fn perf_test_make_structured_return_ladder_with_guard_carrier_module(
 fn perf_test_make_structured_return_ladder_with_false_prefix_guard_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2588,7 +2588,7 @@ fn perf_test_make_structured_return_ladder_with_false_prefix_guard_module(
 
 ///|
 fn perf_test_make_unique_loop_select_return_ladder_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2679,7 +2679,7 @@ fn perf_test_make_unique_loop_select_return_ladder_module() -> String {
 
 ///|
 fn perf_test_make_mid_unique_loop_select_return_ladder_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2782,7 +2782,7 @@ fn perf_test_make_mid_unique_loop_select_return_ladder_module() -> String {
 fn perf_test_make_large_result_br_table_dispatch_ladder_module(
   depth : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32 i32) (result i32)\n")
   out.write_string("    block $exit (result i32)\n")
@@ -2826,7 +2826,7 @@ fn perf_test_make_large_result_br_table_dispatch_ladder_module(
 fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -2925,7 +2925,7 @@ fn perf_test_make_large_typed_br_table_encoder_ladder_module(
   depth : Int32,
   tails_per_case : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -3036,7 +3036,7 @@ fn perf_test_make_large_typed_br_table_encoder_ladder_module(
 fn perf_test_make_large_value_if_branch_ladder_module(
   case_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32)\n")
   out.write_string("    local.get 0\n")
@@ -3051,13 +3051,13 @@ fn perf_test_make_large_value_if_branch_ladder_module(
     out.write_string("\n")
     level = level - 1
   }
-  let ladder = StringBuilder::new()
+  let ladder = StringBuilder()
   ladder.write_string("        local.get 0\n")
   ladder.write_string("        call 0\n")
   ladder.write_string("        i64.const 9999\n")
   let mut case_idx = case_count - 1
   while case_idx >= 0 {
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("      local.get 1\n")
     next.write_string("      i32.const ")
     next.write_string(case_idx.to_string())
@@ -3111,7 +3111,7 @@ fn perf_test_make_large_value_if_branch_ladder_module(
 fn perf_test_make_large_drop_heavy_branch_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -3225,7 +3225,7 @@ fn perf_test_make_large_drop_heavy_branch_ladder_module(
 fn perf_test_make_large_tagged_result_prefix_ladder_module(
   case_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -3235,12 +3235,12 @@ fn perf_test_make_large_tagged_result_prefix_ladder_module(
     out.write_string(" i32")
   }
   out.write_string(")\n")
-  let ladder = StringBuilder::new()
+  let ladder = StringBuilder()
   ladder.write_string("        i32.const 9999\n")
   let mut local_base = 2
   let mut case_idx = case_count - 1
   while case_idx >= 0 {
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     let local_a = local_base
     let local_b = local_base + 1
     let local_c = local_base + 2
@@ -3339,7 +3339,7 @@ fn perf_test_make_large_tagged_result_prefix_ladder_module(
 
 ///|
 fn perf_test_make_moderate_control_ladder_module(repetitions : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -3506,7 +3506,7 @@ fn perf_test_make_nested_constructor_hot_skip_module() -> String {
 fn perf_test_make_if_only_no_run_candidate_module(
   repetitions : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
   out.write_string("    local.get 0)\n")
@@ -3936,7 +3936,7 @@ test "ssa-nomerge skips call-heavy memory structured raw path before expensive r
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (memory 1) (func (param i32) (result i32) local.get 0) (func (param i32) (result i32) (local",
   )

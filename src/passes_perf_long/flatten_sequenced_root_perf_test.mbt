@@ -3,7 +3,7 @@ fn flatten_perf_payload_branch_suffix_module(
   function_count : Int32,
   branches_per_function : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for function_idx = 0
       function_idx < function_count
@@ -49,7 +49,7 @@ fn flatten_perf_nested_no_fallthrough_module(
   regions_per_function : Int32,
   dead_roots_per_region : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for function_idx = 0
       function_idx < function_count

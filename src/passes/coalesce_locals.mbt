@@ -114,7 +114,7 @@ priv struct CLCopyWeights {
 
 ///|
 fn CLCopyWeights::new(size : Int32) -> CLCopyWeights {
-  let rows : Array[Array[(Int32, Int32)]] = Array::new(capacity=size)
+  let rows : Array[Array[(Int32, Int32)]] = Array(capacity=size)
   for _ in 0..<size {
     rows.push([])
   }
@@ -265,7 +265,7 @@ fn cl_flatten_locals(
   locals : @lib.Locals,
   local_count : Int32,
 ) -> Array[@lib.ValType] {
-  let out : Array[@lib.ValType] = Array::new(capacity=local_count)
+  let out : Array[@lib.ValType] = Array(capacity=local_count)
   for run in locals.runs() {
     let ty = run.val_type()
     let run_len = run.count().reinterpret_as_int()
@@ -282,7 +282,7 @@ fn cl_all_local_types(
   body_locals : @lib.Locals,
 ) -> Array[@lib.ValType] {
   let body_count = body_locals.length()
-  let out : Array[@lib.ValType] = Array::new(
+  let out : Array[@lib.ValType] = Array(
     capacity=params.length() + body_count,
   )
   for param in params {
@@ -6964,7 +6964,7 @@ fn cl_rewrite_linear_copy_chain_fast(
   for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
     body_slot_types.push(slot_types[slot])
   }
-  let rewritten_instrs : Array[@lib.Instruction] = Array::new(
+  let rewritten_instrs : Array[@lib.Instruction] = Array(
     capacity=instrs.length(),
   )
   let mut rewrite_idx = 0
@@ -8688,7 +8688,7 @@ fn cl_rewrite_func(
 ///|
 fn cl_module_subtypes(mod_ : @lib.Module) -> Array[@lib.SubType] {
   let subtypes : Array[@lib.SubType] = match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => Array::new(capacity=rec_types.length())
+    Some(@lib.TypeSec(rec_types)) => Array(capacity=rec_types.length())
     None => []
   }
   match mod_.type_sec {
@@ -8737,7 +8737,7 @@ fn cl_defined_func_param_cache(
 ) -> Array[Array[@lib.ValType]] {
   let subtypes = cl_module_subtypes(mod_)
   let out : Array[Array[@lib.ValType]] = match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => Array::new(capacity=type_idxs.length())
+    Some(@lib.FuncSec(type_idxs)) => Array(capacity=type_idxs.length())
     None => []
   }
   match mod_.func_sec {
@@ -9278,7 +9278,7 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           mod_,
         ) ||
         run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_)
-      let rewritten_funcs : Array[@lib.Func] = Array::new(
+      let rewritten_funcs : Array[@lib.Func] = Array(
         capacity=funcs.length(),
       )
       let changed_code_indices : Array[Int32] = []

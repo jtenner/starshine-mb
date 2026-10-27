@@ -89,7 +89,7 @@ fn cli_benchmark_usage_text() -> String {
 
 ///|
 fn cli_benchmark_tail_string(input : String, start : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start
   while i < input.length() {
     out.write_char(input[i].unsafe_to_char())
@@ -489,7 +489,7 @@ pub fn run_cli_benchmark(
 
 ///|
 fn cli_benchmark_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {

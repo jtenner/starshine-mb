@@ -1,6 +1,6 @@
 ///|
 test "ssa-nomerge indexes supported drop-result-if parents in one node scan" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func ")
   for _ in 0..<128 {
     source.write_string(

@@ -2,7 +2,7 @@
 fn tuple_lane_traffic_perf_fixture(
   count : Int32,
 ) -> (@ir.HotFunc, @ir.HotUseDef, HotTupleOptimizationAnalysis) {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"env\" \"pair\" (func (result i32 i32))) (func (local i32 i32 i32 i32) call 0 local.set 1 local.set 0 block (result i32 i32) local.get 0 local.get 1 end local.set 3 local.tee 2 drop",
   )

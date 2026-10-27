@@ -54,7 +54,7 @@ test "dae stable call selection stays sparse across unrelated paths" {
 ///|
 test "dae stable rewrite rebuilds each nested scope once" {
   let depth = 32
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (type (func (param i32))) (func $target (type 0) (param i32)) (func",
   )

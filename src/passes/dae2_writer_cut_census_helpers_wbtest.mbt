@@ -51,8 +51,8 @@ fn dae2_writer_cut_census_compare(
   new_builds : Int32,
 ) -> Unit {
   let info = infos[index]
-  let old_bits = StringBuilder::new()
-  let new_bits = StringBuilder::new()
+  let old_bits = StringBuilder()
+  let new_bits = StringBuilder()
   for node in 0..<expected.length() {
     let used = actual.graph.used[info.node_location_base + node]
     old_bits.write_string(if expected[node] { "1" } else { "0" })
@@ -66,7 +66,7 @@ fn dae2_writer_cut_census_compare(
     writer_nodes.length() != writer_locals.length() {
     errors[3] += 1
   }
-  let writes = StringBuilder::new()
+  let writes = StringBuilder()
   for slot in 0..<raw_writes.length() {
     let (local, location) = raw_writes[slot]
     if slot >= writer_nodes.length() || slot >= writer_locals.length() {

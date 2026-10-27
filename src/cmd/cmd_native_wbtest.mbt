@@ -94,7 +94,7 @@ fn cnw_starts_with_at(text : String, start : Int32, prefix : String) -> Bool {
 #cfg(target="native")
 fn cmd_native_wbtest_canonicalize_body_locals(body : String) -> String {
   let local_ids : @hashmap.HashMap[Int32, Int32] = @hashmap.new(capacity=32)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut next_local = 0
   let mut i = 0
   while i < body.length() {
@@ -186,7 +186,7 @@ fn cmd_native_wbtest_reorder_scalar_ladders(body : String) -> String {
     }
     i += 1
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut token_idx = 0
   while token_idx < tokens.length() {
     if token_idx + 8 < tokens.length() &&
@@ -238,7 +238,7 @@ fn cmd_native_wbtest_reorder_scalar_ladders(body : String) -> String {
 ///|
 #cfg(target="native")
 fn cmd_native_wbtest_canonicalize_func_pretty(pretty : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut wrote_line = false
   let mut in_body = false
   for raw_line in pretty.split("\n") {

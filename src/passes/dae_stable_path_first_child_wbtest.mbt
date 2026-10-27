@@ -87,7 +87,7 @@ test "DAE first child interning keeps canonical IDs signed siblings and retained
 
 ///|
 fn dae_first_child_fixture(depth : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func $a (param i32) (result i32) local.get 0) (func $b (param i64) (result i64) local.get 0) (func (export \"run\") (result i64) ",
   )

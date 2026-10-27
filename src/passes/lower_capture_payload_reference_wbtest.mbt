@@ -194,7 +194,7 @@ fn payload_ownership_reference_pass_lower_remap_locals(
   let visit_body = fn(body) {
     payload_ownership_reference_pass_lower_remap_locals(body, indices)
   }
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   for instr in instrs {
     match instr {
       @lib.LocalTee(@lib.LocalIdx(index)) if indices[index.to_int()] < 0 =>
@@ -565,7 +565,7 @@ fn payload_ownership_reference_alias_remap(
   indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let mark = aliases.undo.length()
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let visit_body = fn(body) {
     payload_ownership_reference_alias_remap(aliases, body, indices)
   }

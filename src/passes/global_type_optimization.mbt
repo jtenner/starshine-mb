@@ -373,7 +373,7 @@ fn gto_rewrite_expr(
   for index in placeholder_positions {
     counts[index] += 1
   }
-  let materialized : Array[@lib.Instruction] = Array::new(
+  let materialized : Array[@lib.Instruction] = Array(
     capacity=out.length() + placeholder_positions.length(),
   )
   for index = 0; index <= out.length(); index = index + 1 {

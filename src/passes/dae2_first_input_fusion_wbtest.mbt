@@ -83,7 +83,7 @@ fn dae2_first_input_written_fixture(
   width : Int32,
   repeat~ : Bool = false,
 ) -> @lib.Module {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("block $out ")
   for local in 4..<(4 + width) {
     let source = if local % 2 == 0 { 1 } else { 2 }

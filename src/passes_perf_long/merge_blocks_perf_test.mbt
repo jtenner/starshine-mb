@@ -13,7 +13,7 @@ fn merge_blocks_perf_multivalue_module(block_count : Int32) -> @lib.Module {
     ),
   ]
   for function_index in 0..<function_count {
-    let body : Array[@lib.Instruction] = Array::new(
+    let body : Array[@lib.Instruction] = Array(
       capacity=blocks_per_func * 5,
     )
     for local_index in 0..<blocks_per_func {

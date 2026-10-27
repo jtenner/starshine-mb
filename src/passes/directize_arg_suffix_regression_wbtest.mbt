@@ -178,7 +178,7 @@ test "directize trap keeps argument call effects before dropping all arguments" 
 
 ///|
 test "directize one constant candidate preserves surrounding dynamic calls and effects" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (type $call (func (param i32))) (table 1 funcref) (func $target (param i32)) (elem (i32.const 0) $target) (func (param i32) ",
   )

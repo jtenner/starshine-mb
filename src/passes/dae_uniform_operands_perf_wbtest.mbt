@@ -5,7 +5,7 @@ fn dae_uniform_operands_bench(
   computed : Bool,
   sliced : Bool,
 ) -> Unit {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (func $h (param")
   for _ in 0..<params {
     text.write_string(" i32")

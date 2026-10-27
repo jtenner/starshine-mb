@@ -21,7 +21,7 @@ fn dae_uniform_syntax_bench_input(
   debris : Int32,
   siblings : Int32,
 ) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func $a (param i32) (result i32) local.get 0) (func $b (param i32) (result i32) local.get 0) (func $forward (param i32) (result i32) local.get 0 call $a drop local.get 0 call $b) (func (export \"run\") (result i32) ",
   )
@@ -178,7 +178,7 @@ test "bench DAE syntax single debris=32 siblings=13000 indexed" (it : @bench.T) 
 
 ///|
 fn dae_uniform_syntax_call_dense_input(calls : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"env\" \"tick\" (func $tick)) (func $h (param i32) (result i32) local.get 0) (func $forward (param i32) (result i32) local.get 0 call $h) (func (export \"run\") (result i32) ",
   )

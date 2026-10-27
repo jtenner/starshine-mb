@@ -3,7 +3,7 @@ fn dae_loop_signature_fixture(
   count : Int32,
   parameterized : Bool,
 ) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module")
   for _ in 0..<(count - 1) {
     wat.write_string(" (type (func))")

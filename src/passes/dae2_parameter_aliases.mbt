@@ -373,7 +373,7 @@ fn Dae2ParameterAliases::remap(
   indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let mark = self.undo.length()
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let visit_body = fn(body) { self.remap(body, indices) }
   for instr in instrs {
     match instr {

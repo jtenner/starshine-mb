@@ -26,7 +26,7 @@ fn control_review_legacy_global_hazard(func : @ir.HotFunc) -> Bool {
 ///|
 #skip("manual control-review native release benchmark")
 test "control review global write hazard scan benchmark" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (global (mut i32) (i32.const 0)) (func ")
   for value in 0..<2048 {
     source.write_string("i32.const \{value} global.set 0 ")
@@ -112,7 +112,7 @@ fn control_review_legacy_consumer_span(
 #skip("manual control-review native release benchmark")
 test "control review multivalue ownership benchmark" {
   for consumer in [false, true] {
-    let source = StringBuilder::new()
+    let source = StringBuilder()
     source.write_string(
       if consumer {
         "(module (func $consume (param i32 i32)) (func "
@@ -175,7 +175,7 @@ test "control review multivalue ownership benchmark" {
 #skip("manual control-review native release benchmark")
 test "control review loop cache across splices benchmark" {
   for has_loop in [false, true] {
-    let source = StringBuilder::new()
+    let source = StringBuilder()
     source.write_string("(module (func ")
     for _ in 0..<128 {
       source.write_string("block ")

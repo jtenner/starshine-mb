@@ -1,6 +1,6 @@
 ///|
 fn db19_f14_bench(it : @bench.T, n : Int32, shape : Int32) -> Unit {
-  let long = StringBuilder::new()
+  let long = StringBuilder()
   for _ in 0..<64 {
     long.write_string("directory/")
   }

@@ -153,7 +153,7 @@ fn Dae2ParameterAliases::unread_write_reference_remap(
   indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let mark = self.undo.length()
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let visit_body = fn(body) { self.unread_write_reference_remap(body, indices) }
   for instr in instrs {
     match instr {

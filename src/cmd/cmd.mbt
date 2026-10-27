@@ -191,7 +191,7 @@ fn cmd_phase_trace_pass_name(line : String) -> String? {
   if !line.has_prefix("pass[") {
     return None
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut idx = 5
   while idx < line.length() {
     let ch = line[idx]
@@ -415,7 +415,7 @@ fn ascii_lower_eq_at_bounds(
 ///|
 fn trimmed_ascii_lower_string(input : String) -> String {
   let (start, end) = trimmed_bounds(input)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start
   while i < end {
     out.write_char(ascii_lower_u16(input[i]).unsafe_to_char())
@@ -632,7 +632,7 @@ fn join_normalized_cli_path(dir : String, file : String) -> String {
 
 ///|
 fn bytes_to_string_lossy(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for b in bytes {
     let i = b.to_int()
     if i >= 0 && i <= 127 {
@@ -885,7 +885,7 @@ test "normalized output path helpers reuse normalized startup paths" {
 
 ///|
 fn parse_pass_list(raw : String) -> Array[String] {
-  let out = Array::new()
+  let out = Array()
   for part in raw.split(",") {
     let lowered = trimmed_ascii_lower_string(part.to_owned())
     if lowered.length() > 0 {
@@ -1868,8 +1868,8 @@ fn resolve_input_files_with_glob(
   io : CmdIO,
   glob_enabled : Bool,
 ) -> Array[String] {
-  let literal = Array::new()
-  let patterns = Array::new()
+  let literal = Array()
+  let patterns = Array()
   for normalized in globs {
     if normalized.length() == 0 {
       continue
@@ -1880,7 +1880,7 @@ fn resolve_input_files_with_glob(
       append_unique_string(literal, normalized)
     }
   }
-  let out = Array::new()
+  let out = Array()
   for value in literal {
     append_unique_string(out, value)
   }
@@ -2494,7 +2494,7 @@ fn limit_pass_flags_by_max_passes(
 
 ///|
 fn cmd_trace_join_pass_flags(flags : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < flags.length() {
     if i > 0 {
@@ -2512,7 +2512,7 @@ fn format_pipeline_validation_error(
   mod : Module,
   err : ValidationError,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("\{stage}: \{validation_error_message(err)}")
   match validation_error_func_idx(err) {
     Some(func_idx) => {
@@ -2646,7 +2646,7 @@ fn cmd_flatten_type_sec(type_sec : @lib.TypeSec) -> Array[@lib.SubType] {
 
 ///|
 fn cmd_print_val_type_list(types : Array[@lib.ValType]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   let mut i = 0
   while i < types.length() {
@@ -2662,7 +2662,7 @@ fn cmd_print_val_type_list(types : Array[@lib.ValType]) -> String {
 
 ///|
 fn cmd_print_type_idx_list(type_idxs : Array[@lib.TypeIdx]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < type_idxs.length() {
     if i > 0 {
@@ -2898,7 +2898,7 @@ fn cmd_indent_print_body(text : String) -> String {
   if text.length() == 0 {
     return "  <empty>\n"
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut at_line_start = true
   for c in text {
     if at_line_start {
@@ -2925,7 +2925,7 @@ fn cmd_write_pipeline_print_log(
   body : String,
   write_header : Bool,
 ) -> Result[Unit, CmdError] {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   if write_header {
     out.write_string("Log: \{input_path}\n")
   }
@@ -3210,7 +3210,7 @@ fn cmd_post_encode_repro_note(
 ) -> String {
   let _ = io
   let _ = mod
-  let args = StringBuilder::new()
+  let args = StringBuilder()
   let mut needs_space = false
   let write_arg = fn(text : String) {
     if needs_space {
@@ -3842,7 +3842,7 @@ pub fn cmd_version_text() -> String {
 
 ///|
 fn cmd_build_help_text() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for
     c in "Starshine Wasm Binary Toolkit \{cmd_version_text()}\nFast parsing, validation, optimization, and rewriting for Wasm modules.\n\nUsage:\n  starshine [flags] [passes] <input...>\n  starshine spec <tests/spec/*.wast ...>\n\nFlags and options:\n" {
     out.write_char(c)
@@ -4093,7 +4093,7 @@ fn spec_failed_preview(
       _ => ()
     }
   }
-  let builder = StringBuilder::new()
+  let builder = StringBuilder()
   let mut i = 0
   while i < out.length() && i < limit {
     if i > 0 {
@@ -4340,7 +4340,7 @@ fn cmd_copy_instruction_prefix_for_encoding(
   instrs : Array[@lib.Instruction],
   end : Int32,
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let out : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for idx = 0; idx < end; idx = idx + 1 {
     out.push(instrs[idx])
   }
@@ -4491,7 +4491,7 @@ fn cmd_copy_func_prefix_for_encoding(
   funcs : Array[@lib.Func],
   end : Int32,
 ) -> Array[@lib.Func] {
-  let out : Array[@lib.Func] = Array::new(capacity=funcs.length())
+  let out : Array[@lib.Func] = Array(capacity=funcs.length())
   for idx = 0; idx < end; idx = idx + 1 {
     out.push(funcs[idx])
   }
@@ -4568,7 +4568,7 @@ fn cmd_strip_terminal_returns_for_encoding(
                 cmd_copy_func_prefix_for_encoding(funcs, code_idx)
               }
             }
-            let body : Array[@lib.Instruction] = Array::new(
+            let body : Array[@lib.Instruction] = Array(
               capacity=instrs.length() - 1,
             )
             for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
@@ -5293,7 +5293,7 @@ fn format_post_encode_validation_error(
   post_encode_mod : Module,
   err : ValidationError,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(validation_error_message(err))
   match validation_error_func_idx(err) {
     Some(func_idx) => {
@@ -5619,7 +5619,7 @@ pub fn run_cmd_with_adapter(
   cmd_prepare_runtime()
   if effective_args.length() > 0 {
     if effective_args[0] == "spec" || effective_args[0] == "spec-runner" {
-      let spec_args = Array::new(capacity=effective_args.length() - 1)
+      let spec_args = Array(capacity=effective_args.length() - 1)
       let mut i = 1
       while i < effective_args.length() {
         spec_args.push(effective_args[i])
@@ -8069,7 +8069,7 @@ fn trim_program_name(argv : Array[String]) -> Array[String] {
   if argv.length() == 0 {
     return []
   }
-  let out = Array::new(capacity=argv.length() - 1)
+  let out = Array(capacity=argv.length() - 1)
   let mut i = 1
   while i < argv.length() {
     out.push(argv[i])
@@ -8176,7 +8176,7 @@ fn cmd_wasm_finish_read_string(handle : CmdStringReadHandle) = "__moonbit_fs_uns
 ///|
 #cfg(target="wasm")
 fn cmd_wasm_string_from_extern(extern_str : CmdExternString) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let handle = cmd_wasm_begin_read_string(extern_str)
   while true {
     let ch = cmd_wasm_string_read_char(handle)

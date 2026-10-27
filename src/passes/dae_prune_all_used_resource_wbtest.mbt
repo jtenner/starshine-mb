@@ -1,6 +1,6 @@
 ///|
 fn dae_prune_all_used_fixture() -> @lib.Module {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module $all_used (type $only (func)) ")
   for index in 0..<128 {
     text.write_string(

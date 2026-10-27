@@ -1,6 +1,6 @@
 ///|
 fn ras_join_lines(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < lines.length() {
     if i > 0 {

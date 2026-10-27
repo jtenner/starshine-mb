@@ -30,7 +30,7 @@ fn directize_perf_long_i32_expr(
 ///|
 fn directize_perf_module(call_count : Int32, depth : Int32) -> @lib.Module {
   let type_idx = @lib.TypeIdx::new(0U)
-  let body : Array[@lib.Instruction] = Array::new(
+  let body : Array[@lib.Instruction] = Array(
     capacity=call_count * (depth * 4 + 8),
   )
   for _ in 0..<call_count {

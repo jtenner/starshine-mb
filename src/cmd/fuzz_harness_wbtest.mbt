@@ -13,7 +13,7 @@ fn encode_fixture_module(value : Int32) -> Bytes {
 
 ///|
 fn bytes_to_ascii(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for b in bytes {
     out.write_char(b.to_int().unsafe_to_char())
   }

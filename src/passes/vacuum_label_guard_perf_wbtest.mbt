@@ -1,6 +1,6 @@
 ///|
 fn vacuum_label_guard_perf_bench(it : @bench.T, count : Int32) -> Unit {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (func (param i32)")
   for _ in 0..<count {
     // A branch to the result owner intentionally excludes this demotion:
@@ -55,7 +55,7 @@ test "bench Vacuum rejected targeted result-if sink count=256" (it : @bench.T) {
 
 ///|
 fn vacuum_nonempty_else_guard_perf_bench(it : @bench.T, count : Int32) -> Unit {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (func (param i32)")
   for _ in 0..<count {
     wat.write_string(" local.get 0 if else i32.const 1 drop end")
@@ -103,7 +103,7 @@ test "bench Vacuum nonempty else guard count=256" (it : @bench.T) {
 
 ///|
 fn vacuum_concrete_arm_fixture(count : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"e\" \"value\" (func $value (param i32) (result i32))) (func (param i32)",
   )

@@ -118,7 +118,7 @@ fn dae_s11_forced_filtered_discovery(
 
 ///|
 fn dae_s11_multi_query_input(width : Int32, nested : Bool) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module ")
   for name in ["a", "b"] {
     wat.write_string("(func $")

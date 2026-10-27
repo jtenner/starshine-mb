@@ -52,7 +52,7 @@ fn atomic_pass_support_struct_atomic_get_fixture_with_prefix(
   prefix : String,
   body : String,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(prefix)
   out.write_string("\n")

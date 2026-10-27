@@ -17416,7 +17416,7 @@ fn run_hot_pipeline_raw_heap_store_optimization_allocation_sink(
   if instrs.is_empty() || instrs.length() % 9 != 0 {
     return None
   }
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut idx = 0
   while idx < instrs.length() {
     match
@@ -19531,7 +19531,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
       let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
       ignore(context_builds)
       let params_by_func = raw_numeric_group_function_params(mod_)
-      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let next_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
       let remaps : Array[Array[Int32]?] = []
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
@@ -67597,7 +67597,7 @@ fn o4z_canonicalize_final_size_drop_result_block_select_shell(
   if value_local != address_local {
     return None
   }
-  let rewritten : Array[@lib.Instruction] = Array::new(
+  let rewritten : Array[@lib.Instruction] = Array(
     capacity=body.length() - 5,
   )
   for idx = 0; idx < start; idx = idx + 1 {
@@ -69000,7 +69000,7 @@ fn o4z_canonicalize_final_size_continuation(
   start : Int32,
   continuation : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = Array::new(
+  let out : Array[@lib.Instruction] = Array(
     capacity=instrs.length() - start + continuation.length(),
   )
   for idx = start; idx < instrs.length(); idx = idx + 1 {
@@ -71818,7 +71818,7 @@ fn o4z_canonicalize_final_size_same_local_integer_compare_result(
 fn o4z_canonicalize_final_size_fold_same_local_integer_compares(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let normalized : Array[@lib.Instruction] = Array::new(
+  let normalized : Array[@lib.Instruction] = Array(
     capacity=instrs.length(),
   )
   let mut changed = false
@@ -71885,7 +71885,7 @@ fn o4z_canonicalize_final_size_fold_same_local_integer_compares(
     }
     normalized.push(next)
   }
-  let rewritten : Array[@lib.Instruction] = Array::new(
+  let rewritten : Array[@lib.Instruction] = Array(
     capacity=normalized.length(),
   )
   let mut idx = 0
@@ -71918,7 +71918,7 @@ fn o4z_canonicalize_final_size_fold_same_local_integer_compares(
 fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let normalized : Array[@lib.Instruction] = Array::new(
+  let normalized : Array[@lib.Instruction] = Array(
     capacity=instrs.length(),
   )
   let mut changed = false
@@ -71985,7 +71985,7 @@ fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
     }
     normalized.push(next)
   }
-  let rewritten : Array[@lib.Instruction] = Array::new(
+  let rewritten : Array[@lib.Instruction] = Array(
     capacity=normalized.length(),
   )
   let mut idx = 0
@@ -72038,7 +72038,7 @@ pub fn o4z_canonicalize_final_size_store_carries(
   }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let next_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
       let mut changed = false
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
@@ -72066,7 +72066,7 @@ pub fn o4z_canonicalize_final_size_store_carries(
 fn o4z_canonicalize_final_size_strip_dead_after_br(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let normalized : Array[@lib.Instruction] = Array::new(
+  let normalized : Array[@lib.Instruction] = Array(
     capacity=instrs.length(),
   )
   let mut changed = false
@@ -72136,7 +72136,7 @@ fn o4z_canonicalize_final_size_strip_dead_after_br(
   for idx = 0; idx < normalized.length(); idx = idx + 1 {
     match normalized[idx] {
       @lib.Br(_) if idx + 1 < normalized.length() => {
-        let out : Array[@lib.Instruction] = Array::new(capacity=idx + 1)
+        let out : Array[@lib.Instruction] = Array(capacity=idx + 1)
         for keep = 0; keep <= idx; keep = keep + 1 {
           out.push(normalized[keep])
         }
@@ -72197,7 +72197,7 @@ fn o4z_canonicalize_final_size_instrs_have_local_access(
 fn o4z_canonicalize_final_size_empty_void_else_arms(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   for instr in instrs {
     let next = match instr {
@@ -72283,7 +72283,7 @@ pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
   }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let next_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
       let mut changed = false
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
@@ -72314,7 +72314,7 @@ fn o4z_canonicalize_final_size_candidate_impl(
   let canonical = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let module_ctx = @ir.hot_module_context_from_module(mod_)
-      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let next_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
       let return_candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
       let imported_funcs = run_hot_pipeline_imported_func_count(mod_)
       let stack_alloc_def = o4z_canonicalize_final_size_emscripten_stack_alloc_def(
@@ -72407,7 +72407,7 @@ fn o4z_canonicalize_final_size_candidate_impl(
         )
         let (next_instrs, return_changed) = match carry_instrs.last() {
           Some(@lib.Return) => {
-            let without_return : Array[@lib.Instruction] = Array::new(
+            let without_return : Array[@lib.Instruction] = Array(
               capacity=carry_instrs.length() - 1,
             )
             for idx = 0; idx + 1 < carry_instrs.length(); idx = idx + 1 {
@@ -94233,7 +94233,7 @@ fn run_hot_pipeline_sgo_nested_cleanup_descriptor(
 fn run_hot_pipeline_sgo_deep_copy_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let out : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     out.push(
       match instr {

@@ -5,7 +5,7 @@ fn dae2_sparse_exit_fixture(
   changes : Int32,
   owned_leaves~ : Bool = false,
 ) -> @lib.Module {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("block $out ")
   for local in 4..<(4 + width) {
     body.write_string("local.get 1 local.set \{local} ")

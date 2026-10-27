@@ -1,6 +1,6 @@
 ///|
 fn code_pushing_large_jsonas_like_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32")
   for i = 0; i < 129; i = i + 1 {
     let _ = i

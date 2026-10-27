@@ -1,6 +1,6 @@
 ///|
 fn simplify_locals_nostructure_test_many_i32_locals(count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < count; i = i + 1 {
     out.write_string(" (local i32)")
   }
@@ -75,7 +75,7 @@ fn slns_test_module_has_nonvoid_no_normal_try_table(mod_ : @lib.Module) -> Bool 
 
 ///|
 fn slns_test_deep_result_if_local_tee_chain(depth : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (memory 1) (func (param i32) (result i32) (local i32) local.get 0 i32.load local.tee 1 ",
   )
@@ -100,7 +100,7 @@ fn slns_test_deep_result_if_many_local_write_chain(
   depth : Int32,
   local_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (param i32) (result i32) ")
   out.write_string(
     simplify_locals_nostructure_test_many_i32_locals(local_count),
@@ -124,7 +124,7 @@ fn slns_test_deep_result_if_many_local_write_chain(
 
 ///|
 fn slns_test_many_result_if_local_write(count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
   )
@@ -139,7 +139,7 @@ fn slns_test_many_result_if_local_write(count : Int32) -> String {
 
 ///|
 fn slns_test_deep_br_table_local_write(depth : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
   )
@@ -162,7 +162,7 @@ fn slns_test_deep_block_local_write(
   depth : Int32,
   local_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (param i32) (result i32) ")
   out.write_string(
     simplify_locals_nostructure_test_many_i32_locals(local_count),
@@ -1220,7 +1220,7 @@ test "simplify-locals-nostructure skips Winch countdown expansion hazard" {
   // a global countdown, several conditional local rewrites, and a broad flat
   // body can make repeated simplify/lower cycles expand superlinearly. Keep the
   // pass fail-closed on this narrow shape; later O4z passes still process it.
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (global $count (mut i32) (i32.const 1000)) (func (result i32) (local i32 i32 i32 i32 i32 i32) global.get $count i32.eqz if unreachable end global.get $count i32.const 1 i32.sub global.set $count ",
   )
@@ -3455,7 +3455,7 @@ test "simplify-locals-notee-nostructure optimizes unrelated locals when an exist
 
 ///|
 fn simplify_locals_nostructure_test_large_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   let mut idx = 0
   while idx < 101 {
@@ -3894,7 +3894,7 @@ test "simplify-locals-nostructure keeps the no-structure if boundary through its
 fn simplify_locals_nostructure_giant_post_inline_call_builder(
   call_count : Int32,
 ) -> String {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (func $id (param i32) (result i32) local.get 0) (func (export \"run\") (local i32 i32 i32 i32 i32 i32 i32) i32.const 0 local.set 1 i32.const 0 local.set 2 i32.const 0 local.set 3 i32.const 0 local.set 4 i32.const 0 local.set 5 i32.const 0 local.set 6 (block ",
   )
@@ -4472,7 +4472,7 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
 
 ///|
 test "simplify-locals variants preserve result-if tee sources before parameter aliases" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -4839,7 +4839,7 @@ test "simplify-locals bulk adjacent tee skips scalar signed division" {
 
 ///|
 test "simplify-locals-nostructure scans deeply nested AssemblyScript dispatchers once per structured edge" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (param i32)")
   for _ in 0..<60 {
     input.write_string(" block")

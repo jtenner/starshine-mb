@@ -880,7 +880,7 @@ fn or_rewrite_instrs(
 fn or_deep_copy_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let out : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     out.push(
       match instr {

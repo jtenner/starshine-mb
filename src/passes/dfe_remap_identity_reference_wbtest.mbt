@@ -9,7 +9,7 @@ fn dfe_remap_before_instruction(
     @lib.Loop(block_type, expr) =>
       @lib.Instruction::loop_(block_type, dfe_remap_before_expr(expr, remap))
     @lib.If(block_type, then_body, else_body) => {
-      let rewritten_then : Array[@lib.Instruction] = Array::new(
+      let rewritten_then : Array[@lib.Instruction] = Array(
         capacity=then_body.length(),
       )
       for nested in then_body {
@@ -17,7 +17,7 @@ fn dfe_remap_before_instruction(
       }
       let rewritten_else = match else_body {
         Some(body) => {
-          let rewritten : Array[@lib.Instruction] = Array::new(
+          let rewritten : Array[@lib.Instruction] = Array(
             capacity=body.length(),
           )
           for nested in body {
@@ -48,7 +48,7 @@ fn dfe_remap_before_instruction(
 ///|
 fn dfe_remap_before_expr(expr : @lib.Expr, remap : Array[UInt32]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     rewritten.push(dfe_remap_before_instruction(instr, remap))
   }

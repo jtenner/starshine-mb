@@ -15,7 +15,7 @@ fn bytes_from_string(text : String) -> Bytes {
 
 ///|
 fn bytes_to_ascii_string(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for b in bytes {
     let i = b.to_int()
     if i >= 0 && i <= 127 {
@@ -46,7 +46,7 @@ fn encode_module_fixture_bytes(mod : Module) -> Bytes {
 
 ///|
 fn concat_ascii_bytes(chunks : Array[Bytes]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for chunk in chunks {
     out.write_string(bytes_to_ascii_string(chunk))
   }
@@ -2541,7 +2541,7 @@ test "O4z size portfolio preserves observable result-block select shells" {
 
 ///|
 test "O4z size portfolio defers dropped integer shells for 37-function stateful Emscripten candidates" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (export \"_main\") (param i32) local.get 0 i32.const -4 i32.and drop) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
   )
@@ -3812,7 +3812,7 @@ test "O4z final canonicalization preserves root global snapshots" {
 
 ///|
 test "O4z final canonicalization restores emscripten stackAlloc snapshots" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     (
       #|(module
@@ -4032,7 +4032,7 @@ test "O4z size portfolio detects observable AssemblyScript memory modules" {
 ///|
 test "O4z size portfolio rejects measured unsafe pre-canonical finish shapes" {
   let make_module = fn(count : Int32) {
-    let wat = StringBuilder::new()
+    let wat = StringBuilder()
     wat.write_string(
       "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
     )
@@ -4340,7 +4340,7 @@ test "O4z ifs boolean xor fusion requires an exact one-bit mask" {
 ///|
 test "O4z ifs final canonicalization admits only the exact 50-function stateful family" {
   let make_module = fn(count : Int32) {
-    let wat = StringBuilder::new()
+    let wat = StringBuilder()
     wat.write_string(
       "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
     )
@@ -4412,7 +4412,7 @@ test "O4z size portfolio detects zero-memory dense i64 runtime hazards" {
 ///|
 test "O4z size portfolio recognizes only the exact urem regalloc continuation family" {
   let make_module = fn(memory_pages : Int32) {
-    let wat = StringBuilder::new()
+    let wat = StringBuilder()
     wat.write_string(
       "(module (memory \{memory_pages}) (global (mut i32) (i32.const 0)) (export \"__stack_pointer\" (global 0)) (func (export \"fill_blocks\") (param i32 i32 i32 i32) (result i32) ",
     )

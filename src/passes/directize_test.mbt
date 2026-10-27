@@ -145,7 +145,7 @@ test "directize dispatcher remaps labels after synthetic select if" {
 ///|
 test "directize discovers long select argument and condition producers in one scan" {
   let depth = 128
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (type (func (param i32) (result i32))) (table 2 funcref) ",
   )

@@ -156,7 +156,7 @@ fn inl_test_count_func_annotation(
 
 ///|
 test "inlining-optimizing limits large call and bulk-memory modules to shrinking-trivial plain inlining" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (memory 1) (func $callee (param i32)) (func $tiny) (func (param i32) call $tiny local.get 0 call $callee i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -199,7 +199,7 @@ test "inlining-optimizing limits large call and bulk-memory modules to shrinking
 
 ///|
 test "guarded optimizing inlining coalesces medium-module fallback locals" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate (param i32) local.get 0 drop local.get 0 drop) (func (param i32) (local i32) i32.const 9 local.set 1 local.get 1 drop local.get 0 call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -222,7 +222,7 @@ test "guarded optimizing inlining coalesces medium-module fallback locals" {
 
 ///|
 test "optimizing inlining handles explicit-block branch helpers below the guard boundary" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate block block br 1 end end) (func (param i32) call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -334,7 +334,7 @@ test "inlining retains wrappers for function-label branch escapes" {
 
 ///|
 test "guarded optimizing inlining admits two-instruction always-inline helpers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate i32.const 7 drop) (func (param i32) call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -362,7 +362,7 @@ test "guarded optimizing inlining admits two-instruction always-inline helpers" 
 
 ///|
 test "guarded optimizing inlining admits bounded one-caller conditional helpers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string(
     "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate (param i32) local.get 0 if i32.const 0 drop end) (func (param i32) local.get 0 call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
   )
@@ -3881,7 +3881,7 @@ test "inlining-optimizing prunes dead unreachable value blocks even without inli
 
 ///|
 fn inl_test_large_module_for_nested_cleanup_guard() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $tiny (result i32) i32.const 1)\n")
   out.write_string("  (func (export \"run\") (result i32) call $tiny)\n")
@@ -4447,7 +4447,7 @@ test "inlining-optimizing runs nested cleanup when untouched tail calls survive"
 ///|
 test "inlining final adjacent set-get cleanup visits only touched functions" {
   let trace : Array[String] = []
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (func $tiny (result i32) i32.const 7) (func (export \"run\") (local i32) call $tiny local.set 0 local.get 0 drop)",
   )

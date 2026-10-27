@@ -1,6 +1,6 @@
 ///|
 test "DAE all-used transition in first Func preserves all later NaN bodies" {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (type (func)) (type (func)) ")
   text.write_string("(func (type 0) block (type 1) nop end) ")
   for _ in 0..<31 {

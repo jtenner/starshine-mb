@@ -3211,7 +3211,7 @@ fn tuple_optimization_retain_shared_publication_components(
 
 ///|
 fn tuple_optimization_bitset_debug_string(values : @bitset.BitSet) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[")
   let mut first = true
   for idx = 0; idx < values.length(); idx = idx + 1 {

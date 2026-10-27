@@ -1,6 +1,6 @@
 ///|
 fn dae2_one_write_exit_fixture() -> @lib.Module {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("block $out ")
   for local in 3..<67 {
     body.write_string("local.get 1 local.set \{local} ")
@@ -9,7 +9,7 @@ fn dae2_one_write_exit_fixture() -> @lib.Module {
     body.write_string("local.get 1 local.set 3 local.get 0 br_if $out ")
   }
   body.write_string("end local.get 4")
-  let locals = StringBuilder::new()
+  let locals = StringBuilder()
   for _ in 0..<64 {
     locals.write_string("i32 ")
   }

@@ -4,7 +4,7 @@ fn dae2_writer_cut_native_fixture(
   cold : Bool,
   captures~ : Bool = false,
 ) -> @lib.Module {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string(
     "(module (import \"m\" \"effect\" (func $effect (param i32) (result i32))) ",
   )

@@ -25099,7 +25099,7 @@ test "dae optimizing payoff exact literal retains original ownership" {
 
 ///|
 test "dae nested replay does not use function cardinality as selection" {
-  let module_source = StringBuilder::new()
+  let module_source = StringBuilder()
   module_source.write_string("(module")
   for def_idx = 0; def_idx < 101; def_idx = def_idx + 1 {
     module_source.write_string(" (func)")
@@ -25114,7 +25114,7 @@ test "dae nested replay does not use function cardinality as selection" {
     None,
   )
 
-  let local_source = StringBuilder::new()
+  let local_source = StringBuilder()
   local_source.write_string("(module (func (local")
   for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {
     local_source.write_string(" i32")
@@ -25126,7 +25126,7 @@ test "dae nested replay does not use function cardinality as selection" {
     None,
   )
 
-  let instr_source = StringBuilder::new()
+  let instr_source = StringBuilder()
   instr_source.write_string("(module (func")
   for instr_idx = 0; instr_idx < 1001; instr_idx = instr_idx + 1 {
     instr_source.write_string(" nop")

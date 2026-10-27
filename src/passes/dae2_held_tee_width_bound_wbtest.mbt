@@ -1,6 +1,6 @@
 ///|
 fn dae2_held_tee_width_fixture(stable_writers : Bool) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (import \"env\" \"consume\" (func $consume (param i32))) (func (export \"run\") (local",
   )

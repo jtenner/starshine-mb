@@ -1,6 +1,6 @@
 ///|
 test "unsigned decode keeps multibyte indices through active pass commands" {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module ")
   // Exactly cross the ULEB128 boundary; this is a small deterministic fixture.
   for _ in 0..<128 {

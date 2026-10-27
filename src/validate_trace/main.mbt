@@ -37,7 +37,7 @@ fn ValidateTraceCorpus::new(
 
 ///|
 fn validate_trace_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -50,7 +50,7 @@ fn validate_trace_ascii_lower(input : String) -> String {
 
 ///|
 fn validate_trace_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < values.length(); i = i + 1 {
     if i > 0 {
       out.write_string(sep)
@@ -68,7 +68,7 @@ fn validate_trace_usage_text() -> String {
 
 ///|
 fn validate_trace_tail_string(input : String, start : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start
   while i < input.length() {
     out.write_char(input[i].unsafe_to_char())
@@ -123,7 +123,7 @@ fn validate_trace_trim_program_name(argv : Array[String]) -> Array[String] {
   if !should_trim {
     return argv
   }
-  let out = Array::new(capacity=argv.length() - 1)
+  let out = Array(capacity=argv.length() - 1)
   for i = 1; i < argv.length(); i = i + 1 {
     out.push(argv[i])
   }
@@ -453,7 +453,7 @@ pub fn run_validate_trace_benchmark(
 fn format_validate_trace_benchmark_result(
   result : ValidateTraceBenchmarkResult,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "corpus=\{result.corpus} repeats=\{result.repeats} elapsed_ms=\{result.elapsed_ms}\n",
   )

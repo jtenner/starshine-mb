@@ -1,6 +1,6 @@
 ///|
 fn tuple_copy_child_mask_perf_fixture(islands : Int32) -> String {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (local",
   )

@@ -2,7 +2,7 @@
 fn dae_signature_plan_metadata_fixture(
   siblings : Int32,
 ) -> (@lib.Module, @lib.Module) {
-  let extra = StringBuilder::new()
+  let extra = StringBuilder()
   for index in 0..<siblings {
     extra.write_string(
       " (func $side\{index} (param i32) (result i32) local.get 0",

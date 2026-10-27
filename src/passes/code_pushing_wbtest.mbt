@@ -175,7 +175,7 @@ fn code_pushing_wbtest_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
 
 ///|
 test "code-pushing batches independent root rewrites in one scan" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (param i32)")
   for _ in 0..<32 {
     source.write_string(" (local i32)")

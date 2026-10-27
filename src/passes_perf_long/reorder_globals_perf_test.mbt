@@ -7,7 +7,7 @@ fn rg_perf_void_type_sec() -> @lib.TypeSec {
 
 ///|
 fn rg_perf_hot_body(global_idx : UInt32, uses : Int32) -> @lib.Expr {
-  let body : Array[@lib.Instruction] = Array::new(capacity=uses * 2)
+  let body : Array[@lib.Instruction] = Array(capacity=uses * 2)
   for _ in 0..<uses {
     body.push(@lib.Instruction::global_get(@lib.GlobalIdx::new(global_idx)))
     body.push(@lib.Instruction::drop())
@@ -20,7 +20,7 @@ fn rg_perf_import_heavy_module(
   global_count : Int32,
   uses : Int32,
 ) -> @lib.Module {
-  let imports : Array[@lib.Import] = Array::new(capacity=global_count)
+  let imports : Array[@lib.Import] = Array(capacity=global_count)
   for idx in 0..<global_count {
     imports.push(
       @lib.Import::new(
@@ -51,7 +51,7 @@ fn rg_perf_dependency_heavy_module(
   global_count : Int32,
   uses : Int32,
 ) -> @lib.Module {
-  let globals : Array[@lib.Global] = Array::new(capacity=global_count)
+  let globals : Array[@lib.Global] = Array(capacity=global_count)
   globals.push(
     @lib.Global::new(
       @lib.GlobalType::new(@lib.ValType::i32(), false),

@@ -14,7 +14,7 @@ fn dae_uniform_syntax_test_query(
 
 ///|
 fn dae_uniform_syntax_fixture(debris : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func $a (param i32) (result i32) local.get 0) (func $b (param i32) (result i32) local.get 0) (func $forward (param i32) (result i32) local.get 0 call $a drop local.get 0 call $b) (func (export \"run\") (result i32) ",
   )

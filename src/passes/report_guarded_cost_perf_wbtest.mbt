@@ -182,7 +182,7 @@ fn report_structured_tee_exact_cleanup_bench(
   width : Int32,
   candidate : Bool,
 ) -> Unit raise {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (func (param f64) (result i32) (local i32 i32 i32 i32 i32 i64 f32 f64) ",
   )

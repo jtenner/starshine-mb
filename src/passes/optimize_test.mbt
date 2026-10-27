@@ -1676,7 +1676,7 @@ test "vacuum removes nested if branch pure debris inside value expression" {
 
 ///|
 fn vacuum_test_make_large_nested_value_debris() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32) (local i32)\n")
   let mut i = 0
@@ -2305,7 +2305,7 @@ test "O4z caught try-table preset skip preserves explicit pass order" {
 ///|
 #skip("artifact-scale mixed-preset scheduler probe; run in the dedicated lane")
 test "O4z mixed preset executes explicit large-module passes" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (func (export \"run\") (block (br 0)))")
   for _ in 1..<2000 {
     wat.write_string(" (func)")
@@ -3571,7 +3571,7 @@ test "vacuum collapses generated branch scaffold constant if" {
 
 ///|
 fn vacuum_test_make_large_const_if_scaffold() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func\n")
   for i = 0; i < 2200; i = i + 1 {
     out.write_string("  (drop (i32.const ")

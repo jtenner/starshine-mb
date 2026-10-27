@@ -12,7 +12,7 @@ fn dfe_wbtest_sparse_sample_func(unique : Bool) -> @lib.Func {
 
 ///|
 test "duplicate-function-elimination hashes transitive candidates once" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   let prefix =
     #|(module
     #|  (func $leaf0 (result i32) i32.const 1)

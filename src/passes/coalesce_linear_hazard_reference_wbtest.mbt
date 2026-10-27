@@ -166,7 +166,7 @@ fn cl_linear_hazard_reference_module(mod_ : @lib.Module) -> @lib.Module {
           mod_,
         ) ||
         run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_)
-      let rewritten_funcs : Array[@lib.Func] = Array::new(
+      let rewritten_funcs : Array[@lib.Func] = Array(
         capacity=funcs.length(),
       )
       let changed_code_indices : Array[Int32] = []

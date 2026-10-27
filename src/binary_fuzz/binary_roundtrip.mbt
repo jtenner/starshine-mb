@@ -45,7 +45,7 @@ fn[T : Encode + Decode + Eq + Show + @debug.Debug + @quickcheck.Arbitrary] round
   count : Int32,
   st : @splitmix.RandomState,
 ) -> Array[T] raise {
-  let a = Array::new(capacity=count)
+  let a = Array(capacity=count)
   let mut i = 0
   while i < count {
     let val = @quickcheck.Arbitrary::arbitrary(i, st)
@@ -58,7 +58,7 @@ fn[T : Encode + Decode + Eq + Show + @debug.Debug + @quickcheck.Arbitrary] round
 
 ///|
 fn binary_fuzz_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())

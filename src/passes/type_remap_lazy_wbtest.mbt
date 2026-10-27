@@ -4,7 +4,7 @@ fn type_remap_eager_reference(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt32, UInt32],
 ) -> Array[@lib.Instruction]? {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   let mut idx = 0
   while idx < instrs.length() {

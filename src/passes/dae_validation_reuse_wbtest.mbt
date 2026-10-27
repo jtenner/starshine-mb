@@ -12,7 +12,7 @@ fn dae_validation_reuse_test_apply(
 
 ///|
 fn dae_validation_reuse_fixture(siblings : Int32) -> @lib.Module {
-  let extra = StringBuilder::new()
+  let extra = StringBuilder()
   for index in 0..<siblings {
     extra.write_string(" (func (result i32) i32.const \{index})")
   }

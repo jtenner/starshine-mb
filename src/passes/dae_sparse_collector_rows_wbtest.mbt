@@ -174,7 +174,7 @@ test "sparse collector rows remove real escaped-operand row work only after comp
 ///|
 #skip("Dedicated width control; not a default stress test")
 test "sparse collector rows scale cold result callers without dense scratch rows" {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module ")
   for _ in 0..<128 {
     text.write_string("(func (result i32) i32.const 7) ")

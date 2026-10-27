@@ -265,7 +265,7 @@ fn rg_build_dependency_graph(
   imported_globals : Int32,
 ) -> Array[Array[Int32]] {
   let total_globals = imported_globals + globals.length()
-  let graph : Array[Array[Int32]] = Array::new(capacity=total_globals)
+  let graph : Array[Array[Int32]] = Array(capacity=total_globals)
   for idx = 0; idx < total_globals; idx = idx + 1 {
     ignore(idx)
     graph.push([])
@@ -398,13 +398,13 @@ fn rg_candidate_order(
     }
   }
   let emitted = Array::make(n, false)
-  let ready : Array[Int32] = Array::new(capacity=n)
+  let ready : Array[Int32] = Array(capacity=n)
   for candidate = 0; candidate < n; candidate = candidate + 1 {
     if indegrees[candidate] == 0 {
       rg_ready_heap_push(ready, candidate, custom_counts, imported_globals)
     }
   }
-  let order : Array[Int32] = Array::new(capacity=n)
+  let order : Array[Int32] = Array(capacity=n)
   while order.length() < n {
     let mut best = match
       rg_ready_heap_pop(ready, custom_counts, imported_globals) {
@@ -437,7 +437,7 @@ fn rg_candidate_order(
 
 ///|
 fn rg_true_counts(counts : Array[Int32]) -> Array[Double] {
-  let out : Array[Double] = Array::new(capacity=counts.length())
+  let out : Array[Double] = Array(capacity=counts.length())
   for count in counts {
     out.push(count.to_double())
   }
@@ -509,7 +509,7 @@ fn rg_dependency_graph_is_empty(deps : Array[Array[Int32]]) -> Bool {
 
 ///|
 fn rg_identity_order(length : Int32) -> Array[Int32] {
-  let order : Array[Int32] = Array::new(capacity=length)
+  let order : Array[Int32] = Array(capacity=length)
   for idx = 0; idx < length; idx = idx + 1 {
     order.push(idx)
   }
@@ -704,7 +704,7 @@ fn rg_rewrite_table_sec(
 ) -> @lib.TableSec? {
   match table_sec {
     Some(@lib.TableSec(tables)) => {
-      let out : Array[@lib.Table] = Array::new(capacity=tables.length())
+      let out : Array[@lib.Table] = Array(capacity=tables.length())
       for table in tables {
         match table {
           @lib.Table(table_type, Some(expr)) =>
@@ -728,7 +728,7 @@ fn rg_rewrite_globals(
   imported_globals : Int32,
   remap : Array[Int32],
 ) -> Array[@lib.Global] {
-  let out : Array[@lib.Global] = Array::new(capacity=globals.length())
+  let out : Array[@lib.Global] = Array(capacity=globals.length())
   for old_abs in order {
     if old_abs >= imported_globals {
       let old_defined = old_abs - imported_globals
@@ -746,7 +746,7 @@ fn rg_rewrite_export_sec(
 ) -> @lib.ExportSec? {
   match export_sec {
     Some(@lib.ExportSec(exports)) => {
-      let out : Array[@lib.Export] = Array::new(capacity=exports.length())
+      let out : Array[@lib.Export] = Array(capacity=exports.length())
       for export_ in exports {
         match export_ {
           @lib.Export(name, @lib.GlobalExternIdx(idx)) =>
@@ -784,14 +784,14 @@ fn rg_rewrite_elem_kind(
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncExprsElemKind(exprs) => {
-      let out : Array[@lib.Expr] = Array::new(capacity=exprs.length())
+      let out : Array[@lib.Expr] = Array(capacity=exprs.length())
       for expr in exprs {
         out.push(rg_rewrite_expr(expr, remap))
       }
       @lib.ElemKind::func_exprs(out)
     }
     @lib.TypedExprsElemKind(ref_type, exprs) => {
-      let out : Array[@lib.Expr] = Array::new(capacity=exprs.length())
+      let out : Array[@lib.Expr] = Array(capacity=exprs.length())
       for expr in exprs {
         out.push(rg_rewrite_expr(expr, remap))
       }
@@ -808,7 +808,7 @@ fn rg_rewrite_elem_sec(
 ) -> @lib.ElemSec? {
   match elem_sec {
     Some(@lib.ElemSec(elems)) => {
-      let out : Array[@lib.Elem] = Array::new(capacity=elems.length())
+      let out : Array[@lib.Elem] = Array(capacity=elems.length())
       for elem in elems {
         let @lib.Elem(mode, kind) = elem
         out.push(
@@ -831,7 +831,7 @@ fn rg_rewrite_data_sec(
 ) -> @lib.DataSec? {
   match data_sec {
     Some(@lib.DataSec(datas)) => {
-      let out : Array[@lib.Data] = Array::new(capacity=datas.length())
+      let out : Array[@lib.Data] = Array(capacity=datas.length())
       for data in datas {
         match data {
           @lib.Data(@lib.Active(mem_idx, expr), bytes) =>
@@ -857,7 +857,7 @@ fn rg_rewrite_code_sec(
 ) -> @lib.CodeSec? {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let out : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let out : Array[@lib.Func] = Array(capacity=funcs.length())
       for func in funcs {
         let @lib.Func(locals, body) = func
         out.push(@lib.Func::new(locals, rg_rewrite_expr(body, remap)))
@@ -897,7 +897,7 @@ fn rg_rewrite_global_name_map(
 ) -> @lib.NameMap? {
   match names {
     Some(@lib.NameMap(entries)) => {
-      let out : Array[@lib.NameAssoc] = Array::new(capacity=entries.length())
+      let out : Array[@lib.NameAssoc] = Array(capacity=entries.length())
       for entry in entries {
         let @lib.NameAssoc(idx, name) = entry
         let raw = idx.reinterpret_as_int()

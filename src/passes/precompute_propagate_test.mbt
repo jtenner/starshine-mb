@@ -1178,7 +1178,7 @@ test "precompute-propagate preserves prior fact across branch writes in nested r
 
 ///|
 test "precompute-propagate folds constants in high-local large lowered functions" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (result i32) (local")
   for _idx = 0; _idx < 65; _idx = _idx + 1 {
     source.write_string(" i32")
@@ -1484,7 +1484,7 @@ test "precompute-propagate clears labels for folded empty root blocks" {
 
 ///|
 test "precompute-propagate bounds high-local branch label ownership" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (result i32) (local")
   for _idx = 0; _idx < 129; _idx = _idx + 1 {
     source.write_string(" i32")

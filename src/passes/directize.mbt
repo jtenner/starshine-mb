@@ -932,7 +932,7 @@ fn directize_stack_suffix(
   stack : Array[@lib.ValType],
   count : Int32,
 ) -> Array[@lib.ValType] {
-  let suffix : Array[@lib.ValType] = Array::new(capacity=count)
+  let suffix : Array[@lib.ValType] = Array(capacity=count)
   let start = stack.length() - count
   for idx = start; idx < stack.length(); idx = idx + 1 {
     suffix.push(stack[idx])

@@ -2,7 +2,7 @@
 #skip("dedicated synthetic declared-local work-bound preservation control")
 test "DAE2 sparse stamp allocation preserves old admission with many unwritten declared locals" {
   let locals = Array::make(3100, "i32").join(" ")
-  let code = StringBuilder::new()
+  let code = StringBuilder()
   code.write_string("block $out ")
   for local in 4..<12 {
     code.write_string("local.get 1 local.set \{local} ")

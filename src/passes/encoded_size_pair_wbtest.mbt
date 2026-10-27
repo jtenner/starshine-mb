@@ -92,7 +92,7 @@ test "encoded size pairs preserve compiler facts and name section accounting" {
 
 ///|
 test "encoded size reuse respects string index LEB growth at 128" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func")
   for index in 0..<127 {
     source.write_string(" (drop (string.const \"s\{index}\"))")

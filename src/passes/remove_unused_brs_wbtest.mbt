@@ -11,7 +11,7 @@ fn remove_unused_brs_wbtest_ctx() -> HotPassContext {
 
 ///|
 fn remove_unused_brs_wbtest_dump(func : @ir.HotFunc) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue

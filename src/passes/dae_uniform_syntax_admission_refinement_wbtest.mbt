@@ -1,6 +1,6 @@
 ///|
 fn dae_s12_thin_forward_input() -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func $a (param i32) (result i32) local.get 0) (func $b (param i32) (result i32) local.get 0) (func $f0 (param i32) (result i32) local.get 0 call $a drop local.get 0 call $b) ",
   )

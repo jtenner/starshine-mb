@@ -1,6 +1,6 @@
 ///|
 test "command Coalesce indexed coloring preserves argument order" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (import \"host\" \"use\" (func $use (param i32))) (func (export \"run\") (local",
   )

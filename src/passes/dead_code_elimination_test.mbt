@@ -2420,7 +2420,7 @@ test "dead-code-elimination removes a dead branch in a nested value block" {
 
 ///|
 test "dead-code-elimination finds a nested dead branch in a large function" {
-  let padding = StringBuilder::new()
+  let padding = StringBuilder()
   for _ in 0..<300 {
     padding.write_string(" nop")
   }

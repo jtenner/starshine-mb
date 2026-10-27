@@ -145,7 +145,7 @@ test "ffi bridge validation diagnostics identify a failing function and reset af
   }
   assert_false(@ffi_bridge.validate_module(bad_function))
   assert_eq(@ffi_bridge.validation_error_function_index(), 0)
-  let message = StringBuilder::new()
+  let message = StringBuilder()
   for index in 0U..<@ffi_bridge.validation_error_byte_length() {
     message.write_char(
       @ffi_bridge.validation_error_byte_at(index).to_int().unsafe_to_char(),

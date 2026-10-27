@@ -227,7 +227,7 @@ fn ls_local_idx_raw(idx : @lib.LocalIdx) -> Int32 {
 ///|
 fn ls_ref_body_local_mask(body_locals : @lib.Locals) -> Array[Bool]? {
   let body_local_count = body_locals.length()
-  let mask : Array[Bool] = Array::new(capacity=body_local_count)
+  let mask : Array[Bool] = Array(capacity=body_local_count)
   let mut has_ref = false
   for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
     match ls_as_ref(body_locals[body_idx]) {
@@ -843,7 +843,7 @@ fn ls_refine_control_results_instrs(
   body_locals : @lib.Locals,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   for instr in instrs {
     let next = match instr {
@@ -1117,7 +1117,7 @@ fn ls_refine_selects_instrs(
   body_locals : @lib.Locals,
   module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   for instr in instrs {
     let next_instr = match instr {
@@ -2169,7 +2169,7 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     let module_ctx = @ir.hot_module_context_from_module(current_mod)
     let imported_func_count = ls_imported_func_count(current_mod)
-    let rewritten_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+    let rewritten_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
     let mut changed = false
     for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
       if !active[code_idx] {

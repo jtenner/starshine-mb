@@ -864,7 +864,7 @@ fn dfe_try_rewrite_val_types(
   remap : Map[UInt32, UInt32],
   index_cache~ : DfeTypeRewriteCache? = None,
 ) -> Array[@lib.ValType]? {
-  let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
+  let rewritten : Array[@lib.ValType] = Array(capacity=val_types.length())
   let mut changed = false
   let mut idx = 0
   while idx < val_types.length() {
@@ -1051,7 +1051,7 @@ fn dfe_scan_rewrite_val_types(
   val_types : Array[@lib.ValType],
   remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[Array[@lib.ValType]] {
-  let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
+  let rewritten : Array[@lib.ValType] = Array(capacity=val_types.length())
   let mut changed = false
   let mut mentions_type_idxs = false
   let mut idx = 0
@@ -1118,7 +1118,7 @@ fn dfe_scan_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[Array[@lib.Instruction]] {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   let mut changed = false
   let mut mentions_type_idxs = false
   let mut idx = 0
@@ -1174,7 +1174,7 @@ fn dfe_scan_rewrite_locals_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> DfeTypeRewriteScan[@lib.Locals] {
   let runs = locals.runs()
-  let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
+  let rewritten : Array[@lib.LocalRun] = Array(capacity=runs.length())
   let mut changed = false
   let mut mentions_type_idxs = false
   let mut idx = 0
@@ -1255,7 +1255,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
         let out = match rewritten {
           Some(out) => out
           None => {
-            let out : Array[@lib.Instruction] = Array::new(
+            let out : Array[@lib.Instruction] = Array(
               capacity=instrs.length(),
             )
             let mut prefix = 0
@@ -1301,7 +1301,7 @@ fn dfe_try_rewrite_locals_type_idxs(
   index_cache~ : DfeTypeRewriteCache? = None,
 ) -> @lib.Locals? {
   let runs = locals.runs()
-  let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
+  let rewritten : Array[@lib.LocalRun] = Array(capacity=runs.length())
   let mut changed = false
   let mut idx = 0
   while idx < runs.length() {
@@ -2913,7 +2913,7 @@ fn dfe_rewrite_expr_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let rewritten : Array[@lib.Instruction] = Array(capacity=instrs.length())
   for instr in instrs {
     rewritten.push(dfe_rewrite_instruction_type_idxs(instr, remap))
   }
@@ -2926,7 +2926,7 @@ fn _dfe_rewrite_locals_type_idxs(
   remap : Map[UInt32, UInt32],
 ) -> @lib.Locals {
   let runs = locals.runs()
-  let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
+  let rewritten : Array[@lib.LocalRun] = Array(capacity=runs.length())
   for run in runs {
     rewritten.push(
       @lib.LocalRun::new(
@@ -3518,7 +3518,7 @@ fn dfe_rewrite_instrs_func_idxs(
   for index, instr in instrs {
     let rewritten = dfe_rewrite_instruction_func_idxs(instr, remap)
     if out is None && !physical_equal(rewritten, instr) {
-      let prefix : Array[@lib.Instruction] = Array::new(
+      let prefix : Array[@lib.Instruction] = Array(
         capacity=instrs.length(),
       )
       for offset = 0; offset < index; offset = offset + 1 {
@@ -3589,21 +3589,21 @@ fn dfe_rewrite_elem_kind_func_idxs(
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(funcs) => {
-      let rewritten : Array[@lib.FuncIdx] = Array::new(capacity=funcs.length())
+      let rewritten : Array[@lib.FuncIdx] = Array(capacity=funcs.length())
       for func_idx in funcs {
         rewritten.push(dfe_rewrite_func_idx(func_idx, remap))
       }
       @lib.ElemKind::funcs(rewritten)
     }
     @lib.FuncExprsElemKind(exprs) => {
-      let rewritten : Array[@lib.Expr] = Array::new(capacity=exprs.length())
+      let rewritten : Array[@lib.Expr] = Array(capacity=exprs.length())
       for expr in exprs {
         rewritten.push(dfe_rewrite_expr_func_idxs(expr, remap))
       }
       @lib.ElemKind::func_exprs(rewritten)
     }
     @lib.TypedExprsElemKind(ref_type, exprs) => {
-      let rewritten : Array[@lib.Expr] = Array::new(capacity=exprs.length())
+      let rewritten : Array[@lib.Expr] = Array(capacity=exprs.length())
       for expr in exprs {
         rewritten.push(dfe_rewrite_expr_func_idxs(expr, remap))
       }
@@ -3684,7 +3684,7 @@ fn dfe_rewrite_module_func_idxs(
   let mut rewritten = mod_
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) => {
-      let next : Array[@lib.Export] = Array::new(capacity=exports.length())
+      let next : Array[@lib.Export] = Array(capacity=exports.length())
       for export_ in exports {
         next.push(dfe_rewrite_export_func_idxs(export_, remap))
       }
@@ -3701,7 +3701,7 @@ fn dfe_rewrite_module_func_idxs(
   }
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) => {
-      let next : Array[@lib.Elem] = Array::new(capacity=elems.length())
+      let next : Array[@lib.Elem] = Array(capacity=elems.length())
       for elem in elems {
         let @lib.Elem(mode, kind) = elem
         next.push(
@@ -3724,7 +3724,7 @@ fn dfe_rewrite_module_func_idxs(
   }
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) => {
-      let next : Array[@lib.Table] = Array::new(capacity=tables.length())
+      let next : Array[@lib.Table] = Array(capacity=tables.length())
       for table in tables {
         let @lib.Table(table_type, init) = table
         next.push(
@@ -3743,7 +3743,7 @@ fn dfe_rewrite_module_func_idxs(
   }
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => {
-      let next : Array[@lib.Global] = Array::new(capacity=globals.length())
+      let next : Array[@lib.Global] = Array(capacity=globals.length())
       for global in globals {
         let @lib.Global(global_type, expr) = global
         next.push(
@@ -3757,7 +3757,7 @@ fn dfe_rewrite_module_func_idxs(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let timer = dfe_perf_start_timer_opt(perf, "func-rewrite:code-sec")
-      let next : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let next : Array[@lib.Func] = Array(capacity=funcs.length())
       match code_rewrite_flags {
         Some(flags) if flags.length() == funcs.length() =>
           for idx = 0; idx < funcs.length(); idx = idx + 1 {
@@ -3779,7 +3779,7 @@ fn dfe_rewrite_module_func_idxs(
   }
   match mod_.data_sec {
     Some(@lib.DataSec(datas)) => {
-      let next : Array[@lib.Data] = Array::new(capacity=datas.length())
+      let next : Array[@lib.Data] = Array(capacity=datas.length())
       for data in datas {
         let @lib.Data(mode, bytes) = data
         next.push(
@@ -4695,7 +4695,7 @@ fn dfe_canonical_abs_remap(
   replacements : Array[Int32],
   imported_count : Int32,
 ) -> Array[UInt32] {
-  let remap : Array[UInt32] = Array::new(
+  let remap : Array[UInt32] = Array(
     capacity=imported_count + replacements.length(),
   )
   for idx = 0; idx < imported_count; idx = idx + 1 {
@@ -4785,10 +4785,10 @@ fn dfe_eliminate_duplicate_functions(
       let normalized_ready = Array::make(funcs.length(), false)
       let normalized_rewrite_count = [0]
 
-      let canonical_type_raws : Array[UInt32] = Array::new(
+      let canonical_type_raws : Array[UInt32] = Array(
         capacity=type_idxs.length(),
       )
-      let canonical_type_hashes : Array[Int32] = Array::new(
+      let canonical_type_hashes : Array[Int32] = Array(
         capacity=type_idxs.length(),
       )
       for type_idx in type_idxs {
@@ -4799,7 +4799,7 @@ fn dfe_eliminate_duplicate_functions(
         canonical_type_raws.push(canonical_raw)
         canonical_type_hashes.push(canonical_raw.hash())
       }
-      let normalized_annotations : Array[Array[@lib.FuncAnnotation]] = Array::new(
+      let normalized_annotations : Array[Array[@lib.FuncAnnotation]] = Array(
         capacity=funcs.length(),
       )
       if has_annotations {
@@ -5083,8 +5083,8 @@ fn dfe_eliminate_duplicate_functions(
       }
 
       let rebuild_timer = dfe_perf_start_timer_opt(perf, "rebuild")
-      let kept_types : Array[@lib.TypeIdx] = Array::new(capacity=funcs.length())
-      let kept_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let kept_types : Array[@lib.TypeIdx] = Array(capacity=funcs.length())
+      let kept_funcs : Array[@lib.Func] = Array(capacity=funcs.length())
       let kept_abs : Array[Int32] = Array::make(funcs.length(), -1)
       let kept_original_indices : Array[Int32] = []
       let kept_type_rewrite_flags = @bitset.BitSet::new(
@@ -5116,7 +5116,7 @@ fn dfe_eliminate_duplicate_functions(
         "rebuild kept_funcs=\{kept_funcs.length()} removed_funcs=\{funcs.length() - kept_funcs.length()}",
       )
       let remap_timer = dfe_perf_start_timer_opt(perf, "rebuild:remap")
-      let abs_remap : Array[UInt32] = Array::new(
+      let abs_remap : Array[UInt32] = Array(
         capacity=imported_count + funcs.length(),
       )
       for idx = 0; idx < imported_count; idx = idx + 1 {

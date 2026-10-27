@@ -5,7 +5,7 @@ fn dae_callsite_value_snapshot_bench(
   calls : Int32,
   drop_period : Int32,
 ) -> Unit {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (import \"host\" \"mark\" (func $mark (result i32)))",
   )

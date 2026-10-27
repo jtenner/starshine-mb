@@ -11,7 +11,7 @@ fn code_folding_exit_index_test_ctx() -> HotPassContext {
 
 ///|
 fn code_folding_exit_index_fixture(count : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"env\" \"a\" (func $a)) (import \"env\" \"b\" (func $b)) (func (param i32)",
   )
@@ -166,7 +166,7 @@ fn code_folding_nested_exit_bench(
   depth : Int32,
   reference~ : Bool = false,
 ) -> Unit {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (func")
   for _ in 0..<depth {
     wat.write_string(" block")

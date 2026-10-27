@@ -1,6 +1,6 @@
 ///|
 fn dae_forwarding_facts_fixture(count : Int32) -> DaeCurrentBoundaryGraph {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module ")
   for i in 0..<count {
     text.write_string("(func $h\{i} (param i32) (result i32) local.get 0) ")
@@ -51,7 +51,7 @@ test "dae forwarding facts reuse snapshot types and deduplicate exact edges" {
 
 ///|
 test "dae forwarding membership retains every caller of a shared callee" {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string(
     "(module (func $target (param i32) (result i32) local.get 0)",
   )

@@ -176,7 +176,7 @@ pub fn ImportBuilder::push_field_byte(
 
 ///|
 fn import_name_from_bytes(value : Array[Byte]) -> String {
-  let output = StringBuilder::new()
+  let output = StringBuilder()
   for byte in value {
     output.write_char(byte.to_int().unsafe_to_char())
   }

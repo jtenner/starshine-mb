@@ -1,6 +1,6 @@
 ///|
 fn validate_invalid_text_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -117,7 +117,7 @@ fn validate_invalid_text_slice(
   start : Int32,
   end_exclusive : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = start
   while i < end_exclusive {
     out.write_char(source[i].unsafe_to_char())
@@ -1067,7 +1067,7 @@ fn validate_invalid_text_required_failure_messages(
 
 ///|
 fn validate_invalid_text_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {
@@ -1226,7 +1226,7 @@ fn validate_invalid_text_dynamic_strategies() -> Array[String] {
 
 ///|
 fn validate_invalid_text_escape_quote_source(source : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in source {
     match c {
       '"' => out.write_string("\\22")
@@ -1247,7 +1247,7 @@ fn validate_invalid_text_drop_last_closing_paren(
   let mut i = source.length() - 1
   while i >= 0 {
     if source[i] == ')' {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       let mut j = 0
       while j < source.length() {
         if j != i {
@@ -1270,7 +1270,7 @@ fn validate_invalid_text_insert_before_last_closing_paren(
   let mut i = source.length() - 1
   while i >= 0 {
     if source[i] == ')' {
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       let mut j = 0
       while j < source.length() {
         if j == i {
@@ -1304,7 +1304,7 @@ fn validate_invalid_text_insert_after_module_open(
     return Err("generated WAT did not contain a module opener to mutate")
   }
   let insert_at = index + marker.length()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < source.length() {
     if i == insert_at {

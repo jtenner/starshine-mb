@@ -233,7 +233,7 @@ test "memory-packing keeps profitable passive splitting with the original copy e
 
 ///|
 test "memory-packing cannot pay for passive data growth by discarding compiler facts" {
-  let build_id = StringBuilder::new()
+  let build_id = StringBuilder()
   for _ in 0..<128 {
     build_id.write_string("x")
   }

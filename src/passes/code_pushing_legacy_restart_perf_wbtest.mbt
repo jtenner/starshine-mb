@@ -2,7 +2,7 @@
 fn code_pushing_legacy_restart_perf_body(
   moves : Int32,
 ) -> Array[@lib.Instruction] {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func")
   for _ in 0..<(moves + 1) {
     source.write_string(" (local i32)")

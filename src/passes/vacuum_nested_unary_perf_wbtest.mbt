@@ -1,6 +1,6 @@
 ///|
 fn vacuum_nested_unary_perf_fixture(depth : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"env\" \"effect\" (func (result i32))) (func (drop ",
   )

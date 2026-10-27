@@ -5,7 +5,7 @@ fn dae_liveness_handoff_fixture(hot : Bool, reads~ : Int32 = 0) -> @lib.Module {
   } else {
     "local.get 0"
   }
-  let prefix = StringBuilder::new()
+  let prefix = StringBuilder()
   for _ in 0..<reads {
     prefix.write_string("local.get 1 drop ")
   }

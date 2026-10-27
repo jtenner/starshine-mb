@@ -470,7 +470,7 @@ fn dae_trace_diagnostics(
   pass_name : String,
   diagnostics : DaeDiagnostics,
 ) -> Unit {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "pass[\{pass_name}]:diagnostics boundaries_analyzed=\{diagnostics.boundaries_analyzed} candidates_produced=\{diagnostics.candidates_produced} candidates_applied=\{diagnostics.candidates_applied} parameters_removed=\{diagnostics.parameters_removed} parameters_materialized=\{diagnostics.parameters_materialized} parameter_types_refined=\{diagnostics.parameter_types_refined} result_types_refined=\{diagnostics.result_types_refined} results_removed=\{diagnostics.results_removed} callsites_rewritten=\{diagnostics.callsites_rewritten} return_callsites_rewritten=\{diagnostics.return_call_sites_rewritten} effectful_operands_replayed=\{diagnostics.effectful_operands_replayed} localization_retries=\{diagnostics.localization_retries} scratch_locals_added=\{diagnostics.scratch_locals_added} scratch_locals_reused=\{diagnostics.scratch_locals_reused} type_entries_reused=\{diagnostics.type_entries_reused} type_entries_appended=\{diagnostics.type_entries_appended} candidate_requeues=\{diagnostics.candidate_requeues} candidate_stale_retries=\{diagnostics.candidate_stale_retries} validation_rollbacks=\{diagnostics.validation_rollbacks} selected_only_rewrites=\{diagnostics.selected_only_rewrites} guard_based_skips=\{diagnostics.guard_based_skips} nested_functions_touched=\{diagnostics.nested_functions_touched} nested_passes_executed=\{diagnostics.nested_passes_executed}",
   )
@@ -2015,7 +2015,7 @@ fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int32]) -> Unit {
 
 ///|
 fn DaeStablePath::to_array(self : DaeStablePath) -> Array[Int32] {
-  let out = Array::new(capacity=self.length())
+  let out = Array(capacity=self.length())
   self.append_to(out)
   out
 }
@@ -14928,7 +14928,7 @@ fn dae_rewrite_pruned_type_idx_instrs(
       Some(copy) => copy.push(next)
       None =>
         if !physical_equal(next, instr) {
-          let copy = Array::new(capacity=instrs.length())
+          let copy = Array(capacity=instrs.length())
           for prefix = 0; prefix < index; prefix = prefix + 1 {
             copy.push(instrs[prefix])
           }
@@ -15077,7 +15077,7 @@ fn dae_prune_unused_simple_func_types(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       if !funcs.is_empty() && first_unused < used.length() {
-        body_maxima = Some(Array::new(capacity=funcs.length()))
+        body_maxima = Some(Array(capacity=funcs.length()))
       }
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(body)) = func
@@ -54282,7 +54282,7 @@ fn dae_flatten_proved_legacy_control(
         let copy = match out {
           Some(copy) => copy
           None => {
-            let copy = Array::new(capacity=instrs.length())
+            let copy = Array(capacity=instrs.length())
             for prefix = 0; prefix < idx; prefix = prefix + 1 {
               copy.push(instrs[prefix])
             }
@@ -54297,7 +54297,7 @@ fn dae_flatten_proved_legacy_control(
         match out {
           Some(copy) => copy.push(next)
           None if !physical_equal(next, original) => {
-            let copy = Array::new(capacity=instrs.length())
+            let copy = Array(capacity=instrs.length())
             for prefix = 0; prefix < idx; prefix = prefix + 1 {
               copy.push(instrs[prefix])
             }
@@ -55053,7 +55053,7 @@ test "DAE raw and HOT liveness reuse syntax facts before replacing read masks" {
     } else {
       "local.get 0"
     }
-    let prefix = StringBuilder::new()
+    let prefix = StringBuilder()
     for _ in 0..<reads {
       prefix.write_string("local.get 1 drop ")
     }

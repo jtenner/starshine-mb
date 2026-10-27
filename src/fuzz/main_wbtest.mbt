@@ -131,7 +131,7 @@ test "FUZ1050D1 fuzz corpus case index roundtrips duplicate raw reduced and norm
 
 ///|
 fn bytes_to_ascii(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for b in bytes {
     out.write_char(b.to_int().unsafe_to_char())
   }
@@ -3605,7 +3605,7 @@ test "proposal feature floors use stable manifest facts and counters" {
   let mut stats = GenValidFeatureStats::empty(
     GenValidConfig::for_profile(first_profile).mode,
   )
-  let facts_json = StringBuilder::new()
+  let facts_json = StringBuilder()
   for fixture in fixtures {
     let profile = match gen_valid_profile_by_name(fixture.0) {
       Ok(value) => value

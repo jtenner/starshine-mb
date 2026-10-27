@@ -3,7 +3,7 @@ fn gsi_propagation_perf_fixture(
   depth : Int32,
   global_count : Int32,
 ) -> (@validate.Env, Array[Array[@lib.GlobalIdx]]) {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module\n")
   for slot in 0..<depth {
     if slot == 0 {

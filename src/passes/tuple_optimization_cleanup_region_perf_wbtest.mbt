@@ -2,7 +2,7 @@
 fn tuple_cleanup_region_perf_fixture(
   count : Int32,
 ) -> (@ir.HotFunc, Array[Int32], Array[@ir.HotRegionRef]) {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module (func")
   for _ in 0..<count {
     wat.write_string(" block nop end")

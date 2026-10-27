@@ -1,6 +1,6 @@
 ///|
 test "dae-optimizing intentionally fails closed for measured emscripten stateful runtime shapes" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
   )
@@ -172,7 +172,7 @@ test "plain DAE emits canonical worklist diagnostics" {
 
 ///|
 test "dae-optimizing typed-loop fallback batches safe parameters and results without scanning the full core" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -290,7 +290,7 @@ test "dae-optimizing typed-loop fallback batches safe parameters and results wit
 
 ///|
 test "dae-optimizing typed-loop safe batch reorders high-local touched functions only" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module\n  (type $loop_t (func (param i32)))\n  (func $target (param i32) (result i32) (local",
   )
@@ -352,7 +352,7 @@ test "dae-optimizing typed-loop safe batch reorders high-local touched functions
 
 ///|
 test "dae-optimizing typed-loop safe batch raw-cleans owned and indexed pair functions" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module\n  (type $loop_t (func (param i32)))\n  (func $target (param i32) (result i32) (local",
   )
@@ -447,7 +447,7 @@ test "dae-optimizing typed-loop safe batch raw-cleans owned and indexed pair fun
 
 ///|
 test "plain DAE typed-loop fallback uses the bounded safe batch" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -496,7 +496,7 @@ test "plain DAE typed-loop fallback uses the bounded safe batch" {
 
 ///|
 test "dae-optimizing default typed-loop fallback uses the bounded safe batch" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -550,7 +550,7 @@ test "dae-optimizing default typed-loop fallback uses the bounded safe batch" {
 
 ///|
 test "dae-optimizing typed-loop safe batch preserves callees called from typed loops" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -589,7 +589,7 @@ test "dae-optimizing typed-loop safe batch preserves callees called from typed l
 
 ///|
 test "plain DAE batches contiguous boundary scan before a late candidate" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module\n")
   for i = 0; i < 64; i = i + 1 {
     source.write_string("  (func nop)\n")
@@ -655,7 +655,7 @@ fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int32) -> @lib.Func {
 
 ///|
 fn dae_test_many_i32_locals(count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < count; i = i + 1 {
     out.write_string(" (local i32)")
   }
@@ -664,7 +664,7 @@ fn dae_test_many_i32_locals(count : Int32) -> String {
 
 ///|
 fn dae_test_many_i32_const_drops(count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < count; i = i + 1 {
     out.write_string("\n    i32.const 0\n    drop")
   }
@@ -1199,7 +1199,7 @@ test "dae-optimizing ignores inactive conflicting uniform actuals" {
 ///|
 #skip("manual synthetic DAE module-size threshold; the same inactive-callsite behavior has a bounded test")
 test "dae-optimizing ignores inactive conflicting uniform actuals in a broad module" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -7968,7 +7968,7 @@ test "dae-optimizing rewrites every direct call when a caller hits the same call
 ///|
 test "dae-optimizing preserves Binaryen zero tee shape at former Func215 identity" {
   let target_def = 215
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func)\n")
@@ -8011,7 +8011,7 @@ test "dae-optimizing preserves Binaryen zero tee shape at former Func215 identit
 ///|
 test "dae-optimizing preserves Binaryen zero tee shape at former Func260 identity" {
   let target_def = 260
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func)\n")
@@ -8400,7 +8400,7 @@ test "dae-optimizing converges before the reverse exact-literal wrapper lane" {
 test "dae-optimizing batches low null-default candidates on broad modules" {
   let target_def = 164
   let total_defs = 4097
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     (
       #|(module
@@ -8657,7 +8657,7 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
       159, 161, 162, 167, 170, 175, 176, 177, 178, 180, 181, 182, 184, 186, 187,
       188, 189, 191, 196,
     ] {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
       out.write_string(
@@ -8708,7 +8708,7 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
 #skip("manual artifact-derived public replay; unchanged-boundary control behavior has bounded coverage")
 test "dae-optimizing preserves Binaryen constant result-if without a DAE boundary change" {
   let target_def = 233
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -8756,7 +8756,7 @@ test "dae-optimizing preserves Binaryen constant result-if without a DAE boundar
 #skip("manual artifact-derived public replay; touched local cleanup has bounded direct coverage")
 test "dae-optimizing retargets selected Func236 temporary locals and strips Binaryen-removed debris" {
   let target_def = 236
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -8814,7 +8814,7 @@ test "dae-optimizing retargets selected Func236 temporary locals and strips Bina
 #skip("manual artifact-derived public replay; exported loop-carrier preservation remains covered")
 test "dae-optimizing preserves exported Func256 loop carriers like Binaryen" {
   let target_def = 256
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (type $loop (func (param i32)))\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -8894,7 +8894,7 @@ test "dae-optimizing preserves exported Func256 loop carriers like Binaryen" {
 #skip("manual artifact-derived public replay; exported loop-carrier preservation remains covered")
 test "dae-optimizing preserves exported Func298 loop carriers like Binaryen" {
   let target_def = 298
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -8983,7 +8983,7 @@ test "dae-optimizing preserves exported Func298 loop carriers like Binaryen" {
 #skip("manual artifact-derived public replay; unchanged exported-control behavior remains covered")
 test "dae-optimizing preserves exported Func299 inverted result-if like Binaryen" {
   let target_def = 299
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9037,7 +9037,7 @@ test "dae-optimizing preserves exported Func299 inverted result-if like Binaryen
 #skip("manual artifact-derived cleanup replay; terminal call-argument cleanup has bounded coverage")
 test "dae-optimizing inlines touched staged terminal call args" {
   let target_def = 711
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9259,7 +9259,7 @@ test "dae-optimizing inlines touched staged terminal call args" {
 #skip("manual artifact-derived cleanup replay; typed local remapping has bounded direct coverage")
 test "dae-optimizing remaps a touched final i64 temp to Binaryen local" {
   let target_def = 711
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9322,7 +9322,7 @@ test "dae-optimizing remaps a touched final i64 temp to Binaryen local" {
 #skip("manual artifact-derived cleanup replay; terminal call-family cleanup has bounded coverage")
 test "dae-optimizing inlines a second touched staged terminal call family" {
   let target_def = 713
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9517,7 +9517,7 @@ test "dae-optimizing inlines a second touched staged terminal call family" {
 #skip("manual artifact-derived cleanup replay; suffix block cleanup remains covered by bounded tests")
 test "dae-optimizing unwraps a touched suffix staging block" {
   let target_def = 713
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9607,7 +9607,7 @@ test "dae-optimizing unwraps a touched suffix staging block" {
 test "dae-optimizing specializes a single-caller global suffix component" {
   let caller_def = 813
   let callee_def = 823
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (global $g i32 (i32.const 169472))\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9695,7 +9695,7 @@ test "dae-optimizing specializes selected Func326 zero actual after bounded core
   let caller_def = 317
   let target_def = 326
   let total_defs = 1025
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 9; i = i + 1 {
     out.write_string(
@@ -9744,7 +9744,7 @@ test "dae-optimizing specializes selected Func326 zero actual after bounded core
 ///|
 test "dae-optimizing materializes selected Func260 helper exact literals" {
   for target_def in [267, 268] {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
       out.write_string(
@@ -9822,7 +9822,7 @@ test "dae-optimizing materializes selected Func260 helper exact literals" {
 test "dae-optimizing folds a changed terminal caller before default args" {
   let caller_def = 727
   let target_def = 728
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -9892,7 +9892,7 @@ test "dae-optimizing folds a changed terminal caller before default args" {
 ///|
 test "dae-optimizing lowers changed pure default wrappers to selects" {
   let caller_def = 727
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10037,7 +10037,7 @@ test "dae-optimizing folds selected Func1794 const-if locals before Func1795 def
   let first_caller_def = 279
   let second_caller_def = 1794
   let target_def = 1795
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < first_caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10200,7 +10200,7 @@ test "dae-optimizing removes selected Func3737 and Func3765 forwarded default ar
   let caller_def = 281
   let target_def = 3737
   let forwarded_def = 3765
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10271,7 +10271,7 @@ test "dae-optimizing removes selected Func3737 wrapper default from folded multi
   let caller_def = 281
   let target_def = 3737
   let forwarded_def = 3765
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10346,7 +10346,7 @@ test "dae-optimizing removes selected Func3737 wrapper default from folded multi
 test "dae-optimizing removes selected Func1777 suffix default pointer" {
   let caller_def = 286
   let target_def = 1777
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (memory 1)\n")
   for i = 0; i < caller_def; i = i + 1 {
@@ -10395,7 +10395,7 @@ test "dae-optimizing compacts selected Func287 setup locals after default remova
   let make_def = 288
   let consume_def = 291
   let map_def = 4194
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (memory 1)\n")
   for i = 0; i < wrap_def; i = i + 1 {
@@ -10488,7 +10488,7 @@ test "dae-optimizing compacts selected Func287 setup locals after default remova
 ///|
 test "dae-optimizing preserves exported Func288 switch carriers like Binaryen" {
   let caller_def = 288
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (memory 1)\n")
   for i = 0; i < caller_def; i = i + 1 {
@@ -10531,7 +10531,7 @@ test "dae-optimizing preserves exported Func288 switch carriers like Binaryen" {
 ///|
 test "dae-optimizing preserves exported Func288 return wrapper like Binaryen" {
   let caller_def = 288
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10565,7 +10565,7 @@ test "dae-optimizing preserves exported Func288 return wrapper like Binaryen" {
 test "dae-optimizing removes selected Func4368 zero default from Func289" {
   let caller_def = 289
   let target_def = 4368
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10613,7 +10613,7 @@ test "dae-optimizing removes selected Func4206 middle default before call-produc
   let caller_defs = [
     first_caller_def, second_caller_def, third_caller_def, fourth_caller_def,
   ]
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   let mut next_def = 0
   for caller_def in caller_defs {
@@ -10677,7 +10677,7 @@ test "dae-optimizing removes selected Func4206 middle default before call-produc
 test "dae-optimizing removes selected Func298 dropped result from Func280 branch arms" {
   let caller_def = 280
   let target_def = 298
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -10730,7 +10730,7 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 #skip("manual large-module DAE trace smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing traces selected dropped-result fallback metadata" {
   let target_def = 3566
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -10780,7 +10780,7 @@ test "dae-optimizing traces selected dropped-result fallback metadata" {
 #skip("manual artifact-derived scheduler replay; dropped-result worklist behavior has bounded coverage")
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for target_def in [476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
       out.write_string(
@@ -10833,7 +10833,7 @@ test "dae-optimizing materializes high fact-discovered exact literal outside sel
   let caller_def = 1490
   let target_def = 1500
   let total_defs = 1502
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 9; i = i + 1 {
     out.write_string(
@@ -10893,7 +10893,7 @@ test "dae-optimizing reaches exact literal after more than fixed core plus low r
   let caller_def = 1600
   let target_def = 1610
   let total_defs = 1612
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < early_count; i = i + 1 {
     out.write_string(
@@ -10971,7 +10971,7 @@ test "dae-optimizing materializes non-adjacent local-set constant actual" {
 test "dae-optimizing materializes non-adjacent typed block constant carrier" {
   let target_def = 0
   let caller_def = 1
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11011,7 +11011,7 @@ test "dae-optimizing materializes non-adjacent typed block constant carrier" {
 ///|
 test "dae-optimizing materializes non-adjacent branch-free loop constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11046,7 +11046,7 @@ test "dae-optimizing materializes non-adjacent branch-free loop constant carrier
 ///|
 test "dae-optimizing materializes non-adjacent loop nested block constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11083,7 +11083,7 @@ test "dae-optimizing materializes non-adjacent loop nested block constant carrie
 ///|
 test "dae-optimizing materializes non-adjacent loop dropped-prefix constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11184,7 +11184,7 @@ test "dae preserves try-table parameters live before an exceptional overwrite" {
 ///|
 test "dae-optimizing materializes non-adjacent try-table constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11221,7 +11221,7 @@ test "dae-optimizing materializes non-adjacent try-table constant carrier" {
 ///|
 test "dae-optimizing materializes non-adjacent try-table dropped-prefix constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11260,7 +11260,7 @@ test "dae-optimizing materializes non-adjacent try-table dropped-prefix constant
 ///|
 test "dae-optimizing preserves try-table carrier with throwing prefix" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11294,7 +11294,7 @@ test "dae-optimizing preserves try-table carrier with throwing prefix" {
 ///|
 test "dae-optimizing materializes non-adjacent pure dropped-prefix block carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11331,7 +11331,7 @@ test "dae-optimizing materializes non-adjacent pure dropped-prefix block carrier
 ///|
 test "dae-optimizing materializes non-adjacent nested dropped-prefix block carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11372,7 +11372,7 @@ test "dae-optimizing materializes non-adjacent nested dropped-prefix block carri
 ///|
 test "dae-optimizing rejects non-adjacent multi-instruction block carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11404,7 +11404,7 @@ test "dae-optimizing rejects non-adjacent multi-instruction block carrier" {
 ///|
 test "dae-optimizing materializes non-adjacent equal-arm if constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11442,7 +11442,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if constant carrier" {
 ///|
 test "dae-optimizing materializes non-adjacent equal-arm if dropped-prefix constant carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11485,7 +11485,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if dropped-prefix const
 #skip("manual artifact-scale DAE definition-threshold fixture; bounded carrier behavior remains covered")
 test "dae-optimizing materializes non-adjacent equal-arm if nested block carrier" {
   let target_def = 1500
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11527,7 +11527,7 @@ test "dae-optimizing materializes non-adjacent equal-arm if nested block carrier
 ///|
 test "dae-optimizing rejects non-adjacent local-tee constant actual carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11562,7 +11562,7 @@ test "dae-optimizing rejects non-adjacent local-tee constant actual carrier" {
 ///|
 test "dae-optimizing rejects non-adjacent local-set carrier with earlier read" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11598,7 +11598,7 @@ test "dae-optimizing rejects non-adjacent local-set carrier with earlier read" {
 ///|
 test "dae-optimizing rejects non-adjacent local-set carrier with multiple writes" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11634,7 +11634,7 @@ test "dae-optimizing rejects non-adjacent local-set carrier with multiple writes
 ///|
 test "dae-optimizing rejects non-adjacent trapping local-set carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11670,7 +11670,7 @@ test "dae-optimizing rejects non-adjacent trapping local-set carrier" {
 ///|
 test "dae-optimizing rejects non-adjacent effectful local-set carrier" {
   let target_def = 0
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -11779,7 +11779,7 @@ test "dae-optimizing preserves fact-discovered results with mixed dropped and li
 #skip("manual artifact-scale DAE parity fixture; focused transform behavior remains in bounded tests")
 test "dae-optimizing removes fact-discovered dropped callee result outside selected list" {
   let target_def = 512
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -11830,7 +11830,7 @@ test "dae-optimizing reaches fallback-neighborhood dropped result through fact p
   for singleton_def in [298, 445, 3834, 4106, 4249, 4229, 427, 4240, 4241, 4242] {
     let high_start = 4644
     let high_count = 8
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module\n")
     for i = 0; i < singleton_def; i = i + 1 {
       out.write_string("  (func $pad\{i})\n")
@@ -11878,7 +11878,7 @@ test "dae-optimizing reaches fallback-neighborhood dropped result through fact p
 #skip("manual artifact-scale DAE parity fixture; focused transform behavior remains in bounded tests")
 test "dae-optimizing removes high fact-discovered dropped callee result outside selected list" {
   let target_def = 3000
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -11928,7 +11928,7 @@ test "dae-optimizing removes high fact-discovered dropped callee result outside 
 test "dae-optimizing reaches high dropped-result callee after low candidate budget" {
   let target_def = 4500
   let low_candidates = 40
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
@@ -11976,7 +11976,7 @@ test "dae-optimizing reaches two high dropped-result callees after low candidate
   let first_target_def = 4500
   let second_target_def = 4501
   let low_candidates = 40
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
@@ -12048,7 +12048,7 @@ test "dae-optimizing reaches three high dropped-result callees after low candida
   let second_target_def = 4501
   let third_target_def = 4502
   let low_candidates = 40
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
@@ -12138,7 +12138,7 @@ test "dae-optimizing reaches four high dropped-result callees after low candidat
   let third_target_def = 4502
   let fourth_target_def = 4503
   let low_candidates = 40
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
@@ -12255,7 +12255,7 @@ test "dae-optimizing reaches fourteen high dropped-result callees after low cand
   let thirteenth_target_def = 4512
   let fourteenth_target_def = 4513
   let low_candidates = 40
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
@@ -12375,7 +12375,7 @@ test "dae-optimizing reaches low dropped-result callee after large descending bu
   let low_target_def = 600
   let high_target_start = 4644
   let high_target_count = 8
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < low_target_def; i = i + 1 {
     out.write_string("  (func $pad_low\{i})\n")
@@ -12418,7 +12418,7 @@ test "dae-optimizing materializes pure exact-literal callees across definition r
       311, 408, 428, 538, 869, 1720, 1755, 1775, 1794, 2156, 3736, 4117, 4134, 4303,
       4320,
     ] {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
       out.write_string(
@@ -12459,7 +12459,7 @@ test "dae-optimizing materializes pure exact-literal callees across definition r
 #skip("manual artifact-derived DAE definition-range fixture; bounded single-use const-local behavior remains covered")
 test "dae-optimizing inlines selected Func408 single-use const local" {
   let target_def = 408
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12498,7 +12498,7 @@ test "dae-optimizing inlines selected Func408 single-use const local" {
 #skip("manual artifact-derived DAE definition-range fixture; bounded pair-if cleanup remains covered")
 test "dae-optimizing reshapes a touched pair-if carrier at an arbitrary definition" {
   let target_def = 709
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12557,7 +12557,7 @@ test "dae-optimizing reshapes a touched pair-if carrier at an arbitrary definiti
 #skip("manual artifact-derived DAE definition-range fixture; bounded unchanged-boundary behavior remains covered")
 test "dae-optimizing preserves Binaryen nops without a DAE boundary change" {
   let target_def = 408
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12704,7 +12704,7 @@ test "dae-optimizing materializes uniform string.const actuals" {
 
 ///|
 test "dae-optimizing materializes selected Func521 literal actual" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 504; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12728,7 +12728,7 @@ test "dae-optimizing materializes selected Func521 literal actual" {
 
 ///|
 test "dae-optimizing materializes mid-range literal actual and applies nested cleanup" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 505; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12774,7 +12774,7 @@ test "dae-optimizing materializes mid-range literal actual and applies nested cl
 
 ///|
 test "dae-optimizing inverts zero-eq value branch after selected Func505 rewrite" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 505; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12809,7 +12809,7 @@ test "dae-optimizing inverts zero-eq value branch after selected Func505 rewrite
 
 ///|
 test "dae-optimizing removes bool-result guard carrier after selected Func505 rewrite" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 505; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
@@ -12848,7 +12848,7 @@ test "dae-optimizing removes bool-result guard carrier after selected Func505 re
 
 ///|
 test "dae-optimizing materializes immutable global actuals independent of module cardinality" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g i32 (i32.const 42))\n")
   for i = 0; i < 313; i = i + 1 {
@@ -12882,7 +12882,7 @@ test "dae-optimizing materializes immutable global actuals independent of module
 #skip("manual artifact-scale DAE parity fixture; focused transform behavior remains in bounded tests")
 test "dae-optimizing materializes high immutable global actuals outside selected list" {
   let target_def = 1500
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g i32 (i32.const 99))\n")
   for i = 0; i < target_def; i = i + 1 {
@@ -12912,7 +12912,7 @@ test "dae-optimizing materializes high immutable global actuals outside selected
 #skip("manual artifact-scale DAE parity fixture; focused transform behavior remains in bounded tests")
 test "dae-optimizing keeps mutable global actuals outside selected list" {
   let target_def = 1500
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 99))\n")
   for i = 0; i < target_def; i = i + 1 {
@@ -12937,7 +12937,7 @@ test "dae-optimizing keeps mutable global actuals outside selected list" {
 ///|
 #skip("manual artifact-scale DAE scheduler fixture; bounded exact-literal discovery remains covered")
 test "dae-optimizing materializes a high exact-literal callee after the mid-prefix slices" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
     out.write_string(
@@ -13019,7 +13019,7 @@ test "dae-optimizing folds add-zero address drift after removing a const memory.
 #skip("manual artifact-scale DAE scheduler fixture; candidate discovery is covered by bounded tests")
 test "dae-optimizing discovers a broad exact-literal candidate without a definition list" {
   let target_def = 4200
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for def_idx = 0; def_idx < target_def; def_idx = def_idx + 1 {
     out.write_string("  (func $pad\{def_idx})\n")
@@ -13045,7 +13045,7 @@ test "dae-optimizing discovers a broad exact-literal candidate without a definit
 #skip("manual artifact-scale DAE scheduler fixture; uniform constructor behavior is covered by bounded tests")
 test "dae-optimizing discovers a fully uniform multi-parameter constructor without a definition list" {
   let target_def = 4200
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"malloc\" (func $malloc (param i32) (result i32)))\n  (memory 1)\n",
   )
@@ -13088,7 +13088,7 @@ test "dae-optimizing discovers a fully uniform multi-parameter constructor witho
 test "dae-optimizing solves a high-definition uniform identity through a recursive forwarding component" {
   let first_flow_def = 4200
   let target_def = first_flow_def + 2
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for def_idx = 0; def_idx < first_flow_def; def_idx = def_idx + 1 {
     out.write_string("  (func $pad\{def_idx})\n")
@@ -13957,7 +13957,7 @@ test "dae-optimizing reruns DAE after unused-return cleanup exposes dead params"
 
 ///|
 test "dae-optimizing removes dropped large dead-prefix result bodies like Binaryen" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     (
       #|(module
@@ -16281,7 +16281,7 @@ test "dae-optimizing routes oversized changed boundaries through the shared rost
 
 ///|
 test "dae-optimizing runs nested cleanup for large touched sets" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   let mut idx = 0
   while idx < 9 {
@@ -16538,7 +16538,7 @@ test "dae-optimizing nested remove-unused-brs only rewrites touched functions" {
 ///|
 #skip("manual artifact-scale DAE cleanup benchmark; touched-caller cleanup remains covered by bounded tests")
 test "dae-optimizing replays cleanup on material touched callers" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let prefix =
     #|(module
     #|  (import "env" "use" (func $use (param i32)))
@@ -17960,7 +17960,7 @@ test "dae-optimizing preserves case 000690 escaped self-call operand param" {
 
 ///|
 fn dae_test_many_touched_cleanup_guard_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for helper_idx = 0; helper_idx < 10; helper_idx = helper_idx + 1 {
     out.write_string(
@@ -17999,7 +17999,7 @@ test "dae-optimizing cleans changed boundaries when more than eight functions ar
 
 ///|
 fn dae_test_medium_module_cleanup_guard_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (func $helper (param i32 i32) (result i32) (local i32) local.get 1 local.set 2 local.get 2 i32.const 0 i32.add)\n  (func (export \"run\") (result i32) i32.const 9 i32.const 7 call $helper)\n",
   )
@@ -18022,7 +18022,7 @@ test "dae-optimizing cleans changed boundaries in modules above the generic size
 
 ///|
 fn dae_test_large_locals_cleanup_guard_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (func $helper (param i32 i32) (result i32) (local",
   )
@@ -18302,7 +18302,7 @@ test "dae-optimizing folds small-module immutable global fields and follows expo
 fn dae_test_broad_changed_boundary_local_cleanup_module() -> String {
   let helper_count = 10
   let total_defs = 4097
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (global $sink (mut i32) (i32.const 0))\n")
   out.write_string("  (func $target (param i32) (result i32) (local")
   for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
@@ -18421,7 +18421,7 @@ test "dae-optimizing cleans every broad changed-boundary local family" {
 
 ///|
 fn dae_test_cleanup_exposed_unread_params_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n  (global $sink (mut i32) (i32.const 0))\n")
   for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
     out.write_string("  (func $helper")
@@ -18486,7 +18486,7 @@ test "dae-optimizing converges cleanup-exposed unread parameters in one invocati
 ///|
 fn dae_test_large_uniform_const_actual_module() -> String {
   let leaf_def = 5000
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (type $box (struct (field i32)))\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n  (global $g (ref $box) i32.const 0 struct.new $box)\n",
   )
@@ -18599,7 +18599,7 @@ fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
   let root_def = 500
   let pair_first_def = 504
   let total_defs = 513
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
   )
@@ -18713,7 +18713,7 @@ test "dae-optimizing sends a broad exact-param adjacent pair through the shared 
 
 ///|
 fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
   )
@@ -18805,7 +18805,7 @@ fn dae_test_append_broad_dropped_result_payoff_target(
 
 ///|
 fn dae_test_broad_forwarded_dropped_result_chain_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $leaf (result i32) i32.const 7)\n")
   out.write_string("  (func $forward (result i32) call $leaf return)\n")
@@ -18829,7 +18829,7 @@ test "dae-optimizing removes results forwarded only into dropped results" {
 
 ///|
 fn dae_test_broad_block_dropped_result_chain_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $leaf (result i32) i32.const 7)\n")
   out.write_string(
@@ -18853,7 +18853,7 @@ test "dae-optimizing removes results produced only for dropped blocks" {
 
 ///|
 fn dae_test_broad_dropped_result_payoff_coalesce_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"source_i64\" (func $source_i64 (result i64)))\n  (import \"env\" \"source_i32\" (func $source_i32 (result i32)))\n  (import \"env\" \"touch\" (func $touch))\n  (import \"env\" \"sink_i64\" (func $sink_i64 (param i64)))\n  (import \"env\" \"sink_i32\" (func $sink_i32 (param i32)))\n",
   )
@@ -18936,7 +18936,7 @@ test "dae-optimizing coalesces and late-reorders selected payoff locals after re
 
 ///|
 fn dae_test_broad_high_normalized_literal_chain_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (type $box (struct (field i64)))\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n  (import \"env\" \"touch_ref\" (func $touch_ref (param i32 (ref $box))))\n  (global $maybe (ref null $box) (struct.new_default $box))\n",
   )
@@ -19197,7 +19197,7 @@ test "dae-optimizing converges a high normalized literal through direct callees"
 
 ///|
 fn dae_test_two_broad_dropped_result_payoff_chains_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   dae_test_append_broad_dropped_result_payoff_target(out, "target0", 40)
   out.write_string("  (func $wrapper0 (result i32) call $target0)\n")
@@ -19245,7 +19245,7 @@ fn dae_test_broad_computed_carrier_cycle_module() -> String {
   let root_def = 7000
   let pair_first_def = 7004
   let total_defs = 8193
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(
     "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
   )
@@ -19742,7 +19742,7 @@ test "dae-optimizing removes an exact unanchored forwarding-only cycle" {
 
 ///|
 test "dae-optimizing converges all touched forwarding-only cycles" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   for cycle_idx = 0; cycle_idx < 9; cycle_idx = cycle_idx + 1 {
     out.write_string(

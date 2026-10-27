@@ -532,7 +532,7 @@ fn dae2_stack_suffix_rewrite_body(
   local_map : Array[Int32],
   reads : Array[Bool],
 ) -> Array[@lib.Instruction] {
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   let mut position = 0
   let mut suffix_call = dae2_stack_suffix_next_call(instrs, plan, 0)
   let visit_body = fn(body) {

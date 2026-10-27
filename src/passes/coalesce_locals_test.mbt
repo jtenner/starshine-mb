@@ -216,7 +216,7 @@ fn cl_test_local_subtyping_fixture() -> @lib.Module {
 
 ///|
 test "coalesce-locals preserves the optimized primes variadic packer only" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   let prefix =
     #|(module
     #|  (func (export "_main"))
@@ -277,7 +277,7 @@ test "coalesce-locals preserves the optimized primes variadic packer only" {
 
 ///|
 test "coalesce-locals-cfg preserves the optimized primes variadic packer only" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   let prefix =
     #|(module
     #|  (func (export "_main"))
@@ -330,7 +330,7 @@ test "coalesce-locals-cfg preserves the optimized primes variadic packer only" {
 
 ///|
 test "coalesce-locals-cfg intentionally fails closed for measured emscripten stateful runtime shapes" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
   )
@@ -612,7 +612,7 @@ test "coalesce-locals O4z dispatch processes ordinary functions" {
 
 ///|
 test "coalesce-locals O4z dispatch processes bounded 256-local ordinary functions" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 256; i = i + 1 {
     ignore(i)
@@ -634,7 +634,7 @@ test "coalesce-locals O4z dispatch processes bounded 256-local ordinary function
 
 ///|
 test "coalesce-locals O4z dispatch processes bounded 512-local ordinary functions" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 512; i = i + 1 {
     ignore(i)
@@ -656,7 +656,7 @@ test "coalesce-locals O4z dispatch processes bounded 512-local ordinary function
 
 ///|
 test "coalesce-locals O4z dispatch defers large dense-tee functions in medium modules" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 513; i = i + 1 {
     ignore(i)
@@ -688,7 +688,7 @@ test "coalesce-locals O4z dispatch defers large dense-tee functions in medium mo
 
 ///|
 test "coalesce-locals O4z dispatch defers large dense-tee functions in small modules" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 513; i = i + 1 {
     ignore(i)
@@ -714,7 +714,7 @@ test "coalesce-locals O4z dispatch defers large dense-tee functions in small mod
 
 ///|
 test "coalesce-locals O4z dispatch intentionally bounds dense ordinary functions above 512 locals" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 513; i = i + 1 {
     ignore(i)
@@ -736,7 +736,7 @@ test "coalesce-locals O4z dispatch intentionally bounds dense ordinary functions
 
 ///|
 test "coalesce-locals O4z dispatch conservatively compacts dense-tee structured functions" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (local")
   for i = 0; i < 24; i = i + 1 {
     ignore(i)
@@ -764,7 +764,7 @@ test "coalesce-locals O4z dispatch conservatively compacts dense-tee structured 
 
 ///|
 test "coalesce-locals dense-tee intervals reuse sequential unbranched block locals" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (result i32) (local")
   for i = 0; i < 24; i = i + 1 {
     ignore(i)
@@ -793,7 +793,7 @@ test "coalesce-locals dense-tee intervals reuse sequential unbranched block loca
 
 ///|
 test "coalesce-locals dense-tee intervals preserve branch-skipped default reads" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (param i32) (result i32) (local")
   for i = 0; i < 24; i = i + 1 {
     ignore(i)
@@ -829,7 +829,7 @@ test "coalesce-locals dense-tee intervals preserve branch-skipped default reads"
 
 ///|
 test "coalesce-locals dense-tee intervals keep branch-reachable continuation locals distinct" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (param i32) (result i32) (local")
   for _i = 0; _i < 24; _i = _i + 1 {
     input.write_string(" i32")
@@ -866,7 +866,7 @@ test "coalesce-locals dense-tee intervals keep branch-reachable continuation loc
 
 ///|
 test "coalesce-locals processes defaultable structured functions without suppressing neighbors" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   let prefix =
     #|(module
     #|  (func (param i32)
@@ -1695,7 +1695,7 @@ test "coalesce-locals compacts all-unused locals above dense-coloring guard" {
   // All-unused local groups do not need a dense interference matrix. Keep the
   // large-function fallback scalable while still matching Binaryen's one-slot
   // compaction for same-typed unused locals.
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (result i32) (local")
   for _idx = 0; _idx < 4097; _idx = _idx + 1 {
     input.write_string(" i32")
@@ -1715,7 +1715,7 @@ test "coalesce-locals compacts all-unused locals above dense-coloring guard" {
 
 ///|
 fn cl_test_large_sparse_module(body : String) -> @lib.Module {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local")
   for _idx = 0; _idx < 4097; _idx = _idx + 1 {
     source.write_string(" i32")
@@ -4002,7 +4002,7 @@ test "coalesce-locals rewrites copy traffic inside legacy catch-all" {
 
 ///|
 test "coalesce-locals compacts unused locals above the dense-coloring threshold" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (result i32) (local")
   for _idx = 0; _idx < 4097; _idx = _idx + 1 {
     input.write_string(" i32")

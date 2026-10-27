@@ -1,7 +1,7 @@
 ///|
 fn no_inline_wildcard_bench_inputs(size : Int32) -> (String, String) {
-  let pattern = StringBuilder::new()
-  let text = StringBuilder::new()
+  let pattern = StringBuilder()
+  let text = StringBuilder()
   for _ in 0..<size {
     pattern.write_string("*a")
     text.write_string("a")
@@ -11,8 +11,8 @@ fn no_inline_wildcard_bench_inputs(size : Int32) -> (String, String) {
 
 ///|
 fn no_inline_wildcard_adversarial_inputs(size : Int32) -> (String, String) {
-  let pattern = StringBuilder::new()
-  let text = StringBuilder::new()
+  let pattern = StringBuilder()
+  let text = StringBuilder()
   pattern.write_char('*')
   for _ in 0..<size {
     pattern.write_char('a')
@@ -56,7 +56,7 @@ fn no_inline_wildcard_enumerated_string(
   length : Int32,
   alphabet : String,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut code = encoded
   for _ in 0..<length {
     out.write_char(alphabet[code % alphabet.length()].to_int().unsafe_to_char())

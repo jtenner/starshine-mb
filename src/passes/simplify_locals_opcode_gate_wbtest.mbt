@@ -61,7 +61,7 @@ fn sl_opcode_gate_run(
 
 ///|
 fn sl_opcode_gate_scalar_fixture(width : Int32) -> @lib.Module {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for _ in 0..<width {
     out.write_string(
       "local.get 0 local.set 1 local.get 1 drop call $effect i32.const 0 i32.load drop ",

@@ -88,7 +88,7 @@ fn sgo_test_make_touched_cleanup_fixture(
   touched_count : Int32,
   extra_untouched_count~ : Int32 = 0,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   for idx = 0; idx < touched_count; idx = idx + 1 {
@@ -106,7 +106,7 @@ fn sgo_test_make_large_touched_function_fixture(
   local_count : Int32,
   extra_untouched_count~ : Int32 = 0,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $large")
@@ -125,7 +125,7 @@ fn sgo_test_make_large_touched_function_fixture(
 fn sgo_test_make_mixed_large_and_small_touched_fixture(
   local_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $large")
@@ -140,7 +140,7 @@ fn sgo_test_make_mixed_large_and_small_touched_fixture(
 
 ///|
 fn sgo_test_make_large_touched_body_fixture(nop_count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $large\n")
@@ -395,7 +395,7 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
 fn sgo_test_make_large_dead_tail_after_unreachable_fixture(
   nop_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $f\n")
@@ -416,7 +416,7 @@ fn sgo_test_make_large_safe_trunc_prefix_before_unreachable_fixture(
   trunc_source : String,
   nop_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $f\n")
@@ -462,7 +462,7 @@ test "simplify-globals-optimizing cleans safe trunc prefix before guaranteed unr
 fn sgo_test_make_large_safe_trunc_batch_before_unreachable_fixture(
   nop_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (global $g (mut i32) (i32.const 7))\n")
   out.write_string("  (func $f (local i64 f32)\n")
@@ -567,7 +567,7 @@ test "simplify-globals-optimizing keeps potentially trapping trunc prefix before
 
 ///|
 test "simplify-globals-optimizing removes pure dropped local reads during cheap cleanup" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -594,7 +594,7 @@ test "simplify-globals-optimizing removes pure dropped local reads during cheap 
 
 ///|
 test "simplify-globals-optimizing final cleanup removes noops from unchanged functions" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -733,7 +733,7 @@ test "simplify-globals-optimizing simplifies locals in the final cleanup suffix"
 
 ///|
 test "simplify-globals-optimizing defers broad final cleanup for O4z stateful Emscripten" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module
@@ -949,7 +949,7 @@ test "simplify-globals-optimizing final suffix removes pure result blocks withou
 
 ///|
 test "simplify-globals-optimizing final cleanup removes dropped reads after prior writes" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     (
       #|(module

@@ -1,6 +1,6 @@
 ///|
 test "MemoryPacking rebuilds only data-op function bodies" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (memory 1) (data \"dead\") ")
   source.write_string("(func (data.drop 0)) ")
   for _ in 0..<128 {

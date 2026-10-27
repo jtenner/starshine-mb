@@ -151,7 +151,7 @@ fn remove_unused_brs_test_has_br_if_to_label_with_child_count(
 
 ///|
 fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (param i32) (result i32) (local i32")
   for i = 0; i < 97; i = i + 1 {
     let _ = i
@@ -179,7 +179,7 @@ fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
 
 ///|
 test "remove-unused-brs preserves large arithmetic local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (param i64) (result i64)")
   for i = 0; i < 128; i = i + 1 {
     let _ = i
@@ -2623,7 +2623,7 @@ test "remove-unused-brs focused GenValid parity leaves optimize their owned shap
       Ok(mod_) => mod_
       Err(err) => fail("profile \{profile_name}: \{err}")
     }
-    let pretty = StringBuilder::new()
+    let pretty = StringBuilder()
     match optimized.code_sec {
       Some(@lib.CodeSec(funcs)) =>
         for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
@@ -2792,7 +2792,7 @@ test "remove-unused-brs rewrites reorder-safe condition ladders into select" {
 ///|
 test "remove-unused-brs keeps high-local nonreorder conditions as ifs when arms read the tee target" {
   let input = {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string(
       "(module (func $cond (param i32) (result i32) (local.get 0)) (func (param i32) (result i32)",
     )
@@ -4392,7 +4392,7 @@ test "remove-unused-brs rewrites sibling-carried branch payload wrappers around 
 ///|
 test "remove-unused-brs drains long runs of two-armed branch exits in one region" {
   let input = {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     out.write_string("(module (func (param i32) (block $exit")
     for idx = 0; idx < 300; idx = idx + 1 {
       out.write_string(

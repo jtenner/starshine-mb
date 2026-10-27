@@ -31,7 +31,7 @@ test "reorder-globals candidate families preserve source ordering and score depe
 
 ///|
 test "reorder-globals chooses the lowest true ULEB cost and keeps candidate ties stable" {
-  let deps : Array[Array[Int32]] = Array::new(capacity=129)
+  let deps : Array[Array[Int32]] = Array(capacity=129)
   for idx = 0; idx < 129; idx = idx + 1 {
     deps.push(if idx == 0 { [128] } else { [] })
   }

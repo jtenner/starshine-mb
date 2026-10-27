@@ -147,7 +147,7 @@ test "simplify-locals preserves snapshots across same-global writes in result bl
 
 ///|
 test "simplify-locals intentionally fails closed for measured emscripten stateful runtime shapes" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (export \"_main\") (local i32) i32.const 1 local.set 0 local.get 0 drop) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
   )
@@ -179,7 +179,7 @@ test "simplify-locals intentionally fails closed for measured emscripten statefu
 
 ///|
 fn simplify_locals_test_low_local_structured_call_heavy_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32))\n")
   out.write_string("  (func (local i32 i32 i32 i32)\n")
@@ -219,7 +219,7 @@ test "simplify-locals skips low-local structured call-heavy functions" {
 
 ///|
 fn simplify_locals_test_low_local_loop_return_call_ladder_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func (param i32) (result i32) (local i32 i32 i32 i32)\n")
@@ -273,7 +273,7 @@ test "simplify-locals skips low-local loop return call ladders" {
 
 ///|
 fn simplify_locals_test_mid_local_structured_call_ladder_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func (param i32) (result i32) (local")
@@ -382,7 +382,7 @@ test "simplify-locals preserves parameter reads before later result-if aliases" 
 
 ///|
 fn simplify_locals_test_make_large_structured_raw_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
@@ -430,7 +430,7 @@ fn simplify_locals_test_make_large_structured_raw_repro() -> String {
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_copy_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
@@ -510,7 +510,7 @@ fn simplify_locals_test_make_large_validator_structured_copy_repro() -> String {
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_if_copy_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
@@ -594,7 +594,7 @@ fn simplify_locals_test_make_large_validator_structured_if_copy_repro() -> Strin
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_condition_temp_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
   out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
@@ -669,7 +669,7 @@ fn simplify_locals_test_make_large_validator_structured_condition_temp_repro() -
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_loop_temp_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (memory 1)\n")
   out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
@@ -762,7 +762,7 @@ fn simplify_locals_test_make_large_validator_structured_loop_temp_repro() -> Str
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_multiuse_temp_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func $use (param i32) nop)\n")
   out.write_string("  (func $id (param i32) (result i32) local.get 0)\n")
@@ -835,7 +835,7 @@ fn simplify_locals_test_make_large_validator_structured_multiuse_temp_repro() ->
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_leading_condition_temp_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
   out.write_string(
@@ -929,7 +929,7 @@ fn simplify_locals_test_make_large_validator_structured_leading_condition_temp_r
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_block_result_tee_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
   out.write_string(
@@ -1027,7 +1027,7 @@ fn simplify_locals_test_make_large_validator_structured_block_result_tee_repro()
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_if_condition_tee_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
   out.write_string(
@@ -1131,7 +1131,7 @@ fn simplify_locals_test_make_large_validator_structured_if_condition_tee_repro()
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_effectful_copy_condition_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
   out.write_string(
@@ -1242,7 +1242,7 @@ fn simplify_locals_test_make_large_validator_structured_effectful_copy_condition
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_returning_call_tail_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
   out.write_string(
@@ -1362,7 +1362,7 @@ fn simplify_locals_test_make_large_validator_structured_returning_call_tail_repr
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_const_fanout_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
   out.write_string(
@@ -1494,7 +1494,7 @@ fn simplify_locals_test_make_large_validator_structured_const_fanout_repro() -> 
 
 ///|
 fn simplify_locals_test_make_large_validator_structured_returning_const_fanout_repro() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
   out.write_string(
@@ -1624,12 +1624,12 @@ fn simplify_locals_test_make_large_validator_structured_returning_const_fanout_r
 ///|
 fn simplify_locals_test_make_structured_dead_tee_repro() -> String {
   let repetitions = 64
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let target_local = i + 2
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then (drop (local.tee 100 (i32.const ")
@@ -1654,7 +1654,7 @@ fn simplify_locals_test_make_structured_dead_tee_repro() -> String {
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
   out.write_string(

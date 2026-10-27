@@ -5,7 +5,7 @@ fn perf_long_module_from_wat(text : String) -> @lib.Module {
 
 ///|
 fn perf_long_join_lines(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i = 0; i < lines.length(); i = i + 1 {
     if i > 0 {
       out.write_string("\n")
@@ -19,7 +19,7 @@ fn perf_long_join_lines(lines : Array[String]) -> String {
 fn perf_long_make_optimize_instructions_nested_block_module(
   depth : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (func (export \"main\") (param i32) (result i32)\n")
   let mut i = 0
@@ -44,12 +44,12 @@ fn perf_long_make_optimize_instructions_nested_block_module(
 fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let set_local = i + 2
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then (local.get 0) (call 0) (local.set ")
@@ -64,7 +64,7 @@ fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
@@ -87,13 +87,13 @@ fn perf_long_make_simplify_locals_multivalue_tail_ladder_module(
 fn perf_long_make_simplify_locals_multivalue_status_tail_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let set_local = i + 2
     let status = if i % 2 == 0 { 0 } else { 1 }
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then (local.get 0) (call 0) (local.set ")
@@ -110,7 +110,7 @@ fn perf_long_make_simplify_locals_multivalue_status_tail_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
@@ -133,14 +133,14 @@ fn perf_long_make_simplify_locals_multivalue_status_tail_ladder_module(
 fn perf_long_make_simplify_locals_multivalue_call_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
     let touched_local = i * 3 + 2
     let merged_local = i * 3 + 3
     let spilled_local = i * 3 + 4
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then ")
@@ -166,7 +166,7 @@ fn perf_long_make_simplify_locals_multivalue_call_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -195,7 +195,7 @@ fn perf_long_make_simplify_locals_multivalue_call_ladder_module(
 fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
   repetitions : Int32,
 ) -> String {
-  let expr = StringBuilder::new()
+  let expr = StringBuilder()
   expr.write_string("(i32.const 0) (local.get 0)")
   let mut i = repetitions - 1
   while i >= 0 {
@@ -203,7 +203,7 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
     let merged_local = i * 4 + 3
     let spilled_local = i * 4 + 4
     let scratch_local = i * 4 + 5
-    let next = StringBuilder::new()
+    let next = StringBuilder()
     next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
     next.write_string(i.to_string())
     next.write_string(")) (then ")
@@ -233,7 +233,7 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
     i = i - 1
   }
 
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string(
     "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
@@ -260,7 +260,7 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
 
 ///|
 fn perf_long_make_simplify_locals_2048_function_module() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   let mut i = 0
   while i < 2047 {

@@ -1,7 +1,7 @@
 ///|
 fn dae2_tee_marker_precision_fixture(mode : Int32) -> @lib.Module {
   let copy = if mode == 7 { 130 } else { 128 }
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (import \"env\" \"consume\" (func $consume (param i32))) (func (export \"run\") (local",
   )

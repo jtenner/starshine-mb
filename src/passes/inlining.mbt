@@ -93,7 +93,7 @@ fn InlCowInstrOutput::begin_replacement(
   let out = match self.rewritten {
     Some(out) => out
     None => {
-      let out : Array[@lib.Instruction] = Array::new(
+      let out : Array[@lib.Instruction] = Array(
         capacity=self.original.length(),
       )
       for idx in 0..<self.index {
@@ -7144,7 +7144,7 @@ fn inl_func_is_exact_unreachable(func : @lib.Func) -> Bool {
 
 ///|
 fn inl_val_types_key(types : Array[@lib.ValType]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ty in types {
     out.write_string(@debug.to_string(ty))
     out.write_string(",")

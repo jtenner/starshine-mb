@@ -64,7 +64,7 @@ fn ras_extract_marker_path(line : String) -> String? {
 ///|
 /// Join collected error lines into one newline-separated diagnostic block.
 fn ras_join_lines_impl(lines : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < lines.length() {
     if i > 0 {

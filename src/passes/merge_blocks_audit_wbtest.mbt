@@ -58,7 +58,7 @@ test "merge-blocks branch memo scans legacy try catches" {
 
 ///|
 test "merge-blocks reuses loop presence across nested block checks" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func ")
   for _ in 0..<64 {
     source.write_string("block ")

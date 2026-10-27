@@ -23,7 +23,7 @@ fn rg_test_dependent_i32_global(dep : UInt32) -> @lib.Global {
 
 ///|
 fn rg_test_globals(count : Int32) -> Array[@lib.Global] {
-  let globals : Array[@lib.Global] = Array::new(capacity=count)
+  let globals : Array[@lib.Global] = Array(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     globals.push(rg_test_i32_global(idx))
   }
@@ -66,7 +66,7 @@ fn rg_test_imported_i32_global(name : String) -> @lib.Import {
 
 ///|
 fn rg_test_import_only_module(count : Int32, hot : UInt32) -> @lib.Module {
-  let imports : Array[@lib.Import] = Array::new(capacity=count)
+  let imports : Array[@lib.Import] = Array(capacity=count)
   for idx = 0; idx < count; idx = idx + 1 {
     imports.push(rg_test_imported_i32_global("g\{idx}"))
   }
@@ -428,7 +428,7 @@ test "reorder-globals counts exports when shrinking high global indices" {
 
 ///|
 fn rg_test_late_tail_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module\n")
   out.write_string("  (type (func))\n")
   out.write_string("  (type (func (param i32) (result i32)))\n")

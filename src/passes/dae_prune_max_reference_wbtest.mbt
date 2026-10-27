@@ -701,7 +701,7 @@ fn dae_prune_max_ref_rewrite_pruned_type_idx_instrs(
       Some(copy) => copy.push(next)
       None =>
         if !physical_equal(next, instr) {
-          let copy = Array::new(capacity=instrs.length())
+          let copy = Array(capacity=instrs.length())
           for prefix = 0; prefix < index; prefix = prefix + 1 {
             copy.push(instrs[prefix])
           }

@@ -1,6 +1,6 @@
 ///|
 fn vacuum_dropped_local_run_perf_fixture(count : Int32) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (global (mut i32) (i32.const 0)) (func (param i32) (local i32)",
   )

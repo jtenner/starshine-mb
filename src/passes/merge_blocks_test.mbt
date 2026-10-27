@@ -100,7 +100,7 @@ fn merge_blocks_test_collect_call_store(
 
 ///|
 fn merge_blocks_large_jsonas_like_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32")
   for i = 0; i < 129; i = i + 1 {
     let _ = i
@@ -117,7 +117,7 @@ fn merge_blocks_large_jsonas_like_fixture() -> String {
 
 ///|
 test "merge-blocks intentionally fails closed for measured emscripten stateful runtime shapes" {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string(
     "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
   )
@@ -149,7 +149,7 @@ test "merge-blocks intentionally fails closed for measured emscripten stateful r
 
 ///|
 test "merge-blocks defers structured load-local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (memory 1) (func")
   // The cumulative O4z pipeline reduces the production parser to 14 body
   // locals before merge-blocks; isolated pass replay retained 15.
@@ -180,7 +180,7 @@ test "merge-blocks defers structured load-local carriers" {
 
 ///|
 test "merge-blocks defers structured call-local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func $callee) (func")
   for i = 0; i < 18; i = i + 1 {
     let _ = i
@@ -207,7 +207,7 @@ test "merge-blocks defers structured call-local carriers" {
 
 ///|
 test "merge-blocks defers large structured SIMD local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func")
   for i = 0; i < 32; i = i + 1 {
     let _ = i
@@ -234,7 +234,7 @@ test "merge-blocks defers large structured SIMD local carriers" {
 
 ///|
 test "merge-blocks scans deeply nested AssemblyScript dispatchers once per structured edge" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func (param i32)")
   for _ in 0..<60 {
     input.write_string(" block")

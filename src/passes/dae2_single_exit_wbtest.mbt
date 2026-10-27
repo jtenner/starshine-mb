@@ -1,6 +1,6 @@
 ///|
 fn dae2_single_exit_fixture(depth : Int32, width : Int32) -> @lib.Module {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   // A forward branch selects the forward planner instead of the branchless one.
   body.write_string("block local.get 0 br_if 0 ")
   for _ in 0..<depth {
@@ -104,7 +104,7 @@ test "DAE2 single exits preserve enclosing joins loop writes and scalar results"
 ///|
 #skip("dedicated demand-driven local-flow work-budget regression; include-skipped")
 test "DAE2 nested local joins stay raw without eager state transport" {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("block local.get 0 br_if 0 end ")
   for _ in 0..<12 {
     body.write_string("local.get 0 if else ")

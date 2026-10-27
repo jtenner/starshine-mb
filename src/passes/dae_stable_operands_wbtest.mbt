@@ -3,7 +3,7 @@ fn dae_stable_operands_fixture(
   calls : Int32,
   params : Int32,
 ) -> DaeCurrentBoundaryGraph {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (func $helper (param")
   for _ in 0..<params {
     text.write_string(" i32")

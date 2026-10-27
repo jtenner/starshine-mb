@@ -3,7 +3,7 @@ fn ls_stable_funcs_perf_fixture(
   chain_count : Int32,
   stable_count : Int32,
 ) -> @lib.Module {
-  let wat = StringBuilder::new()
+  let wat = StringBuilder()
   wat.write_string("(module\n")
   wat.write_string("(type $base (sub (struct)))\n")
   wat.write_string("(type $child (sub $base (struct)))\n")

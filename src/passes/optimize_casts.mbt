@@ -1713,7 +1713,7 @@ fn oc_clone_refinement_replacing_source_get(
     _ => ()
   }
   let children = oc_node_children(func, node_id)
-  let cloned_children = Array::new(capacity=children.length())
+  let cloned_children = Array(capacity=children.length())
   for child_id in children {
     cloned_children.push(
       oc_clone_refinement_replacing_source_get(func, child_id, source_local),

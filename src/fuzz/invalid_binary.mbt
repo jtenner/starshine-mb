@@ -792,7 +792,7 @@ struct ValidateInvalidBinarySectionSpan {
 
 ///|
 fn validate_invalid_binary_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())
@@ -19228,7 +19228,7 @@ fn validate_invalid_binary_update_strategy_stats(
 
 ///|
 fn validate_invalid_binary_join(values : Array[String], sep : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < values.length() {
     if i > 0 {

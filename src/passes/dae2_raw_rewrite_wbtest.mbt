@@ -72,8 +72,8 @@ test "DAE2 raw scalar mutation projects tees and retains HOT fallback for tuple 
 
 ///|
 test "DAE2 raw scalar mutation preserves parameter slots beyond word-sized masks" {
-  let params = StringBuilder::new()
-  let args = StringBuilder::new()
+  let params = StringBuilder()
+  let args = StringBuilder()
   for i in 0..<130 {
     params.write_string(" i32")
     args.write_string(" i32.const \{i}")

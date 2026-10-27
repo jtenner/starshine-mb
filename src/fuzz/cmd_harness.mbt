@@ -213,7 +213,7 @@ fn fuzz_cmd_harness_minimize_optimizer_nondeterminism(
 
 ///|
 fn fuzz_cmd_harness_pass_flags_json(passes : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < passes.length() {
     if i > 0 {
@@ -261,7 +261,7 @@ pub fn persist_fuzz_cmd_harness_failure(
 
 ///|
 fn fuzz_cmd_harness_ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for c in input {
     if c >= 'A' && c <= 'Z' {
       out.write_char((c.to_int() + 32).unsafe_to_char())

@@ -54,7 +54,7 @@ fn dae_result_edge_sparse_fixture(width : Int32, mode : Int32) -> @lib.Module {
   if mode == 4 {
     return dae_result_edge_sparse_many_callees_fixture(width)
   }
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (import \"m\" \"mark\" (func $mark)) ")
   text.write_string(
     "(func $target (param i32) (result i32) local.get 0 i32.const 1 i32.add) ",
@@ -129,7 +129,7 @@ fn dae_result_edge_sparse_check(input : @lib.Module) -> Unit raise {
 
 ///|
 fn dae_result_edge_sparse_many_callees_fixture(width : Int32) -> @lib.Module {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (import \"m\" \"mark\" (func $mark)) ")
   for index in 0..<width {
     text.write_string(

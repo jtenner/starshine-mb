@@ -1,6 +1,6 @@
 ///|
 test "dispatcher RSE preserves many distinct reference locals" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (export \"run\") ")
   for _ in 0..<128 {
     source.write_string("(param eqref) ")

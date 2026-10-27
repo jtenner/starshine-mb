@@ -12685,7 +12685,7 @@ fn precompute_materialize_vector_body(
     let splat = precompute_materialize_vector(instr)
     if nested is Some(_) || splat is Some(_) {
       if out is None {
-        let prefix : Array[@lib.Instruction] = Array::new(
+        let prefix : Array[@lib.Instruction] = Array(
           capacity=body.length() + 1,
         )
         for previous in 0..<index {

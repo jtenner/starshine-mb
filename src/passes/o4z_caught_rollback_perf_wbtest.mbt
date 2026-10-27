@@ -25,7 +25,7 @@ fn o4z_caught_rollback_measure(
 ///|
 #skip("manual native-release O4z caught rollback versus preparation-only control")
 test "O4z caught rollback benchmark retains preparation validation and ownership" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string(
     "(module (tag $e) (func $producer (result i32) i32.const 7) ",
   )

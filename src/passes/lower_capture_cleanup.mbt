@@ -231,7 +231,7 @@ fn pass_lower_remap_locals(
   indices : Array[Int32],
 ) -> Array[@lib.Instruction] {
   let visit_body = fn(body) { pass_lower_remap_locals(body, indices) }
-  let out = Array::new(capacity=instrs.length())
+  let out = Array(capacity=instrs.length())
   for instr in instrs {
     match instr {
       @lib.LocalTee(@lib.LocalIdx(index)) if indices[index.to_int()] < 0 =>
@@ -622,7 +622,7 @@ fn pass_lower_cleanup_branchless_blocks(
           // A void header needs no module lookup. Leaf instructions have no
           // nested mutable body arrays that the old worker would rebuild.
           // Copy into a fresh root array to preserve its output ownership.
-          let next = Array::new(capacity=child.length() + body.length() - 1)
+          let next = Array(capacity=child.length() + body.length() - 1)
           for instr in child {
             next.push(instr)
           }

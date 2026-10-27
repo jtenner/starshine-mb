@@ -1,6 +1,6 @@
 ///|
 fn db19_f06_bench(it : @bench.T, literal : String, count : Int32) -> Unit {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (func ")
   if count == 0 {
     text.write_string("nop")

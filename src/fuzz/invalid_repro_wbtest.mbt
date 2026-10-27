@@ -1,6 +1,6 @@
 ///|
 fn invalid_repro_test_bytes_to_ascii(bytes : Bytes) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for byte in bytes {
     out.write_char(byte.to_int().unsafe_to_char())
   }

@@ -26309,7 +26309,7 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
 
 ///|
 fn ssa_test_large_structured_branch_fixture() -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32")
   for i = 0; i < 64; i = i + 1 {
     out.write_string(" i32")
@@ -26368,7 +26368,7 @@ test "ssa-nomerge rewrites moderately large structured branch functions without 
 
 ///|
 fn ssa_test_large_structured_local_write_fixture(if_count : Int32) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32) ")
   for i = 0; i < if_count; i = i + 1 {
     out.write_string("i32.const 0 if nop else nop end ")
@@ -26491,7 +26491,7 @@ test "ssa-nomerge rewrites larger no-branch structured functions without binarye
 fn ssa_test_large_structured_branch_if_prefix_fixture(
   if_count : Int32,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("(module (func (local i32) block i32.const 0 br 0 end ")
   for i = 0; i < if_count; i = i + 1 {
     out.write_string("i32.const 0 if nop else nop end ")

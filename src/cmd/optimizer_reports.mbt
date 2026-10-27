@@ -53,7 +53,7 @@ fn cmd_write_optimizer_report_stdout(
 
 ///|
 fn cmd_optimizer_json_escape(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in text {
     match ch {
       '"' => out.write_string("\\\"")
@@ -74,7 +74,7 @@ fn cmd_optimizer_json_string(text : String) -> String {
 
 ///|
 fn cmd_optimizer_json_string_array(values : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_char('[')
   for idx, value in values {
     if idx > 0 {
@@ -103,7 +103,7 @@ fn cmd_optimizer_hash_bytes(bytes : Bytes) -> String {
   for byte in bytes {
     hash = (hash ^ byte.to_uint64()) * prime
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut shift = 60
   while shift >= 0 {
     out.write_char(cmd_optimizer_hash_hex_digit((hash >> shift) & 0xFUL))

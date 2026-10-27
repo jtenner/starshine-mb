@@ -5,7 +5,7 @@ fn cl_copy_barrier_bench(
   kind : Int32,
   before : Bool,
 ) -> Unit raise {
-  let text = StringBuilder::new()
+  let text = StringBuilder()
   text.write_string("(module (func (param i32) (local ")
   for _ in 0..<64 {
     text.write_string("i32 ")

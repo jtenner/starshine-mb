@@ -1,6 +1,6 @@
 ///|
 test "dispatcher precompute removes a long nop tail" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (export \"run\") (result i32) ")
   for _ in 0..<512 {
     source.write_string("nop ")

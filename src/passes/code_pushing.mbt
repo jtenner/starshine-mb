@@ -1639,7 +1639,7 @@ fn code_pushing_try_flatten_dead_block_before_unreachable(
   if unreachable_idx != 0 && unreachable_idx != body_count - 1 {
     return false
   }
-  let replacement : Array[Int32] = Array::new(capacity=body_count)
+  let replacement : Array[Int32] = Array(capacity=body_count)
   let append_body_root = fn(idx : Int32) -> Bool {
     let root_id = @ir.hot_region_get(func, body_ref, idx)
     if code_pushing_node_has_branch(func, root_id) {

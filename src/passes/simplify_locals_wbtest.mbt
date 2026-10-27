@@ -144,7 +144,7 @@ test "simplify-locals root stack hazard clears pending writers on pure overwrite
 
 ///|
 test "simplify-locals root stack hazard scans dense roots linearly" {
-  let source = StringBuilder::new()
+  let source = StringBuilder()
   source.write_string("(module (func (local")
   for local_id = 0; local_id < 128; local_id = local_id + 1 {
     source.write_string(" i32")

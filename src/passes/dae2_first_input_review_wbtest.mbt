@@ -66,7 +66,7 @@ fn dae2_first_input_review_repeated(
   width : Int32,
   exits : Int32,
 ) -> @lib.Module {
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   body.write_string("block $out ")
   for local in 4..<(4 + width) {
     body.write_string("local.get 1 local.set \{local} ")

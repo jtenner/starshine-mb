@@ -30,7 +30,7 @@ fn RLScanState::new(local_count : Int32, param_count : Int32) -> RLScanState {
   {
     counts: Array::make(local_count, 0),
     first_uses: Array::make(local_count, 0),
-    used_body_locals: Array::new(capacity=local_count - param_count),
+    used_body_locals: Array(capacity=local_count - param_count),
     param_count,
     next_rank: 1,
     valid: true,
@@ -78,7 +78,7 @@ fn rl_flatten_locals(
   locals : @lib.Locals,
   local_count : Int32,
 ) -> Array[@lib.ValType] {
-  let out : Array[@lib.ValType] = Array::new(capacity=local_count)
+  let out : Array[@lib.ValType] = Array(capacity=local_count)
   for run in locals.runs() {
     let ty = run.val_type()
     let run_len = run.count().reinterpret_as_int()
@@ -425,7 +425,7 @@ fn rl_rewrite_instrs_in_place(
 ///|
 fn rl_module_subtypes(mod_ : @lib.Module) -> Array[@lib.SubType] {
   let subtypes : Array[@lib.SubType] = match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => Array::new(capacity=rec_types.length())
+    Some(@lib.TypeSec(rec_types)) => Array(capacity=rec_types.length())
     None => []
   }
   match mod_.type_sec {
@@ -474,7 +474,7 @@ fn rl_defined_func_param_cache(
 ) -> Array[Array[@lib.ValType]] {
   let subtypes = rl_module_subtypes(mod_)
   let out : Array[Array[@lib.ValType]] = match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => Array::new(capacity=type_idxs.length())
+    Some(@lib.FuncSec(type_idxs)) => Array(capacity=type_idxs.length())
     None => []
   }
   match mod_.func_sec {
@@ -625,7 +625,7 @@ fn rl_rewrite_func(
     old_to_new[idx] = idx
   }
 
-  let reordered_body_runs : Array[@lib.LocalRun] = Array::new(
+  let reordered_body_runs : Array[@lib.LocalRun] = Array(
     capacity=used_body_locals.length(),
   )
   for body_idx = 0
@@ -656,7 +656,7 @@ fn rl_rewrite_name_map(
   old_to_new : Array[Int32],
 ) -> @lib.NameMap? {
   let @lib.NameMap(entries) = names
-  let rewritten : Array[@lib.NameAssoc] = Array::new(capacity=entries.length())
+  let rewritten : Array[@lib.NameAssoc] = Array(capacity=entries.length())
   let mut sorted = true
   let mut last_mapped = -1
   for entry in entries {
@@ -696,7 +696,7 @@ fn rl_rewrite_local_names(
 ) -> @lib.IndirectNameMap? {
   match names {
     Some(@lib.IndirectNameMap(entries)) => {
-      let rewritten : Array[@lib.IndirectNameAssoc] = Array::new(
+      let rewritten : Array[@lib.IndirectNameAssoc] = Array(
         capacity=entries.length(),
       )
       for entry in entries {
@@ -834,10 +834,10 @@ pub fn reorder_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         return mod_
       }
       let defined_func_params = rl_defined_func_param_cache(mod_)
-      let rewritten_funcs : Array[@lib.Func] = Array::new(
+      let rewritten_funcs : Array[@lib.Func] = Array(
         capacity=funcs.length(),
       )
-      let func_remaps : Array[Array[Int32]?] = Array::new(
+      let func_remaps : Array[Array[Int32]?] = Array(
         capacity=funcs.length(),
       )
       let mut changed = false

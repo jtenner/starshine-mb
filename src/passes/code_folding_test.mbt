@@ -58,7 +58,7 @@ fn code_folding_test_index_of(items : Array[String], needle : String) -> Int32 {
 
 ///|
 test "code-folding defers structured load-local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (memory 1) (func")
   // The single-process O4z prefix reduces the production parser to 14 body
   // locals before code-folding; the separate slot replay retained 15.
@@ -89,7 +89,7 @@ test "code-folding defers structured load-local carriers" {
 
 ///|
 test "code-folding defers large structured call-local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func $callee) (func")
   for i = 0; i < 32; i = i + 1 {
     let _ = i
@@ -116,7 +116,7 @@ test "code-folding defers large structured call-local carriers" {
 
 ///|
 test "code-folding defers large structured SIMD local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (func")
   for i = 0; i < 32; i = i + 1 {
     let _ = i
@@ -143,7 +143,7 @@ test "code-folding defers large structured SIMD local carriers" {
 
 ///|
 test "code-folding defers structured bulk-memory functions with local carriers" {
-  let input = StringBuilder::new()
+  let input = StringBuilder()
   input.write_string("(module (memory 1) (func")
   for i = 0; i < 20; i = i + 1 {
     let _ = i
