@@ -31,9 +31,9 @@ fn tc_reverse_types_bench(
   }
   let result = pop_types_rev(state, signature)
   if kind == 2 {
-    assert_true(result.is_err())
+    assert_true(result is Err(_))
   } else {
-    assert_true(result.is_ok())
+    assert_true(result is Ok(_))
   }
   state.stack.clear()
   it.bench(fn() {

@@ -88,14 +88,14 @@ test "typed select retains virtual bottom and reference subtyping" {
     ValType::bottom(),
     ValType::i32(),
   ])
-  assert_true(typecheck_select_typed(concrete_bottom, [ValType::f32()]).is_ok())
+  assert_true(typecheck_select_typed(concrete_bottom, [ValType::f32()]) is Ok(_))
   assert_eq(concrete_bottom.stack, [ValType::f32()])
   let refs = make_state(empty_env(), [
     ValType::eqref_null(),
     ValType::eqref_null(),
     ValType::i32(),
   ])
-  assert_true(typecheck_select_typed(refs, [ValType::anyref()]).is_ok())
+  assert_true(typecheck_select_typed(refs, [ValType::anyref()]) is Ok(_))
   assert_eq(refs.stack, [ValType::anyref()])
 }
 

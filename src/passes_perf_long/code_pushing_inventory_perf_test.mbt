@@ -34,7 +34,7 @@ fn code_pushing_inventory_bench(
     false,
     fn(_) { () },
   )
-  if !@passes.hot_pass_run(ctx, hot).is_ok() {
+  if !(@passes.hot_pass_run(ctx, hot) is Ok(_)) {
     abort("code-pushing inventory preflight failed")
   }
   let before = @ir.hot_lower_func_unverified(hot)

@@ -15,7 +15,7 @@ test "br_if materializes polymorphic label operands on fallthrough" {
   let state = tc_state_new(env, [ValType::i32()], false, TerminalTcEscape)
   let out = typecheck_br_if(state, LabelIdx::new(0U)).unwrap()
   assert_eq(out.stack, [ValType::i32()])
-  assert_true(tc_state_validate_end_stack(out, []).is_err())
+  assert_true(tc_state_validate_end_stack(out, []) is Err(_))
 }
 
 ///|
@@ -103,5 +103,5 @@ test "ref_is_null accepts virtual and explicit bottom but rejects concrete numbe
     false,
     TerminalTcEscape,
   )
-  assert_true(typecheck_ref_is_null(concrete).is_err())
+  assert_true(typecheck_ref_is_null(concrete) is Err(_))
 }

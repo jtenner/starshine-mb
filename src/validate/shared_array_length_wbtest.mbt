@@ -34,7 +34,7 @@ test "ref.eq intentionally rejects mixed sharedness" {
     RefType::new(true, HeapType::shared_abs(AbsHeapType::eq())),
   )
   let state = tcneg_make_state(Env::new(), [ValType::eqref_null(), shared])
-  assert_true(Typecheck::typecheck(Instruction::ref_eq(), state).is_err())
+  assert_true(Typecheck::typecheck(Instruction::ref_eq(), state) is Err(_))
 }
 
 ///|

@@ -19,7 +19,7 @@ test "typed operand consumption avoids result pairs and keeps polymorphic errors
   let dead = make_state(env, []).set_unreachable()
   assert_true(dead.pop_expect(ValType::i32()) is Ok(_))
   assert_eq(
-    dead.push1(ValType::i64()).pop_expect(ValType::i32()).is_err(),
+    dead.push1(ValType::i64()).pop_expect(ValType::i32()) is Err(_),
     true,
   )
 }

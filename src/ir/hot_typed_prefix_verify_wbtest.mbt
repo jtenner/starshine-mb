@@ -54,7 +54,7 @@ test "typed block verifier rejects invalid explicit prefix boundaries and concre
         hot_child_set(func, block, 1, first)
       }
     }
-    assert_true(hot_verify_control(func).is_err())
+    assert_true(hot_verify_control(func) is Err(_))
   }
 }
 

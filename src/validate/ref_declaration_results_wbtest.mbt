@@ -63,7 +63,7 @@ test "reference declaration scan observes fresh declaration membership" {
   declared.set(0, true)
   declared.set(1, true)
   assert_true(
-    validate_ref_func_declarations_in_expr(expression, env, declared).is_ok(),
+    validate_ref_func_declarations_in_expr(expression, env, declared) is Ok(_),
   )
   declared.set(1, false)
   assert_eq(
@@ -72,7 +72,7 @@ test "reference declaration scan observes fresh declaration membership" {
   )
   declared.set(1, true)
   assert_true(
-    validate_ref_func_declarations_in_expr(expression, env, declared).is_ok(),
+    validate_ref_func_declarations_in_expr(expression, env, declared) is Ok(_),
   )
 }
 
@@ -92,7 +92,7 @@ test "module validation rejects invalid indices delegated by declaration scan" {
       expression,
       env,
       @bitset.BitSet::new(2),
-    ).is_ok(),
+    ) is Ok(_),
   )
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }

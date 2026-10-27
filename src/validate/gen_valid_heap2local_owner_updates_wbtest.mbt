@@ -57,7 +57,7 @@ test "heap2local owner updates generate previous-owner reads before publication"
       Err(failure) => fail(failure.validation_error_message)
     }
     @debug.assert_eq(generated.config_label, "heap2local-owner-updates")
-    assert_true(validate_module(generated.wasm_module).is_ok())
+    assert_true(validate_module(generated.wasm_module) is Ok(_))
     assert_true(generated.facts.has_gc_constructors)
     assert_true(generated.facts.has_gc_accessors)
     let replay = match gen_valid_module_result_from_seed(seed, config) {

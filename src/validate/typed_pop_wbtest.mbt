@@ -74,7 +74,7 @@ test "typed consumers distinguish polymorphic bottom and concrete GC operands" {
   assert_false(state.reachable)
   assert_eq(state.escape, TerminalTcEscape)
   state.stack.push(ValType::bottom())
-  assert_true(typecheck_unary(state, ValType::i32(), ValType::i64()).is_ok())
+  assert_true(typecheck_unary(state, ValType::i32(), ValType::i64()) is Ok(_))
   let refs = make_state(empty_env(), [ValType::eqref_null()])
   assert_true(
     physical_equal(

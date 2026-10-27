@@ -27,7 +27,7 @@ fn select_pop_result_bench(
     }
   }
   reset()
-  if typecheck_select_typed(state, types).is_err() != invalid {
+  if (typecheck_select_typed(state, types) is Err(_)) != invalid {
     abort("typed select control changed acceptance")
   }
   it.bench(fn() {

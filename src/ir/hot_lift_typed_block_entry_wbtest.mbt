@@ -65,7 +65,7 @@ test "hot typed block virtual input admission validates the entire child frame" 
         input,
         @lib.FuncIdx::new(0U),
         hot_module_context_from_module(input),
-      ).is_err(),
+      ) is Err(_),
     )
   }
 }

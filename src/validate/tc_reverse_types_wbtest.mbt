@@ -41,7 +41,7 @@ test "reverse type pops stop at the first invalid operand or underflow" {
     } else {
       pop_types_rev(state, signature)
     }
-    assert_true(result.is_err())
+    assert_true(result is Err(_))
     assert_eq(state.stack, [ValType::f64()])
     let short = make_state(empty_env(), [ValType::i64()])
     let result = if method {
@@ -73,7 +73,7 @@ test "reverse type pops distinguish virtual bottom from concrete unreachable typ
     } else {
       pop_types_rev(state, signature)
     }
-    assert_true(result.is_err())
+    assert_true(result is Err(_))
     assert_eq(state.stack, [])
     assert_false(state.reachable)
   }

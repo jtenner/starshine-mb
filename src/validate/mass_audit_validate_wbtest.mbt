@@ -64,7 +64,7 @@ test "mass audit intentionally rejects missing types inside explicit subtype com
     let module_ = mass_audit_validate_type_module([
       RecType::new(SubType::new(false, [], ct)),
     ])
-    assert_true(validate_module(module_).is_err())
+    assert_true(validate_module(module_) is Err(_))
   }
 }
 
@@ -76,7 +76,7 @@ test "mass audit intentionally rejects forward declared supertypes in a recursiv
       SubType::new(false, [], CompType::struct_([])),
     ]),
   ])
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -92,7 +92,7 @@ test "mass audit intentionally rejects two declared supertypes" {
       ),
     ),
   ])
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -105,7 +105,7 @@ test "mass audit intentionally rejects an unshared field in a shared composite" 
       ),
     ),
   ])
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -121,7 +121,7 @@ test "mass audit intentionally rejects a shared subtype of an unshared parent" {
       ),
     ),
   ])
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -133,7 +133,7 @@ test "mass audit intentionally rejects a defined function reference as anyref" {
     Locals::empty(),
     [Instruction::local_get(LocalIdx::new(0U))],
   )
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -181,7 +181,7 @@ test "mass audit intentionally rejects an implicit final type as an open canonic
     Locals::empty(),
     [Instruction::local_get(LocalIdx::new(0U))],
   )
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -190,7 +190,7 @@ test "mass audit intentionally rejects extending an implicit final parent" {
     RecType::new(SubType::comp_type(CompType::struct_([]))),
     RecType::new(SubType::new(false, [TypeIdx::new(0U)], CompType::struct_([]))),
   ])
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -214,7 +214,7 @@ test "mass audit intentionally rejects memory64 limits above two to the forty ei
     let module_ = Module::new().with_mem_sec(
       MemSec::new([MemType::new(limits)]),
     )
-    assert_true(validate_module(module_).is_err())
+    assert_true(validate_module(module_) is Err(_))
   }
 }
 
@@ -328,7 +328,7 @@ test "mass audit intentionally rejects local initialization that escapes its con
       Locals::from_types([mass_audit_validate_ref(0U, nullable=false)]),
       [control, Instruction::local_get(LocalIdx::new(0U)), Instruction::drop()],
     )
-    assert_true(validate_module(module_).is_err())
+    assert_true(validate_module(module_) is Err(_))
   }
 }
 
@@ -350,7 +350,7 @@ test "mass audit intentionally rejects local initialization from both if arms ou
       Instruction::drop(),
     ],
   )
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|
@@ -375,7 +375,7 @@ test "mass audit intentionally rejects unsupported atomic storage types under th
         ),
       ],
     )
-    assert_true(validate_module(get).is_err())
+    assert_true(validate_module(get) is Err(_))
   }
   let array_get = mass_audit_validate_function_module(
     [
@@ -394,7 +394,7 @@ test "mass audit intentionally rejects unsupported atomic storage types under th
       Instruction::array_atomic_get(AtomicOrder::seq_cst(), TypeIdx::new(0U)),
     ],
   )
-  assert_true(validate_module(array_get).is_err())
+  assert_true(validate_module(array_get) is Err(_))
 }
 
 ///|
@@ -422,7 +422,7 @@ test "mass audit intentionally rejects floating point atomic set storage under t
       ),
     ],
   )
-  assert_true(validate_module(module_).is_err())
+  assert_true(validate_module(module_) is Err(_))
 }
 
 ///|

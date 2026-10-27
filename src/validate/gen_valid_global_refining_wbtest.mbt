@@ -29,7 +29,7 @@ test "global-refining GenValid leaves vary valid global writes and boundaries" {
         Err(error) => fail(error.validation_error_message)
       }
       let mod_ = generated.wasm_module
-      assert_true(validate_module(mod_).is_ok())
+      assert_true(validate_module(mod_) is Ok(_))
       assert_true(mod_.global_sec.unwrap().0.length() > 0)
       @debug.assert_eq(generated.config_label, name)
       let again = gen_valid_module_result_from_seed(seed.to_uint64(), config).unwrap()

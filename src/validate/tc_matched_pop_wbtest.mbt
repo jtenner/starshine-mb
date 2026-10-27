@@ -3,12 +3,12 @@ test "paired typed pops preserve partial consumption on either operand failure" 
   // These deliberately invalid operand stacks must fail at the first mismatch.
   let left_bad = make_state(empty_env(), [ValType::i64(), ValType::i32()])
   assert_true(
-    typecheck_binary(left_bad, ValType::i32(), ValType::i32()).is_err(),
+    typecheck_binary(left_bad, ValType::i32(), ValType::i32()) is Err(_),
   )
   assert_eq(left_bad.stack, [])
   let right_bad = make_state(empty_env(), [ValType::i32(), ValType::i64()])
   assert_true(
-    typecheck_binary(right_bad, ValType::i32(), ValType::i32()).is_err(),
+    typecheck_binary(right_bad, ValType::i32(), ValType::i32()) is Err(_),
   )
   assert_eq(right_bad.stack, [ValType::i32()])
   let short = make_state(empty_env(), [ValType::i32()])
@@ -27,7 +27,7 @@ test "matched typed pops retain reference subtyping and disjoint rejection" {
   assert_eq(checked.stack, [])
   // Function references are intentionally outside the anyref hierarchy.
   let invalid = make_state(empty_env(), [ValType::funcref()])
-  assert_true(invalid.pop_expect(ValType::anyref()).is_err())
+  assert_true(invalid.pop_expect(ValType::anyref()) is Err(_))
   assert_eq(invalid.stack, [])
 }
 
@@ -39,7 +39,7 @@ test "paired typed pops distinguish virtual bottom from concrete unreachable val
   assert_eq(checked.stack, [ValType::i64()])
   assert_true(!checked.reachable)
   assert_true(
-    typecheck_binary(checked, ValType::i32(), ValType::i32()).is_err(),
+    typecheck_binary(checked, ValType::i32(), ValType::i32()) is Err(_),
   )
   assert_eq(checked.stack, [])
   let bottom = make_state(empty_env(), [ValType::bottom(), ValType::i32()])

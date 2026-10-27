@@ -24,7 +24,7 @@ fn remove_unused_names_loop_bench(it : @bench.T, depth : Int32) -> Unit {
     fn(_) { () },
   )
   let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
-  if !@passes.hot_pass_run(ctx, preflight).is_ok() {
+  if !(@passes.hot_pass_run(ctx, preflight) is Ok(_)) {
     abort("remove-unused-names HOT preflight failed")
   }
   let expected = @ir.hot_lower_func_unverified(preflight)
@@ -40,7 +40,7 @@ fn remove_unused_names_loop_bench(it : @bench.T, depth : Int32) -> Unit {
     it.keep(@passes.hot_pass_run(ctx, hot))
   })
   let replay = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
-  if !@passes.hot_pass_run(ctx, replay).is_ok() ||
+  if !(@passes.hot_pass_run(ctx, replay) is Ok(_)) ||
     @ir.hot_lower_func_unverified(replay) != expected {
     abort("remove-unused-names loop fixture changed across runs")
   }

@@ -127,7 +127,7 @@ test "tuple alias capture generation exposes zero and prior snapshots across rep
       Ok(value) => value
       Err(failure) => fail(failure.validation_error_message)
     }
-    assert_true(validate_module(generated.wasm_module).is_ok())
+    assert_true(validate_module(generated.wasm_module) is Ok(_))
     @debug.assert_eq(
       generated.config_label,
       "tuple-optimization-alias-captures",

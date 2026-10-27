@@ -28,7 +28,7 @@ test "nested block unreachable does not make the outer validation frame polymorp
       block_type,
       Expr::new(dead),
     ).unwrap()
-    assert_true(tc_state_validate_end_stack(state, results).is_err())
+    assert_true(tc_state_validate_end_stack(state, results) is Err(_))
     assert_false(state.reachable)
   }
 }
@@ -48,7 +48,7 @@ test "nested frame validation rejects invalid bodies even after outer unreachabl
         1 => typecheck_loop(entry, BlockType::void_(), Expr::new(body))
         _ => typecheck_if(entry, BlockType::void_(), body, Some([]))
       }
-      assert_true(result.is_err())
+      assert_true(result is Err(_))
     }
   }
 }
@@ -96,7 +96,7 @@ test "polymorphic select still rejects different concrete operand types" {
     false,
     TerminalTcEscape,
   )
-  assert_true(typecheck_select_untyped(state).is_err())
+  assert_true(typecheck_select_untyped(state) is Err(_))
 }
 
 ///|
@@ -123,13 +123,13 @@ test "polymorphic reference branches reject wrong concrete label prefixes" {
     typecheck_br_on_null(
       make(null_env, [ValType::i64(), ValType::funcref()]),
       LabelIdx::new(0U),
-    ).is_err(),
+    ) is Err(_),
   )
   assert_true(
     typecheck_br_on_non_null(
       make(env, [ValType::i64(), ValType::funcref()]),
       LabelIdx::new(0U),
-    ).is_err(),
+    ) is Err(_),
   )
   let op = CastOp::new(true, true)
   let ht = HeapType::abs(AbsHeapType::func())
@@ -140,7 +140,7 @@ test "polymorphic reference branches reject wrong concrete label prefixes" {
       op,
       ht,
       ht,
-    ).is_err(),
+    ) is Err(_),
   )
   assert_true(
     typecheck_br_on_cast_fail(
@@ -149,7 +149,7 @@ test "polymorphic reference branches reject wrong concrete label prefixes" {
       op,
       ht,
       ht,
-    ).is_err(),
+    ) is Err(_),
   )
   ignore(
     typecheck_br_on_null(

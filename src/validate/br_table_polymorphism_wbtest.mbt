@@ -52,7 +52,7 @@ test "br_table rejects distinct label arities even with polymorphic operands" {
   let state = make_state(env, []).set_unreachable()
   state.stack.push(ValType::i32())
   assert_true(
-    typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)).is_err(),
+    typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)) is Err(_),
   )
 }
 
@@ -64,7 +64,7 @@ test "br_table checks concrete operands against every target after unreachable" 
     state.stack.push(concrete)
     state.stack.push(ValType::i32())
     assert_true(
-      typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)).is_err(),
+      typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)) is Err(_),
     )
   }
 }
@@ -77,6 +77,6 @@ test "br_table rejects reference operands that only match the default target" {
   ])
   let state = make_state(env, [ValType::anyref(), ValType::i32()])
   assert_true(
-    typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)).is_err(),
+    typecheck_br_table(state, [LabelIdx::new(0U)], LabelIdx::new(1U)) is Err(_),
   )
 }

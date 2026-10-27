@@ -29,6 +29,6 @@ test "module validation context reuses metadata while isolating sibling body sta
       env,
       @lib.FuncType::new([], []),
       invalid,
-    ).is_err(),
+    ) is Err(_),
   )
 }

@@ -296,7 +296,7 @@ test "bench review2 vacuum dynamic ifs=16 direct HOT pass" (it : @bench.T) {
     false,
     fn(_) { () },
   )
-  assert_true(@passes.hot_pass_run(ctx, hot).is_ok())
+  assert_true(@passes.hot_pass_run(ctx, hot) is Ok(_))
   let before = @ir.hot_lower_func_unverified(hot)
   it.bench(fn() { it.keep(@passes.hot_pass_run(ctx, hot)) })
   assert_true(@ir.hot_lower_func_unverified(hot) == before)
@@ -314,7 +314,7 @@ test "bench review2 vacuum dynamic ifs=128 direct HOT pass" (it : @bench.T) {
     false,
     fn(_) { () },
   )
-  assert_true(@passes.hot_pass_run(ctx, hot).is_ok())
+  assert_true(@passes.hot_pass_run(ctx, hot) is Ok(_))
   let before = @ir.hot_lower_func_unverified(hot)
   it.bench(fn() { it.keep(@passes.hot_pass_run(ctx, hot)) })
   assert_true(@ir.hot_lower_func_unverified(hot) == before)
@@ -332,7 +332,7 @@ test "bench review2 vacuum dynamic ifs=512 direct HOT pass" (it : @bench.T) {
     false,
     fn(_) { () },
   )
-  assert_true(@passes.hot_pass_run(ctx, hot).is_ok())
+  assert_true(@passes.hot_pass_run(ctx, hot) is Ok(_))
   let before = @ir.hot_lower_func_unverified(hot)
   it.bench(fn() { it.keep(@passes.hot_pass_run(ctx, hot)) })
   assert_true(@ir.hot_lower_func_unverified(hot) == before)

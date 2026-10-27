@@ -85,6 +85,6 @@ test "invalid missing result after normal own-label exit cannot be repaired by a
       @validate.empty_env(),
       @lib.FuncType::new([], [@lib.ValType::i32()]),
       hot_lower_func(func),
-    ).is_err(),
+    ) is Err(_),
   )
 }

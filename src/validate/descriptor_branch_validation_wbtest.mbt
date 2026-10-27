@@ -174,7 +174,7 @@ test "descriptor branches reject function references outside the GC hierarchy" {
       Typecheck::typecheck(
         descriptor_branch_validation_instruction(source, target, fail_branch),
         state,
-      ).is_err(),
+      ) is Err(_),
     )
   }
 }
@@ -197,7 +197,7 @@ test "descriptor branches reject labels that cannot receive the cast edge" {
       Typecheck::typecheck(
         descriptor_branch_validation_instruction(source, target, fail_branch),
         state,
-      ).is_err(),
+      ) is Err(_),
     )
   }
 }

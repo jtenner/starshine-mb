@@ -63,7 +63,7 @@ test "zero-child factory retains exact fields payloads order and revision" {
     assert_eq(after.revision, before.revision)
     assert_eq(hot_node_get(after, actual).child_base, 0)
     assert_eq(hot_child_count(after, actual), 0)
-    assert_true(hot_verify_all(after, cache=Some(())).is_ok())
+    assert_true(hot_verify_all(after, cache=Some(())) is Ok(_))
   }
 }
 
@@ -90,5 +90,5 @@ test "zero-child factory retains append semantics in an arena with deleted child
   assert_eq(after.revision, before.revision)
   assert_eq(hot_node_get(after, actual).child_base, 0)
   assert_eq(hot_child_count(after, actual), 0)
-  assert_true(hot_verify_all(after, cache=Some(())).is_ok())
+  assert_true(hot_verify_all(after, cache=Some(())) is Ok(_))
 }
