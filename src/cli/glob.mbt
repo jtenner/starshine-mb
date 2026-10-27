@@ -51,7 +51,7 @@ fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
   let mut index = 0
   let mut prefix = ""
   if path.length() >= 2 && is_ascii_letter(path[0]) && path[1] == ':' {
-    prefix = path.sub(end=2).to_owned()
+    prefix = path.exact_view(end=2).to_owned()
     index = 2
   }
   let mut absolute = false
@@ -59,7 +59,7 @@ fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
     absolute = true
     index += 1
   }
-  let tail = path.sub(start=index).to_owned()
+  let tail = path.exact_view(start=index).to_owned()
   let segments = Array::new()
   for part in tail.split("/") {
     let segment = part.to_owned()
@@ -277,7 +277,7 @@ pub fn normalize_cli_path(path : String) -> String {
   if unix_separators.length() >= 2 &&
     is_ascii_letter(unix_separators[0]) &&
     unix_separators[1] == ':' {
-    prefix = unix_separators.sub(end=2).to_owned()
+    prefix = unix_separators.exact_view(end=2).to_owned()
     index = 2
   }
   let mut absolute = false
@@ -285,7 +285,7 @@ pub fn normalize_cli_path(path : String) -> String {
     absolute = true
     index += 1
   }
-  let tail = unix_separators.sub(start=index).to_owned()
+  let tail = unix_separators.exact_view(start=index).to_owned()
   let segments = Array::new()
   for part in tail.split("/") {
     let segment = part.to_owned()

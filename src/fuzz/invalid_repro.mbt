@@ -1072,7 +1072,7 @@ fn invalid_fuzz_parse_meta_line(line : String) -> (String, String)? {
   if idx < 0 {
     return None
   }
-  Some((line.sub(end=idx).to_owned(), line.sub(start=idx + 1).to_owned()))
+  Some((line.exact_view(end=idx).to_owned(), line.exact_view(start=idx + 1).to_owned()))
 }
 
 ///|
@@ -1143,8 +1143,8 @@ fn invalid_fuzz_parse_artifact_entry(
   if sep <= 0 || sep + 1 >= raw.length() {
     return Err("invalid artifact entry '\{raw}'")
   }
-  let label = raw.sub(end=sep).trim().to_owned()
-  let file_name = raw.sub(start=sep + 1).trim().to_owned()
+  let label = raw.exact_view(end=sep).trim().to_owned()
+  let file_name = raw.exact_view(start=sep + 1).trim().to_owned()
   if label.length() == 0 || file_name.length() == 0 {
     return Err("invalid artifact entry '\{raw}'")
   }

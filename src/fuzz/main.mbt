@@ -4363,7 +4363,7 @@ fn fuzz_parse_simple_json_string_at(
       return None
     }
     if text[i] == '"' {
-      return Some((text.sub(start=start + 1, end=i).to_owned(), i + 1))
+      return Some((text.exact_view(start=start + 1, end=i).to_owned(), i + 1))
     }
     i += 1
   }
@@ -4752,7 +4752,7 @@ fn fuzz_parse_space_delimited_kv_token(text : String, key : String) -> String? {
         text[end] != '\r' {
     end += 1
   }
-  Some(text.sub(start~, end~).to_owned())
+  Some(text.exact_view(start~, end~).to_owned())
 }
 
 ///|
@@ -5318,7 +5318,7 @@ pub fn parse_fuzz_corpus_case_index_json(
     }
     match fuzz_find_json_object_end(index_json, pos, entries_end) {
       Some(end_pos) => {
-        let entry_json = index_json.sub(start=pos, end=end_pos).to_owned()
+        let entry_json = index_json.exact_view(start=pos, end=end_pos).to_owned()
         match parse_fuzz_corpus_case_index_entry_json(entry_json) {
           Ok(entry) => entries.push(entry)
           Err(e) => return Err(e)
@@ -5426,7 +5426,7 @@ pub fn plan_fuzz_corpus_replay_manifest(
     } else {
       match fuzz_find_json_object_end(manifest_json, pos, entries_end) {
         Some(end_pos) => {
-          let entry_json = manifest_json.sub(start=pos, end=end_pos).to_owned()
+          let entry_json = manifest_json.exact_view(start=pos, end=end_pos).to_owned()
           match parse_fuzz_corpus_promotion_metadata_json(entry_json) {
             Ok(entry) =>
               match build_fuzz_corpus_replay_command_metadata(entry) {

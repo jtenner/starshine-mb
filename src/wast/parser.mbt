@@ -4332,7 +4332,7 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
 ///|
 fn WastParser::strip_quotes(_ : WastParser, s : String) -> String {
   if s.length() >= 2 && s[0] == '"' && s[s.length() - 1] == '"' {
-    s.sub(start=1, end=s.length() - 1).to_owned()
+    s.exact_view(start=1, end=s.length() - 1).to_owned()
   } else {
     s
   }
@@ -4354,7 +4354,7 @@ fn WastParser::decode_string(
       i += 1
     }
     if i > run_start {
-      buf.write_string_utf8(s.sub(start=run_start, end=i))
+      buf.write_string_utf8(s.exact_view(start=run_start, end=i))
     }
     if i == end {
       break

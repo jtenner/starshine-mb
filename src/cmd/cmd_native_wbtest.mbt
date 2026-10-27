@@ -32,7 +32,7 @@ fn cnw_assert_occurs_in_order(text : String, needles : Array[String]) -> Unit {
     let mut found : Int32? = None
     let mut i = start
     while i + needle.length() <= text.length() {
-      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      if text.exact_view(start=i, end=i + needle.length()).to_string() == needle {
         found = Some(i)
         break
       }
@@ -58,7 +58,7 @@ fn cnw_count_substring(text : String, needle : String) -> Int32 {
     let mut found : Int32? = None
     let mut i = start
     while i + needle.length() <= text.length() {
-      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      if text.exact_view(start=i, end=i + needle.length()).to_string() == needle {
         found = Some(i)
         break
       }
@@ -79,7 +79,7 @@ fn cnw_count_substring(text : String, needle : String) -> Int32 {
 #cfg(target="native")
 fn cnw_starts_with(text : String, prefix : String) -> Bool {
   text.length() >= prefix.length() &&
-  text.sub(start=0, end=prefix.length()).to_string() == prefix
+  text.exact_view(start=0, end=prefix.length()).to_string() == prefix
 }
 
 ///|
@@ -87,7 +87,7 @@ fn cnw_starts_with(text : String, prefix : String) -> Bool {
 fn cnw_starts_with_at(text : String, start : Int32, prefix : String) -> Bool {
   start >= 0 &&
   start + prefix.length() <= text.length() &&
-  text.sub(start~, end=start + prefix.length()).to_string() == prefix
+  text.exact_view(start~, end=start + prefix.length()).to_string() == prefix
 }
 
 ///|
@@ -99,7 +99,7 @@ fn cmd_native_wbtest_canonicalize_body_locals(body : String) -> String {
   let mut i = 0
   while i < body.length() {
     if i + 7 <= body.length() &&
-      body.sub(start=i, end=i + 7).to_string() == "(Local " {
+      body.exact_view(start=i, end=i + 7).to_string() == "(Local " {
       out.write_string("(Local ")
       i += 7
       let mut local_id = 0
@@ -131,7 +131,7 @@ fn cmd_native_wbtest_token_local_id(token : String) -> Int32? {
   let marker = "(Local "
   let mut i = 0
   while i + marker.length() <= token.length() {
-    if token.sub(start=i, end=i + marker.length()).to_string() == marker {
+    if token.exact_view(start=i, end=i + marker.length()).to_string() == marker {
       let mut j = i + marker.length()
       let mut local_id = 0
       let mut saw_digit = false
@@ -176,7 +176,7 @@ fn cmd_native_wbtest_reorder_scalar_ladders(body : String) -> String {
         }
         i += 1
       }
-      tokens.push(body.sub(start~, end=i).to_string())
+      tokens.push(body.exact_view(start~, end=i).to_string())
       continue
     }
     if cnw_starts_with_at(body, i, "drop") {
@@ -256,7 +256,7 @@ fn cmd_native_wbtest_canonicalize_func_pretty(pretty : String) -> String {
         "  body_raw:" +
         cmd_native_wbtest_reorder_scalar_ladders(
           cmd_native_wbtest_canonicalize_body_locals(
-            line.sub(start="  body_raw:".length()).to_string(),
+            line.exact_view(start="  body_raw:".length()).to_string(),
           ),
         )
       }
@@ -265,10 +265,10 @@ fn cmd_native_wbtest_canonicalize_func_pretty(pretty : String) -> String {
       while indent < line.length() && line[indent].unsafe_to_char() == ' ' {
         indent += 1
       }
-      line.sub(start=0, end=indent).to_string() +
+      line.exact_view(start=0, end=indent).to_string() +
       cmd_native_wbtest_reorder_scalar_ladders(
         cmd_native_wbtest_canonicalize_body_locals(
-          line.sub(start=indent).to_string(),
+          line.exact_view(start=indent).to_string(),
         ),
       )
     } else {

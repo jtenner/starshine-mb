@@ -5225,7 +5225,7 @@ fn validate_invalid_binary_profile_has_prefix(
   if text.length() < prefix.length() {
     return false
   }
-  text.sub(end=prefix.length()).to_owned() == prefix
+  text.exact_view(end=prefix.length()).to_owned() == prefix
 }
 
 ///|
@@ -5307,7 +5307,7 @@ pub fn validate_invalid_binary_run_config(
     } else if validate_invalid_binary_profile_has_prefix(part, "seeds=") {
       match
         validate_invalid_binary_seed_profiles_from_modifier(
-          part.sub(start=6).to_owned(),
+          part.exact_view(start=6).to_owned(),
         ) {
         Ok(v) => seed_profiles = v
         Err(msg) => return Err(msg)
@@ -5315,7 +5315,7 @@ pub fn validate_invalid_binary_run_config(
     } else if validate_invalid_binary_profile_has_prefix(part, "seed-profiles=") {
       match
         validate_invalid_binary_seed_profiles_from_modifier(
-          part.sub(start=14).to_owned(),
+          part.exact_view(start=14).to_owned(),
         ) {
         Ok(v) => seed_profiles = v
         Err(msg) => return Err(msg)

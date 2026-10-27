@@ -1295,7 +1295,7 @@ fn validate_invalid_text_insert_after_module_open(
   let mut index = -1
   let mut probe = 0
   while probe + marker.length() <= source.length() && index < 0 {
-    if source.sub(start=probe, end=probe + marker.length()).to_owned() == marker {
+    if source.exact_view(start=probe, end=probe + marker.length()).to_owned() == marker {
       index = probe
     }
     probe += 1

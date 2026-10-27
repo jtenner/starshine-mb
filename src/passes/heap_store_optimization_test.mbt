@@ -136,7 +136,7 @@ fn hso_test_index_of(text : String, needle : String) -> Int32? {
   let limit = text.length() - needle.length()
   let mut idx = 0
   while idx <= limit {
-    if text.sub(start=idx, end=idx + needle.length()).to_owned() == needle {
+    if text.exact_view(start=idx, end=idx + needle.length()).to_owned() == needle {
       return Some(idx)
     }
     idx = idx + 1
@@ -153,7 +153,7 @@ fn hso_test_count_occurrences(text : String, needle : String) -> Int32 {
   let mut idx = 0
   let mut count = 0
   while idx <= limit {
-    if text.sub(start=idx, end=idx + needle.length()).to_owned() == needle {
+    if text.exact_view(start=idx, end=idx + needle.length()).to_owned() == needle {
       count = count + 1
       idx = idx + needle.length()
     } else {

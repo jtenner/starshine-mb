@@ -100,8 +100,8 @@ fn split_first_underscore(s : String) -> (String, String?) {
   let mut i = 0
   while i < s.length() {
     if s[i] == '_' {
-      let head = s.sub(end=i).to_owned()
-      let tail = s.sub(start=i + 1).to_owned()
+      let head = s.exact_view(end=i).to_owned()
+      let tail = s.exact_view(start=i + 1).to_owned()
       return (head, Some(tail))
     }
     i += 1

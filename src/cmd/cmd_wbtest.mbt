@@ -64,7 +64,7 @@ fn assert_strings_appear_in_order(
     let limit = text.length() - needle.length()
     let mut i = start
     while i <= limit {
-      if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+      if text.exact_view(start=i, end=i + needle.length()).to_owned() == needle {
         found = Some(i)
         break
       }
@@ -153,7 +153,7 @@ fn count_substring(text : String, needle : String) -> Int32 {
   let limit = text.length() - needle.length()
   let mut i = 0
   while i <= limit {
-    if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+    if text.exact_view(start=i, end=i + needle.length()).to_owned() == needle {
       count += 1
       i += needle.length()
     } else {

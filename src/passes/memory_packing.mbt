@@ -1246,7 +1246,7 @@ fn mp_name_to_string(name : @lib.Name) -> String {
 ///|
 fn mp_string_starts_with(text : String, prefix : String) -> Bool {
   text.length() >= prefix.length() &&
-  text.sub(start=0, end=prefix.length()).to_string() == prefix
+  text.exact_view(start=0, end=prefix.length()).to_string() == prefix
 }
 
 ///|

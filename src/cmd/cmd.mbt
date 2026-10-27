@@ -389,7 +389,7 @@ fn trimmed_bounds(input : String) -> (Int32, Int32) {
 ///|
 fn trimmed_string(input : String) -> String {
   let (start, end) = trimmed_bounds(input)
-  input.sub(start~, end~).to_owned()
+  input.exact_view(start~, end~).to_owned()
 }
 
 ///|
@@ -584,7 +584,7 @@ fn basename_of_normalized_path(path : String) -> String {
   if last_sep < 0 {
     return path
   }
-  path.sub(start=last_sep + 1).to_owned()
+  path.exact_view(start=last_sep + 1).to_owned()
 }
 
 ///|
@@ -600,7 +600,7 @@ fn path_with_wasm_extension_normalized(path : String) -> String {
     i += 1
   }
   if last_dot >= 0 {
-    let stem = path.sub(end=last_dot).to_owned()
+    let stem = path.exact_view(end=last_dot).to_owned()
     "\{stem}.wasm"
   } else {
     "\{path}.wasm"
@@ -2228,7 +2228,7 @@ fn cmd_dump_pass_target(flag : String) -> String? {
     flag[4] != '=' {
     return None
   }
-  Some(flag.sub(start=5).to_owned())
+  Some(flag.exact_view(start=5).to_owned())
 }
 
 ///|
@@ -2256,7 +2256,7 @@ fn cmd_extract_functions_pass_target(flag : String) -> String? {
     flag[17] != '=' {
     return None
   }
-  Some(flag.sub(start=18).to_owned())
+  Some(flag.exact_view(start=18).to_owned())
 }
 
 ///|
@@ -2283,8 +2283,8 @@ fn cmd_print_pass_target(flag : String) -> (String, String)? {
   let mut i = 6
   while i < flag.length() {
     if flag[i] == '=' {
-      let kind = flag.sub(start=6, end=i).to_owned()
-      let selector = flag.sub(start=i + 1).to_owned()
+      let kind = flag.exact_view(start=6, end=i).to_owned()
+      let selector = flag.exact_view(start=i + 1).to_owned()
       if kind.length() == 0 || selector.length() == 0 {
         return None
       }
@@ -2321,7 +2321,7 @@ fn cmd_parse_print_selector(raw : String) -> CmdPipelinePrintSelector? {
   if trimmed.length() >= 2 &&
     trimmed[0] == '(' &&
     trimmed[trimmed.length() - 1] == ')' {
-    let inner = trimmed.sub(start=1, end=trimmed.length() - 1).to_owned()
+    let inner = trimmed.exact_view(start=1, end=trimmed.length() - 1).to_owned()
     match parse_non_negative_decimal(inner) {
       Some(idx) =>
         return Some(CmdPipelinePrintSelector::Index(idx.reinterpret_as_uint()))
@@ -4065,7 +4065,7 @@ fn parse_spec_cmd_args(
         if arg.length() > 0 && arg[0] == '-' {
           return Err(
             CmdError::CliParse(
-              CliParseError::invalid_long_flag(arg.sub(start=1).to_owned()),
+              CliParseError::invalid_long_flag(arg.exact_view(start=1).to_owned()),
             ),
           )
         }

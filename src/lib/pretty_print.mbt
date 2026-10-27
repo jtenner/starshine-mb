@@ -82,8 +82,8 @@ fn wrap_line(line : String, ctx : PrettyPrintContext) -> String {
       break
     }
   }
-  let prefix = line.sub(end=leading).to_owned()
-  let body = line.sub(start=leading).to_owned()
+  let prefix = line.exact_view(end=leading).to_owned()
+  let body = line.exact_view(start=leading).to_owned()
   if body.length() == 0 {
     return line
   }
@@ -152,7 +152,7 @@ fn normalize_indent(line : String, ctx : PrettyPrintContext) -> String {
     ctx.source_indent_width.reinterpret_as_int()
   }
   let levels = tabs + spaces / source_unit
-  let content = line.sub(start=leading).to_owned()
+  let content = line.exact_view(start=leading).to_owned()
   ctx.indent(levels.reinterpret_as_uint()) + content
 }
 

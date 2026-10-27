@@ -12,7 +12,7 @@ fn dead_code_elimination_test_count_occurrences(
     let mut found : Int32? = None
     let mut i = start
     while i <= text.length() - needle.length() {
-      if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+      if text.exact_view(start=i, end=i + needle.length()).to_owned() == needle {
         found = Some(i)
         break
       }

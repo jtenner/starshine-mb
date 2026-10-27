@@ -513,7 +513,7 @@ fn fuzz_cmd_harness_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  text.sub(end=prefix.length()).to_owned() == prefix
+  text.exact_view(end=prefix.length()).to_owned() == prefix
 }
 
 ///|
@@ -611,13 +611,13 @@ fn run_fuzz_cmd_harness_profile_with_sequence(
     if part.length() == 0 {
       ()
     } else if fuzz_cmd_harness_has_prefix(part, "gen=") {
-      generator_profile = part.sub(start=4).to_owned()
+      generator_profile = part.exact_view(start=4).to_owned()
     } else if fuzz_cmd_harness_has_prefix(part, "gen-valid=") {
-      generator_profile = part.sub(start=10).to_owned()
+      generator_profile = part.exact_view(start=10).to_owned()
     } else if fuzz_cmd_harness_has_prefix(part, "generator=") {
-      generator_profile = part.sub(start=10).to_owned()
+      generator_profile = part.exact_view(start=10).to_owned()
     } else if fuzz_cmd_harness_has_prefix(part, "passes=") {
-      pass_profile = part.sub(start=7).to_owned()
+      pass_profile = part.exact_view(start=7).to_owned()
     } else if part == "idempotence" || part == "opt-idempotence" {
       check_optimize_idempotence = true
     } else if part == "codec-idempotence" || part == "encode-decode-idempotence" {

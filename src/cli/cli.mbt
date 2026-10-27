@@ -381,7 +381,7 @@ fn trimmed_string(input : String) -> String {
   if start == 0 && end == input.length() {
     input
   } else {
-    input.sub(start~, end~).to_owned()
+    input.exact_view(start~, end~).to_owned()
   }
 }
 
@@ -532,8 +532,8 @@ fn split_long_flag_token(token : String) -> (String, String?, Bool) {
       if i == 2 || prev_dash {
         valid_kebab_name = false
       }
-      let name = token.sub(start=2, end=i).to_owned()
-      let value = token.sub(start=i + 1).to_owned()
+      let name = token.exact_view(start=2, end=i).to_owned()
+      let value = token.exact_view(start=i + 1).to_owned()
       return (name, Some(value), valid_kebab_name)
     }
     if !long_flag_name_char_is_valid(c) ||
@@ -547,7 +547,7 @@ fn split_long_flag_token(token : String) -> (String, String?, Bool) {
   if i == 2 || prev_dash {
     valid_kebab_name = false
   }
-  (token.sub(start=2).to_owned(), None, valid_kebab_name)
+  (token.exact_view(start=2).to_owned(), None, valid_kebab_name)
 }
 
 ///|
@@ -630,7 +630,7 @@ fn parse_short_option_cluster(
     let flag = token[i]
     match flag {
       'i' => {
-        if token.sub(start=i).to_owned() == "iit" {
+        if token.exact_view(start=i).to_owned() == "iit" {
           parsed.ignore_implicit_traps = true
           return Ok(index + 1)
         }
@@ -656,7 +656,7 @@ fn parse_short_option_cluster(
         i += 1
       }
       'c' => {
-        let attached = token.sub(start=i + 1).to_owned()
+        let attached = token.exact_view(start=i + 1).to_owned()
         if attached.length() > 0 {
           parsed.config_path = Some(attached)
           return Ok(index + 1)
@@ -670,7 +670,7 @@ fn parse_short_option_cluster(
         return Ok(index + 1)
       }
       'o' => {
-        let attached = token.sub(start=i + 1).to_owned()
+        let attached = token.exact_view(start=i + 1).to_owned()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -689,7 +689,7 @@ fn parse_short_option_cluster(
         return Err(CliParseError::missing_flag_value("-o"))
       }
       'd' => {
-        let attached = token.sub(start=i + 1).to_owned()
+        let attached = token.exact_view(start=i + 1).to_owned()
         if attached.length() > 0 {
           push_unique_output_target(
             parsed.output_targets,
@@ -743,7 +743,7 @@ pub fn infer_input_format(path : String) -> CliInputFormat? {
   if last_dot < 0 || last_dot <= last_sep || last_dot + 1 >= normalized.length() {
     return None
   }
-  let ext = normalized.sub(start=last_dot + 1).to_owned()
+  let ext = normalized.exact_view(start=last_dot + 1).to_owned()
   parse_input_format(ext)
 }
 
@@ -834,7 +834,7 @@ fn expand_inlining_short_alias(arg : String) -> String {
     }
     let prefix = "\{short}="
     if arg.has_prefix(prefix) {
-      return "\{long}=\{arg.sub(start=prefix.length()).to_owned()}"
+      return "\{long}=\{arg.exact_view(start=prefix.length()).to_owned()}"
     }
   }
   arg

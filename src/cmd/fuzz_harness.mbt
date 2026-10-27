@@ -1991,11 +1991,11 @@ pub fn cmd_fuzz_harness_profile_config_with_seed(
     if part.length() == 0 {
       ()
     } else if fuzz_has_prefix(part, "gen=") {
-      generator_profile = part.sub(start=4).to_owned()
+      generator_profile = part.exact_view(start=4).to_owned()
     } else if fuzz_has_prefix(part, "generator=") {
-      generator_profile = part.sub(start=10).to_owned()
+      generator_profile = part.exact_view(start=10).to_owned()
     } else if fuzz_has_prefix(part, "passes=") {
-      pass_profile = part.sub(start=7).to_owned()
+      pass_profile = part.exact_view(start=7).to_owned()
     } else if part == "idempotence" ||
       part == "opt-idempotence" ||
       part == "check-idempotence" {
@@ -2040,7 +2040,7 @@ fn fuzz_has_prefix(text : String, prefix : String) -> Bool {
   if text.length() < prefix.length() {
     return false
   }
-  let head = text.sub(end=prefix.length()).to_owned()
+  let head = text.exact_view(end=prefix.length()).to_owned()
   head == prefix
 }
 
@@ -2050,7 +2050,7 @@ fn fuzz_has_suffix(text : String, suffix : String) -> Bool {
     return false
   }
   let start = text.length() - suffix.length()
-  let tail = text.sub(start~).to_owned()
+  let tail = text.exact_view(start~).to_owned()
   tail == suffix
 }
 
@@ -2169,12 +2169,12 @@ fn fuzz_slug(value : String) -> String {
   }
   let raw = out.to_string()
   let trimmed = if fuzz_has_prefix(raw, "-") {
-    raw.sub(start=1).to_owned()
+    raw.exact_view(start=1).to_owned()
   } else {
     raw
   }
   let cleaned = if fuzz_has_suffix(trimmed, "-") {
-    trimmed.sub(end=trimmed.length() - 1).to_owned()
+    trimmed.exact_view(end=trimmed.length() - 1).to_owned()
   } else {
     trimmed
   }

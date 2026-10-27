@@ -808,7 +808,7 @@ fn dae_test_count_substring(text : String, needle : String) -> Int32 {
   let limit = text.length() - needle.length()
   let mut idx = 0
   while idx <= limit {
-    if text.sub(start=idx, end=idx + needle.length()).to_owned() == needle {
+    if text.exact_view(start=idx, end=idx + needle.length()).to_owned() == needle {
       count += 1
       idx += needle.length()
     } else {

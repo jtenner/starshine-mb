@@ -226,7 +226,7 @@ fn wt_func_annotations(
 ///|
 fn wt_name_from_id(id : String) -> @lib.Name {
   let text = if id.length() > 0 && id[0] == '$' {
-    id.sub(start=1).to_owned()
+    id.exact_view(start=1).to_owned()
   } else {
     id
   }
@@ -856,10 +856,10 @@ fn wt_parse_nan_payload_bits(
   let mut negative = false
   let mut body = trimmed
   if body[0] == '+' {
-    body = body.sub(start=1, end=body.length()).to_owned()
+    body = body.exact_view(start=1, end=body.length()).to_owned()
   } else if body[0] == '-' {
     negative = true
-    body = body.sub(start=1, end=body.length()).to_owned()
+    body = body.exact_view(start=1, end=body.length()).to_owned()
   }
   if body == "nan" {
     let mut bits = exp_bits | quiet_payload
@@ -869,7 +869,7 @@ fn wt_parse_nan_payload_bits(
     return Ok(Some(bits))
   }
   if body.has_prefix("nan:") {
-    let payload_text = body.sub(start=4, end=body.length()).to_owned()
+    let payload_text = body.exact_view(start=4, end=body.length()).to_owned()
     let payload = match wt_parse_hex_u64(payload_text, "\{kind} NaN payload") {
       Ok(v) => v
       Err(_) => return Err("invalid \{kind} NaN payload literal: \{text}")

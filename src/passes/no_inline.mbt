@@ -37,7 +37,7 @@ pub fn no_partial_inline_summary() -> String {
 pub fn no_inline_pass_pattern(flag : String) -> (String, String)? {
   match no_inline_pass_pattern_base(flag) {
     Some(name) => {
-      let pattern = flag.sub(start=name.length() + 1).to_owned()
+      let pattern = flag.exact_view(start=name.length() + 1).to_owned()
       if pattern.length() > 0 {
         Some((name, pattern))
       } else {
