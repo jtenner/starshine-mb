@@ -1,9 +1,9 @@
 ///|
 fn binaryen133_tail_fixture(bytes : Bytes) -> @lib.Module raise {
   let input = @binary.decode_module(bytes).unwrap()
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["tail-call"]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   output
 }
 
@@ -107,11 +107,11 @@ test "Binaryen 133 tail-call retains calls whose throws reach a local handler" {
         ),
       ]),
     )
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "tail-call",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     assert_eq(
       binaryen133_shared_opcode_count(
         output,

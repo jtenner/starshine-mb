@@ -6,5 +6,5 @@ test "round2 untee preserves unreachable nondefaultable initialization" {
     ),
     "untee",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

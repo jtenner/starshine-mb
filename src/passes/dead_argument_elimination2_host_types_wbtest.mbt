@@ -26,7 +26,7 @@ test "dae2 preserves concrete ref.test signature for host-origin funcref" {
     ]),
   )
   let input = input.with_code_sec(@lib.CodeSec::new(bodies))
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let original = @validate.Env::new().with_module(input)
   @debug.assert_eq(
     original.resolve_functype(@lib.TypeIdx::new(0U)),
@@ -37,7 +37,7 @@ test "dae2 preserves concrete ref.test signature for host-origin funcref" {
     HotPipelineOptions::new(closed_world=true),
     ["dae2"],
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   let target = match body.last() {
     Some(@lib.RefTest(_, _, @lib.HeapType(target))) => target
@@ -107,13 +107,13 @@ test "dae2 retains host ref.test parameter and result types in both modes" {
   for pass in ["dae2", "dae2-optimizing"] {
     for nested in [false, true] {
       let input = dae2_host_type_fixture(false, nested)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = run_hot_pipeline(
         input,
         HotPipelineOptions::new(closed_world=true),
         [pass],
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
       let target = dae2_host_target(body, false)
       let env = @validate.Env::new().with_module(output)
@@ -135,13 +135,13 @@ test "dae2 retains host ref.cast parameter and result types in both modes" {
   for pass in ["dae2", "dae2-optimizing"] {
     for nested in [false, true] {
       let input = dae2_host_type_fixture(true, nested)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = run_hot_pipeline(
         input,
         HotPipelineOptions::new(closed_world=true),
         [pass],
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
       let target = dae2_host_target(body, true)
       let env = @validate.Env::new().with_module(output)

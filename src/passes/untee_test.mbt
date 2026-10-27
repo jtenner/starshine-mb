@@ -197,7 +197,7 @@ test "untee ignores unrelated nondefaultable locals for unreachable i32 tees" {
       ]),
     )
     let output = untee_run_module_pass(input)
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let body = match output.code_sec {
       Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
       _ => abort("expected function")

@@ -6,7 +6,7 @@ test "local-subtyping return parity removes the dead root continuation" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body.last(), Some(@lib.Instruction::return_()))
   @debug.assert_eq(body.filter(fn(i) { i is @lib.LocalGet(_) }).length(), 1)
@@ -18,7 +18,7 @@ test "local-subtyping return parity preserves prefix effects and result" {
     "(module (global (mut i32) (i32.const 0)) (func (result i32) i32.const 7 global.set 0 i32.const 42 return i32.const 99 drop))",
   )
   let output = local_subtyping_run_module_pass(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body.length(), 4)
   @debug.assert_eq(body[0], @lib.Instruction::i32_const(7))
@@ -33,7 +33,7 @@ test "local-subtyping return parity preserves conditional fallthrough" {
     "(module (func (param i32) (result i32) local.get 0 if i32.const 42 return end i32.const 7))",
   )
   let output = local_subtyping_run_module_pass(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.code_sec, input.code_sec)
 }
 

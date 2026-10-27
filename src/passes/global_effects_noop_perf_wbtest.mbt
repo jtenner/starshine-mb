@@ -76,7 +76,7 @@ fn ge_mixed_perf_fixture(extra_functions : Int32) -> @lib.Module {
 fn ge_mixed_perf_bench(it : @bench.T, extra_functions : Int32) -> Unit {
   let fixture = ge_mixed_perf_fixture(extra_functions)
   let rewritten = global_effects_run_module_pass(fixture)
-  if rewritten == fixture || @validate.validate_module(rewritten).is_err() {
+  if rewritten == fixture || @validate.validate_module(rewritten) is Err(_) {
     abort("GlobalEffects mixed fixture did not rewrite validly")
   }
   match (fixture.code_sec, rewritten.code_sec) {
@@ -119,7 +119,7 @@ test "bench GlobalEffects no-resume funcs=512" (it : @bench.T) {
 test "bench GlobalEffects fresh-resume rewrite" (it : @bench.T) {
   let fixture = ge_positive_perf_fixture()
   let rewritten = global_effects_run_module_pass(fixture)
-  if rewritten == fixture || @validate.validate_module(rewritten).is_err() {
+  if rewritten == fixture || @validate.validate_module(rewritten) is Err(_) {
     abort("GlobalEffects positive benchmark did not rewrite validly")
   }
   it.bench(fn() { it.keep(global_effects_run_module_pass(fixture)) })

@@ -24,7 +24,7 @@ test "optimize-instructions type group parity removes unused aggregate definitio
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "optimize-instructions",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   }
 }

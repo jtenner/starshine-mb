@@ -14,7 +14,7 @@ test "OI residual command signatures case 7" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0, [
     @lib.TypeIdx::new(0U),

@@ -12447,7 +12447,7 @@ fn precompute_u64_to_f32(value : UInt64, negative~ : Bool = false) -> Float {
   let bits = sign |
     ((exponent + 127).to_uint() << 23) |
     (significand.to_uint() & 0x7fffffU)
-  bits.reinterpret_as_int().reinterpret_as_float()
+  Float::reinterpret_from_uint(bits)
 }
 
 ///|

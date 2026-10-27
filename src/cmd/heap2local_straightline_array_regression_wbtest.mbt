@@ -314,7 +314,7 @@ test "command heap2local straight-line fixed array replacements preserve old ele
         ["heap2local"],
         OptimizeOptions::new(),
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       for
         args in [
           [10, 20, 30],
@@ -363,7 +363,7 @@ test "command heap2local fixed arrays preserve constructor effects before an int
         ["heap2local"],
         OptimizeOptions::new(),
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let args = [-129, 65535, 32768]
       let a = cmd_h2l_straight_array_pack(args[0], width)
       let b = cmd_h2l_straight_array_pack(args[1], width)
@@ -390,13 +390,13 @@ test "command heap2local fixed arrays preserve constructor effects before an int
 test "command heap2local direct fixed-array tee reads preserve allocation effects" {
   for width in [32, 8, 16] {
     let input = cmd_h2l_straight_array_tee_fixture(width, 0)
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = optimize_module_with_pass_flags(
       input,
       ["heap2local"],
       OptimizeOptions::new(),
     ).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let args = [-129, 65535, 32768]
     let expected = (
       true,
@@ -423,13 +423,13 @@ test "command heap2local intentionally trapping fixed-array tee reads preserve a
   for width in [32, 8, 16] {
     for index in [-1, 3] {
       let input = cmd_h2l_straight_array_tee_fixture(width, index)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = optimize_module_with_pass_flags(
         input,
         ["heap2local"],
         OptimizeOptions::new(),
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let args = [7, 9, -129]
       let expected = (false, [], [(1, 7), (2, 9), (3, -129)])
       @debug.assert_eq(
@@ -453,13 +453,13 @@ test "command heap2local fixed-array tee stores preserve value effects and inten
   for width in [32, 8, 16] {
     for index in [0, -1, 3] {
       let input = cmd_h2l_straight_array_tee_fixture(width, index, is_set=true)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = optimize_module_with_pass_flags(
         input,
         ["heap2local"],
         OptimizeOptions::new(),
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let args = [-129, 65535, 32768]
       let expected = (
         index == 0,

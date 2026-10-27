@@ -15,7 +15,7 @@ test "OI residual command elements case 108" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let elems = output.elem_sec.unwrap().0
   @debug.assert_eq(elems.length(), 1)
   @debug.assert_eq(elems[0], input.elem_sec.unwrap().0[0])

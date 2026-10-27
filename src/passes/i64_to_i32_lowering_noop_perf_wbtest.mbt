@@ -38,5 +38,5 @@ test "i64-trunc-sat-float-lowering preflight lowers saturating conversion" {
     ca_test_opcode_count(output, @lib.Instruction::i64_trunc_sat_f32s()),
     0,
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

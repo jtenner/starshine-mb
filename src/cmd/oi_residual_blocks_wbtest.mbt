@@ -16,7 +16,7 @@ test "OI residual command blocks case 20" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_false(body.any(fn(i) { i is @lib.Block(_, _) }))
 }

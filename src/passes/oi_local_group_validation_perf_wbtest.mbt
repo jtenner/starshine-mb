@@ -38,7 +38,7 @@ fn oi_local_group_validation_bench(
   it.bench(fn() {
     it.keep(
       if full {
-        @validate.validate_module(grouped).is_ok()
+        @validate.validate_module(grouped) is Ok(_)
       } else {
         oi_validate_local_group_changed_bodies(input, grouped)
       },

@@ -28,7 +28,7 @@ test "round2 compiler facts follow legacy try body before catches" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let sites = @binary.compiler_fact_module_opcode_sites(input).unwrap()[0]
   let facts : Array[@representation.ExpressionFact] = []
   for site in sites {

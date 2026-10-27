@@ -35,7 +35,7 @@ test "round2 heap2local nullable descriptor trap struct.new_desc" {
     ),
     "heap2local",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_true(
     audit_count(audit_body(output, index=0), fn(i) {
       i is @lib.RefAsNonNull ||
@@ -54,7 +54,7 @@ test "round2 heap2local nullable descriptor trap struct.new_default_desc" {
     ),
     "heap2local",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_true(
     audit_count(audit_body(output, index=0), fn(i) {
       i is @lib.RefAsNonNull ||

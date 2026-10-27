@@ -297,10 +297,10 @@ fn h2l_unsigned_packed_count(
 
 ///|
 fn h2l_unsigned_packed_assert_scalarized(output : @lib.Module) -> Unit raise {
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let bytes = @binary.encode_module(output).unwrap()
   let decoded = @binary.decode_module(bytes).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
   @debug.assert_eq(
     h2l_unsigned_packed_count(body, fn(instr) {
@@ -335,7 +335,7 @@ test "heap2local scalarized packed get_u masks preserve unsigned values and sign
   for width in [8, 16] {
     for family in [0, 1, 2] {
       let input = h2l_unsigned_packed_fixture(width, family)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let @lib.Func(_, @lib.Expr(input_body)) = input.code_sec.unwrap().0[0]
       @debug.assert_eq(
         h2l_unsigned_packed_count(input_body, fn(instr) {

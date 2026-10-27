@@ -18,7 +18,7 @@ test "fifth audit SSA call result is not its argument" {
   let input = pass_test_module_from_wat(
     "(module (memory 1) (global i32 (i32.const 0)) (func (param i32) (result i32) (local i32 i32) local.get 0 call 1 local.set 1 local.get 0 local.get 0 local.get 0 local.set 2 global.get 0 local.get 2 i32.store i32.add) (func (param i32) (result i32) i32.const 7))",
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
   let (rewritten, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
     body,
@@ -34,7 +34,7 @@ test "fifth audit SSA stored local does not alias another local" {
   let input = pass_test_module_from_wat(
     "(module (memory 1) (global i32 (i32.const 0)) (func (param i32) (result i32) (local i32 i32) i32.const 42 local.set 1 global.get 0 local.get 1 i32.store local.get 0 local.get 0 local.set 2 global.get 0 local.get 2 i32.store) (func (param i32) (result i32) i32.const 7))",
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
   let (rewritten, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
     body,
@@ -50,7 +50,7 @@ test "fifth audit SSA spill aliases preserve static reference types" {
   let input = pass_test_module_from_wat(
     "(module (type $s (struct (field i32))) (memory 1) (global i32 (i32.const 0)) (func (param (ref $s)) (result i32) (local anyref i32) local.get 0 call 1 local.set 1 local.get 0 local.set 1 local.get 2 local.get 0 local.get 2 local.set 2 global.get 0 local.get 2 i32.store struct.get $s 0 i32.add) (func (param (ref $s)) (result anyref) local.get 0))",
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let funcs = input.code_sec.unwrap().0.copy()
   let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
   let params = @ir.hot_module_resolve_func_type(
@@ -65,6 +65,7 @@ test "fifth audit SSA spill aliases preserve static reference types" {
   )
   funcs[0] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
   assert_true(
-    @validate.validate_module(input.with_code_sec(@lib.CodeSec::new(funcs))).is_ok(),
+    @validate.validate_module(input.with_code_sec(@lib.CodeSec::new(funcs)))
+    is Ok(_),
   )
 }

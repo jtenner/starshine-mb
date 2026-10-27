@@ -863,7 +863,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
     candidate.with_type_sec(mod_.type_sec.unwrap()),
   )
   let candidate = gto_regroup_private_types(candidate, public_, type_order)
-  if @validate.validate_module(candidate).is_ok() {
+  if @validate.validate_module(candidate) is Ok(_) {
     candidate
   } else {
     mod_

@@ -277,7 +277,7 @@ fn global_effects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
   let candidate = mod_.with_code_sec(@lib.CodeSec::new(rewritten))
-  if @validate.validate_module(candidate).is_ok() {
+  if @validate.validate_module(candidate) is Ok(_) {
     candidate
   } else {
     mod_

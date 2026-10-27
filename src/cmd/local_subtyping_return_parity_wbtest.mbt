@@ -8,7 +8,7 @@ test "local-subtyping command return parity removes the dead root continuation" 
     ["local-subtyping"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body.last(), Some(@lib.Instruction::return_()))
   @debug.assert_eq(body.filter(fn(i) { i is @lib.LocalGet(_) }).length(), 1)

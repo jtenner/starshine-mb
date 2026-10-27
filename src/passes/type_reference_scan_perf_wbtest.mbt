@@ -165,7 +165,7 @@ fn type_reference_scan_benchmark(
   if actual != expected {
     abort("type reference benchmark changed pruning")
   }
-  if @validate.validate_module(actual).is_err() {
+  if @validate.validate_module(actual) is Err(_) {
     abort("invalid type reference fixture")
   }
   it.bench(fn() {

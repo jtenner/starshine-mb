@@ -15,14 +15,14 @@ test "command DAE2 retains host ref.test and ref.cast target signatures" {
     let bodies = input.code_sec.unwrap().0.copy()
     bodies[1] = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
     let input = input.with_code_sec(@lib.CodeSec::new(bodies))
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     for pass in ["dae2", "dae2-optimizing"] {
       let output = optimize_module_with_pass_flags(
         input,
         [pass],
         OptimizeOptions::new(closed_world=true),
       ).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
       let target = match body[1] {
         @lib.RefTest(false, false, @lib.HeapType(target)) if !cast => target

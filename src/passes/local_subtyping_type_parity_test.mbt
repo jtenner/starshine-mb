@@ -6,7 +6,7 @@ test "local-subtyping type parity prunes unused signatures and GC definitions" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(
@@ -23,7 +23,7 @@ test "local-subtyping type parity removes an unused recursive hierarchy" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(
@@ -40,7 +40,7 @@ test "local-subtyping type parity preserves whole live recursive groups" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let types = output.type_sec.unwrap().0
   @debug.assert_eq(types.length(), 2)
   match types[1] {
@@ -82,7 +82,7 @@ test "local-subtyping type parity remaps retained type and field names" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let names = output.name_sec.unwrap()
   @debug.assert_eq(

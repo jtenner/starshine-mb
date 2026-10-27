@@ -29,7 +29,7 @@ fn ar_lazy_copy_perf_fixture(extra_functions : Int32) -> @lib.Module {
 fn ar_lazy_copy_perf_bench(it : @bench.T, extra_functions : Int32) -> Unit {
   let fixture = ar_lazy_copy_perf_fixture(extra_functions)
   let output = avoid_reinterprets_run_module_pass(fixture)
-  if output == fixture || @validate.validate_module(output).is_err() {
+  if output == fixture || @validate.validate_module(output) is Err(_) {
     abort("AvoidReinterprets mixed fixture did not rewrite validly")
   }
   match (fixture.code_sec, output.code_sec) {

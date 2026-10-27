@@ -33,7 +33,7 @@ test "Binaryen 133 fast-math constraint analysis folds a known local float equal
   }
   assert_eq(writes.length(), 1)
   let output = decode_module_bytes(writes[0])
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_false(body.contains(@lib.Instruction::f64_eq()))
 }

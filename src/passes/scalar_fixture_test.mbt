@@ -61,14 +61,16 @@ fn scalar_fixture_run(
         @lib.F32Const(@lib.F32(value)) =>
           stack.push(value.reinterpret_as_int().to_int64())
         @lib.F32Nearest => {
-          let value = stack[stack.length() - 1].to_int().reinterpret_as_float()
+          let value = Float::reinterpret_from_int(
+            stack[stack.length() - 1].to_int(),
+          )
           if value != value.trunc() {
             fail("fixture nearest supports integral inputs only")
           }
         }
         @lib.F32Eq => {
-          let rhs = stack.pop().unwrap().to_int().reinterpret_as_float()
-          let lhs = stack.pop().unwrap().to_int().reinterpret_as_float()
+          let rhs = Float::reinterpret_from_int(stack.pop().unwrap().to_int())
+          let lhs = Float::reinterpret_from_int(stack.pop().unwrap().to_int())
           stack.push(if lhs == rhs { 1L } else { 0L })
         }
         @lib.I32ReinterpretF32 => () // float values are stored as their bits

@@ -40,11 +40,11 @@ fn oi_local_group_parity_fixture() -> @lib.Module {
 ///|
 test "optimize-instructions groups numeric local declarations and remaps live indices" {
   let input = oi_local_group_parity_fixture()
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.runs().length(), 2)
   @debug.assert_eq(locals.get(0), @lib.ValType::i32())
@@ -96,9 +96,9 @@ test "OI local grouping remaps nested try_table local accesses" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = oi_group_numeric_locals_if_smaller(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.runs().length(), 2)
   match body[0] {
@@ -143,7 +143,7 @@ test "OI local grouping leaves legacy try local indices unchanged" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   @debug.assert_eq(oi_group_numeric_locals_if_smaller(input), input)
 }
 
@@ -216,7 +216,7 @@ test "OI local grouping clears stale compiler facts and preserves annotations" {
   let input_code = input.code_sec
   let input_names = input.name_sec
   let output = oi_group_numeric_locals_if_smaller(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.compiler_fact_custom_section, None)
   @debug.assert_eq(output.func_annotation_sec, Some(annotations))
   @debug.assert_eq(input.code_sec, input_code)
@@ -248,7 +248,7 @@ test "OI local grouping excludes compiler fact removal from its size decision" {
         @representation.OptimizationFactsSec::new(),
       ),
     )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let baseline = input.without_compiler_fact_custom_section()
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(input)
   let (before, grouped_size) = @binary.encoded_module_sizes(baseline, grouped).unwrap()
@@ -258,7 +258,7 @@ test "OI local grouping excludes compiler fact removal from its size decision" {
   let selected = oi_group_numeric_locals_if_smaller(input)
   let (_, selected_size) = @binary.encoded_module_sizes(baseline, selected).unwrap()
   assert_true(selected_size < before)
-  assert_true(@validate.validate_module(selected).is_ok())
+  assert_true(@validate.validate_module(selected) is Ok(_))
   @debug.assert_eq(selected.compiler_fact_custom_section, None)
   let @lib.Func(locals, @lib.Expr(body)) = selected.code_sec.unwrap().0[0]
   @debug.assert_eq(locals, @lib.Locals::single(1U, @lib.ValType::i32()))

@@ -338,7 +338,7 @@ fn i64_trunc_sat_float_lowering_run_module_pass(
     return mod_
   }
   let candidate = mod_.with_code_sec(@lib.CodeSec::new(rewritten))
-  if @validate.validate_module(candidate).is_ok() {
+  if @validate.validate_module(candidate) is Ok(_) {
     candidate
   } else {
     mod_

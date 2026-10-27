@@ -14,7 +14,7 @@ test "OI residual blocks case 20" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_false(body.any(fn(i) { i is @lib.Block(_, _) }))
 }
@@ -32,7 +32,7 @@ test "OI residual blocks case 5" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_false(body.any(fn(i) { i is @lib.Block(_, _) }))
 }
@@ -67,7 +67,7 @@ test "OI residual blocks preserve remapped and untouched label names" {
   let input = input.with_raw_name_sec_payload(b"\x00\x04\x03old")
   let output = oi_cleanup_module_encoding(input)
   @debug.assert_eq(output.raw_name_sec_payload, None)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let names = output.name_sec.unwrap()
   @debug.assert_eq(names.func_names, input.name_sec.unwrap().func_names)
   @debug.assert_eq(names.label_names.unwrap().0[0].1, @lib.NameMap::new([kept]))

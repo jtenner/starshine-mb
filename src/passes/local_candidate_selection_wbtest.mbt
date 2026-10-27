@@ -116,7 +116,7 @@ test "OI selection rejects intentionally invalid cheaper grouping and uses valid
   assert_eq(encoded_profitability_size(grouped), 183)
   assert_eq(encoded_profitability_size(frequency), 179)
   assert_eq(encoded_profitability_size(invalid), 178)
-  assert_true(@validate.validate_module(invalid).is_err())
+  assert_true(@validate.validate_module(invalid) is Err(_))
   assert_false(oi_validate_local_group_changed_bodies(before, invalid))
   oi_local_candidate_check_result(before, invalid, Some(frequency), frequency)
 }
@@ -129,7 +129,7 @@ test "OI selection rejects intentionally invalid cheaper frequency and uses vali
   assert_true(
     encoded_profitability_size(invalid) < encoded_profitability_size(grouped),
   )
-  assert_true(@validate.validate_module(invalid).is_err())
+  assert_true(@validate.validate_module(invalid) is Err(_))
   assert_false(oi_validate_local_group_changed_bodies(before, invalid))
   oi_local_candidate_check_result(before, grouped, Some(invalid), grouped)
 }
@@ -139,8 +139,8 @@ test "OI selection retains original identity when both candidates are intentiona
   let (before, grouped, frequency) = oi_local_candidate_triplet()
   let invalid_group = oi_local_candidate_invalid_group(grouped)
   let invalid_frequency = oi_local_candidate_invalid_frequency(frequency)
-  assert_true(@validate.validate_module(invalid_group).is_err())
-  assert_true(@validate.validate_module(invalid_frequency).is_err())
+  assert_true(@validate.validate_module(invalid_group) is Err(_))
+  assert_true(@validate.validate_module(invalid_frequency) is Err(_))
   assert_false(oi_validate_local_group_changed_bodies(before, invalid_group))
   assert_false(
     oi_validate_local_group_changed_bodies(before, invalid_frequency),

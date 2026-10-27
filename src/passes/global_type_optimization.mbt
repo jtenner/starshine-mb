@@ -525,7 +525,7 @@ fn global_type_optimization_run_module_pass(
       gto_rewrite_descriptor_field_names(names, plans),
     )
   }
-  if @validate.validate_module(candidate).is_ok() {
+  if @validate.validate_module(candidate) is Ok(_) {
     candidate
   } else {
     mod_

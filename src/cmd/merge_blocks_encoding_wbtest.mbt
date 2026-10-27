@@ -19,7 +19,7 @@ test "merge-blocks encoding flattens scalar wrappers without moving global write
     ["merge-blocks"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body, [
     @lib.Instruction::i32_const(7),
@@ -44,7 +44,7 @@ test "merge-blocks encoding interns duplicate types used by functions and tags" 
     ["merge-blocks"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
   assert_eq(output.tag_sec, input.tag_sec)

@@ -8,7 +8,7 @@ test "simplify-locals command groups declarations and remaps live numeric locals
     ["simplify-locals"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
   assert_eq(locals.runs().length(), 2)
   @debug.assert_eq(locals.get(0), @lib.ValType::i32())
@@ -27,7 +27,7 @@ test "simplify-locals command removes unused simple types" {
     ["simplify-locals"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
   assert_true(@binary.encode_module(output).unwrap().length() <= 41)
@@ -43,7 +43,7 @@ test "simplify-locals command flattens transparent unused scalar result blocks" 
     ["simplify-locals"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body, [@lib.Instruction::i32_const(63)])
   assert_true(@binary.encode_module(output).unwrap().length() <= 39)

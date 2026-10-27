@@ -5,14 +5,15 @@ test "command DAE2 rejects invalid function subtypes with unequal arities" {
     let input = @wast.wast_to_binary_module(
       "(module (rec (type $P (sub (func (param i32)))) (type $Q (sub $P (func \{signature})))))",
     ).unwrap()
-    assert_true(@validate.validate_module(input).is_err())
+    assert_true(@validate.validate_module(input) is Err(_))
     for pass in ["dae2", "dae2-optimizing"] {
       assert_true(
         optimize_module_with_pass_flags(
           input,
           [pass],
           OptimizeOptions::new(closed_world=true),
-        ).is_err(),
+        )
+        is Err(_),
       )
     }
   }

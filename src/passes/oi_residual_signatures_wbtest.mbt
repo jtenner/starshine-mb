@@ -12,7 +12,7 @@ test "OI residual signatures case 7" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0, [
     @lib.TypeIdx::new(0U),
@@ -27,7 +27,7 @@ test "OI residual signatures preserve imported and indirect call contracts" {
     "(module (type (func (param i32) (result i32))) (type (func (param i32) (result i32))) (import \"host\" \"f\" (func (type 1))) (table 1 funcref) (elem (i32.const 0) func 0) (func (export \"run\") (type 0) local.get 0 i32.const 0 call_indirect (type 1)))",
   )
   let output = oi_cleanup_module_encoding(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0[0], @lib.TypeIdx::new(0U))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]

@@ -26,7 +26,7 @@ test "optimize-instructions command type group parity removes unused aggregate d
       ["optimize-instructions"],
       OptimizeOptions::new(),
     ).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   }
 }

@@ -15,9 +15,10 @@ test "command DAE2 modes accept virtual typed block inputs and retain concrete c
         prefix +
         "block (param i32 i32) (result i32) i32.div_s end))"
       let input = @wast.wast_to_binary_module(source).unwrap()
-      assert_true(@validate.validate_module(input).is_err())
+      assert_true(@validate.validate_module(input) is Err(_))
       assert_true(
-        optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()).is_err(),
+        optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new())
+        is Err(_),
       )
     }
   }
@@ -56,10 +57,11 @@ test "command DAE2 polymorphic entry retains nested body validation" {
   let input = @wast.wast_to_binary_module(
     "(module (func (result i32) unreachable block (param i32 i32) (result i32) f64.add end))",
   ).unwrap()
-  assert_true(@validate.validate_module(input).is_err())
+  assert_true(@validate.validate_module(input) is Err(_))
   for pass in ["dae2", "dae2-optimizing"] {
     assert_true(
-      optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()).is_err(),
+      optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new())
+      is Err(_),
     )
   }
 }

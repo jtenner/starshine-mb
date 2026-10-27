@@ -3,10 +3,10 @@ test "pass review coalescing distinguishes exact floating constant bits" {
   let pairs = [
     (
       @lib.Instruction::f32_const(
-        @lib.F32::new((0x7fc00001).reinterpret_as_float()),
+        @lib.F32::new(Float::reinterpret_from_int(0x7fc00001)),
       ),
       @lib.Instruction::f32_const(
-        @lib.F32::new((0x7fc00002).reinterpret_as_float()),
+        @lib.F32::new(Float::reinterpret_from_int(0x7fc00002)),
       ),
     ),
     (

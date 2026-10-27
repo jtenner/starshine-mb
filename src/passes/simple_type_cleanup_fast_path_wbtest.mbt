@@ -42,7 +42,7 @@ test "simple type cleanup remaps typed code across index width without full sizi
     .with_type_sec(@lib.TypeSec::new(types))
     .with_func_sec(@lib.FuncSec::new(func_types))
     .with_code_sec(@lib.CodeSec::new(funcs))
-  assert_true(@validate.validate_module(before).is_ok())
+  assert_true(@validate.validate_module(before) is Ok(_))
   let full_size_checks = [0]
   let after = dfe_cleanup_simple_type_encoding(
     before,
@@ -55,7 +55,7 @@ test "simple type cleanup remaps typed code across index width without full sizi
       assert_eq(idx, @lib.TypeIdx::new(0U))
     _ => fail("typed block was not retained")
   }
-  assert_true(@validate.validate_module(after).is_ok())
+  assert_true(@validate.validate_module(after) is Ok(_))
   assert_true(
     @binary.encode_module(after).unwrap().length() <
     @binary.encode_module(before).unwrap().length(),

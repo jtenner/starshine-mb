@@ -43,7 +43,7 @@ test "lazy legacy preparation retains invalid missing-signature failure" {
   let indices = input.func_sec.unwrap().0.copy()
   indices[0] = @lib.TypeIdx::new(999U)
   let invalid = input.with_func_sec(@lib.FuncSec::new(indices))
-  assert_true(dae2_prepare_legacy_handlers(invalid).is_err())
+  assert_true(dae2_prepare_legacy_handlers(invalid) is Err(_))
   assert_eq(
     dae2_prepare_legacy_handlers(invalid),
     dae2_legacy_setup_reference(invalid),

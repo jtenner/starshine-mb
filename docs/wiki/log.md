@@ -1,3 +1,9 @@
+### 2026-10-27, Current MoonBit core compatibility
+
+- Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.
+- Release builds pass for `wasm`, `wasm-gc`, and `native`, with zero errors. Focused wasm-gc tests pass: 438 WAST, 2,304 pass, and 187 command tests. The large-package launcher exceeds Linux's argument limit; checked batches of the generated drivers pass all selected tests. No benchmark or timing run was made.
+- Upgraded the shared fleet to 0.1.20261023. Its `moon`, `moonc`, and `moonrun` hashes match the scratch installation used for validation. Old-toolchain builds were cancelled after the user waived that gate. See the [evidence](raw/tooling/2026-10-27-moonbit-core-compatibility.json) and [workspace contract](tooling/moonbit-workspace-package-map.md#moonbit-core-compatibility).
+
 ### 2026-10-26, Baseline documentation refresh audit
 
 - Reviewed assigned historical sources and log scope against master `984523889116a32341718f66f34554bb5d464d43`. Historical raw captures and dated log entries retain their original context. The [measurement backlog](../../agent-todo.md) remains open for the next release; this refresh does not establish that release's signoff.

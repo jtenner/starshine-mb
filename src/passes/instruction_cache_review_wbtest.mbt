@@ -35,7 +35,7 @@ test "operand swaps preserve exact use sites and effect summaries" {
     pass_require_effects(ctx, func),
     @ir.cache_get_or_build_effects(@ir.HotAnalysisCache::new(), func),
   )
-  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache).is_ok())
+  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache) is Ok(_))
 }
 
 ///|
@@ -136,7 +136,7 @@ test "compound operand swaps preserve exact effects" {
     pass_require_effects(ctx, func),
     @ir.cache_get_or_build_effects(@ir.HotAnalysisCache::new(), func),
   )
-  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache).is_ok())
+  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache) is Ok(_))
 }
 
 ///|

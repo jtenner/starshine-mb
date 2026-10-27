@@ -147,7 +147,7 @@ test "DAE2 raw admission rejects intentionally invalid types despite matching st
   )
   let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[1]
   body[0] = @lib.Instruction::f32_const(@lib.F32(9.0))
-  assert_true(dae2_run_module_pass(input, false).is_err())
+  assert_true(dae2_run_module_pass(input, false) is Err(_))
 }
 
 ///|

@@ -40,7 +40,7 @@ test "round2 optimize casts continuation supertype can contain subtype" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let ctx = @ir.hot_module_context_from_module(input)
   assert_false(
     oc_ref_never_matches(

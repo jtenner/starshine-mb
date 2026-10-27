@@ -6,7 +6,7 @@ test "fifth audit SSA intentionally unrelated loop exit local False" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "ssa-nomerge",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   for value in [0, 1, 7, 42] {
     assert_eq(
       fifth_audit_execute_locals(output.code_sec.unwrap().0[0], value),
@@ -23,7 +23,7 @@ test "fifth audit SSA intentionally unrelated loop exit local True" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "ssa-nomerge",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   for value in [0, 1, 7, 42] {
     assert_eq(
       fifth_audit_execute_locals(output.code_sec.unwrap().0[0], value),
@@ -102,7 +102,7 @@ test "fifth audit SSA pipeline preserves unrelated loop exit values" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "ssa-nomerge",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   for value in [0, 1, 7, 42] {
     assert_eq(
       fifth_audit_execute_locals(output.code_sec.unwrap().0[0], value),

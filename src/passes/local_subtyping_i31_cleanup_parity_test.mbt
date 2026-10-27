@@ -6,7 +6,7 @@ test "local-subtyping i31 cleanup parity retains i31 control while pruning dead 
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_true(body.any(fn(i) { i is @lib.If(_, _, _) }))

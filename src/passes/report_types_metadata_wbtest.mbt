@@ -56,7 +56,7 @@ test "review GTO shifts descriptor field names with inserted placeholders" {
       ]),
     ),
   ])
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -71,7 +71,7 @@ test "review string gathering clears malformed raw names after rewriting globals
   assert_eq(body, [@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))])
   assert_eq(input.raw_name_sec_payload, Some(b"opaque-global-names"))
   assert_eq(input.global_sec.unwrap().0.length(), 1)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -95,7 +95,7 @@ test "review precompute cleanup clears malformed raw names after pruning types" 
   assert_eq(output.raw_name_sec_payload, None)
   assert_eq(input.raw_name_sec_payload, Some(b"opaque-type-names"))
   assert_eq(input.type_sec.unwrap().0.length(), before_types)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -131,7 +131,7 @@ test "review precompute cleanup clears raw names and remaps structured type name
     decoded.name_sec.unwrap().type_names,
     output.name_sec.unwrap().type_names,
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -272,7 +272,8 @@ test "review raw precompute admission preserves nested folds and effects" {
     assert_true(
       @validate.validate_module(
         run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]).unwrap(),
-      ).is_ok(),
+      )
+      is Ok(_),
     )
   }
 }
@@ -313,7 +314,7 @@ test "review reorder size-plan dedup keeps canonical bytes and input ownership" 
   )
   assert_true(@binary.encode_module(output).unwrap().length() < before.length())
   assert_eq(@binary.encode_module(input).unwrap(), before)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -373,7 +374,7 @@ test "review cached global facts preserve mutable struct writes across control" 
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let ctx = review_precompute_context(input)
   let value = precompute_known_heap_value_from_global_cached(
     ctx,
@@ -423,7 +424,7 @@ test "review cached global facts preserve mutable struct writes across control" 
       ),
       1,
     )
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
   }
 }
 
@@ -598,7 +599,8 @@ test "review precompute original-body feature scan preserves dispatch results" {
           assert_true(
             @validate.validate_module(
               input.with_code_sec(@lib.CodeSec::new([after.func])),
-            ).is_ok(),
+            )
+            is Ok(_),
           )
         }
         _ => abort("precompute dispatch decision changed")
@@ -697,7 +699,7 @@ fn review_gsi_active_reference_candidates(
 test "review GSI distinct active reference types match the original fact merge" {
   for count in [8, 16] {
     let input = review_gsi_active_reference_fixture(count)
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let env = @validate.Env::new().with_module(input)
     let before = review_gsi_active_reference_candidates(count)
     let after = before.map(fn(values) { values.copy() })
@@ -719,7 +721,7 @@ fn review_gsi_assert_reference_class_merge(
   input : @lib.Module,
   count : Int32,
 ) -> Unit raise {
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let env = @validate.Env::new().with_module(input)
   let before = review_gsi_active_reference_candidates(count)
   let after = before.map(fn(values) { values.copy() })

@@ -22,7 +22,7 @@ test "optimize-instructions type group parity nondeferred remaps live array indi
     options,
     defer_optimize_instructions_writeback_guard=false,
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(
@@ -50,7 +50,7 @@ test "optimize-instructions type group parity stack remaps live array indices" {
   let entry = pass_registry_lookup("optimize-instructions").unwrap()
   let options = HotPipelineOptions::new()
   let output = run_hot_pipeline_apply_hot_pass_stack(input, [entry], options).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(
@@ -83,7 +83,7 @@ test "optimize-instructions type group parity touched stack remaps live array in
     [true],
     options,
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(
@@ -116,7 +116,7 @@ test "optimize-instructions type group parity touched single remaps live array i
     [true],
     options,
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(

@@ -31,7 +31,7 @@ fn ls_stable_funcs_perf_fixture(
 fn ls_stable_funcs_perf_bench(it : @bench.T, stable_count : Int32) -> Unit {
   let fixture = ls_stable_funcs_perf_fixture(16, stable_count)
   let output = local_subtyping_run_module_pass(fixture)
-  if output == fixture || @validate.validate_module(output).is_err() {
+  if output == fixture || @validate.validate_module(output) is Err(_) {
     abort("LocalSubtyping stable-function fixture did not refine validly")
   }
   it.bench(fn() { it.keep(local_subtyping_run_module_pass(fixture)) })

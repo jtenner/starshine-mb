@@ -1598,7 +1598,7 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
         @lib.ValType::f32(),
         @lib.Instruction::f32_const(@lib.F32::new(0.0)),
         @lib.Instruction::f32_const(
-          @lib.F32::new(0x80000000U.reinterpret_as_float()),
+          @lib.F32::new(Float::reinterpret_from_uint(0x80000000U)),
         ),
         1,
         [0UL, 0x80000000UL],
@@ -1615,10 +1615,10 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
       (
         @lib.ValType::f32(),
         @lib.Instruction::f32_const(
-          @lib.F32::new(0x7fc00001U.reinterpret_as_float()),
+          @lib.F32::new(Float::reinterpret_from_uint(0x7fc00001U)),
         ),
         @lib.Instruction::f32_const(
-          @lib.F32::new(0x7fc00002U.reinterpret_as_float()),
+          @lib.F32::new(Float::reinterpret_from_uint(0x7fc00002U)),
         ),
         2,
         [0x7fc00001UL, 0x7fc00002UL],

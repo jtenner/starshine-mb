@@ -58,7 +58,7 @@ test "Binaryen 133 looks through a block to resume a fresh continuation as a cal
     Err(err) =>
       fail("Binaryen 133 block-wrapped resume rewrite is unavailable: \{err}")
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     ca_test_opcode_count(output, @lib.Instruction::call(@lib.FuncIdx::new(0U))),
     1,

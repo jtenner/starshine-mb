@@ -26,7 +26,7 @@ test "fifth audit DAE retains assignment read in legacy body" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   assert_true(dae_try_inline_i32_const_local_set_flat_once(body, 0).is_none())
   assert_true(dae_instr_references_local(legacy, @lib.LocalIdx::new(0U)))
 }
@@ -59,7 +59,7 @@ test "fifth audit DAE retains assignment read in legacy catch" {
       ),
     ]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   assert_true(dae_try_inline_i32_const_local_set_flat_once(body, 0).is_none())
   assert_true(dae_instr_references_local(legacy, @lib.LocalIdx::new(0U)))
 }

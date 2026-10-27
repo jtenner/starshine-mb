@@ -40,7 +40,7 @@ fn simplify_locals_encoding_has_local(
 fn simplify_locals_encoding_assert_live_grouped(
   output : @lib.Module,
 ) -> Unit raise {
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_eq(locals.runs().length(), 2)
   @debug.assert_eq(locals.get(0), @lib.ValType::i32())
@@ -59,7 +59,7 @@ fn simplify_locals_encoding_assert_live_grouped(
 ///|
 test "simplify-locals groups numeric declarations and remaps live nested accesses" {
   let input = simplify_locals_encoding_live_fixture()
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let @lib.Func(input_locals, _) = input.code_sec.unwrap().0[0]
   assert_eq(input_locals.runs().length(), 3)
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
@@ -116,7 +116,7 @@ test "simplify-locals removes unused simple types and declaration overhead" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "simplify-locals",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
@@ -133,7 +133,7 @@ test "simplify-locals flattens transparent unused scalar result blocks" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "simplify-locals",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body, [@lib.Instruction::i32_const(63)])
   assert_true(@binary.encode_module(output).unwrap().length() <= 39)

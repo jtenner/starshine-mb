@@ -50,7 +50,7 @@ test "IntrinsicLowering still rewrites matching intrinsic imports" {
   )
   let rewritten = intrinsic_lowering_run_module_pass(fixture)
   assert_true(rewritten != fixture)
-  assert_true(@validate.validate_module(rewritten).is_ok())
+  assert_true(@validate.validate_module(rewritten) is Ok(_))
   match rewritten.code_sec {
     Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) =>
       @debug.assert_eq(body, [@lib.Instruction::call(@lib.FuncIdx::new(1U))])

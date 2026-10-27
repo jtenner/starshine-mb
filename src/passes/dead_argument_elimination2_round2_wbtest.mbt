@@ -36,7 +36,7 @@ test "dae2 keeps a private table indirect-call type after host funcref ingress" 
     HotPipelineOptions::new(closed_world=true),
     ["dae2"],
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let env = @validate.Env::new().with_module(output)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   let call_type = match body.last() {
@@ -59,7 +59,7 @@ test "round2 dae2 preserves equivalent indirect call types with unequal liveness
     HotPipelineOptions::new(closed_world=true),
     ["dae2"],
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let env = @validate.Env::new().with_module(output)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   let required = match body.last() {
@@ -81,13 +81,13 @@ test "round2 dae2 preserves recursive group identity collapse" {
   let input = pass_test_module_from_wat(
     "(module (rec (type $A (func (param i32))) (type $AX (struct (field (ref null $A))))) (rec (type $B (func (param i64))) (type $BX (struct (field (ref null $B))))) (global $side (export \"side\") (mut i32) (i32.const 0)) (table 1 funcref) (func $a (type $A) ) (elem (i32.const 0) func $a) (func (export \"main\") i64.const 7 i32.const 0 call_indirect (type $B)))",
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(
     input,
     HotPipelineOptions::new(closed_world=true),
     ["dae2"],
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let env = @validate.Env::new().with_module(output)
   assert_false(
     env.resolve_functype(@lib.TypeIdx::new(0U)) ==
@@ -100,13 +100,13 @@ test "round2 dae2 preserves recursive group identity split" {
   let input = pass_test_module_from_wat(
     "(module (rec (type $A (func (param i32))) (type $AX (struct (field (ref null $A))))) (rec (type $B (func (param i32))) (type $BX (struct (field (ref null $B))))) (global $side (export \"side\") (mut i32) (i32.const 0)) (table 1 funcref) (func $a (type $A) local.get 0 global.set $side) (elem (i32.const 0) func $a) (func (export \"main\") i32.const 7 i32.const 0 call_indirect (type $B)))",
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(
     input,
     HotPipelineOptions::new(closed_world=true),
     ["dae2"],
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let env = @validate.Env::new().with_module(output)
   assert_true(
     env.resolve_functype(@lib.TypeIdx::new(0U)) ==

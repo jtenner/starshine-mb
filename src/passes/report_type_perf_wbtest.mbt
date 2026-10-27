@@ -383,7 +383,7 @@ fn review_gsi_active_bench(
   mode : Int32,
 ) -> Unit raise {
   let input = review_gsi_active_reference_fixture(count)
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let env = @validate.Env::new().with_module(input)
   it.bench(fn() {
     let candidates = review_gsi_active_reference_candidates(count)

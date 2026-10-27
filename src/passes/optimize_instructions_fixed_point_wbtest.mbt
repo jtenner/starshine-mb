@@ -14,8 +14,8 @@ fn oi_fixed_point_profile(name : String) -> Unit raise {
   let third = run_hot_pipeline(twice, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(once).is_ok())
-  assert_true(@validate.validate_module(twice).is_ok())
+  assert_true(@validate.validate_module(once) is Ok(_))
+  assert_true(@validate.validate_module(twice) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = twice.code_sec.unwrap().0[0]
   match name {
     "flatten-ifs" =>
@@ -187,7 +187,7 @@ test "optimize-instructions finishes sunk local writes for zero and nonzero cond
       @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     ])
-    assert_true(@validate.validate_module(once).is_ok())
+    assert_true(@validate.validate_module(once) is Ok(_))
   }
 }
 
@@ -201,7 +201,7 @@ test "optimize-instructions finishes nested scalar control without another pass"
   ]).unwrap()
   let @lib.Func(_, @lib.Expr(body)) = once.code_sec.unwrap().0[0]
   @debug.assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(21))])
-  assert_true(@validate.validate_module(once).is_ok())
+  assert_true(@validate.validate_module(once) is Ok(_))
 }
 
 ///|
@@ -215,7 +215,7 @@ test "optimize-instructions constant if retains its chosen branch target" {
   let twice = run_hot_pipeline(once, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(once).is_ok())
+  assert_true(@validate.validate_module(once) is Ok(_))
   @debug.assert_eq(@binary.encode_module(once), @binary.encode_module(twice))
   let @lib.Func(_, @lib.Expr(body)) = once.code_sec.unwrap().0[0]
   match body {
@@ -251,7 +251,7 @@ test "optimize-instructions finishes value-if drop shells exposed by raw rewrite
     @lib.Instruction::i32_const(@lib.I32(5)),
     @lib.Instruction::drop(),
   ])
-  assert_true(@validate.validate_module(once).is_ok())
+  assert_true(@validate.validate_module(once) is Ok(_))
   @debug.assert_eq(@binary.encode_module(once).unwrap().length(), 30)
   @debug.assert_eq(@binary.encode_module(once), @binary.encode_module(twice))
 }

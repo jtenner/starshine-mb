@@ -23,5 +23,5 @@ test "fifth audit command multivalue allocation return" {
     ]),
   )
   let output = cmd_deep_audit_run_module(input, "heap2local")
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

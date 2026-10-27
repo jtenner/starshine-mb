@@ -20,7 +20,7 @@ test "full O4z presets merge private equal helpers across host boundaries" {
   let input_bytes = @binary.encode_module(input).unwrap()
   for preset in ["optimize", "shrink"] {
     let output = run_hot_pipeline(input, options, [preset]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let funcs = match output.code_sec {
       Some(@lib.CodeSec(funcs)) => funcs
       None => fail("expected private helper and exported caller")
@@ -56,7 +56,7 @@ test "full O4z presets keep equal exported table global and body-reference ident
   let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
   for preset in ["optimize", "shrink"] {
     let output = run_hot_pipeline(input, options, [preset]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let funcs = match output.code_sec {
       Some(@lib.CodeSec(funcs)) => funcs
       None => fail("expected visible function definitions")

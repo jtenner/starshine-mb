@@ -34,7 +34,8 @@ test "statement query failure and terminal escape do not leak into later queries
   let seed = SlStatementTypeSeed::new(sl_type_seed_env(128))
   let invalid = [@lib.Instruction::drop()]
   assert_true(
-    @validate.Typecheck::typecheck(@lib.Expr::new(invalid), seed.fresh_state()).is_err(),
+    @validate.Typecheck::typecheck(@lib.Expr::new(invalid), seed.fresh_state())
+    is Err(_),
   )
   let terminal = @validate.Typecheck::typecheck(
     @lib.Instruction::unreachable_(),
@@ -64,7 +65,7 @@ test "statement type seeds remain isolated across changed local environments" {
   )
   let index = @lib.Instruction::local_get(@lib.LocalIdx::new(128U))
   assert_true(
-    @validate.Typecheck::typecheck(index, first.fresh_state()).is_err(),
+    @validate.Typecheck::typecheck(index, first.fresh_state()) is Err(_),
   )
   let result = @validate.Typecheck::typecheck(index, second.fresh_state()).unwrap()
   assert_eq(result.stack, [@lib.ValType::f64()])

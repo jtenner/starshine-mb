@@ -54,7 +54,7 @@ test "make-shared-objects wraps a multi-result externref import" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
   ])
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|
@@ -102,11 +102,11 @@ test "make-shared-objects shifts parsed function and local names with conversion
     )
     .with_raw_name_sec_payload(b"stale-function-indices")
   let input_validation = @validate.validate_module(input)
-  assert_true(input_validation.is_ok(), msg=@debug.to_string(input_validation))
+  assert_true(input_validation is Ok(_), msg=@debug.to_string(input_validation))
   let output = make_shared_objects_run_module_pass(input)
   let output_validation = @validate.validate_module(output)
   assert_true(
-    output_validation.is_ok(),
+    output_validation is Ok(_),
     msg=@debug.to_string(output_validation),
   )
   assert_true(output.import_sec.unwrap().0.length() > 0)
@@ -150,11 +150,11 @@ test "make-shared-objects keeps type and field names on swapped types" {
     )
     .with_raw_name_sec_payload(b"stale-type-indices")
   let input_validation = @validate.validate_module(input)
-  assert_true(input_validation.is_ok(), msg=@debug.to_string(input_validation))
+  assert_true(input_validation is Ok(_), msg=@debug.to_string(input_validation))
   let output = make_shared_objects_run_module_pass(input)
   let output_validation = @validate.validate_module(output)
   assert_true(
-    output_validation.is_ok(),
+    output_validation is Ok(_),
     msg=@debug.to_string(output_validation),
   )
   let first = match output.type_sec.unwrap().0[0] {
@@ -200,7 +200,7 @@ test "make-shared-objects wraps a multi-result externref export" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
   ])
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|
@@ -245,7 +245,7 @@ test "make-shared-objects wraps a non-null multi-result externref import" {
   )
   assert_true(output.code_sec.unwrap().0.length() > 1)
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|
@@ -282,11 +282,11 @@ test "Binaryen 133 shared objects lowers typed calls and tail calls through the 
       ]),
     )
     let input = input.with_code_sec(@lib.CodeSec::new(functions))
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "make-shared-objects",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
     assert_eq(body.length(), 4)
     assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(0)))
@@ -308,7 +308,7 @@ test "Binaryen 133 shared objects lowers typed calls and tail calls through the 
     )
     assert_eq(output.table_sec.unwrap().0.length(), 1)
     let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-    assert_true(@validate.validate_module(decoded).is_ok())
+    assert_true(@validate.validate_module(decoded) is Ok(_))
     assert_eq(decoded.code_sec, output.code_sec)
   }
 }
@@ -422,10 +422,10 @@ test "Binaryen 133 shared objects tests concrete function references through the
   )
   funcs[1] = @lib.Func::new(locals, @lib.Expr::new(body))
   let input = input.with_code_sec(@lib.CodeSec::new(funcs))
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = make_shared_objects_run_module_pass(input)
   assert_eq(output.table_sec.unwrap().0.length(), 1)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     binaryen133_shared_opcode_count(
       output,
@@ -448,10 +448,10 @@ test "Binaryen 133 shared objects checks function casts before returning the sha
   )
   funcs[1] = @lib.Func::new(locals, @lib.Expr::new(body))
   let input = input.with_code_sec(@lib.CodeSec::new(funcs))
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = make_shared_objects_run_module_pass(input)
   assert_eq(output.table_sec.unwrap().0.length(), 1)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     binaryen133_shared_opcode_count(
       output,
@@ -495,7 +495,7 @@ test "make-shared-objects fails closed on concrete function br_on_cast" {
   )
   let input = input.with_code_sec(@lib.CodeSec::new(funcs))
   let validation = @validate.validate_module(input)
-  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_true(validation is Ok(_), msg=@debug.to_string(validation))
   assert_eq(make_shared_objects_run_module_pass(input), input)
 }
 
@@ -578,7 +578,7 @@ test "make-shared-objects fails closed on string producers" {
     ),
   )
   let validation = @validate.validate_module(input)
-  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_true(validation is Ok(_), msg=@debug.to_string(validation))
   assert_eq(make_shared_objects_run_module_pass(input), input)
 }
 
@@ -604,7 +604,7 @@ test "make-shared-objects fails closed on string cast boundaries" {
   )
   let input = input.with_code_sec(@lib.CodeSec::new(funcs))
   let validation = @validate.validate_module(input)
-  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_true(validation is Ok(_), msg=@debug.to_string(validation))
   assert_eq(make_shared_objects_run_module_pass(input), input)
 }
 
@@ -793,9 +793,9 @@ test "Binaryen 133 shared objects refinalizes null-only branch results" {
         ),
       ]),
     )
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = make_shared_objects_run_module_pass(input)
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
     let result = match body[0] {
       @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
@@ -826,9 +826,9 @@ test "Binaryen 133 shared objects lowers null call_ref targets without a functio
   let input = input.with_code_sec(
     @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = make_shared_objects_run_module_pass(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_true(output.table_sec is None)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_true(body.any(fn(i) { i is @lib.Unreachable }))

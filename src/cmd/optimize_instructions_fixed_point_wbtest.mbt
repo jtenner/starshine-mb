@@ -16,7 +16,7 @@ test "dispatcher optimize-instructions reaches the three profile fixed points" {
       ["optimize-instructions"],
       OptimizeOptions::new(),
     ).unwrap()
-    assert_true(@validate.validate_module(once).is_ok())
+    assert_true(@validate.validate_module(once) is Ok(_))
     @debug.assert_eq(@binary.encode_module(once), @binary.encode_module(twice))
   }
 }

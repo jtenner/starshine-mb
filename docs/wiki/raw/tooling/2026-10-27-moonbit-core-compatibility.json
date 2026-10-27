@@ -1,0 +1,189 @@
+{
+  "baseline": "b6d505bcbb020abad5bc3bff2e47bd9cf41e8065",
+  "toolchain_version": "moon 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moon\nmoonc v0.10.17+d971670cd (2026-10-23) ~/.moon/bin/moonc\nmoonrun 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+  "reproduction": {
+    "command": "moon build --release --target wasm",
+    "exit_status": 255,
+    "error": "src/wast/lower_to_lib.mbt:817:56: Type Int has no method reinterpret_as_float.",
+    "compiler_summary": "Failed with 1721 warnings, 1 errors.",
+    "focused_scalar_test_exit_status": 1
+  },
+  "later_compiler_errors": "Dependency compilation then exposed the same removed float method in passes and tests, plus removed Result::is_ok/is_err methods in passes and cmd. These required compatibility changes preserve their original operations.",
+  "source_changes": {
+    "reinterpret_calls": 18,
+    "result_variant_checks": 340,
+    "source_files": 138,
+    "added_f32_fixture_cases": [
+      "+nan:0x1",
+      "+nan:0x7fffff"
+    ],
+    "public_api_changes": false,
+    "formatter_alias_normalization": "Three private cmd parameter annotations changed from Int to Int32."
+  },
+  "final_wast_call_site": "    Ok(Some(bits)) =>\n      return Ok(@lib.F32(Float::reinterpret_from_uint(bits.to_uint())))",
+  "frozen_source_manifest_sha256": "4b986f7efe28c8c040aa7acd2648616bbc5aa3f9c85efa86cacbf226669e8f5b",
+  "source_diff_review": {
+    "baseline": "b6d505bcb",
+    "source_files": 138,
+    "unexpected_changes": []
+  },
+  "builds": [
+    {
+      "command": "moon build --release --target wasm",
+      "exit_status": 0,
+      "summary": "Finished. moon: ran 9 tasks, now up to date (600 warnings, 0 errors)"
+    },
+    {
+      "command": "moon build --release --target wasm-gc",
+      "exit_status": 0,
+      "summary": "Finished. moon: ran 29 tasks, now up to date (2528 warnings, 0 errors)"
+    },
+    {
+      "command": "moon build --release --target native",
+      "exit_status": 0,
+      "summary": "Finished. moon: ran 60 tasks, now up to date (2528 warnings, 0 errors)"
+    }
+  ],
+  "release_artifacts": [
+    {
+      "toolchain": "0.1.20261023",
+      "target": "wasm",
+      "artifact": "_build/wasm/release/build/cmd/cmd.wasm",
+      "sha256": "a5ea2ade2213d38335ad916ef6ea555adc92f83cb489f2595ea88826c5c28373",
+      "size": 7147249
+    },
+    {
+      "toolchain": "0.1.20261023",
+      "target": "wasm-gc",
+      "artifact": "_build/wasm-gc/release/build/cmd/cmd.wasm",
+      "sha256": "133b72bf4623f31732285cf687c2aeddbaad44d411e0b00a5e7bdfd03873d720",
+      "size": 5491941
+    },
+    {
+      "toolchain": "0.1.20261023",
+      "target": "native",
+      "artifact": "_build/native/release/build/cmd/cmd.exe",
+      "sha256": "b65a8c9a458a9271ec6d64f5a609ba84202d65d78f2397e70c1010f052115878",
+      "size": 12851048
+    }
+  ],
+  "focused_tests": {
+    "target": "wasm-gc",
+    "passed_by_package": {
+      "wast": 438,
+      "passes": 2304,
+      "cmd": 187
+    },
+    "passed": 2929,
+    "failed": 0,
+    "benchmark_records_skipped": 65,
+    "explicit_skip_attributes": "Excluded before invocation",
+    "execution": "Current generated test drivers, serial file/index batches below 32 KB. Every requested result and subprocess exit was checked.",
+    "launcher_limit": "The multi-package moon test launcher fails with Argument list too long (os error 7); the compiled drivers pass the focused tests.",
+    "batches": [
+      {
+        "package": "wast",
+        "flavor": "internal",
+        "batch": 0,
+        "completed": 367,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "f52c59a92e09df54a1c5116fbb7e86666f6a6b01ce3de8cc1ed51579ac9c3199"
+      },
+      {
+        "package": "wast",
+        "flavor": "whitebox",
+        "batch": 0,
+        "completed": 23,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "49fb52eea7c7f65329bfeeabf4ade0072116fba8877db42dfd3f58f6d2f339d1"
+      },
+      {
+        "package": "wast",
+        "flavor": "blackbox",
+        "batch": 0,
+        "completed": 48,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "e3005b986f70b8ec081e5a49f2e8598f9d750b1a9d516dcaa79b9b40456e32aa"
+      },
+      {
+        "package": "passes",
+        "flavor": "internal",
+        "batch": 0,
+        "completed": 17,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "6d0e23ad19e450bfb553de0eb64aa67a6b333c12e19c1b4d7a53871f8c6711a6"
+      },
+      {
+        "package": "passes",
+        "flavor": "whitebox",
+        "batch": 0,
+        "completed": 697,
+        "skipped": 65,
+        "exit_status": 0,
+        "artifact_sha256": "f8cbd28001f4aad9270a76ea5529b5ce791d140f7c2ecf8fa02ff08f263f4951"
+      },
+      {
+        "package": "passes",
+        "flavor": "blackbox",
+        "batch": 0,
+        "completed": 78,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "a9135a2c357d4fb9746efb9fc120fdb5b89e9d262e6ba89785274ff5916d5080"
+      },
+      {
+        "package": "passes",
+        "flavor": "blackbox",
+        "batch": 1,
+        "completed": 1423,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "a9135a2c357d4fb9746efb9fc120fdb5b89e9d262e6ba89785274ff5916d5080"
+      },
+      {
+        "package": "passes",
+        "flavor": "blackbox",
+        "batch": 2,
+        "completed": 154,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "a9135a2c357d4fb9746efb9fc120fdb5b89e9d262e6ba89785274ff5916d5080"
+      },
+      {
+        "package": "cmd",
+        "flavor": "internal",
+        "batch": 0,
+        "completed": 122,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "98ada2297ff3db90f654643a31a117e565bf74b62f54da423790ee5249bc21cc"
+      },
+      {
+        "package": "cmd",
+        "flavor": "whitebox",
+        "batch": 0,
+        "completed": 65,
+        "skipped": 0,
+        "exit_status": 0,
+        "artifact_sha256": "08ab119650bc59dbb738136ea512592ea5d3ff2e7844eed87f492b8f01c3b1a1"
+      }
+    ]
+  },
+  "old_toolchain": "Build checks cancelled before execution after the user waived this requirement. API presence alone is not build proof.",
+  "fleet_upgrade": {
+    "installer": "https://cli.moonbitlang.com/install/unix.sh",
+    "exit_status": 0,
+    "version": "moon 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moon\nmoonc v0.10.17+d971670cd (2026-10-23) ~/.moon/bin/moonc\nmoonrun 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+    "executable_sha256": {
+      "moon": "ce8314a2a78354b83e4a68973cfe613de62ee19a9fbab76ce01be67e4bdb71d3",
+      "moonc": "45199d26697c58ba549b6ecc64893c6e6d72da1ff5cbec2dc7d59dae7f2e0a4e",
+      "moonrun": "fc3ba79e37ef1844b69df852ed8bf0450df7ffb6cc0cf09f4d5ea0b1f99ce82f"
+    },
+    "matches_tested_scratch_toolchain": true
+  },
+  "performance": "No runtime performance effect is expected: float reinterpret uses the same %i32.to_f32_reinterpret intrinsic, and result patterns are the exact bodies of the old deprecated methods. No new allocations, copies, loops, or input-size-dependent work. No timing was run."
+}

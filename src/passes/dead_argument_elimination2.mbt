@@ -2536,8 +2536,8 @@ test "DAE2 rejects intentionally invalid unequal-arity subtype families before r
     let input = @wast.wast_to_binary_module(
       "(module (rec (type $P (sub (func (param i32)))) (type $Q (sub $P (func \{signature})))))",
     ).unwrap()
-    assert_true(@validate.validate_module(input).is_err())
-    assert_true(dae2_run_module_pass(input, true).is_err())
+    assert_true(@validate.validate_module(input) is Err(_))
+    assert_true(dae2_run_module_pass(input, true) is Err(_))
   }
 }
 

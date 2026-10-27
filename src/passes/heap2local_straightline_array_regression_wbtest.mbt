@@ -306,11 +306,11 @@ test "heap2local straight-line fixed array replacements preserve old elements an
   for width in [32, 8, 16] {
     for shape in [0, 1, 2] {
       let input = h2l_straight_array_fixture(width, shape)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
         "heap2local",
       ]).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       for
         args in [
           [10, 20, 30],
@@ -351,7 +351,7 @@ test "heap2local straight-line fixed arrays retain constructor import order" {
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "heap2local",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let args = [-129, 65535, 32768]
     let a = h2l_straight_array_pack(args[0], width)
     let b = h2l_straight_array_pack(args[1], width)
@@ -374,11 +374,11 @@ test "heap2local intentionally trapping negative fixed-array index preserves ear
       effects=true,
       invalid_index=true,
     )
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "heap2local",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let expected = (false, [], [(1, 100)])
     @debug.assert_eq(
       h2l_straight_array_observe(input, [10, 20, 30], width),
@@ -397,11 +397,11 @@ test "heap2local intentionally trapping negative fixed-array index preserves ear
 test "heap2local direct fixed-array tee reads preserve allocation effects" {
   for width in [32, 8, 16] {
     let input = h2l_straight_array_tee_fixture(width, 0)
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "heap2local",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let args = [-129, 65535, 32768]
     let expected = (
       true,
@@ -422,11 +422,11 @@ test "heap2local intentionally trapping fixed-array tee reads preserve all alloc
   for width in [32, 8, 16] {
     for index in [-1, 3] {
       let input = h2l_straight_array_tee_fixture(width, index)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
         "heap2local",
       ]).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let args = [7, 9, -129]
       let expected = (false, [], [(1, 7), (2, 9), (3, -129)])
       @debug.assert_eq(h2l_straight_array_observe(input, args, width), expected)
@@ -447,11 +447,11 @@ test "heap2local fixed-array tee stores preserve value effects and intentional b
   for width in [32, 8, 16] {
     for index in [0, -1, 3] {
       let input = h2l_straight_array_tee_fixture(width, index, is_set=true)
-      assert_true(@validate.validate_module(input).is_ok())
+      assert_true(@validate.validate_module(input) is Ok(_))
       let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
         "heap2local",
       ]).unwrap()
-      assert_true(@validate.validate_module(output).is_ok())
+      assert_true(@validate.validate_module(output) is Ok(_))
       let args = [-129, 65535, 32768]
       let expected = (
         index == 0,

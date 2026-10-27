@@ -20,7 +20,7 @@ test "global-refining local grouping remaps names and keeps parameter names" {
     ),
   )
   let output = global_refining_run_module_pass(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.get(1), @lib.ValType::i64())
   @debug.assert_eq(

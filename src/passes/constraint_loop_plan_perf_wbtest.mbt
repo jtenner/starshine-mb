@@ -33,7 +33,7 @@ fn ca_loop_plan_perf_fixture(loop_count : Int32) -> @lib.Module {
 ///|
 fn ca_loop_plan_perf_bench(it : @bench.T, loop_count : Int32) -> Unit {
   let fixture = ca_loop_plan_perf_fixture(loop_count)
-  if @validate.validate_module(fixture).is_err() {
+  if @validate.validate_module(fixture) is Err(_) {
     abort("ConstraintAnalysis typed-loop fixture is invalid")
   }
   let hot = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))

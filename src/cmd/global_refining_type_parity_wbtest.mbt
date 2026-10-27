@@ -12,7 +12,7 @@ test "global-refining command type parity prunes unused generated sibling" {
     ["global-refining"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(
     output.type_sec.unwrap().0.length(),
     input.type_sec.unwrap().0.length() - 1,

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-10-27
 sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
@@ -12,6 +12,7 @@ sources:
   - ../../../src/spec_runner/imports.mbt
   - ../../../src/spec_runner/spec_runner.mbt
   - ../../../src/*/pkg.generated.mbti
+  - ../raw/tooling/2026-10-27-moonbit-core-compatibility.json
 related:
   - ./validation-gates.md
   - ./release-process.md
@@ -55,6 +56,44 @@ The official MoonBit [module](https://docs.moonbitlang.com/en/latest/toolchain/m
 | `keywords` / `description` | WebAssembly-related keywords and toolkit description | Package-discovery metadata, not a substitute for the checked-in README or wiki release notes. |
 
 Starshine does not currently set module-level `preferred-target` or `supported-targets`. Target-specific validation policy instead lives in [`validation-gates.md`](validation-gates.md), where the local full gate uses `bun validate full --profile ci --target wasm-gc`. Release-prep version synchronization between this module metadata and the Node package metadata lives in [`release-process.md`](release-process.md).
+
+### MoonBit core compatibility
+
+The 20261023 core removes integer-side `reinterpret_as_float` and the
+deprecated `Result::is_ok` / `Result::is_err` methods. Use
+`Float::reinterpret_from_uint(bits)` for unsigned f32 bit patterns,
+`Float::reinterpret_from_int(bits)` for signed bit patterns, and
+`result is Ok(_)` / `result is Err(_)` for result checks. The 20261012
+core also supports these forms. The result patterns are the exact bodies
+of the old deprecated methods; the float constructors use the same
+`%i32.to_f32_reinterpret` intrinsic. These spelling changes add no
+allocation, loop, or data copy, including in pass validation fallbacks
+and `precompute_u64_to_f32`.
+
+The original WAST error stops dependency compilation before the compiler
+can check `passes` and `cmd`. A clean WAST package alone therefore does
+not prove a clean workspace. Keep release builds for `wasm`, `wasm-gc`,
+and `native`, plus tests for each changed package, in the compatibility
+check. See [scalar payload construction](../wast/numeric-instruction-authoring.md)
+and the implementations in [`precompute.mbt`](../../../src/passes/precompute.mbt),
+[`global_effects.mbt`](../../../src/passes/global_effects.mbt), and
+[`cmd.mbt`](../../../src/cmd/cmd.mbt).
+
+On Linux, the 20261023 `moon test` launcher can exceed the argument-size
+limit when it lists the large `passes` test package. Compile with
+`--build-only`, then run the generated test drivers with small file/index
+batches from their `__*_test_info.json` files. Preserve `#skip` exclusions,
+exclude `with_bench_args_tests` from timing-free checks, and require a
+completion record for every selected test. A launcher `Argument list too
+long` error alone is not a failed project assertion.
+
+The [2026-10-27 compatibility evidence](../raw/tooling/2026-10-27-moonbit-core-compatibility.json)
+records successful 20261023 release builds for all three targets and 2,929
+focused tests: 438 WAST, 2,304 pass, and 187 command tests on wasm-gc.
+Benchmark entries and explicit skip attributes remain excluded. The shared
+fleet installation now has the same compiler executable hashes as the tested
+scratch installation. Old-toolchain builds were cancelled after that gate
+was waived; dual compatibility is not a measured claim.
 
 ## Package-Level Contract
 

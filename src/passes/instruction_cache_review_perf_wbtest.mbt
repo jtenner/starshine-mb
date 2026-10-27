@@ -540,7 +540,7 @@ fn instruction_review_swap_bench(
     it.keep(pass_require_use_def(ctx, func))
     it.keep(pass_require_effects(ctx, func))
   })
-  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache).is_ok())
+  assert_true(@ir.hot_verify_cached_analyses(func, ctx.cache) is Ok(_))
 }
 
 ///|

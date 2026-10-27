@@ -17,6 +17,6 @@ test "OI size followup scalar_types saved case 3 cmd" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 3)
 }

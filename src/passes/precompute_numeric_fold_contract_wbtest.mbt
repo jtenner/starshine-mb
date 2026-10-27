@@ -17,7 +17,7 @@ fn precompute_assert_numeric_fold_cases(
   let expected_funcs = expected.code_sec.unwrap().0
   for pass_name in ["precompute", "precompute-propagate"] {
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok(), msg=pass_name)
+    assert_true(@validate.validate_module(output) is Ok(_), msg=pass_name)
     let funcs = output.code_sec.unwrap().0
     assert_eq(funcs.length(), cases.length())
     for index, actual in funcs {
@@ -178,7 +178,7 @@ test "precompute retains numeric zero-divisor and conversion traps" {
   let original = input.code_sec.unwrap().0
   for pass_name in ["precompute", "precompute-propagate"] {
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok(), msg=pass_name)
+    assert_true(@validate.validate_module(output) is Ok(_), msg=pass_name)
     let funcs = output.code_sec.unwrap().0
     assert_eq(funcs.length(), cases.length())
     for index, actual in funcs {
@@ -300,7 +300,7 @@ test "precompute folds unary and ordered binary parents over dynamic selects" {
       HotPipelineOptions::new(optimize_level=2),
       [pass_name],
     ).unwrap()
-    assert_true(@validate.validate_module(output).is_ok(), msg=pass_name)
+    assert_true(@validate.validate_module(output) is Ok(_), msg=pass_name)
     let funcs = output.code_sec.unwrap().0
     assert_eq(funcs.length(), cases.length())
     for index, actual in funcs {

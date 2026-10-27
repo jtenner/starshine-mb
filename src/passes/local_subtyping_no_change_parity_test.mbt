@@ -6,7 +6,7 @@ test "local-subtyping no-change parity removes unused signatures" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "local-subtyping",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.code_sec, input.code_sec)
 }

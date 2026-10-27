@@ -25611,7 +25611,7 @@ test "heap2local raw admission retains every supported allocation family" {
 ///|
 test "SimplifyLocals exact cleanup terminates on nested NaNs and preserves literal bits" {
   let nan32 = @lib.Instruction::f32_const(
-    @lib.F32(0x7fc00001U.reinterpret_as_float()),
+    @lib.F32(Float::reinterpret_from_uint(0x7fc00001U)),
   )
   let nan64 = @lib.Instruction::f64_const(
     @lib.F64(0x7ff8000000000001UL.reinterpret_as_double()),
@@ -25630,7 +25630,9 @@ test "SimplifyLocals exact cleanup terminates on nested NaNs and preserves liter
   assert_true(simplify_locals_cleanup_bodies_equal(body, body.copy()))
   assert_false(
     simplify_locals_cleanup_bodies_equal([nan32], [
-      @lib.Instruction::f32_const(@lib.F32(0x7fc00002U.reinterpret_as_float())),
+      @lib.Instruction::f32_const(
+        @lib.F32(Float::reinterpret_from_uint(0x7fc00002U)),
+      ),
     ]),
   )
   assert_false(

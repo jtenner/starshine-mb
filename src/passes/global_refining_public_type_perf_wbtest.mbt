@@ -27,7 +27,7 @@ fn gr_public_type_perf_bench(
 ) -> Unit {
   let fixture = gr_public_type_perf_fixture(type_count, global_count)
   let output = gr_refine_module(fixture)
-  if output == fixture || @validate.validate_module(output).is_err() {
+  if output == fixture || @validate.validate_module(output) is Err(_) {
     abort("GlobalRefining public-type fixture did not refine validly")
   }
   it.bench(fn() { it.keep(gr_refine_module(fixture)) })

@@ -23,5 +23,5 @@ test "fifth audit multivalue allocation return" {
     ]),
   )
   let output = audit_run_module(input, "heap2local")
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

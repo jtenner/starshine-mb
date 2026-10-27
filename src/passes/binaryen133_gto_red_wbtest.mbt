@@ -20,7 +20,7 @@ fn binaryen133_run_gto_module(input : @lib.Module) -> @lib.Module raise {
     Ok(output) => output
     Err(err) => fail("Binaryen 133 descriptor GTO is unavailable: \{err}")
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   output
 }
 
@@ -494,7 +494,7 @@ test "Binaryen 133 GTO preserves distinct private struct identities after prunin
   let input = input.with_code_sec(
     @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = binaryen133_run_gto_module(input)
   let groups = output.type_sec.unwrap().0
   assert_true(

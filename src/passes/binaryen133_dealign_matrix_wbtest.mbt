@@ -10,9 +10,9 @@ fn binaryen133_check_dealign_memory(
   let input = @wast.wast_to_binary_module(
     "(module (memory 1) (func (export \"run\") \{body}))",
   ).unwrap()
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["dealign"]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_eq(body.filter(fn(i) { i == expected }).length(), 1)
   let buf = @buffer.new()
@@ -20,7 +20,7 @@ fn binaryen133_check_dealign_memory(
   assert_eq(buf.to_bytes(), bytes)
   let encoded = @binary.encode_module(output).unwrap()
   let decoded = @binary.decode_module(encoded).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
   assert_eq(decoded.code_sec, output.code_sec)
   let twice = run_hot_pipeline(output, HotPipelineOptions::new(), ["dealign"]).unwrap()
   assert_eq(twice.code_sec, output.code_sec)
@@ -59,9 +59,9 @@ test "Binaryen 133 dealign rewrites nested control and legacy catch bodies" {
   let input = input.with_code_sec(
     @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), nested)]),
   )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["dealign"]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(binaryen133_shared_opcode_count(output, original), 0)
   assert_eq(binaryen133_shared_opcode_count(output, expected), 9)
   let bytes = @buffer.new()
@@ -69,7 +69,7 @@ test "Binaryen 133 dealign rewrites nested control and legacy catch bodies" {
   assert_eq(bytes.to_bytes(), b"\x29\x40\x01\x91\x01")
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
   assert_eq(decoded.code_sec, output.code_sec)
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|

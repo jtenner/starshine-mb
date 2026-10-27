@@ -8,7 +8,7 @@ test "dae2 command result wrapper parity preserves effectful argument order with
     ["dae2"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   assert_false(body.any(fn(i) { i is @lib.Block(_, _) }))
   @debug.assert_eq(body.filter(fn(i) { i is @lib.Call(_) }).length(), 4)

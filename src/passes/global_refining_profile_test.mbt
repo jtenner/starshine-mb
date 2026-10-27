@@ -16,7 +16,7 @@ test "global-refining generated profile refines private globals and preserves ex
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
       "global-refining",
     ]).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let old_globals = input.global_sec.unwrap().0
     let new_globals = output.global_sec.unwrap().0
     if name == "global-refining-export-boundaries" {

@@ -14,6 +14,6 @@ test "OI size followup unused_declarations saved case 6 cmd" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.elem_sec, None)
 }

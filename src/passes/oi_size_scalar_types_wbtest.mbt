@@ -15,7 +15,7 @@ test "OI size followup scalar_types saved case 3 passes" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 3)
 }
 
@@ -35,7 +35,7 @@ test "OI size followup scalar types preserve arithmetic effects and remap live n
   )
   let output = pass_cleanup_unused_type_groups(input)
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 2)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(before)) = input.code_sec.unwrap().0[0]
   let @lib.Func(_, @lib.Expr(after)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(after[0:4].to_array(), before[0:4].to_array())

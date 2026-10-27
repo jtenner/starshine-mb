@@ -1735,7 +1735,7 @@ test "coalesce-locals reuses disjoint live locals above dense-coloring guard" {
   let optimized = coalesce_locals_run_module_pass(input)
   let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
   assert_eq(locals.length(), 1)
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   let before = @binary.encode_module(input).unwrap().length()
   let after = @binary.encode_module(optimized).unwrap().length()
   assert_true(after < before, msg="expected a smaller large sparse function")
@@ -1753,7 +1753,7 @@ test "coalesce-locals large sparse path keeps default reads and overlapping valu
     let optimized = coalesce_locals_run_module_pass(input)
     let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
     assert_eq(locals.length(), 2)
-    assert_true(@validate.validate_module(optimized).is_ok())
+    assert_true(@validate.validate_module(optimized) is Ok(_))
   }
 }
 

@@ -64,10 +64,10 @@ test "DAE transaction identity compares float bits in every structured body and 
   let plus = @lib.Instruction::f32_const(@lib.F32(0.0))
   let minus = @lib.Instruction::f32_const(@lib.F32(-0.0))
   let nan = @lib.Instruction::f32_const(
-    @lib.F32((0x7fc00001 : Int32).reinterpret_as_float()),
+    @lib.F32(Float::reinterpret_from_int((0x7fc00001 : Int32))),
   )
   let other_nan = @lib.Instruction::f32_const(
-    @lib.F32((0x7fc00002 : Int32).reinterpret_as_float()),
+    @lib.F32(Float::reinterpret_from_int((0x7fc00002 : Int32))),
   )
   for kind in 0..<5 {
     assert_false(

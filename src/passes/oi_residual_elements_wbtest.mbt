@@ -13,7 +13,7 @@ test "OI residual elements case 108" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let elems = output.elem_sec.unwrap().0
   @debug.assert_eq(elems.length(), 1)
   @debug.assert_eq(elems[0], input.elem_sec.unwrap().0[0])
@@ -35,7 +35,7 @@ test "OI residual elements remap surviving names and retain distinct declaration
     ),
   )
   let output = oi_cleanup_module_encoding(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(
     output.elem_sec.unwrap().0,
     input.elem_sec.unwrap().0[1:3].to_array(),
@@ -57,7 +57,7 @@ test "OI residual elements keep one duplicate declaration required by ref func" 
     "(module (func) (elem declare func 0) (elem declare func 0) (func ref.func 0 drop))",
   )
   let output = oi_cleanup_module_encoding(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.elem_sec.unwrap().0.length(), 1)
 }
 
@@ -69,7 +69,7 @@ test "OI residual elements retain intentionally unsupported indexed segments" {
   )
   let output = oi_cleanup_module_encoding(input)
   @debug.assert_eq(output.elem_sec, input.elem_sec)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -81,6 +81,6 @@ test "OI residual elements use exports and global initializers as declarations" 
     let input = pass_test_module_from_wat(wat)
     let output = oi_cleanup_module_encoding(input)
     @debug.assert_eq(output.elem_sec, None)
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
   }
 }

@@ -4,7 +4,7 @@ test "global-refining encoding parity groups numeric locals and removes dead sig
     "(module (type (func (result i64))) (type (func (result i64))) (type (func (result i64))) (func (export \"run\") (type 0) (local i64 i32 i64) i64.const 17 local.set 2 local.get 2))",
   )
   let output = global_refining_run_module_pass(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.runs().length(), 2)

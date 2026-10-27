@@ -32,7 +32,7 @@ test "DAE2 pinned-body admission still rejects an intentionally invalid empty-st
       ),
     ]),
   )
-  assert_true(dae2_run_module_pass(invalid, false).is_err())
+  assert_true(dae2_run_module_pass(invalid, false) is Err(_))
 }
 
 ///|
@@ -138,5 +138,5 @@ test "DAE2 pinned-call admission rejects intentionally invalid missing arguments
       ),
     ]),
   )
-  assert_true(dae2_run_module_pass(invalid, false).is_err())
+  assert_true(dae2_run_module_pass(invalid, false) is Err(_))
 }

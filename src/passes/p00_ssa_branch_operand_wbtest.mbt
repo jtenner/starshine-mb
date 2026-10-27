@@ -104,5 +104,5 @@ test "SSA no-merge preserves a body-local branch operand tee that feeds a merge"
   let output = module.with_code_sec(
     @lib.CodeSec::new([@ir.hot_lower_func(func)]),
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

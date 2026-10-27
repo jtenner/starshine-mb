@@ -13,5 +13,5 @@ test "fifth audit local subtyping null call preserves numeric result signature" 
   let output = input.with_code_sec(
     @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

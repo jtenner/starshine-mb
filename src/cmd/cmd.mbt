@@ -4910,9 +4910,9 @@ fn cmd_o4z_late_cleanup_candidate_enabled(
 fn cmd_o4z_original_copy_needed(
   size_portfolio_enabled : Bool,
   stack_carried_simd_trunc_global_write : Bool,
-  input_size : Int,
-  optimized_size : Int,
-  optimized_defined_func_count : Int,
+  input_size : Int32,
+  optimized_size : Int32,
+  optimized_defined_func_count : Int32,
 ) -> Bool {
   size_portfolio_enabled &&
   (
@@ -9886,7 +9886,7 @@ test "full O4z command presets merge private helpers across host boundaries" {
   )
   for preset in ["optimize", "shrink"] {
     let output = optimize_module_with_pass_flags(input, [preset], options).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     let funcs = match output.code_sec {
       Some(@lib.CodeSec(funcs)) => funcs
       None => fail("expected private helper and exported caller")
@@ -10049,7 +10049,7 @@ test "Binaryen 133 command GTO removes an unread private struct field" {
     ["global-type-optimization"],
     OptimizeOptions::new(closed_world=true),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.TypeSec(types) = output.type_sec.unwrap()
   let fields : Array[@lib.FieldType] = []
   let found = [false]
@@ -10084,7 +10084,7 @@ test "Binaryen 133 command shared objects lowers indirect calls" {
     ["make-shared-objects"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(output.table_sec.unwrap().0.length(), 2)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   assert_true(body.any(fn(i) { i is @lib.CallIndirect(_, @lib.TableIdx(1U)) }))
@@ -10100,7 +10100,7 @@ test "Binaryen 133 command GTO remaps inherited fields" {
     ["global-type-optimization"],
     OptimizeOptions::new(closed_world=true),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_true(body.any(fn(i) { i is @lib.StructGet(_, @lib.U32(0U)) }))
   assert_eq(body.filter(fn(i) { i is @lib.I32Const(_) }).length(), 1)
@@ -10117,13 +10117,13 @@ test "Binaryen 133 command tail-call lowers an indirect table64 exit" {
       0x00, 0x0b,
     ]),
   ).unwrap()
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = optimize_module_with_pass_flags(
     input,
     ["tail-call"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   assert_true(body.any(fn(i) { i is @lib.ReturnCallIndirect(_, _) }))
 }
@@ -10138,7 +10138,7 @@ test "Binaryen 133 command GTO preserves canonical packed array identities" {
     ["global-type-optimization"],
     OptimizeOptions::new(closed_world=true),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let groups = output.type_sec.unwrap().0
   assert_eq(groups.length(), 4)
   assert_true(groups.all(fn(g) { g is @lib.SingleRecType(_) }))
@@ -10230,7 +10230,7 @@ test "Binaryen 133 command shared objects refines nested null branch chains" {
     ["make-shared-objects"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   let result = match body[0] {
     @lib.Block(@lib.ValTypeBlockType(vt), _) => vt

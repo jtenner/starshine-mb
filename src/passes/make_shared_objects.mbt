@@ -1535,7 +1535,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       }
     _ => ()
   }
-  if @validate.validate_module(candidate).is_ok() {
+  if @validate.validate_module(candidate) is Ok(_) {
     candidate
   } else {
     mod_

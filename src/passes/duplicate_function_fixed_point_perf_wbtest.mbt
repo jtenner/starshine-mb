@@ -54,7 +54,7 @@ fn dfe_fixed_point_perf_fixture(depth : Int32, wrappers : Int32) -> @lib.Module 
 fn dfe_fixed_point_perf_bench(it : @bench.T, depth : Int32) -> Unit {
   let wrappers = 128
   let fixture = dfe_fixed_point_perf_fixture(depth, wrappers)
-  if @validate.validate_module(fixture).is_err() {
+  if @validate.validate_module(fixture) is Err(_) {
     abort("DFE fixed-point benchmark input is invalid")
   }
   let result = dfe_eliminate_duplicate_functions(fixture)
@@ -64,7 +64,7 @@ fn dfe_fixed_point_perf_bench(it : @bench.T, depth : Int32) -> Unit {
   }
   if !result.changed ||
     survivors != wrappers + depth ||
-    @validate.validate_module(result.mod_).is_err() {
+    @validate.validate_module(result.mod_) is Err(_) {
     abort("DFE fixed-point benchmark did not merge each chain pair")
   }
   it.bench(fn() { it.keep(dfe_eliminate_duplicate_functions(fixture)) })
@@ -83,7 +83,7 @@ test "bench DFE fixed-point chains depth=32 wrappers=128" (it : @bench.T) {
 ///|
 test "DFE fixed-point chain revisits only changed target groups" {
   let input = dfe_fixed_point_perf_fixture(4, 4)
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let result = dfe_eliminate_duplicate_functions(input)
   assert_true(result.changed)
   assert_eq(result.iteration_count, 4)
@@ -91,5 +91,5 @@ test "DFE fixed-point chain revisits only changed target groups" {
     Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 8)
     None => fail("DFE fixed-point chain lost its code section")
   }
-  assert_true(@validate.validate_module(result.mod_).is_ok())
+  assert_true(@validate.validate_module(result.mod_) is Ok(_))
 }

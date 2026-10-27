@@ -95,7 +95,7 @@ test "heap2local straight-line non-null old reads survive local cleanup" {
       ["heap2local", "simplify-locals", "coalesce-locals", "vacuum"],
     ] {
     let output = run_hot_pipeline(input, HotPipelineOptions::new(), passes).unwrap()
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     for args in [[1, 2, 3, 4], [4, 1, 2, 3], [2, 2, 3, 4]] {
       let expected = [args[3], args[0], args[1]]
       @debug.assert_eq(h2l_straightline_nonnull_values(input, args), expected)

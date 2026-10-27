@@ -6,7 +6,7 @@ test "round2 dce catch exit retains following trap" {
     ),
     "dead-code-elimination",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     audit_count(audit_body(output, index=0), fn(i) { i is @lib.GlobalSet(_) }),
     1,

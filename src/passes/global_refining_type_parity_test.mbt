@@ -10,7 +10,7 @@ test "global-refining type parity prunes unused generated siblings" {
         @validate.GenValidConfig::for_profile(profile),
       ).unwrap().wasm_module
     let output = global_refining_run_module_pass(input)
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     @debug.assert_eq(
       output.type_sec.unwrap().0.length(),
       input.type_sec.unwrap().0.length() - 1,
@@ -42,9 +42,9 @@ test "global-refining type parity retains and remaps cast-only type roots" {
         ),
       ]),
     )
-    assert_true(@validate.validate_module(input).is_ok())
+    assert_true(@validate.validate_module(input) is Ok(_))
     let output = global_refining_run_module_pass(input)
-    assert_true(@validate.validate_module(output).is_ok())
+    assert_true(@validate.validate_module(output) is Ok(_))
     @debug.assert_eq(output.type_sec.unwrap().0.length(), 3)
     let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
     let target = @lib.HeapType::new(@lib.TypeIdx::new(0U))

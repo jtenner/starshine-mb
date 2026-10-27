@@ -25,7 +25,7 @@ test "command validator rejects invalid nested frames and concrete polymorphic s
       "(module (func unreachable block i32.add drop end))", "(module (func unreachable loop i32.add drop end))",
       "(module (func unreachable if i32.add drop end))",
     ] {
-    assert_true(p00_validator_command(wat).is_err(), msg=wat)
+    assert_true(p00_validator_command(wat) is Err(_), msg=wat)
   }
 }
 
@@ -53,5 +53,5 @@ test "command validator rejects the saved invalid MergeBlocks raw output" {
     0x40, 0x1a, 0x02, 0x73, 0xd0, 0x73, 0x41, 0x00, 0x0e, 0x01, 0x00, 0x00, 0x0b,
     0x0b,
   ])
-  assert_true(p00_validator_bytes(bytes).is_err())
+  assert_true(p00_validator_bytes(bytes) is Err(_))
 }

@@ -720,7 +720,7 @@ test "full ssa leaves throwing calls inside try-table local writes unchanged" {
     #|    local.get 1))
   let input = pass_test_module_from_wat(source)
   let output = pass_test_run_pipeline(source, ["ssa"]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(before)) = input.code_sec.unwrap().0[1]
   let @lib.Func(_, @lib.Expr(after)) = output.code_sec.unwrap().0[1]
   @debug.assert_eq(after, before)

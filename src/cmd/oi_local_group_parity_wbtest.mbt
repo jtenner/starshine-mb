@@ -95,7 +95,7 @@ test "dispatcher case 15 groups OI locals below Binaryen v132 raw size" {
     encoded.length() < oi_local_group_case_15_binaryen_v132().length(),
   )
   let output = @binary.decode_module(encoded).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(@binary.encode_module(output).unwrap(), encoded)
   let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.runs().length(), 4)
@@ -112,7 +112,7 @@ test "dispatcher case 28 groups OI locals below Binaryen v132 raw size" {
     encoded.length() < oi_local_group_case_28_binaryen_v132().length(),
   )
   let output = @binary.decode_module(encoded).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(@binary.encode_module(output).unwrap(), encoded)
   let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(locals.runs().length(), 4)

@@ -63,7 +63,7 @@ test "command heap2local keeps old owner values until constructor publication" {
     ),
     "heap2local",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(cmd_heap2local_owner_values(output, 0), [100, 11])
   @debug.assert_eq(cmd_heap2local_owner_values(output, 1), [100, 10])
 }

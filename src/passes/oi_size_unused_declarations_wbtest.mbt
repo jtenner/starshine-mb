@@ -12,7 +12,7 @@ test "OI size followup unused_declarations saved case 6 passes" {
   let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
     "optimize-instructions",
   ]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.elem_sec, None)
 }
 
@@ -44,5 +44,5 @@ test "OI size followup unused declarations clear removed names and preserve call
   )
   @debug.assert_eq(output.raw_name_sec_payload, None)
   @debug.assert_eq(output.code_sec, input.code_sec)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

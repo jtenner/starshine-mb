@@ -65,8 +65,8 @@ test "O4z finishes inlining a newly direct immutable table target" {
   let finished = run_hot_pipeline(optimized, options, [
     "directize", "inlining-optimizing", "remove-unused-module-elements", "vacuum",
   ]).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
-  assert_true(@validate.validate_module(finished).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  assert_true(@validate.validate_module(finished) is Ok(_))
   // The existing explicit finish is a concrete output-size control. The full
   // library preset must not retain a call that this bounded finish removes.
   let optimized_bytes = @binary.encode_module(optimized).unwrap()
@@ -90,7 +90,7 @@ test "short public preset retains its existing indirect-call policy" {
   assert_false(names.contains("directize"))
   assert_false(names.contains("inlining-optimizing"))
   let optimized = run_hot_pipeline(input, options, ["optimize"]).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   @debug.assert_eq(dif_test_events(optimized), ["call_indirect"])
 }
 
@@ -114,7 +114,7 @@ test "O4z inline finish preserves side-effectful target arguments" {
     HotPipelineOptions::new(optimize_level=4, shrink_level=4),
     ["optimize"],
   ).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   @debug.assert_eq(dif_test_events(optimized), ["global.set"])
   @debug.assert_eq(dif_test_exported_run_body(optimized), [
     @lib.Instruction::i32_const(@lib.I32(37)),
@@ -129,7 +129,7 @@ test "O4z inline finish preserves side-effectful target arguments" {
       "directize", "inlining-optimizing", "remove-unused-module-elements", "vacuum",
     ],
   ).unwrap()
-  assert_true(@validate.validate_module(finished).is_ok())
+  assert_true(@validate.validate_module(finished) is Ok(_))
   assert_true(
     @binary.encode_module(optimized).unwrap().length() <=
     @binary.encode_module(finished).unwrap().length(),
@@ -157,7 +157,7 @@ test "O4z inline finish keeps mutable table calls indirect" {
     HotPipelineOptions::new(optimize_level=4, shrink_level=4),
     ["optimize"],
   ).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   @debug.assert_eq(dif_test_events(optimized), ["call_indirect"])
 }
 
@@ -181,7 +181,7 @@ test "O4z inline finish preserves argument effects before an out-of-bounds targe
     HotPipelineOptions::new(optimize_level=4, shrink_level=4),
     ["optimize"],
   ).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   @debug.assert_eq(dif_test_events(optimized), ["global.set", "unreachable"])
 }
 

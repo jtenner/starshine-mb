@@ -26615,7 +26615,7 @@ test "optimize-instructions preserves atomic localtee addresses" {
       ]),
     )
   let optimized = optimize_instructions_test_run_module(input)
-  assert_true(@validate.validate_module(optimized).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
   // OI's module cleanup groups the two i32 locals before the i64 local, so the
   // atomic address local moves from 2 to 1 and the i64 result local moves from
@@ -84471,7 +84471,7 @@ fn optimize_instructions_assert_flat_effect_sequence(
   mod_ : @lib.Module,
   count : Int32,
 ) -> Unit raise {
-  assert_true(@validate.validate_module(mod_).is_ok())
+  assert_true(@validate.validate_module(mod_) is Ok(_))
   let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[count]
   assert_eq(locals.length(), 0)
   let expected = [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]
@@ -84493,7 +84493,7 @@ test "optimize-instructions retains trapping string array encode" {
     #|    string.encode_utf8_array
     #|    i32.const 20 i32.shr_u i32.const 20 i32.shr_u))
   let output = pass_test_run_pipeline(source, ["optimize-instructions"]).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     audit_count(audit_body(output), fn(instr) {
       instr is @lib.StringEncodeUtf8Array

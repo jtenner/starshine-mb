@@ -13,7 +13,9 @@ test "single leaf suffixes preserve scalar bits and avoid full state setup" {
       @lib.Instruction::i32_const(@lib.I32(-1)),
       @lib.Instruction::i64_const(@lib.I64(-1L)),
       @lib.Instruction::f32_const(@lib.F32(-0.0)),
-      @lib.Instruction::f32_const(@lib.F32(0x7fc00001U.reinterpret_as_float())),
+      @lib.Instruction::f32_const(
+        @lib.F32(Float::reinterpret_from_uint(0x7fc00001U)),
+      ),
       @lib.Instruction::f64_const(@lib.F64(-0.0)),
       @lib.Instruction::f64_const(
         @lib.F64(0x7ff8000000000001UL.reinterpret_as_double()),

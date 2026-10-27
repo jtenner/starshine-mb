@@ -8,7 +8,7 @@ test "dae2 command signature encoding interns unchanged simple signatures" {
     ["dae2"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.export_sec, input.export_sec)
 }
@@ -23,7 +23,7 @@ test "dae2 command signature encoding interns rewritten simple signatures" {
     ["dae2"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.export_sec, input.export_sec)
 }
@@ -38,7 +38,7 @@ test "dae2-optimizing command signature encoding interns unchanged simple signat
     ["dae2-optimizing"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.export_sec, input.export_sec)
 }
@@ -53,7 +53,7 @@ test "dae2-optimizing command signature encoding interns rewritten simple signat
     ["dae2-optimizing"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   @debug.assert_eq(output.type_sec.unwrap().0.length(), 1)
   @debug.assert_eq(output.export_sec, input.export_sec)
 }

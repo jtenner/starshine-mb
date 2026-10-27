@@ -4,7 +4,7 @@ test "fifth audit command null write nop" {
     "(module (type $S (struct)) (global $g (mut anyref) (struct.new_default $S)) (func (export \"f\") ref.null any nop global.set $g))",
     "global-refining",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -13,7 +13,7 @@ test "fifth audit command null write block" {
     "(module (type $S (struct)) (global $g (mut anyref) (struct.new_default $S)) (func (export \"f\") block (result anyref) ref.null any end global.set $g))",
     "global-refining",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|
@@ -22,5 +22,5 @@ test "fifth audit command null write double nop" {
     "(module (type $S (struct)) (global $g (mut anyref) (struct.new_default $S)) (func (export \"f\") ref.null any nop nop global.set $g))",
     "global-refining",
   )
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

@@ -8,7 +8,7 @@ test "dispatcher hoists matching SIMD lane extract if arms" {
     ["optimize-instructions"],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body.length(), 3)
   @debug.assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
@@ -55,7 +55,7 @@ test "dispatcher closes campaign SIMD result if through seven passes" {
     ],
     OptimizeOptions::new(),
   ).unwrap()
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let pretty = output.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)

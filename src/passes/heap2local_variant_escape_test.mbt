@@ -17,23 +17,23 @@ test "heap2local preserves result-if escapes inside constructor operands" {
     Ok(output) => output
     Err(error) => fail(error)
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(audit_count(audit_body(output), fn(i) { i is @lib.BrIf(_) }), 1)
   let bytes = @binary.encode_module(output).unwrap()
   let decoded = @binary.decode_module(bytes).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|
 fn h2l_variant_escape_test_roundtrip(wat : String) -> Unit raise {
   let input = pass_test_module_from_wat(wat)
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["heap2local"]) {
     Ok(output) => output
     Err(error) => fail(error)
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   assert_eq(
     audit_count(audit_body(output), fn(i) {
       i is @lib.BrIf(_) || i is @lib.BrTable(_, _)
@@ -41,7 +41,7 @@ fn h2l_variant_escape_test_roundtrip(wat : String) -> Unit raise {
     1,
   )
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
 }
 
 ///|
@@ -110,9 +110,9 @@ test "heap2local scalarizes variants with retained operand-block branch targets"
     Ok(output) => output
     Err(error) => fail(error)
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
   let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
-  assert_true(@validate.validate_module(decoded).is_ok())
+  assert_true(@validate.validate_module(decoded) is Ok(_))
   assert_eq(
     audit_count(audit_body(output), fn(i) { i is @lib.StructNew(_) }),
     0,

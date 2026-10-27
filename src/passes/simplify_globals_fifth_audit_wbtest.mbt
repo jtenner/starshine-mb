@@ -46,5 +46,5 @@ test "fifth audit simplify globals preserves continuation target arity" {
     Err(err) => fail("continuation fixture: \{err}")
   }
   let output = sgo_apply_void_dropped_terminal_result_blocks(input)
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

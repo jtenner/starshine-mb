@@ -76,7 +76,7 @@ fn dfe_imported_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
     Some(@lib.TypeSec(types)) if types.length() == count => ()
     _ => abort("DFE import-heavy fixture did not retain imported signatures")
   }
-  if @validate.validate_module(result).is_err() {
+  if @validate.validate_module(result) is Err(_) {
     abort("DFE import-heavy fixture produced an invalid module")
   }
   it.bench(fn() { it.keep(dfe_prune_unused_simple_types(fixture)) })
@@ -90,7 +90,7 @@ test "DFE type pruning retains imported signatures and removes unused tail" {
     Some(@lib.TypeSec(types)) => assert_eq(types.length(), 16)
     None => fail("DFE type pruning removed imported signatures")
   }
-  assert_true(@validate.validate_module(result).is_ok())
+  assert_true(@validate.validate_module(result) is Ok(_))
 }
 
 ///|
@@ -215,7 +215,7 @@ fn dfe_tag_type_prune_perf_fixture(count : Int32) -> @lib.Module {
 ///|
 fn dfe_tag_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_tag_type_prune_perf_fixture(count)
-  if @validate.validate_module(fixture).is_err() {
+  if @validate.validate_module(fixture) is Err(_) {
     abort("DFE tag signature benchmark input is invalid")
   }
   let output = dfe_prune_unused_simple_types(fixture)
@@ -223,7 +223,7 @@ fn dfe_tag_type_prune_perf_bench(it : @bench.T, count : Int32) -> Unit {
     Some(@lib.TypeSec(types)) if types.length() == count + 1 => ()
     _ => abort("DFE tag signature benchmark did not prune only the tail")
   }
-  if @validate.validate_module(output).is_err() {
+  if @validate.validate_module(output) is Err(_) {
     abort("DFE tag signature benchmark output is invalid")
   }
   it.bench(fn() { it.keep(dfe_prune_unused_simple_types(fixture)) })
@@ -277,7 +277,7 @@ fn dfe_unused_type_probe_fixture(count : Int32) -> @lib.Module {
 ///|
 fn dfe_unused_type_probe_bench(it : @bench.T, count : Int32) -> Unit {
   let fixture = dfe_unused_type_probe_fixture(count)
-  if @validate.validate_module(fixture).is_err() {
+  if @validate.validate_module(fixture) is Err(_) {
     abort("DFE unused-type probe fixture is invalid")
   }
   let output = dfe_prune_unused_simple_types(fixture)
@@ -285,7 +285,7 @@ fn dfe_unused_type_probe_bench(it : @bench.T, count : Int32) -> Unit {
     Some(@lib.TypeSec(types)) if types.length() == 1 => ()
     _ => abort("DFE unused-type probe fixture did not prune unused types")
   }
-  if @validate.validate_module(output).is_err() {
+  if @validate.validate_module(output) is Err(_) {
     abort("DFE unused-type probe output is invalid")
   }
   it.bench(fn() { it.keep(dfe_prune_unused_simple_types(fixture)) })
@@ -329,11 +329,11 @@ test "DFE unused-type bulk probe retains a block-only signature" {
         ),
       ]),
     )
-  assert_true(@validate.validate_module(input).is_ok())
+  assert_true(@validate.validate_module(input) is Ok(_))
   let output = dfe_prune_unused_simple_types(input)
   match output.type_sec {
     Some(@lib.TypeSec(types)) => assert_eq(types.length(), 2)
     None => fail("DFE pruned the block-only signature")
   }
-  assert_true(@validate.validate_module(output).is_ok())
+  assert_true(@validate.validate_module(output) is Ok(_))
 }

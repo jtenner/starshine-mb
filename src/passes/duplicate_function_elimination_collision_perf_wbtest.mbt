@@ -55,7 +55,7 @@ test "bench DFE distinct import wrapper collisions=256" (it : @bench.T) {
 ///|
 test "DFE distinct import wrappers remain separate" {
   let fixture = dfe_collision_perf_module(8)
-  assert_true(@validate.validate_module(fixture).is_ok())
+  assert_true(@validate.validate_module(fixture) is Ok(_))
   let result = dfe_eliminate_duplicate_functions(fixture)
   assert_false(result.changed)
   @debug.assert_eq(result.mod_, fixture)
@@ -102,7 +102,7 @@ fn dfe_duplicate_prefix_perf_bench(it : @bench.T, count : Int32) -> Unit {
   }
   if !result.changed ||
     survivors != count - 7 ||
-    @validate.validate_module(result.mod_).is_err() {
+    @validate.validate_module(result.mod_) is Err(_) {
     abort("DFE duplicate-prefix fixture did not retain distinct wrappers")
   }
   it.bench(fn() { it.keep(dfe_eliminate_duplicate_functions(fixture)) })

@@ -69,8 +69,8 @@ test "O4z packs passive zero ranges exposed by helper inlining" {
   )
   let optimized = run_hot_pipeline(input, options, ["optimize"]).unwrap()
   let finished = run_hot_pipeline(optimized, options, ["memory-packing"]).unwrap()
-  assert_true(@validate.validate_module(optimized).is_ok())
-  assert_true(@validate.validate_module(finished).is_ok())
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  assert_true(@validate.validate_module(finished) is Ok(_))
   @debug.assert_eq(lmp_test_passive_payload_bytes(finished), 2)
   @debug.assert_eq(lmp_test_passive_payload_bytes(optimized), 2)
   let optimized_bytes = @binary.encode_module(optimized).unwrap()
@@ -104,7 +104,7 @@ test "O4z packs newly constant passive edge ranges below the interior threshold"
       @debug.assert_eq(lmp_test_passive_payload_bytes(early), length)
       let inlined = run_hot_pipeline(input, options, ["inlining-optimizing"]).unwrap()
       let late_control = run_hot_pipeline(inlined, options, ["memory-packing"]).unwrap()
-      assert_true(@validate.validate_module(late_control).is_ok())
+      assert_true(@validate.validate_module(late_control) is Ok(_))
       @debug.assert_eq(lmp_test_passive_payload_bytes(late_control), 1)
       assert_true(
         @binary.encode_module(late_control).unwrap().length() <
@@ -112,7 +112,7 @@ test "O4z packs newly constant passive edge ranges below the interior threshold"
         msg="explicit packing must improve the \{zero_count}-byte edge fixture".view(),
       )
       let optimized = run_hot_pipeline(input, options, ["optimize"]).unwrap()
-      assert_true(@validate.validate_module(optimized).is_ok())
+      assert_true(@validate.validate_module(optimized) is Ok(_))
       @debug.assert_eq(lmp_test_passive_payload_bytes(optimized), 1)
       let finished = run_hot_pipeline(optimized, options, ["memory-packing"]).unwrap()
       assert_true(
@@ -142,7 +142,7 @@ test "O4z removes newly constant small all-zero passive payloads" {
     @debug.assert_eq(lmp_test_passive_payload_bytes(early), length)
     let inlined = run_hot_pipeline(input, options, ["inlining-optimizing"]).unwrap()
     let late_control = run_hot_pipeline(inlined, options, ["memory-packing"]).unwrap()
-    assert_true(@validate.validate_module(late_control).is_ok())
+    assert_true(@validate.validate_module(late_control) is Ok(_))
     @debug.assert_eq(lmp_test_passive_payload_bytes(late_control), 0)
     assert_true(
       @binary.encode_module(late_control).unwrap().length() <
@@ -150,7 +150,7 @@ test "O4z removes newly constant small all-zero passive payloads" {
       msg="explicit packing must improve the \{length}-byte all-zero fixture".view(),
     )
     let optimized = run_hot_pipeline(input, options, ["optimize"]).unwrap()
-    assert_true(@validate.validate_module(optimized).is_ok())
+    assert_true(@validate.validate_module(optimized) is Ok(_))
     @debug.assert_eq(lmp_test_passive_payload_bytes(optimized), 0)
     let finished = run_hot_pipeline(optimized, options, ["memory-packing"]).unwrap()
     assert_true(

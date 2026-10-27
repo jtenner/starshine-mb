@@ -31,6 +31,6 @@ test "OI local grouping body validation rejects stale local indices" {
     ]),
   )
   assert_false(oi_validate_local_group_changed_bodies(input, invalid))
-  assert_true(@validate.validate_module(invalid).is_err())
+  assert_true(@validate.validate_module(invalid) is Err(_))
   assert_eq(oi_local_group_changed_bodies(input, input).length(), 0)
 }
