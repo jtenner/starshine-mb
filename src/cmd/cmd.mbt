@@ -11432,3 +11432,25 @@ test "coalesce-locals command preserves negative zero beside a default local" {
   }
   @debug.assert_eq(bits, [-2147483648])
 }
+
+///|
+test "BURN-009 dispatcher DCE mixed ordinary and catch payload control remains valid" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (tag $t (param i32)) (func (export \"run\") (param i32) (result i32) block (result i32) i32.const 5 local.get 0 br_if 0 drop try_table (catch $t 0) i32.const 7 throw $t end unreachable end drop i32.const 42))",
+  )
+  let trace : Array[String] = []
+  let output = optimize_module_with_pass_flags_trace(
+    input,
+    ["dead-code-elimination"],
+    OptimizeOptions::new(),
+    fn(line) { trace.push(line) },
+  ).unwrap()
+  ignore(@validate.validate_module(output).unwrap())
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[dead-code-elimination]:done") }),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.to_string(),
+  )
+}

@@ -27,6 +27,21 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   closes the prior measurement task, with its accepted RSS cost explicit.
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### BURN-009 DCE signature-constraint measurement [IR2-DCE-BURN-009]
+
+- **Goal / why:** quantify the correctness-required signature bitset cost;
+  no performance improvement or neutrality is established by the bounded repair.
+- **Deliverables / tasks:** measure ordinary-only, catch-only, mixed catch and
+  mixed continuation targets, many labels and repeated cache invalidations;
+  compare pass time, allocation and output on the same fixtures.
+- **APIs / invariants:** `dead_code_elimination_build_branch_users_by_label`,
+  `dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_branches`;
+  preserve catch/handler signatures and ordinary-only dropped-result removal.
+- **Dependencies / exit / tests:** separate controlled measurement; retain
+  direct owner, label-target and active dispatcher regressions. No benchmark,
+  large fuzz or broad parity closure ran in the repair. See the
+  [reproduction, limits and handoff](docs/wiki/binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md#burn-009-mixed-incoming-edges-2026-10-28).
+
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
 
 - **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;

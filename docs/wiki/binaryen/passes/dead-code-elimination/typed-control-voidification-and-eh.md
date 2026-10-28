@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-28
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
@@ -152,7 +152,7 @@ Starshine has focused and generated coverage for modern `try_table`, including a
 - canonical `src/lib` instructions include `TryTable`, `Throw`, `ThrowRef`, `Resume`, `ResumeThrow`, and `ResumeThrowRef`, but no legacy `Try` or old-EH `Pop` instruction;
 - WAST legacy `try` / `rethrow` input is lowered before optimizer passes: legacy `try` becomes a synthetic block/check shape ending in `unreachable`, and accepted legacy `rethrow` lowers to `unreachable` rather than a preserved old-EH node;
 - `pop` is not represented in the canonical instruction enum, so Binaryen's `hasPop && addedBlock` nested-pop repair has no local pass-time analogue to run;
-- DCE reads `hot_continuation_targets(...)` into its incoming-label bitset, so a handler destination blocks result voidification even when its surrounding `drop` makes the result appear dead;
+- DCE reads `hot_continuation_targets(...)` into its incoming-label bitset. This protects handler-only targets; the broader claim that it protected mixed ordinary/handler targets was incomplete (see BURN-009 below);
 - focused direct-HOT and active-dispatcher regressions cover a handler-targeted `(ref null cont)` block whose ordinary return path is unreachable. Before the repair, DCE changed the block result to `void`; final writeback validation restored the original after reporting a resume-handler label arity mismatch.
 
 Reopen the remaining legacy boundary if Starshine adds canonical old-EH `try`/`pop`, or if Binaryen changes DCE so the same safety issue has a modern `try_table`/`throw_ref` equivalent.
@@ -164,3 +164,72 @@ Reopen the remaining legacy boundary if Starshine adds canonical old-EH `try`/`p
 - Keep `if`, `loop`, `try`, and `try_table` as separate special cases.
 - Preserve the exact EH repair trigger for any future old-EH representation: `hasPop && addedBlock`.
 - Treat stack-switching handler labels as part of the real liveness boundary.
+
+## BURN-009: mixed incoming edges (2026-10-28)
+
+At unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`, the
+original `workers/control/burn_control_dce_v4_wbtest.mbt` from the evidence
+packet at `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6` reproduces one direct
+HOT failure and one passing public-pipeline control. A dropped i32 block has
+an ordinary conditional branch carrying 5 and a `try_table` catch carrying
+tag payload 7. Input validation, HOT verification and initial lowering pass.
+Direct DCE changes the block to void and removes the ordinary payload;
+lowered validation then reports `catch types (payload) do not match label types`.
+This establishes an invalid direct API output, not a public defect or runtime
+change. The original test now lives in the implementing file. Local replay
+compiled it with `moon test src/passes/burn_control_dce_v4_wbtest.mbt --target js
+-j 1`; Node was absent, so Bun executed the generated whitebox JS with
+`file_and_index=[["burn_control_dce_v4_wbtest.mbt",[{"start":0,"end":2}]]]`:
+one pass, one assertion failure with the exact diagnostic above. The generated
+runner itself exits zero even when its result records contain a failure.
+Subsequent Moon commands use a temporary `node` symlink to Bun. A separate
+baseline mixed-continuation regression fails after lowering; the ordinary-only
+optimization control passes. The dispatcher baseline returns valid output but
+uses invalid-lower fallback; the new dispatcher test requires valid completion
+without that fallback, rather than claiming an existing public invalid result.
+
+The owning dropped-result rewrite now rejects labels with catch or continuation
+incoming edges. Its ordinary branch-user scan also builds a separate signature
+constraint bitset for all four catch forms and `hot_continuation_targets`
+(shared by Resume, ResumeThrow and ResumeThrowRef). These implicit payloads
+never enter the editable ordinary branch list. The bitset shares the existing
+live/attached filtering and cache invalidation. Ordinary-only result removal
+remains enabled. This supersedes only the earlier mixed-target safety claim;
+it does not close broader pass parity or legacy EH boundaries.
+
+Sources and bounded tests:
+
+- [Owner and direct regression/control](../../../../../src/passes/dead_code_elimination.mbt).
+- [Mixed continuation and existing catch/handler controls](../../../../../src/passes/dead_code_elimination_label_targets_wbtest.mbt).
+- [Active command dispatcher control](../../../../../src/cmd/cmd.mbt), which
+  asserts completed execution without invalid-lower fallback.
+
+No continuation runtime, Binaryen comparison, large fuzz campaign or benchmark
+was run for this repair. The required correctness cost is one label-sized
+bitset per ordinary-user cache build, a node-kind check within that existing
+scan, catch/handler target marking, and an O(1) admission check; no additional
+whole-function scan is introduced. Mixed exceptional targets retain their
+required result/drop and ordinary payload rather than emitting invalid code.
+Performance remains unmeasured. Measurement should compare ordinary-only,
+catch-only, mixed catch and mixed continuation workloads, including many labels
+and repeated cache invalidations, through the owner scan/rewrite and public DCE
+route. Ordinary-only output is covered by a direct arity assertion.
+
+Validation for this bounded repair (serial; `PATH=/data/home/.moon/bin:$PATH`,
+plus the temporary Bun launcher for JS tests):
+
+```sh
+moon info
+moon fmt
+moon test src/passes/dead_code_elimination{,_test,_wbtest,_cache_wbtest,_label_targets_wbtest,_live_repro_test,_round2_test}.mbt --target js -j 1
+moon test src/cmd/cmd.mbt src/cmd/dce_label_targets_wbtest.mbt src/cmd/dce_oi_loop_regression_wbtest.mbt --filter '*DCE*' --target js -j 1
+moon test src/cmd/dce_oi_loop_regression_wbtest.mbt --target js -j 1
+moon build -j 1
+```
+
+Results: 94/94 pass tests, 3/3 dispatcher DCE tests, 1/1 dispatcher loop
+regression, and full build exit 0. Info and formatting also exit 0. Reviewed
+and discarded unrelated formatter churn and generated `.mbti` Int/UInt to
+Int32/UInt32 spelling churn; no public API changes remain. Existing compiler
+warnings remain. The full test suite and broad parity gates were outside the
+requested scope.
