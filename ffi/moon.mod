@@ -7,5 +7,5 @@ preferred_target = "wasm-gc"
 source = "src"
 
 import {
-  "jtenner/starshine@0.3.0",
+  "jtenner/starshine@0.4.0",
 }
