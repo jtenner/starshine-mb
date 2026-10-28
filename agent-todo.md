@@ -1435,6 +1435,12 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P04 — Remaining Coalesce CFG, interference and lower work [IR2-PERF-COALESCE]
 
+- **BURN-006 measurement follow-up:** lexical resume targets now participate in
+  control summaries. Compare handler-heavy cached/uncached summaries and both
+  public passes with a no-resume control; the required linear handler scan
+  allocates no new storage. Focused compiler assertions establish suffix
+  preservation; continuation runtime execution and performance remain unmeasured.
+
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.

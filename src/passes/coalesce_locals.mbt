@@ -511,6 +511,18 @@ fn cl_control_instruction_impl(
       cl_control_note_target(label, frames)
       cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
     }
+    @lib.Resume(_, handlers)
+    | @lib.ResumeThrow(_, _, handlers)
+    | @lib.ResumeThrowRef(_, handlers) => {
+      for handler in handlers {
+        match handler {
+          @lib.ResumeOnLabel(_, label) => cl_control_note_target(label, frames)
+          @lib.ResumeOnSwitch(_) => ()
+        }
+      }
+      // Handler exits and normal resume completion are both reachable.
+      cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+    }
     @lib.BrTable(labels, default_label) => {
       cl_control_note_target(default_label, frames)
       let mut boundary = cl_label_idx_raw(default_label).to_int64()
@@ -9424,4 +9436,67 @@ test "coalesce global copy barrier retains imported effects and active coloring"
   let @lib.Func(locals, _) = funcs[0]
   assert_true(locals.length() < 3)
   assert_eq(@binary.encode_module(input).unwrap(), saved)
+}
+
+///|
+test "BURN-006 coalesce control summary records every resume label" {
+  let tag = @lib.TagIdx::new(0U)
+  let handlers = [
+    @lib.ResumeHandler::on_switch(tag),
+    @lib.ResumeHandler::on_label(tag, @lib.LabelIdx::new(0U)),
+    @lib.ResumeHandler::on_label(tag, @lib.LabelIdx::new(1U)),
+  ]
+  let cont = @lib.TypeIdx::new(0U)
+  for
+    instr in [
+      @lib.Instruction::resume_(cont, handlers),
+      @lib.Instruction::resume_throw(cont, tag, handlers),
+      @lib.Instruction::resume_throw_ref(cont, handlers),
+    ] {
+    let frames = [false, false, false]
+    let facts = cl_control_instruction(instr, frames, None)
+    assert_eq(frames, [false, true, true])
+    assert_false(cl_control_no_fallthrough(facts))
+    assert_eq(cl_control_boundary(facts), CL_CONTROL_NO_ESCAPE)
+    let body = [
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([instr, @lib.Instruction::unreachable_()]),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]
+    let index = CLControlIndex::new()
+    ignore(cl_control_body_boundary(body, [], None, control_index=Some(index)))
+    assert_false(cl_control_no_fallthrough(index.facts[0]))
+    assert_false(cl_instr_never_falls_through(body[0]))
+  }
+}
+
+///|
+test "BURN-006 coalesce resume switch has no lexical exit" {
+  let tag = @lib.TagIdx::new(0U)
+  let cont = @lib.TypeIdx::new(0U)
+  for handlers in [[], [@lib.ResumeHandler::on_switch(tag)]] {
+    for
+      instr in [
+        @lib.Instruction::resume_(cont, handlers),
+        @lib.Instruction::resume_throw(cont, tag, handlers),
+        @lib.Instruction::resume_throw_ref(cont, handlers),
+      ] {
+      let frames = [false]
+      let facts = cl_control_instruction(instr, frames, None)
+      assert_eq(frames, [false])
+      assert_false(cl_control_no_fallthrough(facts))
+      let block = @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([instr, @lib.Instruction::unreachable_()]),
+      )
+      assert_true(cl_instr_never_falls_through(block))
+    }
+  }
 }

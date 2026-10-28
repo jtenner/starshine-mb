@@ -1,3 +1,12 @@
+### 2026-10-28 — BURN-006 resume-handler reachability
+
+- Coalesce control summaries record all lexical resume handler exits without
+  suppressing normal fallthrough or inventing switch-handler targets. The
+  [pass dossier](binaryen/passes/coalesce-locals/starshine-strategy.md#resume-handler-reachability-burn-006-october-28-2026)
+  records the unchanged-master 15-failure reproduction, focused coverage,
+  required handler-scan cost, and continuation-runtime/measurement limits.
+  This closes only BURN-006's summary omission, not broad pass parity.
+
 ### 2026-10-28 — BURN-005 Heap2Local initializer order
 
 - Reproduced eight wrong array results on unchanged master with the committed evidence fixture and Bun runtime, while inputs and lift/lower controls returned 7. Retain the existing donor order during direct forwarding; focused behavior and dispatcher regressions cover the repair. See the [repair and evidence limits](binaryen/passes/heap2local/index.md#october-28-2026--burn-005-initializer-forwarding). No performance or broad parity signoff is claimed.

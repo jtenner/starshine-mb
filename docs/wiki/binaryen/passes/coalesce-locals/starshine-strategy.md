@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-28
 sources:
   - ../../../../../src/passes/coalesce_artifact_tiny_perf_wbtest.mbt
   - ../../../../../src/passes/coalesce_bounded_test.mbt
@@ -36,6 +36,46 @@ related:
 ---
 
 # Starshine Strategy For `coalesce-locals`
+
+## Resume-handler reachability (BURN-006, October 28, 2026)
+
+`cl_control_instruction_impl` must record every `ResumeOnLabel` target for
+`Resume`, `ResumeThrow`, and `ResumeThrowRef` against the existing lexical
+frame stack. Resume retains normal fallthrough; `ResumeOnSwitch` has no
+lexical target. This shared summary feeds both indexed/uncached structured
+liveness and dead-tail cleanup. A trapping normal resume path does not make
+the suffix after a handler's enclosing block unreachable.
+
+On unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`, the
+[regression matrix](../../../../../src/passes/coalesce_resume_suffix_wbtest.mbt)
+reproduced 15 failures / 4 passes: twelve valid public-pipeline outputs ended
+in `unreachable` instead of the required `ref.null`; three cached summaries
+incorrectly classified the enclosing block as terminal. The matrix covers
+three resume forms, depths 0/1, both public names, and normal-flow controls.
+[Implementing-file tests](../../../../../src/passes/coalesce_locals.mbt) also
+cover uncached/cached summaries, multiple destinations, and switch-only or
+empty handlers; [command tests](../../../../../src/cmd/cmd.mbt) cover both flags.
+The validator's `record_resume_edges` in
+[typecheck.mbt](../../../../../src/validate/typecheck.mbt) supplies the control-edge
+contract. Historical source: BURN-006 in `hunt-findings.md` and the locals
+packet at commit `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`.
+
+This is compiler/control-edge evidence, **not continuation runtime execution**.
+Focused JS tests passed: 31 pass tests (implementing file, regression matrix,
+control-summary and existing resume-handler files) and five command tests.
+`moon build -j 1` passed for the full workspace (default wasm target);
+`moon info` passed and generated `.mbti` changes were reviewed as toolchain
+`Int`/`UInt` alias spelling drift and excluded. `moon fmt src/passes src/cmd`
+formatted the additions; unrelated existing formatting drift was excluded.
+Tests used `--target js -j 1` with Bun standing in for the absent Node command.
+The package-wide filtered launcher hit Linux's argument-size limit; explicit
+file selection passed. No Binaryen comparison, broad parity signoff, benchmark,
+or large fuzz run was performed in this focused repair. Recording targets needs
+one linear handler scan per visited resume and updates existing frame bits;
+it adds no arrays, copies, subtree walks, or repeated summary construction.
+Measure handler-heavy
+cached/uncached summaries and both public passes against a no-resume control
+before claiming performance neutrality or a gain.
 
 ## Artifact-scale flat coalescing
 
