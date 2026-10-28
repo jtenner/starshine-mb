@@ -8568,6 +8568,7 @@ priv struct OptimizeInstructionsScratch {
   mut next_cross_seen_stamp : Int32
   mut same_local_sources_revision : Int32
   mut same_local_sources : @ir.HotLocalReadSources?
+  mut same_local_previous_nodes : Array[Int32]
 }
 
 ///|
@@ -8586,6 +8587,7 @@ fn OptimizeInstructionsScratch::new(
     next_cross_seen_stamp: 0,
     same_local_sources_revision: -1,
     same_local_sources: None,
+    same_local_previous_nodes: [],
   }
 }
 
@@ -39860,8 +39862,11 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
 ///|
 // A local index names storage, not a captured value. Use the expanded flow
 // snapshot for written locals: operand-nested control can separate leaf reads.
-// Unwritten locals need no flow allocation. Cache only within one revision;
-// scalar queries avoid copying either reaching-source row.
+// Adjacent reads in one expanded CFG block observe the same state, even when
+// the block has several reaching definitions. Cache their predecessor nodes
+// with the source rows, once per revision. Queries allocate nothing and do
+// not scan the block or compare ambiguous source sets. Unwritten locals need
+// neither analysis.
 fn optimize_instructions_same_local_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -39886,14 +39891,25 @@ fn optimize_instructions_same_local_value(
   let sources = match scratch.same_local_sources {
     Some(sources) if scratch.same_local_sources_revision == revision => sources
     _ => {
-      let sources = @ir.local_graph_build_read_sources(
-        func,
-        @ir.cfg_build(func, expand_operand_control=true),
-      )
+      let cfg = @ir.cfg_build(func, expand_operand_control=true)
+      let previous_nodes = Array::make(@ir.hot_node_count(func), -1)
+      for block_id in 0..<@ir.cfg_block_count(cfg) {
+        let mut previous = -1
+        for node_id in @ir.cfg_block_get(cfg, block_id).nodes {
+          previous_nodes[node_id] = previous
+          previous = node_id
+        }
+      }
+      let sources = @ir.local_graph_build_read_sources(func, cfg)
+      scratch.same_local_previous_nodes = previous_nodes
       scratch.same_local_sources = Some(sources)
       scratch.same_local_sources_revision = revision
       sources
     }
+  }
+  if scratch.same_local_previous_nodes[rhs_id] == lhs_id ||
+    scratch.same_local_previous_nodes[lhs_id] == rhs_id {
+    return true
   }
   @ir.local_read_source_count_for_get(sources, lhs_id) == 1 &&
   @ir.local_read_source_count_for_get(sources, rhs_id) == 1 &&
@@ -43347,5 +43363,221 @@ test "BURN-003 same-local value proof preserves controls and rejects nested writ
       }
       assert_true(checked)
     }
+  }
+}
+
+///|
+test "BURN-003 same-local integer facts fold adjacent reads after an EH join" {
+  for width in ["i32", "i64"] {
+    for
+      op in [
+        "sub", "xor", "and", "or", "eq", "ne", "lt_s", "lt_u", "le_s", "le_u", "gt_s",
+        "gt_u", "ge_s", "ge_u",
+      ] {
+      let result = if op == "sub" || op == "xor" || op == "and" || op == "or" {
+        width
+      } else {
+        "i32"
+      }
+      let input = pass_test_module_from_wat(
+        "(module (tag $e) (func (param i32) (result \{result}) (local \{width}) \{width}.const 7 local.set 1 (try (do (if (local.get 0) (then (throw $e))) \{width}.const 9 local.set 1) (catch_all nop)) local.get 1 local.get 1 \{width}.\{op}))",
+      )
+      let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+      let ctx = HotPassContext::new(
+        optimize_instructions_descriptor(),
+        @ir.HotAnalysisCache::new(),
+        HotPipelineVerifyPolicy::after_each_pass(),
+        false,
+        fn(_) { () },
+      )
+      let scratch = OptimizeInstructionsScratch::new(
+        @ir.hot_node_count(func),
+        @ir.hot_local_count(func),
+      )
+      let dead = @bitset.BitSet::new(@ir.hot_node_count(func))
+      let sources = @ir.local_graph_build_read_sources(
+        func,
+        @ir.cfg_build(func, expand_operand_control=true),
+      )
+      let mut checked = false
+      for id in 0..<@ir.hot_node_count(func) {
+        let node = @ir.hot_node_get(func, id)
+        if node.op is @ir.HotOp::Binary || node.op is @ir.HotOp::Compare {
+          let instr = @ir.hot_instr_payload_get(func, node.imm0).instr
+          let lhs = @ir.hot_child_get(func, id, 0)
+          let rhs = @ir.hot_child_get(func, id, 1)
+          assert_true(@ir.local_read_source_count_for_get(sources, lhs) > 1)
+          assert_true(@ir.local_read_source_count_for_get(sources, rhs) > 1)
+          if node.op is @ir.HotOp::Compare {
+            guard OiSameLocalIntegerCompareFact::from_operands(
+                ctx, func, dead, scratch, instr, lhs, rhs,
+              )
+              is Some(fact) else {
+              fail("expected \{width}.\{op} to fold adjacent EH-join reads")
+            }
+            assert_eq(
+              fact.result,
+              @lib.I32(
+                if op == "eq" ||
+                  op == "le_s" ||
+                  op == "le_u" ||
+                  op == "ge_s" ||
+                  op == "ge_u" {
+                  1
+                } else {
+                  0
+                },
+              ),
+            )
+            fact.apply(ctx, func, id)
+            assert_true(@ir.hot_node_op(func, id) is @ir.HotOp::Const)
+          } else {
+            guard OiSameLocalIntegerBinaryFact::from_operands(
+                ctx, func, dead, scratch, instr, lhs, rhs,
+              )
+              is Some(fact) else {
+              fail("expected \{width}.\{op} to fold adjacent EH-join reads")
+            }
+            if op == "and" || op == "or" {
+              assert_true(fact.kind is SameLocalBinaryRetainLeft)
+              assert_eq(fact.retained_id, lhs)
+            } else if width == "i32" {
+              assert_true(fact.kind is SameLocalBinaryConstI32Zero)
+            } else {
+              assert_true(fact.kind is SameLocalBinaryConstI64Zero)
+            }
+            fact.apply(ctx, func, id)
+            if op == "and" || op == "or" {
+              assert_true(@ir.hot_node_op(func, id) is @ir.HotOp::LocalGet)
+            } else {
+              assert_true(@ir.hot_node_op(func, id) is @ir.HotOp::Const)
+            }
+          }
+          checked = true
+        }
+      }
+      assert_true(checked)
+    }
+  }
+}
+
+///|
+test "BURN-003 EH-join reads reject intervening and operand-nested writes" {
+  for width in ["i32", "i64"] {
+    for
+      middle in [
+        "block \{width}.const 11 local.set 1 end",
+        "block block \{width}.const 11 local.set 1 end end",
+        "local.get 0 if \{width}.const 11 local.set 1 end",
+        "loop \{width}.const 11 local.set 1 end",
+      ] {
+      let input = pass_test_module_from_wat(
+        "(module (tag $e) (func (param i32) (result \{width}) (local \{width}) \{width}.const 7 local.set 1 (try (do (if (local.get 0) (then (throw $e))) \{width}.const 9 local.set 1) (catch_all nop)) local.get 1 \{middle} local.get 1 \{width}.sub))",
+      )
+      let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+      let ctx = HotPassContext::new(
+        optimize_instructions_descriptor(),
+        @ir.HotAnalysisCache::new(),
+        HotPipelineVerifyPolicy::after_each_pass(),
+        false,
+        fn(_) { () },
+      )
+      let scratch = OptimizeInstructionsScratch::new(
+        @ir.hot_node_count(func),
+        @ir.hot_local_count(func),
+      )
+      let dead = @bitset.BitSet::new(@ir.hot_node_count(func))
+      let mut checked = false
+      for id in 0..<@ir.hot_node_count(func) {
+        if @ir.hot_node_op(func, id) is @ir.HotOp::Binary {
+          let lhs = @ir.hot_child_get(func, id, 0)
+          let rhs = @ir.hot_child_get(func, id, 1)
+          let sources = @ir.local_graph_build_read_sources(
+            func,
+            @ir.cfg_build(func, expand_operand_control=true),
+          )
+          assert_true(@ir.local_read_source_count_for_get(sources, lhs) > 1)
+          assert_false(
+            optimize_instructions_same_local_value(
+              ctx, func, dead, scratch, lhs, rhs,
+            ),
+          )
+          checked = true
+        }
+      }
+      assert_true(checked)
+    }
+  }
+}
+
+///|
+test "BURN-003 EH adjacency cache invalidates when a write separates the reads" {
+  for width in ["i32", "i64"] {
+    let input = pass_test_module_from_wat(
+      "(module (tag $e) (func (param i32) (result \{width}) (local \{width} \{width}) \{width}.const 7 local.set 1 (try (do (if (local.get 0) (then (throw $e))) \{width}.const 9 local.set 1) (catch_all nop)) local.get 1 local.get 1 \{width}.sub))",
+    )
+    let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let ctx = HotPassContext::new(
+      optimize_instructions_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    let scratch = OptimizeInstructionsScratch::new(
+      @ir.hot_node_count(func),
+      @ir.hot_local_count(func),
+    )
+    let dead = @bitset.BitSet::new(@ir.hot_node_count(func))
+    let binary = func.roots[func.roots.length() - 1]
+    assert_true(@ir.hot_node_op(func, binary) is @ir.HotOp::Binary)
+    let lhs = @ir.hot_child_get(func, binary, 0)
+    let rhs = @ir.hot_child_get(func, binary, 1)
+    assert_true(
+      optimize_instructions_same_local_value(ctx, func, dead, scratch, lhs, rhs),
+    )
+    // Adjacent reads of different locals must not share the value proof.
+    @ir.hot_local_node_id_set(func, rhs, 2)
+    assert_false(
+      optimize_instructions_same_local_value(ctx, func, dead, scratch, lhs, rhs),
+    )
+    @ir.hot_local_node_id_set(func, rhs, 1)
+    assert_true(
+      optimize_instructions_same_local_value(ctx, func, dead, scratch, lhs, rhs),
+    )
+    let value = if width == "i32" {
+      @ir.hot_build_const_i32(func, @lib.I32(11))
+    } else {
+      @ir.hot_build_const_i64(func, @lib.I64(11L))
+    }
+    let write = @ir.hot_build_local_set(func, 1, value)
+    // Retain the read ID but move its evaluation after the new write.
+    let later = @ir.hot_build_local_get(func, 1)
+    @ir.hot_preserve_replacement_position(func, rhs, later)
+    let block = @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(
+        if width == "i32" {
+          @lib.ValType::i32()
+        } else {
+          @lib.ValType::i64()
+        },
+      ),
+      [write, rhs],
+    )
+    @ir.hot_child_set(func, binary, 1, block)
+    let sources = @ir.local_graph_build_read_sources(
+      func,
+      @ir.cfg_build(func, expand_operand_control=true),
+    )
+    // These rows establish that the same live leaves now straddle the write.
+    assert_true(@ir.local_read_source_count_for_get(sources, lhs) > 1)
+    assert_eq(@ir.local_read_source_count_for_get(sources, rhs), 1)
+    let source = @ir.local_read_source_value_for_get(sources, rhs, 0)
+    assert_false(source.is_entry)
+    assert_eq(source.index, write)
+    assert_false(
+      optimize_instructions_same_local_value(ctx, func, dead, scratch, lhs, rhs),
+    )
   }
 }
