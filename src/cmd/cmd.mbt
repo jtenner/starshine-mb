@@ -11432,3 +11432,123 @@ test "coalesce-locals command preserves negative zero beside a default local" {
   }
   @debug.assert_eq(bits, [-2147483648])
 }
+
+///|
+test "BURN-006 command coalesce preserves resume-handler suffixes" {
+  for pass in ["coalesce-locals", "coalesce-locals-cfg"] {
+    for form in 0..<3 {
+      for nested in [false, true] {
+        let input = cmd_coalesce_resume_suffix_module(form, nested, true)
+        let output = cmd_deep_audit_run_module(input, pass)
+        assert_true(@validate.validate_module(output) is Ok(_))
+        assert_true(
+          cmd_deep_audit_body(output).last() is Some(@lib.RefNull(_)),
+          msg="required null suffix after on_label was removed",
+        )
+      }
+    }
+  }
+}
+
+///|
+fn cmd_coalesce_resume_suffix_module(
+  form : Int32,
+  nested : Bool,
+  terminal : Bool,
+) -> @lib.Module {
+  let cont = @lib.TypeIdx::new(1U)
+  let cont_ref = @lib.ValType::ref_null(@lib.HeapType::new(cont))
+  let types = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::cont(@lib.TypeIdx::new(0U))),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+    ),
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([cont_ref, @lib.ValType::ref_null_exn()], [cont_ref]),
+      ),
+    ),
+  ])
+  let inner : Array[@lib.Instruction] = []
+  if nested {
+    for _ in 0..<16 {
+      inner.push(@lib.Instruction::nop())
+    }
+  }
+  if form == 0 {
+    inner.push(@lib.Instruction::i32_const(0))
+  }
+  if form == 2 {
+    inner.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  }
+  inner.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  let handlers = [
+    @lib.ResumeHandler::on_label(
+      @lib.TagIdx::new(0U),
+      @lib.LabelIdx::new(if nested { 1U } else { 0U }),
+    ),
+  ]
+  inner.push(
+    if form == 0 {
+      @lib.Instruction::resume_(cont, handlers)
+    } else if form == 1 {
+      @lib.Instruction::resume_throw(cont, @lib.TagIdx::new(1U), handlers)
+    } else {
+      @lib.Instruction::resume_throw_ref(cont, handlers)
+    },
+  )
+  inner.push(@lib.Instruction::drop())
+  if terminal {
+    inner.push(@lib.Instruction::unreachable_())
+  }
+  let outer : Array[@lib.Instruction] = if nested {
+    [@lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(inner))]
+  } else {
+    inner
+  }
+  if terminal {
+    outer.push(@lib.Instruction::unreachable_())
+  } else {
+    outer.push(@lib.Instruction::ref_null(@lib.HeapType::new(cont)))
+  }
+  @lib.Module::new()
+  .with_type_sec(types)
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(4U)]))
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_tag_sec(
+    @lib.TagSec::new([
+      @lib.TagType::new(@lib.TypeIdx::new(2U)),
+      @lib.TagType::new(@lib.TypeIdx::new(3U)),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(cont_ref),
+            @lib.Expr::new(outer),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::ref_null(@lib.HeapType::new(cont)),
+        ]),
+      ),
+    ]),
+  )
+}

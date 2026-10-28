@@ -1,3 +1,12 @@
+### 2026-10-28 — BURN-006 resume-handler reachability
+
+- Coalesce control summaries record all lexical resume handler exits without
+  suppressing normal fallthrough or inventing switch-handler targets. The
+  [pass dossier](binaryen/passes/coalesce-locals/starshine-strategy.md#resume-handler-reachability-burn-006-october-28-2026)
+  records the unchanged-master 15-failure reproduction, focused coverage,
+  required handler-scan cost, and continuation-runtime/measurement limits.
+  This closes only BURN-006's summary omission, not broad pass parity.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.
