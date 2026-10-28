@@ -28331,3 +28331,11 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — R1-06 nested exact matching
+
+- Confirmed the original four-struct rejection on unchanged master and renewed
+  independent wasm-tools validation. Replaced incomplete structural-helper fuel
+  with the existing active-pair cycle rule; declared-subtype search is unchanged.
+- Preserved bounded chain boundaries, unequal leaves and recursive backedge
+  controls. See the [evidence, termination argument and measurement limits](tooling/r1-06-matching-termination.md).

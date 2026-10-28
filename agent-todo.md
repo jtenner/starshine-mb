@@ -11,6 +11,21 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — R1-06 matching measurement [IR2-VALIDATE-R1-06]
+
+- **Goal / why:** measure complete exact matching beyond the former premature
+  cutoff; correctness repair is recorded in the [R1-06 dossier](docs/wiki/tooling/r1-06-matching-termination.md).
+- **Deliverables / tasks:** leased time/RSS comparison of shallow/deep equal
+  chains, late unequal leaves and recursive controls; no borrowed-host benchmark.
+- **APIs / invariants:** exact heap/index matching, active pair push/pop;
+  termination, unequal-type rejection and unchanged public API.
+- **Dependencies / exit / tests:** measurement slot and native harness; report
+  traversal/stack costs separately from the incorrect baseline's early exits.
+  Retain the bounded R1-06 tests and original WAT fixture.
+- **Known package failure:** JS `validate.mbt` index 31 misses generated
+  descriptor coverage at line 8677; reproduced with baseline matching code.
+  Outside R1-06; full-package green remains unclaimed.
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key
