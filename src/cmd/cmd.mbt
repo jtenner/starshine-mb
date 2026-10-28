@@ -11836,3 +11836,17 @@ test "BURN-009 dispatcher DCE mixed ordinary and catch payload control remains v
     msg=trace.to_string(),
   )
 }
+
+///|
+test "explicit remove-unused-brs dispatch preserves parameterized reference block consumption" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $b (func (param i32) (result anyref))) (func (param i32) (result anyref) local.get 0 block (type $b) drop ref.null struct end))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["remove-unused-brs"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap() |> ignore
+  @binary.encode_module(output).unwrap() |> ignore
+}

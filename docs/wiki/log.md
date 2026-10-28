@@ -1,3 +1,11 @@
+### 2026-10-28 — BURN-010 direct HOT block refinement
+
+- Reproduced the unchanged-master direct verifier failure and passing public
+  control; preserved the input signature by declining parameterized result
+  refinement at its owner. Zero-parameter narrowing remains covered. See the
+  [evidence, limits, and correctness costs](binaryen/passes/remove-unused-brs/carried-guards-and-result-blocks.md#burn-010-parameterized-result-refinement-2026-10-28).
+  This closes only BURN-010, without broad pass parity or performance signoff.
+
 ### 2026-10-28 — BURN-009 direct DCE catch target signature
 
 - Replayed the original regression on unchanged master: direct HOT DCE emits
