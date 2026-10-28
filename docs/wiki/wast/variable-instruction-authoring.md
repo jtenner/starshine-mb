@@ -172,3 +172,21 @@ Useful validation lanes are ordinary `moon test` for local parser/lowerer/typech
 - Official WebAssembly binary instructions: <https://webassembly.github.io/spec/core/binary/instructions.html>
 - Official WebAssembly validation instructions: <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Local parser/lowerer/typechecker sources listed in the frontmatter above.
+
+## R1-04 parameter-binding roundtrip — 2026-10-28
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`:
+`(module (func (param $x i32) (result i32) local.get $x))` parses and
+lowers before printing, but AST printing drops `$x` from `(param i32)`
+while retaining `local.get $x`; lowering that output fails with
+`unknown local id: $x`. The original R1-04 test was read from
+`6422a44b155026bdbadfac86289c20958fdc21d3:src/wat/r1_binary_text_review_20261025_wbtest.mbt`;
+the full finding and prior-note qualification are in that commit's
+`docs/wiki/tooling/2026-10-25-code-review-r1.md`.
+The general permission to lose source names above does not permit unbound uses.
+
+[Regression tests](../../../src/wat/r1_04_parameter_binding_wbtest.mbt)
+retain the original repro and mixed named/unnamed, explicit type reference,
+import, indirect-call and block type-use cases. Before implementation,
+`moon test src/wat/r1_04_parameter_binding_wbtest.mbt --target wasm-gc -j 1`
+compiled and reported 0/2 passed, both failing on unbound parameter names.
