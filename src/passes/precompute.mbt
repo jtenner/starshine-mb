@@ -11151,17 +11151,32 @@ fn precompute_propagate_collect_condition_const_writes(
   func : @ir.HotFunc,
   node_id : Int32,
   local_consts : Array[@ir.HotConstPayload?],
+  unconditional~ : Bool = true,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
   }
   let node = @ir.hot_node_get(func, node_id)
+  // Structured control can skip or repeat writes, or choose an alternative.
+  // Keep walking to kill stale facts for every local it may write, but only
+  // straight-line writes may establish facts in this shortcut map. The normal
+  // reaching-write analysis remains responsible for proving path consensus.
+  let child_unconditional = unconditional &&
+    (match node.op {
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::If
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable => false
+      _ => true
+    })
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     precompute_propagate_collect_condition_const_writes(
       ctx,
       func,
       @ir.hot_child_get(func, node_id, slot),
       local_consts,
+      unconditional=child_unconditional,
     )
   }
   match node.op {
@@ -11170,11 +11185,15 @@ fn precompute_propagate_collect_condition_const_writes(
       if local_id >= 0 &&
         local_id < local_consts.length() &&
         @ir.hot_child_count(func, node_id) == 1 {
-        local_consts[local_id] = precompute_propagate_prefix_const_payload_from_node(
-          ctx,
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-        )
+        local_consts[local_id] = if unconditional {
+          precompute_propagate_prefix_const_payload_from_node(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+          )
+        } else {
+          None
+        }
       }
     }
     _ => ()
@@ -12779,4 +12798,62 @@ fn precompute_materialize_stack_vectors_for_size(
     }
   }
   mod_
+}
+
+///|
+test "BURN-004 condition facts reject alternative and skipped writes" {
+  for
+    condition in [
+      "local.get 0 if (result i32) i32.const 7 local.tee 1 else i32.const 9 local.tee 1 end",
+      "local.get 0 if (result i32) i32.const 7 local.tee 1 else i32.const 1 end",
+      "block (result i32) i32.const 1 local.get 0 br_if 0 drop i32.const 7 local.tee 1 end",
+      // An earlier unconditional fact must be killed, not retained by skipping control.
+       "i32.const 3 local.tee 1 drop local.get 0 if (result i32) i32.const 7 local.tee 1 else i32.const 1 end",
+    ] {
+    let func = pass_test_lift_first_func(
+      "(module (func (param i32) (result i32) (local i32) \{condition}))",
+    )
+    let ctx = HotPassContext::new(
+      precompute_propagate_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    let facts : Array[@ir.HotConstPayload?] = Array::make(2, None)
+    for i = 0; i < @ir.hot_root_count(func); i = i + 1 {
+      precompute_propagate_collect_condition_const_writes(
+        ctx,
+        func,
+        @ir.hot_root_get(func, i),
+        facts,
+      )
+    }
+    assert_eq(facts[1], None)
+  }
+}
+
+///|
+test "BURN-004 condition facts retain unconditional writes and unrelated locals" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (local i32 i32) i32.const 5 local.tee 2 drop local.get 0 if (result i32) i32.const 7 local.tee 1 else i32.const 9 local.tee 1 end drop i32.const 11 local.tee 1))",
+  )
+  let ctx = HotPassContext::new(
+    precompute_propagate_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let facts : Array[@ir.HotConstPayload?] = Array::make(3, None)
+  for i = 0; i < @ir.hot_root_count(func); i = i + 1 {
+    precompute_propagate_collect_condition_const_writes(
+      ctx,
+      func,
+      @ir.hot_root_get(func, i),
+      facts,
+    )
+  }
+  assert_eq(facts[1], Some(@ir.HotConstPayload::i32_const(@lib.I32(11))))
+  assert_eq(facts[2], Some(@ir.HotConstPayload::i32_const(@lib.I32(5))))
 }

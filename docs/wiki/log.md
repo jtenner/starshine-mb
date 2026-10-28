@@ -28331,3 +28331,11 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — BURN-004 condition-write propagation
+
+- Filed the reproduced direct/public 7-to-9 runtime failure and the structured
+  condition-write invalidation rule in the existing
+  [precompute-propagate strategy](binaryen/passes/precompute-propagate/starshine-strategy.md#burn-004-condition-writes-across-alternative-paths).
+- Scope is BURN-004 only; focused regressions and full build are the validation
+  lane. Performance and broad Binaryen parity remain unmeasured.

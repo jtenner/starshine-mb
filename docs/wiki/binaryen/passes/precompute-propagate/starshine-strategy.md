@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-28
 sources:
   - index.md
   - ../../../../../src/passes/precompute.mbt
@@ -271,3 +271,57 @@ The raw path removes an empty scalar identity block directly when its one input
 and result type are equal. It preserves the already evaluated input and adds
 no nop or HOT lift. This closes the active plain-precompute dispatch gap found
 by the command regression above.
+
+## BURN-004: condition writes across alternative paths
+
+At base `3d1deec7cecf1caaf65b42799777ff52ef210245`, the special
+`precompute_propagate_collect_condition_const_writes` map visited nested
+condition arms as sequential writes. Its marked arm reads bypassed the usual
+reaching-write checks. A condition choosing `local.tee 1` of 7 or 9 followed
+by an outer result-if reading local 1 returned **9 instead of 7** for input 1.
+The focused replay reproduced this through both the direct HOT pass and the
+public pipeline; input, output, and unchanged lift/lower control validated,
+and Bun executed the control correctly. Emission success alone was not proof.
+The original finding and exact helper provenance are BURN-004 in
+`04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6:hunt-findings.md` and that commit's
+`docs/wiki/raw/tooling/2026-10-28-starshine-reset-burn/evidence.tar.gz`
+(`workers/numeric/report.md`, `condition.wat`, and `condition_breadth.wat`).
+
+The shortcut now treats writes inside structured condition control as kills,
+not unconditional facts. It still visits those writes to invalidate earlier
+facts for the same local; simply skipping a control subtree is unsound.
+Straight-line writes after the control and facts for untouched locals remain
+eligible. Agreeing control-path writes can still be proved by the normal
+reaching-write analysis. This conservative shortcut adds one inherited Boolean
+to the existing traversal, with no new arrays, copies, or repeated traversal.
+It does not build a second path-join analysis.
+
+Regression coverage lives in [precompute.mbt](../../../../../src/passes/precompute.mbt)
+and the [command dispatcher](../../../../../src/cmd/cmd.mbt). The bounded
+runtime replay covers differing, one-sided, branch-skipped, stale-prior,
+unconditional, and agreeing writes. Validation is limited to focused tests
+and a full build on the borrowed machine: no benchmark, large fuzz campaign,
+Binaryen comparison, or broad pass-parity closure is claimed.
+
+Focused replay on Moon `0.1.20261023` / core `0.10.17+d971670cd`:
+
+- Unchanged-base runtime: 4 direct/public comparisons, 2 failed with
+  `9 !== 7`; both input-0 controls passed. The unchanged lift/lower control
+  returned the original result. The new condition-map regression also failed
+  before the fix with `Some(I32Const(I32(9))) != None` (1/2 tests failed).
+- After the fix:
+  `moon test src/passes/precompute.mbt src/passes/precompute_propagate_test.mbt src/passes/burn004_replay_wbtest.mbt --target js -j 1`
+  passed 54/54 tests, including six temporary emitters. Bun then executed
+  24/24 explicit expected-result comparisons across the six condition families
+  through direct and public routes, checking the direct lift/lower controls.
+- Node was absent; Moon's initial JS launch failed after compilation. Running
+  the compiled emitter with Bun reproduced the defect. Subsequent Moon JS tests
+  used a temporary `node` symlink to Bun. Temporary emitters and artifacts were
+  removed after validation; committed regression sources remain.
+- Command-dispatch regression and existing precompute command tests:
+  `moon test src/cmd/cmd.mbt --filter '*precompute*' --target js -j 1`
+  passed 7/7. `moon fmt`, `moon info`, and full-workspace
+  `moon build -j 1` completed successfully (build: 27 tasks, 0 errors).
+  Existing compiler warnings remain. API snapshot review found unrelated
+  toolchain primitive-name spelling churn; snapshots were restored because this
+  fix changes no public API. Unrelated formatter changes were also restored.
