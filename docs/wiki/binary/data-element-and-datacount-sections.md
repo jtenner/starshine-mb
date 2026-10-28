@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-10-28
 sources:
+  - https://webassembly.github.io/spec/core/binary/modules.html#element-section
+  - ../../../src/validate/elem_func_nullability_wbtest.mbt
   - ../wast/element-segment-authoring.md
   - data-element-and-datacount-sections.md
   - ../../../src/lib/types.mbt
@@ -65,7 +67,7 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 
 | Concept | Starshine representation | Binary shape | Validation contract |
 | --- | --- | --- | --- |
-| Active function-index list on table `0` | `Elem(Active(TableIdx(0), offset), FuncsElemKind(funcs))` | elem header `0` | functions must exist; table `0` must accept `funcref`; offset is a constant address expression; see [`../validate/constant-expressions.md`](../validate/constant-expressions.md). |
+| Active function-index list on table `0` | `Elem(Active(TableIdx(0), offset), FuncsElemKind(funcs))` | elem header `0` | functions must exist; table `0` must accept `(ref func)`; offset is a constant address expression; see [`../validate/constant-expressions.md`](../validate/constant-expressions.md). |
 | Passive function-index list | `Elem(Passive, FuncsElemKind(funcs))` | elem header `1`, kind byte `0` | functions must exist; no table or offset is checked. |
 | Active function-index list on explicit table | `Elem(Active(tableidx, offset), FuncsElemKind(funcs))` | elem header `2`, table index, offset, kind byte `0` | selected table must exist and accept the segment ref type. |
 | Declarative function-index list | `Elem(Declarative, FuncsElemKind(funcs))` | elem header `3`, kind byte `0` | functions must exist; no table or offset is checked; the function indices count as `ref.func` declarations. |
@@ -75,6 +77,68 @@ Text data segments in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) acce
 | Declarative typed expression list | `Elem(Declarative, TypedExprsElemKind(rt, exprs))` | elem header `7`, ref type, expressions | no table or offset; expressions still typecheck. |
 
 [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) are the canonical local code map for these headers. The `FuncExprsElemKind` cases encode through the expression segment headers and synthesize a `funcref` ref type where the binary form requires one. Function-index element payloads use the same imported-prefix absolute `FuncIdx` model as calls, starts, and exports; see [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). Element function lists and element expression `ref.func` values also participate in the declared-function-reference set described in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). Active element and data modes name table and memory index spaces whose imported-prefix rule and validation order are covered in [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md).
+
+## Function-index segment nullability (F1)
+
+The [Core binary element grammar](https://webassembly.github.io/spec/core/binary/modules.html#element-section)
+assigns **non-null `(ref func)`** to function-index forms 0–3: kind byte `0`
+denotes `(ref func)`, and every index expands to `ref.func`. Form 0 supplies
+that same type implicitly. This is distinct from form 4's nullable `funcref`
+and forms 5–7's supplied reference type. The [active-mode rule](https://webassembly.github.io/spec/core/valid/modules.html#valid-elemmode)
+and [instruction typing rules](https://webassembly.github.io/spec/core/valid/instructions.html#valid-table-init)
+require the segment type to match the active table or the destination of
+`table.init`, `array.init_elem`, or `array.new_elem`; non-null function
+references may flow to nullable destinations,
+while nullable segments cannot flow to non-null destinations.
+
+Manifest item 3 / Starshine F1 was supplied from `crosscheck-findings.md`,
+section F1, on Slipstream branch `crosscheck/slipstream-burn-f1-f5`.
+Its historical PRESENT verdict was **source inference, not executed evidence**.
+On unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`, the new
+[hand-encoded decode/validation regressions](../../../src/validate/elem_func_nullability_wbtest.mbt)
+executed on 2026-10-28: 5 tests, 1 passed and 4 failed. The active fixture
+reported `elem.active: elem type does not match table element type`; the
+passive fixtures independently reported:
+
+- `table.init elem segment type does not match table element type`;
+- `array.init_elem elem segment type does not match array storage type`;
+- `array.new_elem elem segment type does not match array element reftype`.
+
+[`Elem::reftype`](../../../src/lib/types.mbt) now derives non-null `(ref func)`
+for `FuncsElemKind`. This single owning-layer correction covers binary decoding,
+WAST function-list lowering, environment lookup, active validation, and all three
+consumers without changing encodings or explicitly typed expression segments.
+The regression matrix covers decoded forms 0–3 with all three consumers and
+both destination nullabilities, encode/decode validation roundtrips, and nullable
+expression controls (forms 4–6, including both `ref.func` and `ref.null` in form 5).
+Active and declarative segments may be statically consumed even when their
+runtime dropped state or a null array operand would trap; these tests establish
+validation, not runtime execution. No independent validator execution or
+performance measurement is claimed; validity follows the authoritative grammar
+and the segment-to-destination subtype requirement.
+
+### Validation scope and baseline blockers
+
+`moon test src/lib src/validate -j 1` executed 2,073 tests: 2,062 passed,
+11 failed after the fix. Repeating with the original master `types.mbt`
+produced the **same 11 failures plus the four F1 regressions** (2,058 passed,
+15 failed). No new non-F1 failure appeared. Existing failing cases are:
+
+- `validate.mbt`: natural descriptor/string/exn/cast surface coverage;
+- `gen_valid_wbtest.mbt`: forced memory64 data segment, boundary active offsets,
+  descriptor-bearing global initializer, topology no-main/no-export variants,
+  natural recursive GC topology, local-subtyping leaf triggers,
+  optimize-casts leaf triggers, and random-all seed variant reachability;
+- `gen_valid_constraint_wbtest.mbt`: handler bypass of later local writes and
+  aggregate logical OR coverage.
+
+These generator coverage failures remain outside manifest item 3; this is not
+a clean package-suite signoff. The six dedicated F1 tests pass (`moon test -p jtenner/starshine/validate
+--file elem_func_nullability_wbtest.mbt -j 1`), including all four formerly
+failing cases. `moon test src/lib -j 1` passes all 36 tests. Full workspace
+`moon build -j 1` succeeds (default Wasm target); `moon info` reports zero
+errors. Touched MoonBit sources were formatted. API review found only
+current-compiler numeric alias spelling drift in generated `.mbti` files, which was excluded from F1.
 
 ## Data-Count Rules
 

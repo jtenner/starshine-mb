@@ -28603,3 +28603,9 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Full `moon build -j 1` succeeds; formatting and staged/interface diff review
   complete. Temporary build/runner artifacts are removed after validation.
 - No performance measurement, large fuzz lane or other R1 repair is claimed.
+
+### 2026-10-28 — Starshine F1 function-index segment nullability
+
+- Superseded the user-supplied F1 source-inference-only PRESENT verdict with an executed unchanged-master reproduction: active initialization plus passive `table.init`, `array.init_elem`, and `array.new_elem` reject valid non-null destinations (four failing tests, one passing nullable-expression control).
+- Corrected `Elem::reftype` for function-index forms 0–3 using the authoritative Core binary grammar; retained nullable expression semantics and binary encodings. See [the durable evidence and regression map](binary/data-element-and-datacount-sections.md#function-index-segment-nullability-f1).
+- Validation: six focused F1 tests and 36 library tests pass; full `moon build -j 1` passes. The combined touched-package run retains 11 baseline generator failures, independently reproduced with the original master type derivation and tracked in `agent-todo.md`. Generated API spelling drift was reviewed and excluded.

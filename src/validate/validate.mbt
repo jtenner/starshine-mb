@@ -1807,7 +1807,7 @@ fn validate_elem_mode(
 ///|
 pub impl Validate for ElemKind with fn validate(self, env) {
   match self {
-    // elemtype is funcref; initializers are function indices
+    // elemtype is (ref func); initializers are function indices
     FuncsElemKind(fs) => {
       for f in fs {
         if !env.has_func(f) {
