@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
@@ -54,6 +54,12 @@ The official MoonBit [module](https://docs.moonbitlang.com/en/latest/toolchain/m
 | `repository` | `https://github.com/jtenner/starshine-mb` | Repository metadata. |
 | `license` | `Apache-2.0` | Module metadata, not per-package behavior. |
 | `keywords` / `description` | WebAssembly-related keywords and toolkit description | Package-discovery metadata, not a substitute for the checked-in README or wiki release notes. |
+
+The shared filesystem uses a local copy of `moonbitlang/x@0.5.1/fs` in
+[`src/internal/xfs`](../../../src/internal/xfs/README.md), with six native
+stream-cleanup fixes. The registry dependency still supplies Unicode conversion.
+See [module input resource lifetime](module-input-resource-lifetime.md) for
+ownership, regression proof and the measurement handoff.
 
 Starshine does not currently set module-level `preferred-target` or `supported-targets`. Target-specific validation policy instead lives in [`validation-gates.md`](validation-gates.md), where the local full gate uses `bun validate full --profile ci --target wasm-gc`. Release-prep version synchronization between this module metadata and the Node package metadata lives in [`release-process.md`](release-process.md).
 

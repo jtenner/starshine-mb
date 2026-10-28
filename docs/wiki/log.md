@@ -1,8 +1,10 @@
-### 2026-10-28, Compatibility input reader lifetime
+### 2026-10-28, Module input resource lifetime
 
-- Both Node compatibility hosts now release completed byte, string and array readers, including temporary string transfer handles. Other active readers remain usable.
-- Baseline reused hosts retain 1 through 32 handles after 32 failed Starshine decodes; repaired hosts retain zero. Ten focused checks pass. Native dependency cleanup is still in progress. See the [audit and repair record](tooling/module-input-resource-lifetime.md).
-- READY TO MEASURE: successful-read finish handling changes. No timing or heap claim has been made.
+- Both Node compatibility hosts now release completed byte, string and array readers, including temporary transfer handles. Other active readers remain usable.
+- A local filesystem dependency copy closes streams on all six native post-open I/O failures and preserves the original error. The native CLI input adapter is unchanged.
+- Baseline reused hosts retain 1 through 32 handles after 32 failed Starshine decodes; repaired hosts retain zero. Baseline native fault injection leaves a live owned stream in six cases; all twelve repaired cases pass. See the [audit and repair record](tooling/module-input-resource-lifetime.md).
+- Final validation passes: 58 Node tests without skips, twelve native injected cases plus package coexistence, four filesystem tests per target on native/Wasm/WasmGC/JS, and full WasmGC plus native release/debug builds. Native debug needs a larger compiler stack. Existing npm/CI policy drift and unavailable LLVM inputs remain documented limits.
+- READY TO MEASURE: successful-read finish handling changes. No timing or exact heap-byte claim has been made.
 
 ### 2026-10-27, Current MoonBit core compatibility
 

@@ -12,33 +12,122 @@ related:
 
 ## Repair status
 
-The compatibility-host reader repair is complete on
-`fix/starshine-input-resource-lifetime`. The native dependency repair remains
-in progress in this checkpoint. The audit below records the original baseline,
-not the repaired state.
+The two ownership defects are repaired on
+`fix/starshine-input-resource-lifetime`. The audit below records master
+`3d1deec7cecf1caaf65b42799777ff52ef210245`, not the repaired state.
 
-Both Node hosts now remove byte readers at finish. String and string-array
-readers also release their temporary external transfer handles. Active readers
-keep their own snapshots; finishing one reader does not invalidate another
-reader or a byte-array builder.
+Both Node hosts remove byte readers at finish. String and string-array readers
+also release their temporary external transfer handles. Active readers retain
+their own snapshots; finishing one does not invalidate another reader, a child
+string reader or a byte-array builder. The most recent file-content slot
+remains bounded at one input. Decode and optimization code are unchanged.
+
+The pinned dependency has no close fix, including in cached version 0.5.5.
+[`src/internal/xfs`](../../../src/internal/xfs/README.md) therefore carries a
+local copy of its filesystem package, selected by `src/fs/moon.pkg`. This fixes
+the layer that owns the stream and survives clean builds and source packaging.
+The six native error guards save the original error, close once and raise the
+saved error. Failed opens never close; a failed normal close is not retried.
+The native CLI's separate input reader is unchanged. The common API, C bridge,
+Wasm and JS files retain the exact upstream source. The existing public
+`src/fs/pkg.generated.mbti` is unchanged.
+
+### Regression proof
 
 [`node/test/fs-resource-lifetime.test.mjs`](../../../node/test/fs-resource-lifetime.test.mjs)
-observes each host's private Map through test-only instrumentation. On master
-`3d1deec7cecf1caaf65b42799777ff52ef210245`, 32 completed input reads followed by
-Starshine decode errors leave 1 through 32 handles in each reused host. After
-the repair each leaves zero. Success, early finish, repeated I/O errors,
-Unicode strings, array children and overlapping readers have coverage.
-The original eight checks failed before implementation; all ten current
-checks pass. Tests use a directly built, unoptimized FFI WasmGC artifact.
+observes each actual host's private Map through test-only instrumentation.
+On master, 32 completed input reads followed by the specific Starshine
+`Decode(InvalidMagicHeader)` error leave 1 through 32 handles in each reused
+host. The repaired hosts leave zero after every decode. Success, empty reads,
+early finish, repeated I/O errors, Unicode strings, array children, overlapping
+readers and live builders also have coverage. All ten checks fail with the
+baseline host source and pass with the repaired source. Tests use a directly
+built, unoptimized FFI WasmGC artifact rather than an unrelated decoder.
 
-Success-path finish handling changes. This checkpoint is **READY TO MEASURE**,
-not performance signoff. Proposed workloads compare baseline and repaired
-long-lived hosts with successful and invalid 8-byte, 64-KiB and 8-MiB inputs,
-repeated missing-file errors, and argument/directory string transfers. Record
-wall time, heap/allocation samples and retained-handle counts under a quiet
-measurement lease. Byte copying and per-byte loops are unchanged; finish adds
-bounded Map lookups/deletions, and string readers store one source handle.
-No decode or optimization code changes.
+[`tests/resource_lifetime/native.test.mjs`](../../../tests/resource_lifetime/native.test.mjs)
+compiles the exact native dependency owner and C bridge in a temporary package.
+A test-only libc interceptor opens a real stream and injects seek-end, tell,
+rewind, short-read, short-write and flush failures. After each synchronous
+operation returns, tests assert the specific error, zero live owned streams
+and exactly one close. Each case repeats four times in one process. Cleanup
+changes `errno`, so the tests also prove original-error preservation. Open and
+close failures and successful reads/writes are controls. On master the six
+post-open I/O cases fail with one live stream; the other six controls pass.
+The repaired package passes all twelve. This is POSIX native execution;
+Windows execution and LLVM compilation are not claimed.
+
+Reproduction after resolving dependencies and building the Node test artifacts:
+
+```sh
+node --test node/test/fs-resource-lifetime.test.mjs
+node --test tests/resource_lifetime/native.test.mjs
+moon test --target native src/fs
+moon test --target wasm src/fs
+moon test --target wasm-gc src/fs
+moon test --target js src/fs
+```
+
+For baseline replay, place `git show 3d1deec7:node/internal/runtime.js` and
+`git show 3d1deec7:node/internal/wasi-runner.js` in a temporary directory and
+set `STARSHINE_HOST_SOURCE_ROOT` to that directory for the first command.
+Set `STARSHINE_FS_SOURCE` to the installed, unmodified
+`.mooncakes/moonbitlang/x/fs` for the second. Native fault injection is also
+wired into the release-artifacts CI job. A separate passing control links the
+local and upstream native filesystem packages together. Neither test adds
+production counters.
+
+### Validation and limits
+
+The final Node suite passes 58 tests with no skips, including both optional GC
+command lanes. The filesystem suite passes four tests on each of native,
+Wasm, WasmGC and JS. Native injection passes all twelve cases; the additional
+native package-coexistence control also passes.
+
+Full workspace builds pass for WasmGC and native release. Native debug also
+passes with a 64-MiB compiler stack; its first run with the default 8-MiB stack
+hit the compiler's stack overflow while linking the fuzz executable. Direct
+release builds of the FFI WasmGC API and Wasm CLI pass. The tested Node artifact
+copies match those build outputs byte for byte. Frozen source and artifact
+hashes, failure excerpts, commands and exit statuses are recorded in the
+[validation evidence](../raw/tooling/2026-10-28-module-input-resource-lifetime.json).
+
+LLVM checking cannot start because this installation lacks LLVM `prelude.mi`.
+Windows execution is not covered. The higher-level npm rebuild stops at
+existing unsupported-ABI policy drift for
+`binary.compiler_fact_module_opcode_offsets`. The existing CI contract script
+also expects the October 12 toolchain identity while the unchanged setup
+action selects October 23. These unrelated guards are not repaired here.
+The new CI step's YAML and command were checked separately. No package release,
+full default Moon test suite or optimizer fuzz signoff is claimed.
+
+### Measurement handoff
+
+**READY TO MEASURE**, not performance signoff. The branch is
+`fix/starshine-input-resource-lifetime`; use its reported final head as the
+candidate and master `3d1deec7cecf1caaf65b42799777ff52ef210245` as baseline.
+Obtain the coordinator's quiet-host lease before timing.
+
+Success-path finish handling changes. Byte finish adds one checked lookup and
+one deletion. String/array readers record one source-handle field; finish
+adds a checked lookup and two deletions. WasmGC string creation also checks
+whether the source is a temporary transfer handle. Byte copies, per-byte
+loops, decode and optimization are unchanged. Native success paths retain
+upstream operations and allocations; native changes run only after I/O error.
+Handle ownership checks prove release, not an exact heap-byte saving.
+
+Proposed matched workloads:
+
+- Reuse each host for successful and invalid 8-byte, 64-KiB and 8-MiB file
+  inputs. Include short-lived-host controls, empty files and early finishes.
+- Reuse each host for missing-file errors, Unicode argument arrays and directory
+  listings. Keep another reader active across each completed transfer.
+- Exercise shared native `read_file_bytes`, `read_file_sync` and
+  `write_file_bytes`, plus CLI output writes. Keep the CLI's unchanged native
+  input reader as a control. Separate injected error cases from normal I/O.
+- Record wall time, allocation/heap samples, retained handles and owned native
+  stream state. Include warmup, same-build controls, raw samples, exact build
+  hashes and compiler/code-size costs. Long-lived baseline growth requires
+  bounded runs; do not describe a failed or exhausted run as a speed gain.
 
 ## Scope and result
 

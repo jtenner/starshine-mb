@@ -11,6 +11,23 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch: Input resource measurement [IR2-INPUT-RESOURCE-LIFETIME]
+
+- **Goal / why:** measure the repaired host finish path before landing; completed
+  input copies formerly accumulated in reused hosts. Status: READY TO MEASURE.
+- **Deliverables / tasks:** compare both compatibility hosts against master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245` on repeated valid/invalid input,
+  missing-file errors and string-array transfers; include shared native I/O
+  controls. Record runtime, allocation, retained memory and code-size evidence.
+- **APIs / invariants:** `finish_read_byte_array`, `finish_read_string`,
+  `finish_read_string_array`, shared `src/fs` read/write APIs. Preserve active
+  readers, original errors, bytes and decode/optimization behavior.
+- **Dependencies / exit / tests:** obtain the coordinator's measurement lease.
+  Keep host owner-state checks, all twelve native injected cases and focused
+  filesystem suites green. Require measured results before landing to master;
+  [the audit and handoff](docs/wiki/tooling/module-input-resource-lifetime.md)
+  records workloads and known tooling limits.
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key
