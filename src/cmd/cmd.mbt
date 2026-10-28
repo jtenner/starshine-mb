@@ -11758,3 +11758,59 @@ test "BURN-007 command preserves carried global snapshot write" {
     1,
   )
 }
+
+///|
+test "BURN-008 command simplify locals preserves source-local snapshots" {
+  fn execute_i32(func : @lib.Func, arg : Int32) -> Int32 raise {
+    let @lib.Func(body_locals, @lib.Expr(body)) = func
+    let locals = Array::make(body_locals.length() + 1, 0)
+    locals[0] = arg
+    let stack : Array[Int32] = []
+    fn execute(instrs : Array[@lib.Instruction]) -> Unit raise {
+      for instr in instrs {
+        match instr {
+          @lib.Nop => ()
+          @lib.I32Const(@lib.I32(value)) => stack.push(value)
+          @lib.LocalGet(@lib.LocalIdx(idx)) =>
+            stack.push(locals[idx.reinterpret_as_int()])
+          @lib.LocalSet(@lib.LocalIdx(idx)) =>
+            locals[idx.reinterpret_as_int()] = stack.pop().unwrap()
+          @lib.LocalTee(@lib.LocalIdx(idx)) =>
+            locals[idx.reinterpret_as_int()] = stack[stack.length() - 1]
+          @lib.Drop => ignore(stack.pop().unwrap())
+          @lib.I32Add => {
+            let rhs = stack.pop().unwrap()
+            let lhs = stack.pop().unwrap()
+            stack.push(lhs + rhs)
+          }
+          @lib.Block(_, @lib.Expr(nested)) => execute(nested)
+          _ => fail("unsupported BURN-008 fixture instruction: \{instr}")
+        }
+      }
+    }
+    execute(body)
+    assert_eq(stack.length(), 1)
+    stack[0]
+  }
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module (func (export "run") (param $p i32) (result i32) (local $a i32) (local $b i32)
+      #| local.get $p local.set $a local.get $a
+      #| block local.get $a local.set $b i32.const 9 local.set $a end
+      #| local.get $b i32.add))
+    ),
+  )
+  @validate.validate_module(input).unwrap()
+  for pass in ["simplify-locals", "simplify-locals-notee"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    for arg in [0, 7, -3] {
+      assert_eq(execute_i32(input.code_sec.unwrap().0[0], arg), arg + arg)
+      assert_eq(execute_i32(output.code_sec.unwrap().0[0], arg), arg + arg)
+    }
+  }
+}

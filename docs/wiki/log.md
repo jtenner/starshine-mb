@@ -1,3 +1,18 @@
+### 2026-10-28 — BURN-008 block-result source ordering
+
+- Reproduced the unchanged-master wrong result: direct reduced execution gives
+  16 instead of 14 at argument 7; Bun WebAssembly execution gives 9 instead of
+  0 at argument 0. Both validated outputs were behaviorally wrong.
+- Selected block-result promotion now leaves a value at its original root
+  when trailing writes conflict with its source locals. Legal constant and
+  independent-local promotion remains active; the dependency walk adds no
+  arrays or copies. The 390 focused SimplifyLocals tests and 127 overlapping
+  command/regression tests pass, as does the full `moon build -j 1` (wasm).
+  Interface regeneration introduces no API changes.
+- [Repair contract, regression sources and limits](binaryen/passes/simplify-locals/effect-ordering-and-barriers.md#burn-008-block-result-source-dependencies).
+  Performance measurement remains in the [active backlog](../../agent-todo.md#burn-008-block-result-dependency-measurement-ir2-sl-burn-008).
+  No benchmark, large fuzz campaign, or broad parity signoff was performed.
+
 ### 2026-10-28 — BURN-007 carried-global guard repair
 
 - Reproduced on unchanged production base `3d1deec7cecf1caaf65b42799777ff52ef210245`:
