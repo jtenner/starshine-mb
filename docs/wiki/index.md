@@ -7,6 +7,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [R1-06 nested matching repair](tooling/r1-06-matching-termination.md) — Original master rejection confirmed; active index pairs replace incomplete helper-depth fuel, with bounded unequal/recursive controls and measurement limits.
 
 - [R1-09 UTF-8 command input](tooling/cli-command-and-dispatcher.md#r1-09--utf-8-command-text-decoding-october-28-2026) — Original unchanged-master data/config failures, standard decoder policy, focused validation and separate JS baseline limits.
+- [Module input resource lifetime](tooling/module-input-resource-lifetime.md) records the confirmed baseline leaks, host repair checks and measurement handoff.
 
 - [Eight measured DAE gains landed](../../experiment-results.md#final-landing-audit) — All eight native gates and 112 CI fuzz-suite executions pass; all 85 frozen benchmark rows, accepted RSS cost, merge/checkpoint heads and successful pushes are retained. Global lease released to the reserved comparison lane.
 

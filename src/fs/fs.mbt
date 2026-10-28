@@ -1,6 +1,6 @@
 ///|
 /// Minimal filesystem API for shared use across packages.
-/// Backed by `moonbitlang/x/fs`, so it works on native and wasm (WASI runtime).
+/// Backed by a local `moonbitlang/x/fs` copy with native stream cleanup fixes.
 
 ///|
 fn fs_error_message(error : @xfs.IOError) -> String {

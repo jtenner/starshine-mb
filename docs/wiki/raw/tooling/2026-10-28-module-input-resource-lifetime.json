@@ -1,0 +1,498 @@
+{
+  "status": "READY TO MEASURE",
+  "branch": "fix/starshine-input-resource-lifetime",
+  "baseline_commit": "3d1deec7cecf1caaf65b42799777ff52ef210245",
+  "audit_commit": "568284356",
+  "candidate_identity": "Final reported branch head; exact changed source hashes below. Other source files retain the baseline content.",
+  "environment": {
+    "os": "Linux-6.12.113+deb13-amd64-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "moon": "moon 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moon\nmoonc v0.10.17+d971670cd (2026-10-23) ~/.moon/bin/moonc\nmoonrun 0.1.20261023 (3778465 2026-10-23) ~/.moon/bin/moonrun\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+    "node": "v24.22.1",
+    "cc": "cc (Debian 14.2.0-19) 14.2.0"
+  },
+  "frozen_source_sha256": {
+    "moon.mod": "8e44254a53ed7f66e1a59ed9894221f0100a68caf0b07fef6b2dbf289304e08b",
+    "node/internal/runtime.js": "d95cb8725298a02f9a7b364ddb2641131b29dde62dfd89a5671e74a4189fbe26",
+    "node/internal/wasi-runner.js": "3c84a7e0db931a1f53ebd4403bad1e583b28b3943f8756ba32f1c493913bdd15",
+    "node/test/fs-resource-lifetime.test.mjs": "3eedba829dd9c29acc49d470ccce4bcdd88aceda9a84aed3f021a0208798bbe1",
+    "src/fs/fs.mbt": "da0cf8881b4d7031e6f1a49c2985a537beda34cd51008e4db1dc428bd93ad75e",
+    "src/fs/moon.pkg": "fbe17224a59ffbc752a9359803587090b26eaed04afc9def5e1e912610e0cdcc",
+    "src/internal/xfs/fs.mbt": "8fab7c7b509857d29ba80fe0ba0679979020063295adf66d67f631fb9217f406",
+    "src/internal/xfs/fs_js.mbt": "d053fb18883081499443f5c22852e4abf003f3b5f511968776ecc24a3eabfafb",
+    "src/internal/xfs/fs_native.c": "f10144a5cbd2a4fa36fa4f058b1461b6788ec43b9e4fd9bb0be3015e3aa272b0",
+    "src/internal/xfs/fs_native.mbt": "f4583f47e5b9079932d116f6bb3e99535159253f7ce8bfa2c99d4f42fc11cd8d",
+    "src/internal/xfs/fs_wasm.mbt": "01f3a91e96194a90497b8886b382740c86781fef89412c59efff613ab70924e4",
+    "src/internal/xfs/moon.pkg": "525c17bceb860ae48ffa0bbb4d6aaeb93d06c76fd1c7ae7178f83358bbf02061",
+    "src/internal/xfs/pkg.generated.mbti": "9e83d18fc44214bd4c4dfc17cc73ad3419be989235899a39599933a13fea2c9c",
+    "tests/resource_lifetime/native.test.mjs": "5ddf3b697536a996c075a5bc504e75e66e8dd2390184250761dae76251654f43",
+    "tests/resource_lifetime/native_faults.c": "8a492bd22014185d6879323cd3d89b58e8fb3ccda3728544cc4b7e7d4999635e",
+    "tests/resource_lifetime/native_lifetime_wbtest.mbt": "33778e348321d923eec0fb63cf5c4bb104d2cfea17793b954183b71b35f10cea"
+  },
+  "baseline_host_source_sha256": {
+    ".tmp/resource-lifetime/baseline-host/wasi-runner.js": "4fcb98169468e2615a6a97f1d4ccdc7255e351983f7dab08c1574282342c16c0",
+    ".tmp/resource-lifetime/baseline-host/runtime.js": "32479d792643d8f2368144d1745a544d1f2a4dc4001eb4f5ae6a7181561d047e"
+  },
+  "baseline_dependency_archive_sha256": "cdceed523974dbd2833930f70e7e7ee087b77220659c55f87ab678197976aeae",
+  "failing_first": {
+    "host": {
+      "command": "STARSHINE_HOST_SOURCE_ROOT=<exact-master-host-source-directory> node --test node/test/fs-resource-lifetime.test.mjs",
+      "exit_status": 1,
+      "cases": 10,
+      "failed": 10,
+      "each_host_retained_after_32_completed_failed_decodes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "decode_error": "Decode(InvalidMagicHeader)",
+      "output_excerpt": "(node:2728224) ExperimentalWarning: WASI is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n\u2716 ../internal/wasi-runner.js: repeated failed Starshine decodes release input readers (52.268745ms)\n\u2716 ../internal/wasi-runner.js: successful and early-finished byte readers release only their own handles (0.246195ms)\n\u2716 ../internal/wasi-runner.js: repeated I/O errors release strings and their readers (0.617262ms)\n\u2716 ../internal/wasi-runner.js: array and string readers keep overlapping reads alive (0.231068ms)\n\u2716 ../internal/wasi-runner.js: finishing a reader keeps builders and overlapping string readers alive (0.19489ms)\n\u2716 ../internal/runtime.js: repeated failed Starshine decodes release input readers (1.14066ms)\n\u2716 ../internal/runtime.js: successful and early-finished byte readers release only their own handles (0.131834ms)\n\u2716 ../internal/runtime.js: repeated I/O errors release strings and their readers (0.281421ms)\n\u2716 ../internal/runtime.js: array and string readers keep overlapping reads alive (0.176577ms)\n\u2716 ../internal/runtime.js: finishing a reader keeps builders and overlapping string readers alive (0.284206ms)\n\u2139 tests 10\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 10\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 107.620146\n\n\u2716 failing tests:",
+      "output_sha256": "d25f9abccb0776fb90446c2afa067896fa08dc9a1bd0c4b5ea0ec316e48e4b70"
+    },
+    "native": {
+      "command": "STARSHINE_FS_SOURCE=.mooncakes/moonbitlang/x/fs node --test tests/resource_lifetime/native.test.mjs",
+      "exit_status": 1,
+      "inner_moon_exit_status": 2,
+      "inner_passed": 6,
+      "inner_failed": 6,
+      "failure_stages": [
+        "seek-end",
+        "tell",
+        "rewind",
+        "short-read",
+        "short-write",
+        "flush"
+      ],
+      "failure": "Each intended I/O error is observed before the exact owned stream is asserted live: 1 != 0.",
+      "output": "\u2716 native filesystem closes each owned stream on every recoverable I/O failure (531.549829ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 573.316519\n\n\u2716 failing tests:\n\ntest at tests/resource_lifetime/native.test.mjs:12:1\n\u2716 native filesystem closes each owned stream on every recoverable I/O failure (531.549829ms)\n  AssertionError [ERR_ASSERTION]: native lifetime tests\n  stdout:\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:17 (\"read seek-end releases its stream\") failed: fs/native_lifetime_wbtest.mbt:25:5-25:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:32 (\"read tell releases its stream\") failed: fs/native_lifetime_wbtest.mbt:40:5-40:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:47 (\"read rewind releases its stream\") failed: fs/native_lifetime_wbtest.mbt:55:5-55:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:62 (\"read short-read releases its stream\") failed: fs/native_lifetime_wbtest.mbt:70:5-70:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:77 (\"write short-write releases its stream\") failed: fs/native_lifetime_wbtest.mbt:85:5-85:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  [jtenner/resource-lifetime-tests] test fs/native_lifetime_wbtest.mbt:92 (\"write flush releases its stream\") failed: fs/native_lifetime_wbtest.mbt:100:5-100:34@jtenner/resource-lifetime-tests FAILED: `1 != 0`\n  diff:\n  -1 +0\n  Total tests: 12, passed: 6, failed: 6.\n  \n  stderr:\n  Using cached moonbitlang/x@0.5.1\n  Warning: [0029]\n     \u256d\u2500[ /tmp/starshine-native-lifetime-9ikrrF/fs/moon.pkg:6:3 ]\n     \u2502\n   6 \u2502   \"moonbitlang/x/encoding\",\n     \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n     \u2502               \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/x/encoding'\n  \u2500\u2500\u2500\u256f\n  \n  \n  2 !== 0\n  \n      at TestContext.<anonymous> (file:///home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/tests/resource_lifetime/native.test.mjs:31:12)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: 2,\n    expected: 0,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n",
+      "note": "Captured before the local dependency repair and before adding the independent coexistence control."
+    }
+  },
+  "passing_proof": {
+    "host": "All 10 lifetime checks pass as part of the 58-test Node suite; each of 32 completed failed decodes leaves zero retained handles in each reused host. Other live readers and builders remain usable.",
+    "native": "Total tests: 12, passed: 12, failed: 0.\nTotal tests: 1, passed: 1, failed: 0.\n\u2714 native filesystem closes each owned stream on every recoverable I/O failure (880.183311ms)\n\u2714 local and upstream native filesystem packages can be linked together (658.999784ms)\n\u2139 tests 2\n\u2139 suites 0\n\u2139 pass 2\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 1586.137794\n",
+    "node": "\u2139 tests 58\n\u2139 suites 0\n\u2139 pass 58\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 798.628725",
+    "filesystem": "4 passed on each of native, wasm, wasm-gc and js."
+  },
+  "checks": {
+    "fmt": {
+      "command": [
+        "moon",
+        "fmt"
+      ],
+      "exit_status": 0,
+      "stdout": "fmt.stdout",
+      "stderr": "fmt.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "cef020e63f8c61ca94017a1de3412ec76a7ba9315ff533365eac2ea1686da93f",
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Finished. moon: ran 2300 tasks, now up to date",
+      "note": "Formatter ran successfully. Unrelated baseline edits were reverted; local dependency files retain upstream syntax."
+    },
+    "fs-native": {
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "native",
+        "src/fs"
+      ],
+      "exit_status": 0,
+      "stdout": "fs-native.stdout",
+      "stderr": "fs-native.stderr",
+      "stdout_sha256": "68e3eed91ee5d217ff66600d731275bc52d0148ef97ff479d64faef8d2e15499",
+      "stderr_sha256": "16cebbea834035274f953a215e0d9264477015655a552d447317b0ca26f5dad8",
+      "stdout_excerpt": "Total tests: 4, passed: 4, failed: 0.",
+      "stderr_excerpt": "   \u2502\n 5 \u2502   \"moonbitlang/core/env\",\n   \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502              \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/core/env'\n\u2500\u2500\u2500\u256f"
+    },
+    "fs-wasm-gc": {
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "wasm-gc",
+        "src/fs"
+      ],
+      "exit_status": 0,
+      "stdout": "fs-wasm-gc.stdout",
+      "stderr": "fs-wasm-gc.stderr",
+      "stdout_sha256": "68e3eed91ee5d217ff66600d731275bc52d0148ef97ff479d64faef8d2e15499",
+      "stderr_sha256": "16cebbea834035274f953a215e0d9264477015655a552d447317b0ca26f5dad8",
+      "stdout_excerpt": "Total tests: 4, passed: 4, failed: 0.",
+      "stderr_excerpt": "   \u2502\n 5 \u2502   \"moonbitlang/core/env\",\n   \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502              \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/core/env'\n\u2500\u2500\u2500\u256f"
+    },
+    "fs-wasm": {
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "wasm",
+        "src/fs"
+      ],
+      "exit_status": 0,
+      "stdout": "fs-wasm.stdout",
+      "stderr": "fs-wasm.stderr",
+      "stdout_sha256": "68e3eed91ee5d217ff66600d731275bc52d0148ef97ff479d64faef8d2e15499",
+      "stderr_sha256": "16cebbea834035274f953a215e0d9264477015655a552d447317b0ca26f5dad8",
+      "stdout_excerpt": "Total tests: 4, passed: 4, failed: 0.",
+      "stderr_excerpt": "   \u2502\n 5 \u2502   \"moonbitlang/core/env\",\n   \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502              \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/core/env'\n\u2500\u2500\u2500\u256f"
+    },
+    "fs-js": {
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "js",
+        "src/fs"
+      ],
+      "exit_status": 0,
+      "stdout": "fs-js.stdout",
+      "stderr": "fs-js.stderr",
+      "stdout_sha256": "68e3eed91ee5d217ff66600d731275bc52d0148ef97ff479d64faef8d2e15499",
+      "stderr_sha256": "16cebbea834035274f953a215e0d9264477015655a552d447317b0ca26f5dad8",
+      "stdout_excerpt": "Total tests: 4, passed: 4, failed: 0.",
+      "stderr_excerpt": "   \u2502\n 5 \u2502   \"moonbitlang/core/env\",\n   \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502              \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/core/env'\n\u2500\u2500\u2500\u256f"
+    },
+    "fs-llvm": {
+      "command": [
+        "moon",
+        "check",
+        "--target",
+        "llvm",
+        "src/fs"
+      ],
+      "exit_status": 255,
+      "stdout": "fs-llvm.stdout",
+      "stderr": "fs-llvm.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "0d1039ce9577ce0faa5c0638046eb5b5edb15acaf05735adf83525d838cbfa23",
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Error: failed to run check for target LLVM\n\nCaused by:\n    0: Failed to calculate build plan\n    1: toolchain is incomplete: missing `prelude.mi` for target `llvm`"
+    },
+    "workspace-wasm-gc": {
+      "command": [
+        "moon",
+        "build",
+        "--target",
+        "wasm-gc"
+      ],
+      "exit_status": 0,
+      "stdout": "workspace-wasm-gc.stdout",
+      "stderr": "workspace-wasm-gc.stderr",
+      "stdout_sha256": "78e6f5716762a47de05ddb07386e897173ab9e851fa0f1b214220d072f5236df",
+      "stderr_sha256": "0e3479f16e6aa158d4dbff19a59270b8001e1332c09fffc36a1551a287201104",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine/cli-benchmarks      wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cli-benchmarks/cli-benchmarks.wasm\n  jtenner/starshine/cmd                 wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cmd/cmd.wasm\n  jtenner/starshine/cmd_gc              wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cmd_gc/cmd_gc.wasm\n  jtenner/starshine/fuzz                wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/fuzz/fuzz.wasm\n  jtenner/starshine/hot_identity_trace  wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/hot_identity_trace/hot_identity_trace.wasm\n  jtenner/starshine/validate_trace      wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/validate_trace/validate_trace.wasm",
+      "stderr_excerpt": " 42 \u2502 } derive(Eq, Debug)\n    \u2502              \u2500\u2500\u252c\u2500\u2500  \n    \u2502                \u2570\u2500\u2500\u2500\u2500 Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for WatRoundtripFuzzStats` are implicit promoted as regular method for `WatRoundtripFuzzStats`. This behavior is deprecated and will be removed in the future. Add a `pub extend WatRoundtripFuzzStats with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `WatRoundtripFuzzStats` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.\n\u2500\u2500\u2500\u2500\u256f\nFinished. moon: ran 29 tasks, now up to date (2528 warnings, 0 errors)"
+    },
+    "workspace-native": {
+      "command": [
+        "moon",
+        "build",
+        "--target",
+        "native"
+      ],
+      "exit_status": 255,
+      "stdout": "workspace-native.stdout",
+      "stderr": "workspace-native.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e1c1dd76b0574a90de100b2ff0260f09dc2c8e6fec0ab3054ba527af6b3d5a02",
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Error: Stack overflow\nmoonc version: v0.10.17+d971670cd"
+    },
+    "host-focused": {
+      "command": [
+        "node",
+        "--test",
+        "node/test/fs-resource-lifetime.test.mjs",
+        "node/test/runtime.test.mjs",
+        "node/test/npm-runtime.test.mjs"
+      ],
+      "exit_status": 0,
+      "stdout": "host-focused.stdout",
+      "stderr": "host-focused.stderr",
+      "stdout_sha256": "732dd4a1d7452a17241777bd96d13e74412d4d43c7739a0012a7421e5af9af66",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_excerpt": "\u2714 the WasmGC API outlines immutable record copies with observable parity (51.059871ms)\n\u2714 runtime instantiates a caller-supplied WasmGC byte buffer (1.969163ms)\n\u2139 tests 19\n\u2139 suites 0\n\u2139 pass 19\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 330.700123",
+      "stderr_excerpt": ""
+    },
+    "ci-contract": {
+      "command": [
+        "bun",
+        "scripts/test/ci-workflow-contract.ts"
+      ],
+      "exit_status": 1,
+      "stdout": "ci-contract.stdout",
+      "stderr": "ci-contract.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5037008789a39cb6438060dcde361c6976b329ff7af64c2242da08bf69c90c2f",
+      "stdout_excerpt": "",
+      "stderr_excerpt": "1 | import fs from \"node:fs\";\n2 | import path from \"node:path\";\n3 | \n4 | function fail(message: string): never {\n5 |   throw new Error(message);\n                ^\nerror: required CI workflow is missing qualified MoonBit setup identity: \"MOONBIT_VERSION: \\\"0.10.15+943464bfa\\\"\"\n      at fail (/home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/scripts/test/ci-workflow-contract.ts:5:13)\n      at requireText (/home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/scripts/test/ci-workflow-contract.ts:10:5)\n      at runCiWorkflowContractTest (/home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/scripts/test/ci-workflow-contract.ts:31:5)\n      at /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/scripts/test/ci-workflow-contract.ts:211:3\n\nBun v1.4.2 (Linux x64)"
+    },
+    "workspace-native-release": {
+      "command": [
+        "moon",
+        "build",
+        "--target",
+        "native",
+        "--release",
+        "-j",
+        "2"
+      ],
+      "exit_status": 0,
+      "stdout": "workspace-native-release.stdout",
+      "stderr": "workspace-native-release.stderr",
+      "stdout_sha256": "4cef44966fab3975051e4656f147c219342a8f709fe4c3eccc0017cb762e1006",
+      "stderr_sha256": "3fefd12c0df139b19754ede5ee432d8ca2997a127a247bbb464a1ca324535f34",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine/cli-benchmarks      native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/release/build/cli-benchmarks/cli-benchmarks.exe\n  jtenner/starshine/cmd                 native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/release/build/cmd/cmd.exe\n  jtenner/starshine/fuzz                native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/release/build/fuzz/fuzz.exe\n  jtenner/starshine/hot_identity_trace  native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/release/build/hot_identity_trace/hot_identity_trace.exe\n  jtenner/starshine/validate_trace      native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/release/build/validate_trace/validate_trace.exe",
+      "stderr_excerpt": " 42 \u2502 } derive(Eq, Debug)\n    \u2502              \u2500\u2500\u252c\u2500\u2500  \n    \u2502                \u2570\u2500\u2500\u2500\u2500 Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for WatRoundtripFuzzStats` are implicit promoted as regular method for `WatRoundtripFuzzStats`. This behavior is deprecated and will be removed in the future. Add a `pub extend WatRoundtripFuzzStats with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `WatRoundtripFuzzStats` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.\n\u2500\u2500\u2500\u2500\u256f\nFinished. moon: ran 60 tasks, now up to date (2528 warnings, 0 errors)"
+    },
+    "native-lifetime": {
+      "command": [
+        "node",
+        "--test",
+        "tests/resource_lifetime/native.test.mjs"
+      ],
+      "exit_status": 0,
+      "stdout": "native-lifetime.stdout",
+      "stderr": "native-lifetime.stderr",
+      "stdout_sha256": "9037ed3bebb116292c11c87eb1ca07b8a77b66b60684cf95f52bace18fcc7c41",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_excerpt": "\u2714 native filesystem closes each owned stream on every recoverable I/O failure (692.321676ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 741.610785",
+      "stderr_excerpt": ""
+    },
+    "fs-native-final": {
+      "command": [
+        "moon",
+        "test",
+        "--target",
+        "native",
+        "src/fs"
+      ],
+      "exit_status": 0,
+      "stdout": "fs-native-final.stdout",
+      "stderr": "fs-native-final.stderr",
+      "stdout_sha256": "68e3eed91ee5d217ff66600d731275bc52d0148ef97ff479d64faef8d2e15499",
+      "stderr_sha256": "16cebbea834035274f953a215e0d9264477015655a552d447317b0ca26f5dad8",
+      "stdout_excerpt": "Total tests: 4, passed: 4, failed: 0.",
+      "stderr_excerpt": "   \u2502\n 5 \u2502   \"moonbitlang/core/env\",\n   \u2502   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n   \u2502              \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_package): Unused package 'moonbitlang/core/env'\n\u2500\u2500\u2500\u256f"
+    },
+    "ffi-final": {
+      "command": [
+        "moon",
+        "-C",
+        "ffi",
+        "build",
+        "--target",
+        "wasm-gc",
+        "--release",
+        "src/npm"
+      ],
+      "exit_status": 0,
+      "stdout": "ffi-final.stdout",
+      "stderr": "ffi-final.stderr",
+      "stdout_sha256": "68212f71b4953231540fde074c24f4b99f1ee08a348bcdd7dff9af1963547233",
+      "stderr_sha256": "88e926ce5d85b8c4d58a86326f02b58e9ae843bc3b78d723dfc07f6de8db3374",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine-ffi/npm  wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/ffi/_build/wasm-gc/release/build/jtenner/starshine-ffi/npm/npm.wasm",
+      "stderr_excerpt": " 3057 \u2502 fn tuple_optimization_group_should_rewrite_in_func(\n      \u2502    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n      \u2502                           \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_value): Unused function 'tuple_optimization_group_should_rewrite_in_func'\n\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFinished. moon: ran 7 tasks, now up to date (710 warnings, 0 errors)"
+    },
+    "wasi-final": {
+      "command": [
+        "moon",
+        "build",
+        "--target",
+        "wasm",
+        "--release",
+        "src/cmd"
+      ],
+      "exit_status": 0,
+      "stdout": "wasi-final.stdout",
+      "stderr": "wasi-final.stderr",
+      "stdout_sha256": "e4d5e3b0d33f615599b1fc27a2df55fc6ca5fdc09d3e4c337cc44469ec24a16e",
+      "stderr_sha256": "200d8349efd619d2751242110f10c8750a58a7a3078a364dd4fea79ac2a842f7",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine/cmd  wasm  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm/release/build/cmd/cmd.wasm",
+      "stderr_excerpt": " 1510 \u2502 pub impl Show for TokenValue with fn output(self, logger) {\n      \u2502 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n      \u2502               \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (implicit_impl_as_method): The methods to_string, output from `impl Show for TokenValue` are implicit promoted as regular method for `TokenValue`. This behavior is deprecated and will be removed in the future. Add a `pub extend TokenValue with Show::{to_string, output}` declaration or manually define regular methods for type `TokenValue` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.\n\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFinished. moon: ran 17 tasks, now up to date (2523 warnings, 0 errors)"
+    },
+    "native-lifetime-final": {
+      "command": [
+        "node",
+        "--test",
+        "tests/resource_lifetime/native.test.mjs"
+      ],
+      "exit_status": 0,
+      "stdout": "native-lifetime-final.stdout",
+      "stderr": "native-lifetime-final.stderr",
+      "stdout_sha256": "466d0604c656513e168c95a4afea848282887955986b242f3b2bae73f1a9bc0b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_excerpt": "\u2714 native filesystem closes each owned stream on every recoverable I/O failure (880.183311ms)\n\u2714 local and upstream native filesystem packages can be linked together (658.999784ms)\n\u2139 tests 2\n\u2139 suites 0\n\u2139 pass 2\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 1586.137794",
+      "stderr_excerpt": ""
+    },
+    "node-all": {
+      "command": [
+        "node",
+        "--test",
+        "node/test/api-parity.test.mjs",
+        "node/test/bulk-cli-host.test.mjs",
+        "node/test/compat-cli-exit.test.mjs",
+        "node/test/examples.test.mjs",
+        "node/test/fs-resource-lifetime.test.mjs",
+        "node/test/npm-runtime.test.mjs",
+        "node/test/runtime.test.mjs",
+        "node/test/smoke.test.mjs"
+      ],
+      "exit_status": 0,
+      "stdout": "node-all.stdout",
+      "stderr": "node-all.stderr",
+      "stdout_sha256": "46f83f52037edd44ae4f7dbe6064442984e95dc6d1ee7e15c746315104e36f0e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_excerpt": "\u2714 optimized WASI artifact starts through the runner (80.807083ms)\n\u2714 npm bin prints help text (103.42549ms)\n\u2139 tests 58\n\u2139 suites 0\n\u2139 pass 57\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 1\n\u2139 todo 0\n\u2139 duration_ms 616.168417",
+      "stderr_excerpt": ""
+    },
+    "workspace-wasm-gc-final": {
+      "command": [
+        "moon",
+        "build",
+        "--target",
+        "wasm-gc"
+      ],
+      "exit_status": 0,
+      "stdout": "workspace-wasm-gc-final.stdout",
+      "stderr": "workspace-wasm-gc-final.stderr",
+      "stdout_sha256": "78e6f5716762a47de05ddb07386e897173ab9e851fa0f1b214220d072f5236df",
+      "stderr_sha256": "4446e4602f0fdc1c85d0c5211f49ea83405e0974c6b0efb93e15f02727545ca5",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine/cli-benchmarks      wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cli-benchmarks/cli-benchmarks.wasm\n  jtenner/starshine/cmd                 wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cmd/cmd.wasm\n  jtenner/starshine/cmd_gc              wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/cmd_gc/cmd_gc.wasm\n  jtenner/starshine/fuzz                wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/fuzz/fuzz.wasm\n  jtenner/starshine/hot_identity_trace  wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/hot_identity_trace/hot_identity_trace.wasm\n  jtenner/starshine/validate_trace      wasm-gc  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/wasm-gc/debug/build/validate_trace/validate_trace.wasm",
+      "stderr_excerpt": "Warning: Package `jtenner/starshine/cmd_gc` depends on main package `jtenner/starshine/cmd` via `import` in package directory \"/home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/src/cmd_gc\". This dependency will become an error in a future release. Move reusable APIs into a non-main package and keep main packages as entrypoints.\nFinished. moon: no work to do"
+    },
+    "node-all-final": {
+      "command": [
+        "node",
+        "--test",
+        "node/test/api-parity.test.mjs",
+        "node/test/bulk-cli-host.test.mjs",
+        "node/test/compat-cli-exit.test.mjs",
+        "node/test/examples.test.mjs",
+        "node/test/fs-resource-lifetime.test.mjs",
+        "node/test/npm-runtime.test.mjs",
+        "node/test/runtime.test.mjs",
+        "node/test/smoke.test.mjs"
+      ],
+      "exit_status": 0,
+      "stdout": "node-all-final.stdout",
+      "stderr": "node-all-final.stderr",
+      "stdout_sha256": "22074cb9ba3bcde60b2f3cba28534070a2553a54c4435ee725ced43e395e8bf4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_excerpt": "\u2714 optimized WASI artifact starts through the runner (96.883015ms)\n\u2714 npm bin prints help text (159.736063ms)\n\u2139 tests 58\n\u2139 suites 0\n\u2139 pass 58\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 798.628725",
+      "stderr_excerpt": ""
+    },
+    "workspace-native-debug-stack": {
+      "command": [
+        "bash",
+        "-c",
+        "ulimit -s 65536; exec moon build --target native -j 2"
+      ],
+      "exit_status": 0,
+      "stdout": "workspace-native-debug-stack.stdout",
+      "stderr": "workspace-native-debug-stack.stderr",
+      "stdout_sha256": "30c7ef775e31edf541ea3857dee08c53b813dd2ca5a971469fd90fbf156ed460",
+      "stderr_sha256": "c98c6bf73c56458e667c0b03c8d75b238c857458dffbc3eb7a0a47a70ef45893",
+      "stdout_excerpt": "Artifacts:\n  jtenner/starshine/cli-benchmarks      native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/debug/build/cli-benchmarks/cli-benchmarks.exe\n  jtenner/starshine/cmd                 native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/debug/build/cmd/cmd.exe\n  jtenner/starshine/fuzz                native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/debug/build/fuzz/fuzz.exe\n  jtenner/starshine/hot_identity_trace  native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/debug/build/hot_identity_trace/hot_identity_trace.exe\n  jtenner/starshine/validate_trace      native  /home/dev/.t3/worktrees/starshine-mb/fix-starshine-input-resource-lifetime/_build/native/debug/build/validate_trace/validate_trace.exe",
+      "stderr_excerpt": " 3057 \u2502 fn tuple_optimization_group_should_rewrite_in_func(\n      \u2502    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500  \n      \u2502                           \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Warning (unused_value): Unused function 'tuple_optimization_group_should_rewrite_in_func'\n\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFinished. moon: ran 15 tasks, now up to date (601 warnings, 0 errors)"
+    }
+  },
+  "artifacts": {
+    ".tmp/resource-lifetime/baseline-api.wasm": {
+      "sha256": "c8210771cea8e759d406ed4ec40f79f812f96aa4b9d532948d0dec285b7c26e1",
+      "bytes": 7781061
+    },
+    "node/internal/starshine.wasm-gc.wasm": {
+      "sha256": "14f6bf52917418a09145aaebaeab45efceaa64cee4080ee288db4973a56252c9",
+      "bytes": 7781061
+    },
+    "node/internal/starshine.wasm-wasi.wasm": {
+      "sha256": "60414ff7ff9044223975aa18cbceea8dde6d21d25f766c4b618ef6062e268d14",
+      "bytes": 7147316
+    },
+    "_build/native/release/build/cmd/cmd.exe": {
+      "sha256": "2545df373923bb474bfd7eceda378f5f2e78a9b10a40f9f951f642ce6bd863ab",
+      "bytes": 12850872
+    },
+    "_build/native/release/build/fuzz/fuzz.exe": {
+      "sha256": "d117912714009b647a8152f175c3c76a0996378378322d9c16fbd33b6219184e",
+      "bytes": 18818624
+    },
+    "_build/native/debug/build/cmd/cmd.exe": {
+      "sha256": "d6ce397330ebf0cb9de746d20809aa9967bca27b9f4d1867335067546f03fec0",
+      "bytes": 84015176
+    },
+    "_build/wasm-gc/debug/build/cmd/cmd.wasm": {
+      "sha256": "11cc59eaff3444bc686312fbf341527876540094687649adfcd19093d0b303f0",
+      "bytes": 14178922
+    },
+    "_build/wasm-gc/debug/build/cmd_gc/cmd_gc.wasm": {
+      "sha256": "c9081b9b43558eb8ef756dd66b5002d0672cc4b150366f7c2a789e3aac1ff88b",
+      "bytes": 14162293
+    }
+  },
+  "node_test_artifact_environment": {
+    "STARSHINE_COMPAT_WASM": "_build/wasm-gc/debug/build/cmd/cmd.wasm",
+    "STARSHINE_BULK_WASM": "_build/wasm-gc/debug/build/cmd_gc/cmd_gc.wasm",
+    "wasm_gc_api_source": "ffi/_build/wasm-gc/release/build/jtenner/starshine-ffi/npm/npm.wasm",
+    "wasi_cli_source": "_build/wasm/release/build/cmd/cmd.wasm",
+    "packaging": "Direct unoptimized builds, not the self-optimized npm release pipeline."
+  },
+  "optional_tooling_limits": {
+    "llvm": "Missing LLVM prelude.mi, check exits 255 before compilation.",
+    "npm_build": "bun make node-package exits 1 on existing unsupported ABI policy drift for binary.compiler_fact_module_opcode_offsets. Unrelated regenerated files were restored.",
+    "ci_contract": "Exits 1 on an October 12 identity assertion against the unchanged October 23 setup action; the script and action are byte-identical to master. New step separately passes YAML parsing and exact command inspection.",
+    "windows": "Not executed.",
+    "native_debug": "Initial default 8-MiB compiler stack overflow is resolved for validation by ulimit -s 65536. Full native release also passes."
+  },
+  "measurement_handoff": {
+    "performance_measurements_run": false,
+    "timing_lease_required": true,
+    "paths": [
+      "Both Node compatibility hosts: byte/string/array reader creation and finish",
+      "Shared native read/write teardown; CLI native input remains an unchanged control"
+    ],
+    "workloads": [
+      "Repeated valid and invalid 8-byte, 64-KiB and 8-MiB input reads in one reused host",
+      "Missing-file errors, Unicode argument arrays and directory listings with another reader kept active",
+      "Shared native read_file_bytes/read_file_sync/write_file_bytes, CLI output writes and native CLI input controls"
+    ],
+    "metrics": [
+      "wall time",
+      "allocation and retained heap",
+      "owned live streams and retained handles",
+      "compiler cost and code size"
+    ],
+    "limits": "Owner-state checks prove removal of strong roots and completed native close, not exact heap-byte reduction or benchmark speedup."
+  }
+}

@@ -116,6 +116,9 @@ jobs:
           moon build --target native --release src/cmd
           moon build --target wasm-gc --release src/cmd
 
+      - name: Run native filesystem lifetime regressions
+        run: node --test tests/resource_lifetime/native.test.mjs
+
       - name: Validate and roundtrip the wasm-gc release artifact
         run: |
           set -euo pipefail

@@ -21,7 +21,9 @@ The binaries incorporate moonbitlang/x 0.5.1, including its filesystem bridge.
 Copyright 2025 International Digital Economy Academy.
 https://github.com/moonbitlang/x
 License: Apache-2.0; see licenses/Apache-2.0.txt. Source notices are retained
-in the upstream dependency. The installed 0.5.1 module has no NOTICE file.
+in the upstream dependency and in src/internal/xfs, a local filesystem copy
+with Starshine native stream-cleanup changes dated 2026-10-28. The installed
+0.5.1 module has no NOTICE file.
 
 MoonBit runtime support notices retained conservatively
 ------------------------------------------------------

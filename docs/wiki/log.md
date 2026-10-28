@@ -120,6 +120,13 @@
 ### 2026-10-28 — BURN-005 Heap2Local initializer order
 
 - Reproduced eight wrong array results on unchanged master with the committed evidence fixture and Bun runtime, while inputs and lift/lower controls returned 7. Retain the existing donor order during direct forwarding; focused behavior and dispatcher regressions cover the repair. See the [repair and evidence limits](binaryen/passes/heap2local/index.md#october-28-2026--burn-005-initializer-forwarding). No performance or broad parity signoff is claimed.
+### 2026-10-28, Module input resource lifetime
+
+- Both Node compatibility hosts now release completed byte, string and array readers, including temporary transfer handles. Other active readers remain usable.
+- A local filesystem dependency copy closes streams on all six native post-open I/O failures and preserves the original error. The native CLI input adapter is unchanged.
+- Baseline reused hosts retain 1 through 32 handles after 32 failed Starshine decodes; repaired hosts retain zero. Baseline native fault injection leaves a live owned stream in six cases; all twelve repaired cases pass. See the [audit and repair record](tooling/module-input-resource-lifetime.md).
+- Final validation passes: 58 Node tests without skips, twelve native injected cases plus package coexistence, four filesystem tests per target on native/Wasm/WasmGC/JS, and full WasmGC plus native release/debug builds. Native debug needs a larger compiler stack. Existing npm/CI policy drift and unavailable LLVM inputs remain documented limits.
+- READY TO MEASURE: successful-read finish handling changes. No timing or exact heap-byte claim has been made.
 
 ### 2026-10-27, Current MoonBit core compatibility
 
