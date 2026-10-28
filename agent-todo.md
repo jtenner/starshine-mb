@@ -99,6 +99,19 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   Exit when the supported-runtime package lane passes or its runtime limitation
   is independently established. No pass work or performance gate was done here.
 
+## Next unreleased patch — Output preflight measurement [IR2-R1-10]
+
+- **Goal / why:** quantify correctness-required command startup path-map cost;
+  the unread-input overwrite is repaired, with no timing claim.
+- **Deliverables / tasks:** bounded single-input in-place, distinct multi-input
+  `--out-dir`, text-extension and late-collision startup measurements when leased.
+- **APIs / invariants:** `preflight_output_paths`; reject all lexical output/output
+  and output/other-input collisions before module IO; preserve own-input writes.
+- **Dependencies / exit / tests:** measurement lease; compare time/allocation with
+  baseline `3d1deec7`, preserving the committed in-memory regressions. No new
+  filesystem canonicalization or module-byte copies. See the
+  [contract and limits](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-10-output-collision-preflight--october-28-2026).
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key
@@ -2695,3 +2708,15 @@ pass dossiers; historical green checkpoints do not replace current signoff.
 - **Deliverables / tasks:** compare plain ASCII, Unicode, quote/backslash and control-heavy function export names through `lib_module_to_wat`; preserve export bytes after re-lowering.
 - **APIs / invariants:** `src/wat/wat_api.mbt::lib_name_to_wat`; supported module-section boundary unchanged, controls use two-digit byte escapes.
 - **Dependencies / exit / tests:** separate leased measurement if needed; retain `src/wat/r1_name_escaping_wbtest.mbt` controls. See [repair evidence](docs/wiki/wast/identifier-name-and-annotation-authoring.md#r1-03-lib-wat-export-name-repair--2026-10-28). No other R1 finding is owned by this wave.
+
+## Next unreleased patch — Command package baseline failure [IR2-CMD-TEST-BASELINE]
+
+- **Goal / why:** renew the deterministic idempotence-reduction expectation;
+  R1-10 package validation reports 810 pass / 1 fail with Node 24.22.1.
+- **Deliverables / tasks:** investigate `fuzz_harness_wbtest.mbt` index 28,
+  expected `[merge-blocks, remove-unused-brs]`, actual `[remove-unused-brs]`.
+- **APIs / invariants:** `run_cmd_fuzz_harness`; preserve original failure bytes
+  and semantically sufficient minimized reproducer; no expectation change here.
+- **Dependencies / exit / tests:** independently diagnose against current master,
+  then renew the bounded package test. Bun adds five NaN-payload failures; use
+  the Node control recorded in the [R1-10 validation record](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-10-output-collision-preflight--october-28-2026).

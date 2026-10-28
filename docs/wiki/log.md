@@ -28543,3 +28543,14 @@ arrays/typecheck wrappers from the completed return packaging change.
 - [Evidence, commands, termination and resource limits](validate/type-section-and-subtyping.md#r1-07-external-recursive-group-identity--2026-10-28);
   [active measurement work](../../agent-todo.md#next-unreleased-patch--r1-07-matching-cost-ir2-r1-07-measure).
   Separate R1-06 fuel exhaustion remains outside this repair.
+
+### 2026-10-28 — R1-10 output collision preflight
+
+- Confirmed the historical unread-input overwrite on unchanged `3d1deec7`
+  through shared in-memory callbacks: `b/x.wasm` changed from custom-name byte
+  `62` to `61`. The original regression and expanded rejection test failed;
+  supported in-place/distinct-output controls passed before implementation.
+- Filed the [repair contract, evidence and alias limits](tooling/cli-command-and-dispatcher.md#r1-10-output-collision-preflight--october-28-2026).
+  Preflight checks every lexical destination before module IO, with no new
+  filesystem access or module-byte copies. Other R1 findings remain outside
+  this change. Startup map costs remain unmeasured in active backlog.
