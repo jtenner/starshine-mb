@@ -328,3 +328,59 @@ V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple opt
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Heap2Local.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/heap2local.wast>
+
+## October 28, 2026 — BURN-005 initializer forwarding
+
+The BURN-005 entry in `hunt-findings.md` at commit
+`04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6` identifies an existing-value
+forwarding error, independently reproduced on unchanged product base
+`3d1deec7cecf1caaf65b42799777ff52ef210245`. A local/global read of 7 precedes
+a void block writing 9, then initializes a length-one array. Both `array.new`
+and `array.new_fixed` followed by index-zero `array.get` returned 9 after the
+direct pass and public pipeline: eight wrong results. Inputs and four
+lift/lower controls returned 7. The evidence packet's `workers/gc/report.md`,
+`gc_array_boundary_wbtest.mbt`, and `gc-array-runtime.mjs` specify the matrix.
+Local replay uses Bun because Node is absent; module emission alone is not
+runtime proof.
+
+[`h2l_replace_direct_value`](../../../../../src/passes/heap2local.mbt) now
+requests `preserve_value_order=true` for an existing non-control donor.
+This retains the already evaluated value's position. General HOT replacement,
+freshly built replacements, and control/label ownership retain their existing
+contracts. The required cost is the existing forwarding API's order-validity
+check and additional `HotNode` value-type record write with the donor order
+per affected call. That write is required to override the default later order; no new heap
+allocation, child-array copy, scan, or repeated analysis is introduced.
+
+[`heap2local_value_order_wbtest.mbt`](../../../../../src/passes/heap2local_value_order_wbtest.mbt)
+executes the array/local/global matrix and struct controls through a bounded
+fixture executor, including original and lift/lower observations. The inline
+helper regression checks donor order; the command dispatcher checks the read
+precedes the nested write and the array access disappears. Existing
+[`control-owner regressions`](../../../../../src/passes/heap2local_control_owner_regression_wbtest.mbt)
+cover descriptor/control-valued donors, shared control uses, effect
+multiplicity, traps, labels, and unique child spans. Descriptor evidence is
+compiler validation/ownership evidence, not descriptor runtime execution.
+
+This is focused correctness work only: no benchmarks, large fuzz campaign,
+Binaryen comparison, exhaustive pass review, or broad parity closure is
+claimed. Historical versioned results elsewhere in this dossier are unchanged.
+
+Local focused validation: the generated JS drivers, executed with Bun and
+compact file selections after Moon's package-wide launcher exceeded Linux's
+argument limit, passed 115 Heap2Local tests (one benchmark skipped; dedicated
+`*_perf_*` files excluded). The exact evidence runtime replay passed all 24
+observations after the fix, including all eight formerly wrong optimized
+results. The permanent bounded regression first failed with
+`(true, [9], 0) != (true, [7], 0)` before implementation.
+
+The command dispatcher check
+`moon test src/cmd/cmd.mbt --filter '*heap2local*' --target js -j 1`
+passed both tests with a temporary `node` launcher delegating to Bun.
+
+Full workspace `moon build --target wasm-gc -j 1` passed. Moon tests/builds
+were serialized; `moon fmt` completed (unrelated pre-existing formatting drift
+was excluded). `moon info src/passes src/cmd` passed; reviewed `.mbti` regeneration changed
+only `Int`/`UInt` to `Int32`/`UInt32` spelling, excluded as unrelated drift.
+No public API change is included. Focused JS
+execution used Bun 1.4.0; this does not claim native runtime signoff.

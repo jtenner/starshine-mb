@@ -11559,3 +11559,68 @@ test "command BURN-004 precompute-propagate retains path-dependent arm reads" {
     _ => fail("expected result-if with dynamic local reads")
   }
 }
+
+///|
+test "command heap2local retains array initializer read before nested write" {
+  for fixed in [false, true] {
+    for global_source in [false, true] {
+      let input = @passes.pass_test_module_from_wat(
+        "(module (type $A (array i32)) (global (mut i32) (i32.const 7)) " +
+        "(func (param i32) (result i32) local.get 0))",
+      )
+      let read = if global_source {
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U))
+      } else {
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+      }
+      let write = if global_source {
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U))
+      } else {
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U))
+      }
+      let body = [
+        read,
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::i32_const(9), write]),
+        ),
+      ]
+      if fixed {
+        body.push(
+          @lib.Instruction::array_new_fixed(
+            @lib.TypeIdx::new(0U),
+            @lib.U32::new(1U),
+          ),
+        )
+      } else {
+        body.append([
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::array_new(@lib.TypeIdx::new(0U)),
+        ])
+      }
+      body.append([
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::array_get(@lib.TypeIdx::new(0U)),
+      ])
+      let input = input.with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
+        ]),
+      )
+      @validate.validate_module(input).unwrap()
+      let output = optimize_module_with_pass_flags(
+        input,
+        ["heap2local"],
+        OptimizeOptions::new(),
+      ).unwrap()
+      @validate.validate_module(output).unwrap()
+      let body = cmd_deep_audit_body(output)
+      // The old read must execute before the nested write, not at array.get.
+      @debug.assert_eq(body[0], read)
+      @debug.assert_eq(
+        cmd_deep_audit_count(body, fn(i) { i is @lib.ArrayGet(_) }),
+        0,
+      )
+    }
+  }
+}

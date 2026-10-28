@@ -2706,10 +2706,12 @@ fn h2l_replace_direct_value(
     h2l_replace_with_built(func, target_id, wrapper)
     @ir.hot_preserve_replacement_position(func, target_id, replacement_id)
   } else {
+    // Forward an already evaluated value, including reads before later writes.
     @ir.hot_replace_node(
       func,
       target_id,
       @ir.hot_node_get(func, replacement_id),
+      preserve_value_order=true,
     )
   }
 }
@@ -4034,4 +4036,18 @@ fn heap2local_cleanup_module_types(mod_ : @lib.Module) -> @lib.Module {
   // Scalarization can leave whole type groups unused, including in functions
   // admitted by the no-allocation fast path. Run after complete module writeback.
   pass_cleanup_unused_type_groups(mod_)
+}
+
+///|
+test "heap2local existing scalar forwarding retains donor evaluation order" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) local.get 0 " +
+    "block i32.const 9 local.set 0 end i32.const 0 i32.add))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let target = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
+  let donor = @ir.hot_child_get(func, target, 0)
+  let order = @ir.hot_node_get(func, donor).order
+  h2l_replace_direct_value(func, target, donor, @ir.hot_node_count(func))
+  @debug.assert_eq(@ir.hot_node_get(func, target).order, order)
 }
