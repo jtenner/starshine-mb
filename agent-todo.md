@@ -146,6 +146,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   large fuzz or broad parity closure ran in the repair. See the
   [reproduction, limits and handoff](docs/wiki/binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md#burn-009-mixed-incoming-edges-2026-10-28).
 
+### Code-pushing R1-08 measurement [IR2-CP-R1-08]
+
+- **Goal / why:** measure the required dominance-preserving control barrier
+  in global-read assignment movement after the narrow correctness repair.
+- **Deliverables / tasks:** compare pass-local time, allocations and output
+  on candidate-free functions, straight-line global snapshots with legal
+  separators, direct/nested escaping branches, and the 32-root scan window.
+- **APIs / invariants:** `code_pushing_try_sink_set_before_later_barrier`,
+  `code_pushing_node_has_branch`; retain dominating snapshots and legal moves.
+- **Dependencies / exit / tests:** leased measurement only; focused original
+  HOT/public regressions, owning-helper and command tests must remain green.
+  No benchmark or broad parity closure belongs to this borrowed-machine fix.
+  [Evidence and costs](docs/wiki/binaryen/passes/code-pushing/segment-selection-and-barriers.md#r1-08-global-snapshot-escape--2026-10-28).
+
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
 
 - **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;

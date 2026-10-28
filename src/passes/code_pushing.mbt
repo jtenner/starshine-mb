@@ -1735,7 +1735,10 @@ fn code_pushing_try_sink_set_before_later_barrier(
     if writes != 0 {
       return false
     }
+    // A branch can reach a later use without executing the relocated write.
+    // Stop before that root, including branches nested in structured children.
     if gets != 0 ||
+      code_pushing_node_has_branch(func, candidate_id) ||
       !code_pushing_node_safe_to_cross_for_value(
         func,
         candidate_id,
@@ -3700,5 +3703,50 @@ fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
+  }
+}
+
+///|
+test "code-pushing global snapshot barrier preserves escaping control and legal movement" {
+  for
+    separator in [
+      "(br_if 0 (local.get 0))", "(if (local.get 0) (then (br 1)))", "(nop)",
+    ] {
+    let func = pass_test_lift_first_func(
+      "(module (global i32 (i32.const 9)) (func (param i32) (result i32) (local i32) (block (local.set 1 (global.get 0)) " +
+      separator +
+      " (drop (local.get 1))) (local.get 1)))",
+    )
+    let body = @ir.hot_region_body_ref(func, @ir.hot_root_get(func, 0))
+    let original_set = @ir.hot_region_get(func, body, 0)
+    let ctx = HotPassContext::new(
+      code_pushing_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    let moved = code_pushing_try_sink_set_before_later_barrier(
+      ctx,
+      func,
+      body,
+      0,
+      CodePushingLocalInventory::from_func(func),
+    )
+    if separator == "(nop)" {
+      assert_true(moved)
+      assert_true(@ir.hot_node_get(func, original_set).op is @ir.HotOp::Nop)
+      let moved_set = @ir.hot_region_get(func, body, 2)
+      assert_true(@ir.hot_node_get(func, moved_set).op is @ir.HotOp::LocalSet)
+      assert_true(
+        @ir.hot_node_get(func, @ir.hot_child_get(func, moved_set, 0)).op
+        is @ir.HotOp::GlobalGet,
+      )
+    } else {
+      assert_false(moved)
+      assert_true(
+        @ir.hot_node_get(func, original_set).op is @ir.HotOp::LocalSet,
+      )
+    }
   }
 }
