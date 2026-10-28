@@ -11432,3 +11432,43 @@ test "coalesce-locals command preserves negative zero beside a default local" {
   }
   @debug.assert_eq(bits, [-2147483648])
 }
+
+///|
+test "tuple-optimization command retains a live lane forwarded to a multiply written local" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (export \"run\") (result i32) (local $a i32) (local $b i64) (local $x i32) i32.const 99 local.set $x block (result i32 i64) i32.const 5 i64.const 9 end local.set $b local.set $a local.get $a local.set $x local.get $b drop local.get $x))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["tuple-optimization"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  for module_ in [input, output] {
+    @validate.validate_module(module_).unwrap()
+    let func = module_.code_sec.unwrap().0[0]
+    let @lib.Func(body_locals, @lib.Expr(body)) = func
+    let locals = Array::make(body_locals.length(), 0L)
+    let stack : Array[Int64] = []
+    fn execute(instrs : Array[@lib.Instruction]) -> Unit raise {
+      for instr in instrs {
+        match instr {
+          @lib.Nop => ()
+          @lib.Drop => ignore(stack.pop().unwrap())
+          @lib.I32Const(@lib.I32(value)) => stack.push(value.to_int64())
+          @lib.I64Const(@lib.I64(value)) => stack.push(value)
+          @lib.LocalGet(@lib.LocalIdx(index)) =>
+            stack.push(locals[index.to_int()])
+          @lib.LocalSet(@lib.LocalIdx(index)) =>
+            locals[index.to_int()] = stack.pop().unwrap()
+          @lib.LocalTee(@lib.LocalIdx(index)) =>
+            locals[index.to_int()] = stack[stack.length() - 1]
+          @lib.Block(_, @lib.Expr(nested)) => execute(nested)
+          _ =>
+            fail("unsupported tuple forwarding fixture instruction: \{instr}")
+        }
+      }
+    }
+    execute(body)
+    @debug.assert_eq(stack, [5L])
+  }
+}

@@ -1773,7 +1773,10 @@ fn tuple_optimization_build_query_summary(
       match site.kind {
         @ir.HotUseSlotKind::ChildUseSlot =>
           match @ir.hot_node_get(func, site.user).op {
-            @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+            // A write is live unless the unique-use/single-write proof below
+            // lets the query follow its destination. An untracked write must
+            // never be mistaken for a drop-only use.
+            @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => has_non_drop = true
             @ir.HotOp::Drop => {
               has_non_scalar = true
               has_drop = true
@@ -1809,6 +1812,8 @@ fn tuple_optimization_build_query_summary(
           local_single_write_nodes[forwarded_local] < 0 {
           continue
         }
+        // This is the sole use, and its destination can be followed.
+        node_has_direct_non_drop_use[node_id] = false
         scalar_forward_present[node_id] = true
         has_scalar_forward_copy_candidate = true
         scalar_forward_locals[node_id] = forwarded_local
@@ -8401,4 +8406,204 @@ fn tuple_optimization_run(
   } else {
     HotPassResult::unchanged()
   }
+}
+
+///|
+fn tuple_live_forward_input() -> @lib.Module {
+  pass_test_module_from_wat(
+    (
+      #|(module (func (export "run") (result i32)
+      #| (local $a i32) (local $b i64) (local $x i32)
+      #| i32.const 99 local.set $x
+      #| block (result i32 i64) i32.const 5 i64.const 9 end local.set $b local.set $a
+      #| local.get $a local.set $x
+      #| local.get $b drop local.get $x))
+    ),
+  )
+}
+
+///|
+test "tuple live forwarding to multiply written local remains live" {
+  let input = tuple_live_forward_input()
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let use_def = @ir.use_def_build(func)
+  let summary = tuple_optimization_build_query_summary(func, use_def)
+  assert_true(
+    tuple_optimization_local_has_forwarded_non_drop_use(use_def, summary, 0),
+    msg="live tuple lane a is assigned to x and returned; multiple writes to x do not make a dead",
+  )
+}
+
+///|
+// Bounded branch-free integer fixture executor; unsupported opcodes fail.
+fn tuple_live_forward_execute(
+  func : @lib.Func,
+  args : Array[Int64],
+) -> Array[Int64] raise {
+  let @lib.Func(body_locals, @lib.Expr(body)) = func
+  let locals = Array::make(args.length() + body_locals.length(), 0L)
+  for i in 0..<args.length() {
+    locals[i] = args[i]
+  }
+  let stack : Array[Int64] = []
+  fn execute(instrs : Array[@lib.Instruction]) -> Unit raise {
+    for instr in instrs {
+      match instr {
+        @lib.Nop => ()
+        @lib.Drop => ignore(stack.pop().unwrap())
+        @lib.I32Const(@lib.I32(value)) => stack.push(value.to_int64())
+        @lib.I64Const(@lib.I64(value)) => stack.push(value)
+        @lib.LocalGet(@lib.LocalIdx(index)) =>
+          stack.push(locals[index.to_int()])
+        @lib.LocalSet(@lib.LocalIdx(index)) =>
+          locals[index.to_int()] = stack.pop().unwrap()
+        @lib.LocalTee(@lib.LocalIdx(index)) =>
+          locals[index.to_int()] = stack[stack.length() - 1]
+        @lib.Block(_, @lib.Expr(nested)) => execute(nested)
+        _ => fail("unsupported tuple forwarding fixture instruction: \{instr}")
+      }
+    }
+  }
+  execute(body)
+  stack
+}
+
+///|
+test "tuple forwarding preserves live stores through public and direct routes" {
+  let cases : Array[(@lib.Module, Array[Int64], Array[Int64])] = [
+    (tuple_live_forward_input(), [], [5L]),
+    (
+      pass_test_module_from_wat(
+        "(module (func (export \"run\") (result i32) (local $a i32) (local $b i64) (local $x i32) i32.const 99 local.set $x block (result i32 i64) i32.const 5 i64.const 9 end local.set $b local.set $a local.get $a local.tee $x drop local.get $b drop local.get $x))",
+      ),
+      [],
+      [5L],
+    ),
+    (
+      pass_test_module_from_wat(
+        "(module (func (export \"run\") (param i32 i64) (result i32 i64) (local i32 i64) block (result i32 i64) local.get 0 local.get 1 end local.set 3 local.set 2 block (result i32 i64) local.get 2 local.get 3 end local.set 1 local.set 0 local.get 0 local.get 1))",
+      ),
+      [5L, 9L],
+      [5L, 9L],
+    ),
+  ]
+  for repeats in [1, 2, 3] {
+    let mut body = ""
+    for _ in 0..<repeats {
+      body += "block (result i32 i64) local.get 0 local.get 1 end local.set 1 local.set 0 "
+    }
+    cases.push(
+      (
+        pass_test_module_from_wat(
+          "(module (func (param i32 i64) (result i32 i64) " +
+          body +
+          "local.get 0 local.get 1))",
+        ),
+        [5L, 9L],
+        [5L, 9L],
+      ),
+    )
+  }
+  for (input, args, expected) in cases {
+    @validate.validate_module(input).unwrap()
+    let saved = @binary.encode_module(input).unwrap()
+    let public_output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "tuple-optimization",
+    ]).unwrap()
+    let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let roundtrip = input.with_code_sec(
+      @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+    )
+    let ctx = HotPassContext::new(
+      tuple_optimization_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    ignore(tuple_optimization_run(ctx, func))
+    let direct = input.with_code_sec(
+      @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+    )
+    for output in [input, roundtrip, public_output, direct] {
+      @validate.validate_module(output).unwrap()
+      @debug.assert_eq(
+        tuple_live_forward_execute(output.code_sec.unwrap().0[0], args),
+        expected,
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "tuple forwarding follows single-write drop chains and keeps live tee consumers" {
+  for
+    (tail, expected) in [
+      ("local.get 0 local.set 1 local.get 1 drop", false),
+      ("local.get 0 local.tee 1 drop local.get 1 drop", false),
+      (
+        "local.get 0 local.tee 1 local.set 2 local.get 1 drop local.get 2 drop",
+        false,
+      ),
+      (
+        "i32.const 99 local.set 1 local.get 0 local.set 1 local.get 1 drop", true,
+      ),
+      ("local.get 0 local.tee 1 drop local.get 1", true),
+    ] {
+    let result = if tail == "local.get 0 local.tee 1 drop local.get 1" {
+      "(result i32)"
+    } else {
+      ""
+    }
+    let input = pass_test_module_from_wat(
+      "(module (func " +
+      result +
+      " (local i32 i32 i32) i32.const 5 local.set 0 " +
+      tail +
+      "))",
+    )
+    @validate.validate_module(input).unwrap()
+    let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let use_def = @ir.use_def_build(func)
+    let summary = tuple_optimization_build_query_summary(func, use_def)
+    assert_eq(
+      tuple_optimization_local_has_forwarded_non_drop_use(use_def, summary, 0),
+      expected,
+    )
+  }
+}
+
+///|
+test "tuple forwarding keeps a shared read assigned to multiple destinations live" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32 i32) i32.const 5 local.set 0 local.get 0 local.set 1 local.get 0 local.set 2 local.get 2))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let mut shared_read = -1
+  for node_id in 0..<@ir.hot_node_count(func) {
+    let node = @ir.hot_node_get(func, node_id)
+    if node.op is @ir.HotOp::LocalSet && node.imm0 == 1 {
+      shared_read = @ir.hot_child_get(func, node_id, 0)
+    }
+  }
+  assert_true(shared_read >= 0)
+  for node_id in 0..<@ir.hot_node_count(func) {
+    let node = @ir.hot_node_get(func, node_id)
+    if node.op is @ir.HotOp::LocalSet && node.imm0 == 2 {
+      let old_read = @ir.hot_child_get(func, node_id, 0)
+      @ir.hot_child_set(func, node_id, 0, shared_read)
+      @ir.hot_delete_detached_node(func, old_read)
+    }
+  }
+  let use_def = @ir.use_def_build(func)
+  assert_eq(@ir.node_use_sites_borrowed(use_def, shared_read).length(), 2)
+  let summary = tuple_optimization_build_query_summary(func, use_def)
+  assert_true(
+    tuple_optimization_scalar_forward_local(summary, shared_read) is None,
+  )
+  assert_true(
+    tuple_optimization_local_has_forwarded_non_drop_use(use_def, summary, 0),
+  )
 }
