@@ -11,6 +11,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — Code-folding signature follow-up [IR2-BURN-011]
+
+- **Goal / why:** measure the narrow parameterized partial-if suffix guard;
+  retain valid input consumption instead of producing an invalid void if.
+- **Deliverables / tasks:** controlled candidate-free and zero-parameter cost
+  checks; parameterized diagnostic for retained code size. Do not claim broad
+  owner or Binaryen parity closure from the three-test reproduction.
+- **APIs / invariants:** verified if child layout; full control signatures,
+  input evaluation and selected-arm effects; unchanged shared type setter.
+- **Dependencies / exit / tests:** obtain a measurement lease; retain direct
+  implementing-file and command regressions. Parameterized one/two/value-block
+  and embedded suffix owners require their own direct fixtures before widening.
+  See the [owner audit](docs/wiki/binaryen/passes/code-folding/starshine-strategy.md#burn-011-parameterized-partial-if-suffixes--october-28-2026).
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key

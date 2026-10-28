@@ -1,3 +1,11 @@
+### 2026-10-28 — BURN-011 narrow code-folding input-signature repair
+
+- Replayed the original three-test packet on the pinned product base: direct
+  child-count and public extra-stack-value failures, zero-parameter control
+  passing. The [owner audit](binaryen/passes/code-folding/starshine-strategy.md#burn-011-parameterized-partial-if-suffixes--october-28-2026)
+  records the scalar guard, preserved folding, independent owner limits, and
+  measurement follow-up. No Binaryen, fuzz, benchmark, or broad closure claim.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.
