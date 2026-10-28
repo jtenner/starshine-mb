@@ -26,13 +26,14 @@ This page maps the official Binaryen files that define `type-ssa` after the 2026
 Source:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeSSA.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeSSA.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/fba5005a132d85d578be5bd010e0487ed8e2ce3e/src/passes/TypeSSA.cpp#L210-L268> (version_133 tag commit)
 
 This is the owner file. It defines:
 
 - the GC feature gate,
 - the `news` allocation-site collection,
 - the `disallowedTypes` exact-observation collection,
-- the module-code/global/element scanning surface, with table initializers explicitly left as a TODO in the current source,
+- the module-code/global/element scanning surface. The 2026-05-06 review recorded a table-initializer TODO; the later v131 review found an exact initializer type blocker. V133 retains the blocker and a TODO to visit tables with initializers, so the blocker alone does not establish complete traversal,
 - `ChildTyper`-based child exactness checks,
 - the `isInteresting(...)` filter,
 - `modifyNews(...)` fresh subtype / rec-group creation,

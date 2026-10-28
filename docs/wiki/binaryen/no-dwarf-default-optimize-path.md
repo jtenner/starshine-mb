@@ -113,12 +113,12 @@ The JSON-AS `strip-debug` investigation established two durable boundaries. Dire
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_132` as the upstream release baseline for new pass research; research note 1573 supersedes v130 for current release decisions while preserving older pass-specific source anchors as historical evidence.
+- Use a verified Binaryen `version_133` oracle for new comparisons, per the [release-horizon policy](./release-horizon-and-oracles.md). The September release review used `version_132`; the 2026-07-18 research note 1573 audited v131 and superseded v130 for release decisions at that time. These source reviews remain historical evidence, not a v133 audit of this pathway.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
-- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_132` release baseline and the release-horizon note first.
-- On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Historical v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`; new evidence uses the verified v132 oracle.
-- Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v132 oracle when the owning pass changed.
+- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_133` release baseline and the release-horizon note first.
+- On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Historical v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`; new evidence uses the verified v133 oracle.
+- Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v133 oracle when the owning pass changed.
 - The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is directly oracle-proven for v0.1.0 scheduling purposes: the 10k ordered-neighborhood fuzz lane is green, same-input RUME comparisons are canonical-green on both SGO-side artifact inputs, and the remaining debug-artifact first diff is inherited SGO representation/function-layout drift feeding RUME before the later string/reorder/directize tail changes anything. Public `optimize` and `shrink` now append this accepted suffix; see [research note 0571](./passes/late-pipeline-dispatch.md) and [research note 0572](./passes/late-pipeline-dispatch.md).
 - `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 

@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_132` for new comparisons. The detailed algorithm reading on this page was initially captured from `version_129`; the 2026-07-11 v130/current-main owner review and 2026-07-26 explicit-v131 renewal are historical source/test provenance for the family.
+Use Binaryen `version_133` for new comparisons. The detailed algorithm reading on this page was initially captured from `version_129`; the 2026-07-11 v130/current-main owner review and 2026-07-26 explicit-v131 renewal are historical source/test provenance for the family.
 
 The focused 2026-07-11 reread of Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp) and [current `main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp) confirmed the public plain-versus-propagate split, shared owner, scheduler boundary, and representative test families without finding a behavior-bearing change that requires rewriting this teaching map. It is not a byte-for-byte three-way source diff. The retained bridge and the direct tagged URLs on the landing page preserve the older historical source/test routing after the duplicate manifest is consumed.
 

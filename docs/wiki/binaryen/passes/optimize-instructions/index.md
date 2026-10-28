@@ -245,7 +245,7 @@ Current durable answer:
 
 - the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed;
 - the 2026-06-19 `version_130` source/lit matrix remains the broad owner/family inventory and the 2026-07-12 closeout remains the historical local evidence baseline;
-- The recorded Binaryen `version_131` source review was the release-oracle snapshot for changes to equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior; new comparison evidence uses v132;
+- The recorded Binaryen `version_131` source review was the release-oracle snapshot for changes to equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior; new comparison evidence uses v133;
 - the 2026-07-19 focused fixtures, explicit-v131 four-lane matrix, and O4z replays close that representable surface; ordered memory-atomic acquire/release behavior remains explicitly blocked on instruction representation.
 
 ## Current O4z audit inventory
@@ -270,7 +270,7 @@ OptimizeInstructions shared the Winch multivalue function-exit `br_table` failur
 
 - Treat this folder as the canonical home for future `optimize-instructions` parity and scheduler research.
 - Start grouped parity work from [`./parity-matrix.json`](./parity-matrix.json) and [`./sweep-report.md`](./sweep-report.md). Do not add another one-off OI behavior probe without linking it to a matrix row or using it to update a row's status/evidence.
-- Use Binaryen `version_132` as the release-gating source/lit oracle for new implementation slices; use the older v129/v130 dossier prose and matrices as historical explanatory material.
+- Use Binaryen `version_133` as the release-gating source/lit oracle for new implementation slices; use the older v129/v130 dossier prose and matrices as historical explanatory material.
 - Keep the Binaryen strategy page, Starshine strategy page, parity matrix, and fuzzing page in sync whenever the in-tree implementation grows beyond the current integer / boolean / control-focused HOT subset.
 - Keep the landing page honest about the ordered-artifact story:
   - slot `16` is retired

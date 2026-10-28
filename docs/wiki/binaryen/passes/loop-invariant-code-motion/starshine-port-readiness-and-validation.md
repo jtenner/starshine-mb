@@ -158,7 +158,7 @@ Do not claim first-slice parity if the implementation does any of these without 
 - moving statements past control transfer in the loop-entry prefix;
 - moving trap-sensitive or effectful work because tests happen not to trap;
 - ignoring local dependency analysis;
-- relying on `flatten` being present, since `flatten` is itself still unimplemented locally.
+- requiring every input to have been flattened, or assuming `flatten` handles every shape. The first slice should handle direct loop-entry shapes without a `flatten` prerequisite; add flatten-exposed cases only for supported shapes with separate tests. The active pass is registered in [`optimize.mbt`](../../../../../src/passes/optimize.mbt); see the [`flatten` dossier](../flatten/index.md) for its boundaries.
 
 ## Health rule for future updates
 

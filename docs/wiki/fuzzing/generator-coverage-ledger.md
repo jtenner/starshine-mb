@@ -373,3 +373,11 @@ GC heaps, and memory32/memory64. See
 [`gen_valid_atomic_orders.mbt`](../../../src/validate/gen_valid_atomic_orders.mbt)
 and the [upgrade evidence](../binaryen/version-132-upgrade.md). Structural
 coverage does not count unsupported concurrency/runtime execution as passed.
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0688-2026-05-31-fuz1037-const-expr-inventory.md`
+- `docs/wiki/raw/research/0689-2026-05-31-fuz1037-boundary-active-offsets.md`
+- `docs/wiki/raw/research/0690-2026-05-31-fuz1037-descriptor-initializers.md`
+- `docs/wiki/raw/research/0691-2026-05-31-fuz1037-context-op-report.md`
+- `docs/wiki/raw/research/0692-2026-05-31-fuz1037-closeout.md`

@@ -56,7 +56,7 @@ Use this page when writing, reducing, or widening fixtures that mention WebAssem
 - nullability-specialized branches represented by Starshine core and binary: `br_on_null` and `br_on_non_null`;
 - Starshine's descriptor-family local/custom-descriptor text forms: `ref.test_desc`, `ref.test_desc_null`, `ref.cast_desc_eq`, and `ref.cast_desc_eq_null`.
 
-The cross-layer GC router is [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md). The focused typed-function-reference router is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md); use it when the question is `ref.func` feeding ordinary `call_ref`, the Core-3.0 status of reference calls, or the current Starshine WAST ordinary-`call_ref` gap. The current descriptor-instruction bridge is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and the focused descriptor overview is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md). The current ordinary reference source-routing refresh is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), while the current `ref.func` / start boundary is [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The cross-layer GC router is [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md). The focused typed-function-reference router is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md); use it when the question is `ref.func` feeding ordinary `call_ref`, the Core-3.0 status of reference calls, or reference-call fixture layers. The current descriptor-instruction bridge is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and the focused descriptor overview is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md). The current ordinary reference source-routing refresh is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), while the current `ref.func` / start boundary is [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can author basic `ref.*`, null branches, reference calls, and descriptor-family forms. Ordinary `ref.test` / `ref.cast` and `br_on_cast` / `br_on_cast_fail` still require core/binary fixtures or text support first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Beginner Mental Model
 
@@ -73,12 +73,12 @@ The validator is where those meanings become precise. Binary decode only sees op
 
 | Layer | Owner | Reference-instruction facts to remember |
 | --- | --- | --- |
-| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers `ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, and descriptor-family `ref.test_desc` / `ref.cast_desc_eq` forms. Ordinary `ref.test`, `ref.cast`, and `br_on_*` are official core families, but they are not currently Starshine WAST text keywords. |
+| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers `ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, and descriptor-family `ref.test_desc` / `ref.cast_desc_eq` forms. It also registers null branches and descriptor cast branches. Ordinary `ref.test`, `ref.cast`, `br_on_cast`, and `br_on_cast_fail` are not currently WAST keywords. |
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Resolves `ref.func` function ids to absolute `FuncIdx`; resolves `ref.null` and descriptor type ids; prints the WAST-supported subset. |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Models the wider reference family: `RefNull`, `RefIsNull`, `RefFunc`, `RefEq`, `RefAsNonNull`, `BrOnNull`, `BrOnNonNull`, `RefTest`, `RefCast`, descriptor test/cast, `BrOnCast`, and `BrOnCastFail`. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Encodes one-byte reference operators such as `0xD0`-family forms, one-byte `br_on_null` / `br_on_non_null`, and `0xFB` GC-prefixed test/cast/branch forms. Byte success is not proof of type or declaration validity. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Checks nullable/nonnullable requirements, function-index existence, `ref.func` declaration membership, cast/test hierarchy compatibility, label payloads, and branch/fallthrough refinements. The branch/fallthrough split is the semantic contract for `br_on_*`. |
-| Fuzz / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]009` proves the core valid-generator can emit widened basic-reference forms. WAST arbitrary currently mirrors only text-supported descriptor forms, not ordinary `ref.test` / `ref.cast` / `br_on_*`. |
+| Fuzz / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]009` proves the core valid-generator can emit widened basic-reference forms. WAST arbitrary includes text-supported descriptor forms; ordinary `ref.test` / `ref.cast` / `br_on_cast*` remain unavailable as text. |
 
 ## Current Text-Surface Matrix
 
@@ -87,8 +87,8 @@ The validator is where those meanings become precise. Binary decode only sees op
 | `ref.null`, `ref.is_null`, `ref.func` | Yes | Yes | Prefer WAST fixtures when the purpose is parser/lowering/validation behavior. |
 | `ref.eq`, `ref.as_non_null` | Yes | Yes | WAST parser classifies these through the no-immediate compare/unary path. |
 | `ref.test`, `ref.cast` | No ordinary Starshine text keyword in this snapshot | Yes | Official text/binary/validation sources recognize the ordinary cast/test family; use core/binary fixtures locally or add WAST keyword/parser/lowerer/printer coverage first. |
-| `br_on_null`, `br_on_non_null` | No | Yes | Treat as reference-branch core instructions; do not cite WAST parser absence as semantic absence. The current Core 3.0 syntax and binary pages are the portable anchors, while Starshine's typechecker and proposal-era pages are clearer teaching anchors for branch/fallthrough stack splits. |
-| `br_on_cast`, `br_on_cast_fail` | No | Yes | Same as above; also recheck branch label payloads and cast hierarchy rules. |
+| `br_on_null`, `br_on_non_null` | Yes | Yes | Text support does not establish semantic validity. The current Core 3.0 syntax and binary pages are the portable anchors, while Starshine's typechecker and proposal-era pages are clearer teaching anchors for branch/fallthrough stack splits. |
+| `br_on_cast`, `br_on_cast_fail` | No | Yes | Use core/binary fixtures; recheck branch label payloads and cast hierarchy rules. |
 | `ref.test_desc*`, `ref.cast_desc_eq*` | Yes, local/custom-descriptor surface | Yes | Use for custom-descriptor fixtures; do not conflate with ordinary official `ref.test` / `ref.cast`. |
 
 ## Stack And Validation Shapes
@@ -158,7 +158,7 @@ Use this for parser/lowerer/typechecker tests that need a simple nullable refere
 
 The export declares `$f` as a legal `ref.func` target before the body use is checked. Without an export, global/table initializer, or element source, the body use fails even though `$f` exists. The declaration-source rules are intentionally centralized in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
-If the next instruction is a core/binary `call_ref`, the declaration rule still belongs to `ref.func`; `call_ref` only consumes the function reference and uses its type immediate for parameter/result stack typing. Current Starshine WAST can express `return_call_ref` text, but not ordinary `call_ref` text, so ordinary reference-call fixtures should route through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
+If the next instruction is `call_ref`, the declaration rule still belongs to `ref.func`; `call_ref` only consumes the function reference and uses its type immediate for parameter/result stack typing. Starshine WAST can express both `call_ref` and `return_call_ref`; reference-call fixtures should route through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
 
 ### `ref.eq` and `ref.as_non_null`
 
@@ -186,13 +186,11 @@ These Starshine-supported text forms are useful for custom-descriptor fixtures a
 
 ## Core/Binary-Only Shapes To Treat Carefully
 
-The following families are real local core instructions and are exercised by valid generation, but the WAST text path cannot author them directly yet. The 2026-06-04 refresh confirmed this as a Starshine text-surface gap, not a portable WebAssembly absence: current official syntax/binary pages still list these families, but Starshine's keyword/parser/printer set is narrower.
+The following families are real local core instructions and are exercised by valid generation, but the WAST text path cannot author them directly yet. The 2026-06-04 refresh recorded this as a Starshine text-surface gap, not a portable WebAssembly absence: current official syntax/binary pages still list these families, but Starshine's keyword/parser/printer set is narrower.
 
 ```text
 RefTest(nullable, HeapType)
 RefCast(nullable, HeapType)
-BrOnNull(LabelIdx)
-BrOnNonNull(LabelIdx)
 BrOnCast(LabelIdx, CastOp(source_nullable, target_nullable), source_heap, target_heap)
 BrOnCastFail(LabelIdx, CastOp(source_nullable, target_nullable), source_heap, target_heap)
 ```
@@ -210,7 +208,7 @@ The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.m
 3. **Do not erase traps accidentally.** `ref.as_non_null` and `ref.cast` can trap at runtime. Removing or moving them needs a proof from type/flow facts, not just a successful static typecheck.
 4. **Recheck both branch and fallthrough types for reference branches.** `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` carry refined references to labels, while `br_on_null`, `br_on_cast`, and `br_on_cast_fail` also leave refined fallthrough values. Pair this page with [`control-flow-authoring.md`](control-flow-authoring.md) for ordinary label-depth and branch-payload rules.
 5. **Treat cast/test hierarchy checks as semantic checks.** Binary opcode decode does not prove that source and target heap types share a legal hierarchy relationship.
-6. **Update WAST arbitrary only after text support exists.** `src/wast/arbitrary.mbt` should not emit ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary `call_ref` text until keywords, parser, lowerer, printer, and roundtrip tests exist.
+6. **Update WAST arbitrary only after text support exists.** Before emitting ordinary `ref.test` / `ref.cast` / `br_on_cast*` text, add keyword, parser, lowerer, printer, and roundtrip coverage.
 7. **Validate after mutation.** Reference rewrites commonly touch stack types, type indices, function declarations, and labels; run module validation plus the pass's Binaryen-oracle lane where relevant.
 8. **Classify external `br_on*` assertions as tool evidence first.** If Binaryen asserts while parsing malformed `br_on*` / descriptor-branch operands, preserve the installed command/build and use the BrOn assertion bridge plus [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) before claiming a Starshine semantic issue.
 

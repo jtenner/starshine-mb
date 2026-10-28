@@ -409,7 +409,7 @@ The earlier landing page mostly existed to track naming evidence, so the richer 
 
 Current durable answer:
 
-- The current comparison oracle is Binaryen `version_132`; the v130 source and evidence below remain historical.
+- The current comparison oracle is Binaryen `version_133`; the v130 source and evidence below remain historical.
 - Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_130`.
 - The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.

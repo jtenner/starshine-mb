@@ -125,7 +125,7 @@ Local reports: `.tmp/pass-perf-work-20260926/final4-fuzz-inlining/result.json`.
 
 ## Admission
 
-`inlining` is an active module pass, admitted compare-pass name, and checked-in GenValid profile owner. Use a current native release binary and an explicit official Binaryen v132 oracle. The v131 campaigns below retain their historical identities.
+`inlining` is an active module pass, admitted compare-pass name, and checked-in GenValid profile owner. Use a current native release binary and an explicit official Binaryen v133 oracle. The v131 campaigns below retain their historical identities.
 
 ## 2026-09-03 source-sized COW reservation renewal
 

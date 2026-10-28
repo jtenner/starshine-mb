@@ -181,9 +181,9 @@ However, values pushed after an unreachable point are still concrete values. End
 
 ## Current Local Gap: WAST `br_on_*` Text Surface
 
-Starshine's core instruction model, binary codec, validator, and valid generator know about reference-branch instructions such as `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`. The WAST keyword table and parser do not currently expose text keywords for those forms.
+Starshine's core instruction model, binary codec, validator, and valid generator know about reference-branch instructions such as `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`. The WAST keyword table and parser expose `br_on_null` and `br_on_non_null`; ordinary `br_on_cast` and `br_on_cast_fail` remain text gaps.
 
-Implication: if a test must prove reference-branch semantics today, use a core/binary fixture or first add WAST parser/lowerer/printer coverage. Do not treat WAST's inability to author `br_on_*` as evidence that Starshine lacks the core instruction or validation rule. The maintained split is explicit: ordinary label depth and branch-payload mechanics stay here; reference-branch stack refinements, cast hierarchy rules, branch-label versus fallthrough type split, and the WAST text-surface matrix live in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
+Implication: Use WAST for null-branch fixtures and core/binary fixtures for ordinary cast branches. Validate either fixture layer; text support alone does not prove semantic validity. The maintained split is explicit: ordinary label depth and branch-payload mechanics stay here; reference-branch stack refinements, cast hierarchy rules, branch-label versus fallthrough type split, and the WAST text-surface matrix live in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 ## Rewrite And Validation Checklist
 

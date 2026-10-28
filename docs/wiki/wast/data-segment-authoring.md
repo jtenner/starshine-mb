@@ -91,7 +91,7 @@ The `(offset ...)` wrapper is syntactic sugar around the same offset-expression 
   (data $payload $m1 (i32.const 0) "x"))
 ```
 
-Named and numeric memory uses are resolved only for active data. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) calls the same named-or-numbered resolver used for other resource references, so imported memories still occupy the prefix of the memory index space. Current WAST memory declarations are memory32-only; use direct core/binary fixtures for memory64 data-offset evidence until text declarations are widened.
+Named and numeric memory uses are resolved only for active data. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) calls the same named-or-numbered resolver used for other resource references, so imported memories still occupy the prefix of the memory index space. WAST also accepts memory64 declarations and `i64.const` data offsets; see [`examples/modules/memory64_data.wat`](../../../examples/modules/memory64_data.wat), the parser and lowerer. Validate the resulting offset type against the selected memory.
 
 ### Passive data
 
@@ -186,7 +186,7 @@ When a pass, fixture generator, or printer changes data segments:
 3. **Do not move active data offsets like load/store offsets.** Active data offsets are constant expressions evaluated during instantiation; function-body `MemArg.offset` is an instruction immediate documented in [`memory-argument-authoring.md`](memory-argument-authoring.md).
 4. **Preserve startup traps and side effects.** Active data can trap during instantiation if its range is out of bounds. A shrink pass that deletes, folds, or splits active data needs the same startup-effect care described for [`memory-packing`](../binaryen/passes/memory-packing/index.md) and [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md).
 5. **Keep data-count in sync.** If any data segment count changes, update `DataCntSec` when present. If a rewrite introduces or removes `memory.init`, `data.drop`, `array.new_data`, or `array.init_data`, validate the data-count requirement again; today the local pre-code requirement scanner only covers the bulk-memory pair, so GC-array data users need focused validator evidence before being used as conformance proof.
-6. **Use the right fixture layer.** WAST is good for ordinary active/passive memory32 data. Use direct core/binary/generator fixtures for memory64 offsets, nonzero memory-index binary header edge cases, and data-backed GC array instructions until the text surface covers those fully.
+6. **Use the right fixture layer.** WAST can express active memory64 offsets as well as ordinary memory32 data. Use direct core/binary/generator fixtures for nonzero memory-index binary header edge cases and data-backed GC array instructions until the text surface covers those fully.
 
 ## Common Mistakes
 
@@ -194,7 +194,7 @@ When a pass, fixture generator, or printer changes data segments:
 - Forgetting that multiple strings concatenate before validation and encoding.
 - Confusing active data's initialization offset with `i32.load offset=N` / `i64.store offset=N`.
 - Removing passive data without rewriting `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` users.
-- Using current WAST memory declarations as evidence for memory64 data offset behavior.
+- Treating a parsed memory64 data offset as proof that it validates against the selected memory.
 - Assuming data-count absence is always invalid. It is invalid only when the data-count equality rule is violated or code/data-index users require the section.
 - Treating active Phase-2 numeric data-segment groups as current Starshine text syntax. Use string escapes, core builders, or binary fixtures until proposal-specific parser/printer support lands.
 

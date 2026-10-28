@@ -142,3 +142,8 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 - Existing validator executable oracles:
   - [`../../../src/validate/env_wbtest.mbt`](../../../src/validate/env_wbtest.mbt)
   - [`../../../src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt)
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`
+- `docs/wiki/raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`

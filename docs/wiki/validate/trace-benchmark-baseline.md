@@ -81,7 +81,7 @@ bun validate trace-benchmark --repeat 1
 
 Default target: `wasm-gc`.
 
-Keep the exact emitted blocks in the archived source note instead of duplicating every line here: research note 0010. That note remains the baseline snapshot for later validator performance work.
+Keep the exact emitted blocks in the historical source note in git instead of duplicating every line here: research note 0010. That note remains the baseline snapshot for later validator performance work.
 
 Current high-level signals from that snapshot:
 
@@ -121,3 +121,7 @@ When a trace run changes:
 - Validator trace implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Bun wrapper and command tests: [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Related wiki contracts: [`../tooling/validation-gates.md`](../tooling/validation-gates.md), [`../tooling/tracing-playbook.md`](../tooling/tracing-playbook.md), [`module-validation-phases.md`](module-validation-phases.md), [`ref-func-declarations.md`](ref-func-declarations.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`fuzz-hardening.md`](fuzz-hardening.md)
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0010-2026-03-18-validate-trace-baseline.md`

@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-- Use official Binaryen `version_132` as the current source oracle for new checks; the [2026-07-28 v131 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md) remains historical evidence.
+- Use official Binaryen `version_133` as the current source oracle for new checks; the [2026-07-28 v131 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md) remains historical evidence.
 - The v131 owner, `opt-utils.h`, and dedicated input fixture are byte-identical to the retained v130 hashes, so the released transform contract is unchanged.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.

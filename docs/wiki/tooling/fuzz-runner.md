@@ -283,3 +283,7 @@ The new output directory retains the original module, instrumented WAT/Wasm, bot
 - Invalid repro dispatcher: [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
 - Bun wrapper, summary counters, and pass compare task: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/fuzz-summary-counters.ts`](../../../scripts/lib/fuzz-summary-counters.ts), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Wrapper command and summary tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts), [`../../../scripts/lib/fuzz-summary-counters.test.ts`](../../../scripts/lib/fuzz-summary-counters.test.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0003-2026-03-12-fuzz-migration.md`
