@@ -63,7 +63,7 @@ It is **not** ordinary SSA construction, and it is **not** a local-flow pass ove
 - It is GC-gated.
 - The 2026-06-01 current-main recheck found no teaching-relevant drift on the reviewed surfaces.
 - It analyzes module-visible exact-observation surfaces before rewriting allocation types.
-- The reviewed source also scans module code, globals, and element segments; table initializers remain an open TODO surface rather than a confirmed positive scan path.
+- The 2026-05-06 review recorded a table-initializer TODO. The later v131 review found an exact initializer type blocker. [Binaryen v133 source](https://github.com/WebAssembly/binaryen/blob/fba5005a132d85d578be5bd010e0487ed8e2ce3e/src/passes/TypeSSA.cpp#L210-L268) also adds an exact table initializer heap type to `disallowedTypes`, while retaining a TODO to visit tables with initializers. This blocker does not prove complete initializer traversal or support.
 - Candidate allocation sites include:
   - `struct.new`,
   - `array.new`,

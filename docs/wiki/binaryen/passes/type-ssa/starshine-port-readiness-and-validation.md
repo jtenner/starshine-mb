@@ -147,7 +147,7 @@ The first Starshine slice should not attempt:
 
 - stale created-type propagation through `local.get`, `global.get`, `block`, `if`, or `try` values,
 - direct-call operand/result retagging from a remembered allocation map,
-- table-initializer support before Binaryen's TODO surface is resolved or deliberately mirrored,
+- module-code table-initializer cases in the first slice. V131 added an exact initializer type blocker; [v133 source](https://github.com/WebAssembly/binaryen/blob/fba5005a132d85d578be5bd010e0487ed8e2ce3e/src/passes/TypeSSA.cpp#L210-L268) retains that blocker and a TODO to visit tables with initializers. Neither establishes complete initializer traversal. A later slice needs explicit coverage and an oracle comparison,
 - descriptor/describee fresh subtype support,
 - automatic preset insertion.
 

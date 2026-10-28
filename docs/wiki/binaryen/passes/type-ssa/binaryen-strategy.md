@@ -73,7 +73,7 @@ The analyzer records allocation sites in a `news` list. The important candidate 
 - `array.new_elem`,
 - `array.new_fixed`.
 
-It skips imported functions for function-body analysis but also scans module code, globals, tables, and element segments so allocation sites and exact-observation blockers outside ordinary defined function bodies are not missed. V131 resolves the earlier table-initializer TODO for blocker analysis: an exact table initializer heap type is now added to `disallowedTypes` so fresh allocation subtypes cannot invalidate observable exactness.
+It skips imported functions for function-body analysis and scans module code, globals, and element segments. The v131 review found a table exact-type blocker: an exact table initializer heap type is added to `disallowedTypes`. [V133 source](https://github.com/WebAssembly/binaryen/blob/fba5005a132d85d578be5bd010e0487ed8e2ce3e/src/passes/TypeSSA.cpp#L210-L268) retains this check and also retains a TODO to visit tables with initializers. The blocker does not prove full initializer traversal or support.
 
 ### 3. Record exact-observation blockers
 
