@@ -1,3 +1,9 @@
+### 2026-10-28, Compatibility input reader lifetime
+
+- Both Node compatibility hosts now release completed byte, string and array readers, including temporary string transfer handles. Other active readers remain usable.
+- Baseline reused hosts retain 1 through 32 handles after 32 failed Starshine decodes; repaired hosts retain zero. Ten focused checks pass. Native dependency cleanup is still in progress. See the [audit and repair record](tooling/module-input-resource-lifetime.md).
+- READY TO MEASURE: successful-read finish handling changes. No timing or heap claim has been made.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

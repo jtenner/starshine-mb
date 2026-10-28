@@ -143,6 +143,7 @@ export function createMoonbitFsHost({
       const externString = get(externStringHandle, "extern-string");
       return alloc({
         type: "string-reader",
+        sourceHandle: externStringHandle,
         codepoints: toCodePoints(externString.value),
         index: 0,
       });
@@ -156,7 +157,11 @@ export function createMoonbitFsHost({
       reader.index += 1;
       return codepoint;
     },
-    finish_read_string(_readerHandle) {},
+    finish_read_string(readerHandle) {
+      const reader = get(readerHandle, "string-reader");
+      handles.delete(readerHandle);
+      handles.delete(reader.sourceHandle);
+    },
     begin_create_string() {
       return alloc({ type: "string-builder", codepoints: [] });
     },
@@ -197,7 +202,10 @@ export function createMoonbitFsHost({
       reader.index += 1;
       return value;
     },
-    finish_read_byte_array(_readerHandle) {},
+    finish_read_byte_array(readerHandle) {
+      get(readerHandle, "byte-array-reader");
+      handles.delete(readerHandle);
+    },
     read_file_to_bytes_new(pathValue) {
       try {
         lastFileContent = Uint8Array.from(
@@ -279,6 +287,7 @@ export function createMoonbitFsHost({
       const arrayData = get(externStringArrayHandle, "extern-string-array");
       return alloc({
         type: "string-array-reader",
+        sourceHandle: externStringArrayHandle,
         values: arrayData.values,
         index: 0,
       });
@@ -292,7 +301,11 @@ export function createMoonbitFsHost({
       reader.index += 1;
       return allocExternString(value);
     },
-    finish_read_string_array(_readerHandle) {},
+    finish_read_string_array(readerHandle) {
+      const reader = get(readerHandle, "string-array-reader");
+      handles.delete(readerHandle);
+      handles.delete(reader.sourceHandle);
+    },
   };
 }
 
