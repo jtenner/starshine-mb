@@ -3963,35 +3963,110 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
 }
 
 ///|
+// Distance from stack top to the tracked read's unique descendant, inclusive.
+// Pure scalar/select operations have one output and cannot duplicate it. Inputs
+// below the tracked value may predate the read (reverse operands and select).
+// Zero means that the instruction is outside this proof's pure opcode subset.
+fn sgo_pure_guard_read_depth_after(
+  instr : @lib.Instruction,
+  depth : Int32,
+) -> Int32 {
+  match instr {
+    @lib.LocalGet(_) => depth + 1
+    @lib.Select(_) => if depth <= 3 { 1 } else { depth - 2 }
+    @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Eqz
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefIsNull
+    | @lib.RefTest(_, _, _)
+    | @lib.RefTestDesc(_, _)
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U => depth
+    _ =>
+      if sgo_const_instr(instr) != None {
+        depth + 1
+      } else if sgo_is_i32_pure_condition_instr(instr) ||
+        sgo_is_i64_pure_condition_instr(instr) ||
+        sgo_is_float_compare_condition_instr(instr) ||
+        sgo_is_float_value_condition_instr(instr) ||
+        instr == @lib.Instruction::ref_eq() {
+        // The remaining admitted operations are binary, single-result ops.
+        if depth <= 2 {
+          1
+        } else {
+          depth - 1
+        }
+      } else {
+        0
+      }
+  }
+}
+
+///|
 fn sgo_read_only_to_write_pure_condition_read_at(
   instrs : Array[@lib.Instruction],
   pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
+  let mut depth = 1
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
     match instr {
-      @lib.If(_, _, _) => return sgo_if_is_read_only_to_write_set(instr, idx)
-      @lib.Select(_) if scan + 1 < instrs.length() => {
-        for after_select = scan + 1
-            after_select < instrs.length()
-            after_select = after_select + 1 {
-          let next = instrs[after_select]
-          match next {
-            @lib.If(_, _, _) =>
-              return sgo_if_is_read_only_to_write_set(next, idx)
-            _ =>
-              if !sgo_is_read_only_to_write_pure_condition_instr(next) {
-                return false
-              }
-          }
-        }
-        return false
-      }
-      _ =>
-        if !sgo_is_read_only_to_write_pure_condition_instr(instr) {
+      @lib.If(_, _, _) =>
+        return depth == 1 && sgo_if_is_read_only_to_write_set(instr, idx)
+      _ => {
+        depth = sgo_pure_guard_read_depth_after(instr, depth)
+        if depth == 0 {
           return false
         }
+      }
     }
   }
   false
@@ -4003,30 +4078,15 @@ fn sgo_read_only_to_write_if_return_value_read_at(
   pos : Int32,
   idx : @lib.GlobalIdx,
 ) -> Bool {
+  let mut depth = 1
   for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
     let instr = instrs[scan]
     if sgo_is_return_guard(instr) {
-      return sgo_if_return_tail_matches(instrs, scan + 1, idx)
+      return depth == 1 && sgo_if_return_tail_matches(instrs, scan + 1, idx)
     }
-    match instr {
-      @lib.Select(_) if scan + 1 < instrs.length() => {
-        for after_select = scan + 1
-            after_select < instrs.length()
-            after_select = after_select + 1 {
-          let next = instrs[after_select]
-          if sgo_is_return_guard(next) {
-            return sgo_if_return_tail_matches(instrs, after_select + 1, idx)
-          }
-          if !sgo_is_read_only_to_write_pure_condition_instr(next) {
-            return false
-          }
-        }
-        return false
-      }
-      _ =>
-        if !sgo_is_read_only_to_write_pure_condition_instr(instr) {
-          return false
-        }
+    depth = sgo_pure_guard_read_depth_after(instr, depth)
+    if depth == 0 {
+      return false
     }
   }
   false
@@ -10655,4 +10715,101 @@ fn sgo_cleanup_can_erase_returns(
     }
   }
   true
+}
+
+///|
+test "BURN-007 guard scan keeps carried global results" {
+  for
+    (value_type, condition) in [
+      ("i32", "i32.const 1"),
+      ("i64", "local.get 0"),
+      ("i32", "i32.const 1 i32.const 0 local.get 0 select"),
+    ] {
+    for wrapped in [false, true] {
+      let read = if wrapped {
+        "block (result \{value_type}) global.get $g end"
+      } else {
+        "global.get $g"
+      }
+      let input = pass_test_module_from_wat(
+        "(module (global $g (mut \{value_type}) (\{value_type}.const 5)) (func (export \"run\") (param i32) (result \{value_type}) \{read} \{condition} if \{value_type}.const 7 global.set $g end))",
+      )
+      @validate.validate_module(input).unwrap()
+      let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+        "simplify-globals-optimizing",
+      ]).unwrap()
+      @validate.validate_module(output).unwrap()
+      let @lib.Global(ty, _) = output.global_sec.unwrap().0[0]
+      let expected = if value_type == "i64" {
+        @lib.ValType::i64()
+      } else {
+        @lib.ValType::i32()
+      }
+      assert_eq(ty, @lib.GlobalType::new(expected, true))
+    }
+  }
+}
+
+///|
+test "BURN-007 pure guard classifiers require consumption of the tracked read" {
+  let idx = @lib.GlobalIdx::new(0U)
+  let get = @lib.Instruction::global_get(idx)
+  let set_guard = @lib.Instruction::if_(
+    @lib.BlockType::void_(),
+    [
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::global_set(idx),
+    ],
+    None,
+  )
+  let return_guard = @lib.Instruction::if_(
+    @lib.BlockType::void_(),
+    [@lib.Instruction::return_()],
+    None,
+  )
+  for
+    condition in [
+      [@lib.Instruction::i32_const(@lib.I32(1))],
+      [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::select(),
+      ],
+    ] {
+    let body = [get]
+    body.append(condition)
+    body.push(set_guard)
+    assert_false(sgo_read_only_to_write_pure_condition_read_at(body, 0, idx))
+    body[body.length() - 1] = return_guard
+    body.push(@lib.Instruction::i32_const(@lib.I32(7)))
+    body.push(@lib.Instruction::global_set(idx))
+    assert_false(sgo_read_only_to_write_if_return_value_read_at(body, 0, idx))
+  }
+  assert_true(
+    sgo_read_only_to_write_pure_condition_read_at(
+      [
+        get,
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_add(),
+        set_guard,
+      ],
+      0,
+      idx,
+    ),
+  )
+  assert_true(
+    sgo_read_only_to_write_pure_condition_read_at(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        get,
+        @lib.Instruction::select(),
+        set_guard,
+      ],
+      2,
+      idx,
+    ),
+  )
 }

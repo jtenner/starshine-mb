@@ -41,6 +41,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   then leased full gates plus preparation-time and memory evidence. See the
   [contract diagnosis](docs/wiki/binaryen/passes/remove-unused-brs/starshine-strategy.md#round-2-fix-1-tail-return-contract-repair--2026-10-25).
 
+### BURN-007 guard dependency measurement [IR2-SGO-BURN-007]
+
+- **Goal / why:** measure the required stack-consumption proof after the
+  carried-result correctness repair; historical SGO closeout does not cover it.
+- **Deliverables / tasks:** compare pure guard scanning and full SGO time,
+  allocations and output on short/long unary, binary, reverse and select guards,
+  carried i32/i64 results, and candidate-free controls. No borrowed-machine
+  benchmarks or broad fuzzing are authorized for this repair.
+- **APIs / invariants:** `sgo_pure_guard_read_depth_after` and both pure guard
+  classifiers must consume the tracked descendant, retain observable writes,
+  and preserve true self guards without stack allocations or copies.
+- **Dependencies / exit / tests:** controlled measurement lease; retain the
+  implementing-file and cmd `BURN-007` tests and repeated-call `[5, 7]` runtime
+  checks. Broader v133 parity remains separate. See the
+  [repair contract](docs/wiki/binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md#burn-007-carried-values-are-observable-2026-10-28).
+
 ### Simplify-locals analysis preparation [IR2-SL-ANALYSIS-CONTRACT]
 
 - **Goal / why:** measure the preparation cost after all five variants and

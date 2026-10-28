@@ -25,6 +25,54 @@ It is anchored to the retained 2026-04-24 research inventory, direct tagged sour
 - why actual AST `global.get` / `global.set` nodes matter more than effect summaries there
 - why the optimizing rerun is part of the real pass contract
 
+## BURN-007: carried values are observable (2026-10-28)
+
+A later same-global write guard does not prove that an earlier read is used
+only by that guard. For example, `global.get $g; i32.const 1; if ... end`
+can return the carried read. With `$g` initially 5 and the guard writing 7,
+two calls on one instance must return `[5, 7]`. The original classifier made
+the global immutable and returned `[5, 5]`; the i64/parameter variant had the
+same failure. The original evidence is BURN-007 in `hunt-findings.md` at
+`04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`, with exact tests and runtime driver
+in that commit's `docs/wiki/raw/tooling/2026-10-28-starshine-reset-burn/evidence.tar.gz`.
+
+The pure-condition and related if-return classifiers must track the distance
+from the top of the stack to the read's descendant. Only a descendant at the
+top can be consumed by the guard without leaving this read live. Admitted
+scalar operations and select have one result and cannot duplicate the read;
+unknown operations reject the proof. This uses one integer in the existing
+scan, without a stack allocation, instruction copies, or a second traversal.
+The added stack-effect classification is required to distinguish a carried
+result from a guard operand. Earlier operands may combine with the descendant,
+so reverse-operand and select-condition self guards remain eligible.
+
+Source and bounded regressions: [implementing file](../../../../../src/passes/simplify_globals_optimizing.mbt)
+and [command dispatcher](../../../../../src/cmd/cmd.mbt), tests named `BURN-007`.
+Coverage includes flat/wrapped reads, constant/parameter/select conditions,
+i32/i64, and true self guards. This repair supersedes historical blanket
+closeout claims for this classifier only. It does not establish Binaryen 133
+parity, exhaustive pass correctness, or performance signoff. Broad fuzzing
+and benchmarks are outside this borrowed-machine repair scope.
+
+Focused repair validation uses `PATH=/data/home/.moon/bin:$PATH`, with a
+temporary `node` launcher forwarding Moon's JS driver to Bun on this machine:
+
+- `moon test src/passes/simplify_globals_optimizing.mbt --target js -j 1 -f 'BURN-007*'`:
+  0/2 before, 2/2 after.
+- `moon test src/passes/simplify_globals_optimizing_test.mbt --target js -j 1`:
+  336/336 after, including the existing scalar, select, and self-guard controls.
+- The two exact evidence emission tests pass after repair; running their
+  `sgo-carried-runtime.cjs` with Bun exits 1 before and 0 after. All four
+  original/optimized i32/i64 same-instance observations now equal `[5, 7]`.
+- `moon test src/cmd/cmd.mbt --target js -j 1 -f 'BURN-007*'`: 0/1
+  before (`0 != 1` retained writes), 1/1 after. The adjacent
+  `-f '*simplify*global*'` dispatcher selection passes 2/2.
+- Full workspace `moon build -j 1` (default wasm backend) exits 0.
+  Existing deprecation/package warnings remain; no build errors occur.
+- `moon info` exits 0; reviewed and excluded generated `Int`/`UInt` alias
+  spelling churn, with no public API change. This command has no `-j` option.
+- `moon fmt` succeeds; unrelated baseline formatting is excluded from the repair.
+
 ## The big beginner warning
 
 If you summarize the pass as:
