@@ -361,8 +361,51 @@ empty strings, and unchanged Unicode including supplementary characters.
 [The consumer regression](../../../scripts/test/r1-14-runtime-interface-json.ts)
 constructs a WebAssembly-validated binary with all control export names and
 checks actual command stdout through the runtime executor's `JSON.parse`.
-At this test checkpoint the product writer is unchanged and the two writer
-tests intentionally remain red. Consumer execution and repair signoff follow.
+Test-only checkpoint `e8e0d93f54cfb51ff89659f49f1ed54683aaac17` preserves
+the unchanged writer and those two expected failures. The final repair
+supersedes that red state. Before repair the real consumer exited 1 at
+`optimizer-runtime-executor.ts:376`: `invalid Starshine runtime-interface JSON:
+JSON Parse error: Unterminated string`.
+
+The writer now emits lowercase `\u00xx` for controls without an existing short
+escape. Quote, backslash, LF, CR and tab retain their exact escapes; other
+Unicode stays literal. The real-output test also exposed report stdout's
+byte truncation: `"é中文😀"` became bytes `22 e9 2d 87 00 22 0a`. A third test
+failed on these bytes before replacing only the report stdout conversion with
+UTF-8 encoding. This is necessary for the requested Unicode-preserving JSON
+contract; the general command byte-conversion helpers are outside this repair.
+
+Final validation, serialized with `PATH=/data/home/.moon/bin:$PATH`:
+
+- `moon info src/cmd`: exit 0. This metadata command has no `-j` option;
+  generated `.mbti` changes were reviewed as only `Int` to `Int32` spelling
+  drift and discarded. No public API change.
+- `moon fmt src/cmd/optimizer_reports.mbt src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt`:
+  exit 0; unrelated `cmd.mbt` formatting was discarded.
+- `moon test src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt src/cmd/optimizer_reports_wbtest.mbt src/cmd/cmd_wbtest.mbt --target js -j 1 --build-only`:
+  exit 0; compact Bun selection of the generated JS driver checked all
+  **243 structured results, 243 passed, zero failed** (3 new regressions,
+  8 existing report tests, 232 command tests). Node is absent; the driver
+  exit code alone was not used to establish success.
+- `moon build --target wasm-gc -j 1`: full workspace, exit 0, zero errors.
+  The unchanged baseline also passed this full build. The attempted native
+  build could not create a build plan because no `cc`, `gcc`, or `clang` is
+  installed; no native execution or validation is claimed.
+- `bun scripts/test/r1-14-runtime-interface-json.ts /data/home/.moon/bin/moonrun _build/wasm-gc/debug/build/cmd/cmd.wasm`:
+  exit 0, **34 export names round-trip** through the real command and runtime
+  executor. Moonrun uses `--`; regular stdout/stderr capture files avoid
+  Bun pipe descriptors that WasmGC's `/dev/stdout` IO cannot reopen. The test
+  deletes its fixture and capture files in `finally`.
+
+Performance scope: optimization workloads do not reach these report-only
+helpers, so this is performance-neutral for pass execution by source scope,
+not a measured timing claim. Report serialization adds one control-range
+check on the ordinary-character path; newly escaped controls require six
+ASCII bytes instead of one invalid raw byte. UTF-8 output uses the necessary
+1–4 bytes per scalar instead of truncating it. These correctness costs are
+unmeasured. No new measurement blocker or active R1-14 backlog item remains.
+After validation the task-owned `_build` and temporary drivers/logs are
+removed; the committed regressions and this record retain reproducible evidence.
 
 Scope is R1-14 only; the historical review's other findings and incomplete IR
 review are not re-audited. No Binaryen, fuzz, benchmark or timing claim is made.

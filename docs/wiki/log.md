@@ -1,3 +1,8 @@
+### 2026-10-28, R1-14 runtime-interface JSON fixed
+
+- All U+0000..U+001F names now escape correctly, existing short escapes and Unicode are preserved, and report stdout uses UTF-8 after a red byte-level regression exposed truncation. This supersedes the R1-14 red checkpoint below.
+- Focused command/report tests pass 243/243; serialized full WasmGC build passes; the actual runtime-interface consumer round-trips 34 export names. Native validation is unavailable without a C compiler. [Evidence, exact commands and report-only costs](tooling/cli-command-and-dispatcher.md#r1-14-runtime-interface-json-controls--2026-10-28). No other R1 finding, full suite, fuzz or performance signoff is claimed.
+
 ### 2026-10-28, R1-14 JSON control red checkpoint
 
 - Reproduced the original U+0001 failure on unchanged master; the expanded writer test also fails at U+0000. Product code remains unchanged at this checkpoint. The [command contract record](tooling/cli-command-and-dispatcher.md#r1-14-runtime-interface-json-controls--2026-10-28) preserves scope, commands, and regression boundaries.
