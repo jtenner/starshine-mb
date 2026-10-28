@@ -11538,3 +11538,24 @@ test "BURN-003 dispatcher preserves integer reads across writes" {
     assert_true(body.contains(instr))
   }
 }
+
+///|
+test "command BURN-004 precompute-propagate retains path-dependent arm reads" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 if (result i32) i32.const 7 local.tee 1 else i32.const 9 local.tee 1 end if (result i32) local.get 1 else local.get 1 end))",
+  ).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["precompute-propagate"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  match body.last() {
+    Some(@lib.If(_, yes, Some(no))) => {
+      assert_eq(yes, [@lib.Instruction::local_get(@lib.LocalIdx::new(1U))])
+      assert_eq(no, [@lib.Instruction::local_get(@lib.LocalIdx::new(1U))])
+    }
+    _ => fail("expected result-if with dynamic local reads")
+  }
+}
