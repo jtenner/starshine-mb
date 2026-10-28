@@ -1,3 +1,19 @@
+### 2026-10-28, R1-08 code-pushing snapshot escape repair
+
+- Confirmed both original HOT/public assertions on unchanged master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245`; only obsolete test Result methods
+  needed compatibility adaptation. Failing-first checkpoint:
+  `08a8fb4a0aee363d1503afbeb720f3409475d3b4`.
+- The owning global-read assignment scan now stops before branch-containing
+  roots. Direct/nested exit coverage and a legal straight-line movement check
+  live in the implementation; the active command dispatcher retains the original
+  validated fixture. All 183 focused JS tests pass through checked Bun driver
+  filters; full `moon build -j 1` passes. No public API or `.mbti` changes.
+- The required extra subtree branch scan remains unmeasured; the active backlog
+  records workloads and costs. No Wasm runtime execution, Binaryen oracle,
+  benchmark, fuzzing, full suite, or broad parity closure is claimed.
+  [Evidence, commands, limits and measurement handoff](binaryen/passes/code-pushing/segment-selection-and-barriers.md#r1-08-global-snapshot-escape--2026-10-28).
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

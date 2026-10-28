@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-28
 sources:
   - ./index.md
   - ../../../../../src/passes/code_pushing.mbt
@@ -231,3 +231,45 @@ no Wasm runtime execution, Binaryen comparison, benchmark, fuzzing, or broad
 parity closure is claimed. The full historical review and limits remain at
 `6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`.
 Regression source: [original tests](../../../../../src/passes/hunt_r1_control_global_exit_20261025_wbtest.mbt).
+
+The repair is local to `code_pushing_try_sink_set_before_later_barrier`:
+branch-containing candidate roots terminate its search before the exit using
+the existing recursive `code_pushing_node_has_branch` predicate. It does not
+change the shared value-effect predicate or skip the public pass. Movement
+across legal straight-line separators and already-proven disjoint effects
+remains available; safe prefix movement can stop immediately before a branch.
+Nested structured branches are conservatively barriers even when their targets
+are internal; this repair adds no new CFG/dominance analysis requirement.
+
+The owning-file test checks direct and nested escaping branches and a positive
+`nop` separator with the cloned `global.get` assignment. The active
+[src/cmd/cmd.mbt](../../../../../src/cmd/cmd.mbt) dispatcher has the original
+validated fixture and assignment-before-branch assertion. Both new tests failed
+before the product guard (helper: unexpected movement; dispatcher: skipped write).
+
+Required cost: for eligible global-read sets, each otherwise-crossable candidate
+without a destination-local read gets a recursive branch scan, within the existing
+32-root window. No additional analysis overlay or persistent allocation is added.
+Branch-heavy trees may incur scans and retain earlier assignments; this is required
+without a stronger dominance proof. Candidate-free functions do not reach the new
+check. Measure candidate-free controls, long straight-line windows, direct/nested
+escapes and structured nonescaping controls; timing/allocation/output effects are
+unmeasured. The [active backlog](../../../../../agent-todo.md#code-pushing-r1-08-measurement-ir2-cp-r1-08)
+keeps that follow-up open. Other pass gaps and historical evidence remain open.
+
+Validation after repair: JS build-only, `-j 1`, selected
+`src/passes/{code_pushing.mbt,code_pushing_test.mbt,code_pushing_wbtest.mbt,hunt_r1_control_global_exit_20261025_wbtest.mbt}`
+and `src/cmd/cmd.mbt` (exit 0). A temporary compact Bun runner selected those
+pass files and the two command tests whose names mention code-pushing or the
+SIMD read/store boundary. It checked structured result counts and empty failure
+messages: **183 passed, 0 failed** (2 owning-file, 156 pass, 23 whitebox including
+the original 2, 2 dispatcher). Large-package argv and unavailable Node are avoided
+by small explicit emitted-driver filters; no test failure is inferred from process
+exit alone. `moon fmt` succeeded; unrelated formatter edits were removed.
+`moon info -j 1` was rejected by this toolchain before doing work because info
+has no `-j` option; no public API was changed and `.mbti` diffs are empty.
+
+Full workspace `PATH=/data/home/.moon/bin:$PATH moon build -j 1` passed
+(exit 0, default wasm debug target). Moon invocations were serialized. Existing
+compiler deprecation and cmd_gc main-package import warnings remain. This is a
+narrow R1-08 correctness repair, not full-suite or pass-wide parity signoff.

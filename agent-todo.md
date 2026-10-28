@@ -27,6 +27,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   closes the prior measurement task, with its accepted RSS cost explicit.
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### Code-pushing R1-08 measurement [IR2-CP-R1-08]
+
+- **Goal / why:** measure the required dominance-preserving control barrier
+  in global-read assignment movement after the narrow correctness repair.
+- **Deliverables / tasks:** compare pass-local time, allocations and output
+  on candidate-free functions, straight-line global snapshots with legal
+  separators, direct/nested escaping branches, and the 32-root scan window.
+- **APIs / invariants:** `code_pushing_try_sink_set_before_later_barrier`,
+  `code_pushing_node_has_branch`; retain dominating snapshots and legal moves.
+- **Dependencies / exit / tests:** leased measurement only; focused original
+  HOT/public regressions, owning-helper and command tests must remain green.
+  No benchmark or broad parity closure belongs to this borrowed-machine fix.
+  [Evidence and costs](docs/wiki/binaryen/passes/code-pushing/segment-selection-and-barriers.md#r1-08-global-snapshot-escape--2026-10-28).
+
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
 
 - **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;
