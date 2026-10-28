@@ -380,4 +380,44 @@ These setup failures are not regression-test failures. This is Linux native
 byte/access/read evidence, not Windows filesystem or end-to-end Unicode argv
 coverage. R1-09 source/config byte decoding is separate and unchanged.
 
-Checkpoint: regression tests are intentionally red; implementation is pending.
+The red checkpoint is commit `c368a438c` (product code unchanged). The repair
+in [`cmd_native_c_string`](../../../src/cmd/cmd.mbt) uses the existing
+`@utf8.encode` import, copies the encoded bytes into the existing buffer, and
+appends one NUL. Empty strings, ASCII mode strings and embedded NULs retain
+their byte conventions; this does not add an embedded-NUL rejection policy.
+No public API changes are intended.
+
+The change is neutral to optimizer pass execution: no pass code or workload
+changes. It does add a temporary UTF-8 allocation and byte copy on native
+C-string conversion; encoded capacity grows with UTF-8 byte length rather than
+character count. Those linear path/command setup costs preserve Unicode at the
+C boundary and are not a measured command-time neutrality claim. No benchmark,
+fuzz campaign, or Binaryen comparison belongs to this narrow repair.
+
+Final validation: **FIXED**, 4/4 native regressions passed (exit 0) using the
+reproduction command above. Five existing native command checks also passed:
+output-directory processing, text-adapter routing, both in-process text
+fallbacks, and environment lookup. They ran from the freshly compiled driver:
+
+```sh
+_build/native/debug/test/cmd/cmd.whitebox_test.exe 'cmd_wbtest.mbt:124-128/cmd_native_wbtest.mbt:0-1'
+moon info
+moon fmt
+moon build -j 1
+```
+
+All five structured result messages were checked for empty failure messages;
+the direct driver's exit code alone is not the assertion evidence. `moon info`
+and `moon fmt` succeeded; the full default-target (wasm) build succeeded with
+one worker. `moon info` has no `-j` option; an initial `moon info -j 1` usage
+error was corrected. Generated cmd interface drift was solely `Int`/`Int32`
+spelling from the installed toolchain; generated interface and unrelated
+formatter changes were excluded. The first direct native-driver attempt used
+the JS JSON argument format and aborted before tests; the corrected native
+range argument above executed all five checks. Existing dependency/deprecation
+warnings remain. No full test suite or performance run is claimed.
+
+R1-11 is closed by this repair; no active R1-11 backlog item existed to prune.
+R1-09 is neither repaired nor signed off here. Owned `_build`, temporary logs,
+staged-diff/message scratch and emitted test artifacts are removed after
+validation; committed source/tests and this evidence remain.

@@ -28338,3 +28338,14 @@ arrays/typecheck wrappers from the completed return packaging change.
   the original compiled native assertion, then expanded byte and owned-file
   tests (1 passed, 3 failed). See the [evidence and environment limits](tooling/cli-command-and-dispatcher.md#r1-11-native-filename-encoding--2026-10-28).
 - Product code remains unchanged at this checkpoint; R1-09 is outside scope.
+
+### 2026-10-28 — R1-11 native UTF-8 boundary repaired
+
+- Replaced lossy native C-string conversion with UTF-8 encoding followed by
+  NUL. The [contract and evidence](tooling/cli-command-and-dispatcher.md#r1-11-native-filename-encoding--2026-10-28)
+  retain the unchanged-master red results and Linux/native coverage limits.
+- Four native regressions and five existing command checks pass; full
+  `moon build -j 1`, `moon info`, and `moon fmt` succeed. Generated-interface
+  and unrelated formatter drift were excluded. R1-09 remains separate.
+- No optimizer-pass performance change is expected; native conversion adds
+  a UTF-8 temporary/copy and may emit more filename bytes. No timings claimed.

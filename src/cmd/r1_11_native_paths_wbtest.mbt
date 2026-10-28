@@ -31,7 +31,9 @@ test "r1 native file access opens owned UTF-8 filename fixtures" {
     let path = cmd_native_tmp_path("r1-11", suffix)
     let payload = b"\x00asm\x01\x00\x00\x00"
     @sfs.write_file_bytes(path, payload).unwrap()
-    observations.push((cmd_native_file_exists(path), cmd_native_read_file(path)))
+    observations.push(
+      (cmd_native_file_exists(path), cmd_native_read_file(path)),
+    )
     @sfs.remove_file(path).unwrap()
   }
   assert_eq(
