@@ -211,3 +211,23 @@ executing the relocated write. The September 14 ordinary and exceptional exit
 fixtures returned 0 after optimization instead of the original 7.
 Sources: `src/passes/code_pushing.mbt`,
 `src/passes/code_pushing_fourth_audit_test.mbt`, and the command regressions.
+
+## R1-08 global snapshot escape — 2026-10-28
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`:
+the original HOT and public-pipeline tests from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` both fail. The only test adaptation
+replaces the removed `Result.is_ok()` with `is Ok(_)`; fixture and assertions
+are unchanged. Build: `PATH=/data/home/.moon/bin:$PATH moon test
+src/passes/hunt_r1_control_global_exit_20261025_wbtest.mbt --target js -j 1
+--build-only` (exit 0). Bun ran the emitted whitebox JS with the original
+`file_and_index` filter (indices 0..2): 0 passed, 2 failed. HOT fails at the
+retained-LocalSet assertion; public pipeline fails `branch skips snapshot
+write` after input/output validation succeeds. Direct runner exit status is
+not a test verdict; structured results establish failure.
+
+The optimized IR trace implies `f(1)` returns default local 0 instead of 9;
+no Wasm runtime execution, Binaryen comparison, benchmark, fuzzing, or broad
+parity closure is claimed. The full historical review and limits remain at
+`6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`.
+Regression source: [original tests](../../../../../src/passes/hunt_r1_control_global_exit_20261025_wbtest.mbt).
