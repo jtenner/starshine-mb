@@ -6,6 +6,8 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [R1-06 nested matching repair](tooling/r1-06-matching-termination.md) — Original master rejection confirmed; active index pairs replace incomplete helper-depth fuel, with bounded unequal/recursive controls and measurement limits.
 
+- [R1-09 UTF-8 command input](tooling/cli-command-and-dispatcher.md#r1-09--utf-8-command-text-decoding-october-28-2026) — Original unchanged-master data/config failures, standard decoder policy, focused validation and separate JS baseline limits.
+
 - [Eight measured DAE gains landed](../../experiment-results.md#final-landing-audit) — All eight native gates and 112 CI fuzz-suite executions pass; all 85 frozen benchmark rows, accepted RSS cost, merge/checkpoint heads and successful pushes are retained. Global lease released to the reserved comparison lane.
 
 - [Measured DAE item 11](binaryen/passes/dae2/implementation-structure-and-tests.md#measured-item-11) — Many-imported-tag finalization **0.104 → 0.065 ms/call (-38.32%)**, peak RSS **9,376 → 9,312 KiB**. Productive CLI evidence is neutral; unchanged many-tag/dae2 CLI costs **5.498 → 5.970 ms (+8.46%)**, RSS **13,812 → 13,768 KiB**. Gates: 15,522 native tests and 14 CI fuzz suites pass; merge `f5c813d8f1c631996efe4ec6afaa36bd9a170159`.
