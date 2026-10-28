@@ -1,3 +1,7 @@
+### 2026-10-28, R1-14 JSON control red checkpoint
+
+- Reproduced the original U+0001 failure on unchanged master; the expanded writer test also fails at U+0000. Product code remains unchanged at this checkpoint. The [command contract record](tooling/cli-command-and-dispatcher.md#r1-14-runtime-interface-json-controls--2026-10-28) preserves scope, commands, and regression boundaries.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

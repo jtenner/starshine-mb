@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -342,3 +342,27 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+## R1-14 runtime-interface JSON controls — 2026-10-28
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`:
+the original U+0001 assertion from review record
+`6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`
+emits raw U+0001 instead of `"\u0001"`. Only that finding's assertion is
+restored from the historical multi-finding test file. The expanded test also
+fails first at U+0000. Both compiled with
+`moon test src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1 --build-only`
+and failed in Bun's generated JS runner (two structured failure results;
+the runner's zero exit status is not a pass).
+
+[The bounded writer tests](../../../src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt)
+require exact escapes for all 32 controls, unchanged quote/backslash/LF/CR/tab,
+empty strings, and unchanged Unicode including supplementary characters.
+[The consumer regression](../../../scripts/test/r1-14-runtime-interface-json.ts)
+constructs a WebAssembly-validated binary with all control export names and
+checks actual command stdout through the runtime executor's `JSON.parse`.
+At this test checkpoint the product writer is unchanged and the two writer
+tests intentionally remain red. Consumer execution and repair signoff follow.
+
+Scope is R1-14 only; the historical review's other findings and incomplete IR
+review are not re-audited. No Binaryen, fuzz, benchmark or timing claim is made.
