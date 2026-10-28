@@ -27,6 +27,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   closes the prior measurement task, with its accepted RSS cost explicit.
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### BURN-008 block-result dependency measurement [IR2-SL-BURN-008]
+
+- **Goal / why:** measure the required source-local conflict check in block
+  result promotion after the focused correctness repair.
+- **Deliverables / tasks:** compare candidate-free controls, legal constant and
+  independent-local promotion, and nested conflicting writes on a measurement
+  machine; retain result and validation assertions.
+- **APIs / invariants:** `simplify_locals_replace_tail_set_with_result_value` and
+  `simplify_locals_subtree_writes_value_local`;
+  no new allocations or copies; never move a read across its source write.
+- **Dependencies / exit / tests:** measurement authorization and frozen native
+  builds; quantify pass time/allocation deltas before performance signoff.
+  [Evidence and limits](docs/wiki/binaryen/passes/simplify-locals/effect-ordering-and-barriers.md#burn-008-block-result-source-dependencies).
+
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
 
 - **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;

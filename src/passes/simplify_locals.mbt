@@ -2017,6 +2017,18 @@ fn simplify_locals_replace_tail_set_with_result_value(
       return
     }
   }
+  // Pure local reads still depend on their source values. Keep the result
+  // at its original evaluation point when later roots write those sources.
+  for idx = tail.root_idx + 1; idx < root_count; idx = idx + 1 {
+    if simplify_locals_subtree_writes_value_local(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        tail.value_id,
+      ) {
+      ignore(@ir.hot_region_set(func, region_ref, tail.root_idx, tail.value_id))
+      return
+    }
+  }
   // Binaryen first enlarges structured arms with a trailing nop, then nops the
   // original local.set and installs its value in that result slot. Preserve
   // that source-owned shape even when doing the rewrite immediately in Hot IR.
@@ -2161,6 +2173,41 @@ fn simplify_locals_root_allows_moving_local_set_value_after(
   !simplify_locals_subtree_mentions_local(func, node_id, local_id) &&
   !simplify_locals_subtree_has_branch_to_label(func, node_id, target_label) &&
   !simplify_locals_subtree_can_exit_before_fallthrough(func, node_id)
+}
+
+///|
+fn simplify_locals_subtree_writes_value_local(
+  func : @ir.HotFunc,
+  node_id : Int32,
+  value_id : Int32,
+) -> Bool {
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => return false
+    _ => ()
+  }
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let local_id = simplify_locals_exact_local_write_id(
+    @ir.hot_node_get(func, node_id),
+  )
+  if local_id >= 0 &&
+    simplify_locals_subtree_mentions_local(func, value_id, local_id) {
+    return true
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+    if simplify_locals_subtree_writes_value_local(
+        func,
+        @ir.hot_child_get(func, node_id, idx),
+        value_id,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -9224,4 +9271,51 @@ fn simplify_locals_cleanup_changed_module_encoding(
     return grouped
   }
   dfe_cleanup_simple_type_encoding(grouped)
+}
+
+///|
+test "BURN-008 block return promotion preserves source-local evaluation points" {
+  for
+    (value, write, preserve) in [
+      ("local.get $a", "i32.const 9 local.set $a", true),
+      (
+        "local.get $a i32.const 1 i32.add", "block i32.const 9 local.tee $a drop end",
+        true,
+      ),
+      ("i32.const 7", "i32.const 9 local.set $a", false),
+      ("local.get $p", "i32.const 9 local.set $a", false),
+      ("local.get $a", "i32.const 9 local.set $other", false),
+    ] {
+    let input = pass_test_module_from_wat(
+      "(module (func (param $p i32) (result i32) (local $a i32) (local $b i32) (local $other i32) block " +
+      value +
+      " local.set $b " +
+      write +
+      " end local.get $b))",
+    )
+    @validate.validate_module(input).unwrap()
+    let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let block = @ir.hot_root_get(func, 0)
+    assert_true(@ir.hot_node_op(func, block) is @ir.HotOp::Block)
+    let body = @ir.hot_region_body_ref(func, block)
+    let value_id = @ir.hot_child_get(func, @ir.hot_region_get(func, body, 0), 0)
+    let detached : Array[Int32] = []
+    assert_true(
+      simplify_locals_try_rewrite_block_return(
+        func,
+        @ir.HotRegionRef::root(),
+        0,
+        block,
+        simplify_locals_count_local_gets(func),
+        detached,
+      ),
+    )
+    if preserve {
+      assert_eq(@ir.hot_region_get(func, body, 0), value_id)
+    }
+    simplify_locals_delete_detached_nodes(func, detached)
+    @validate.validate_module(
+      input.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)])),
+    ).unwrap()
+  }
 }

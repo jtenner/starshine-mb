@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-28
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -292,3 +292,45 @@ write contracts. Red-first tests in `legacy_cleanup_reads_wbtest.mbt` and the
 active command dispatcher cover the repair. The final 36-module lane records
 27 failing predecessor observations and zero current/v133 mismatches. Passing
 older replay lanes did not cover this family; aggregate fuzz remains deferred.
+
+## BURN-008: block-result source dependencies
+
+Block-result promotion must protect the locals read by its pure candidate,
+not only the destination local. If a trailing root contains a `local.set`
+or `local.tee` that writes a candidate source local, replace the assignment
+with its value at the original root instead of moving it to the block's end.
+The value stays on the stack across the later roots. Constants and reads of
+independent locals retain their existing promotion shape.
+The selected rewrite checks existing nodes by index and allocates no summaries,
+copies, sets, or arrays. The extra source/write traversal is required to choose
+a correct evaluation point; constant and reference-constant leaves return
+immediately.
+
+The original reduced fixture copied parameter 7 into `a`, carried one read,
+then assigned `b = a` inside a block before writing `a = 9`. Direct promotion
+and both public variants returned 16 instead of 14. Input, lift/lower control,
+and optimized output all validated: validation and emission alone did not
+prove behavior. On unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`,
+local reduced execution reproduced `16 != 14` at argument 7; Bun WebAssembly
+execution also failed with `9 != 0` at argument 0. The local repair uses
+reduced execution tests in
+[`simplify_locals_burn008_wbtest.mbt`](../../../../../src/passes/simplify_locals_burn008_wbtest.mbt),
+direct promotion and evaluation-point controls in
+[`simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), and
+command-dispatch execution in
+[`cmd.mbt`](../../../../../src/cmd/cmd.mbt).
+
+Evidence provenance: BURN-008 in `hunt-findings.md` at commit
+`04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`, including its locals evidence
+packet. This focused repair does not resolve the report's separate
+PARENT-SNAPSHOT relationship, establish broad pass parity, or claim a
+performance improvement. No benchmark or large fuzz campaign was authorized.
+
+Local validation (Moon 0.1.20261023, Bun 1.4.0 as the JS runner):
+`moon test src/passes/simplify_locals*.mbt --target js -j 1` passes 390 tests;
+`moon test src/passes/simplify_locals.mbt src/passes/simplify_locals_burn008_wbtest.mbt src/cmd/cmd.mbt --target js -j 1`
+passes 127 tests. These selections overlap and are not a unique-test total.
+`moon info`, formatting of the touched packages, and the full workspace
+`moon build -j 1` pass (default wasm target). Generated `.mbti` differences
+were only `Int`/`UInt`/`Double` alias spelling and were discarded; no public API
+changed. This is focused bug validation, not full-suite or Binaryen signoff.
