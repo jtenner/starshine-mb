@@ -28500,3 +28500,16 @@ arrays/typecheck wrappers from the completed return packaging change.
   with the existing active-pair cycle rule; declared-subtype search is unchanged.
 - Preserved bounded chain boundaries, unequal leaves and recursive backedge
   controls. See the [evidence, termination argument and measurement limits](tooling/r1-06-matching-termination.md).
+
+### 2026-10-28 — R1-07 external recursive-group identity
+
+- Confirmed the original regression on unchanged master `3d1deec7`; wasm-tools
+  1.262.0 independently accepts the original fixture. Red checkpoint `5e4b50e01`
+  retains the original result mismatch (expected type 4, actual type 2).
+- Repaired only normalized multi-member group identity: retain raw-equality
+  fast path, compare external edges structurally, preserve binder positions,
+  group arity and every sibling. Focused tests pass 23/23 (R1-07 6/6); full
+  `moon build -j 1` passes. No API change, benchmark or large fuzz run.
+- [Evidence, commands, termination and resource limits](validate/type-section-and-subtyping.md#r1-07-external-recursive-group-identity--2026-10-28);
+  [active measurement work](../../agent-todo.md#next-unreleased-patch--r1-07-matching-cost-ir2-r1-07-measure).
+  Separate R1-06 fuel exhaustion remains outside this repair.
