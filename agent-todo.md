@@ -7,6 +7,27 @@ New comparisons require verified
 [Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); historical
 oracle versions and checkpoints do not sign current source.
 
+Joshua waived measurement for all 26 October 28 fix-wave branches. BURN-001
+measured LOSS and BURN-002 measured GAIN; both are accepted. Waived measurement
+items are removed from this active backlog. The [landing record](docs/wiki/tooling/starshine-fix-wave.md)
+retains the decision, branch heads, conflicts, and correctness evidence.
+
+## Next unreleased patch: Fix-wave landing hold [IR2-FIXWAVE-26-LANDING]
+
+- **Goal / why:** resolve two integration-only test failures before landing the
+  26 accepted fixes; master has 27 separately confirmed default-suite failures.
+- **Deliverables / tasks:** obtain the coordinator's decision on OI equality
+  folding after a try/catch join and the descriptor-target rejection fixture;
+  preserve every fix and assertion while resolving the intended contracts.
+- **Required APIs / invariants:** BURN-003 same-local reaching-source proof;
+  R1-06 termination and R1-07 structural group/metadata identity. Do not weaken
+  these guards or disable passing tests. Measurement is waived.
+- **Dependencies / exit / tests:** retain the full baseline comparison and
+  native build evidence in the [integration record](docs/wiki/tooling/starshine-fix-wave.md).
+  Resolve `constraint_analysis_wbtest.mbt` index 0 and
+  `optimize_instructions_test.mbt` index 666; rerun the affected checks, review
+  full-suite counts, then land and verify pushed master. No push has occurred.
+
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog. R1-14 report JSON repair evidence
 is in the [command contract](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-14-runtime-interface-json-controls--2026-10-28);
@@ -16,33 +37,6 @@ R1-13 positional preprocessing is closed; evidence and validation limits live
 in the [command contract](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-13-positional-preprocessing-boundary--2026-10-28).
 Other R1 findings are outside that repair.
 
-
-## Next unreleased patch — GSI exported-origin measurement [IR2-GSI-BURN-001]
-
-- **Goal / why:** measure the added exported-resource origin scan after the
-  BURN-001 correctness repair for both GSI variants.
-- **Deliverables / tasks:** compare pass-local time and allocations on modules
-  with many exports/aliases, broad resource types and deep subtype candidates.
-- **APIs / invariants:** `gsi_build_closed_world_facts`, shared external-origin
-  cache and subtype propagation; preserve host values and private folds.
-- **Dependencies / exit / tests:** a later authorized measurement lane; retain
-  exact burn, in-file type/resource matrix and command regressions. No benchmark
-  or large fuzz lane is authorized in this repair. See the
-  [repair evidence](docs/wiki/binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#october-28-2026--burn-001-host-writable-origins).
-
-## Next unreleased patch — Code-folding signature follow-up [IR2-BURN-011]
-
-- **Goal / why:** measure the narrow parameterized partial-if suffix guard;
-  retain valid input consumption instead of producing an invalid void if.
-- **Deliverables / tasks:** controlled candidate-free and zero-parameter cost
-  checks; parameterized diagnostic for retained code size. Do not claim broad
-  owner or Binaryen parity closure from the three-test reproduction.
-- **APIs / invariants:** verified if child layout; full control signatures,
-  input evaluation and selected-arm effects; unchanged shared type setter.
-- **Dependencies / exit / tests:** obtain a measurement lease; retain direct
-  implementing-file and command regressions. Parameterized one/two/value-block
-  and embedded suffix owners require their own direct fixtures before widening.
-  See the [owner audit](docs/wiki/binaryen/passes/code-folding/starshine-strategy.md#burn-011-parameterized-partial-if-suffixes--october-28-2026).
 
 ## Next unreleased patch — Existing JS command failures [IR2-CMD-BASELINE]
 
@@ -60,37 +54,6 @@ Other R1 findings are outside that repair.
   `dae_snapshot_identity_wbtest.mbt` index 0, and
   `dae_nan_caller_bits_cmd_wbtest.mbt` indices 0–1.
 
-## Next unreleased patch — R1-06 matching measurement [IR2-VALIDATE-R1-06]
-
-- **Goal / why:** measure complete exact matching beyond the former premature
-  cutoff; correctness repair is recorded in the [R1-06 dossier](docs/wiki/tooling/r1-06-matching-termination.md).
-- **Deliverables / tasks:** leased time/RSS comparison of shallow/deep equal
-  chains, late unequal leaves and recursive controls; no borrowed-host benchmark.
-- **APIs / invariants:** exact heap/index matching, active pair push/pop;
-  termination, unequal-type rejection and unchanged public API.
-- **Dependencies / exit / tests:** measurement slot and native harness; report
-  traversal/stack costs separately from the incorrect baseline's early exits.
-  Retain the bounded R1-06 tests and original WAT fixture.
-- **Known package failure:** JS `validate.mbt` index 31 misses generated
-  descriptor coverage at line 8677; reproduced with baseline matching code.
-  Outside R1-06; full-package green remains unclaimed.
-
-## Next unreleased patch — R1-07 matching cost [IR2-R1-07-MEASURE]
-
-- **Goal / why:** measure the corrected recursive-group comparison's external
-  traversals; correctness repair does not establish performance neutrality.
-- **Deliverables / tasks:** compare baseline `3d1deec7` and the R1-07 fix on
-  raw-equal groups, equivalent external leaves, recursive external singletons,
-  early unequal leaves, late unequal/disconnected siblings, and repeated external
-  edges. Hoist environment construction; report matching time and allocations.
-- **APIs / invariants:** `src/validate/match.mbt`, exact group identity, binder
-  offsets/arity, all-member checks, termination and inequivalent-type rejection.
-  Reuse the retained R1-07 test builders and original WAT fixture.
-- **Dependencies / exit / tests:** obtain a measurement lease; no timing on the
-  borrowed host. Retain focused acceptance and rejection tests. Separate R1-06
-  fuel exhaustion remains outside this repair. See the
-  [evidence and resource limits](docs/wiki/validate/type-section-and-subtyping.md#r1-07-external-recursive-group-identity--2026-10-28).
-
 ## Next unreleased patch — Command JS baseline failures [IR2-R1-09-VALIDATION]
 
 - **Goal / why:** resolve or qualify six unchanged-master command-package
@@ -104,19 +67,6 @@ Other R1 findings are outside that repair.
   baseline source in the [R1-09 record](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-09--utf-8-command-text-decoding-october-28-2026).
   Exit when the supported-runtime package lane passes or its runtime limitation
   is independently established. No pass work or performance gate was done here.
-
-## Next unreleased patch — Output preflight measurement [IR2-R1-10]
-
-- **Goal / why:** quantify correctness-required command startup path-map cost;
-  the unread-input overwrite is repaired, with no timing claim.
-- **Deliverables / tasks:** bounded single-input in-place, distinct multi-input
-  `--out-dir`, text-extension and late-collision startup measurements when leased.
-- **APIs / invariants:** `preflight_output_paths`; reject all lexical output/output
-  and output/other-input collisions before module IO; preserve own-input writes.
-- **Dependencies / exit / tests:** measurement lease; compare time/allocation with
-  baseline `3d1deec7`, preserving the committed in-memory regressions. No new
-  filesystem canonicalization or module-byte copies. See the
-  [contract and limits](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-10-output-collision-preflight--october-28-2026).
 
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
@@ -132,66 +82,7 @@ Other R1 findings are outside that repair.
   the next leased lane; retain key, type-update and batch regressions. The
   [measured landing](experiment-results.md#item-8--landed-under-the-corrected-procedure)
   closes the prior measurement task, with its accepted RSS cost explicit.
-## Next unreleased patch — OI reaching-source proof cost [IR2-BURN-003]
-
-- **Goal / why:** measure the necessary written-local reaching-value proof
-  added for BURN-003; unchanged-base runtime execution confirmed wrong folds.
-- **Deliverables / tasks:** compare pass time, allocations and peak memory on
-  candidate-free, unwritten-parameter, initialized-local, repeated-candidate,
-  nested-control and frequent-mutation workloads. No timing is authorized on
-  the borrowed fix-wave machine.
-- **APIs / invariants:** shared `optimize_instructions_same_local_value`,
-  borrowed use-def write rows, operand-expanded CFG/read-source-only flow;
-  same singleton reaching source, revision invalidation, retained value order.
-- **Dependencies / exit / tests:** a measurement slot; retain implementing-file,
-  dispatcher and both-width runtime regressions. Explain any material analysis
-  regression before further optimization. See the
-  [fix and limits](docs/wiki/binaryen/passes/optimize-instructions/index.md#october-28-2026-burn-003-reaching-value-equality).
-
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
-
-### BURN-008 block-result dependency measurement [IR2-SL-BURN-008]
-
-- **Goal / why:** measure the required source-local conflict check in block
-  result promotion after the focused correctness repair.
-- **Deliverables / tasks:** compare candidate-free controls, legal constant and
-  independent-local promotion, and nested conflicting writes on a measurement
-  machine; retain result and validation assertions.
-- **APIs / invariants:** `simplify_locals_replace_tail_set_with_result_value` and
-  `simplify_locals_subtree_writes_value_local`;
-  no new allocations or copies; never move a read across its source write.
-- **Dependencies / exit / tests:** measurement authorization and frozen native
-  builds; quantify pass time/allocation deltas before performance signoff.
-  [Evidence and limits](docs/wiki/binaryen/passes/simplify-locals/effect-ordering-and-barriers.md#burn-008-block-result-source-dependencies).
-
-### BURN-009 DCE signature-constraint measurement [IR2-DCE-BURN-009]
-
-- **Goal / why:** quantify the correctness-required signature bitset cost;
-  no performance improvement or neutrality is established by the bounded repair.
-- **Deliverables / tasks:** measure ordinary-only, catch-only, mixed catch and
-  mixed continuation targets, many labels and repeated cache invalidations;
-  compare pass time, allocation and output on the same fixtures.
-- **APIs / invariants:** `dead_code_elimination_build_branch_users_by_label`,
-  `dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_branches`;
-  preserve catch/handler signatures and ordinary-only dropped-result removal.
-- **Dependencies / exit / tests:** separate controlled measurement; retain
-  direct owner, label-target and active dispatcher regressions. No benchmark,
-  large fuzz or broad parity closure ran in the repair. See the
-  [reproduction, limits and handoff](docs/wiki/binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md#burn-009-mixed-incoming-edges-2026-10-28).
-
-### Code-pushing R1-08 measurement [IR2-CP-R1-08]
-
-- **Goal / why:** measure the required dominance-preserving control barrier
-  in global-read assignment movement after the narrow correctness repair.
-- **Deliverables / tasks:** compare pass-local time, allocations and output
-  on candidate-free functions, straight-line global snapshots with legal
-  separators, direct/nested escaping branches, and the 32-root scan window.
-- **APIs / invariants:** `code_pushing_try_sink_set_before_later_barrier`,
-  `code_pushing_node_has_branch`; retain dominating snapshots and legal moves.
-- **Dependencies / exit / tests:** leased measurement only; focused original
-  HOT/public regressions, owning-helper and command tests must remain green.
-  No benchmark or broad parity closure belongs to this borrowed-machine fix.
-  [Evidence and costs](docs/wiki/binaryen/passes/code-pushing/segment-selection-and-barriers.md#r1-08-global-snapshot-escape--2026-10-28).
 
 ### Validator generator baseline failures [IR2-VALIDATE-GEN-BASELINE]
 
@@ -218,22 +109,6 @@ Other R1 findings are outside that repair.
 - **Dependencies / exit / tests:** focused perf target and pass/registry tests,
   then leased full gates plus preparation-time and memory evidence. See the
   [contract diagnosis](docs/wiki/binaryen/passes/remove-unused-brs/starshine-strategy.md#round-2-fix-1-tail-return-contract-repair--2026-10-25).
-
-### BURN-007 guard dependency measurement [IR2-SGO-BURN-007]
-
-- **Goal / why:** measure the required stack-consumption proof after the
-  carried-result correctness repair; historical SGO closeout does not cover it.
-- **Deliverables / tasks:** compare pure guard scanning and full SGO time,
-  allocations and output on short/long unary, binary, reverse and select guards,
-  carried i32/i64 results, and candidate-free controls. No borrowed-machine
-  benchmarks or broad fuzzing are authorized for this repair.
-- **APIs / invariants:** `sgo_pure_guard_read_depth_after` and both pure guard
-  classifiers must consume the tracked descendant, retain observable writes,
-  and preserve true self guards without stack allocations or copies.
-- **Dependencies / exit / tests:** controlled measurement lease; retain the
-  implementing-file and cmd `BURN-007` tests and repeated-call `[5, 7]` runtime
-  checks. Broader v133 parity remains separate. See the
-  [repair contract](docs/wiki/binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md#burn-007-carried-values-are-observable-2026-10-28).
 
 ### Simplify-locals analysis preparation [IR2-SL-ANALYSIS-CONTRACT]
 
@@ -900,16 +775,6 @@ quality gates. Keep traced inner and normal command measurements separate.
   store-run shortcut separately has red-first496-root-visit and590-stack-scan
   controls; its negative admission now checks run length before stack rows.
 
-
-- [ ] **BURN-002 tuple forwarded-lane measurement:** the focused liveness repair
-  retains assignments when unique-use/single-write forwarding is unproved.
-  Goal: measure query-summary and downstream code-shape cost on multiply written
-  destinations, shared reads, tee chains and parameter self-copies; retain
-  single-write drop-chain controls. No new arrays, copies or graph traversals
-  are required. Focused correctness/full-build evidence belongs in the
-  [existing repro record](docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md#october-28-2026--burn-002-forwarded-lane-liveness).
-  Exit: paired pass-local cost and output-size/runtime checks on those workloads;
-  broader current-source tuple/v133 signoff remains separate below.
 
 - [ ] **October 15 Tuple current-source signoff:** bulk publication and
   ascending-copy native `193e58a7` passed 14,267 WasmGC tests and 13,440 Tuple
@@ -1599,12 +1464,6 @@ quality gates. Keep traced inner and normal command measurements separate.
   bytes. No important hidden behavior, size, memory or active-coverage regression.
 
 ### P04 — Remaining Coalesce CFG, interference and lower work [IR2-PERF-COALESCE]
-
-- **BURN-006 measurement follow-up:** lexical resume targets now participate in
-  control summaries. Compare handler-heavy cached/uncached summaries and both
-  public passes with a no-resume control; the required linear handler scan
-  allocates no new storage. Focused compiler assertions establish suffix
-  preservation; continuation runtime execution and performance remain unmeasured.
 
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
@@ -2719,13 +2578,6 @@ pass dossiers; historical green checkpoints do not replace current signoff.
   exit criteria and suggested tests. Preserve existing fixes and assertions.
 - On new mismatches, save and minimize artifacts, classify with evidence, add a
   failing focused regression, repair the owning layer and update its dossier.
-
-## Next unreleased patch — WAT name escaping cost [IR2-R1-03]
-
-- **Goal / why:** quantify the bounded per-character check and required escaped-output growth from the R1-03 correctness repair; no timing claim yet.
-- **Deliverables / tasks:** compare plain ASCII, Unicode, quote/backslash and control-heavy function export names through `lib_module_to_wat`; preserve export bytes after re-lowering.
-- **APIs / invariants:** `src/wat/wat_api.mbt::lib_name_to_wat`; supported module-section boundary unchanged, controls use two-digit byte escapes.
-- **Dependencies / exit / tests:** separate leased measurement if needed; retain `src/wat/r1_name_escaping_wbtest.mbt` controls. See [repair evidence](docs/wiki/wast/identifier-name-and-annotation-authoring.md#r1-03-lib-wat-export-name-repair--2026-10-28). No other R1 finding is owned by this wave.
 
 ## Next unreleased patch — Command package baseline failure [IR2-CMD-TEST-BASELINE]
 

@@ -28609,3 +28609,18 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Superseded the user-supplied F1 source-inference-only PRESENT verdict with an executed unchanged-master reproduction: active initialization plus passive `table.init`, `array.init_elem`, and `array.new_elem` reject valid non-null destinations (four failing tests, one passing nullable-expression control).
 - Corrected `Elem::reftype` for function-index forms 0–3 using the authoritative Core binary grammar; retained nullable expression semantics and binary encodings. See [the durable evidence and regression map](binary/data-element-and-datacount-sections.md#function-index-segment-nullability-f1).
 - Validation: six focused F1 tests and 36 library tests pass; full `moon build -j 1` passes. The combined touched-package run retains 11 baseline generator failures, independently reproduced with the original master type derivation and tracked in `agent-todo.md`. Generated API spelling drift was reviewed and excluded.
+
+### 2026-10-28, Fix-wave integration held on two test conflicts
+
+- Integrated all 26 verified branch heads, in order, with separate merge
+  commits on `landing/starshine-fixwave-26`; retained the complete master log,
+  all docs-stack corrections, both matcher fixes, and every incoming test.
+- Recorded the [merge table, conflict resolutions, owner measurement waiver,
+  runner setup repair, full test results, and two blocking cases](tooling/starshine-fix-wave.md).
+  Native release build passes. Master: 15,474 passed / 27 failed out of 15,501.
+  Integration: 15,587 passed / 29 failed out of 15,616. The same 27 baseline
+  failures recur; an OI equality shape check and descriptor rejection fixture
+  add two failures. Native filename tests pass 4/4; JSON consumer preserves
+  all 34 export names. No performance measurement ran.
+- Kept master and origin/master at `1fa2c7699476726231382e23d5aa357fd1f2749e`.
+  No push was attempted pending the coordinator's test-contract decision.
