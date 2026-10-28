@@ -11,6 +11,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — Existing JS command failures [IR2-CMD-BASELINE]
+
+- **Goal / why:** restore the command package gate; six failures reproduced on
+  master `3d1deec7cecf1caaf65b42799777ff52ef210245` during R1-01 validation.
+- **Deliverables / tasks:** diagnose five NaN-payload assertions and the fuzz
+  harness pass-list expectation separately from the callback-retention fix.
+- **Required APIs / invariants:** preserve floating payload bits and the intended
+  harness pass sequence; do not disable or weaken tests to obtain a green gate.
+- **Dependencies / exit criteria:** all six assertions pass on JS; R1-01 only
+  records them and does not own these other fixes. See the
+  [R1-01 validation record](docs/wiki/binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#r1-01-indirectly-returned-callback-bodies-october-28-2026).
+- **Suggested tests / known failures:** `src/cmd/single_leaf_wbtest.mbt` index 0,
+  `fuzz_harness_wbtest.mbt` index 28, `dae_uniform_operands_wbtest.mbt` index 1,
+  `dae_snapshot_identity_wbtest.mbt` index 0, and
+  `dae_nan_caller_bits_cmd_wbtest.mbt` indices 0–1.
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key

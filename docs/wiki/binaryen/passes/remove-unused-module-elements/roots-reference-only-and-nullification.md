@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-28
 sources:
   - ../../../../../src/rume/host_roots.mbt
   - ../../../../../src/rume/host_roots_wbtest.mbt
@@ -30,6 +30,74 @@ related:
 # Roots, reference-only reachability, and nullification in Binaryen RUME
 
 > **Comparison baseline — October 13, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Historical v131/v132 sources, commands, artifacts and results retain their original versions and do not establish v133 signoff.
+
+## R1-01: indirectly returned callback bodies (October 28, 2026)
+
+**Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.**
+The original two reproductions from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` both validate input and output,
+then fail with `[Unreachable] != [I32Const(I32(42))]`. The historical test
+needed only `.is_ok()` replaced by `is Ok(_)` for the current compiler; its
+fixtures, closed-world option, and body assertions were unchanged. The first
+literal replay failed to compile at those two obsolete Result methods.
+The review's 14 findings are historical claims, not confirmation of other
+findings on this master. Historical and current evidence here inspect validated
+IR; neither claims host execution or a Binaryen comparison.
+
+The [owning scan](../../../../../src/rume/remove_unused_module_elements.mbt)
+previously followed nested syntax and direct `ref.func`, but omitted `call`
+and `global.get` edges. It now follows direct calls (including `return_call`)
+and global initializers with a module-edge worklist. Shared function/global
+visited bitsets terminate cycles and avoid rescanning shared helper targets.
+Discovered callbacks enter ordinary strong liveness before reference-only
+bodies can be nullified. The existing conservative syntax scan remains:
+references anywhere in traversed bodies can be retained, even when a more
+precise value-flow proof could eliminate them. This is not a general new
+analysis of runtime global writes, indirect calls, or all reference carriers.
+
+[Original focused regressions](../../../../../src/rume/hunt_r1_callback_escape_wbtest.mbt)
+retain the exact constant body through the private-global and private-helper
+routes. [Command-dispatch coverage](../../../../../src/cmd/r1_01_callback_escape_wbtest.mbt)
+adds cyclic helper/nested-if, tail-call, and global-alias routes, checks validation,
+and requires unrelated dead-function removal. A separate owning-package control
+requires nullification of a callback whose reference is only dropped. The original dispatcher case also
+failed on the pre-fix artifact at the same body assertion.
+
+Validation uses `PATH=/data/home/.moon/bin:$PATH`, serialized Moon commands,
+and one worker. Node is absent, so JS tests are built with
+`moon test src/rume --target js -j 1 --build-only` and
+`moon test src/cmd --target js -j 1 --build-only`, then executed with Bun using
+compact file/index filters. Structured result messages determine success;
+the direct driver exits zero even for failed assertions.
+
+The committed [compact Bun driver](../../../../../tests/repros/r1-01/run-compiled-tests.cjs)
+reads compiled test metadata and verifies every selected structured result:
+`bun tests/repros/r1-01/run-compiled-tests.cjs rume cmd`.
+Final results: RUME 32/32 pass; command internal 122/122 pass; command
+whitebox 681 pass, 18 skipped, 6 fail (705 results). The R1-01 command test
+passes all five routes. `moon info` succeeds with existing warnings; generated
+interface churn is integer-alias spelling only and is not retained. No public API
+changes are introduced. `moon fmt src/rume src/cmd` ran; one unrelated command
+formatting change was excluded. Full workspace `moon build -j 1` succeeds.
+
+The command package has six pre-existing JS failures: `single_leaf_wbtest.mbt:0`,
+`fuzz_harness_wbtest.mbt:28`, `dae_uniform_operands_wbtest.mbt:1`,
+`dae_snapshot_identity_wbtest.mbt:0`, and
+`dae_nan_caller_bits_cmd_wbtest.mbt:0–1` (indices, not source lines).
+All six were rerun with the RUME implementation restored byte-for-byte to
+master and failed identically. Five concern NaN payloads; the harness case
+expects `["merge-blocks", "remove-unused-brs"]` but observes
+`["remove-unused-brs"]`. They remain active backlog and are outside R1-01.
+
+Correctness requires the extra reachable-body/initializer traversal and retained
+callable bodies. Added storage is two module-sized bitsets plus pending module
+edges; shared target bodies/initializers are scanned once per liveness collection.
+Import-count lookup and exported root syntax scans still occur per reference-returning
+export. Retention can increase output size where the old output incorrectly trapped.
+No timing, large fuzz campaign, host execution, or broad pass parity closure is
+claimed on the borrowed host. Pending measurement should compare this parent and
+fix on direct-return controls, private-global/helper returns, cyclic/shared helper
+graphs, and modules without reference-returning exports.
 
 ## Explicit application export roots
 
