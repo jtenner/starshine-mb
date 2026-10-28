@@ -45,16 +45,16 @@ There are two independent questions to keep separate:
 1. **Mode:** active, passive, or declarative.
 2. **Payload kind:** a legacy function-index list, a `funcref` expression list, or an explicitly typed reference-expression list.
 
-Starshine's core, binary, validator and generator layers represent both axes. The September 10 upgrade adds an explicit `ElemSegment.declarative` bit: `(elem declare func ...)` now retains declarative mode through lowering. This supersedes the July loss of mode. General typed declarative text remains a separate authoring boundary; use core/binary fixtures for that form.
+Starshine's core, binary, validator and generator layers represent both axes. The September 10 upgrade added an explicit `ElemSegment.declarative` bit, superseding the July loss of mode. Current WAST parsing, printing, and lowering preserve declarative function lists and typed-expression payloads. The [checked-in roundtrip assertions](../../../src/wast/binaryen132_call_ref_test.mbt) cover both forms; they do not establish full grammar or semantic validation coverage.
 
 ## Layer Contract
 
 | Layer | Code / source | What it proves | Caveat |
 | --- | --- | --- | --- |
-| Official text/syntax/validation | Current WebAssembly 3.0 text, syntax, binary, and validation pages, reviewed on 2026-07-14 | Element segments have active/passive/declarative modes; payloads are reference expressions; function-index lists abbreviate `ref.func` payloads; active offsets and element expressions are constant-expression contexts; current official `declare` text can carry typed `(item ...)` element lists. | The official text grammar is broader than Starshine WAST in this snapshot. |
+| Official text/syntax/validation | Current WebAssembly 3.0 text, syntax, binary, and validation pages, reviewed on 2026-07-14 | Element segments have active/passive/declarative modes; payloads are reference expressions; function-index lists abbreviate `ref.func` payloads; active offsets and element expressions are constant-expression contexts; current official `declare` text can carry typed `(item ...)` element lists. | This dated review predates the declarative-mode repair; use the current parser and regression sources for local support. |
 | Starshine core model | [`ElemMode`](../../../src/lib/types.mbt) and [`ElemKind`](../../../src/lib/types.mbt) | Core modules can carry `Passive`, `Active(TableIdx, Expr)`, `Declarative`, `FuncsElemKind`, `FuncExprsElemKind`, and `TypedExprsElemKind`. | Core support does not automatically imply text support. |
 | Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Binary headers `0` through `7` roundtrip the full mode/kind family, including declarative typed-expression segments. | Byte-level roundtrip does not prove source-id or text-printer fidelity. |
-| WAST parse/print/lower | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | WAST can author common active/passive function-list and typed-expression segments, table element abbreviations, and passive typed empty fixtures. | [`ElemSegment`](../../../src/wast/parser.mbt) preserves declarative function-list mode. Typed declarative text remains a separate authoring boundary. |
+| WAST parse/print/lower | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | WAST can author active/passive function-list and typed-expression segments, declarative function lists and typed expressions, table element abbreviations, and passive typed empty fixtures. | [`ElemSegment`](../../../src/wast/parser.mbt) retains declarative mode. The checked-in roundtrip assertions compare the lowered element section, including typed payloads and indices. |
 | Validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md) | Element payload functions must exist; element expressions must typecheck as constants at the segment reference type; active segments also check parent table existence, table element type compatibility, and offset type. | `ref.func` declaration checks are a separate whole-module phase, so do not judge declaration safety from instruction typechecking alone. |
 | Generation/fuzzing | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/lib/arbitrary.mbt`](../../../src/lib/arbitrary.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) | Valid generation exercises active/passive/declarative, function-list, function-expression, and typed-expression element families; core arbitrary exercises declarative headers. | Generator coverage is core/validator evidence; mirror text fixtures through this WAST page before assuming parser/printer support. |
 
@@ -64,7 +64,7 @@ Starshine's core, binary, validator and generator layers represent both axes. Th
 | --- | --- | --- | --- |
 | Active | Copies references into a table during instantiation. | `(elem (i32.const 0) func $f)` or table abbreviations such as `(table funcref (elem $f))`. | WAST lowers non-empty offsets to `ElemMode::active(...)`; binary headers `0`, `2`, `4`, and `6` are covered. |
 | Passive | Provides a reusable runtime payload for `table.init` / `elem.drop`, and for core `array.new_elem` / `array.init_elem`. | `(elem func $f)` or `(elem (ref null $t) (item ...))` with no offset. | WAST lowers empty offsets to `ElemMode::passive()`; binary headers `1` and `5` are covered. |
-| Declarative | Declares references without being a table initializer or reusable runtime payload. This is the canonical way to forward-declare `ref.func` targets. | Official text can use `declare` with an element list; Starshine preserves `declare func`; use core/binary fixtures for typed declarative payloads. | Core/binary/generator support `ElemMode::declarative()` and headers `3` / `7`; WAST text preserves the `(elem declare func ...)` abbreviation as declarative through lowering. |
+| Declarative | Declares references without being a table initializer or reusable runtime payload. This is the canonical way to forward-declare `ref.func` targets. | Starshine accepts `declare func` lists and `declare` with an explicit reference type and expression payload. | Core/binary/generator support `ElemMode::declarative()` and headers `3` / `7`; WAST preserves declarative mode for function lists and typed expressions through printing and lowering. |
 
 | Payload kind | Meaning | Starshine lowering rule |
 | --- | --- | --- |
@@ -83,7 +83,7 @@ Starshine's core, binary, validator and generator layers represent both axes. Th
 | `4` | Active table `0` | `funcref` expressions | Expression-form active segment. |
 | `5` | Passive | Typed expressions | Carries an explicit reference type. |
 | `6` | Active explicit table | Typed expressions | Carries table index, offset, reference type, expressions. |
-| `7` | Declarative | Typed expressions | Core/binary/generator-visible; not a proven WAST text surface today. |
+| `7` | Declarative | Typed expressions | WAST also accepts typed declarative payloads; use encoded-byte fixtures when the header itself is the evidence. |
 
 ## Concrete WAST Shapes
 
@@ -161,14 +161,14 @@ Starshine parses table element abbreviations in [`parse_table(...)`](../../../sr
 
 This is a declarative segment: it provides validation declarations without a reusable runtime payload. `ElemSegment.declarative` now preserves that distinction. [The call-reference regression](../../../src/wast/binaryen132_call_ref_test.mbt) asserts the exact declarative core mode; [Vacuum tests](../../../src/passes/binaryen132_cleanup_test.mbt) preserve live references and element-index uses while removing unused declarations after intrinsic cleanup.
 
-Official text is broader than this narrow local branch. A typed declarative element list such as `(elem declare (ref null $t) (item ...))` belongs to the same portable mode family, but it is not a proven Starshine WAST text surface today. Use direct core or binary fixtures for header `7` and typed declarative mode until parser, printer, and lowering tests cover it.
+Typed declarative payloads also have WAST support. The parser accepts an explicit reference type and element expressions, including the `(item ...)` wrapper. The [typed declarative regression](../../../src/wast/binaryen132_call_ref_test.mbt) uses both `funcref` and `(ref null $sig)` with a `ref.func` expression. It asserts `Declarative` with `TypedExprsElemKind`, then compares the element section after printing, parsing, and lowering. These source assertions establish the intended roundtrip contract, not full grammar coverage or a new test result from this documentation review.
 
-The existing typed-ref parser/lowerer smoke tests use `(elem declare func $dummy)` as a convenient declaration source in [`parser.mbt`](../../../src/wast/parser.mbt) and [`lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt). They prove parse acceptance and whole-module validation, not declarative-mode roundtrip fidelity.
+The older typed-ref parser/lowerer smoke tests use `(elem declare func $dummy)` as a convenient declaration source in [`parser.mbt`](../../../src/wast/parser.mbt) and [`lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt). Those checks alone do not cover roundtrip fidelity. The separate function-list regression covers empty and populated declarations; the typed-expression regression covers mode, payload type, indices, and element-section equality after roundtrip. Validate authored modules separately.
 
 ## Current Flow And Invariants
 
-1. **Parse:** `parse_elem(...)` handles `(elem declare func ...)` first, then general active/passive/typed forms. The returned `ElemSegment` records ids, table index, offset instructions, function indices, item expressions, an optional type, and the declarative-mode bit.
-2. **Print:** `module_to_wast(...)` prints from the WAST AST. Declarative function lists print `declare func`; passive lists remain distinct.
+1. **Parse:** `parse_elem(...)` records `declare` before parsing the shared function-list or typed-expression grammar. Declarative segments have no table use or offset. The returned `ElemSegment` records ids, table index, offset instructions, function indices, item expressions, an optional type, and the declarative-mode bit.
+2. **Print:** `module_to_wast(...)` prints from the WAST AST. Declarative function lists print `declare func`; typed declarations print `declare` and their explicit reference type. Passive lists remain distinct.
 3. **Lower:** `wast_to_binary_module(...)` resolves ids to numeric indices. An explicit declarative bit selects declarative mode; otherwise empty offset becomes passive and non-empty offset becomes active. Explicit element type or explicit `(item ...)` syntax keeps typed-expression intent.
 4. **Validate:** Element kind validation checks referenced function existence and expression typing. Element mode validation checks active table/index/offset constraints only for active mode. The separate `ref.func` declaration phase scans element payloads and expressions as declaration sources; see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 5. **Generate/fuzz:** `gen_valid` tracks the `[FZG]021` element-segment-range surface for multi-element segments, nonzero table targets, and non-`funcref` typed-expression segments; route text mirrors back through this page.
@@ -179,7 +179,7 @@ Keep these invariants visible:
 - **Typed intent should survive.** Explicit element type or explicit `(item ...)` syntax must not collapse blindly to `FuncsElemKind`.
 - **Element expressions are constant expressions.** Moving ordinary body instructions into element payloads is not safe unless the validator accepts them as constants.
 - **Function indices are absolute after lowering.** Element payloads use the same imported-prefix `FuncIdx` model as calls, exports, starts, and `ref.func` declarations; see [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md).
-- **Direct core/binary proof is sometimes the right layer.** For declarative typed-expression header `7`, use direct core/binary fixtures; function-list mode preservation also has WAST coverage.
+- **Use the layer that carries the evidence.** WAST roundtrip assertions cover declarative function lists and typed expressions. Use encoded-byte fixtures for the exact header `7` representation and validate semantic constraints separately.
 
 ## Rewrite And Signoff Guidance
 
@@ -197,12 +197,14 @@ When a pass or lowering change touches elements, check every affected index and 
 The September 10 implementation supersedes the earlier fix plan: a red lowering
 assertion exposed passive mode, and the parser/lowerer now preserve the explicit
 bit. A separate print/parse test covers both populated and empty declarations.
-General typed declarative text and official `(table ...)` element table-use
-spelling remain independent authoring work.
+The checked-in typed declarative regression also asserts mode and payload
+preservation through printing and lowering. Official `(table ...)` element
+table-use spelling remains separate authoring work; these cases do not prove
+the full official text grammar.
 
 ## Common Mistakes
 
-- Treating parse acceptance of `(elem declare func ...)` as proof that declarative mode survives WAST lowering.
+- Treating parse acceptance alone as proof of mode or typed-payload preservation; inspect the focused roundtrip assertions and validate the module.
 - Using a declarative segment as the payload for a runtime `table.init` fixture when the test really needs a passive segment.
 - Forgetting that table element abbreviations become active element segments and therefore participate in active-offset validation and element-section rewrites.
 - Collapsing typed empty or explicitly typed item segments into function-index lists because they happen to contain no non-`ref.func` expressions.
