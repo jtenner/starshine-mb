@@ -3869,6 +3869,10 @@ fn typecheck_array_len(st : TcState) -> TcResult {
     Ok(p) => p
     Err(e) => return Err(e)
   }
+  // Virtual operands from a polymorphic frame satisfy any operand type.
+  if actual == ValType::bottom() {
+    return Ok(next.push1(ValType::i32()))
+  }
   let unshared = ValType::ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::array())),
   )

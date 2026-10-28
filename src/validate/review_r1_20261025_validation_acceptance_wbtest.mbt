@@ -2,9 +2,7 @@
 test "review r1 validation accepts array.len with a virtual bottom operand" {
   let module_ = Module::new()
     .with_type_sec(
-      TypeSec::new([
-        RecType::new(SubType::comp_type(CompType::func([], []))),
-      ]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
@@ -25,12 +23,14 @@ test "review r1 validation accepts array.len with a virtual bottom operand" {
   }
 }
 
-
 ///|
 test "R1-05 array.len virtual bottom produces i32" {
-  let state = assert_ok(Typecheck::typecheck(
-    Instruction::unreachable_(), make_state(empty_env(), []),
-  ))
+  let state = assert_ok(
+    Typecheck::typecheck(
+      Instruction::unreachable_(),
+      make_state(empty_env(), []),
+    ),
+  )
   let result = assert_ok(Typecheck::typecheck(Instruction::array_len(), state))
   assert_stack(result, [ValType::i32()])
   assert_eq(result.polymorphic, true)
@@ -38,10 +38,18 @@ test "R1-05 array.len virtual bottom produces i32" {
 
 ///|
 test "R1-05 array.len rejects invalid concrete operands even after unreachable" {
-  for operand in [ValType::i32(), ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::func())))] {
+  for
+    operand in [
+      ValType::i32(),
+      ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::func()))),
+    ] {
     for dead in [false, true] {
       let state = make_state(empty_env(), [])
-      let state = if dead { assert_ok(Typecheck::typecheck(Instruction::unreachable_(), state)) } else { state }
+      let state = if dead {
+        assert_ok(Typecheck::typecheck(Instruction::unreachable_(), state))
+      } else {
+        state
+      }
       tcneg_assert_err_contains(
         Typecheck::typecheck(Instruction::array_len(), state.push1(operand)),
         "array.len requires an array reference",
@@ -56,11 +64,17 @@ test "R1-05 array.len rejects invalid concrete operands even after unreachable" 
 
 ///|
 test "R1-05 array.len accepts concrete array references" {
-  let array_type = SubType::comp_type(CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)))
+  let array_type = SubType::comp_type(
+    CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
+  )
   let env = { ..empty_env(), global_types: [array_type], }
   for nullable in [false, true] {
-    let operand = ValType::ref_type(RefType::new(nullable, HeapType::new(TypeIdx::new(0))))
-    let result = assert_ok(Typecheck::typecheck(Instruction::array_len(), make_state(env, [operand])))
+    let operand = ValType::ref_type(
+      RefType::new(nullable, HeapType::new(TypeIdx::new(0))),
+    )
+    let result = assert_ok(
+      Typecheck::typecheck(Instruction::array_len(), make_state(env, [operand])),
+    )
     assert_stack(result, [ValType::i32()])
   }
 }

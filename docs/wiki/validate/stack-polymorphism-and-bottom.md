@@ -228,3 +228,41 @@ structured result messages establish these failures.
 The gap is local to `typecheck_array_len`: `pop1` correctly synthesizes bottom,
 but ordinary `Match::matches` does not accept it as an array reference.
 R1-06/R1-07 and other review findings are outside this repair.
+
+The repair accepts `actual == ValType::bottom()` immediately after `pop1`,
+then pushes exactly one `i32`. Real operands still use the original shared or
+unshared array matching; checking `st.polymorphic` alone would incorrectly
+accept concrete numeric/function references pushed after `unreachable`.
+
+Validation on Moon 0.1.20261023 (`3778465`), serialized:
+
+```sh
+export PATH=/data/home/.moon/bin:$PATH
+moon info src/validate
+moon fmt src/validate
+moon test src/validate --target js -j 1 --build-only
+moon build -j 1
+```
+
+The JS build succeeds. With Node absent, a temporary compact Bun driver reads
+`__internal_test_info.json` / `__whitebox_test_info.json`, selects individual
+`file_and_index` ranges, invokes the generated `validate.*_test.js` runners,
+and checks every structured result (not just process exit).
+It passes 649 focused tests: all 554 internal `typecheck.mbt` tests and 95
+white-box tests across the R1-05 file, `typecheck_negative_wbtest.mbt`,
+`frame_polymorphism_wbtest.mbt`, `shared_array_length_wbtest.mbt`,
+`string_bottom_wbtest.mbt`, and `typed_pop_wbtest.mbt`.
+The five R1-05 cases now pass, including reachable-invalid and dead-concrete
+rejections, reachable underflow, and nullable/non-null concrete-array controls.
+Compiler-generated `.mbti` spelling drift (`Int`/`UInt` to explicit widths)
+and unrelated package formatting were reviewed and excluded; no public API
+changes are intended. Existing compiler deprecation warnings remain.
+
+Performance is expected neutral in aggregate, not measured: one constant-time
+bottom comparison per array.len, no new traversal, retained state, cache or
+collection. Bottom operands bypass two ordinary reference matches and their
+expected-type construction. Concrete operands pay the extra comparison;
+no runtime Wasm or optimizer transform changes. No timing, fuzz, full test
+suite or Binaryen parity signoff is claimed. The full `moon build -j 1`
+succeeds with zero errors. No active R1-05 blocker remains to add to
+`agent-todo.md`; other backlog items remain unchanged.
