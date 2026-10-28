@@ -15,10 +15,17 @@ test "r1 tooling positional separator preserves report flag filenames" {
 ///|
 test "R1-13 report extraction preserves suffix and pre-boundary modes" {
   let flags = [
-    "--emit-optimizer-thresholds-json", "--emit-expanded-pass-queue-json",
-    "--emit-runtime-interface-json",
+    "--emit-optimizer-thresholds-json", "--emit-expanded-pass-queue-json", "--emit-runtime-interface-json",
   ]
-  let suffix = ["--", flags[0], flags[1], flags[2], "-aimfs=7.wasm", "--", "file.wasm"]
+  let suffix = [
+    "--",
+    flags[0],
+    flags[1],
+    flags[2],
+    "-aimfs=7.wasm",
+    "--",
+    "file.wasm",
+  ]
   let (literal, no_mode) = cmd_extract_optimizer_report_mode(suffix).unwrap()
   assert_eq(literal, suffix)
   assert_eq(no_mode, None)
@@ -31,7 +38,9 @@ test "R1-13 report extraction preserves suffix and pre-boundary modes" {
     assert_eq(filtered, suffix)
     assert_eq(mode, cmd_optimizer_report_flag_mode(flag))
   }
-  assert_true(cmd_extract_optimizer_report_mode([flags[0], flags[1], "--"]) is Err(_))
+  assert_true(
+    cmd_extract_optimizer_report_mode([flags[0], flags[1], "--"]) is Err(_),
+  )
   let (empty, mode) = cmd_extract_optimizer_report_mode(["--"]).unwrap()
   assert_eq(empty, ["--"])
   assert_eq(mode, None)
@@ -39,7 +48,10 @@ test "R1-13 report extraction preserves suffix and pre-boundary modes" {
 
 ///|
 test "R1-13 command adapter reads report and alias filenames literally" {
-  let paths = ["-aimfs=7.wasm", "--emit-optimizer-thresholds-json", "--emit-expanded-pass-queue-json", "--emit-runtime-interface-json"]
+  let paths = [
+    "-aimfs=7.wasm", "--emit-optimizer-thresholds-json", "--emit-expanded-pass-queue-json",
+    "--emit-runtime-interface-json",
+  ]
   let args = ["--"]
   for path in paths {
     args.push(path)

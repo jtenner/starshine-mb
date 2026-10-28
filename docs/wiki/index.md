@@ -20,6 +20,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [Measured DAE item 3](binaryen/passes/dae2/starshine-strategy.md#measured-item-3) — Sparse fallback **0.169 → 0.056 ms/call (-66.90%)**, peak RSS **6,180 → 6,212 KiB**. Dense fallback costs **0.482 → 0.495 ms (+2.69%)**, RSS **8,236 → 8,220 KiB**. No enclosing CLI gain is established. Gates: 15,491 native tests and 14 CI fuzz suites pass; merge `050e89360e7b7be32aa78366f1d35e515b2916b2`.
 
+- [R1-13 positional filenames](tooling/cli-command-and-dispatcher.md#r1-13-positional-preprocessing-boundary--2026-10-28) — Unchanged-master reproduction and narrow parser/report-extractor separator repair; focused tests and validation limits.
 - [Native gate launcher control](tooling/validation-gates.md#october-26-2026-native-gate-launcher-control) — Identical-fixture controls classify launcher-induced Binaryen 116 drift; absolute Bun with pinned 133 and scratch setup passes all 15,487 native master tests and 14 CI fuzz suites.
 
 - [DAE2/O visited-predecessor reuse](binaryen/passes/dae2/starshine-strategy.md#october-17-2026-reuse-visited-predecessors-in-read-source-queries) — 25% fewer last-write lookups and 3.1% less read-source instruction work; large-command clocks remain near parity and small cohorts move both ways. All 15,151 default tests and four 10,000-case dedicated lanes complete; existing parity, size and runtime limits remain open.

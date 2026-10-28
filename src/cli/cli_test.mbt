@@ -531,10 +531,12 @@ test "cli_config_schema_json exposes public schema fields" {
 ///|
 test "R1-13 preserves every alias token after positional separator" {
   let paths = [
-    "-aimfs", "-aimfs=7.wasm", "-ocimfs=8.wasm", "-fimfs=9.wasm",
-    "-imcbs=10.wasm", "-ifwl", "-pii=11.wasm", "--", "--help", "ordinary.wasm",
+    "-aimfs", "-aimfs=7.wasm", "-ocimfs=8.wasm", "-fimfs=9.wasm", "-imcbs=10.wasm",
+    "-ifwl", "-pii=11.wasm", "--", "--help", "ordinary.wasm",
   ]
-  let args = ["-aimfs=3", "-ocimfs=-1", "-fimfs=31", "-imcbs=500000", "-ifwl", "-pii=4", "--"]
+  let args = [
+    "-aimfs=3", "-ocimfs=-1", "-fimfs=31", "-imcbs=500000", "-ifwl", "-pii=4", "--",
+  ]
   for path in paths {
     args.push(path)
   }
