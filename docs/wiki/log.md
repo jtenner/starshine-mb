@@ -28434,3 +28434,17 @@ arrays/typecheck wrappers from the completed return packaging change.
   [precompute-propagate strategy](binaryen/passes/precompute-propagate/starshine-strategy.md#burn-004-condition-writes-across-alternative-paths).
 - Scope is BURN-004 only; focused regressions and full build are the validation
   lane. Performance and broad Binaryen parity remain unmeasured.
+
+### 2026-10-28 — R1-01 indirect callback retention
+
+- Reproduced both historical RUME callback-body failures on unchanged master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245`, after adapting only obsolete
+  Result checks. Recorded validated-IR evidence and historical limits in the
+  [RUME root guide](binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#r1-01-indirectly-returned-callback-bodies-october-28-2026).
+- Follow direct helper/tail-call and global-initializer edges with shared visited
+  sets; retain original regressions and command-dispatch cases including cycles,
+  aliases, and unrelated dead-function removal. No other R1 finding is assessed.
+- No benchmark, large fuzz, host execution, or Binaryen parity claim is made.
+- Final package checks: RUME 32 pass; command 803 pass, 18 skipped, six
+  existing failures independently reproduced with unchanged master RUME source.
+  Full workspace `moon build -j 1` succeeds; interface changes are absent.

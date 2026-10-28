@@ -929,26 +929,90 @@ fn rume_mark_ref_func(
 
 ///|
 fn rume_mark_exported_return_ref_funcs(
+  mod_ : @lib.Module,
   expr : @lib.Expr,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  scanned_funcs : @bitset.BitSet,
+  scanned_globals : @bitset.BitSet,
+) -> Unit {
+  // Follow module edges separately from syntax recursion. Shared visited sets
+  // bound cyclic helper graphs and repeated paths from multiple exports.
+  let pending : Array[RumeItem] = []
+  rume_scan_exported_return_ref_funcs(expr, pending, queue, used_funcs)
+  let func_imports = rume_imported_func_count(mod_)
+  let global_imports = rume_imported_global_count(mod_)
+  let mut cursor = 0
+  while cursor < pending.length() {
+    match pending[cursor] {
+      RumeItem::Func(raw) => {
+        let idx = raw.to_int()
+        if idx >= 0 && idx < scanned_funcs.length() && !scanned_funcs[idx] {
+          scanned_funcs[idx] = true
+          match mod_.code_sec {
+            Some(@lib.CodeSec(funcs)) =>
+              match funcs.get(idx - func_imports) {
+                Some(@lib.Func(_, body)) =>
+                  rume_scan_exported_return_ref_funcs(
+                    body, pending, queue, used_funcs,
+                  )
+                None => ()
+              }
+            None => ()
+          }
+        }
+      }
+      RumeItem::Global(raw) => {
+        let idx = raw.to_int()
+        if idx >= 0 && idx < scanned_globals.length() && !scanned_globals[idx] {
+          scanned_globals[idx] = true
+          match mod_.global_sec {
+            Some(@lib.GlobalSec(globals)) =>
+              match globals.get(idx - global_imports) {
+                Some(@lib.Global(_, init)) =>
+                  rume_scan_exported_return_ref_funcs(
+                    init, pending, queue, used_funcs,
+                  )
+                None => ()
+              }
+            None => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    cursor += 1
+  }
+}
+
+///|
+fn rume_scan_exported_return_ref_funcs(
+  expr : @lib.Expr,
+  pending : Array[RumeItem],
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
     match instr {
+      @lib.Call(@lib.FuncIdx(idx)) | @lib.ReturnCall(@lib.FuncIdx(idx)) =>
+        pending.push(RumeItem::Func(idx))
+      @lib.GlobalGet(@lib.GlobalIdx(idx)) => pending.push(RumeItem::Global(idx))
       @lib.RefFunc(func_idx) => rume_mark_func(queue, used_funcs, func_idx)
       @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
-        rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+        rume_scan_exported_return_ref_funcs(body, pending, queue, used_funcs)
       @lib.If(_, yes, no) => {
-        rume_mark_exported_return_ref_funcs(
+        rume_scan_exported_return_ref_funcs(
           @lib.Expr::new(yes),
+          pending,
           queue,
           used_funcs,
         )
         match no {
           Some(body) =>
-            rume_mark_exported_return_ref_funcs(
+            rume_scan_exported_return_ref_funcs(
               @lib.Expr::new(body),
+              pending,
               queue,
               used_funcs,
             )
@@ -956,11 +1020,13 @@ fn rume_mark_exported_return_ref_funcs(
         }
       }
       @lib.Try(_, body, catches, _) => {
-        rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+        rume_scan_exported_return_ref_funcs(body, pending, queue, used_funcs)
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) =>
-              rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+              rume_scan_exported_return_ref_funcs(
+                body, pending, queue, used_funcs,
+              )
           }
         }
       }
@@ -3359,6 +3425,8 @@ fn rume_collect_liveness_with_import_parent_policy(
       None => ()
     }
   }
+  let escape_scanned_funcs = @bitset.BitSet::new(used_funcs.length())
+  let escape_scanned_globals = @bitset.BitSet::new(used_globals.length())
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
       for export_ in exports {
@@ -3380,7 +3448,7 @@ fn rume_collect_liveness_with_import_parent_policy(
                   match funcs.get(def_idx) {
                     Some(@lib.Func(_, body)) =>
                       rume_mark_exported_return_ref_funcs(
-                        body, queue, used_funcs,
+                        mod_, body, queue, used_funcs, escape_scanned_funcs, escape_scanned_globals,
                       )
                     None => ()
                   }
