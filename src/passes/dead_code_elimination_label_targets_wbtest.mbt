@@ -120,3 +120,54 @@ test "dead-code-elimination keeps block targeted only by continuation handler" {
   assert_true(pretty.contains("block"), msg=pretty)
   assert_true(pretty.contains("resume"), msg=pretty)
 }
+
+///|
+test "BURN-009 DCE retains mixed ordinary and continuation incoming results" {
+  let input = dead_code_elimination_continuation_target_input()
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let dropped = @ir.hot_root_get(func, 0)
+  let target = @ir.hot_child_get(func, dropped, 0)
+  let body = @ir.hot_region_body_ref(func, target)
+  let resume_id = @ir.hot_region_get(func, body, 0)
+  let terminal = @ir.hot_region_get(func, body, 1)
+  let branch = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, target),
+    values=[
+      @ir.hot_build_ref_null(
+        func,
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+      ),
+    ],
+  )
+  let conditional = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [branch],
+  )
+  @ir.hot_region_replace_body(func, body, [conditional, resume_id, terminal])
+  let before = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(before) {
+    Ok(_) => ()
+    Err(err) => fail("mixed continuation input invalid: \{err}")
+  }
+  ignore(
+    pipeline_verify_checkpoint(
+      HotPipelineVerifyPolicy::after_each_pass(),
+      "before",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+    ).unwrap(),
+  )
+  let ctx = dead_code_elimination_label_targets_test_ctx()
+  ignore(hot_pass_run(ctx, func).unwrap())
+  let after = input.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+  match @validate.validate_module(after) {
+    Ok(_) => ()
+    Err(err) => fail("mixed continuation output invalid: \{err}")
+  }
+  assert_eq(@ir.hot_node_result_arity(func, target), 1)
+  assert_eq(@ir.hot_child_count(func, branch), 1)
+}

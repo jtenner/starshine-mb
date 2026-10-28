@@ -54,6 +54,7 @@ priv struct DeadCodeEliminationBranchUserCache {
   mut has_any_branch : Bool?
   mut has_incoming_by_label : @bitset.BitSet?
   mut by_label : Array[Array[Int32]]?
+  mut signature_users : @bitset.BitSet?
 }
 
 ///|
@@ -143,6 +144,7 @@ fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCac
     has_any_branch: None,
     has_incoming_by_label: None,
     by_label: None,
+    signature_users: None,
   }
 }
 
@@ -155,6 +157,7 @@ fn dead_code_elimination_invalidate_branch_user_cache(
   cache.has_any_branch = None
   cache.has_incoming_by_label = None
   cache.by_label = None
+  cache.signature_users = None
 }
 
 ///|
@@ -534,6 +537,7 @@ fn dead_code_elimination_record_incoming_branch_target(
 fn dead_code_elimination_build_branch_users_by_label(
   func : @ir.HotFunc,
   attached : @bitset.BitSet?,
+  signature_users : @bitset.BitSet,
 ) -> Array[Array[Int32]] {
   let branch_users_by_label : Array[Array[Int32]] = []
   let last_seen_branch : Array[Int32] = []
@@ -562,6 +566,32 @@ fn dead_code_elimination_build_branch_users_by_label(
       dead_code_elimination_record_branch_target(
         branch_users_by_label, last_seen_branch, branch_id, target,
       )
+    }
+    // Catch and continuation payloads are implicit, not editable branch children.
+    // Keep them out of by_label, but retain their target signature constraints.
+    let node = @ir.hot_node_get(func, branch_id)
+    match node.op {
+      @ir.HotOp::Continuation =>
+        for target in @ir.hot_continuation_targets(func, branch_id) {
+          dead_code_elimination_record_incoming_branch_target(
+            signature_users, target,
+          )
+        }
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            @ir.HotCatchArm::CatchArm(_, label_id)
+            | @ir.HotCatchArm::CatchRefArm(_, label_id)
+            | @ir.HotCatchArm::CatchAllArm(label_id)
+            | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+          }
+          dead_code_elimination_record_incoming_branch_target(
+            signature_users, target,
+          )
+        }
+      }
+      _ => ()
     }
   }
   branch_users_by_label
@@ -754,14 +784,17 @@ fn dead_code_elimination_require_branch_users_by_label(
   match cache.by_label {
     Some(existing) => existing
     None => {
+      let signature_users = @bitset.BitSet::new(func.labels.length())
       let built = if dead_code_elimination_require_has_any_branch(cache, func) {
         dead_code_elimination_build_branch_users_by_label(
           func,
           dead_code_elimination_require_attached_nodes(cache, func),
+          signature_users,
         )
       } else {
         dead_code_elimination_build_empty_branch_users_by_label(func)
       }
+      cache.signature_users = Some(signature_users)
       cache.by_label = Some(built)
       built
     }
@@ -3151,6 +3184,12 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
   if branch_users_by_label[label_id].length() != 1 {
     return false
   }
+  if dead_code_elimination_label_has_incoming_branch(
+      branch_user_cache.signature_users.unwrap(),
+      label_id,
+    ) {
+    return false
+  }
   let detached : Array[Int32] = []
   let branch_rewrites : Array[@ir.HotChildSpanRewrite] = []
   for branch_id in branch_users_by_label[label_id] {
@@ -3643,4 +3682,120 @@ fn dead_code_elimination_run(
   } else {
     HotPassResult::unchanged()
   }
+}
+
+// Focused direct API and public pipeline checks at product base 3d1deec7c.
+
+///|
+test "BURN-009 DCE public pipeline catch payload control remains valid" {
+  let input = pass_test_module_from_wat(
+    "(module (tag $t (param i32)) (func (export \"run\") (param i32) (result i32) block (result i32) i32.const 5 local.get 0 br_if 0 drop try_table (catch $t 0) i32.const 7 throw $t end unreachable end drop i32.const 42))",
+  )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("input validation failed: \{err}")
+  }
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "dead-code-elimination",
+  ]).unwrap()
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("post-pass output validation failed: \{err}")
+  }
+}
+
+///|
+test "BURN-009 DCE direct HOT preserves mixed catch target result type" {
+  let seed = pass_test_module_from_wat(
+    "(module (tag (param i32)) (func (param i32) (result i32) i32.const 42))",
+  )
+  let func = @ir.hot_lift_func(seed, @lib.FuncIdx::new(0U))
+  ignore(@ir.hot_root_remove(func, 0))
+  let wrapped = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label = @ir.hot_control_node_label(func, wrapped)
+  let branch = @ir.hot_build_br(func, label, values=[
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+  ])
+  let conditional = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [branch],
+  )
+  let handler = @ir.hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.HotCatchArm::catch_(@lib.TagIdx::new(0U), label)],
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ]),
+    ],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, wrapped), [
+    conditional,
+    handler,
+    @ir.hot_build_unreachable(func),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, wrapped))
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(42)))
+  let before = seed.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+  match @validate.validate_module(before) {
+    Ok(_) => ()
+    Err(err) => fail("lift-lower control validation failed: \{err}")
+  }
+  match
+    pipeline_verify_checkpoint(
+      HotPipelineVerifyPolicy::after_each_pass(),
+      "before",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("initial HOT invalid: \{err}")
+  }
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(before)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("pass verification failed: \{err}")
+  }
+  let after = seed.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+  match @validate.validate_module(after) {
+    Ok(_) => ()
+    Err(err) => fail("post-pass output validation failed: \{err}")
+  }
+  assert_eq(@ir.hot_node_result_arity(func, wrapped), 1)
+  assert_eq(@ir.hot_child_count(func, branch), 1)
+}
+
+///|
+test "BURN-009 DCE still voids dropped ordinary-only branch results" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (param i32) (result i32) block (result i32) i32.const 5 local.get 0 br_if 0 drop unreachable end drop i32.const 42))",
+  )
+  let func = fixture.hot_func
+  let dropped = @ir.hot_root_get(func, 0)
+  let target = @ir.hot_child_get(func, dropped, 0)
+  assert_eq(@ir.hot_node_result_arity(func, target), 1)
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(hot_pass_run(ctx, func).unwrap())
+  assert_true(@ir.hot_node_is_live(func, target))
+  assert_eq(@ir.hot_node_result_arity(func, target), 0)
+  ignore(@ir.ir_test_assert_verify_and_lower(fixture))
 }

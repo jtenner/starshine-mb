@@ -1,3 +1,16 @@
+### 2026-10-28 — BURN-009 direct DCE catch target signature
+
+- Replayed the original regression on unchanged master: direct HOT DCE emits
+  a void catch target and lowered validation rejects its i32 payload. The
+  public-pipeline control passes; no public defect or runtime change is claimed.
+- The [owner repair and scope](binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md#burn-009-mixed-incoming-edges-2026-10-28)
+  preserve implicit catch/continuation signature constraints separately from
+  editable ordinary branch users. Focused tests cover the mixed catch failure,
+  mixed continuation targets, ordinary-only removal and command dispatch.
+  Focused tests pass 94/94 plus 3/3 dispatcher and 1/1 loop checks; full
+  `moon build -j 1` passes. Performance and broad Binaryen parity remain
+  unmeasured.
+
 ### 2026-10-28 — BURN-008 block-result source ordering
 
 - Reproduced the unchanged-master wrong result: direct reduced execution gives
