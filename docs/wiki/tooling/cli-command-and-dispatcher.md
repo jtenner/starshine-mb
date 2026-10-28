@@ -342,3 +342,24 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+## R1-12 — Environment input trap-option preservation (2026-10-28)
+
+The original R1-12 adapter repro from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` confirms the defect on unchanged
+master `3d1deec7cecf1caaf65b42799777ff52ef210245`: the real
+`run_cmd_with_adapter(["--ignore-implicit-traps"], io)` with
+`STARSHINE_INPUT=a.wasm` returns summary `ignore_implicit_traps=false`.
+Only the original test was added before this execution; product source was
+unchanged. The JS driver produced one structured failure, `false is not true`.
+`moon test src/cmd/r1_12_environment_input_wbtest.mbt --target js -j 1`
+compiled but could not launch missing `node`; running its compiled whitebox
+driver with Bun produced the failure (driver exit zero is not a pass).
+
+The `Some(raw)` branch reconstructs `CliParseResult` without copying
+`ignore_implicit_traps`; the constructor defaults it to false. Empty-but-present
+input takes the same branch; absent input retains `cli_base`. Regression
+coverage lives in [the bounded adapter tests](../../../src/cmd/r1_12_environment_input_wbtest.mbt).
+This checkpoint records the red baseline; repair and validation follow.
+No optimizer execution semantics, Binaryen parity, native-host environment,
+performance, full suite, or fuzz claim follows from this adapter evidence.
