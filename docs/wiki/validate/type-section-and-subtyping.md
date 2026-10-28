@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-28
 sources:
   - https://webassembly.github.io/spec/core/valid/types.html
   - ../custom-descriptors/descriptor-instruction-surface.md
@@ -240,4 +240,58 @@ No Binaryen comparison, benchmark, large fuzz run, or other R1 repair is claimed
 
 The group precheck in `exact_typeidx_matches_fuel` normalizes internal edges
 to relative indices but compares external absolute indices with raw equality.
-This checkpoint records the red test before an owning-layer repair.
+Checkpoint `5e4b50e01` preserves that red test before the repair. An expanded
+baseline replay has 3/6 passing: original acceptance, both-offset/direction
+exact identity, and recursive external singleton acceptance fail; the three
+intentional inequivalence controls pass.
+
+The repair keeps group length and projection offset checks and compares every
+normalized member structurally when raw normalized equality does not already
+prove identity. A private relative-index mode requires internal
+`RecIdx` edges to name the same binder position; it never unfolds unequal
+positions using the environment's latest group. Absolute external edges resume
+normal exact type matching. Field mutability, nullability, exactness, composite
+kind/arity, finality, ordered supers and sharedness remain equality conditions;
+descriptor/describes edges use the same positional/external distinction. Once
+all members match, the selected projection needs no second traversal.
+
+Termination: internal recursive edges are compared as finite binder positions,
+not unfolded. External edges in validated type sections lead to earlier groups;
+the existing visited-pair stack also closes external singleton recursion. The
+existing fuel checks remain unchanged, with no added bound. The separate R1-06
+helper-fuel exhaustion finding is **not** repaired or signed off by this change.
+Malformed/unvalidated environments retain the existing fail-closed fuel guard.
+
+Resource scope: the two normalized group arrays and their subtype/field copies
+already existed. Structural comparison now follows external type identity and
+walks all members on the fallback; raw-equal groups return immediately without
+the former selected-projection unfolding.
+It reuses the visited stack, adds no cache or persistent storage, and compares
+optional metadata indices without a temporary array. Repeated external edges
+can repeat work; no runtime or allocation neutrality claim is made. Measure
+that cost separately on the retained fixtures before performance signoff.
+
+Validation on the repaired source (all Moon build/test commands serialized):
+
+```sh
+PATH=/data/home/.moon/bin:$PATH moon test \
+  src/validate/review_r1_20261025_validation_acceptance_wbtest.mbt \
+  src/validate/match_wbtest.mbt \
+  src/validate/type_section_storage_wbtest.mbt \
+  src/validate/binaryen132_descriptor_wbtest.mbt \
+  src/validate/descriptor_branch_validation_wbtest.mbt \
+  --target js -j 1 --build-only
+PATH=/data/home/.moon/bin:$PATH moon build -j 1
+```
+
+The focused build exits zero; Bun executes the emitted whitebox artifact with
+the build's `test_filter_args`: **23/23 pass**, including **6/6 R1-07**. A
+temporary driver checks every structured result, expected count and process
+status rather than trusting exit zero. The full default-target (`wasm`) build
+exits zero. No full test-suite execution is claimed. `moon info src/validate`
+exits zero (`moon info` has no `-j` option); reviewed interface differences are
+only current-toolchain `Int`/`UInt` to `Int32`/`UInt32` spellings, restored to
+avoid unrelated churn. No public API changed. `moon fmt src/validate` completed;
+unrelated pre-existing formatting differences were restored. Own build outputs,
+independent-validation binary, temporary drivers and logs are removed after
+validation; committed fixture/source/evidence remain.

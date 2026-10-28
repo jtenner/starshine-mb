@@ -11,6 +11,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — R1-07 matching cost [IR2-R1-07-MEASURE]
+
+- **Goal / why:** measure the corrected recursive-group comparison's external
+  traversals; correctness repair does not establish performance neutrality.
+- **Deliverables / tasks:** compare baseline `3d1deec7` and the R1-07 fix on
+  raw-equal groups, equivalent external leaves, recursive external singletons,
+  early unequal leaves, late unequal/disconnected siblings, and repeated external
+  edges. Hoist environment construction; report matching time and allocations.
+- **APIs / invariants:** `src/validate/match.mbt`, exact group identity, binder
+  offsets/arity, all-member checks, termination and inequivalent-type rejection.
+  Reuse the retained R1-07 test builders and original WAT fixture.
+- **Dependencies / exit / tests:** obtain a measurement lease; no timing on the
+  borrowed host. Retain focused acceptance and rejection tests. Separate R1-06
+  fuel exhaustion remains outside this repair. See the
+  [evidence and resource limits](docs/wiki/validate/type-section-and-subtyping.md#r1-07-external-recursive-group-identity--2026-10-28).
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key

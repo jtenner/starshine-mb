@@ -147,7 +147,7 @@ pub impl Match for RefType with fn matches(self, other, env) {
 fn exact_heaptype_matches(h0 : HeapType, h1 : HeapType, env : Env) -> Bool {
   let fuel = env.global_types.length() + 16
   let visited : Array[(TypeIdx, TypeIdx)] = []
-  exact_heaptype_matches_fuel(h0, h1, env, fuel, visited)
+  exact_heaptype_matches_fuel(h0, h1, env, fuel, visited, false)
 }
 
 ///|
@@ -157,6 +157,7 @@ fn exact_heaptype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if h0 == h1 {
     return true
@@ -167,7 +168,7 @@ fn exact_heaptype_matches_fuel(
   match (h0, h1) {
     (AbsHeapTypeHeapType(a0), AbsHeapTypeHeapType(a1)) => a0 == a1
     (HeapType(t0), HeapType(t1)) =>
-      exact_typeidx_matches_fuel(t0, t1, env, fuel - 1, visited)
+      exact_typeidx_matches_fuel(t0, t1, env, fuel - 1, visited, relative)
     _ => false
   }
 }
@@ -389,11 +390,17 @@ fn exact_typeidx_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if t0 == t1 {
     return true
   }
   if fuel <= 0 {
+    return false
+  }
+  // Canonical group-local edges identify a binder position, never an
+  // independently unfoldable type. External edges resume normal identity.
+  if relative && (t0 is RecIdx(_) || t1 is RecIdx(_)) {
     return false
   }
   match
@@ -415,9 +422,26 @@ fn exact_typeidx_matches_fuel(
         let canonical1 = group1.map(fn(sub_type) {
           exact_group_canonical_sub_type(sub_type, start1, length1)
         })
-        if canonical0 != canonical1 {
-          return false
+        // Raw equality already proves identity after binder normalization.
+        if canonical0 == canonical1 {
+          return true
         }
+        // Compare every member, including siblings unreachable from this
+        // projection. Internal indices are positional; external indices use
+        // type identity rather than their raw module numbering.
+        for i in 0..<length0 {
+          if !exact_subtype_matches_fuel(
+              canonical0[i],
+              canonical1[i],
+              env,
+              fuel - 1,
+              visited,
+              true,
+            ) {
+            return false
+          }
+        }
+        return true
       }
     }
     _ => ()
@@ -431,7 +455,14 @@ fn exact_typeidx_matches_fuel(
   match (env.resolve_subtype(t0), env.resolve_subtype(t1)) {
     (Some(st0), Some(st1)) => {
       visited.push((t0, t1))
-      let matched = exact_subtype_matches_fuel(st0, st1, env, fuel - 1, visited)
+      let matched = exact_subtype_matches_fuel(
+        st0,
+        st1,
+        env,
+        fuel - 1,
+        visited,
+        false,
+      )
       let _ = visited.pop()
       matched
     }
@@ -446,13 +477,37 @@ fn exact_subtype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
   }
   let (final0, supers0, meta0, ct0) = exact_subtype_shape(st0)
   let (final1, supers1, meta1, ct1) = exact_subtype_shape(st1)
-  if final0 != final1 || meta0 != meta1 {
+  if final0 != final1 {
+    return false
+  }
+  if relative {
+    if meta0.shared != meta1.shared {
+      return false
+    }
+    if !exact_group_optional_index_matches(
+        meta0.describes,
+        meta1.describes,
+        env,
+        fuel - 1,
+        visited,
+      ) ||
+      !exact_group_optional_index_matches(
+        meta0.descriptor,
+        meta1.descriptor,
+        env,
+        fuel - 1,
+        visited,
+      ) {
+      return false
+    }
+  } else if meta0 != meta1 {
     return false
   }
   if supers0.length() != supers1.length() {
@@ -465,11 +520,28 @@ fn exact_subtype_matches_fuel(
         env,
         fuel - 1,
         visited,
+        relative,
       ) {
       return false
     }
   }
-  exact_comptype_matches_fuel(ct0, ct1, env, fuel - 1, visited)
+  exact_comptype_matches_fuel(ct0, ct1, env, fuel - 1, visited, relative)
+}
+
+///|
+fn exact_group_optional_index_matches(
+  idx0 : TypeIdx?,
+  idx1 : TypeIdx?,
+  env : Env,
+  fuel : Int32,
+  visited : Array[(TypeIdx, TypeIdx)],
+) -> Bool {
+  match (idx0, idx1) {
+    (None, None) => true
+    (Some(a), Some(b)) =>
+      exact_typeidx_matches_fuel(a, b, env, fuel, visited, true)
+    _ => false
+  }
 }
 
 ///|
@@ -489,29 +561,37 @@ fn exact_comptype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
   }
   match (ct0, ct1) {
     (FuncCompType(ps0, rs0), FuncCompType(ps1, rs1)) =>
-      exact_resulttype_matches_fuel(ps0, ps1, env, fuel - 1, visited) &&
-      exact_resulttype_matches_fuel(rs0, rs1, env, fuel - 1, visited)
+      exact_resulttype_matches_fuel(ps0, ps1, env, fuel - 1, visited, relative) &&
+      exact_resulttype_matches_fuel(rs0, rs1, env, fuel - 1, visited, relative)
     (StructCompType(fs0), StructCompType(fs1)) => {
       if fs0.length() != fs1.length() {
         return false
       }
       for i in 0..<fs0.length() {
-        if !exact_field_matches_fuel(fs0[i], fs1[i], env, fuel - 1, visited) {
+        if !exact_field_matches_fuel(
+            fs0[i],
+            fs1[i],
+            env,
+            fuel - 1,
+            visited,
+            relative,
+          ) {
           return false
         }
       }
       true
     }
     (ArrayCompType(f0), ArrayCompType(f1)) =>
-      exact_field_matches_fuel(f0, f1, env, fuel - 1, visited)
+      exact_field_matches_fuel(f0, f1, env, fuel - 1, visited, relative)
     (ContCompType(f0), ContCompType(f1)) =>
-      exact_typeidx_matches_fuel(f0, f1, env, fuel - 1, visited)
+      exact_typeidx_matches_fuel(f0, f1, env, fuel - 1, visited, relative)
     _ => false
   }
 }
@@ -523,6 +603,7 @@ fn exact_resulttype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -531,7 +612,14 @@ fn exact_resulttype_matches_fuel(
     return false
   }
   for i in 0..<rt0.length() {
-    if !exact_valtype_matches_fuel(rt0[i], rt1[i], env, fuel - 1, visited) {
+    if !exact_valtype_matches_fuel(
+        rt0[i],
+        rt1[i],
+        env,
+        fuel - 1,
+        visited,
+        relative,
+      ) {
       return false
     }
   }
@@ -545,13 +633,15 @@ fn exact_field_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
   }
   let FieldType(st0, m0) = f0
   let FieldType(st1, m1) = f1
-  m0 == m1 && exact_storage_matches_fuel(st0, st1, env, fuel - 1, visited)
+  m0 == m1 &&
+  exact_storage_matches_fuel(st0, st1, env, fuel - 1, visited, relative)
 }
 
 ///|
@@ -561,13 +651,14 @@ fn exact_storage_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
   }
   match (st0, st1) {
     (ValTypeStorageType(v0), ValTypeStorageType(v1)) =>
-      exact_valtype_matches_fuel(v0, v1, env, fuel - 1, visited)
+      exact_valtype_matches_fuel(v0, v1, env, fuel - 1, visited, relative)
     (PackTypeStorageType(p0), PackTypeStorageType(p1)) => p0 == p1
     _ => false
   }
@@ -580,13 +671,14 @@ fn exact_valtype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
   }
   match (v0, v1) {
     (RefTypeValType(r0), RefTypeValType(r1)) =>
-      exact_reftype_matches_fuel(r0, r1, env, fuel - 1, visited)
+      exact_reftype_matches_fuel(r0, r1, env, fuel - 1, visited, relative)
     _ => v0 == v1
   }
 }
@@ -598,6 +690,7 @@ fn exact_reftype_matches_fuel(
   env : Env,
   fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
+  relative : Bool,
 ) -> Bool {
   if fuel <= 0 {
     return false
@@ -610,6 +703,7 @@ fn exact_reftype_matches_fuel(
     env,
     fuel - 1,
     visited,
+    relative,
   )
 }
 
@@ -1112,7 +1206,7 @@ fn typeidx_leq_typeidx_fuel(
   if fuel <= 0 {
     return false
   }
-  if exact_typeidx_matches_fuel(a, b, env, fuel - 1, []) {
+  if exact_typeidx_matches_fuel(a, b, env, fuel - 1, [], false) {
     return true
   }
 
