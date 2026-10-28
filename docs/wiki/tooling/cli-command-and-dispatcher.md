@@ -342,3 +342,42 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+## R1-11 native filename encoding — 2026-10-28
+
+The historical review at commit
+`6422a44b155026bdbadfac86289c20958fdc21d3`,
+`docs/wiki/tooling/2026-10-25-code-review-r1.md`, recorded source-trace evidence
+only; its native test had never compiled or run. This investigation confirms
+that claim on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+
+The original assertion is preserved in
+[`r1_11_native_paths_wbtest.mbt`](../../../src/cmd/r1_11_native_paths_wbtest.mbt).
+Built and executed natively before any product edit, it failed with
+`e9 2e 77 61 73 6d 00` instead of `c3 a9 2e 77 61 73 6d 00` for `é.wasm`
+(1 test, 0 passed, 1 failed; exit 2). Expanded native coverage then reported
+4 tests, 1 passed, 3 failed (exit 2): `Ā漢😀` became `3f 3f 3f 00`, and
+real temporary UTF-8 filenames ending in `é.wasm`, `漢.wasm`, and `😀.wasm`
+returned false from `access` and `Err("open failed")` from `fopen`/read.
+The independent filesystem writer created each fixture; ASCII access/read
+succeeded. Fixtures were deleted before assertions, including on failure.
+Empty, ASCII mode, and embedded-NUL byte conventions passed unchanged.
+
+Reproduction (serialized, one worker):
+
+```sh
+export PATH=/data/home/.moon/bin:/data/workspace/measure-starshine/bin:$PATH
+export MOON_CC=/data/workspace/measure-starshine/bin/cc
+ulimit -s 65536
+moon test src/cmd/r1_11_native_paths_wbtest.mbt --target native -j 1
+```
+
+Environment limits: no system compiler was initially on PATH. The bundled
+`tcc` pathname is a local GCC wrapper and cannot handle Moon's TCC mode.
+The existing `cc`/`ar` wrappers above work; the white-box link additionally
+requires the larger stack to avoid a Moon compiler stack overflow.
+These setup failures are not regression-test failures. This is Linux native
+byte/access/read evidence, not Windows filesystem or end-to-end Unicode argv
+coverage. R1-09 source/config byte decoding is separate and unchanged.
+
+Checkpoint: regression tests are intentionally red; implementation is pending.

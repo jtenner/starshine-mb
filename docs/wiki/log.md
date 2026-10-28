@@ -28331,3 +28331,10 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — R1-11 native reproduction checkpoint
+
+- Confirmed the historical source-only claim against unchanged master with
+  the original compiled native assertion, then expanded byte and owned-file
+  tests (1 passed, 3 failed). See the [evidence and environment limits](tooling/cli-command-and-dispatcher.md#r1-11-native-filename-encoding--2026-10-28).
+- Product code remains unchanged at this checkpoint; R1-09 is outside scope.
