@@ -131,7 +131,7 @@ A Starshine port can either preserve explicit `nop` placeholders or use a differ
 | `EffectAnalyzer` legality | no LICM-specific effect summary | Build conservative effect summary over HOT / module IR. |
 | `LazyLocalGraph` local dependencies | no LICM-specific dependency proof | Reuse or extend use-def / local SSA helpers. |
 | moved statement + `nop` placeholder | no local rewrite | Ensure HOT region splice / placeholder handling is validation-safe. |
-| flattening helps expose candidates | `flatten` still unimplemented | Decide whether LICM waits for flatten-like work or handles only current HOT shapes first. |
+| flattening helps expose candidates | `flatten` is an active HOT pass, with supported and unsupported shapes | Start LICM with direct loop-entry shapes, without a flatten prerequisite; add flatten-exposed cases only with tests for the supported shapes. See [`flatten`](../flatten/index.md) and [`optimize.mbt`](../../../../../src/passes/optimize.mbt). |
 
 ## Open uncertainties
 
