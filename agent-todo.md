@@ -2629,3 +2629,10 @@ pass dossiers; historical green checkpoints do not replace current signoff.
   exit criteria and suggested tests. Preserve existing fixes and assertions.
 - On new mismatches, save and minimize artifacts, classify with evidence, add a
   failing focused regression, repair the owning layer and update its dossier.
+
+## Next unreleased patch — WAT name escaping cost [IR2-R1-03]
+
+- **Goal / why:** quantify the bounded per-character check and required escaped-output growth from the R1-03 correctness repair; no timing claim yet.
+- **Deliverables / tasks:** compare plain ASCII, Unicode, quote/backslash and control-heavy function export names through `lib_module_to_wat`; preserve export bytes after re-lowering.
+- **APIs / invariants:** `src/wat/wat_api.mbt::lib_name_to_wat`; supported module-section boundary unchanged, controls use two-digit byte escapes.
+- **Dependencies / exit / tests:** separate leased measurement if needed; retain `src/wat/r1_name_escaping_wbtest.mbt` controls. See [repair evidence](docs/wiki/wast/identifier-name-and-annotation-authoring.md#r1-03-lib-wat-export-name-repair--2026-10-28). No other R1 finding is owned by this wave.

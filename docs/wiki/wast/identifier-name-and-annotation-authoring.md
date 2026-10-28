@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-28
 sources:
   - ../tooling/cli-command-and-dispatcher.md
   - code-metadata-and-function-annotations.md
+  - ../../../src/wat/wat_api.mbt
+  - ../../../src/wat/r1_name_escaping_wbtest.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -168,3 +170,39 @@ Do not infer official text `@custom` placement support from this. The official c
 - Core module metadata: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md)
 - CLI print selector implementation and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md)
 - Resource declaration syntax: [`resource-declaration-authoring.md`](resource-declaration-authoring.md)
+
+## R1-03 lib WAT export-name repair — 2026-10-28
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`
+using the original R1-03 test from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` (report path
+`docs/wiki/tooling/2026-10-25-code-review-r1.md`). Lowering
+`(module (func (export "line\nbreak")))`, removing optional name metadata,
+printing and lowering again failed with
+`printed WAT must lower: expected export name at <memory>:5:1`.
+The historical review's other findings and validation limits are unchanged.
+
+[`lib_name_to_wat`](../../../src/wat/wat_api.mbt) now emits two-digit
+hexadecimal byte escapes for U+0000..U+001F and U+007F. Quote/backslash escaping
+and ordinary Unicode spelling remain intact. This repairs the owning name
+printer without expanding the module printer's supported-section boundary.
+[`r1_name_escaping_wbtest.mbt`](../../../src/wat/r1_name_escaping_wbtest.mbt)
+retains the original failing repro and checks all 33 ASCII controls, adjacent
+hex characters, empty/plain names, quotes, backslashes, accented/CJK/astral
+Unicode and mixed UTF-8/NUL names by export-section equality after lowering.
+The tests failed before the implementation (LF parse error and raw NUL output).
+
+Validation uses `PATH=/data/home/.moon/bin:$PATH`: `moon info` and
+`moon fmt src/wat` pass; `moon test src/wat --target js -j 1 --build-only`
+plus Bun execution of its three generated test selections passes 16/16.
+Node is absent; structured result messages are checked, since a direct test
+runner's exit status alone does not detect assertion failures. Generated
+`.mbti` changes were reviewed as Int/UInt spelling churn only and removed;
+there is no public API change. Full-build evidence is recorded in the wiki log.
+No full suite, oracle comparison, fuzzing or benchmark is claimed.
+
+Performance scope: only textual name rendering changes. Each character gains
+a bounded ASCII-control check; each control emits three characters instead of
+one, a correctness-required output cost. No optimization/runtime path changes.
+No measured neutrality or speed claim is made; any later measurement should
+compare plain/Unicode/quote/backslash names and control-heavy names separately.
