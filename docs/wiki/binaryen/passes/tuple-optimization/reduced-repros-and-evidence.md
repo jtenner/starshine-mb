@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-28
 sources:
   - ./index.md
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
@@ -343,3 +343,52 @@ Important accuracy note:
   - HOT rewrite drift
   - lowering drift
 - If it only reproduces in the full artifact replay, reduce it until it lands in one of the committed family buckets above.
+
+## October 28, 2026 — BURN-002 forwarded lane liveness
+
+The BURN-002 packet at commit `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`
+(`hunt-findings.md`, `workers/ssa/report.md` inside its evidence archive) identifies
+a use-classification defect, separate from alias capture/publication repairs.
+On unchanged production base `3d1deec7cecf1caaf65b42799777ff52ef210245`,
+a tuple `(5, 9L)` is stored into a/b, a is copied into x after x was initialized
+to 99, b is dropped, and x is returned. Bun WebAssembly execution returns 5
+for the original and unchanged lift/lower control, but 0 for both direct and
+public tuple optimization. Every emitted module validates. The adjacent
+non-drop-use regression also fails before the fix; emission alone is not
+runtime evidence.
+
+The summary must treat local assignments as non-drop uses unless its existing
+unique-use/single-write forwarding proof permits following their destination.
+Unknown forwarding cannot prove a lane dead. This protects source and host-lane
+store elision, copy-group use counts, and dropped-tee cleanup, which share the
+query. Proven single-write chains ending in drops remain eligible.
+
+Bounded regression coverage lives in
+[`tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt)
+and the active [`cmd.mbt`](../../../../../src/cmd/cmd.mbt) dispatcher: multiply
+written destinations, tee consumers, shared reads with multiple assignment
+sites, one/two/three parameter self-copies, distinct destinations, and
+single-write drop chains. The small integer executor rejects unsupported
+instructions; actual Wasm execution separately confirms the reduced original,
+roundtrip, direct and public routes.
+
+This is focused BURN-002 correctness evidence. No benchmark, broad fuzz campaign,
+Binaryen v133 comparison, or complete tuple-pass parity closure is claimed;
+earlier versioned results retain their original scope.
+
+Validation on the repaired source (all build/test invocations serialized):
+
+- `moon test src/passes/tuple_optimization.mbt src/passes/tuple_optimization_wbtest.mbt src/passes/tuple_alias_capture_regression_wbtest.mbt src/passes/tuple_publication_region_regression_wbtest.mbt --target js -j 1`: 73 passed.
+- `moon test src/cmd/cmd.mbt --filter '*tuple-optimization command retains*' --target js -j 1`: 1 passed.
+- Bun actual Wasm replay: original, lift/lower, public and direct each validate and return 5.
+- `moon build -j 1`: full workspace default Wasm build succeeds, 0 errors (existing warnings remain).
+- `moon info` succeeds; this tool version has no `-j` option. All 19 generated interface diffs were verified to contain only `Int`/`UInt` spelling normalization and restored; no public API changes. Touched source formatting and `git diff --check` pass; unrelated formatter churn was removed.
+
+JS Moon tests use a temporary `node` symlink to Bun because Node is absent
+from PATH. The production change adds no allocation, array copy, traversal or
+recomputed forwarding proof. It sets the existing non-drop bit for assignments
+and clears it when the existing forwarding admission succeeds (one extra bit
+clear on that path). Retaining previously deleted live lane stores is required
+for correctness; pass-local and resulting code-size/runtime costs remain to
+be measured on multiply written destinations, shared reads, tee chains and
+parameter self-copies, with single-write drop chains as controls.

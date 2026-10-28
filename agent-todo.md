@@ -720,6 +720,16 @@ quality gates. Keep traced inner and normal command measurements separate.
   controls; its negative admission now checks run length before stack rows.
 
 
+- [ ] **BURN-002 tuple forwarded-lane measurement:** the focused liveness repair
+  retains assignments when unique-use/single-write forwarding is unproved.
+  Goal: measure query-summary and downstream code-shape cost on multiply written
+  destinations, shared reads, tee chains and parameter self-copies; retain
+  single-write drop-chain controls. No new arrays, copies or graph traversals
+  are required. Focused correctness/full-build evidence belongs in the
+  [existing repro record](docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md#october-28-2026--burn-002-forwarded-lane-liveness).
+  Exit: paired pass-local cost and output-size/runtime checks on those workloads;
+  broader current-source tuple/v133 signoff remains separate below.
+
 - [ ] **October 15 Tuple current-source signoff:** bulk publication and
   ascending-copy native `193e58a7` passed 14,267 WasmGC tests and 13,440 Tuple
   runtime comparisons. Current native `5d8ea74e` includes the later lowering

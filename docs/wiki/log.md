@@ -28343,3 +28343,9 @@ arrays/typecheck wrappers from the completed return packaging change.
   Validation: 97 focused wasm-gc pass tests and one command matrix test pass;
   full wasm-gc `moon build -j 1` passes. No new Binaryen, large fuzz or
   performance signoff is claimed.
+
+### 2026-10-28 — BURN-002 tuple forwarded-lane liveness
+
+- Recorded the [reduced failure and conservative forwarding contract](binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md#october-28-2026--burn-002-forwarded-lane-liveness): unchanged-master actual Wasm returns 0 instead of 5 after direct/public tuple optimization while original and lift/lower return 5.
+- Added bounded implementing-file and active command-dispatch regressions for live forwarding, parameter self-copies, tee/shared consumers, and proven single-write drop chains. The query summary retains its existing forwarding proof and caches.
+- Focused tests pass 73/73 plus the command regression 1/1; all four reduced actual-Wasm routes return 5. The full `moon build -j 1` and `moon info` succeed. Interface review found only compiler integer-name normalization, which was removed. Measurement and broad pass parity remain open under the borrowed-host scope.
