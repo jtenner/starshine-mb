@@ -316,7 +316,7 @@ The checked-in reduced fixture is `tests/repros/precompute-propagate-rust-fannku
 - Treat the retained 2026-05-05 research mirror, [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_132` as the current public release baseline for new conclusions. Keep the detailed `version_129` algorithm reading and v130/v131 reconciliations as historical provenance.
+- Use Binaryen `version_133` as the current public release baseline for new conclusions. Keep the detailed `version_129` algorithm reading and v130/v131 reconciliations as historical provenance.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`

@@ -15,7 +15,7 @@ related:
 
 ## Source baseline
 
-New comparisons use Binaryen 132. The historical July 26, 2026 source refresh used official Binaryen `version_131` and read:
+New comparisons use Binaryen 133. The historical July 26, 2026 source refresh used official Binaryen `version_131` and read:
 
 - `src/passes/LocalSubtyping.cpp`;
 - `src/ir/local-structural-dominance.h`;
