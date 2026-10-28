@@ -7372,15 +7372,9 @@ pub fn run_cmd_with_adapter(
 ///|
 #cfg(target="native")
 fn cmd_native_c_string(text : String) -> Bytes {
-  let out = @buffer.new(size_hint=text.length() + 1)
-  for c in text {
-    let code = c.to_int()
-    if code >= 0 && code <= 255 {
-      out.write_byte(code.to_byte())
-    } else {
-      out.write_byte('?'.to_int().to_byte())
-    }
-  }
+  let encoded = @utf8.encode(text)
+  let out = @buffer.new(size_hint=encoded.length() + 1)
+  out.write_bytes(encoded)
   out.write_byte(0)
   out.to_bytes()
 }

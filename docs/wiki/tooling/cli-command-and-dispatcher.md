@@ -467,3 +467,82 @@ Validation (all Moon builds serialized; `PATH=/data/home/.moon/bin:$PATH`):
   repository test suite, native build, Binaryen comparison, fuzz campaign,
   benchmark or timing claim. Initial Moon test execution could not locate
   `node` on PATH; compiled test runners were executed explicitly instead.
+
+## R1-11 native filename encoding — 2026-10-28
+
+The historical review at commit
+`6422a44b155026bdbadfac86289c20958fdc21d3`,
+`docs/wiki/tooling/2026-10-25-code-review-r1.md`, recorded source-trace evidence
+only; its native test had never compiled or run. This investigation confirms
+that claim on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+
+The original assertion is preserved in
+[`r1_11_native_paths_wbtest.mbt`](../../../src/cmd/r1_11_native_paths_wbtest.mbt).
+Built and executed natively before any product edit, it failed with
+`e9 2e 77 61 73 6d 00` instead of `c3 a9 2e 77 61 73 6d 00` for `é.wasm`
+(1 test, 0 passed, 1 failed; exit 2). Expanded native coverage then reported
+4 tests, 1 passed, 3 failed (exit 2): `Ā漢😀` became `3f 3f 3f 00`, and
+real temporary UTF-8 filenames ending in `é.wasm`, `漢.wasm`, and `😀.wasm`
+returned false from `access` and `Err("open failed")` from `fopen`/read.
+The independent filesystem writer created each fixture; ASCII access/read
+succeeded. Fixtures were deleted before assertions, including on failure.
+Empty, ASCII mode, and embedded-NUL byte conventions passed unchanged.
+
+Reproduction (serialized, one worker):
+
+```sh
+export PATH=/data/home/.moon/bin:/data/workspace/measure-starshine/bin:$PATH
+export MOON_CC=/data/workspace/measure-starshine/bin/cc
+ulimit -s 65536
+moon test src/cmd/r1_11_native_paths_wbtest.mbt --target native -j 1
+```
+
+Environment limits: no system compiler was initially on PATH. The bundled
+`tcc` pathname is a local GCC wrapper and cannot handle Moon's TCC mode.
+The existing `cc`/`ar` wrappers above work; the white-box link additionally
+requires the larger stack to avoid a Moon compiler stack overflow.
+These setup failures are not regression-test failures. This is Linux native
+byte/access/read evidence, not Windows filesystem or end-to-end Unicode argv
+coverage. R1-09 source/config byte decoding is separate and unchanged.
+
+The red checkpoint is commit `c368a438c` (product code unchanged). The repair
+in [`cmd_native_c_string`](../../../src/cmd/cmd.mbt) uses the existing
+`@utf8.encode` import, copies the encoded bytes into the existing buffer, and
+appends one NUL. Empty strings, ASCII mode strings and embedded NULs retain
+their byte conventions; this does not add an embedded-NUL rejection policy.
+No public API changes are intended.
+
+The change is neutral to optimizer pass execution: no pass code or workload
+changes. It does add a temporary UTF-8 allocation and byte copy on native
+C-string conversion; encoded capacity grows with UTF-8 byte length rather than
+character count. Those linear path/command setup costs preserve Unicode at the
+C boundary and are not a measured command-time neutrality claim. No benchmark,
+fuzz campaign, or Binaryen comparison belongs to this narrow repair.
+
+Final validation: **FIXED**, 4/4 native regressions passed (exit 0) using the
+reproduction command above. Five existing native command checks also passed:
+output-directory processing, text-adapter routing, both in-process text
+fallbacks, and environment lookup. They ran from the freshly compiled driver:
+
+```sh
+_build/native/debug/test/cmd/cmd.whitebox_test.exe 'cmd_wbtest.mbt:124-128/cmd_native_wbtest.mbt:0-1'
+moon info
+moon fmt
+moon build -j 1
+```
+
+All five structured result messages were checked for empty failure messages;
+the direct driver's exit code alone is not the assertion evidence. `moon info`
+and `moon fmt` succeeded; the full default-target (wasm) build succeeded with
+one worker. `moon info` has no `-j` option; an initial `moon info -j 1` usage
+error was corrected. Generated cmd interface drift was solely `Int`/`Int32`
+spelling from the installed toolchain; generated interface and unrelated
+formatter changes were excluded. The first direct native-driver attempt used
+the JS JSON argument format and aborted before tests; the corrected native
+range argument above executed all five checks. Existing dependency/deprecation
+warnings remain. No full test suite or performance run is claimed.
+
+R1-11 is closed by this repair; no active R1-11 backlog item existed to prune.
+R1-09 is neither repaired nor signed off here. Owned `_build`, temporary logs,
+staged-diff/message scratch and emitted test artifacts are removed after
+validation; committed source/tests and this evidence remain.
