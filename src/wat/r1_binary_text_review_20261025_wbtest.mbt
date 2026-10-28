@@ -11,5 +11,3 @@ test "r1 review f32 decimal literals round directly to binary32" {
     _ => fail("expected one f32 constant")
   }
 }
-
-///|

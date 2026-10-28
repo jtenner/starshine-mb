@@ -809,6 +809,150 @@ fn wt_parse_f64(text : String) -> Result[@lib.F64, String] {
 }
 
 ///|
+// Compare an already validated decimal magnitude with an exact positive f64
+// midpoint. Only f32 midpoints reach this helper: after removing binary zeros,
+// at most 150 multiplications by 5 (or 104 by 2) produce its exact decimal.
+fn wt_compare_f32_midpoint(text : String, midpoint : Double) -> Int32 {
+  let bits = midpoint.reinterpret_as_int64().reinterpret_as_uint64()
+  let mut significand = (bits & 0x000fffffffffffffUL) | 0x0010000000000000UL
+  let mut power = ((bits >> 52) & 0x7ffUL).to_int() - 1023 - 52
+  while (significand & 1UL) == 0UL {
+    significand = significand >> 1
+    power = power + 1
+  }
+  // Little-endian decimal digits of the exact midpoint significand.
+  let exact : Array[Int32] = []
+  while significand > 0UL {
+    exact.push((significand % 10UL).to_int())
+    significand = significand / 10UL
+  }
+  let scale = if power < 0 { -power } else { 0 }
+  let factor = if power < 0 { 5 } else { 2 }
+  let steps = if power < 0 { -power } else { power }
+  for _ in 0..<steps {
+    let mut carry = 0
+    for i in 0..<exact.length() {
+      let digit = exact[i] * factor + carry
+      exact[i] = digit % 10
+      carry = digit / 10
+    }
+    if carry > 0 {
+      exact.push(carry)
+    }
+  }
+  let digits : Array[Int32] = []
+  let mut fractional = 0
+  let mut after_dot = false
+  let mut i = if text.has_prefix("+") || text.has_prefix("-") { 1 } else { 0 }
+  while i < text.length() {
+    let c = text[i]
+    if c == 'e' || c == 'E' {
+      i = i + 1
+      break
+    }
+    if c == '.' {
+      after_dot = true
+    } else if c != '_' {
+      digits.push(c.to_int() - 0x30)
+      if after_dot {
+        fractional = fractional + 1
+      }
+    }
+    i = i + 1
+  }
+  let mut exponent = 0
+  let mut negative_exponent = false
+  if i < text.length() && (text[i] == '+' || text[i] == '-') {
+    negative_exponent = text[i] == '-'
+    i = i + 1
+  }
+  // Beyond this bound the source magnitude cannot be near any f32 midpoint,
+  // even allowing a decimal point at either end of the entire input.
+  let limit = text.length() + 1000
+  while i < text.length() {
+    if text[i] != '_' {
+      let digit = text[i].to_int() - 0x30
+      exponent = if exponent > (limit - digit) / 10 {
+        limit
+      } else {
+        exponent * 10 + digit
+      }
+    }
+    i = i + 1
+  }
+  if negative_exponent {
+    exponent = -exponent
+  }
+  let mut leading = 0
+  while leading < digits.length() && digits[leading] == 0 {
+    leading = leading + 1
+  }
+  let point = digits.length() - leading - fractional + exponent
+  let exact_point = exact.length() - scale
+  if point != exact_point {
+    return if point < exact_point { -1 } else { 1 }
+  }
+  let count = if digits.length() - leading > exact.length() {
+    digits.length() - leading
+  } else {
+    exact.length()
+  }
+  for j in 0..<count {
+    let source = if leading + j < digits.length() {
+      digits[leading + j]
+    } else {
+      0
+    }
+    let target = if j < exact.length() {
+      exact[exact.length() - 1 - j]
+    } else {
+      0
+    }
+    if source != target {
+      return if source < target { -1 } else { 1 }
+    }
+  }
+  0
+}
+
+///|
+// Binary64 rounding can change binary32 rounding only at an exact binary32
+// midpoint. Keep ordinary conversion cheap, then resolve those ties against
+// the original decimal rather than against its rounded binary64 value.
+fn wt_round_f32_decimal(text : String, value : Double) -> Float {
+  let rounded = Float::from_double(value)
+  let magnitude = if value < 0.0 { -value } else { value }
+  let bits = rounded.reinterpret_as_uint() & 0x7fffffffU
+  let as_double = rounded.to_double()
+  let rounded_magnitude = if as_double < 0.0 { -as_double } else { as_double }
+  if magnitude == rounded_magnitude || magnitude == @double.infinity {
+    return rounded
+  }
+  let lower = if magnitude < rounded_magnitude { bits - 1U } else { bits }
+  let upper = lower + 1U
+  let low_value = Float::reinterpret_from_uint(lower).to_double()
+  // The hypothetical next finite value after max-finite is 2^128. Its
+  // midpoint with max-finite is the round-to-nearest overflow boundary.
+  let high_value = if upper == 0x7f800000U {
+    0x47f0000000000000L.reinterpret_as_double()
+  } else {
+    Float::reinterpret_from_uint(upper).to_double()
+  }
+  let midpoint = (low_value + high_value) * 0.5
+  if magnitude != midpoint {
+    return rounded
+  }
+  let comparison = wt_compare_f32_midpoint(text, midpoint)
+  if comparison == 0 {
+    return rounded // Exact ties retain round-to-nearest, ties-to-even.
+  }
+  let chosen = if comparison < 0 { lower } else { upper }
+  Float::reinterpret_from_uint(
+    chosen | (rounded.reinterpret_as_uint() & 0x80000000U),
+  )
+}
+
+///|
 fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
   match
     wt_parse_nan_payload_bits(
@@ -819,12 +963,12 @@ fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
     Ok(None) => ()
     Err(error) => return Err(error)
   }
-  // Preserve the numeric conversion and its existing error spelling; a NaN
-  // never takes this path, so f32 payload bits cannot widen and canonicalize.
+  // Preserve the existing accepted syntax and error spelling. NaN payloads
+  // never take this numeric path.
   let value = @string.parse_double(text) catch {
     _ => return Err("invalid f64 literal: \{text}")
   }
-  Ok(@lib.F32(Float::from_double(value)))
+  Ok(@lib.F32(wt_round_f32_decimal(text, value)))
 }
 
 ///|

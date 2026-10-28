@@ -28331,3 +28331,16 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — R1-02 f32 decimal rounding
+
+- Confirmed the original regression on unchanged master: `1065353216 !=
+  1065353217`; retained a local failing-test checkpoint before implementation.
+- Filed the [decimal midpoint correction and bounded scalar/SIMD evidence](wast/numeric-instruction-authoring.md#r1-02-correctly-rounded-ordinary-f32-decimals-october-28-2026).
+- Only R1-02 is addressed. No active backlog item remains for this repair;
+  other review findings and release gates remain unchanged.
+- Focused wasm-gc tests: 456/456 passed. JS/Bun: decimal regressions pass,
+  with three NaN payload failures (two existing, one added control); the two
+  existing failures reproduce with the baseline parser. Public interfaces
+  remain unchanged. Full `moon build -j 1` passed. No fuzz or timing runs
+  were made.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-28
 sources:
   - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../../../src/wast/keywords.mbt
@@ -76,6 +76,59 @@ After Starshine lowers this text, `$x` is already a numeric `LocalIdx`, constant
 | Fuzz / generator evidence | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]002` proves a widened valid-generator scalar numeric matrix; WAST arbitrary currently mirrors representative text shapes, not every scalar numeric opcode. |
 
 ## Text Shapes And Stack Rules
+
+### R1-02: correctly rounded ordinary f32 decimals (October 28, 2026)
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`
+using the original R1-02 test from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` (the full report is available with
+`git show <commit>:docs/wiki/tooling/2026-10-25-code-review-r1.md`).
+[`r1_binary_text_review_20261025_wbtest.mbt`](../../../src/wat/r1_binary_text_review_20261025_wbtest.mbt)
+failed with `1065353216 != 1065353217`: decimal `1.0000000596046448` is just
+above `1 + 2^-24`, but binary64 rounding loses that distinction before the
+old binary32 conversion. Scalar and SIMD boundary regressions also failed
+before the fix. This supersedes the historical finding's open status for
+R1-02 only; no other review item is addressed here.
+
+[`wt_parse_f32`](../../../src/wast/lower_to_lib.mbt) retains the existing numeric
+syntax/error handling and NaN payload path. Its binary64 approximation can
+change the binary32 answer only when it equals an exact binary32 midpoint.
+Those cases now compare the original decimal magnitude against an exact
+integer-generated decimal midpoint, then select the adjacent binary32 value;
+exact ties retain ties-to-even. Sign restoration covers negative zero and
+negative underflow. The overflow midpoint uses the hypothetical finite
+successor `2^128`. Ordinary non-midpoint conversions allocate no new digit
+arrays; midpoint work scans all source digits, including distant nonzero
+suffixes, with a bounded midpoint expansion (at most 150 multiplies by 5).
+This adds a few scalar checks to ordinary parsing and necessary linear input
+work on ambiguous decimals; no optimizer-pass or binary-input path changes.
+No performance measurement or speedup claim is made.
+
+[`r1_f32_rounding_wbtest.mbt`](../../../src/wast/r1_f32_rounding_wbtest.mbt)
+covers both rounding directions and signs, even/odd ties, the boundary below
+one, zero/min-subnormal, subnormal/normal and finite/infinite boundaries,
+exponent/underscore spellings, a distant digit after 900 zeros, signed zero,
+infinities and NaN payload controls. SIMD uses exact encoded lane-byte checks
+and binary validation. Existing scalar NaN/payload tests remain applicable.
+Hexadecimal float acceptance and f64 parsing are outside this decimal repair.
+
+Validation uses serialized `-j 1` builds with
+`PATH=/data/home/.moon/bin:$PATH`: `moon info -j 1`, `moon fmt`, and
+`moon test src/wast src/wat --target wasm-gc -j 1`: **456 passed, 0 failed**.
+Public `.mbti` files are unchanged. Unrelated formatter-only changes were
+removed. Full workspace build: `moon build -j 1` passed (exit 0; existing
+main-package dependency warning).
+
+The JS build (`moon test src/wast src/wat --target js -j 1 --build-only`)
+also succeeds. A compact temporary Bun launcher runs the six build-emitted
+drivers/filters serially and checks structured results, avoiding Node and
+large launcher arguments: 453 passed, 3 failed. Two existing NaN payload tests
+and the new NaN payload control lose sign/payload under Bun's JS execution;
+the two existing failures also reproduce with the unchanged baseline parser.
+All decimal rounding regressions, including the original review test and
+SIMD lane bytes, pass under Bun. The complete focused wasm-gc run above
+passes all NaN controls too. JS NaN representation is outside R1-02.
+No full test suite, Binaryen oracle, fuzz campaign or benchmark is claimed.
 
 ### Constants push values
 
