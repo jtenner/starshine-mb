@@ -35780,57 +35780,86 @@ test "optimize-instructions documents descriptor ref.test_desc miss validation b
   let descriptor_b_type = @lib.TypeIdx::new(3U)
   let func_type = @lib.TypeIdx::new(4U)
   let described_b_heap = @lib.HeapType::new(described_b_type)
-  let module_ = @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::group([
-          @lib.SubType::comp_type(
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_a_type)),
-          ),
-          @lib.SubType::comp_type(
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(describes=Some(described_a_type)),
-          ),
-        ]),
-        @lib.RecType::group([
-          @lib.SubType::comp_type(
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_b_type)),
-          ),
-          @lib.SubType::comp_type(
-            @lib.CompType::struct_([]),
-            metadata=@lib.TypeMetadata::new(describes=Some(described_b_type)),
-          ),
-        ]),
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([func_type]))
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::struct_new_default(descriptor_a_type),
-            @lib.Instruction::struct_new_default_desc(described_a_type),
-            @lib.Instruction::ref_test_desc(false, described_b_heap),
+  // Equivalent groups must match after group-local index rebasing. The miss
+  // fixture adds a field so its rejection tests a distinct descriptor target.
+  for distinct in [false, true] {
+    let module_ = @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::group([
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_([]),
+              metadata=@lib.TypeMetadata::new(
+                descriptor=Some(descriptor_a_type),
+              ),
+            ),
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_([]),
+              metadata=@lib.TypeMetadata::new(describes=Some(described_a_type)),
+            ),
           ]),
-        ),
-      ]),
-    )
-  match @validate.validate_module(module_) {
-    Ok(_) =>
-      fail("expected disjoint ref.test_desc target to stay validation-blocked")
-    Err(err) =>
-      assert_true(
-        "\{err}".contains("ref.test_desc target does not match operand type"),
-        msg="expected descriptor miss validation boundary, got \{err}",
+          @lib.RecType::group([
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_(
+                if distinct {
+                  [
+                    @lib.FieldType::new(
+                      @lib.StorageType::val_type(@lib.ValType::i32()),
+                      @lib.Mut::const_(),
+                    ),
+                  ]
+                } else {
+                  []
+                },
+              ),
+              metadata=@lib.TypeMetadata::new(
+                descriptor=Some(descriptor_b_type),
+              ),
+            ),
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_([]),
+              metadata=@lib.TypeMetadata::new(describes=Some(described_b_type)),
+            ),
+          ]),
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::func([], [@lib.ValType::i32()]),
+            ),
+          ),
+        ]),
       )
+      .with_func_sec(@lib.FuncSec::new([func_type]))
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::empty(),
+            @lib.Expr::new([
+              @lib.Instruction::struct_new_default(descriptor_a_type),
+              @lib.Instruction::struct_new_default_desc(described_a_type),
+              @lib.Instruction::ref_test_desc(false, described_b_heap),
+            ]),
+          ),
+        ]),
+      )
+    if !distinct {
+      match @validate.validate_module(module_) {
+        Ok(_) => ()
+        Err(err) =>
+          fail("expected equivalent descriptor groups to validate: \{err}")
+      }
+      continue
+    }
+    match @validate.validate_module(module_) {
+      Ok(_) =>
+        fail(
+          "expected disjoint ref.test_desc target to stay validation-blocked",
+        )
+      Err(err) =>
+        assert_true(
+          "\{err}".contains("ref.test_desc target does not match operand type"),
+          msg="expected descriptor miss validation boundary, got \{err}",
+        )
+    }
   }
 }
 
