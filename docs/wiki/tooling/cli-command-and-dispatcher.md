@@ -342,3 +342,8 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`
+- `docs/wiki/raw/research/0711-2026-06-04-cli-print-utility-routing.md`

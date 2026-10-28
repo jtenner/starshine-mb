@@ -142,9 +142,15 @@ The key invariant is that coverage means **the intended strategy ran and reached
 
 ## Sources
 
-- Durable owner: research note 0058
-- Completed execution plan / historical slice ledger: research note 0089
+- Historical hardening plan: research note 0058
+- Completed execution plan / historical slice ledger: [note 0089](../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - Diagnostic-family and invalid-repro contract: [WebAssembly 3.0 validation overview](https://webassembly.github.io/spec/core/valid/index.html), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
 - LEB128 binary-integer source refresh: [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
 - Active follow-up backlog, if any: [`../../../agent-todo.md`](../../../agent-todo.md)
+
+Historical notes are in git history at revision `6bb69981fb8505ce6b90512cb02bc6a08eb41de8`. Retrieve each with `git show 6bb69981fb8505ce6b90512cb02bc6a08eb41de8:<path>`:
+
+- `docs/wiki/raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`
+- `docs/wiki/raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`
+- `docs/wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`
