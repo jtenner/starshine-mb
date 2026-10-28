@@ -130,7 +130,11 @@ function createMoonbitFsHost({
     begin_read_string(value) {
       return alloc({
         type: "string-reader",
-        sourceHandle: handles.get(value)?.type === "extern-string" ? value : undefined,
+        sourceHandle:
+          typeof value === "number" &&
+          handles.get(value)?.type === "extern-string"
+            ? value
+            : undefined,
         codepoints: toCodePoints(readString(value)),
         index: 0,
       });

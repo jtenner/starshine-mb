@@ -7,7 +7,10 @@ import test from 'node:test';
 // Observe the actual private owner without adding a production diagnostics API.
 // Only Map is instrumented; both shipped host implementations run unchanged.
 async function loadHost(file) {
-  const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
+  const sourceFile = process.env.STARSHINE_HOST_SOURCE_ROOT
+    ? path.join(process.env.STARSHINE_HOST_SOURCE_ROOT, path.basename(file))
+    : new URL(file, import.meta.url);
+  const source = fs.readFileSync(sourceFile, 'utf8');
   const instrumented = `
     export const tables = [];
     class Map extends globalThis.Map {
