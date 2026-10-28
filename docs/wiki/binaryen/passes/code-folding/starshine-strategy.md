@@ -304,3 +304,66 @@ JSON bloom pipeline exposes a later runtime fault after this valid stage.
 Preserve the final unreachable marker when hoisting a void block/loop/if from a typed result holder. The result lanes and validation contract remain intact.
 
 Evidence: [code_folding.mbt](../../../../../src/passes/code_folding.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+## BURN-011: parameterized partial if suffixes — October 28, 2026
+
+The original `burn_control_fold_params_v2_wbtest.mbt` regression from
+`04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`'s reset-burn evidence packet
+was replayed on unchanged production base `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+Three tests yielded one passing zero-parameter control and two failures:
+direct `InvalidControlChildCount(2, 4, 3)` and public final validation
+`expected [I32], actual [I32,I32]`. This establishes invalid output, not an
+optimized runtime result or Binaryen comparison.
+
+`code_folding_try_fold_if_at_region` now declines its partial value-suffix
+rewrite when the verified if layout contains entry operands (`child_count > 3`).
+It retains the full original signature, input consumption, and selected arm
+effects. The check reads existing scalar fields; it builds no analysis or
+arrays. Zero-parameter folding remains enabled and its direct regression
+requires two resulting roots, proving that sharing still occurs. Direct tests
+live in [code_folding.mbt](../../../../../src/passes/code_folding.mbt); public
+flag dispatch is covered in [cmd.mbt](../../../../../src/cmd/cmd.mbt).
+
+Owner audit before choosing scope: one-block and two-block helpers independently
+void both the if and their inner result holders; the value-block-exit helper
+voids its target and removes branch payloads. Embedded-value if folding also
+owns its own wrapper/signature rewrite. None delegates signature preservation
+to the setter. This fix deliberately changes only the reproduced ordinary
+partial-suffix owner, after suffix admission and before any splice. It does
+not certify parameterized versions of those other owners, full-arm elimination,
+or void-result suffix motion. Widening requires independent direct fixtures
+for every affected owner and preserving nested input consumption. The shared
+`hot_control_result_type_set` contract remains unchanged.
+
+Scope is bounded correctness repair. Full pass parity, other burn findings,
+benchmarks, and large fuzz lanes remain outside this evidence. A later
+measurement should compare candidate-free and zero-parameter suffix workloads
+against the base, with the parameterized repro as a correctness/cost diagnostic:
+the latter now retains duplicated suffixes to avoid invalid output, so a
+same-output speed/size claim would be inappropriate.
+
+Validation used Moon `0.1.20261023 (3778465)` and Bun `1.4.0` as the missing
+Node executable, with `PATH=/data/home/.moon/bin:$PATH` plus that temporary
+executable shim for JS tests. The evidence archive hash matches its recorded
+`c247a32d96fa8a44e44fcfeb97bf6d9c258694f562c78c98e6bd10ac6f313ff5`.
+The original regression file hash is
+`cdde2ca739a93fc94a46c3246059733f06dc9c0fb5fc1957d163c3c5e0747b8d`.
+Only that file and the exact `burn_control_emit` helper were copied for replay;
+the temporary copies were removed after the original selection passed 3/3.
+
+- `moon test src/passes/burn_control_fold_params_v2_wbtest.mbt --target js -j 1`:
+  unchanged production 1/3 passed (the two expected failures above); fixed 3/3.
+- `moon test src/passes/code_folding.mbt --target js -j 1`: 2/2 passed.
+- `moon test src/passes/code_folding.mbt src/passes/code_folding*test.mbt --target js -j 1`:
+  220/220 passed after formatting; benchmark cases were not run.
+- `moon test src/cmd/cmd.mbt --target js -j 1`: 123/123 passed, including the
+  public parameter-consumption regression.
+- Bun instantiated the emitted original/fixed modules and checked both
+  conditions: result 7, exported state 2 for false and 1 for true. All four
+  invocations passed. Each encoded module was 69 bytes.
+- `moon info` and `moon fmt src/passes src/cmd` succeeded. Interface review
+  found only toolchain `Int`/`UInt` spelling changes to `Int32`/`UInt32`;
+  those unrelated generated diffs and unrelated formatter changes were removed.
+- Full workspace `moon build -j 1` succeeded for the default `wasm` target:
+  27 tasks, 0 errors (2,529 existing warnings). No native build, default full
+  test suite, large fuzz lane, or benchmark was requested or run.

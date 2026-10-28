@@ -4749,6 +4749,16 @@ fn code_folding_try_fold_if_at_region(
     return false
   }
 
+  // A partial value suffix needs a void if, but replacing its whole type
+  // would discard entry parameters while retaining their operand children.
+  // Leave this shape intact until we can preserve its parameter signature.
+  // Verified If layout: condition, then, else, followed by entry operands.
+  if result_arity != 0 &&
+    (then_start != 0 || else_start != 0) &&
+    if_node.child_count > 3 {
+    return false
+  }
+
   let hoisted = pass_splice_region(
     ctx,
     func,
@@ -5319,5 +5329,92 @@ pub fn code_folding_run(
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
+  }
+}
+
+///|
+test "burn code-folding retains entry parameters when hoisting a common value suffix" {
+  let input = pass_test_module_from_wat(
+    "(module (type $b (func (param i32) (result i32))) (global $n (mut i32) (i32.const 0)) (func (param i32) (result i32) i32.const 40 local.get 0 if (type $b) drop i32.const 1 global.set $n i32.const 7 else drop i32.const 2 global.set $n i32.const 7 end))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  match
+    pipeline_verify_checkpoint(
+      HotPipelineVerifyPolicy::after_each_pass(),
+      "before",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("initial HOT invalid: \{err}")
+  }
+  let before = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(before) {
+    Ok(_) => ()
+    Err(err) => fail("initial lower invalid: \{err}")
+  }
+  let ctx = HotPassContext::new(
+    code_folding_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(input)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("code-folding verification failed: \{err}")
+  }
+  let output = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("code-folding lower invalid: \{err}")
+  }
+}
+
+///|
+test "burn code-folding keeps the same suffix valid with no entry parameters" {
+  let input = pass_test_module_from_wat(
+    "(module (global $n (mut i32) (i32.const 0)) (func (param i32) (result i32) local.get 0 if (result i32) i32.const 1 global.set $n i32.const 7 else i32.const 2 global.set $n i32.const 7 end))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  match
+    pipeline_verify_checkpoint(
+      HotPipelineVerifyPolicy::after_each_pass(),
+      "before",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("initial HOT invalid: \{err}")
+  }
+  let before = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(before) {
+    Ok(_) => ()
+    Err(err) => fail("initial lower invalid: \{err}")
+  }
+  let ctx = HotPassContext::new(
+    code_folding_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(input)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("code-folding verification failed: \{err}")
+  }
+  assert_eq(@ir.hot_region_root_count(func, @ir.HotRegionRef::root()), 2)
+  let output = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("code-folding lower invalid: \{err}")
   }
 }

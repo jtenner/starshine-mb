@@ -25,6 +25,11 @@ related:
 
 > **Comparison baseline:** New comparisons require verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
+## October 28, 2026 parameterized partial suffix repair
+
+[BURN-011 reproduction, guard, and owner-audit limits](./starshine-strategy.md#burn-011-parameterized-partial-if-suffixes--october-28-2026)
+record the invalid-output regression and preserved zero-parameter folding.
+
 ## September 24, 2026 label-map measurement
 
 The equivalent-branch comparison map now indexes both left and right label IDs while retaining ordered arrays for pair relationships. Previously every new label pair linearly searched both growing arrays. The [native white-box benchmark](../../../../../src/passes/code_folding_label_map_perf_wbtest.mbt) inserts distinct pairs into a fresh map: 1,024 pairs fell from `239.29` to `38.21 µs` (6.26×), and 2,048 from `926.41` to `74.15 µs` (12.49×). A bijection/repeated-pair test and 204 existing CodeFolding tests pass. These helper timings do not establish a full-pass or Binaryen comparison gain.

@@ -11850,3 +11850,34 @@ test "explicit remove-unused-brs dispatch preserves parameterized reference bloc
   @validate.validate_module(output).unwrap() |> ignore
   @binary.encode_module(output).unwrap() |> ignore
 }
+
+///|
+test "code-folding command retains parameterized partial suffix input consumption" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $b (func (param i32) (result i32))) (global $n (export \"n\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) i32.const 40 local.get 0 if (type $b) drop i32.const 1 global.set $n i32.const 7 else drop i32.const 2 global.set $n i32.const 7 end))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["code-folding"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  match body {
+    [
+      @lib.I32Const(@lib.I32(40)),
+      @lib.LocalGet(_),
+      @lib.If(block_type, then_body, Some(else_body)),
+    ] => {
+      assert_true(block_type is @lib.TypeIdxBlockType(_))
+      assert_true(then_body[0] is @lib.Drop)
+      assert_true(else_body[0] is @lib.Drop)
+      assert_eq(then_body[1], @lib.Instruction::i32_const(1))
+      assert_eq(else_body[1], @lib.Instruction::i32_const(2))
+      assert_eq(then_body[3], @lib.Instruction::i32_const(7))
+      assert_eq(else_body[3], @lib.Instruction::i32_const(7))
+    }
+    _ =>
+      fail("expected retained parameter consumption and selected arm effects")
+  }
+}
