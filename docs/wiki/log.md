@@ -28474,3 +28474,21 @@ arrays/typecheck wrappers from the completed return packaging change.
   existing failures reproduce with the baseline parser. Public interfaces
   remain unchanged. Full `moon build -j 1` passed. No fuzz or timing runs
   were made.
+
+### 2026-10-28 — R1-05 confirmed baseline
+
+- Reproduced the original array.len unreachable failure on unchanged master;
+  wasm-tools independently validates the original WAT. Restored only R1-05
+  tests and fixture, with concrete operand controls. See the
+  [evidence and scope](validate/stack-polymorphism-and-bottom.md#october-28-2026-r1-05-arraylen-bottom-acceptance).
+- Red checkpoint: three required-behavior tests fail, two controls pass.
+
+### 2026-10-28 — R1-05 array.len bottom repair
+
+- Accept virtual bottom locally before ordinary array-reference matching;
+  retain reachable-invalid and dead-concrete rejection, shared-array and
+  concrete-array behavior. This supersedes the red checkpoint's failure state.
+- All 649 selected validator tests pass through checked Bun structured results;
+  `moon info src/validate`, touched-package formatting, and full
+  `moon build -j 1` succeed. No API change, fuzz, full-suite or timing claim.
+  [Repair, costs and commands](validate/stack-polymorphism-and-bottom.md#october-28-2026-r1-05-arraylen-bottom-acceptance).
