@@ -18,8 +18,8 @@ related:
 
 ## October 19 follow-up
 
-New comparisons require verified Binaryen 133. This supersedes the historical
-v132-only instruction below; recorded v132 measurements keep their original
+New comparisons require verified Binaryen 133. This supersedes the September
+23 v132 baseline policy below; recorded v132 measurements keep their original
 version. Descriptor placeholder removal now remaps structured field names
 along with field indices. The [follow-up validation record](../../../tooling/validation-gates.md#october-19-2026--pass-review-follow-up)
 tracks the regression and renewed comparison. The final 10,000 ordinary
@@ -73,9 +73,11 @@ measured parity and size gap, not an accepted representation difference. The
 remaining 3,750 cases with equal canonical size still need family-level
 classification and semantic evidence.
 
-Use the official v132 oracle for new baseline evidence. The verified v133
-oracle is used only for this release-delta investigation. Neither a validated
-module nor a smaller one is, by itself, a semantic equivalence proof.
+The September 23 release-delta investigation used v132 for its baseline and
+v133 for the release comparison. The current policy requires a verified v133
+oracle for new comparison evidence; see the [release-horizon policy](../../release-horizon-and-oracles.md).
+Neither a validated module nor a smaller one is, by itself, a semantic
+equivalence proof.
 
 ## Signoff still required
 

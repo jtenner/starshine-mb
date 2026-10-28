@@ -113,7 +113,7 @@ The JSON-AS `strip-debug` investigation established two durable boundaries. Dire
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_132` as the upstream release baseline for new pass research; research note 1573 supersedes v130 for current release decisions while preserving older pass-specific source anchors as historical evidence.
+- Use a verified Binaryen `version_133` oracle for new comparisons, per the [release-horizon policy](./release-horizon-and-oracles.md). The September release review used `version_132`; the 2026-07-18 research note 1573 audited v131 and superseded v130 for release decisions at that time. These source reviews remain historical evidence, not a v133 audit of this pathway.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_133` release baseline and the release-horizon note first.
