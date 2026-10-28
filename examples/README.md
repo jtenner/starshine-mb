@@ -23,13 +23,14 @@ Examples are small, runnable CLI inputs for common workflows.
 starshine --out-dir out examples/modules/simple.wat
 starshine --vacuum --out-dir out examples/modules/simple.wat
 starshine --config examples/config/optimize-release.json
-source examples/env/starshine.env && starshine examples/modules/feature_mix.wat
+(set -a; source examples/env/starshine.env && { set +a; starshine; })
 starshine --optimize --out-dir out examples/modules/feature_mix.wat
 starshine --shrink --out-dir out examples/modules/table_dispatch.wat
 ```
 
 ## Notes
 - Build/install CLI first if `starshine` is not found.
+- The env example exports its assignments in a subshell. `STARSHINE_INPUT` selects `examples/modules/*.wat`; the command processes that input pattern, with `global-effects`, `flatten`, and `vacuum` as the configured passes and `examples/out-env` as the output directory. Input validation and pass results depend on each module.
 - Config/env/CLI precedence is `config -> env -> cli`; in practice, CLI overrides all, env overrides config, and config provides defaults.
 - `--optimize` and `--shrink` run through the active hot preset pipeline.
 - Legacy pass names are still surfaced in registry diagnostics, but only active hot/module/preset names are accepted for actual execution.
