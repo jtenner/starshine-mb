@@ -1,3 +1,9 @@
+### 2026-10-28, R1-04 AST parameter bindings
+
+- Confirmed the original unbound `$x` repro on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`; the historical name-loss caveat does not permit invalid printed output. Test checkpoint `64a16a8ce` records the red tests.
+- Preserve named parameters in the shared type-use renderer, retaining positional alignment with unnamed parameters. Focused WAST/WAT tests pass 454/454 on wasm-gc; full workspace `moon build --target wasm-gc -j 1` succeeds. See [evidence, costs and validation limits](wast/variable-instruction-authoring.md#r1-04-parameter-binding-roundtrip--2026-10-28).
+- Reviewed `agent-todo.md`: no active R1-04 item existed to prune; no new execution blocker or measurement task is introduced. Other review findings remain outside this change.
+
 ### 2026-10-28, R1-03 lib WAT export-name repair
 
 - Confirmed the original LF export repro on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`: print succeeds, re-lowering fails with `expected export name at <memory>:5:1` after removing optional name metadata.

@@ -222,7 +222,21 @@ fn render_type_use(type_use : TypeUse) -> String {
     }
     None => ()
   }
-  if type_use.func_type.params.length() > 0 {
+  if type_use.param_ids.any(id => id is Some(_)) {
+    // Named declarations bind exactly one parameter. Keep positional alignment
+    // with unnamed parameters and tolerate absent IDs in constructed ASTs.
+    for i, p in type_use.func_type.params {
+      out.write_string(" (param ")
+      if i < type_use.param_ids.length() {
+        if type_use.param_ids[i] is Some(id) {
+          out.write_string(id)
+          out.write_char(' ')
+        }
+      }
+      out.write_string(keyword_from_value_type(p))
+      out.write_char(')')
+    }
+  } else if type_use.func_type.params.length() > 0 {
     out.write_string(" (param")
     for p in type_use.func_type.params {
       out.write_char(' ')
