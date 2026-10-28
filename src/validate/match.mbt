@@ -448,13 +448,7 @@ fn exact_typeidx_matches_visited(
   match (env.resolve_subtype(t0), env.resolve_subtype(t1)) {
     (Some(st0), Some(st1)) => {
       visited.push((t0, t1))
-      let matched = exact_subtype_matches_visited(
-        st0,
-        st1,
-        env,
-        visited,
-        false,
-      )
+      let matched = exact_subtype_matches_visited(st0, st1, env, visited, false)
       let _ = visited.pop()
       matched
     }
@@ -555,13 +549,7 @@ fn exact_comptype_matches_visited(
         return false
       }
       for i in 0..<fs0.length() {
-        if !exact_field_matches_visited(
-            fs0[i],
-            fs1[i],
-            env,
-            visited,
-            relative,
-          ) {
+        if !exact_field_matches_visited(fs0[i], fs1[i], env, visited, relative) {
           return false
         }
       }
@@ -587,13 +575,7 @@ fn exact_resulttype_matches_visited(
     return false
   }
   for i in 0..<rt0.length() {
-    if !exact_valtype_matches_visited(
-        rt0[i],
-        rt1[i],
-        env,
-        visited,
-        relative,
-      ) {
+    if !exact_valtype_matches_visited(rt0[i], rt1[i], env, visited, relative) {
       return false
     }
   }
@@ -610,8 +592,7 @@ fn exact_field_matches_visited(
 ) -> Bool {
   let FieldType(st0, m0) = f0
   let FieldType(st1, m1) = f1
-  m0 == m1 &&
-  exact_storage_matches_visited(st0, st1, env, visited, relative)
+  m0 == m1 && exact_storage_matches_visited(st0, st1, env, visited, relative)
 }
 
 ///|
