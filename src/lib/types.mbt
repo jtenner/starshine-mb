@@ -1430,7 +1430,8 @@ pub fn Elem::reftype(self : Elem) -> RefType {
   match self {
     Elem(_, kind) =>
       match kind {
-        FuncsElemKind(_) => AbsHeapTypeRefType(FuncAbsHeapType) // funcref
+        // Binary forms 0–3 contain only ref.func initializers: (ref func).
+        FuncsElemKind(_) => RefType::new(false, HeapType::abs(FuncAbsHeapType))
         FuncExprsElemKind(_) => AbsHeapTypeRefType(FuncAbsHeapType) // funcref
         TypedExprsElemKind(rt, _) => rt
       }

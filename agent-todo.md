@@ -27,6 +27,18 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   closes the prior measurement task, with its accepted RSS cost explicit.
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
+### Validator generator baseline failures [IR2-VALIDATE-GEN-BASELINE]
+
+- **Goal / why:** restore the touched-package gate; F1 validation found 11
+  pre-existing generator coverage failures on master `3d1deec7`.
+- **Deliverables / tasks:** repair the natural/forced/profile/constraint coverage
+  cases listed in the [baseline evidence](docs/wiki/binary/data-element-and-datacount-sections.md#validation-scope-and-baseline-blockers), with failing-first shape tests.
+- **APIs / invariants:** preserve deterministic seeds, valid modules, and real
+  opcode/type coverage; keep the F1 function-index nullability regressions green.
+- **Dependencies / exit / tests:** separate work from manifest item 3; exit when
+  `moon test src/lib src/validate -j 1` passes. F1 removes four additional
+  failures but does not resolve these 11 baseline failures.
+
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]
 
 - **Goal / why:** land round-2 fix 1 with truthful CFG/use-def metadata;
