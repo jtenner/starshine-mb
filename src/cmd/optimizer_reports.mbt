@@ -54,7 +54,7 @@ fn cmd_write_optimizer_report_stdout(
   io : CmdIO,
   report : String,
 ) -> Result[Unit, CmdError] {
-  match (io.write_stdout)(string_to_bytes("\{report}\n")) {
+  match (io.write_stdout)(@utf8.encode("\{report}\n")) {
     Ok(_) => Ok(())
     Err(err) =>
       Err(CmdError::OutputWriteFailed("optimizer JSON report: \{err}"))
@@ -71,6 +71,12 @@ fn cmd_optimizer_json_escape(text : String) -> String {
       '\n' => out.write_string("\\n")
       '\r' => out.write_string("\\r")
       '\t' => out.write_string("\\t")
+      _ if ch.to_int() < 0x20 => {
+        let code = ch.to_int()
+        out.write_string("\\u00")
+        out.write_char(cmd_optimizer_hash_hex_digit((code >> 4).to_uint64()))
+        out.write_char(cmd_optimizer_hash_hex_digit((code & 0xF).to_uint64()))
+      }
       _ => out.write_char(ch)
     }
   }

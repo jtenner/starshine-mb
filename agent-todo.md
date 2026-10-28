@@ -8,7 +8,9 @@ New comparisons require verified
 oracle versions and checkpoints do not sign current source.
 
 Completed October 7 default-gate and ten-item audit repairs are recorded in
-[the wiki log](docs/wiki/log.md). They are removed from this active backlog.
+[the wiki log](docs/wiki/log.md). They are removed from this active backlog. R1-14 report JSON repair evidence
+is in the [command contract](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-14-runtime-interface-json-controls--2026-10-28);
+no R1-14 task or measurement blocker remains active.
 
 R1-13 positional preprocessing is closed; evidence and validation limits live
 in the [command contract](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-13-positional-preprocessing-boundary--2026-10-28).
