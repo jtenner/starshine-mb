@@ -27512,7 +27512,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 
 ### 2026-09-25 — I64ToI32Lowering no-candidate guard
 
-- The [I64ToI32Lowering strategy page](binaryen/passes/i64-to-i32-lowering/starshine-strategy.md#september-25-2026-no-candidate-pass-timing) records native direct-pass timing from `54.18 → 6.64 µs` at 128 unchanged functions and `107.16 → 12.63 µs` at 256. The pass now scans for its four saturating-conversion opcodes before allocating signature and rewrite state. A positive conversion test passes; full-pipeline impact remains unmeasured.
+- The [I64ToI32Lowering strategy page](binaryen/passes/i64-to-i32-lowering/starshine-strategy.md#october-11-2026-registry-honesty-and-narrow-pass-split) records native direct-pass timing from `54.18 → 6.64 µs` at 128 unchanged functions and `107.16 → 12.63 µs` at 256. The pass now scans for its four saturating-conversion opcodes before allocating signature and rewrite state. A positive conversion test passes; full-pipeline impact remains unmeasured.
 
 ### 2026-09-25 — TupleOptimization cleanup-region index
 
