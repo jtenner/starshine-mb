@@ -28492,3 +28492,11 @@ arrays/typecheck wrappers from the completed return packaging change.
   `moon info src/validate`, touched-package formatting, and full
   `moon build -j 1` succeed. No API change, fuzz, full-suite or timing claim.
   [Repair, costs and commands](validate/stack-polymorphism-and-bottom.md#october-28-2026-r1-05-arraylen-bottom-acceptance).
+
+### 2026-10-28 — R1-06 nested exact matching
+
+- Confirmed the original four-struct rejection on unchanged master and renewed
+  independent wasm-tools validation. Replaced incomplete structural-helper fuel
+  with the existing active-pair cycle rule; declared-subtype search is unchanged.
+- Preserved bounded chain boundaries, unequal leaves and recursive backedge
+  controls. See the [evidence, termination argument and measurement limits](tooling/r1-06-matching-termination.md).

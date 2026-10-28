@@ -145,29 +145,24 @@ pub impl Match for RefType with fn matches(self, other, env) {
 
 ///|
 fn exact_heaptype_matches(h0 : HeapType, h1 : HeapType, env : Env) -> Bool {
-  let fuel = env.global_types.length() + 16
   let visited : Array[(TypeIdx, TypeIdx)] = []
-  exact_heaptype_matches_fuel(h0, h1, env, fuel, visited)
+  exact_heaptype_matches_visited(h0, h1, env, visited)
 }
 
 ///|
-fn exact_heaptype_matches_fuel(
+fn exact_heaptype_matches_visited(
   h0 : HeapType,
   h1 : HeapType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if h0 == h1 {
     return true
   }
-  if fuel <= 0 {
-    return false
-  }
   match (h0, h1) {
     (AbsHeapTypeHeapType(a0), AbsHeapTypeHeapType(a1)) => a0 == a1
     (HeapType(t0), HeapType(t1)) =>
-      exact_typeidx_matches_fuel(t0, t1, env, fuel - 1, visited)
+      exact_typeidx_matches_visited(t0, t1, env, visited)
     _ => false
   }
 }
@@ -383,18 +378,17 @@ fn exact_global_type_rec_group_position(
 }
 
 ///|
-fn exact_typeidx_matches_fuel(
+// Structural descent is finite between indexed edges. Active unordered index
+// pairs close recursive cycles; each new pair resolves finite stored shapes.
+// No helper-depth fuel is needed (or sound as a completeness limit).
+fn exact_typeidx_matches_visited(
   t0 : TypeIdx,
   t1 : TypeIdx,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
   if t0 == t1 {
     return true
-  }
-  if fuel <= 0 {
-    return false
   }
   match
     (
@@ -431,7 +425,7 @@ fn exact_typeidx_matches_fuel(
   match (env.resolve_subtype(t0), env.resolve_subtype(t1)) {
     (Some(st0), Some(st1)) => {
       visited.push((t0, t1))
-      let matched = exact_subtype_matches_fuel(st0, st1, env, fuel - 1, visited)
+      let matched = exact_subtype_matches_visited(st0, st1, env, visited)
       let _ = visited.pop()
       matched
     }
@@ -440,16 +434,12 @@ fn exact_typeidx_matches_fuel(
 }
 
 ///|
-fn exact_subtype_matches_fuel(
+fn exact_subtype_matches_visited(
   st0 : SubType,
   st1 : SubType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   let (final0, supers0, meta0, ct0) = exact_subtype_shape(st0)
   let (final1, supers1, meta1, ct1) = exact_subtype_shape(st1)
   if final0 != final1 || meta0 != meta1 {
@@ -459,17 +449,11 @@ fn exact_subtype_matches_fuel(
     return false
   }
   for i in 0..<supers0.length() {
-    if !exact_typeidx_matches_fuel(
-        supers0[i],
-        supers1[i],
-        env,
-        fuel - 1,
-        visited,
-      ) {
+    if !exact_typeidx_matches_visited(supers0[i], supers1[i], env, visited) {
       return false
     }
   }
-  exact_comptype_matches_fuel(ct0, ct1, env, fuel - 1, visited)
+  exact_comptype_matches_visited(ct0, ct1, env, visited)
 }
 
 ///|
@@ -483,55 +467,47 @@ fn exact_subtype_shape(
 }
 
 ///|
-fn exact_comptype_matches_fuel(
+fn exact_comptype_matches_visited(
   ct0 : CompType,
   ct1 : CompType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   match (ct0, ct1) {
     (FuncCompType(ps0, rs0), FuncCompType(ps1, rs1)) =>
-      exact_resulttype_matches_fuel(ps0, ps1, env, fuel - 1, visited) &&
-      exact_resulttype_matches_fuel(rs0, rs1, env, fuel - 1, visited)
+      exact_resulttype_matches_visited(ps0, ps1, env, visited) &&
+      exact_resulttype_matches_visited(rs0, rs1, env, visited)
     (StructCompType(fs0), StructCompType(fs1)) => {
       if fs0.length() != fs1.length() {
         return false
       }
       for i in 0..<fs0.length() {
-        if !exact_field_matches_fuel(fs0[i], fs1[i], env, fuel - 1, visited) {
+        if !exact_field_matches_visited(fs0[i], fs1[i], env, visited) {
           return false
         }
       }
       true
     }
     (ArrayCompType(f0), ArrayCompType(f1)) =>
-      exact_field_matches_fuel(f0, f1, env, fuel - 1, visited)
+      exact_field_matches_visited(f0, f1, env, visited)
     (ContCompType(f0), ContCompType(f1)) =>
-      exact_typeidx_matches_fuel(f0, f1, env, fuel - 1, visited)
+      exact_typeidx_matches_visited(f0, f1, env, visited)
     _ => false
   }
 }
 
 ///|
-fn exact_resulttype_matches_fuel(
+fn exact_resulttype_matches_visited(
   rt0 : ResultType,
   rt1 : ResultType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   if rt0.length() != rt1.length() {
     return false
   }
   for i in 0..<rt0.length() {
-    if !exact_valtype_matches_fuel(rt0[i], rt1[i], env, fuel - 1, visited) {
+    if !exact_valtype_matches_visited(rt0[i], rt1[i], env, visited) {
       return false
     }
   }
@@ -539,76 +515,59 @@ fn exact_resulttype_matches_fuel(
 }
 
 ///|
-fn exact_field_matches_fuel(
+fn exact_field_matches_visited(
   f0 : FieldType,
   f1 : FieldType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   let FieldType(st0, m0) = f0
   let FieldType(st1, m1) = f1
-  m0 == m1 && exact_storage_matches_fuel(st0, st1, env, fuel - 1, visited)
+  m0 == m1 && exact_storage_matches_visited(st0, st1, env, visited)
 }
 
 ///|
-fn exact_storage_matches_fuel(
+fn exact_storage_matches_visited(
   st0 : StorageType,
   st1 : StorageType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   match (st0, st1) {
     (ValTypeStorageType(v0), ValTypeStorageType(v1)) =>
-      exact_valtype_matches_fuel(v0, v1, env, fuel - 1, visited)
+      exact_valtype_matches_visited(v0, v1, env, visited)
     (PackTypeStorageType(p0), PackTypeStorageType(p1)) => p0 == p1
     _ => false
   }
 }
 
 ///|
-fn exact_valtype_matches_fuel(
+fn exact_valtype_matches_visited(
   v0 : ValType,
   v1 : ValType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   match (v0, v1) {
     (RefTypeValType(r0), RefTypeValType(r1)) =>
-      exact_reftype_matches_fuel(r0, r1, env, fuel - 1, visited)
+      exact_reftype_matches_visited(r0, r1, env, visited)
     _ => v0 == v1
   }
 }
 
 ///|
-fn exact_reftype_matches_fuel(
+fn exact_reftype_matches_visited(
   r0 : RefType,
   r1 : RefType,
   env : Env,
-  fuel : Int32,
   visited : Array[(TypeIdx, TypeIdx)],
 ) -> Bool {
-  if fuel <= 0 {
-    return false
-  }
   r0.is_nullable() == r1.is_nullable() &&
   r0.is_exact() == r1.is_exact() &&
-  exact_heaptype_matches_fuel(
+  exact_heaptype_matches_visited(
     r0.get_heap_type(),
     r1.get_heap_type(),
     env,
-    fuel - 1,
     visited,
   )
 }
@@ -1112,7 +1071,7 @@ fn typeidx_leq_typeidx_fuel(
   if fuel <= 0 {
     return false
   }
-  if exact_typeidx_matches_fuel(a, b, env, fuel - 1, []) {
+  if exact_typeidx_matches_visited(a, b, env, []) {
     return true
   }
 

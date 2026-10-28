@@ -1,0 +1,10 @@
+(module
+  (type $a0 (struct))
+  (type $a1 (struct (field (ref $a0))))
+  (type $a2 (struct (field (ref $a1))))
+  (type $a3 (struct (field (ref $a2))))
+  (type $b0 (struct))
+  (type $b1 (struct (field (ref $b0))))
+  (type $b2 (struct (field (ref $b1))))
+  (type $b3 (struct (field (ref $b2))))
+  (func (param (ref $a3)) (result (ref $b3)) local.get 0))
