@@ -632,16 +632,9 @@ fn join_normalized_cli_path(dir : String, file : String) -> String {
 
 ///|
 fn bytes_to_string_lossy(bytes : Bytes) -> String {
-  let out = StringBuilder()
-  for b in bytes {
-    let i = b.to_int()
-    if i >= 0 && i <= 127 {
-      out.write_char(i.unsafe_to_char())
-    } else {
-      out.write_char('?')
-    }
-  }
-  out.to_string()
+  // Decode valid scalars; malformed sequences become U+FFFD. Preserve BOMs
+  // and controls rather than silently normalizing source/config content.
+  @utf8.decode_lossy(bytes, ignore_bom=false)
 }
 
 ///|

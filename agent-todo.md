@@ -11,6 +11,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — Command JS baseline failures [IR2-R1-09-VALIDATION]
+
+- **Goal / why:** resolve or qualify six unchanged-master command-package
+  failures observed with Bun JS while validating the completed R1-09 UTF-8 fix.
+- **Deliverables / tasks:** reproduce five NaN-payload assertions under the
+  supported JS runtime and inspect the fuzz-reducer expected pass-list case;
+  retain existing tests. R1-11 native filename encoding remains separate.
+- **APIs / invariants:** command adapter and fuzz-reducer contracts; exact NaN
+  payload assertions must not be weakened to make a runtime lane green.
+- **Dependencies / exit / tests:** see the exact six file/index selections and
+  baseline source in the [R1-09 record](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-09--utf-8-command-text-decoding-october-28-2026).
+  Exit when the supported-runtime package lane passes or its runtime limitation
+  is independently established. No pass work or performance gate was done here.
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key

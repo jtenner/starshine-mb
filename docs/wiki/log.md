@@ -1,3 +1,17 @@
+### 2026-10-28 — R1-09 UTF-8 command input repair
+
+- Original WAT-data/config tests both fail on unchanged master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245`; red checkpoint `ae61265ca`
+  contains only those tests. The shared command helper now uses core lossy
+  UTF-8 decoding, preserving valid scalars, ASCII, controls and BOMs while
+  replacing malformed sequences with U+FFFD. R1-11 remains separate.
+- Four R1-09 regressions and the focused command/adapter selection pass
+  358/358 with Bun JS; full `moon build -j 1` passes. Package-wide JS evidence
+  is 806 passes, 18 skips, six failures reproduced identically on unchanged
+  master command source. The [command record](tooling/cli-command-and-dispatcher.md#r1-09--utf-8-command-text-decoding-october-28-2026)
+  records exact scope, commands, core allocation/copy costs and the remaining
+  baseline blockers. No fuzzing, timing, oracle or native runtime claim.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

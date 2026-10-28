@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -9,6 +9,7 @@ sources:
   - ../../../src/cli/cli_test.mbt
   - ../../../src/cli/glob.mbt
   - ../../../src/cmd/cmd.mbt
+  - ../../../src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt
   - ../../../src/cmd_gc/main.mbt
   - ../../../node/internal/bulk-cli-host.js
   - ../../../src/cmd/cmd_wbtest.mbt
@@ -45,6 +46,68 @@ Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape
 - [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) owns the pass registry categories, preset expansion, hot/module pass routing, and final optimizer validation.
 
 Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in research note 0707 rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
+
+## R1-09 — UTF-8 command text decoding (October 28, 2026)
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`,
+using only the original two R1-09 tests from review source
+`6422a44b155026bdbadfac86289c20958fdc21d3` (report path
+`docs/wiki/tooling/2026-10-25-code-review-r1.md`). Test checkpoint
+`ae61265ca` changes no product code. In-process WAT lowering decoded data
+as `3f 3f` instead of `c3 a9`; the config adapter requested `??.wasm`
+instead of `é.wasm`. Both structured results failed. This proves the
+fallback/config defect; it does not establish an external-adapter failure
+or native filesystem filename behavior (R1-11 remains separate).
+
+[`bytes_to_string_lossy`](../../../src/cmd/cmd.mbt) now delegates to the
+already imported core `@utf8.decode_lossy`, following the existing
+[`cmd_gc` decoding pattern](../../../src/cmd_gc/main.mbt). Valid UTF-8
+scalars survive, including two/three/four-byte characters, Unicode controls,
+ASCII controls and NUL. BOMs are preserved explicitly. Intentionally malformed
+UTF-8 remains lossy through standard U+FFFD replacement, rather than replacing
+all non-ASCII bytes with `?`; truncated, overlong and surrogate encodings have
+bounded assertions in the [regression file](../../../src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt).
+The shared helper also reads spec text; this change does not alter native
+C-string construction or lossy output encoding.
+
+Validation uses MoonBit `0.1.20261023`, `PATH=/data/home/.moon/bin:$PATH`,
+serialized Moon commands, and one build worker. The original command
+`moon test src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1`
+compiled but could not launch `node` from PATH. Bun ran the generated JS
+whitebox driver with `file_and_index` selecting the original `[0,2)` tests;
+structured results, not its zero exit status, establish the red proof.
+The two additional decoder controls also failed before implementation.
+
+`moon info` and `moon fmt` succeeded. Generated `.mbti` changes were reviewed
+as toolchain `Int` → `Int32` spelling churn and discarded; no public API
+changes are needed. Unrelated formatter changes were also discarded.
+`moon test src/cmd --target js -j 1 --build-only` succeeded. The compact Bun
+runner checked 830 structured results: **806 passed, 18 existing skips,
+6 failures**. All four R1-09 regressions passed. Recompiling unchanged master
+command source and replaying exactly those six cases produced identical failures:
+`single_leaf_wbtest.mbt:0`, `fuzz_harness_wbtest.mbt:28`,
+`dae_uniform_operands_wbtest.mbt:1`, `dae_snapshot_identity_wbtest.mbt:0`,
+and `dae_nan_caller_bits_cmd_wbtest.mbt:0,1`. Five concern NaN payloads under
+this Bun JS execution; one concerns a fuzz-reducer expected pass list. No
+claim is made that these fail under every runtime. They remain outside R1-09.
+After restoring the fixed source,
+`moon test src/cmd/cmd.mbt src/cmd/cmd_wbtest.mbt src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1 --build-only`
+and a compact Bun structured-result runner passed **358/358** selected tests
+(122 internal command tests and 236 adapter/regression tests).
+`moon build -j 1` succeeded for the full workspace (default `wasm` target).
+No full-suite, native runtime, Binaryen oracle, fuzz lane or benchmark ran.
+
+The fix replaces a per-byte StringBuilder loop with one linear decode.
+A decoded String is necessary for the existing parser/config APIs; no extra
+input copy, cache or persistent buffer is introduced by this wrapper.
+Core JS uses a byte subarray view and TextDecoder. Non-JS core allocates
+a UTF-16 array sized to input bytes; when decoding writes fewer code units
+than bytes (for example non-ASCII text), it allocates an exact-length array
+and copies the written prefix. Those core output allocations/copies are
+retained to use the standard decoder rather than introducing custom UTF-8 code. No timing or allocation measurement
+was made, and no performance improvement is claimed. Measurement workloads
+should cover ASCII and mixed UTF-8 WAT/config inputs, plus malformed-byte
+controls, separately from optimizer pass timing.
 
 ## Wasm GC file adapter
 
