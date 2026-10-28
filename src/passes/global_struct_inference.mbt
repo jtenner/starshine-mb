@@ -927,6 +927,40 @@ fn gsi_mark_external_table_callable_param_struct_origins(
 }
 
 ///|
+fn gsi_mark_exported_resource_struct_origins(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+  poisoned_type_slots : Array[Bool],
+  cached_value_types : Array[@lib.ValType],
+  cached_slots : Array[Array[Int32]],
+) -> Unit {
+  let exports = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) => exports
+    None => return
+  }
+  for export_ in exports {
+    let value_type = match export_ {
+      @lib.Export(_, @lib.GlobalExternIdx(global_idx)) =>
+        match env.get_global_type(global_idx) {
+          Some(@lib.GlobalType(value_type, true)) => value_type
+          _ => continue
+        }
+      @lib.Export(_, @lib.TableExternIdx(table_idx)) =>
+        match env.get_table_type(table_idx) {
+          Some(@lib.TableType(ref_type, _)) => @lib.ValType::ref_type(ref_type)
+          None => continue
+        }
+      _ => continue
+    }
+    // Closed world still admits host writes through exported resources.
+    // Reuse compatibility, nested-reference and subtype poisoning rules.
+    gsi_mark_external_struct_origins(
+      env, value_type, poisoned_type_slots, cached_value_types, cached_slots,
+    )
+  }
+}
+
+///|
 fn gsi_build_closed_world_facts(
   env : @validate.Env,
   mod_ : @lib.Module,
@@ -940,6 +974,9 @@ fn gsi_build_closed_world_facts(
     ignore(slot)
     candidate_globals_by_type_slot.push([])
   }
+  gsi_mark_exported_resource_struct_origins(
+    env, mod_, poisoned_type_slots, cached_external_value_types, cached_external_type_slots,
+  )
   gsi_mark_imported_struct_origins(
     env, mod_, poisoned_type_slots, cached_external_value_types, cached_external_type_slots,
   )
@@ -3966,4 +4003,148 @@ pub fn global_struct_inference_desc_cast_run_module_pass(
   closed_world : Bool,
 ) -> @lib.Module {
   gsi_run_module_pass(mod_, closed_world, true)
+}
+
+///|
+test "BURN-001 exported writable resources invalidate compatible singleton origins" {
+  fn count_globals(body : Array[@lib.Instruction]) -> Int32 {
+    let mut count = 0
+    for instr in body {
+      match instr {
+        @lib.GlobalGet(@lib.GlobalIdx(0U)) => count += 1
+        @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+          count += count_globals(nested)
+        @lib.If(_, yes, no) => {
+          count += count_globals(yes)
+          count += count_globals(no.unwrap_or([]))
+        }
+        _ => ()
+      }
+    }
+    count
+  }
+  for pass in ["global-struct-inference", "global-struct-inference-desc-cast"] {
+    for heap in ["$S", "(exact $S)", "struct", "eq", "any"] {
+      for table in [false, true] {
+        let resource = if table {
+          "(table $input (export \"input\") (export \"alias\") 1 (ref null " +
+          heap +
+          "))"
+        } else {
+          "(global $input (export \"input\") (export \"alias\") (mut (ref null " +
+          heap +
+          ")) (ref.null " +
+          heap +
+          "))"
+        }
+        let read = if table {
+          "i32.const 0 table.get $input"
+        } else {
+          "global.get $input"
+        }
+        let input = @wast.wast_to_binary_module(
+          "(module (type $S (struct (field i32))) " +
+          "(global $one (ref $S) (struct.new $S (i32.const 1))) " +
+          resource +
+          " (func (export \"run\") (result i32) (local (ref null $S)) " +
+          read +
+          " nop local.set 0 local.get 0 struct.get $S 0))",
+        ).unwrap()
+        // The WAT frontend lacks ordinary ref.cast; insert the typed opcode.
+        let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+        let body = body.map(fn(i) {
+          if i is @lib.Nop {
+            @lib.Instruction::ref_cast_type(
+              @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+            )
+          } else {
+            i
+          }
+        })
+        let input = input.with_code_sec(
+          @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
+        )
+        assert_true(@validate.validate_module(input) is Ok(_))
+        let output = run_hot_pipeline(
+          input,
+          HotPipelineOptions::new(closed_world=true),
+          [pass],
+        ).unwrap()
+        assert_true(@validate.validate_module(output) is Ok(_))
+        let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+        assert_eq(count_globals(body), 0)
+      }
+    }
+  }
+}
+
+///|
+test "BURN-001 host parent resources poison child origins but private resources still fold" {
+  fn count_globals(body : Array[@lib.Instruction]) -> Int32 {
+    let mut count = 0
+    for instr in body {
+      match instr {
+        @lib.GlobalGet(@lib.GlobalIdx(0U)) => count += 1
+        @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+          count += count_globals(nested)
+        @lib.If(_, yes, no) => {
+          count += count_globals(yes)
+          count += count_globals(no.unwrap_or([]))
+        }
+        _ => ()
+      }
+    }
+    count
+  }
+  for pass in ["global-struct-inference", "global-struct-inference-desc-cast"] {
+    for table in [false, true] {
+      for exported in [false, true] {
+        let export_ = if exported { "(export \"input\")" } else { "" }
+        let resource = if table {
+          "(table $input " + export_ + " 1 (ref null $parent))"
+        } else {
+          "(global $input " +
+          export_ +
+          " (mut (ref null $parent)) (ref.null $parent))"
+        }
+        let read = if table {
+          "i32.const 0 table.get $input"
+        } else {
+          "global.get $input"
+        }
+        let input = @wast.wast_to_binary_module(
+          "(module (type $parent (sub (struct (field i32)))) " +
+          "(type $child (sub $parent (struct (field i32)))) " +
+          "(global $one (ref $child) (struct.new $child (i32.const 1))) " +
+          resource +
+          " (func (export \"run\") (result i32) (local (ref null $child)) " +
+          read +
+          " nop local.set 0 local.get 0 struct.get $child 0))",
+        ).unwrap()
+        // The WAT frontend lacks ordinary ref.cast; insert the typed opcode.
+        let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+        let body = body.map(fn(i) {
+          if i is @lib.Nop {
+            @lib.Instruction::ref_cast_type(
+              @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+            )
+          } else {
+            i
+          }
+        })
+        let input = input.with_code_sec(
+          @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
+        )
+        assert_true(@validate.validate_module(input) is Ok(_))
+        let output = run_hot_pipeline(
+          input,
+          HotPipelineOptions::new(closed_world=true),
+          [pass],
+        ).unwrap()
+        assert_true(@validate.validate_module(output) is Ok(_))
+        let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+        assert_eq(count_globals(body), if exported { 0 } else { 1 })
+      }
+    }
+  }
 }

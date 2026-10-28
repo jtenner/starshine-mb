@@ -28331,3 +28331,15 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+
+## 2026-10-28 — BURN-001 exported resource origin repair
+
+- Reproduced both retained GSI compiler regressions on the unchanged product
+  base: each incorrectly substituted the private singleton (`1 != 0`).
+- Added exported mutable-global/table origins to shared GSI closed-world facts
+  for both public variants; retained private folds and existing subtype rules.
+- Filed the [contract, regression evidence and measurement scope](binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#october-28-2026--burn-001-host-writable-origins).
+  Validation: 97 focused wasm-gc pass tests and one command matrix test pass;
+  full wasm-gc `moon build -j 1` passes. No new Binaryen, large fuzz or
+  performance signoff is claimed.

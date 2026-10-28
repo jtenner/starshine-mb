@@ -11,6 +11,19 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 
+## Next unreleased patch — GSI exported-origin measurement [IR2-GSI-BURN-001]
+
+- **Goal / why:** measure the added exported-resource origin scan after the
+  BURN-001 correctness repair for both GSI variants.
+- **Deliverables / tasks:** compare pass-local time and allocations on modules
+  with many exports/aliases, broad resource types and deep subtype candidates.
+- **APIs / invariants:** `gsi_build_closed_world_facts`, shared external-origin
+  cache and subtype propagation; preserve host values and private folds.
+- **Dependencies / exit / tests:** a later authorized measurement lane; retain
+  exact burn, in-file type/resource matrix and command regressions. No benchmark
+  or large fuzz lane is authorized in this repair. See the
+  [repair evidence](docs/wiki/binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#october-28-2026--burn-001-host-writable-origins).
+
 ## Next unreleased patch — DAE signature-key correctness follow-up [IR2-DAE-PERF-08]
 
 - **Goal / why:** assess the existing embedded-subtype shared-metadata key

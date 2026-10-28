@@ -26,6 +26,41 @@ This page covers:
 - when it gives up
 - and how non-constant nested values still become optimizable through fresh globals
 
+## October 28, 2026 — BURN-001 host-writable origins
+
+Closed-world mode does not seal exported mutable globals or exported tables.
+The host can insert a compatible struct created by another module, so scanning
+only their initializers does not prove singleton ownership. Both GSI public
+variants now mark those resource value types as external before candidate
+collection and propagation. The existing reference matcher, nested-reference
+walk and subtype propagation invalidate compatible candidates; immutable
+exported globals and private resources retain their existing treatment.
+Export aliases share the existing value-type cache.
+
+The exact retained [burn regressions](../../../../../src/passes/burn_reset_gsi_test.mbt)
+from hunt commit `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6` both failed
+against product base `3d1deec7cecf1caaf65b42799777ff52ef210245`, each
+observing an unwanted private singleton `global.get` (`1 != 0`). The generated
+JS tests were executed with Bun because Node was unavailable. This reproduces
+the compiler defect; the historical host runtime result (42 becoming 1) was
+not remeasured here.
+
+[In-file regressions](../../../../../src/passes/global_struct_inference.mbt)
+cover both variants, globals and tables, aliases, nullable nominal/exact and
+abstract reference types, parent/child compatibility and private-fold controls.
+[Command regressions](../../../../../src/cmd/cmd.mbt) cover both public names
+and both resources. Input and output validation accompany the opcode checks.
+Focused wasm-gc validation passed 97 pass tests (including both retained
+burn tests and the in-file matrices) and the command regression, which checks
+four pass/resource combinations. The full `moon build --target wasm-gc -j 1`
+also passed. All compilation/test commands use `-j 1`.
+
+This narrow correctness repair does not renew general parity or performance
+signoff. Large fuzz lanes and benchmarks are excluded from this fix wave.
+The added export scan and compatibility-cache work should be measured on
+export-heavy modules, repeated aliases, broad abstract reference resources,
+and subtype-heavy singleton candidates for both variants.
+
 ## September 25, 2026 subtype-fact propagation measurement
 
 Closed-world candidate and poison facts now propagate through subtype edges with queues. Per-type candidate membership maps prevent repeated scans and preserve sorted candidate output after propagation. The [native white-box benchmark](../../../../../src/passes/global_struct_inference_propagation_perf_wbtest.mbt) with a 16-type chain and 64 candidate globals improved from `83.03` to `42.36 µs` (1.96×); a 32-type chain with 128 globals improved from `1.23 ms` to `168.46 µs` (7.30×). A new poison/uniqueness regression and 75 existing GSI tests pass. A follow-up empty-candidate guard propagates poison before allocating per-type candidate maps; the 32-type no-global control improved from `1.34 µs` to `462 ns` (2.90×), while candidate-heavy timings remained within measurement noise (`42.36 → 41.62 µs` and `168.46 → 167.95 µs`). Fixture construction is outside timing; full-pass impact remains unmeasured.

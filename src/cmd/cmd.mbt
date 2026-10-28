@@ -11432,3 +11432,41 @@ test "coalesce-locals command preserves negative zero beside a default local" {
   }
   @debug.assert_eq(bits, [-2147483648])
 }
+
+///|
+test "BURN-001 command GSI variants preserve host writable resource origins" {
+  for pass in ["global-struct-inference", "global-struct-inference-desc-cast"] {
+    for
+      resource in [
+        "(global $input (export \"input\") (export \"alias\") (mut (ref null $S)) (ref.null $S))",
+        "(table $input (export \"input\") (export \"alias\") 1 (ref null $S))",
+      ] {
+      let read = if resource.has_prefix("(global") {
+        "global.get $input"
+      } else {
+        "i32.const 0 table.get $input"
+      }
+      let input = @wast.wast_to_binary_module(
+        "(module (type $S (struct (field i32))) " +
+        "(global $one (ref $S) (struct.new $S (i32.const 1))) " +
+        resource +
+        " (func (export \"run\") (result i32) (local (ref null $S)) " +
+        read +
+        " local.set 0 local.get 0 struct.get $S 0))",
+      ).unwrap()
+      assert_true(@validate.validate_module(input) is Ok(_))
+      let output = optimize_module_with_pass_flags(
+        input,
+        [pass],
+        OptimizeOptions::new(closed_world=true),
+      ).unwrap()
+      assert_true(@validate.validate_module(output) is Ok(_))
+      @debug.assert_eq(
+        cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+          i is @lib.GlobalGet(@lib.GlobalIdx(0U))
+        }),
+        0,
+      )
+    }
+  }
+}
