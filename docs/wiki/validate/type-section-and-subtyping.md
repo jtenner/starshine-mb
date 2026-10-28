@@ -221,3 +221,23 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 - Invalid fuzzing: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
 - Proof helpers: [`../../../src/validate_proof/rectype_index.mbt`](../../../src/validate_proof/rectype_index.mbt), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
 - Companion pages: [`module-validation-phases.md`](module-validation-phases.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md), [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md)
+
+## R1-07 external recursive-group identity — 2026-10-28
+
+Confirmed on unchanged product source at master
+`3d1deec7cecf1caaf65b42799777ff52ef210245`: the original R1-07 test
+from review commit `6422a44b155026bdbadfac86289c20958fdc21d3` fails with
+`function body result type mismatch`, expected type 4, actual type 2. Only
+that test and its helpers were restored; R1-05/R1-06 are outside this task.
+The original [WAT fixture](../../../tests/repros/hunt-r1/equivalent-external-rec-types.wat)
+passes `wasm-tools parse` and `wasm-tools validate` with
+`wasm-tools 1.262.0 (e22db44da 2026-10-13)`, `RAYON_NUM_THREADS=1`.
+The [original regression](../../../src/validate/review_r1_20261025_validation_acceptance_wbtest.mbt)
+was compiled with `moon test src/validate/review_r1_20261025_validation_acceptance_wbtest.mbt --target js -j 1`.
+Moon could not launch absent Node; Bun ran the emitted JS and its structured
+result reports 0/1 passing. The runner exit status alone is not evidence.
+No Binaryen comparison, benchmark, large fuzz run, or other R1 repair is claimed.
+
+The group precheck in `exact_typeidx_matches_fuel` normalizes internal edges
+to relative indices but compares external absolute indices with raw equality.
+This checkpoint records the red test before an owning-layer repair.
