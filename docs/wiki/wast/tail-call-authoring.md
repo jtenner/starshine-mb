@@ -150,7 +150,7 @@ The omitted table index means table `0`. Starshine's WAST parser accepts that sh
     (return_call_ref (type $sig))))
 ```
 
-`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). For the non-tail sibling, use [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md): ordinary `call_ref` is currently a core/binary/validator/generator surface, not Starshine WAST text.
+`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). For the non-tail sibling, use [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md): ordinary `call_ref` also has WAST text support.
 
 ### Tail call inside `try_table`
 

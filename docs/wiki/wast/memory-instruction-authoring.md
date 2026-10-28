@@ -82,7 +82,7 @@ The memory64 rule is positional. Do not summarize bulk-memory typing as "all `i6
 | `memory.copy dst, src` | destination address, source address, length | destination uses `dst` memory `at1`; source uses `src` memory `at2`; length uses the minimum address type for the two memories. | Matches locally through `min_addr_valtype(...)`. |
 | `memory.fill mem` | destination address, byte value, length | destination and length both use selected memory `at`; byte value is `i32`. | Destination and length use the selected memory address type locally. |
 
-This matrix is the main reason future memory64 validator or lowering work needs direct core/binary fixtures. Current WAST text lowering defaults the memory immediates to `MemIdx(0)`, and current WAST declarations do not directly author memory64 memories. The resource section can still contain `I64Limits`; the caveat here is instruction stack typing, not core memory-type representation.
+WAST can declare memory64 memories, but lowering defaults the memory immediates to `MemIdx(0)` for these instruction forms. Use direct core/binary fixtures where selected-resource text is missing, and validate the positional stack types separately.
 
 ## WAST Shapes And Stack Effects
 

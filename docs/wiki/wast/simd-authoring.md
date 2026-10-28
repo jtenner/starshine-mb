@@ -128,7 +128,7 @@ Vector load/store instructions are still memory instructions. They carry the sam
     v128.load offset=16 align=16))
 ```
 
-The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md); `(memory ...)` declaration syntax and the current WAST memory64/shared limitation live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
+The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md); `(memory ...)` declaration syntax and WAST memory64/shared declaration support and its validation limits live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
 
 ### Relaxed SIMD is ordinary Core 3.0 instruction syntax locally
 
