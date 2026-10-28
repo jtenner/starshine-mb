@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-28
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
@@ -38,6 +38,58 @@ related:
 ---
 
 # `optimize-instructions`
+
+## October 28, 2026 BURN-003 reaching-value equality
+
+Equal local indices do not prove equal values: a stack-held read can precede
+an intervening write. Same-local integer comparisons and `sub`/`xor`/`and`/`or`
+now require the same single reaching source for both reads, retaining the
+operator when the proof is unknown. The retained-left rewrites keep their
+existing value order.
+
+The shared proof in [optimize_instructions.mbt](../../../../../src/passes/optimize_instructions.mbt)
+uses the already-required use-def overlay and borrows its write row. Unwritten
+locals require no new flow allocation. Written-local candidates lazily
+build an operand-expanded CFG and a read-source-only LocalGraph snapshot,
+shared by both fact constructors until the function revision changes. Scalar
+source queries copy no rows. This additional analysis is required to distinguish
+captured values across structured control; node indices and leaf shape alone
+cannot establish reaching definitions. Rebuilding after mutation is required
+for validity; the existing use-def overlay may also refresh after mutation.
+These costs are unmeasured and remain a measurement follow-up.
+
+On unchanged base `3d1deec7cecf1caaf65b42799777ff52ef210245`, the OI-only
+replay extracted from `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`
+(`hunt-findings.md`, BURN-003; numeric evidence packet) reproduced 24 wrong
+runtime results out of 28 assertions with Bun. Public and direct subtraction
+returned 0 instead of -2; equality returned 1 instead of 0. Both widths and
+all ten packet operator families failed; four no-write/unrelated-write controls
+passed. Original and unchanged lift/lower controls returned the expected values.
+Moon's successful module-emission checks were not the runtime proof.
+
+Permanent tests in the implementing file cover both fact constructors, both
+widths, all integer comparisons, nested block/if/loop writes and equivalent
+controls; [cmd.mbt](../../../../../src/cmd/cmd.mbt) locks public dispatch opcode
+retention. Focused tests and a full build are the fix-wave validation scope.
+No Binaryen comparison, broad parity closure, fuzz campaign, or performance
+claim is implied.
+
+Validation on the fix-wave worktree:
+
+- `moon info`: passed; generated `.mbti` differences were only compiler integer
+  alias spelling (`Int`/`Int32`, `UInt`/`UInt32`) and were reviewed and discarded.
+- `moon fmt` plus direct `moonfmt -w src/passes/optimize_instructions.mbt`:
+  completed; unrelated pre-existing formatting drift was excluded.
+- `moon test src/passes/optimize_instructions*.mbt src/passes/burn003_replay_wbtest.mbt src/cmd/cmd.mbt --target js -j 1`:
+  1,733 passed, zero failed, including five temporary packet-derived module
+  emission checks. A temporary Node-name shim invoked Bun because Node was
+  absent. The separate Bun runtime driver passed all 28 assertions after the
+  fix, including original and unchanged lift/lower controls.
+- Full workspace `moon build -j 1` (repository default target): passed.
+
+The packet-derived replay source, Bun driver/shim, emitted modules, logs and
+this run's `_build` were temporary and removed after validation. Permanent
+regressions remain in the implementing file and command dispatcher.
 
 ## October 11, 2026 receiverless aggregate-atomic isolation
 

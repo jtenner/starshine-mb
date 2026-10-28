@@ -8566,6 +8566,8 @@ priv struct OptimizeInstructionsScratch {
   mut loop_input_nodes_ready : Bool
   mut if_condition_nodes_ready : Bool
   mut next_cross_seen_stamp : Int32
+  mut same_local_sources_revision : Int32
+  mut same_local_sources : @ir.HotLocalReadSources?
 }
 
 ///|
@@ -8582,6 +8584,8 @@ fn OptimizeInstructionsScratch::new(
     loop_input_nodes_ready: false,
     if_condition_nodes_ready: false,
     next_cross_seen_stamp: 0,
+    same_local_sources_revision: -1,
+    same_local_sources: None,
   }
 }
 
@@ -39854,14 +39858,60 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
 }
 
 ///|
+// A local index names storage, not a captured value. Use the expanded flow
+// snapshot for written locals: operand-nested control can separate leaf reads.
+// Unwritten locals need no flow allocation. Cache only within one revision;
+// scalar queries avoid copying either reaching-source row.
+fn optimize_instructions_same_local_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  lhs_id : Int32,
+  rhs_id : Int32,
+) -> Bool {
+  let local_id = match
+    (
+      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
+      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
+    ) {
+    (Some(lhs), Some(rhs)) if lhs == rhs => lhs
+    _ => return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  if @ir.local_write_nodes_borrowed(use_def, local_id).is_empty() {
+    return true
+  }
+  let revision = @ir.hot_revision_current(func)
+  let sources = match scratch.same_local_sources {
+    Some(sources) if scratch.same_local_sources_revision == revision => sources
+    _ => {
+      let sources = @ir.local_graph_build_read_sources(
+        func,
+        @ir.cfg_build(func, expand_operand_control=true),
+      )
+      scratch.same_local_sources = Some(sources)
+      scratch.same_local_sources_revision = revision
+      sources
+    }
+  }
+  @ir.local_read_source_count_for_get(sources, lhs_id) == 1 &&
+  @ir.local_read_source_count_for_get(sources, rhs_id) == 1 &&
+  @ir.local_read_source_value_for_get(sources, lhs_id, 0) ==
+  @ir.local_read_source_value_for_get(sources, rhs_id, 0)
+}
+
+///|
 priv struct OiSameLocalIntegerCompareFact {
   result : @lib.I32
 }
 
 ///|
 fn OiSameLocalIntegerCompareFact::from_operands(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
@@ -39869,14 +39919,6 @@ fn OiSameLocalIntegerCompareFact::from_operands(
   // Binaryen v130 folds integer relational compares of the same local value to
   // constants in `visitBinary`. Keep the local-equality proof and per-opcode
   // truth table as one fact so the visitor does not own a compare whitelist.
-  match
-    (
-      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
-      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
-    ) {
-    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
-    _ => return None
-  }
   let result = match instr {
     @lib.Instruction::I32Eq | @lib.Instruction::I64Eq => @lib.I32(1)
     @lib.Instruction::I32Ne
@@ -39898,6 +39940,11 @@ fn OiSameLocalIntegerCompareFact::from_operands(
     | @lib.Instruction::I64GeS
     | @lib.Instruction::I64GeU => @lib.I32(1)
     _ => return None
+  }
+  if !optimize_instructions_same_local_value(
+      ctx, func, dead, scratch, lhs_id, rhs_id,
+    ) {
+    return None
   }
   Some({ result, })
 }
@@ -40267,6 +40314,7 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int32,
   instr : @lib.Instruction,
   lhs_id : Int32,
@@ -40274,7 +40322,7 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
 ) -> Bool {
   match
     OiSameLocalIntegerCompareFact::from_operands(
-      func, dead, instr, lhs_id, rhs_id,
+      ctx, func, dead, scratch, instr, lhs_id, rhs_id,
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -40299,8 +40347,10 @@ priv struct OiSameLocalIntegerBinaryFact {
 
 ///|
 fn OiSameLocalIntegerBinaryFact::from_operands(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   instr : @lib.Instruction,
   lhs_id : Int32,
   rhs_id : Int32,
@@ -40309,14 +40359,6 @@ fn OiSameLocalIntegerBinaryFact::from_operands(
   // idempotent integer `and` / `or` to the local. Store the same-local proof,
   // opcode family, and retained child as a fact instead of a visitor-local
   // opcode whitelist.
-  match
-    (
-      OiLocalGetLeafFact::from_node(func, dead, lhs_id).local_id,
-      OiLocalGetLeafFact::from_node(func, dead, rhs_id).local_id,
-    ) {
-    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
-    _ => return None
-  }
   let kind = match instr {
     @lib.Instruction::I32Sub | @lib.Instruction::I32Xor =>
       OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryConstI32Zero
@@ -40328,6 +40370,11 @@ fn OiSameLocalIntegerBinaryFact::from_operands(
     | @lib.Instruction::I64Or =>
       OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryRetainLeft
     _ => return None
+  }
+  if !optimize_instructions_same_local_value(
+      ctx, func, dead, scratch, lhs_id, rhs_id,
+    ) {
+    return None
   }
   Some({ kind, retained_id: lhs_id, })
 }
@@ -40369,6 +40416,7 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int32,
   instr : @lib.Instruction,
   lhs_id : Int32,
@@ -40376,7 +40424,7 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
 ) -> Bool {
   match
     OiSameLocalIntegerBinaryFact::from_operands(
-      func, dead, instr, lhs_id, rhs_id,
+      ctx, func, dead, scratch, instr, lhs_id, rhs_id,
     ) {
     Some(fact) => {
       fact.apply(ctx, func, node_id)
@@ -42437,7 +42485,7 @@ fn optimize_instructions_visit_node(
         let initial_lhs = func.children[node.child_base]
         let initial_rhs = func.children[node.child_base + 1]
         let changed = optimize_instructions_try_fold_same_local_integer_binary(
-            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+            ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_apply_demorgan_and_eqz(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
@@ -42533,7 +42581,7 @@ fn optimize_instructions_visit_node(
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
           optimize_instructions_try_fold_same_local_integer_binary(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_apply_demorgan_and_eqz(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
@@ -42661,7 +42709,7 @@ fn optimize_instructions_visit_node(
             purity_cache=Some(scratch.purity_cache),
           ) ||
           optimize_instructions_try_fold_same_local_integer_compare(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_boolean_maxbits_binary(
             ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
@@ -43177,5 +43225,127 @@ fn optimize_instructions_run(
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
+  }
+}
+
+///|
+test "BURN-003 same-local integer facts reject intervening writes" {
+  for width in ["i32", "i64"] {
+    for
+      op in [
+        "sub", "xor", "and", "or", "eq", "ne", "lt_s", "lt_u", "le_s", "le_u", "gt_s",
+        "gt_u", "ge_s", "ge_u",
+      ] {
+      let result = if op == "sub" || op == "xor" || op == "and" || op == "or" {
+        width
+      } else {
+        "i32"
+      }
+      let input = pass_test_module_from_wat(
+        "(module (func (result \{result}) (local \{width}) \{width}.const 7 local.set 0 local.get 0 block \{width}.const 9 local.set 0 end local.get 0 \{width}.\{op}))",
+      )
+      let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+      let ctx = HotPassContext::new(
+        optimize_instructions_descriptor(),
+        @ir.HotAnalysisCache::new(),
+        HotPipelineVerifyPolicy::after_each_pass(),
+        false,
+        fn(_) { () },
+      )
+      let scratch = OptimizeInstructionsScratch::new(
+        @ir.hot_node_count(func),
+        @ir.hot_local_count(func),
+      )
+      let dead = @bitset.BitSet::new(@ir.hot_node_count(func))
+      let mut checked = false
+      for id = 0; id < @ir.hot_node_count(func); id = id + 1 {
+        let node = @ir.hot_node_get(func, id)
+        if node.op is @ir.HotOp::Binary || node.op is @ir.HotOp::Compare {
+          let instr = @ir.hot_instr_payload_get(func, node.imm0).instr
+          let lhs = @ir.hot_child_get(func, id, 0)
+          let rhs = @ir.hot_child_get(func, id, 1)
+          assert_true(
+            OiSameLocalIntegerCompareFact::from_operands(
+              ctx, func, dead, scratch, instr, lhs, rhs,
+            )
+            is None,
+          )
+          assert_true(
+            OiSameLocalIntegerBinaryFact::from_operands(
+              ctx, func, dead, scratch, instr, lhs, rhs,
+            )
+            is None,
+          )
+          checked = true
+        }
+      }
+      assert_true(checked)
+    }
+  }
+}
+
+///|
+test "BURN-003 same-local value proof preserves controls and rejects nested writes" {
+  for width in ["i32", "i64"] {
+    for
+      (middle, equivalent) in [
+        ("block nop end", true),
+        ("block \{width}.const 9 local.set 1 end", true),
+        ("block block \{width}.const 9 local.set 0 end end", false),
+        ("i32.const 1 if \{width}.const 9 local.set 0 end", false),
+        ("loop \{width}.const 9 local.set 0 end", false),
+      ] {
+      let input = pass_test_module_from_wat(
+        "(module (func (result \{width}) (local \{width} \{width}) \{width}.const 7 local.set 0 local.get 0 \{middle} local.get 0 \{width}.sub))",
+      )
+      let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+      let ctx = HotPassContext::new(
+        optimize_instructions_descriptor(),
+        @ir.HotAnalysisCache::new(),
+        HotPipelineVerifyPolicy::after_each_pass(),
+        false,
+        fn(_) { () },
+      )
+      let scratch = OptimizeInstructionsScratch::new(
+        @ir.hot_node_count(func),
+        @ir.hot_local_count(func),
+      )
+      let dead = @bitset.BitSet::new(@ir.hot_node_count(func))
+      let mut checked = false
+      for id in 0..<@ir.hot_node_count(func) {
+        if @ir.hot_node_op(func, id) is @ir.HotOp::Binary {
+          let lhs = @ir.hot_child_get(func, id, 0)
+          let rhs = @ir.hot_child_get(func, id, 1)
+          assert_eq(
+            optimize_instructions_same_local_value(
+              ctx, func, dead, scratch, lhs, rhs,
+            ),
+            equivalent,
+          )
+          // Reuse the scratch after a real mutation: both reads now observe
+          // the initial write, not the old conflicting flow.
+          if !equivalent {
+            let mut initial_write = true
+            for write in 0..<@ir.hot_node_count(func) {
+              let node = @ir.hot_node_get(func, write)
+              if node.op is @ir.HotOp::LocalSet && node.imm0 == 0 {
+                if initial_write {
+                  initial_write = false
+                } else {
+                  @ir.hot_local_node_id_set(func, write, 1)
+                }
+              }
+            }
+            assert_true(
+              optimize_instructions_same_local_value(
+                ctx, func, dead, scratch, lhs, rhs,
+              ),
+            )
+          }
+          checked = true
+        }
+      }
+      assert_true(checked)
+    }
   }
 }

@@ -11432,3 +11432,31 @@ test "coalesce-locals command preserves negative zero beside a default local" {
   }
   @debug.assert_eq(bits, [-2147483648])
 }
+
+///|
+test "BURN-003 dispatcher preserves integer reads across writes" {
+  for
+    (opcode, instr, result) in [
+      ("i32.sub", @lib.Instruction::i32_sub(), "i32"),
+      ("i32.eq", @lib.Instruction::i32_eq(), "i32"),
+      ("i64.and", @lib.Instruction::i64_and(), "i64"),
+      ("i64.or", @lib.Instruction::i64_or(), "i64"),
+    ] {
+    let width = if opcode == "i32.sub" || opcode == "i32.eq" {
+      "i32"
+    } else {
+      "i64"
+    }
+    let input = @wast.wast_to_binary_module(
+      "(module (func (result \{result}) (local \{width}) \{width}.const 7 local.set 0 local.get 0 block \{width}.const 9 local.set 0 end local.get 0 \{opcode}))",
+    ).unwrap()
+    let output = optimize_module_with_pass_flags(
+      input,
+      ["optimize-instructions"],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_true(body.contains(instr))
+  }
+}

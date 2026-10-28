@@ -25,6 +25,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   the next leased lane; retain key, type-update and batch regressions. The
   [measured landing](experiment-results.md#item-8--landed-under-the-corrected-procedure)
   closes the prior measurement task, with its accepted RSS cost explicit.
+## Next unreleased patch — OI reaching-source proof cost [IR2-BURN-003]
+
+- **Goal / why:** measure the necessary written-local reaching-value proof
+  added for BURN-003; unchanged-base runtime execution confirmed wrong folds.
+- **Deliverables / tasks:** compare pass time, allocations and peak memory on
+  candidate-free, unwritten-parameter, initialized-local, repeated-candidate,
+  nested-control and frequent-mutation workloads. No timing is authorized on
+  the borrowed fix-wave machine.
+- **APIs / invariants:** shared `optimize_instructions_same_local_value`,
+  borrowed use-def write rows, operand-expanded CFG/read-source-only flow;
+  same singleton reaching source, revision invalidation, retained value order.
+- **Dependencies / exit / tests:** a measurement slot; retain implementing-file,
+  dispatcher and both-width runtime regressions. Explain any material analysis
+  regression before further optimization. See the
+  [fix and limits](docs/wiki/binaryen/passes/optimize-instructions/index.md#october-28-2026-burn-003-reaching-value-equality).
+
 ## Next unreleased patch — Coverage and output quality [IR2-REVIEW-LIMITS]
 
 ### Remove-unused-brs descriptor landing [IR2-RUB-ANALYSIS-CONTRACT]

@@ -28331,3 +28331,9 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — BURN-003 integer local-read equality
+
+- Recorded the [OI reaching-value invariant](binaryen/passes/optimize-instructions/index.md#october-28-2026-burn-003-reaching-value-equality), unchanged-base runtime failures, focused regression coverage, and lazy read-source proof cost.
+- Scope is BURN-003 only; performance and broad Binaryen parity remain unmeasured.
+- Final focused OI/command checks: 1,733/1,733 passed (including five temporary emission checks); separate runtime assertions: 28/28 passed. Full `moon build -j 1` and `moon info` passed. Reviewed integer-alias-only `.mbti` churn was discarded; temporary replay/build files were removed.
