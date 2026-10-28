@@ -490,10 +490,19 @@ fn lib_name_to_wat(name : @lib.Name) -> String {
   let out = StringBuilder()
   out.write_char('"')
   for c in raw.to_owned() {
-    if c == '"' || c == '\\' {
+    if c.to_int() < 0x20 || c.to_int() == 0x7f {
+      // WAT control characters require two hexadecimal byte digits.
+      let hex = "0123456789abcdef"
+      let code = c.to_int()
       out.write_char('\\')
+      out.write_char(hex[code / 16].to_int().unsafe_to_char())
+      out.write_char(hex[code % 16].to_int().unsafe_to_char())
+    } else {
+      if c == '"' || c == '\\' {
+        out.write_char('\\')
+      }
+      out.write_char(c)
     }
-    out.write_char(c)
   }
   out.write_char('"')
   out.to_string()

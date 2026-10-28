@@ -866,3 +866,5 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [October 11 bulk host and Wago fixes](tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes) — completed native, GC, published/local npm comparisons; four input/output calls, guarded collection, cached-start parity, Wago PR 948 and the remaining validation/portfolio cost.
 
 - [Selective October pass-audit extraction](../pass-audit-extraction.md) — all 29 source decisions, independent port IDs, red/green methods, redesign exclusions, and expected performance costs.
+
+- [R1-03 lib WAT export-name repair](wast/identifier-name-and-annotation-authoring.md#r1-03-lib-wat-export-name-repair--2026-10-28) — Original LF repro confirmed on October 28 master; bounded escaping repair and roundtrip controls.

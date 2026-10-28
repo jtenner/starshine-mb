@@ -1,3 +1,10 @@
+### 2026-10-28, R1-03 lib WAT export-name repair
+
+- Confirmed the original LF export repro on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`: print succeeds, re-lowering fails with `expected export name at <memory>:5:1` after removing optional name metadata.
+- The owning name printer escapes ASCII controls with two hexadecimal digits. The original repro and bounded control/Unicode/quote/backslash tests pass; no other R1 finding is included. See [evidence and boundaries](wast/identifier-name-and-annotation-authoring.md#r1-03-lib-wat-export-name-repair--2026-10-28).
+- With Moon 0.1.20261023 and `PATH=/data/home/.moon/bin:$PATH`, `moon info`, `moon fmt src/wat`, `moon test src/wat --target js -j 1 --build-only` and checked Bun execution pass (16 tests). Full `moon build -j 1` passes (default wasm target, zero errors; existing warnings). Reviewed and removed compiler-only `.mbti` spelling churn; no API change.
+- No full suite, Binaryen comparison, fuzzing or timing run. The active backlog retains optional leased measurement of the bounded per-character checks and correctness-required output growth. Own generated build/test artifacts are removed after validation.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.
