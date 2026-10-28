@@ -527,3 +527,24 @@ test "cli_config_schema_json exposes public schema fields" {
   assert_true(schema.contains("\"ignoreImplicitTraps\""))
   assert_true(schema.contains("\"closedWorld\""))
 }
+
+///|
+test "R1-13 preserves every alias token after positional separator" {
+  let paths = [
+    "-aimfs", "-aimfs=7.wasm", "-ocimfs=8.wasm", "-fimfs=9.wasm",
+    "-imcbs=10.wasm", "-ifwl", "-pii=11.wasm", "--", "--help", "ordinary.wasm",
+  ]
+  let args = ["-aimfs=3", "-ocimfs=-1", "-fimfs=31", "-imcbs=500000", "-ifwl", "-pii=4", "--"]
+  for path in paths {
+    args.push(path)
+  }
+  let parsed = parse_ok(args)
+  @debug.assert_eq(parsed.input_globs, paths)
+  @debug.assert_eq(parsed.inlining_always_inline_max_size, Some(3))
+  @debug.assert_eq(parsed.inlining_one_caller_inline_max_size, Some(-1))
+  @debug.assert_eq(parsed.inlining_flexible_inline_max_size, Some(31))
+  @debug.assert_eq(parsed.inlining_max_combined_binary_size, Some(500000))
+  @debug.assert_eq(parsed.inlining_allow_functions_with_loops, Some(true))
+  @debug.assert_eq(parsed.inlining_partial_inlining_ifs, Some(4))
+  @debug.assert_eq(parsed.help_requested, false)
+}

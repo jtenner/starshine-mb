@@ -342,3 +342,34 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+## R1-13 positional preprocessing boundary — 2026-10-28
+
+Confirmed against unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+The original finding and limits were read from
+`6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`.
+Only its two R1-13 tests were copied unchanged from
+`src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt`; other findings are
+outside this repair.
+
+Before any product edit, the JS build succeeded with:
+
+```sh
+PATH=/data/home/.moon/bin:$PATH moon test src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1 --build-only
+```
+
+Bun executed the generated `cmd.whitebox_test.js` with selection
+`{"package":"jtenner/starshine/cmd","file_and_index":[["hunt_r1_tooling_boundaries_20261025_wbtest.mbt",[{"start":0,"end":2}]]]}`.
+Both structured results failed: the parser returned
+`["--always-inline-max-function-size=7.wasm"]` instead of `["-aimfs=7.wasm"]`;
+the extractor returned `["--"]` instead of
+`["--", "--emit-optimizer-thresholds-json"]`. Direct runner exit zero did not
+mean success. No Node executable was available; Bun supplied the JS runtime.
+
+The expanded red checkpoint builds both touched test files with the same
+command plus `src/cli/cli_test.mbt`. Structured results: CLI 56/57 pass,
+command 0/4 pass. New cases cover all six aliases, all three report flags,
+repeated separators, pre-boundary mode retention, mutual exclusion and the
+real command adapter reading literal paths. Product sources remain unchanged
+at this checkpoint. Sources: [parser tests](../../../src/cli/cli_test.mbt),
+[command tests](../../../src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt).
