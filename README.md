@@ -258,7 +258,7 @@ Validation checks types and structure. It does not guarantee successful executio
 ## More information
 
 Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.3.0) for function signatures.
-Use the [source API reference](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md) for the full package map.
+Use the [source API reference](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md) for a selection of packages.
 Use the [JavaScript guide](https://www.npmjs.com/package/starshine) for npm library calls.
 Use the [component guide](https://github.com/jtenner/starshine-mb/blob/master/component/README.md) for the separate Component Model interface.
 
