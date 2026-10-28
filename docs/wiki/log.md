@@ -28331,3 +28331,14 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — R1-10 output collision preflight
+
+- Confirmed the historical unread-input overwrite on unchanged `3d1deec7`
+  through shared in-memory callbacks: `b/x.wasm` changed from custom-name byte
+  `62` to `61`. The original regression and expanded rejection test failed;
+  supported in-place/distinct-output controls passed before implementation.
+- Filed the [repair contract, evidence and alias limits](tooling/cli-command-and-dispatcher.md#r1-10-output-collision-preflight--october-28-2026).
+  Preflight checks every lexical destination before module IO, with no new
+  filesystem access or module-byte copies. Other R1 findings remain outside
+  this change. Startup map costs remain unmeasured in active backlog.

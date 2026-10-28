@@ -5491,6 +5491,63 @@ fn output_path_for_normalized_default_target(
 }
 
 ///|
+// Paths are already normalized by startup. Check every destination before
+// processing inputs; a destination may alias its own input, but no other input
+// or output. This is lexical identity, without filesystem probes.
+fn preflight_output_paths(
+  input_files : Array[String],
+  input_format : CliInputFormat?,
+  output_targets : Array[CliOutputTarget],
+) -> Result[Unit, CmdError] {
+  let inputs : @hashmap.HashMap[String, Bool] = @hashmap.new()
+  for path in input_files {
+    inputs.set(path, true)
+  }
+  let outputs : @hashmap.HashMap[String, Bool] = @hashmap.new()
+  fn check(path : String, input : String) -> Result[Unit, CmdError] {
+    if outputs.contains(path) || (path != input && inputs.contains(path)) {
+      return Err(CmdError::ambiguous_output_file(path))
+    }
+    outputs.set(path, true)
+    Ok(())
+  }
+  for input in input_files {
+    let format = match input_format {
+      Some(format) => format
+      None =>
+        match infer_input_format(input) {
+          Some(format) => format
+          None => CliInputFormat::wasm()
+        }
+    }
+    if output_targets.is_empty() {
+      match
+        check(output_path_for_normalized_default_target(input, format), input) {
+        Err(err) => return Err(err)
+        Ok(_) => ()
+      }
+    } else {
+      for target in output_targets {
+        let path = match target {
+          StdoutOutput => continue
+          FileOutput(path) => path
+          DirOutput(dir) =>
+            join_normalized_cli_path(
+              dir,
+              output_basename_for_normalized_input(input, format),
+            )
+        }
+        match check(path, input) {
+          Err(err) => return Err(err)
+          Ok(_) => ()
+        }
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
 fn should_copy_wasm_noop_without_module_pipeline(
   format : CliInputFormat,
   resolved_passes : Array[String],
@@ -5902,6 +5959,16 @@ pub fn run_cmd_with_adapter(
         _ => ()
       }
     }
+  }
+
+  match
+    preflight_output_paths(
+      input_files,
+      merged.input_format,
+      merged.output_targets,
+    ) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
   }
 
   let output_files : Array[String] = []

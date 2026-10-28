@@ -342,3 +342,60 @@ with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.w
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
 - Pass registry and presets: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../ir2/registry-map.md`](../ir2/registry-map.md), [`../binaryen/passes/index.md`](../binaryen/passes/index.md)
 - Related workflows: [`./cli-startup-path.md`](./cli-startup-path.md), [`./validation-gates.md`](./validation-gates.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./tracing-playbook.md`](./tracing-playbook.md)
+
+## R1-10: output collision preflight — October 28, 2026
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`
+using the R1-10 in-memory callback test from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` (historical report:
+`docs/wiki/tooling/2026-10-25-code-review-r1.md` at that commit).
+`--out-dir b a/x.wasm b/x.wasm` changed the second fixture's final custom-name
+byte from `0x62` to `0x61`; the structured assertion failed before any fix.
+The expanded tests had two failures and one passing valid-output control.
+All reads/writes used adapters; no real input file was touched.
+
+[`preflight_output_paths`](../../../src/cmd/cmd.mbt) checks every file output
+before the first module read/write, rejecting duplicate destinations and writes
+to another resolved input with `AmbiguousOutputFile`. It uses the existing
+basename, text-to-`.wasm`, default-output and path normalization conventions.
+Single-input default, explicit-file and directory in-place writes remain valid;
+stdout is not a file destination. The old multiple-input single-file rejection
+remains. Exact repeated output targets are already deduplicated during merging.
+
+The check uses two temporary string-key maps (input membership and output
+membership), plus generated destination strings: expected linear work in input
+and destination path bytes, without copying module bytes or retaining all
+modules. These correctness-required startup costs are unmeasured; no pass-local
+work changes. No filesystem probes were added. Lexical normalization covers
+separators, `.`, `..`, roots and drive prefixes; symlink/hardlink aliases,
+filesystem case folding, relative/absolute aliases and concurrent external file
+changes remain outside this contract. This is not a transactional write system.
+
+Tests: [`r1_10_output_collisions_wbtest.mbt`](../../../src/cmd/r1_10_output_collisions_wbtest.mbt)
+cover original byte preservation, output/output and output/other-input
+collisions (including default text output), lexical paths, multiple targets,
+text extension conversion, stdout, distinct destinations and in-place writes.
+
+Validation (all Moon builds serialized; `PATH=/data/home/.moon/bin:$PATH`):
+
+- `moon test src/cmd/r1_10_output_collisions_wbtest.mbt --target js -j 1
+  --build-only`, then Bun on `cmd.whitebox_test.js` with compact selection
+  `{ "package":"jtenner/starshine/cmd", "file_and_index":
+  [["r1_10_output_collisions_wbtest.mbt",[{"start":0,"end":3}]]] }`:
+  **3/3 pass** after repair (structured results checked).
+- `moon test src/cmd --target js -j 1 --build-only --output-json`, then serial
+  direct drivers using that metadata, omitting empty selection entries:
+  Bun **805 pass / 6 fail**, absolute Node 24.22.1 `--single-threaded`
+  **810 pass / 1 fail**. Five Bun-only failures concern NaN payload bits.
+  Remaining failure: `fuzz_harness_wbtest.mbt` index 28 expects minimized
+  `[merge-blocks, remove-unused-brs]`, gets `[remove-unused-brs]`. The same
+  failure was reproduced with unchanged baseline command source. This harness
+  bypasses command IO/preflight; no unrelated expectations were changed.
+- `moon info` and `moon fmt` run; unrelated pre-existing formatting drift was
+  restored. `moon info -j 1` was rejected (unsupported flag), retried without it.
+  Generated `.mbti` drift (compiler type spelling, including `Int` → `Int32`)
+  was reviewed and restored; the new helper is private, with no public API change.
+- Full workspace `moon build -j 1` succeeds (default Wasm target). No full
+  repository test suite, native build, Binaryen comparison, fuzz campaign,
+  benchmark or timing claim. Initial Moon test execution could not locate
+  `node` on PATH; compiled test runners were executed explicitly instead.
