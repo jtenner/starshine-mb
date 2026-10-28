@@ -1,3 +1,7 @@
+### 2026-10-28 — BURN-005 Heap2Local initializer order
+
+- Reproduced eight wrong array results on unchanged master with the committed evidence fixture and Bun runtime, while inputs and lift/lower controls returned 7. Retain the existing donor order during direct forwarding; focused behavior and dispatcher regressions cover the repair. See the [repair and evidence limits](binaryen/passes/heap2local/index.md#october-28-2026--burn-005-initializer-forwarding). No performance or broad parity signoff is claimed.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

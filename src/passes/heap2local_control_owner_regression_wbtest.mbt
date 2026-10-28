@@ -566,6 +566,11 @@ fn h2l_control_owner_execute(
         state.heap.push([stack.pop().unwrap()])
         stack.push(state.heap.length() - 1)
       }
+      @lib.ArrayNew(@lib.TypeIdx(0U)) => {
+        assert_eq(stack.pop().unwrap(), 1)
+        state.heap.push([stack.pop().unwrap()])
+        stack.push(state.heap.length() - 1)
+      }
       @lib.ArrayNewFixed(@lib.TypeIdx(0U), @lib.U32(1U)) => {
         state.heap.push([stack.pop().unwrap()])
         stack.push(state.heap.length() - 1)
