@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-05
+last_reviewed: 2026-10-28
 sources:
   - ../wasm-relaxed-dead-code-validation-boundary.md
   - ../../../src/lib/types.mbt
@@ -207,3 +207,24 @@ See [bounded frame regressions](../../../src/validate/frame_polymorphism_wbtest.
 [command rejection and valid controls](../../../src/cmd/p00_validator_wbtest.mbt),
 and [current repair evidence](../tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs).
 The old audit fixtures and measurements remain historical evidence.
+
+## October 28, 2026: R1-05 array.len bottom acceptance
+
+Confirmed on unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+The full historical review is preserved at
+`6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`.
+The restored [original fixture](../../../tests/repros/hunt-r1/array-len-bottom.wat)
+was parsed and validated with wasm-tools 1.262.0
+(`e22db44da 2026-10-13`), `RAYON_NUM_THREADS=1`.
+The [focused regression](../../../src/validate/review_r1_20261025_validation_acceptance_wbtest.mbt)
+checks both the original IR and the exact 28-byte wasm-tools encoding.
+Both fail before implementation with
+`instruction[1] array.len: array.len requires an array reference; stack=[]`.
+The direct virtual-bottom result check also fails; invalid concrete operand
+and nullable/non-null concrete-array controls pass (3 red, 2 green total).
+The direct Bun runner's zero exit status is not evidence of success; its
+structured result messages establish these failures.
+
+The gap is local to `typecheck_array_len`: `pop1` correctly synthesizes bottom,
+but ordinary `Match::matches` does not accept it as an array reference.
+R1-06/R1-07 and other review findings are outside this repair.

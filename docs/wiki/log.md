@@ -28331,3 +28331,11 @@ arrays/typecheck wrappers from the completed return packaging change.
 - Recorded the [fix and test limits](wast/static-assertion-harness.md#october-25-2026--f14-path-argument-preservation).
   Legacy package/filesystem/WASI integration remains active backlog work;
   these unit tests do not establish a working legacy executable.
+
+### 2026-10-28 — R1-05 confirmed baseline
+
+- Reproduced the original array.len unreachable failure on unchanged master;
+  wasm-tools independently validates the original WAT. Restored only R1-05
+  tests and fixture, with concrete operand controls. See the
+  [evidence and scope](validate/stack-polymorphism-and-bottom.md#october-28-2026-r1-05-arraylen-bottom-acceptance).
+- Red checkpoint: three required-behavior tests fail, two controls pass.
