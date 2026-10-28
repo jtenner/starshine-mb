@@ -1,7 +1,13 @@
 ///|
 test "r1 tooling environment inputs preserve explicit ignore implicit traps" {
   let io = CmdIO::new(
-    get_env=fn(key) { if key == "STARSHINE_INPUT" { Some("a.wasm") } else { None } },
+    get_env=fn(key) {
+      if key == "STARSHINE_INPUT" {
+        Some("a.wasm")
+      } else {
+        None
+      }
+    },
     read_file=fn(_) { Ok(b"\x00asm\x01\x00\x00\x00") },
     write_file=fn(_, _) { Ok(()) },
   )
@@ -17,7 +23,8 @@ test "r1 tooling empty environment preserves explicit ignore implicit traps" {
     write_file=fn(_, _) { Ok(()) },
   )
   let summary = run_cmd_with_adapter(
-    ["--ignore-implicit-traps", "cli.wasm"], io,
+    ["--ignore-implicit-traps", "cli.wasm"],
+    io,
   ).unwrap()
   assert_true(summary.ignore_implicit_traps)
   assert_eq(summary.input_files, ["cli.wasm"])
@@ -31,7 +38,8 @@ test "r1 tooling absent environment preserves explicit ignore implicit traps" {
     write_file=fn(_, _) { Ok(()) },
   )
   let summary = run_cmd_with_adapter(
-    ["--ignore-implicit-traps", "cli.wasm"], io,
+    ["--ignore-implicit-traps", "cli.wasm"],
+    io,
   ).unwrap()
   assert_true(summary.ignore_implicit_traps)
   assert_eq(summary.input_files, ["cli.wasm"])
