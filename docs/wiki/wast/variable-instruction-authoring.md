@@ -151,7 +151,7 @@ When a pass changes locals or globals, check these invariants before accepting o
 3. **Global index map:** global reorder/delete/insert rewrites all `GlobalIdx` carriers, not just function-body instructions.
 4. **Mutability:** never introduce `global.set` to an immutable global; do not turn a mutable-global const-expression failure into an apparently valid initializer.
 5. **Type refinement:** if a pass tightens a local/global reference type, retag gets/tees/sets consistently and run validation.
-6. **Roundtrip expectations:** WAST source `$` ids may be lost during print; compare semantic indices and name-section metadata separately.
+6. **Roundtrip expectations:** WAST source `$` ids may be lost only when uses remain bound (for example, after numeric resolution); AST printing preserves parameter bindings. Compare semantic indices and name-section metadata separately.
 
 Useful validation lanes are ordinary `moon test` for local parser/lowerer/typechecker coverage, focused package tests such as `moon test src/wast`, `moon test src/binary`, and `moon test src/validate`, and pass-specific `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass <name> --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` (do not use a pre-existing `target/native/...` binary without freshness verification; see [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md)) when a transform mutates variable instructions.
 
@@ -190,3 +190,22 @@ retain the original repro and mixed named/unnamed, explicit type reference,
 import, indirect-call and block type-use cases. Before implementation,
 `moon test src/wat/r1_04_parameter_binding_wbtest.mbt --target wasm-gc -j 1`
 compiled and reported 0/2 passed, both failing on unbound parameter names.
+
+The fix in [`render_type_use`](../../../src/wast/module_wast.mbt) preserves
+parameter IDs at their original positions, emitting one declaration per
+parameter when any is named. Unnamed-only signatures retain grouped printing;
+explicit type references and results retain their existing spelling. Missing
+ID entries in constructed ASTs remain unnamed. No index rewrite or extra AST
+allocation is required. The additional ID scan is linear and short-circuits
+at the first name; named signatures necessarily write the binding bytes and
+extra declaration delimiters. Binary optimizer/runtime paths are unaffected;
+no measured performance claim is made.
+
+Validation (MoonBit on PATH `/data/home/.moon/bin`, serialized): original
+regression 2/2 passed after the fix; `moon info` succeeded; reviewed and discarded unrelated generated `.mbti`
+integer-alias spelling changes (`Int32`/`UInt32`), with no API change; `moon fmt` completed (unrelated formatter changes were discarded);
+`moon test src/wast src/wat --target wasm-gc -j 1` passed 454/454.
+Full workspace `moon build --target wasm-gc -j 1` succeeded (exit 0),
+including all six emitted main-package artifacts; existing deprecation and
+main-package dependency warnings remain.
+No full test suite, benchmarks, large fuzz or Binaryen comparison was run.
