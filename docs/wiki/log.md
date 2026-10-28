@@ -1,3 +1,11 @@
+### 2026-10-28 — BURN-010 direct HOT block refinement
+
+- Reproduced the unchanged-master direct verifier failure and passing public
+  control; preserved the input signature by declining parameterized result
+  refinement at its owner. Zero-parameter narrowing remains covered. See the
+  [evidence, limits, and correctness costs](binaryen/passes/remove-unused-brs/carried-guards-and-result-blocks.md#burn-010-parameterized-result-refinement-2026-10-28).
+  This closes only BURN-010, without broad pass parity or performance signoff.
+
 ### 2026-10-27, Current MoonBit core compatibility
 
 - Reproduced the 20261023 compiler error at `src/wast/lower_to_lib.mbt:817`, then used `Float::reinterpret_from_uint(bits.to_uint())` to retain unsigned NaN payload bits. Dependency compilation exposed further removed float and Result methods in `passes` and `cmd`; their replacements retain the original intrinsic or variant test.

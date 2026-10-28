@@ -10353,6 +10353,14 @@ fn remove_unused_brs_try_refinalize_single_result_block(
   if @ir.hot_node_result_arity(func, block_id) != 1 {
     return false
   }
+  // The value-only replacement below cannot preserve block entry parameters.
+  // Leave indexed signatures intact unless they are resolved and parameterless.
+  match @ir.hot_type_get(func, @ir.hot_node_type(func, block_id)) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) if !params.is_empty() =>
+      return false
+    @ir.HotTypeInfo::BlockResult(@lib.TypeIdxBlockType(_)) => return false
+    _ => ()
+  }
   let label_id = @ir.hot_control_node_label(func, block_id)
   if label_id < 0 {
     return false
@@ -11892,4 +11900,107 @@ fn remove_unused_brs_run(
   } else {
     HotPassResult::unchanged()
   }
+}
+
+///|
+test "remove-unused-brs direct HOT preserves block parameters during reference refinement" {
+  let input = pass_test_module_from_wat(
+    "(module (type $b (func (param i32) (result anyref))) (func (param i32) (result anyref) local.get 0 block (type $b) drop ref.null struct end))",
+  )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("input validation failed: \{err}")
+  }
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let before = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(before) {
+    Ok(_) => ()
+    Err(err) => fail("lift-lower control validation failed: \{err}")
+  }
+  match
+    pipeline_verify_checkpoint(
+      HotPipelineVerifyPolicy::after_each_pass(),
+      "before",
+      HotPipelineVerifyTarget::HotFuncTarget(func),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("initial HOT invalid: \{err}")
+  }
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(input)),
+  )
+  let block_id = 1
+  assert_true(@ir.hot_node_get(func, block_id).op is @ir.HotOp::Block)
+  let original_type = @ir.hot_node_type(func, block_id)
+  assert_eq(@ir.hot_node_get(func, block_id).imm1, 1)
+  match @ir.hot_type_get(func, original_type) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, results) => {
+      assert_eq(params, [@lib.ValType::i32()])
+      assert_eq(results.length(), 1)
+    }
+    _ => fail("expected resolved parameterized block signature")
+  }
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("pass verification failed: \{err}")
+  }
+  assert_eq(@ir.hot_node_type(func, block_id), original_type)
+  assert_eq(@ir.hot_node_get(func, block_id).imm1, 1)
+  let output = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("post-pass output validation failed: \{err}")
+  }
+}
+
+///|
+test "remove-unused-brs direct refinement still narrows zero-parameter block result" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result anyref) block (result anyref) ref.null struct end))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let block_id = @ir.hot_root_get(func, 0)
+  assert_true(@ir.hot_node_get(func, block_id).op is @ir.HotOp::Block)
+  assert_eq(@ir.hot_node_get(func, block_id).imm1, 0)
+  let tail_id = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, block_id),
+    0,
+  )
+  let refined = @ir.hot_type_results(func, @ir.hot_node_type(func, tail_id))
+  assert_false(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, block_id)) == refined,
+  )
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  assert_true(
+    remove_unused_brs_try_refinalize_single_result_block(ctx, func, block_id, []),
+  )
+  assert_eq(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, block_id)),
+    refined,
+  )
+  pipeline_verify_checkpoint(
+    HotPipelineVerifyPolicy::after_each_pass(),
+    "refined",
+    HotPipelineVerifyTarget::HotFuncTarget(func),
+  ).unwrap()
+  @validate.validate_module(
+    input.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)])),
+  ).unwrap()
+  |> ignore
 }

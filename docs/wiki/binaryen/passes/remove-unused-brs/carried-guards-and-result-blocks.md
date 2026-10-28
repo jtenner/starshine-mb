@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-30
+last_reviewed: 2026-10-28
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -16,6 +16,51 @@ related:
 ---
 
 # `remove-unused-brs` Carried Guards And Result Blocks
+
+## BURN-010: Parameterized Result Refinement (2026-10-28)
+
+The direct HOT pass must preserve a block's complete input signature. The
+single-result refinalizer installs a value-only type, so it now declines
+parameterized blocks (and unresolved indexed signatures) before collecting
+candidate result types. Zero-parameter result narrowing remains enabled.
+The shared `hot_control_result_type_set` contract is unchanged.
+
+On unchanged product base `3d1deec7cecf1caaf65b42799777ff52ef210245`, the exact
+packet fixture `(param i32) (result anyref)` consumes its input with `drop`
+and returns `ref.null struct`. Input validation, initial HOT verification and
+lift/lower validation pass. Direct `hot_pass_run` then retains `imm1=1` but
+replaces the resolved signature with a value-only struct reference type:
+`InvalidNodeType(1, 5)`. The public pipeline control passes; no public failure
+or wrong runtime result is claimed. The local Bun replay reproduces both
+results. This is a validation defect, not a Binaryen comparison.
+
+Provenance: `hunt-findings.md` at `04abb7dc6eb5e8ee5ee0f98453e112d74765f1e6`,
+BURN-010 and Coverage and limits; that commit's evidence packet contains
+`workers/control/report-verified.md`, `burn_control_refine_v4_wbtest.mbt`, and
+`verified/final-refine_v4.stdout`. Permanent direct regressions in
+[`remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
+assert the preserved signature/prefix and successful zero-parameter narrowing;
+[`cmd.mbt`](../../../../../src/cmd/cmd.mbt) retains the passing explicit-dispatch
+validation/encoding control.
+
+This deliberately conservative repair forgoes parameterized narrowing until
+it can preserve all parameters. The correctness cost is one type inspection
+at refinement admission (the public query copies both arrays for resolved
+signatures), plus retained wider results for that family. No new scan or
+analysis is introduced. No timing, broad fuzz,
+or v133 parity signoff is claimed on the borrowed machine.
+
+Validation on the isolated fix branch: `moon test` JS compilation with
+`--build-only -j 1`, followed by checked Bun execution of the generated
+internal/whitebox/blackbox drivers, passed 297 focused tests: two implementing
+regressions, 12 whitebox checks (including the two exact packet replays), 281
+pass tests, and two `cmd.mbt` dispatch controls. Benchmarks and skipped tests
+were excluded. Node is unavailable here, so the ordinary JS launcher failed
+before execution; the Bun driver checks every result and expected test count.
+`moon info` completed with zero errors; generated integer-alias spelling changes
+were reviewed and discarded (no public API change). `moon fmt` completed;
+unrelated baseline formatting changes were discarded. Full `moon build -j 1`
+passed. No broad parity, fuzz, native, or runtime equivalence claim is made.
 
 ## Why This Family Has Its Own Page
 
