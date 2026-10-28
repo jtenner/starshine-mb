@@ -849,12 +849,12 @@ pub fn parse_cli_args(
   let mut index = 0
   let mut positional_only = false
   while index < args.length() {
-    let arg = expand_inlining_short_alias(args[index])
     if positional_only {
-      append_input_glob(parsed.input_globs, arg)
+      append_input_glob(parsed.input_globs, args[index])
       index += 1
       continue
     }
+    let arg = expand_inlining_short_alias(args[index])
     if arg == "--" {
       positional_only = true
       index += 1

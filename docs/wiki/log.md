@@ -28581,3 +28581,16 @@ arrays/typecheck wrappers from the completed return packaging change.
   bounded present/empty/absent and default/path controls cover the boundary.
 - Filed [evidence, validation and cost limits](tooling/cli-command-and-dispatcher.md#r1-12--environment-input-trap-option-preservation-2026-10-28).
   No active R1-12 backlog entry required pruning; no new blocker is introduced.
+
+### 2026-10-28 — R1-13 positional preprocessing boundary
+
+- Confirmed both original cases on unchanged master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245`, then checkpointed failing
+  regressions in `b6abc2dcc1bc7f98eabb7af88518517992068881`.
+- Repaired both preprocessing owners; the focused JS files pass 61/61 tests,
+  including adapter reads and pre-boundary option controls. Filed evidence,
+  required resource costs and limits in the existing
+  [command contract](tooling/cli-command-and-dispatcher.md#r1-13-positional-preprocessing-boundary--2026-10-28).
+- Full `moon build -j 1` succeeds; formatting and staged/interface diff review
+  complete. Temporary build/runner artifacts are removed after validation.
+- No performance measurement, large fuzz lane or other R1 repair is claimed.

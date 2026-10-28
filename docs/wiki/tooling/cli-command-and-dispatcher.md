@@ -599,3 +599,73 @@ required behavior, not a measured speed claim. No benchmark is needed for the
 field copy; downstream performance requires a separate leased workload study.
 No optimizer execution semantics, Binaryen parity, native-host environment,
 performance, full suite, or fuzz claim follows from this adapter evidence.
+
+## R1-13 positional preprocessing boundary — 2026-10-28
+
+Confirmed against unchanged master `3d1deec7cecf1caaf65b42799777ff52ef210245`.
+The original finding and limits were read from
+`6422a44b155026bdbadfac86289c20958fdc21d3:docs/wiki/tooling/2026-10-25-code-review-r1.md`.
+Only its two R1-13 tests were copied unchanged from
+`src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt`; other findings are
+outside this repair.
+
+Before any product edit, the JS build succeeded with:
+
+```sh
+PATH=/data/home/.moon/bin:$PATH moon test src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1 --build-only
+```
+
+Bun executed the generated `cmd.whitebox_test.js` with selection
+`{"package":"jtenner/starshine/cmd","file_and_index":[["hunt_r1_tooling_boundaries_20261025_wbtest.mbt",[{"start":0,"end":2}]]]}`.
+Both structured results failed: the parser returned
+`["--always-inline-max-function-size=7.wasm"]` instead of `["-aimfs=7.wasm"]`;
+the extractor returned `["--"]` instead of
+`["--", "--emit-optimizer-thresholds-json"]`. Direct runner exit zero did not
+mean success. No Node executable was available; Bun supplied the JS runtime.
+
+The expanded red checkpoint builds both touched test files with the same
+command plus `src/cli/cli_test.mbt`. Structured results: CLI 56/57 pass,
+command 0/4 pass. New cases cover all six aliases, all three report flags,
+repeated separators, pre-boundary mode retention, mutual exclusion and the
+real command adapter reading literal paths. Product sources remain unchanged
+at this checkpoint. Sources: [parser tests](../../../src/cli/cli_test.mbt),
+[command tests](../../../src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt).
+
+The repair moves short-alias expansion below the parser's positional-only
+branch and gives report extraction its own positional-only state. Extraction
+retains the separator and copies the complete suffix, including later `--`
+tokens, without matching report flags. Pre-boundary aliases, repeated report
+flags and conflicting-report rejection retain their original behavior.
+Sources: [parser](../../../src/cli/cli.mbt),
+[report extraction](../../../src/cmd/optimizer_reports.mbt).
+
+This is an argument-processing correctness repair, with no optimizer/pass,
+Wasm output, public API or report serialization change. Both scans remain
+linear in argument count with the same output arrays. Required costs are one
+Boolean state and at most two simple boundary checks per pre-boundary token
+in report extraction; suffix tokens bypass three report-name matches and
+six-alias expansion. No module-sized state or new I/O is added. This supports
+a perf-neutral scope assessment, not a measured timing claim. No benchmarks,
+fuzzing, Binaryen comparison, full test suite or native executable run are
+part of this borrowed-machine validation.
+
+Final validation (serialized Moon commands, one build worker):
+
+```sh
+PATH=/data/home/.moon/bin:$PATH moon test src/cli/cli_test.mbt src/cmd/hunt_r1_tooling_boundaries_20261025_wbtest.mbt --target js -j 1 --build-only
+bun _build/js/debug/test/cli/cli.blackbox_test.js '{"package":"jtenner/starshine/cli","file_and_index":[["cli_test.mbt",[{"start":0,"end":57}]]]}'
+bun _build/js/debug/test/cmd/cmd.whitebox_test.js '{"package":"jtenner/starshine/cmd","file_and_index":[["hunt_r1_tooling_boundaries_20261025_wbtest.mbt",[{"start":0,"end":4}]]]}'
+PATH=/data/home/.moon/bin:$PATH moon build -j 1
+```
+
+Both build commands exited zero. A temporary compact Bun driver ran equivalent
+per-index selections and required the expected structured-result count and
+zero failure messages: CLI **57/57**, command **4/4**. The full default-target
+build compiled the workspace, including the Wasm command entry points.
+`moon fmt` succeeded; unrelated baseline formatting was restored. The attempted
+`moon info -j 1` was rejected because this installed subcommand has no `-j`
+option; no interface generation is claimed. Reviewed `.mbti` diff: empty;
+public signatures are unchanged. The existing executable-package dependency
+warning for `cmd_gc` remains. Generated `_build` outputs and temporary local
+runner/log files are removed after validation; committed tests and this record
+retain the evidence. Other R1 findings remain outside scope.

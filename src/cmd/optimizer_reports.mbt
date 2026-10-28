@@ -21,7 +21,17 @@ fn cmd_extract_optimizer_report_mode(
 ) -> Result[(Array[String], CmdOptimizerReportMode?), CmdError] {
   let filtered : Array[String] = []
   let mut report_mode : CmdOptimizerReportMode? = None
+  let mut positional_only = false
   for arg in args {
+    if positional_only {
+      filtered.push(arg)
+      continue
+    }
+    if arg == "--" {
+      positional_only = true
+      filtered.push(arg)
+      continue
+    }
     match cmd_optimizer_report_flag_mode(arg) {
       Some(mode) =>
         match report_mode {

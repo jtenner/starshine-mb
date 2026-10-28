@@ -10,6 +10,10 @@ oracle versions and checkpoints do not sign current source.
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
+R1-13 positional preprocessing is closed; evidence and validation limits live
+in the [command contract](docs/wiki/tooling/cli-command-and-dispatcher.md#r1-13-positional-preprocessing-boundary--2026-10-28).
+Other R1 findings are outside that repair.
+
 
 ## Next unreleased patch — GSI exported-origin measurement [IR2-GSI-BURN-001]
 
