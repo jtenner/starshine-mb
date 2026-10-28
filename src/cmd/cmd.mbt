@@ -11744,3 +11744,17 @@ fn cmd_coalesce_resume_suffix_module(
     ]),
   )
 }
+
+///|
+test "BURN-007 command preserves carried global snapshot write" {
+  let output = cmd_deep_audit_run(
+    "(module (global $g (mut i32) (i32.const 5)) (func (export \"run\") (result i32) global.get $g i32.const 1 if i32.const 7 global.set $g end))",
+    "simplify-globals-optimizing",
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.GlobalSet(_)
+    }),
+    1,
+  )
+}

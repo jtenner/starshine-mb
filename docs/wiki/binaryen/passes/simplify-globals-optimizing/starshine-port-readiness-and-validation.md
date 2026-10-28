@@ -36,6 +36,11 @@ This page answers the practical porting question: now that Starshine has a signe
 
 ## Current port-readiness summary
 
+The historical closeout below is qualified by the 2026-10-28 BURN-007 carried
+read defect and focused repair; see the [guard-consumption invariant](./linear-traces-read-only-to-write-and-reruns.md#burn-007-carried-values-are-observable-2026-10-28).
+That repair is bounded correctness work, with broader parity and performance
+signoff still unclaimed.
+
 `simplify-globals-optimizing` is signed off for the current Starshine v0.1.0 direct-pass, nested-runtime, transformation-family, and late-tail scheduling surface against Binaryen `version_130`. The recursive closeout reviewed every top-level `SimplifyGlobals.cpp` family and the broad `FlowScanner` contract, implemented supported gaps test-first, documented source-backed negatives, met strict `<=1x` pass-local timing, and completed the fresh four-lane matrix. Reopen only for new evidence of a semantic mismatch, wasm validation failure, upstream behavior drift, targeted artifact/code-size need, or measured SGO-specific wall-time regression. The current closeout record is [research note 1555](./index.md).
 
 The useful local status is:

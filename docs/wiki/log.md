@@ -1,3 +1,17 @@
+### 2026-10-28 — BURN-007 carried-global guard repair
+
+- Reproduced on unchanged production base `3d1deec7cecf1caaf65b42799777ff52ef210245`:
+  same-instance i32/i64 calls return `[5, 5]` after SGO instead of `[5, 7]`;
+  original modules return `[5, 7]`. Bun executes the exact evidence runtime
+  assertions because Node is absent. Validation alone had passed both forms.
+- Both pure guard classifiers now track the read's unique stack descendant;
+  an unrelated condition cannot hide a live carried value. The implementing
+  file and dispatcher regressions fail before the repair and pass afterward.
+- The [durable contract and evidence limits](binaryen/passes/simplify-globals-optimizing/linear-traces-read-only-to-write-and-reruns.md#burn-007-carried-values-are-observable-2026-10-28)
+  qualify historical SGO closeout. Measurement remains active in
+  [IR2-SGO-BURN-007](../../agent-todo.md); no benchmarks, broad fuzz campaign,
+  Binaryen 133 parity signoff, push, or master landing is claimed.
+
 ### 2026-10-28 — BURN-006 resume-handler reachability
 
 - Coalesce control summaries record all lexical resume handler exits without
