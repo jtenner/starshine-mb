@@ -5719,6 +5719,7 @@ pub fn run_cmd_with_adapter(
         pass_flags=cli_base.pass_flags.copy(),
         optimize_flags=cli_base.optimize_flags.copy(),
         trap_mode=cli_base.trap_mode,
+        ignore_implicit_traps=cli_base.ignore_implicit_traps,
         monomorphize_min_benefit=cli_base.monomorphize_min_benefit,
         inlining_always_inline_max_size=cli_base.inlining_always_inline_max_size,
         inlining_one_caller_inline_max_size=cli_base.inlining_one_caller_inline_max_size,

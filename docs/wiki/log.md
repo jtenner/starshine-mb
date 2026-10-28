@@ -28572,3 +28572,12 @@ arrays/typecheck wrappers from the completed return packaging change.
   and unrelated formatter drift were excluded. R1-09 remains separate.
 - No optimizer-pass performance change is expected; native conversion adds
   a UTF-8 temporary/copy and may emit more filename bytes. No timings claimed.
+
+### 2026-10-28 — R1-12 environment input trap option
+
+- Confirmed the original review adapter repro on unchanged master
+  `3d1deec7cecf1caaf65b42799777ff52ef210245` before product edits.
+- Copied the omitted Boolean in the environment-input parse-result rebuild;
+  bounded present/empty/absent and default/path controls cover the boundary.
+- Filed [evidence, validation and cost limits](tooling/cli-command-and-dispatcher.md#r1-12--environment-input-trap-option-preservation-2026-10-28).
+  No active R1-12 backlog entry required pruning; no new blocker is introduced.

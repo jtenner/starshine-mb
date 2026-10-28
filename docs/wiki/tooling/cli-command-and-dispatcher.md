@@ -13,6 +13,7 @@ sources:
   - ../../../src/cmd_gc/main.mbt
   - ../../../node/internal/bulk-cli-host.js
   - ../../../src/cmd/cmd_wbtest.mbt
+  - ../../../src/cmd/r1_12_environment_input_wbtest.mbt
   - ../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/memory_packing.mbt
@@ -546,3 +547,55 @@ R1-11 is closed by this repair; no active R1-11 backlog item existed to prune.
 R1-09 is neither repaired nor signed off here. Owned `_build`, temporary logs,
 staged-diff/message scratch and emitted test artifacts are removed after
 validation; committed source/tests and this evidence remain.
+
+## R1-12 — Environment input trap-option preservation (2026-10-28)
+
+The original R1-12 adapter repro from review commit
+`6422a44b155026bdbadfac86289c20958fdc21d3` confirms the defect on unchanged
+master `3d1deec7cecf1caaf65b42799777ff52ef210245`: the real
+`run_cmd_with_adapter(["--ignore-implicit-traps"], io)` with
+`STARSHINE_INPUT=a.wasm` returns summary `ignore_implicit_traps=false`.
+Only the original test was added before this execution; product source was
+unchanged. The JS driver produced one structured failure, `false is not true`.
+`moon test src/cmd/r1_12_environment_input_wbtest.mbt --target js -j 1`
+compiled but could not launch missing `node`; running its compiled whitebox
+driver with Bun produced the failure (driver exit zero is not a pass).
+
+On the baseline, the `Some(raw)` branch reconstructed `CliParseResult` without
+copying `ignore_implicit_traps`; the constructor defaults it to false.
+Empty-but-present input takes the same branch; absent input retains `cli_base`. Regression
+coverage lives in [the bounded adapter tests](../../../src/cmd/r1_12_environment_input_wbtest.mbt).
+The expanded red run reported 2 failures (present and empty explicit-true)
+and 2 passes (absent explicit-true and the three default-false/path controls).
+The repair copies only `ignore_implicit_traps=cli_base.ignore_implicit_traps`
+inside the existing reconstruction; parsing, merge precedence and path handling
+are unchanged. The repaired four tests pass, including all three default-false
+controls. No active R1-12 backlog item existed; this completed repair creates
+no new blocker.
+
+Validation uses `PATH=/data/home/.moon/bin:$PATH`, serialized Moon commands,
+and one worker for test/build:
+
+```sh
+moon test src/cmd/r1_12_environment_input_wbtest.mbt --target js -j 1 --build-only
+bun _build/js/debug/test/cmd/cmd.whitebox_test.js '{"package":"jtenner/starshine/cmd","file_and_index":[["r1_12_environment_input_wbtest.mbt",[{"start":0,"end":4}]]]}'
+moon build -j 1
+```
+
+The Bun driver emits four empty-message result records (4 passed, 0 failed);
+check these records because the raw generated driver's exit status alone is
+insufficient. `moon fmt` succeeded; unrelated pre-existing formatting drift
+was restored. The full workspace `moon build -j 1` succeeded (exit 0), with existing
+deprecation and main-package import warnings. Public `.mbti` contracts are
+unchanged. `moon info src/cmd` succeeded (17 tasks, 0 errors); it does not
+accept `-j` and ran separately. Its generated `Int` to `Int32` spelling-only
+drift was reviewed and restored to avoid unrelated interface churn.
+
+Performance is expected neutral at the adapter level: one Boolean field load
+and assignment in an already allocated parse-result object, only for present
+`STARSHINE_INPUT`; no added allocation, scan or pass work. Correctly honoring
+the flag can change downstream optimization choices and their costs; that is
+required behavior, not a measured speed claim. No benchmark is needed for the
+field copy; downstream performance requires a separate leased workload study.
+No optimizer execution semantics, Binaryen parity, native-host environment,
+performance, full suite, or fuzz claim follows from this adapter evidence.
