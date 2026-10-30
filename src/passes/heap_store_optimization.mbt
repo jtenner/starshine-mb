@@ -56,6 +56,7 @@ priv struct HsoOrderEffects {
 
 ///|
 priv struct HsoPredicateCache {
+  descent_remaining : Array[Int32]
   readonly_revision : Array[Int32]
   readonly_result : @bitset.BitSet
   skip_revision : Array[Int32]
@@ -561,8 +562,9 @@ fn hso_ordered_before(
 }
 
 ///|
-fn hso_new_predicate_cache() -> HsoPredicateCache {
+fn hso_new_predicate_cache(descent_limit~ : Int32 = 0) -> HsoPredicateCache {
   {
+    descent_remaining: [descent_limit],
     readonly_revision: [],
     readonly_result: @bitset.BitSet::new(0),
     skip_revision: [],
@@ -4679,6 +4681,15 @@ fn hso_process_node_regions(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  // HOT values can share control-bearing descendants. Re-expanding every
+  // occurrence enumerates paths through a DAG (exponential in its depth).
+  // Bound only this optional discovery walk; entered regions still finish
+  // their ordinary, safety-checked rewrites. Never memoize a transformed node
+  // across distinct catch/owner/external-root contexts.
+  if cache.descent_remaining[0] <= 0 {
+    return false
+  }
+  cache.descent_remaining[0] -= 1
   // Nested HSO opportunities can only live below HOT control/region nodes.
   // Avoid recursively walking straight-line value trees during the pre-pass
   // region descent; the later root-chain scan still handles LocalSet/StructSet
@@ -5426,16 +5437,87 @@ fn hso_process_region(
 }
 
 ///|
+fn hso_discovery_expansion_exceeds_limit(
+  func : @ir.HotFunc,
+  limit : Int32,
+) -> Bool {
+  let count = @ir.hot_node_count(func)
+  let states = Array::make(count, 0)
+  let costs = Array::make(count, 0)
+  let root_ref = @ir.HotRegionRef::root()
+  let work : Array[(Int32, Bool)] = []
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    work.push((@ir.hot_region_get(func, root_ref, idx), false))
+  }
+  // Memoize expanded control-owner counts over stored child edges, saturating
+  // before addition. This is an O(nodes + edges) preflight, not a path walk.
+  while !work.is_empty() {
+    let (id, exiting) = work.pop().unwrap()
+    // Optional region slots (notably an absent else) use a negative ID.
+    if id < 0 {
+      continue
+    }
+    if id >= count || !@ir.hot_node_is_live(func, id) {
+      return true
+    }
+    if exiting {
+      let mut cost = if hso_node_may_have_regions(@ir.hot_node_get(func, id).op) {
+        1
+      } else {
+        0
+      }
+      for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
+        let child = @ir.hot_child_get(func, id, slot)
+        if child < 0 {
+          continue
+        }
+        if costs[child] > limit - cost {
+          return true
+        }
+        cost += costs[child]
+      }
+      costs[id] = cost
+      states[id] = 2
+    } else if states[id] != 2 {
+      if states[id] == 1 {
+        // Verified HOT is acyclic; decline discovery on a malformed cycle.
+        return true
+      }
+      states[id] = 1
+      work.push((id, true))
+      for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
+        work.push((@ir.hot_child_get(func, id, slot), false))
+      }
+    }
+  }
+  let mut total = 0
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    let cost = costs[@ir.hot_region_get(func, root_ref, idx)]
+    if cost > limit - total {
+      return true
+    }
+    total += cost
+  }
+  false
+}
+
+///|
 fn heap_store_optimization_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  let descent_limit = Int32::min(@ir.hot_node_count(func), 0x0fffffff) * 8
+  // Declining an optional optimization preserves the original function. This
+  // also keeps secondary subtree predicates out of explosive shared regions.
+  if hso_discovery_expansion_exceeds_limit(func, descent_limit) {
+    return HotPassResult::unchanged()
+  }
   if hso_try_fold_tiny_pure_plain_region(func, @ir.HotRegionRef::root()) {
     pass_mark_mutated(ctx, func)
     return HotPassResult::changed()
   }
   let effects = pass_require_effects(ctx, func)
-  let predicate_cache = hso_new_predicate_cache()
+  let predicate_cache = hso_new_predicate_cache(descent_limit~)
   let type_cache = hso_new_type_cache()
   let revision = @ir.hot_revision_current(func)
   let changed = hso_process_region(

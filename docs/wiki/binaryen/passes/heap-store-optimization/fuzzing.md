@@ -13,6 +13,43 @@ sources:
 
 # `heap-store-optimization` Fuzzing Profile
 
+## October 30 bounded-discovery regression renewal
+
+The bounded-discovery fix completed the dedicated `heap-store-optimization`
+aggregate at seed `0x5eed`: 10,000/10,000 compared, 2,155 normalized matches,
+7,845 `local-cleanup-debris` matches, zero residual mismatches, and zero
+validation, property, generator or command failures. All nine leaves occurred:
+defaults 1,160; control-flow 1,161; swaps 1,138; descriptors 1,124; chains 1,114;
+side-effects 1,068; tee 1,065; boundaries 1,080; shared-ordering 1,090.
+
+Canonical bytes were 1,710,600 Starshine versus 1,726,455 Binaryen (7,845 smaller,
+2,155 equal, zero larger). Raw bytes were 2,396,089 versus 1,726,455 (all 10,000
+Starshine outputs larger); the existing cleanup normalizer remains necessary.
+This run does not renew the earlier Node execution evidence or the full pass
+creation signoff matrix; it targets the traversal fix.
+
+Both native executables were freshly built. The verified oracle reported
+`wasm-opt version 133 (version_133)`, SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The optimizer binary SHA-256 was
+`6360c6f7aeded7e7778fff84474823c60bf9bf409da163b1baa6323b8ec6eaee`.
+The command used the resolved v133 executable as `$V133`:
+
+```sh
+moon build --target native --release src/cmd
+moon build --target native --release src/fuzz
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed \
+  --pass heap-store-optimization --gen-valid-profile heap-store-optimization \
+  --normalize local-cleanup-debris --out-dir .tmp/hso-traversal-qualified-fuzz \
+  --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 \
+  --wasm-opt-bin "$V133" --require-binaryen-version 133 \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe
+```
+
+Successful generated inputs/reports were removed after recording these results,
+as requested for this fix. See [the discovery bound and regression tests](starshine-hot-ir-strategy.md#october-30-2026-bounded-shared-region-discovery).
+
 ## October 15 runtime-observability repair
 
 The frozen Binaryen 133 campaign compared all 10,000 dedicated-profile cases:

@@ -11777,3 +11777,35 @@ test "memory-packing dispatcher omits proven constant-copy guards" {
     _ => fail("expected one optimized function")
   }
 }
+
+///|
+test "heap-store dispatcher folds after shared multivalue control" {
+  // Encoded from wasm-tools; the CLI fixture includes twelve two-result blocks.
+  let input = decode_module_bytes(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x0d\x03\x5f\x01\x7f\x01\x60\x00\x00\x60\x00\x02\x7f\x7f\x03\x02\x01\x01\x0a\x3e\x01\x3c\x01\x01\x63\x00\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x41\x01\x41\x02\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x1a\x1a\xfb\x01\x00\x21\x00\x20\x00\x41\x2a\xfb\x05\x00\x00\x0b\x00\x0b\x04\x6e\x61\x6d\x65\x04\x04\x01\x00\x01\x73",
+  )
+  let writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["hso.wasm"] },
+    file_exists=fn(path) { path == "hso.wasm" },
+    read_file=fn(_) { Ok(encode_module_bytes(input)) },
+    write_file=fn(_, bytes) {
+      writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = run_cmd_with_adapter(
+    ["--heap-store-optimization", "--out", "out.wasm", "hso.wasm"],
+    io,
+  ).unwrap()
+  assert_eq(summary.resolved_passes, ["heap-store-optimization"])
+  assert_eq(writes.length(), 1)
+  let output = decode_module_bytes(writes[0])
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(
+    body.contains(
+      @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    ),
+  )
+}

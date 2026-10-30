@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-10-30
 sources:
   - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -22,6 +22,128 @@ related:
 ---
 
 # Current Starshine `heap-store-optimization` strategy
+
+## October 30, 2026: bounded shared-region discovery
+
+`hso_process_region` calls `hso_process_node_regions` for each control-bearing
+root; the latter follows value-child edges until it encounters a region owner,
+then re-enters `hso_process_region`. HOT value sharing therefore makes this walk
+enumerate paths rather than unique regions. Repeated diamonds multiply entry
+counts at each level, even when there are no constructor/store candidates.
+
+The Slipstream host-imports qualification at branch `feat/moonbit-host-imports`
+(source `94686f99425e8b8d9aeea8ad14b55e3fe8ccb6a2`,
+`docs/host-imports/capacity-evidence/diagnostics/checked-model.json`, read with
+the accompanying graph checker and native reference records) found 685 unique
+regions and 10,879 nodes in function 513, but modeled 169,958,025,743,247 region
+entries. Its model matched all 827,150 observed prefix entries; there were zero
+store candidates and no root changes. These are diagnostic counts, not timings
+or a completed optimization. The native reference reproduced the same phase.
+
+Before any mutation, an iterative postorder preflight memoizes expanded
+control-owner counts over the stored child graph. Parallel scalar arrays hold
+visit state and saturated costs; each stored node/edge is examined a bounded
+number of times. If the estimated expansion exceeds eight times the initial
+node count (saturated before multiplication), the pass returns unchanged for
+that function. The estimate includes all stored child paths and can be more
+conservative than the discovery walk. This also protects secondary subtree
+queries inside region processing; bounding recursive discovery alone does not
+protect those queries.
+
+For admitted functions, discovery additionally consumes the same per-invocation
+budget. Each live node descent consumes one unit, including non-region value
+wrappers. Exhaustion stops further nested discovery while every entered region
+finishes its ordinary safety-checked scan. This protects discovery if rewrites
+introduce additional sharing after the preflight. It bounds successful recursive
+entries linearly and their child/root scanning polynomially in stored IR size;
+it does not claim every predicate or rewrite in the entire pass is linear.
+
+Declining a high-expansion function is sound because it preserves the exact
+original function before any mutation. No store, evaluation, trap, effect,
+local value or catch/branch target changes. The cost is all missed HSO folds and allocation movements in
+that function; code size or execution speed can therefore be worse than an
+unbounded completed optimization. Admission depends on sharing/expansion, not a
+hard function-size cutoff. Ordinary trees remain eligible, including large
+ones. Admitted functions retain all existing catch-depth, owner, suffix-use,
+effect and local-order checks. A node-only memo of **rewrite results** would not
+be a sound general replacement because legality depends on those contexts and
+mutation; the preflight memoizes a pure size estimate instead.
+
+The whitebox regression builds a 13-node repeated diamond (8,191 expanded
+control owners), checks the exact 8,190/8,191 admission boundary, requires the
+public pass to decline it unchanged, and checks a 64-entry discovery budget
+without changing IR/revision. A second test requires current-region constructor
+folding to the constant 42 and validation with a zero remaining descent budget.
+The CLI dispatcher regression folds a store after twelve nested two-result
+blocks and validates encoded output. Existing nested-block pipeline tests retain
+ordinary optimization coverage. See
+[`heap_store_optimization_wbtest.mbt`](../../../../../src/passes/heap_store_optimization_wbtest.mbt)
+and [`cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
+
+## October 30, 2026: validation and qualification limits
+
+`moon info` and `moon fmt` completed; final changed MoonBit files were also
+formatted directly with `moonfmt`. Public `.mbti` review found no API change.
+All **672 HSO/dispatcher tests pass**, including the preflight boundary,
+exhausted-budget constructor fold, absent-else cases, and encoded CLI fixture.
+The [dedicated 10,000-case v133 comparison](fuzzing.md#october-30-bounded-discovery-regression-renewal)
+has zero residual or validation/property/generator/command failures.
+
+Plain `moon test` could not launch the passes whitebox driver on Linux because
+Moon's single JSON argument exceeds the `execve` per-argument limit (error 7).
+After `moon test --build-only`, the same generated drivers were replayed in 54
+bounded file batches, excluding benchmark tests and every `#skip` form, and
+requiring exactly one result record per selected test and recording every failure. **15,622 tests ran:
+15,595 passed and 27 failed.** Every failure was independently replayed against
+`b28144a7c`'s original HSO implementation/test file: all 27 still fail. The final
+failure identities exactly match that baseline; there are no new failures.
+The full suite is therefore **not green**, and the existing hold/backlog remains
+open outside Joshua's exception for this fix.
+
+| Baseline source under `src/` | Failing test indices |
+| --- | --- |
+| `cmd/fuzz_harness_wbtest.mbt` | 28 |
+| `fuzz/main_wbtest.mbt` | 33, 97, 98 |
+| `fuzz/metamorphic_wbtest.mbt` | 241 |
+| `passes/coalesce_reader_row_wbtest.mbt` | 1, 2 |
+| `passes/dae2_cleanup_context_wbtest.mbt` | 3, 4, 5 |
+| `passes/dae_type_update_index_wbtest.mbt` | 5, 6, 7, 8, 9, 10 |
+| `validate/gen_valid_constraint_wbtest.mbt` | 1, 7 |
+| `validate/gen_valid_wbtest.mbt` | 10, 12, 24, 88, 92, 112, 119, 135 |
+| `validate/validate.mbt` | 31 |
+
+The final source was built with `moon build --target native --release src/cmd`
+and `moon build --target wasm-gc --release src/cmd`. The real CLI input is
+**5,535,619 bytes**, SHA-256
+`c700196463875b9fc93e0297d55f3880e983fe8cbededd4645c4f7f4a10732c6`.
+The native optimizer (SHA-256 `6360c6f7aeded7e7778fff84474823c60bf9bf409da163b1baa6323b8ec6eaee`) ran:
+
+```sh
+_build/native/release/build/cmd/cmd.exe --optimize \
+  --out /tmp/hso-default-self.wasm \
+  _build/wasm-gc/release/build/cmd/cmd.wasm
+wasm-tools validate --features all /tmp/hso-default-self.wasm
+```
+
+This completed with exit 0 in **1.366 seconds**, producing
+**5,160,900 bytes** (SHA-256 `b48ef4ceafdbdd45fb3ade2bb9567aa2d5e331f8826b75c860ee4afe8b4727e5`).
+`wasm-tools 1.262.0` validation passed. The optimized CLI also printed `v0.4.0`
+under `moonrun`, then optimized the encoded regression fixture and produced
+another independently valid module. The native runner used a 64 MiB stack;
+the wall time is a completion observation under concurrent repository work,
+not a calibrated performance comparison.
+
+The more aggressive `--optimize -O4z` invocation on that same final input is
+**not qualified**: it exceeded a 60.0-second limit without output.
+A previous real CLI build also produced no output during a 313.97-second probe.
+A separate bounded trace on that earlier build last logged
+`optimize-instructions` function 4434; this does not isolate the remaining
+cause or prove completion of every HSO slot in the aggressive pipeline.
+The successful end-to-end result above is specifically the default preset.
+The original Slipstream qualification input had already been removed by its
+owner's cleanup, so no byte-identical rerun of that older input is claimed.
+All generated builds, reports and temporary inputs were removed after filing
+these results, as requested; source/tests and this durable record remain.
 
 ## September 25, 2026: swapped-root reference order guard
 

@@ -28631,3 +28631,5 @@ arrays/typecheck wrappers from the completed return packaging change.
   all 34 export names. No performance measurement ran.
 - Kept master and origin/master at `1fa2c7699476726231382e23d5aa357fd1f2749e`.
   No push was attempted pending the coordinator's test-contract decision.
+
+- 2026-10-30: Filed the Slipstream qualification’s shared-region HSO path explosion and the bounded-discovery correctness argument in [the HOT IR strategy](binaryen/passes/heap-store-optimization/starshine-hot-ir-strategy.md); added memoized preflight admission and regression coverage for budget exhaustion, retained current-region folding and CLI dispatch. Recorded 10,000 green v133 comparisons, the validated default-preset self-run, the unchanged 27 baseline suite failures, and the remaining aggressive-preset qualification limit.

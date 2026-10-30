@@ -12,7 +12,40 @@ measured LOSS and BURN-002 measured GAIN; both are accepted. Waived measurement
 items are removed from this active backlog. The [landing record](docs/wiki/tooling/starshine-fix-wave.md)
 retains the decision, branch heads, conflicts, and correctness evidence.
 
+## Next unreleased patch: Default test launch bound [IR2-TEST-ARGV]
+
+- **Goal / why:** make plain `moon test` launch the large passes whitebox driver
+  on Linux; Moon 0.1.20261023 exceeds the per-argument `execve` limit with its
+  single JSON test-selection argument (`Argument list too long`, error 7).
+- **Deliverables / tasks:** adopt an upstream response-file or bounded-selection
+  launcher; preserve every default test and the existing skip/benchmark policy.
+- **Required APIs / invariants:** generated `__*test_info.json` selections and
+  test-result records; a workaround must check expected result counts and failures.
+- **Dependencies / exit / tests:** plain `moon test` launches and completes;
+  until then run the compiled drivers in bounded file batches. See the
+  [HSO validation record](docs/wiki/binaryen/passes/heap-store-optimization/starshine-hot-ir-strategy.md).
+
+## Next unreleased patch: Aggressive self-optimization qualification [IR2-SELF-O4Z]
+
+- **Goal / why:** qualify the real CLI under `--optimize -O4z`; the HSO traversal
+  fix's default-preset self-run succeeds, but the aggressive run remains unqualified.
+- **Deliverables / tasks:** isolate the remaining delay with bounded diagnostics,
+  reduce its actual trigger, and keep the aggressive workload distinct from the
+  successful default-preset proof. No additional pass fix is authorized by the
+  owner's HSO-only hold exception.
+- **Required APIs / invariants:** public pass queue, exact input/output custody,
+  pass/function tracing, independent wasm validation; no completion claim without
+  an emitted validated output.
+- **Dependencies / exit / tests:** final CLI input, hashes, 60-second timeout,
+  prior longer probe and uncertainty are in the
+  [HSO qualification record](docs/wiki/binaryen/passes/heap-store-optimization/starshine-hot-ir-strategy.md#october-30-2026-validation-and-qualification-limits).
+  Exit with a completed aggressive run and a reduced regression for any further fix.
+
 ## Next unreleased patch: Fix-wave landing hold [IR2-FIXWAVE-26-LANDING]
+
+Joshua explicitly lifted the hold for the heap-store traversal fix on October
+30. That narrow exception does not close the 27 existing baseline failures or
+authorize other held work.
 
 - **Goal / why:** resolve two integration-only test failures before landing the
   26 accepted fixes; master has 27 separately confirmed default-suite failures.
