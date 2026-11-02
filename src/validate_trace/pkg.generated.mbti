@@ -8,7 +8,7 @@ import {
 // Values
 pub fn parse_validate_trace_cli_command(Array[String]) -> ValidateTraceCliCommand
 
-pub fn run_validate_trace_benchmark(Array[String], Int) -> Result[Array[ValidateTraceBenchmarkResult], String]
+pub fn run_validate_trace_benchmark(Array[String], Int32) -> Result[Array[ValidateTraceBenchmarkResult], String]
 
 pub fn validate_trace_corpus_names() -> Array[String]
 
@@ -17,7 +17,7 @@ pub fn validate_trace_corpus_names() -> Array[String]
 // Types and methods
 pub struct ValidateTraceBenchmarkResult {
   corpus : String
-  repeats : Int
+  repeats : Int32
   elapsed_ms : UInt64
   phase_totals : String
   helper_totals : String
@@ -25,7 +25,7 @@ pub struct ValidateTraceBenchmarkResult {
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateTraceCliArgs {
-  repeats : Int
+  repeats : Int32
   corpora : Array[String]
 } derive(Eq, @debug.Debug)
 

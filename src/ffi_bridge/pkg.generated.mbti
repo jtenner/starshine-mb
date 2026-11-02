@@ -3,6 +3,7 @@ package "jtenner/starshine/ffi_bridge"
 
 import {
   "jtenner/starshine/lib",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
 }
 
@@ -17,13 +18,15 @@ pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
 
+pub fn function_export_builder_new() -> FunctionExportBuilder
+
 pub fn function_reference_builder_new() -> FunctionReferenceBuilder
 
-pub fn generate_engine_state_case(UInt64, Int) -> EncodedEngineStateCase
+pub fn generate_engine_state_case(UInt64, Int32) -> EncodedEngineStateCase
 
 pub fn global_builder_new() -> GlobalBuilder
 
-pub fn import_builder_new(Int) -> ImportBuilder
+pub fn import_builder_new(Int32) -> ImportBuilder
 
 pub fn imports_new() -> Array[@lib.Import]
 
@@ -31,21 +34,23 @@ pub fn imports_push_builder(Array[@lib.Import], ImportBuilder) -> Unit
 
 pub fn instruction_if(@lib.BlockType, Array[@lib.Instruction], Array[@lib.Instruction]) -> @lib.Instruction
 
-pub fn instruction_memory_builtin(Int) -> @lib.Instruction
+pub fn instruction_memory_builtin(Int32) -> @lib.Instruction
 
-pub fn instruction_ref_cast_nominal(Int) -> @lib.Instruction
+pub fn instruction_ref_cast_nominal(Int32) -> @lib.Instruction
 
-pub fn instruction_ref_test_nominal(Int) -> @lib.Instruction
+pub fn instruction_ref_test_nominal(Int32) -> @lib.Instruction
 
 pub fn instructions_new() -> Array[@lib.Instruction]
 
 pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
 
-pub fn memory_argument(UInt, UInt64) -> @lib.MemArg
+pub fn memory_argument(UInt32, UInt64) -> @lib.MemArg
 
 pub fn module_new() -> @lib.Module
 
-pub fn module_with_compiler_exports(@lib.Module, Int) -> @lib.Module
+pub fn module_with_additional_function_exports(@lib.Module, FunctionExportBuilder) -> @lib.Module
+
+pub fn module_with_compiler_exports(@lib.Module, Int32) -> @lib.Module
 
 pub fn module_with_declarative_functions(@lib.Module, FunctionReferenceBuilder) -> @lib.Module
 
@@ -55,11 +60,11 @@ pub fn module_with_dewdrop_compiler_facts(@lib.Module) -> @lib.Module
 
 pub fn module_with_globals(@lib.Module, GlobalBuilder) -> @lib.Module
 
-pub fn module_with_start_function(@lib.Module, Int) -> @lib.Module
+pub fn module_with_start_function(@lib.Module, Int32) -> @lib.Module
 
-pub fn nominal_ref_type(Int, Bool) -> @lib.ValType
+pub fn nominal_ref_type(Int32, Bool) -> @lib.ValType
 
-pub fn optimize_module(@lib.Module, Array[String], optimize_level? : Int, shrink_level? : Int) -> Result[@lib.Module, String]
+pub fn optimize_module(@lib.Module, Array[String], optimize_level? : Int32, shrink_level? : Int32) -> Result[@lib.Module, String]
 
 pub fn rec_types_new() -> Array[@lib.RecType]
 
@@ -77,11 +82,11 @@ pub fn validate_module(@lib.Module) -> Bool
 
 pub fn validate_wasi_preview1_schema(WasiPreview1Schema) -> Result[Unit, String]
 
-pub fn validation_error_byte_at(UInt) -> Byte
+pub fn validation_error_byte_at(UInt32) -> Byte
 
-pub fn validation_error_byte_length() -> UInt
+pub fn validation_error_byte_length() -> UInt32
 
-pub fn validation_error_function_index() -> Int
+pub fn validation_error_function_index() -> Int32
 
 pub fn wasi_preview1_fd_read_schema() -> WasiPreview1Schema
 
@@ -98,78 +103,85 @@ pub struct EncodedEngineStateCase {
   error : Bytes
   root_seed : UInt64
   case_seed : UInt64
-  case_index : Int
+  case_index : Int32
   selected_profile : Bytes
-  generator_attempts : Int
-  static_instruction_count : Int
+  generator_attempts : Int32
+  static_instruction_count : Int32
   expects_trap : Bool
   outcome_kind : Bytes
   trap_family : Bytes
 }
-pub fn EncodedEngineStateCase::case_index(Self) -> Int
+pub fn EncodedEngineStateCase::case_index(Self) -> Int32
 pub fn EncodedEngineStateCase::case_seed(Self) -> UInt64
-pub fn EncodedEngineStateCase::comparison_module_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::comparison_module_byte_length(Self) -> UInt
-pub fn EncodedEngineStateCase::error_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::error_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::comparison_module_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::comparison_module_byte_length(Self) -> UInt32
+pub fn EncodedEngineStateCase::error_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::error_byte_length(Self) -> UInt32
 pub fn EncodedEngineStateCase::expects_trap(Self) -> Bool
-pub fn EncodedEngineStateCase::generator_attempts(Self) -> Int
+pub fn EncodedEngineStateCase::generator_attempts(Self) -> Int32
 pub fn EncodedEngineStateCase::is_ok(Self) -> Bool
-pub fn EncodedEngineStateCase::module_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::module_byte_length(Self) -> UInt
-pub fn EncodedEngineStateCase::outcome_kind_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::outcome_kind_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::module_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::module_byte_length(Self) -> UInt32
+pub fn EncodedEngineStateCase::outcome_kind_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::outcome_kind_byte_length(Self) -> UInt32
 pub fn EncodedEngineStateCase::root_seed(Self) -> UInt64
-pub fn EncodedEngineStateCase::selected_profile_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::selected_profile_byte_length(Self) -> UInt
-pub fn EncodedEngineStateCase::static_instruction_count(Self) -> Int
-pub fn EncodedEngineStateCase::support_module_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::support_module_byte_length(Self) -> UInt
-pub fn EncodedEngineStateCase::support_module_count(Self) -> UInt
-pub fn EncodedEngineStateCase::support_module_indexed_byte_at(Self, UInt, UInt) -> Byte
-pub fn EncodedEngineStateCase::support_module_indexed_byte_length(Self, UInt) -> UInt
-pub fn EncodedEngineStateCase::trap_family_byte_at(Self, UInt) -> Byte
-pub fn EncodedEngineStateCase::trap_family_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::selected_profile_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::selected_profile_byte_length(Self) -> UInt32
+pub fn EncodedEngineStateCase::static_instruction_count(Self) -> Int32
+pub fn EncodedEngineStateCase::support_module_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::support_module_byte_length(Self) -> UInt32
+pub fn EncodedEngineStateCase::support_module_count(Self) -> UInt32
+pub fn EncodedEngineStateCase::support_module_indexed_byte_at(Self, UInt32, UInt32) -> Byte
+pub fn EncodedEngineStateCase::support_module_indexed_byte_length(Self, UInt32) -> UInt32
+pub fn EncodedEngineStateCase::trap_family_byte_at(Self, UInt32) -> Byte
+pub fn EncodedEngineStateCase::trap_family_byte_length(Self) -> UInt32
 
 pub struct EncodedModule {
   bytes : Bytes?
 }
-pub fn EncodedModule::byte_at(Self, UInt) -> Byte
-pub fn EncodedModule::byte_length(Self) -> UInt
+pub fn EncodedModule::byte_at(Self, UInt32) -> Byte
+pub fn EncodedModule::byte_length(Self) -> UInt32
 pub fn EncodedModule::is_ok(Self) -> Bool
+
+pub(all) struct FunctionExportBuilder {
+  exports : Array[@lib.Export]
+  name : @buffer.Buffer
+}
+pub fn FunctionExportBuilder::push(Self, Int32) -> Unit
+pub fn FunctionExportBuilder::push_name_byte(Self, Byte) -> Unit
 
 pub(all) struct FunctionReferenceBuilder {
   functions : Array[@lib.FuncIdx]
 }
-pub fn FunctionReferenceBuilder::push(Self, Int) -> Unit
+pub fn FunctionReferenceBuilder::push(Self, Int32) -> Unit
 
 pub(all) struct GlobalBuilder {
   globals : Array[@lib.Global]
 }
-pub fn GlobalBuilder::push(Self, Int) -> Unit
+pub fn GlobalBuilder::push(Self, Int32) -> Unit
 
 pub struct ImportBuilder {
   module_name : Array[Byte]
   field_name : Array[Byte]
-  type_index : Int
+  type_index : Int32
 }
 pub fn ImportBuilder::push_field_byte(Self, Byte) -> Unit
 pub fn ImportBuilder::push_module_byte(Self, Byte) -> Unit
 
 pub(all) enum WasiMarshalNode {
   WasiI32
-  WasiInputBytes(Int)
-  WasiOutputBytes(Int)
+  WasiInputBytes(Int32)
+  WasiOutputBytes(Int32)
   WasiPointer(Array[WasiMarshalNode])
-  WasiList(WasiMarshalNode, Int)
+  WasiList(WasiMarshalNode, Int32)
 } derive(Eq, @debug.Debug)
 
 pub(all) struct WasiPreview1Schema {
   module_name : String
   field : String
   parameters : Array[WasiMarshalNode]
-  maximum_depth : Int
-  maximum_nodes : Int
+  maximum_depth : Int32
+  maximum_nodes : Int32
 } derive(Eq, @debug.Debug)
 
 // Type aliases

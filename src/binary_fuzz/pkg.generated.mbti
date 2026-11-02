@@ -14,19 +14,19 @@ pub fn run_binary_roundtrip_fuzz(String, UInt64) -> Result[BinaryRoundtripFuzzSt
 pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  arbitrary_roundtrips : Int
-  gen_valid_modules : Int
-  gen_valid_validated : Int
-  byte_fuzz_cases : Int
-  byte_fuzz_decode_rejections : Int
-  byte_fuzz_decode_accepts : Int
-  byte_fuzz_validate_rejections : Int
-  byte_fuzz_stable_roundtrips : Int
-  boundary_roundtrips : Int
-  instruction_roundtrips : Int
-  section_roundtrips : Int
-  immediate_roundtrips : Int
+  attempts : Int32
+  arbitrary_roundtrips : Int32
+  gen_valid_modules : Int32
+  gen_valid_validated : Int32
+  byte_fuzz_cases : Int32
+  byte_fuzz_decode_rejections : Int32
+  byte_fuzz_decode_accepts : Int32
+  byte_fuzz_validate_rejections : Int32
+  byte_fuzz_stable_roundtrips : Int32
+  boundary_roundtrips : Int32
+  instruction_roundtrips : Int32
+  section_roundtrips : Int32
+  immediate_roundtrips : Int32
 } derive(Eq, @debug.Debug)
 
 // Type aliases

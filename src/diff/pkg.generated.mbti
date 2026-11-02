@@ -14,12 +14,12 @@ pub fn render_line_diff(String, String, options? : DiffOptions) -> String
 
 // Types and methods
 pub struct DiffChange {
-  lhs_at : Int
-  lhs_del : Int
-  rhs_at : Int
-  rhs_add : Int
+  lhs_at : Int32
+  lhs_del : Int32
+  rhs_at : Int32
+  rhs_add : Int32
 } derive(Eq, @debug.Debug)
-pub fn DiffChange::new(Int, Int, Int, Int) -> Self
+pub fn DiffChange::new(Int32, Int32, Int32, Int32) -> Self
 
 pub enum DiffCompareMode {
   CompareLines

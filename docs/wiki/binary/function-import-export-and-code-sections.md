@@ -272,3 +272,22 @@ special case. The bridge test checks exact export IR, preserves the original
 module, and validates an encode/decode round trip. Export construction adds one
 array copy and one append per module, rather than rebuilding the export section
 for each function. No runtime speed or heap reduction is claimed.
+
+## Modern MoonBit FFI generation
+
+The FFI generator accepts both Int/UInt and Int32/UInt32 interface names.
+The selected-export regression fixture comes from Dewdrop and must retain every
+selected bridge export after moon info refreshes interfaces.
+
+Regeneration also exposes two existing public APIs missing from the committed
+wrappers: ir::hot_build_resolved_loop (64945e709) and
+validate::gen_valid_rule_recipe_metadata (5bf84a457). Both have public signature
+types and real implementations. The latter uses UInt64, which was already
+supported; its addition repairs stale generated output, not the Int32 filter.
+Neither requires a special export selection rule.
+
+The byte-based function export builder is restored from October commit
+1b237952167f582abd492aec27adf10c5a6c9e60. It appends exports in order, preserves
+existing exports, decodes UTF-8 names, resets the pending name after each push,
+and retains all unsigned function-index bits. The binary round-trip test checks
+the resulting export section.

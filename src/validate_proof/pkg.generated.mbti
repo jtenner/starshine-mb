@@ -2,35 +2,35 @@
 package "jtenner/starshine/validate_proof"
 
 // Values
-pub fn bounded_index(Int, Int) -> Int?
+pub fn bounded_index(Int32, Int32) -> Int32?
 
-pub fn defined_body_func_index(Int, Int, Int) -> Int?
+pub fn defined_body_func_index(Int32, Int32, Int32) -> Int32?
 
-pub fn defined_func_absolute_index(Int, Int) -> Int
+pub fn defined_func_absolute_index(Int32, Int32) -> Int32
 
-pub fn defined_func_body_index(Int, Int) -> Int?
+pub fn defined_func_body_index(Int32, Int32) -> Int32?
 
-pub fn group_member_relative_index(Int, Int, Int) -> Int?
+pub fn group_member_relative_index(Int32, Int32, Int32) -> Int32?
 
-pub fn group_relative_absolute_index(Int, Int, Int) -> Int?
+pub fn group_relative_absolute_index(Int32, Int32, Int32) -> Int32?
 
-pub fn label_stack_storage_index(Int, Int) -> Int?
+pub fn label_stack_storage_index(Int32, Int32) -> Int32?
 
-pub fn latest_stack_index(Int) -> Int?
+pub fn latest_stack_index(Int32) -> Int32?
 
-pub fn rectype_suffix_member_index(Int, Int, Int) -> Int?
+pub fn rectype_suffix_member_index(Int32, Int32, Int32) -> Int32?
 
-pub fn stack_len_after_pop1(Int) -> Int?
+pub fn stack_len_after_pop1(Int32) -> Int32?
 
-pub fn stack_len_after_pop_types(Int, Int) -> Int?
+pub fn stack_len_after_pop_types(Int32, Int32) -> Int32?
 
-pub fn stack_len_after_push1(Int) -> Int
+pub fn stack_len_after_push1(Int32) -> Int32
 
-pub fn stack_len_after_push_types(Int, Int) -> Int
+pub fn stack_len_after_push_types(Int32, Int32) -> Int32
 
-pub fn stack_suffix_start_after_end_check(Int, Int) -> Int?
+pub fn stack_suffix_start_after_end_check(Int32, Int32) -> Int32?
 
-pub fn suffix_start_index(Int, Int) -> Int?
+pub fn suffix_start_index(Int32, Int32) -> Int32?
 
 // Errors
 

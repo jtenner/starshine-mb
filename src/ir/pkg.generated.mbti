@@ -10,81 +10,81 @@ import {
 }
 
 // Values
-pub const EFFECT_MASK_ACQUIRE : UInt = 4096
+pub const EFFECT_MASK_ACQUIRE : UInt32 = 4096
 
-pub const EFFECT_MASK_ATOMIC_READ : UInt = 1024
+pub const EFFECT_MASK_ATOMIC_READ : UInt32 = 1024
 
-pub const EFFECT_MASK_ATOMIC_WRITE : UInt = 2048
+pub const EFFECT_MASK_ATOMIC_WRITE : UInt32 = 2048
 
-pub const EFFECT_MASK_CALL : UInt = 2
+pub const EFFECT_MASK_CALL : UInt32 = 2
 
-pub const EFFECT_MASK_CONTROL : UInt = 1
+pub const EFFECT_MASK_CONTROL : UInt32 = 1
 
-pub const EFFECT_MASK_GLOBAL_STATE : UInt = 32
+pub const EFFECT_MASK_GLOBAL_STATE : UInt32 = 32
 
-pub const EFFECT_MASK_LOCAL_STATE : UInt = 16
+pub const EFFECT_MASK_LOCAL_STATE : UInt32 = 16
 
-pub const EFFECT_MASK_MEMORY_READ : UInt = 64
+pub const EFFECT_MASK_MEMORY_READ : UInt32 = 64
 
-pub const EFFECT_MASK_MEMORY_WRITE : UInt = 128
+pub const EFFECT_MASK_MEMORY_WRITE : UInt32 = 128
 
-pub const EFFECT_MASK_RELEASE : UInt = 8192
+pub const EFFECT_MASK_RELEASE : UInt32 = 8192
 
-pub const EFFECT_MASK_SEQ_CST : UInt = 16384
+pub const EFFECT_MASK_SEQ_CST : UInt32 = 16384
 
-pub const EFFECT_MASK_TABLE_READ : UInt = 256
+pub const EFFECT_MASK_TABLE_READ : UInt32 = 256
 
-pub const EFFECT_MASK_TABLE_WRITE : UInt = 512
+pub const EFFECT_MASK_TABLE_WRITE : UInt32 = 512
 
-pub const EFFECT_MASK_THROW : UInt = 4
+pub const EFFECT_MASK_THROW : UInt32 = 4
 
-pub const EFFECT_MASK_TRAP : UInt = 8
+pub const EFFECT_MASK_TRAP : UInt32 = 8
 
-pub const HOT_FLAG_BRANCH : UInt = 32
+pub const HOT_FLAG_BRANCH : UInt32 = 32
 
-pub const HOT_FLAG_CALL : UInt = 64
+pub const HOT_FLAG_CALL : UInt32 = 64
 
-pub const HOT_FLAG_CONTROL : UInt = 2
+pub const HOT_FLAG_CONTROL : UInt32 = 2
 
-pub const HOT_FLAG_HAS_EXCEPTIONAL_SUCC : UInt = 1024
+pub const HOT_FLAG_HAS_EXCEPTIONAL_SUCC : UInt32 = 1024
 
-pub const HOT_FLAG_LOAD : UInt = 128
+pub const HOT_FLAG_LOAD : UInt32 = 128
 
-pub const HOT_FLAG_MAY_TRAP : UInt = 16
+pub const HOT_FLAG_MAY_TRAP : UInt32 = 16
 
-pub const HOT_FLAG_SIDE_EFFECT : UInt = 4
+pub const HOT_FLAG_SIDE_EFFECT : UInt32 = 4
 
-pub const HOT_FLAG_STORE : UInt = 256
+pub const HOT_FLAG_STORE : UInt32 = 256
 
-pub const HOT_FLAG_TERMINATOR : UInt = 1
+pub const HOT_FLAG_TERMINATOR : UInt32 = 1
 
-pub const HOT_FLAG_THROWS : UInt = 512
+pub const HOT_FLAG_THROWS : UInt32 = 512
 
-pub const HOT_FLAG_VALUE : UInt = 8
+pub const HOT_FLAG_VALUE : UInt32 = 8
 
-pub const HOT_IMPLICIT_FUNCTION_LABEL : Int = -2
+pub const HOT_IMPLICIT_FUNCTION_LABEL : Int32 = -2
 
-pub fn bitset_clear(Bitset, Int) -> Bool
+pub fn bitset_clear(Bitset, Int32) -> Bool
 
-pub fn bitset_contains(Bitset, Int) -> Bool
+pub fn bitset_contains(Bitset, Int32) -> Bool
 
 pub fn bitset_difference_into(Bitset, Bitset) -> Bool
 
 pub fn bitset_equals(Bitset, Bitset) -> Bool
 
-pub fn bitset_for_each_set_bit(Bitset, (Int) -> Unit) -> Unit
+pub fn bitset_for_each_set_bit(Bitset, (Int32) -> Unit) -> Unit
 
 pub fn bitset_intersect_into(Bitset, Bitset) -> Bool
 
-pub fn bitset_new(Int) -> Bitset
+pub fn bitset_new(Int32) -> Bitset
 
-pub fn bitset_set(Bitset, Int) -> Bool
+pub fn bitset_set(Bitset, Int32) -> Bool
 
 pub fn bitset_union_into(Bitset, Bitset) -> Bool
 
-pub fn block_local_defs(HotUseDef, Int) -> Bitset
+pub fn block_local_defs(HotUseDef, Int32) -> Bitset
 
-pub fn block_local_uses(HotUseDef, Int) -> Bitset
+pub fn block_local_uses(HotUseDef, Int32) -> Bitset
 
 pub fn cache_get_or_build_cfg(HotAnalysisCache, HotFunc) -> HotCfg
 
@@ -108,55 +108,55 @@ pub fn cache_invalidate_all(HotAnalysisCache) -> Unit
 
 pub fn cache_invalidate_analyses(HotAnalysisCache, Array[HotAnalysis]) -> Unit
 
-pub fn cache_swap_scalar_operands(HotAnalysisCache, HotFunc, Int, instr? : @lib.Instruction?) -> Bool
+pub fn cache_swap_scalar_operands(HotAnalysisCache, HotFunc, Int32, instr? : @lib.Instruction?) -> Bool
 
-pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
+pub fn cfg_block_boundary_reasons(HotFunc, Int32) -> Array[CfgBlockBoundaryReason]
 
-pub fn cfg_block_count(HotCfg) -> Int
+pub fn cfg_block_count(HotCfg) -> Int32
 
-pub fn cfg_block_for_node(HotCfg, Int) -> Int?
+pub fn cfg_block_for_node(HotCfg, Int32) -> Int32?
 
-pub fn cfg_block_for_region_root(HotCfg, HotRegionRef, Int) -> Int?
+pub fn cfg_block_for_region_root(HotCfg, HotRegionRef, Int32) -> Int32?
 
-pub fn cfg_block_get(HotCfg, Int) -> HotBlockInfo
+pub fn cfg_block_get(HotCfg, Int32) -> HotBlockInfo
 
-pub fn cfg_block_worklist_seed(HotCfg) -> Array[Int]
+pub fn cfg_block_worklist_seed(HotCfg) -> Array[Int32]
 
 pub fn cfg_build(HotFunc, conservative_exception_entries? : Bool, expand_operand_control? : Bool) -> HotCfg
 
 pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
 
-pub fn cfg_entry_block(HotCfg) -> Int
+pub fn cfg_entry_block(HotCfg) -> Int32
 
 pub fn cfg_exception_target_policy(HotOp) -> CfgExceptionTargetPolicy
 
-pub fn cfg_exceptional_exit_block(HotCfg) -> Int?
+pub fn cfg_exceptional_exit_block(HotCfg) -> Int32?
 
-pub fn cfg_exit_block(HotCfg) -> Int
+pub fn cfg_exit_block(HotCfg) -> Int32
 
-pub fn cfg_postorder(HotCfg) -> Array[Int]
+pub fn cfg_postorder(HotCfg) -> Array[Int32]
 
-pub fn cfg_predecessor_edges(HotCfg, Int) -> Array[CfgEdge]
+pub fn cfg_predecessor_edges(HotCfg, Int32) -> Array[CfgEdge]
 
-pub fn cfg_predecessors(HotCfg, Int) -> Array[CfgEdge]
+pub fn cfg_predecessors(HotCfg, Int32) -> Array[CfgEdge]
 
-pub fn cfg_preorder(HotCfg) -> Array[Int]
+pub fn cfg_preorder(HotCfg) -> Array[Int32]
 
-pub fn cfg_region_blocks_in_rpo(HotCfg, HotRegionRef) -> Array[Int]
+pub fn cfg_region_blocks_in_rpo(HotCfg, HotRegionRef) -> Array[Int32]
 
-pub fn cfg_region_root_can_reach_next(HotFunc, HotCfg, HotRegionRef, Int) -> Bool
+pub fn cfg_region_root_can_reach_next(HotFunc, HotCfg, HotRegionRef, Int32) -> Bool
 
-pub fn cfg_reverse_postorder(HotCfg) -> Array[Int]
+pub fn cfg_reverse_postorder(HotCfg) -> Array[Int32]
 
-pub fn cfg_reverse_postorder_from_exit(HotCfg) -> Array[Int]
+pub fn cfg_reverse_postorder_from_exit(HotCfg) -> Array[Int32]
 
-pub fn cfg_reverse_postorder_from_exit_with_exceptions(HotCfg) -> Array[Int]
+pub fn cfg_reverse_postorder_from_exit_with_exceptions(HotCfg) -> Array[Int32]
 
-pub fn cfg_reverse_postorder_with_exceptions(HotCfg) -> Array[Int]
+pub fn cfg_reverse_postorder_with_exceptions(HotCfg) -> Array[Int32]
 
-pub fn cfg_successor_edges(HotCfg, Int) -> Array[CfgEdge]
+pub fn cfg_successor_edges(HotCfg, Int32) -> Array[CfgEdge]
 
-pub fn cfg_successors(HotCfg, Int) -> Array[CfgEdge]
+pub fn cfg_successors(HotCfg, Int32) -> Array[CfgEdge]
 
 pub fn cfg_terminator_edge_kinds(HotOp) -> Array[CfgEdgeKind]
 
@@ -172,269 +172,269 @@ pub fn compat_trunc_f64_to_i64_u(Double) -> Int64?
 
 pub fn dom_build(HotCfg) -> HotDominators
 
-pub fn dom_children(HotDominators, Int) -> Array[Int]
+pub fn dom_children(HotDominators, Int32) -> Array[Int32]
 
 pub fn dom_debug_dump(HotDominators) -> String
 
-pub fn dom_dominates(HotDominators, Int, Int) -> Bool
+pub fn dom_dominates(HotDominators, Int32, Int32) -> Bool
 
-pub fn dom_frontier(HotDominators, Int) -> Array[Int]
+pub fn dom_frontier(HotDominators, Int32) -> Array[Int32]
 
-pub fn dom_idom(HotDominators, Int) -> Int?
+pub fn dom_idom(HotDominators, Int32) -> Int32?
 
-pub fn dom_strictly_dominates(HotDominators, Int, Int) -> Bool
+pub fn dom_strictly_dominates(HotDominators, Int32, Int32) -> Bool
 
-pub fn effects_atomic_order_mask(@lib.AtomicOrder, read~ : Bool, write~ : Bool) -> UInt
+pub fn effects_atomic_order_mask(@lib.AtomicOrder, read~ : Bool, write~ : Bool) -> UInt32
 
-pub fn effects_atomic_orders_conflict(UInt, UInt, earlier_shared~ : Bool, later_shared~ : Bool) -> Bool
+pub fn effects_atomic_orders_conflict(UInt32, UInt32, earlier_shared~ : Bool, later_shared~ : Bool) -> Bool
 
-pub fn effects_for_block(HotFunc, HotCfg, Int) -> UInt
+pub fn effects_for_block(HotFunc, HotCfg, Int32) -> UInt32
 
-pub fn effects_for_node(HotFunc, Int) -> UInt
+pub fn effects_for_node(HotFunc, Int32) -> UInt32
 
-pub fn effects_for_node_subtree(HotFunc, Int) -> UInt
+pub fn effects_for_node_subtree(HotFunc, Int32) -> UInt32
 
-pub fn effects_for_region(HotFunc, HotRegionRef) -> UInt
+pub fn effects_for_region(HotFunc, HotRegionRef) -> UInt32
 
-pub fn effects_is_pure(UInt) -> Bool
+pub fn effects_is_pure(UInt32) -> Bool
 
-pub fn effects_may_throw(UInt) -> Bool
+pub fn effects_may_throw(UInt32) -> Bool
 
-pub fn effects_reads_memory(UInt) -> Bool
+pub fn effects_reads_memory(UInt32) -> Bool
 
-pub fn effects_writes_memory(UInt) -> Bool
+pub fn effects_writes_memory(UInt32) -> Bool
 
-pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int
+pub fn hot_alloc_branch_table(HotFunc, HotBranchTable) -> Int32
 
-pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int
+pub fn hot_alloc_call_sig(HotFunc, HotCallSig) -> Int32
 
-pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int
+pub fn hot_alloc_catch_info(HotFunc, HotCatchInfo) -> Int32
 
-pub fn hot_alloc_child_span(HotFunc, Int) -> Int
+pub fn hot_alloc_child_span(HotFunc, Int32) -> Int32
 
-pub fn hot_alloc_children(HotFunc, Int) -> Int
+pub fn hot_alloc_children(HotFunc, Int32) -> Int32
 
-pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int
+pub fn hot_alloc_const(HotFunc, HotConstPayload) -> Int32
 
-pub fn hot_alloc_instr_payload(HotFunc, HotInstrPayload) -> Int
+pub fn hot_alloc_instr_payload(HotFunc, HotInstrPayload) -> Int32
 
-pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int
+pub fn hot_alloc_memarg(HotFunc, HotMemArg) -> Int32
 
-pub fn hot_alloc_node(HotFunc, HotNode) -> Int
+pub fn hot_alloc_node(HotFunc, HotNode) -> Int32
 
-pub fn hot_append_body_local(HotFunc, @lib.ValType) -> Int
+pub fn hot_append_body_local(HotFunc, @lib.ValType) -> Int32
 
-pub fn hot_append_root(HotFunc, Int) -> Unit
+pub fn hot_append_root(HotFunc, Int32) -> Unit
 
-pub fn hot_body_result_type(HotFunc) -> Int
+pub fn hot_body_result_type(HotFunc) -> Int32
 
-pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
+pub fn hot_body_result_type_set(HotFunc, Int32) -> Unit
 
-pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
+pub fn hot_branch_table_default_target(HotFunc, Int32) -> Int32
 
-pub fn hot_branch_table_set(HotFunc, Int, Array[Int], Int) -> Unit
+pub fn hot_branch_table_set(HotFunc, Int32, Array[Int32], Int32) -> Unit
 
-pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
+pub fn hot_branch_table_targets(HotFunc, Int32) -> Array[Int32]
 
-pub fn hot_branch_table_targets_for_node(HotFunc, Int) -> Array[Int]
+pub fn hot_branch_table_targets_for_node(HotFunc, Int32) -> Array[Int32]
 
-pub fn hot_branch_target(HotFunc, Int) -> Int?
+pub fn hot_branch_target(HotFunc, Int32) -> Int32?
 
-pub fn hot_branch_target_set(HotFunc, Int, Int) -> Unit
+pub fn hot_branch_target_set(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_build_atomic(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
+pub fn hot_build_atomic(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int32]) -> Int32
 
-pub fn hot_build_binary(HotFunc, @lib.ValType, Int, Int) -> Int
+pub fn hot_build_binary(HotFunc, @lib.ValType, Int32, Int32) -> Int32
 
-pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int]) -> Int
+pub fn hot_build_block(HotFunc, @lib.BlockType, Array[Int32]) -> Int32
 
-pub fn hot_build_br(HotFunc, Int, values? : Array[Int]) -> Int
+pub fn hot_build_br(HotFunc, Int32, values? : Array[Int32]) -> Int32
 
-pub fn hot_build_br_if(HotFunc, Int, Int, values? : Array[Int]) -> Int
+pub fn hot_build_br_if(HotFunc, Int32, Int32, values? : Array[Int32]) -> Int32
 
-pub fn hot_build_br_table(HotFunc, Array[Int], Int, Int, values? : Array[Int]) -> Int
+pub fn hot_build_br_table(HotFunc, Array[Int32], Int32, Int32, values? : Array[Int32]) -> Int32
 
-pub fn hot_build_call(HotFunc, Int, Array[@lib.ValType], Array[Int]) -> Int
+pub fn hot_build_call(HotFunc, Int32, Array[@lib.ValType], Array[Int32]) -> Int32
 
-pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.ValType], Array[Int], Int) -> Int
+pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.ValType], Array[Int32], Int32) -> Int32
 
-pub fn hot_build_call_ref(HotFunc, @lib.TypeIdx, Array[@lib.ValType], Array[Int], Int) -> Int
+pub fn hot_build_call_ref(HotFunc, @lib.TypeIdx, Array[@lib.ValType], Array[Int32], Int32) -> Int32
 
-pub fn hot_build_catch_payload(HotFunc, @lib.TagIdx, @lib.ValType) -> Int
+pub fn hot_build_catch_payload(HotFunc, @lib.TagIdx, @lib.ValType) -> Int32
 
-pub fn hot_build_compare(HotFunc, Int, Int) -> Int
+pub fn hot_build_compare(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_build_const_f32(HotFunc, @lib.F32) -> Int
+pub fn hot_build_const_f32(HotFunc, @lib.F32) -> Int32
 
-pub fn hot_build_const_f64(HotFunc, @lib.F64) -> Int
+pub fn hot_build_const_f64(HotFunc, @lib.F64) -> Int32
 
-pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
+pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int32
 
-pub fn hot_build_const_i64(HotFunc, @lib.I64) -> Int
+pub fn hot_build_const_i64(HotFunc, @lib.I64) -> Int32
 
-pub fn hot_build_const_v128_splat(HotFunc, Byte) -> Int
+pub fn hot_build_const_v128_splat(HotFunc, Byte) -> Int32
 
-pub fn hot_build_const_v128_zero(HotFunc) -> Int
+pub fn hot_build_const_v128_zero(HotFunc) -> Int32
 
-pub fn hot_build_convert(HotFunc, @lib.ValType, Int) -> Int
+pub fn hot_build_convert(HotFunc, @lib.ValType, Int32) -> Int32
 
-pub fn hot_build_delegate(HotFunc, Int) -> Int
+pub fn hot_build_delegate(HotFunc, Int32) -> Int32
 
-pub fn hot_build_drop(HotFunc, Int) -> Int
+pub fn hot_build_drop(HotFunc, Int32) -> Int32
 
-pub fn hot_build_global_get(HotFunc, Int, @lib.ValType) -> Int
+pub fn hot_build_global_get(HotFunc, Int32, @lib.ValType) -> Int32
 
-pub fn hot_build_global_set(HotFunc, Int, Int) -> Int
+pub fn hot_build_global_set(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_build_heap(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
+pub fn hot_build_heap(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int32]) -> Int32
 
-pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
+pub fn hot_build_if(HotFunc, @lib.BlockType, Int32, Array[Int32], else_body? : Array[Int32]?) -> Int32
 
-pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
+pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int32) -> Int32
 
-pub fn hot_build_local_get(HotFunc, Int) -> Int
+pub fn hot_build_local_get(HotFunc, Int32) -> Int32
 
-pub fn hot_build_local_set(HotFunc, Int, Int) -> Int
+pub fn hot_build_local_set(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_build_local_set_from_tee(HotFunc, Int) -> Int
+pub fn hot_build_local_set_from_tee(HotFunc, Int32) -> Int32
 
-pub fn hot_build_local_set_from_value(HotFunc, Int, Int) -> Int
+pub fn hot_build_local_set_from_value(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_build_local_tee(HotFunc, Int, Int) -> Int
+pub fn hot_build_local_tee(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_build_local_tee_from_set(HotFunc, Int) -> Int
+pub fn hot_build_local_tee_from_set(HotFunc, Int32) -> Int32
 
-pub fn hot_build_loop(HotFunc, @lib.BlockType, Array[Int]) -> Int
+pub fn hot_build_loop(HotFunc, @lib.BlockType, Array[Int32]) -> Int32
 
-pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? : Array[Int]) -> Int
+pub fn hot_build_node(HotFunc, HotOp, Int32, imm0? : Int32, imm1? : Int32, children? : Array[Int32]) -> Int32
 
-pub fn hot_build_nop(HotFunc) -> Int
+pub fn hot_build_nop(HotFunc) -> Int32
 
-pub fn hot_build_ref_func(HotFunc, @lib.FuncIdx, @lib.RefType) -> Int
+pub fn hot_build_ref_func(HotFunc, @lib.FuncIdx, @lib.RefType) -> Int32
 
-pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
+pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int32
 
-pub fn hot_build_region(HotFunc, Array[Int], Int) -> Int
+pub fn hot_build_region(HotFunc, Array[Int32], Int32) -> Int32
 
-pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int]) -> Int
+pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int32]) -> Int32
 
-pub fn hot_build_resolved_loop(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int], Array[Int]) -> Int
+pub fn hot_build_resolved_loop(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int32], Array[Int32]) -> Int32
 
-pub fn hot_build_return(HotFunc, Array[Int]) -> Int
+pub fn hot_build_return(HotFunc, Array[Int32]) -> Int32
 
-pub fn hot_build_return_call(HotFunc, Int, Array[Int]) -> Int
+pub fn hot_build_return_call(HotFunc, Int32, Array[Int32]) -> Int32
 
-pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[Int], Int) -> Int
+pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[Int32], Int32) -> Int32
 
-pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int], Int) -> Int
+pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int32], Int32) -> Int32
 
-pub fn hot_build_select(HotFunc, @lib.ValType, Int, Int, Int) -> Int
+pub fn hot_build_select(HotFunc, @lib.ValType, Int32, Int32, Int32) -> Int32
 
-pub fn hot_build_simd(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
+pub fn hot_build_simd(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int32]) -> Int32
 
-pub fn hot_build_store(HotFunc, @lib.MemArg, Int, Int) -> Int
+pub fn hot_build_store(HotFunc, @lib.MemArg, Int32, Int32) -> Int32
 
-pub fn hot_build_string_const(HotFunc, Bytes) -> Int
+pub fn hot_build_string_const(HotFunc, Bytes) -> Int32
 
-pub fn hot_build_table_get(HotFunc, Int, @lib.ValType, Int) -> Int
+pub fn hot_build_table_get(HotFunc, Int32, @lib.ValType, Int32) -> Int32
 
-pub fn hot_build_table_set(HotFunc, Int, Int, Int) -> Int
+pub fn hot_build_table_set(HotFunc, Int32, Int32, Int32) -> Int32
 
-pub fn hot_build_throw(HotFunc, @lib.TagIdx, Array[Int]) -> Int
+pub fn hot_build_throw(HotFunc, @lib.TagIdx, Array[Int32]) -> Int32
 
-pub fn hot_build_throw_ref(HotFunc, Int) -> Int
+pub fn hot_build_throw_ref(HotFunc, Int32) -> Int32
 
-pub fn hot_build_try(HotFunc, @lib.BlockType, Array[Int], catch_body? : Array[Int]?) -> Int
+pub fn hot_build_try(HotFunc, @lib.BlockType, Array[Int32], catch_body? : Array[Int32]?) -> Int32
 
-pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[Int], catch_list_body? : Array[Int]) -> Int
+pub fn hot_build_try_table(HotFunc, @lib.BlockType, Array[HotCatchArm], Array[Int32], catch_list_body? : Array[Int32]) -> Int32
 
-pub fn hot_build_tuple_extract(HotFunc, @lib.ValType, Int, Int) -> Int
+pub fn hot_build_tuple_extract(HotFunc, @lib.ValType, Int32, Int32) -> Int32
 
-pub fn hot_build_tuple_make(HotFunc, Array[@lib.ValType], Array[Int]) -> Int
+pub fn hot_build_tuple_make(HotFunc, Array[@lib.ValType], Array[Int32]) -> Int32
 
-pub fn hot_build_unary(HotFunc, @lib.ValType, Int) -> Int
+pub fn hot_build_unary(HotFunc, @lib.ValType, Int32) -> Int32
 
-pub fn hot_build_unreachable(HotFunc) -> Int
+pub fn hot_build_unreachable(HotFunc) -> Int32
 
-pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
+pub fn hot_call_sig_get(HotFunc, Int32) -> HotCallSig
 
-pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
+pub fn hot_catch_info_get(HotFunc, Int32) -> HotCatchInfo
 
-pub fn hot_catch_payload_tag(HotFunc, Int) -> @lib.TagIdx
+pub fn hot_catch_payload_tag(HotFunc, Int32) -> @lib.TagIdx
 
-pub fn hot_child_count(HotFunc, Int) -> Int
+pub fn hot_child_count(HotFunc, Int32) -> Int32
 
-pub fn hot_child_get(HotFunc, Int, Int) -> Int
+pub fn hot_child_get(HotFunc, Int32, Int32) -> Int32
 
-pub fn hot_child_set(HotFunc, Int, Int, Int) -> Unit
+pub fn hot_child_set(HotFunc, Int32, Int32, Int32) -> Unit
 
-pub fn hot_child_span(HotFunc, Int) -> Array[Int]
+pub fn hot_child_span(HotFunc, Int32) -> Array[Int32]
 
-pub fn hot_child_storage_count(HotFunc) -> Int
+pub fn hot_child_storage_count(HotFunc) -> Int32
 
-pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
+pub fn hot_const_get(HotFunc, Int32) -> HotConstPayload
 
-pub fn hot_continuation_targets(HotFunc, Int) -> Array[Int]
+pub fn hot_continuation_targets(HotFunc, Int32) -> Array[Int32]
 
-pub fn hot_continuation_targets_set(HotFunc, Int, Array[Int]) -> Unit
+pub fn hot_continuation_targets_set(HotFunc, Int32, Array[Int32]) -> Unit
 
-pub fn hot_control_demote_if_to_block(HotFunc, Int, Array[Int]) -> Unit
+pub fn hot_control_demote_if_to_block(HotFunc, Int32, Array[Int32]) -> Unit
 
-pub fn hot_control_demote_loop_to_block(HotFunc, Int) -> Unit
+pub fn hot_control_demote_loop_to_block(HotFunc, Int32) -> Unit
 
-pub fn hot_control_node_label(HotFunc, Int) -> Int
+pub fn hot_control_node_label(HotFunc, Int32) -> Int32
 
 pub fn hot_control_region_slot_info(HotOp) -> Array[HotControlRegionSlotInfo]
 
-pub fn hot_control_result_type_set(HotFunc, Int, Int) -> Unit
+pub fn hot_control_result_type_set(HotFunc, Int32, Int32) -> Unit
 
 pub fn hot_debug_dump_core(HotFunc) -> String
 
-pub fn hot_default_flags_for_op(HotOp) -> UInt
+pub fn hot_default_flags_for_op(HotOp) -> UInt32
 
-pub fn hot_delete_detached_control_forest(HotFunc, Array[Int]) -> Bool
+pub fn hot_delete_detached_control_forest(HotFunc, Array[Int32]) -> Bool
 
-pub fn hot_delete_detached_control_subtree(HotFunc, Int) -> Bool
+pub fn hot_delete_detached_control_subtree(HotFunc, Int32) -> Bool
 
-pub fn hot_delete_detached_forest(HotFunc, Array[Int]) -> Bool
+pub fn hot_delete_detached_forest(HotFunc, Array[Int32]) -> Bool
 
-pub fn hot_delete_detached_node(HotFunc, Int) -> Unit
+pub fn hot_delete_detached_node(HotFunc, Int32) -> Unit
 
-pub fn hot_delete_detached_nodes(HotFunc, Array[Int]) -> Unit
+pub fn hot_delete_detached_nodes(HotFunc, Array[Int32]) -> Unit
 
-pub fn hot_delete_node(HotFunc, Int) -> Unit
+pub fn hot_delete_node(HotFunc, Int32) -> Unit
 
-pub fn[S, E] hot_for_each_child(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_for_each_child(HotFunc, Int32, S, (S, Int32, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn[S, E] hot_for_each_root(HotFunc, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_for_each_root(HotFunc, S, (S, Int32, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
+pub fn hot_has_exceptional_succ(HotFunc, Int32) -> Bool
 
-pub fn hot_has_side_effect(HotFunc, Int) -> Bool
+pub fn hot_has_side_effect(HotFunc, Int32) -> Bool
 
-pub fn hot_instr_payload_get(HotFunc, Int) -> HotInstrPayload
+pub fn hot_instr_payload_get(HotFunc, Int32) -> HotInstrPayload
 
-pub fn hot_is_branch(HotFunc, Int) -> Bool
+pub fn hot_is_branch(HotFunc, Int32) -> Bool
 
-pub fn hot_is_control_node(HotFunc, Int) -> Bool
+pub fn hot_is_control_node(HotFunc, Int32) -> Bool
 
-pub fn hot_is_terminator_node(HotFunc, Int) -> Bool
+pub fn hot_is_terminator_node(HotFunc, Int32) -> Bool
 
-pub fn hot_label_alloc(HotFunc, HotLabelKind, Int, Int, Int) -> Int
+pub fn hot_label_alloc(HotFunc, HotLabelKind, Int32, Int32, Int32) -> Int32
 
-pub fn hot_label_branch_arity(HotFunc, Int) -> Int
+pub fn hot_label_branch_arity(HotFunc, Int32) -> Int32
 
-pub fn hot_label_get(HotFunc, Int) -> HotLabelInfo
+pub fn hot_label_get(HotFunc, Int32) -> HotLabelInfo
 
-pub fn hot_label_is_live(HotFunc, Int) -> Bool
+pub fn hot_label_is_live(HotFunc, Int32) -> Bool
 
-pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
+pub fn hot_label_kind(HotFunc, Int32) -> HotLabelKind
 
-pub fn hot_label_owner(HotFunc, Int) -> Int
+pub fn hot_label_owner(HotFunc, Int32) -> Int32
 
-pub fn hot_label_owner_set(HotFunc, Int, Int) -> Unit
+pub fn hot_label_owner_set(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_label_result_type(HotFunc, Int) -> Int
+pub fn hot_label_result_type(HotFunc, Int32) -> Int32
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
@@ -458,19 +458,19 @@ pub fn hot_lift_local_accesses(HotFunc) -> HotLiftLocalAccesses
 
 pub fn hot_lift_release_local_accesses(HotFunc) -> Unit
 
-pub fn hot_local_body_count(HotFunc) -> Int
+pub fn hot_local_body_count(HotFunc) -> Int32
 
-pub fn hot_local_count(HotFunc) -> Int
+pub fn hot_local_count(HotFunc) -> Int32
 
-pub fn hot_local_is_param(HotFunc, Int) -> Bool
+pub fn hot_local_is_param(HotFunc, Int32) -> Bool
 
-pub fn hot_local_node_id_set(HotFunc, Int, Int) -> Unit
+pub fn hot_local_node_id_set(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_local_param_count(HotFunc) -> Int
+pub fn hot_local_param_count(HotFunc) -> Int32
 
-pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?
+pub fn hot_local_type(HotFunc, Int32) -> @lib.ValType?
 
-pub fn hot_loop_entry_values_clear(HotFunc, Int) -> Array[Int]
+pub fn hot_loop_entry_values_clear(HotFunc, Int32) -> Array[Int32]
 
 pub fn hot_lower_body(HotFunc) -> @lib.Expr
 
@@ -484,11 +484,11 @@ pub fn hot_lower_func_unverified_with_options(HotFunc, HotLowerOptions) -> @lib.
 
 pub fn hot_lower_func_with_options(HotFunc, HotLowerOptions) -> @lib.Func
 
-pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
+pub fn hot_make_simple_node(HotOp, Int32, UInt32, Int32, Int32, Array[Int32]) -> HotNode
 
-pub fn hot_may_trap(HotFunc, Int) -> Bool
+pub fn hot_may_trap(HotFunc, Int32) -> Bool
 
-pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
+pub fn hot_memarg_get(HotFunc, Int32) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
@@ -530,149 +530,149 @@ pub fn hot_module_resolve_tag_type(HotModuleContext, @lib.TagIdx) -> @lib.TagTyp
 
 pub fn hot_module_resolve_type_func_type(HotModuleContext, @lib.TypeIdx) -> @lib.FuncType?
 
-pub fn hot_module_subtype_count(HotModuleContext) -> Int
+pub fn hot_module_subtype_count(HotModuleContext) -> Int32
 
-pub fn hot_node_count(HotFunc) -> Int
+pub fn hot_node_count(HotFunc) -> Int32
 
-pub fn hot_node_exact_instr(HotFunc, Int) -> @lib.Instruction?
+pub fn hot_node_exact_instr(HotFunc, Int32) -> @lib.Instruction?
 
-pub fn hot_node_exact_instr_payload_id(HotFunc, Int) -> Int?
+pub fn hot_node_exact_instr_payload_id(HotFunc, Int32) -> Int32?
 
-pub fn hot_node_exact_instr_set(HotFunc, Int, @lib.Instruction) -> Unit
+pub fn hot_node_exact_instr_set(HotFunc, Int32, @lib.Instruction) -> Unit
 
-pub fn hot_node_flags(HotFunc, Int) -> UInt
+pub fn hot_node_flags(HotFunc, Int32) -> UInt32
 
-pub fn hot_node_get(HotFunc, Int) -> HotNode
+pub fn hot_node_get(HotFunc, Int32) -> HotNode
 
-pub fn hot_node_has_flag(HotFunc, Int, UInt) -> Bool
+pub fn hot_node_has_flag(HotFunc, Int32, UInt32) -> Bool
 
-pub fn hot_node_is_deleted(HotFunc, Int) -> Bool
+pub fn hot_node_is_deleted(HotFunc, Int32) -> Bool
 
-pub fn hot_node_is_live(HotFunc, Int) -> Bool
+pub fn hot_node_is_live(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_atomic(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_atomic(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_branch(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_branch(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_call(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_call(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_control(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_control(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_exception(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_exception(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_global(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_global(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_heap(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_heap(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_local(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_local(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_memory(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_memory(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_numeric(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_numeric(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_simd(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_simd(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_table(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_table(HotFunc, Int32) -> Bool
 
-pub fn hot_node_kind_is_tuple(HotFunc, Int) -> Bool
+pub fn hot_node_kind_is_tuple(HotFunc, Int32) -> Bool
 
-pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
+pub fn hot_node_may_throw_exception(HotFunc, Int32) -> Bool
 
-pub fn hot_node_op(HotFunc, Int) -> HotOp
+pub fn hot_node_op(HotFunc, Int32) -> HotOp
 
-pub fn hot_node_promote_to_block(HotFunc, Int, @lib.BlockType, Array[Int]) -> Unit
+pub fn hot_node_promote_to_block(HotFunc, Int32, @lib.BlockType, Array[Int32]) -> Unit
 
-pub fn hot_node_repeated_live_child(HotFunc, Int) -> Int?
+pub fn hot_node_repeated_live_child(HotFunc, Int32) -> Int32?
 
-pub fn hot_node_result_arity(HotFunc, Int) -> Int
+pub fn hot_node_result_arity(HotFunc, Int32) -> Int32
 
-pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
+pub fn hot_node_set(HotFunc, Int32, HotNode) -> Unit
 
-pub fn hot_node_type(HotFunc, Int) -> Int
+pub fn hot_node_type(HotFunc, Int32) -> Int32
 
-pub fn hot_node_use_count(HotNodeUseCounts, Int) -> Int
+pub fn hot_node_use_count(HotNodeUseCounts, Int32) -> Int32
 
 pub fn hot_node_use_counts_build(HotFunc) -> HotNodeUseCounts
 
-pub fn hot_nodes_match_simple_value(HotFunc, Int, Int) -> Bool
+pub fn hot_nodes_match_simple_value(HotFunc, Int32, Int32) -> Bool
 
 pub fn hot_ordered_catch_payloads_repairable(HotFunc) -> Bool
 
-pub fn hot_param_count(HotFunc) -> Int
+pub fn hot_param_count(HotFunc) -> Int32
 
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
 
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 
-pub fn hot_preserve_replacement_position(HotFunc, Int, Int) -> Unit
+pub fn hot_preserve_replacement_position(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_region_body_ref(HotFunc, Int) -> HotRegionRef
+pub fn hot_region_body_ref(HotFunc, Int32) -> HotRegionRef
 
-pub fn hot_region_catch_list_ref(HotFunc, Int) -> HotRegionRef
+pub fn hot_region_catch_list_ref(HotFunc, Int32) -> HotRegionRef
 
-pub fn hot_region_catch_ref(HotFunc, Int) -> HotRegionRef?
+pub fn hot_region_catch_ref(HotFunc, Int32) -> HotRegionRef?
 
-pub fn hot_region_else_ref(HotFunc, Int) -> HotRegionRef?
+pub fn hot_region_else_ref(HotFunc, Int32) -> HotRegionRef?
 
-pub fn hot_region_get(HotFunc, HotRegionRef, Int) -> Int
+pub fn hot_region_get(HotFunc, HotRegionRef, Int32) -> Int32
 
-pub fn hot_region_holder_block_label(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_holder_block_label(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_holder_block_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_holder_block_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
+pub fn hot_region_insert(HotFunc, HotRegionRef, Int32, Array[Int32]) -> Unit
 
-pub fn hot_region_is_strict_no_work_block_chain(HotFunc, HotRegionRef, (Int) -> Bool) -> Bool
+pub fn hot_region_is_strict_no_work_block_chain(HotFunc, HotRegionRef, (Int32) -> Bool) -> Bool
 
-pub fn hot_region_is_strict_no_work_forest(HotFunc, HotRegionRef, (Int) -> Bool) -> Bool
+pub fn hot_region_is_strict_no_work_forest(HotFunc, HotRegionRef, (Int32) -> Bool) -> Bool
 
-pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
+pub fn hot_region_remove(HotFunc, HotRegionRef, Int32, Int32) -> Array[Int32]
 
 pub fn hot_region_repeated_live_block_body(HotFunc, HotRegionRef) -> HotRegionRef?
 
 pub fn hot_region_repeated_live_block_body_or_self(HotFunc, HotRegionRef) -> HotRegionRef
 
-pub fn hot_region_repeated_live_block_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_repeated_live_block_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_repeated_live_if_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_repeated_live_if_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_repeated_live_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_repeated_live_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int]) -> Unit
+pub fn hot_region_replace_body(HotFunc, HotRegionRef, Array[Int32]) -> Unit
 
-pub fn hot_region_result_arity(HotFunc, HotRegionRef) -> Int
+pub fn hot_region_result_arity(HotFunc, HotRegionRef) -> Int32
 
-pub fn hot_region_root_count(HotFunc, HotRegionRef) -> Int
+pub fn hot_region_root_count(HotFunc, HotRegionRef) -> Int32
 
-pub fn hot_region_set(HotFunc, HotRegionRef, Int, Int) -> Int
+pub fn hot_region_set(HotFunc, HotRegionRef, Int32, Int32) -> Int32
 
-pub fn hot_region_single_exit_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_exit_root(HotFunc, HotRegionRef) -> Int32?
 
 pub fn hot_region_single_live_block_body(HotFunc, HotRegionRef) -> HotRegionRef?
 
 pub fn hot_region_single_live_block_body_or_self(HotFunc, HotRegionRef) -> HotRegionRef
 
-pub fn hot_region_single_live_block_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_live_block_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_single_live_if_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_live_if_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_single_live_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_live_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_single_plain_br_root(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_plain_br_root(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_single_plain_br_target(HotFunc, HotRegionRef) -> Int?
+pub fn hot_region_single_plain_br_target(HotFunc, HotRegionRef) -> Int32?
 
-pub fn hot_region_splice(HotFunc, HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
+pub fn hot_region_splice(HotFunc, HotRegionRef, Int32, Int32, Array[Int32]) -> Array[Int32]
 
-pub fn hot_region_split_trailing_payload_roots(HotFunc, HotRegionRef, Int) -> (Array[Int], Array[Int])?
+pub fn hot_region_split_trailing_payload_roots(HotFunc, HotRegionRef, Int32) -> (Array[Int32], Array[Int32])?
 
-pub fn hot_region_split_trailing_plain_br_root(HotFunc, HotRegionRef) -> (Array[Int], Int)?
+pub fn hot_region_split_trailing_plain_br_root(HotFunc, HotRegionRef) -> (Array[Int32], Int32)?
 
-pub fn hot_region_split_trailing_plain_br_target(HotFunc, HotRegionRef) -> (Array[Int], Int)?
+pub fn hot_region_split_trailing_plain_br_target(HotFunc, HotRegionRef) -> (Array[Int32], Int32)?
 
-pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
+pub fn hot_region_then_ref(HotFunc, Int32) -> HotRegionRef
 
-pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int) -> Array[Int]
+pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int32) -> Array[Int32]
 
 pub fn hot_repair_nondefaultable_local_scopes(HotFunc) -> Bool
 
@@ -680,87 +680,87 @@ pub fn hot_repair_ordered_catch_payloads(HotFunc) -> Bool
 
 pub fn hot_repair_scalar_catch_payloads(HotFunc) -> Bool
 
-pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
+pub fn hot_replace_child_span(HotFunc, Int32, Array[Int32]) -> Array[Int32]
 
-pub fn hot_replace_child_spans_and_control_result_type(HotFunc, Int, Int, Array[HotChildSpanRewrite]) -> Unit
+pub fn hot_replace_child_spans_and_control_result_type(HotFunc, Int32, Int32, Array[HotChildSpanRewrite]) -> Unit
 
-pub fn hot_replace_local_set_with_drop(HotFunc, Int) -> Bool
+pub fn hot_replace_local_set_with_drop(HotFunc, Int32) -> Bool
 
-pub fn hot_replace_local_tee_with_value(HotFunc, Int) -> Bool
+pub fn hot_replace_local_tee_with_value(HotFunc, Int32) -> Bool
 
-pub fn hot_replace_node(HotFunc, Int, HotNode, preserve_value_order? : Bool) -> Unit
+pub fn hot_replace_node(HotFunc, Int32, HotNode, preserve_value_order? : Bool) -> Unit
 
-pub fn hot_replace_node_preserving_position(HotFunc, Int, HotNode) -> Unit
+pub fn hot_replace_node_preserving_position(HotFunc, Int32, HotNode) -> Unit
 
 pub fn hot_revision_bump(HotFunc) -> Unit
 
-pub fn hot_revision_current(HotFunc) -> Int
+pub fn hot_revision_current(HotFunc) -> Int32
 
-pub fn[S, E] hot_rewrite_children_by_slot(HotFunc, Int, S, (S, Int, Int, Int) -> HotRewriteCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_rewrite_children_by_slot(HotFunc, Int32, S, (S, Int32, Int32, Int32) -> HotRewriteCtl[S, E]) -> Result[S, E]
 
 pub fn[S, E] hot_rewrite_error(E) -> HotRewriteCtl[S, E]
 
 pub fn[S, E] hot_rewrite_remove(S) -> HotRewriteCtl[S, E]
 
-pub fn[S, E] hot_rewrite_replace(S, Int) -> HotRewriteCtl[S, E]
+pub fn[S, E] hot_rewrite_replace(S, Int32) -> HotRewriteCtl[S, E]
 
 pub fn[S, E] hot_rewrite_same(S) -> HotRewriteCtl[S, E]
 
-pub fn hot_root_append(HotFunc, Int) -> Unit
+pub fn hot_root_append(HotFunc, Int32) -> Unit
 
-pub fn hot_root_count(HotFunc) -> Int
+pub fn hot_root_count(HotFunc) -> Int32
 
-pub fn hot_root_get(HotFunc, Int) -> Int
+pub fn hot_root_get(HotFunc, Int32) -> Int32
 
-pub fn hot_root_insert(HotFunc, Int, Int) -> Unit
+pub fn hot_root_insert(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_root_remove(HotFunc, Int) -> Int
+pub fn hot_root_remove(HotFunc, Int32) -> Int32
 
-pub fn hot_root_set(HotFunc, Int, Int) -> Unit
+pub fn hot_root_set(HotFunc, Int32, Int32) -> Unit
 
-pub fn hot_root_span(HotFunc) -> Array[Int]
+pub fn hot_root_span(HotFunc) -> Array[Int32]
 
-pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
+pub fn hot_root_splice(HotFunc, Int32, Int32, Array[Int32]) -> Array[Int32]
 
-pub fn hot_root_storage_count(HotFunc) -> Int
+pub fn hot_root_storage_count(HotFunc) -> Int32
 
 pub fn hot_scalar_catch_payloads_repairable(HotFunc) -> Bool
 
-pub fn hot_set_body_local_type(HotFunc, Int, @lib.ValType) -> Bool
+pub fn hot_set_body_local_type(HotFunc, Int32, @lib.ValType) -> Bool
 
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
-pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
+pub fn hot_simple_value_key(HotFunc, Int32) -> HotSimpleValueKey?
 
-pub fn hot_source_first_effect_orders(HotFunc) -> Array[Int]
+pub fn hot_source_first_effect_orders(HotFunc) -> Array[Int32]
 
-pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int], Int) -> (Array[Int], Array[Int])?
+pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int32], Int32) -> (Array[Int32], Array[Int32])?
 
-pub fn hot_try_table_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit
+pub fn hot_try_table_catches_set(HotFunc, Int32, Array[HotCatchArm]) -> Unit
 
-pub fn hot_tuple_make_promote_to_block(HotFunc, Int, @lib.BlockType) -> Unit
+pub fn hot_tuple_make_promote_to_block(HotFunc, Int32, @lib.BlockType) -> Unit
 
-pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
+pub fn hot_type_get(HotFunc, Int32) -> HotTypeInfo
 
-pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
+pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int32
 
-pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType]) -> Int
+pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType]) -> Int32
 
-pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
+pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int32
 
-pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int
+pub fn hot_type_intern_value(HotFunc, @lib.ValType) -> Int32
 
-pub fn hot_type_intern_void(HotFunc) -> Int
+pub fn hot_type_intern_void(HotFunc) -> Int32
 
-pub fn hot_type_is_void(HotFunc, Int) -> Bool
+pub fn hot_type_is_void(HotFunc, Int32) -> Bool
 
-pub fn hot_type_resolve_results(HotFunc, HotModuleContext, Int) -> Array[@lib.ValType]?
+pub fn hot_type_resolve_results(HotFunc, HotModuleContext, Int32) -> Array[@lib.ValType]?
 
-pub fn hot_type_result_arity(HotFunc, Int) -> Int
+pub fn hot_type_result_arity(HotFunc, Int32) -> Int32
 
-pub fn hot_type_results(HotFunc, Int) -> Array[@lib.ValType]
+pub fn hot_type_results(HotFunc, Int32) -> Array[@lib.ValType]
 
-pub fn hot_type_void(HotFunc) -> Int
+pub fn hot_type_void(HotFunc) -> Int32
 
 pub fn[C] hot_verify_all(HotFunc, cache? : C?) -> Result[Unit, HotVerifyError]
 
@@ -780,7 +780,7 @@ pub fn hot_verify_core_or_abort(HotFunc) -> Unit
 
 pub fn hot_verify_dominators(HotCfg, HotDominators) -> Result[Unit, HotVerifyError]
 
-pub fn hot_verify_node_exact_instr_payload(HotFunc, Int) -> Bool
+pub fn hot_verify_node_exact_instr_payload(HotFunc, Int32) -> Bool
 
 pub fn hot_verify_ssa(HotFunc, HotCfg, HotLocalSsa) -> Result[Unit, HotVerifyError]
 
@@ -792,21 +792,21 @@ pub fn[S, E] hot_visit_skip(S) -> HotVisitCtl[S, E]
 
 pub fn[S, E] hot_visit_stop(S) -> HotVisitCtl[S, E]
 
-pub fn[S, E] hot_walk_control_regions(HotFunc, Int, S, (S, Int, HotControlRegionSlotInfo, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_walk_control_regions(HotFunc, Int32, S, (S, Int32, HotControlRegionSlotInfo, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn[S, E] hot_walk_region(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_walk_region(HotFunc, Int32, S, (S, Int32, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn[S, E] hot_walk_subtree_postorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_walk_subtree_postorder(HotFunc, Int32, S, (S, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int32, S, (S, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
-pub fn hot_weaken_body_local_to_nullable_ref(HotFunc, Int) -> Bool
+pub fn hot_weaken_body_local_to_nullable_ref(HotFunc, Int32) -> Bool
 
-pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int32], S, (S, Int32) -> HotVisitCtl[S, E]) -> Result[S, E]
 
 pub fn ir_test_assert_verify_and_lower(IrTestHotFixture) -> @lib.Module
 
-pub fn ir_test_build_hot_from_wat(String, code_idx? : Int) -> IrTestHotFixture
+pub fn ir_test_build_hot_from_wat(String, code_idx? : Int32) -> IrTestHotFixture
 
 pub fn ir_test_dump_cfg(HotFunc) -> String
 
@@ -816,9 +816,9 @@ pub fn ir_test_dump_liveness(HotFunc) -> String
 
 pub fn ir_test_dump_ssa(HotFunc) -> String
 
-pub fn live_in(HotLiveness, Int) -> Bitset
+pub fn live_in(HotLiveness, Int32) -> Bitset
 
-pub fn live_out(HotLiveness, Int) -> Bitset
+pub fn live_out(HotLiveness, Int32) -> Bitset
 
 pub fn liveness_build(HotCfg, HotUseDef, include_exceptional_edges? : Bool) -> HotLiveness
 
@@ -830,33 +830,33 @@ pub fn local_graph_build_full_flow(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_build_read_sources(HotFunc, HotCfg, selected_gets? : Array[Bool]?) -> HotLocalReadSources
 
-pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
+pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int32, Int32) -> Array[Int32]
 
-pub fn local_graph_entry_source_has_legal_default(HotLocalGraph, Int) -> Bool
+pub fn local_graph_entry_source_has_legal_default(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_entry_source_is_default(HotLocalGraph, Int) -> Bool
+pub fn local_graph_entry_source_is_default(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_entry_source_is_param(HotLocalGraph, Int) -> Bool
+pub fn local_graph_entry_source_is_param(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_get_is_merge(HotLocalGraph, Int) -> Bool
+pub fn local_graph_get_is_merge(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_get_is_single_source(HotLocalGraph, Int) -> Bool
+pub fn local_graph_get_is_single_source(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_influenced_gets_for_set(HotLocalGraph, Int) -> Array[Int]
+pub fn local_graph_influenced_gets_for_set(HotLocalGraph, Int32) -> Array[Int32]
 
-pub fn local_graph_influenced_gets_for_write(HotLocalGraph, Int) -> Array[Int]
+pub fn local_graph_influenced_gets_for_write(HotLocalGraph, Int32) -> Array[Int32]
 
-pub fn local_graph_local_is_already_ssa(HotLocalGraph, Int) -> Bool
+pub fn local_graph_local_is_already_ssa(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_node_is_write(HotLocalGraph, Int) -> Bool
+pub fn local_graph_node_is_write(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_reaching_source_count_for_get(HotLocalGraph, Int) -> Int
+pub fn local_graph_reaching_source_count_for_get(HotLocalGraph, Int32) -> Int32
 
-pub fn local_graph_reaching_source_for_get(HotLocalGraph, Int, Int) -> HotLocalGraphSource
+pub fn local_graph_reaching_source_for_get(HotLocalGraph, Int32, Int32) -> HotLocalGraphSource
 
-pub fn local_graph_reaching_source_value_for_get(HotLocalGraph, Int, Int) -> HotLocalGraphSourceValue
+pub fn local_graph_reaching_source_value_for_get(HotLocalGraph, Int32, Int32) -> HotLocalGraphSourceValue
 
-pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int) -> Array[HotLocalGraphSource]
+pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int32) -> Array[HotLocalGraphSource]
 
 pub fn local_graph_source_is_default_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
@@ -864,129 +864,129 @@ pub fn local_graph_source_is_defaultable_entry(HotLocalGraph, HotLocalGraphSourc
 
 pub fn local_graph_source_is_param_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
-pub fn local_graph_write_has_merge_influences(HotLocalGraph, Int) -> Bool
+pub fn local_graph_write_has_merge_influences(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_write_is_no_merge_freshenable(HotLocalGraph, Int) -> Bool
+pub fn local_graph_write_is_no_merge_freshenable(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_write_is_set(HotLocalGraph, Int) -> Bool
+pub fn local_graph_write_is_set(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_write_is_tee(HotLocalGraph, Int) -> Bool
+pub fn local_graph_write_is_tee(HotLocalGraph, Int32) -> Bool
 
-pub fn local_graph_write_local_id(HotLocalGraph, Int) -> Int
+pub fn local_graph_write_local_id(HotLocalGraph, Int32) -> Int32
 
-pub fn local_live_in(HotLiveness, Int, Int) -> Bool
+pub fn local_live_in(HotLiveness, Int32, Int32) -> Bool
 
-pub fn local_live_out(HotLiveness, Int, Int) -> Bool
+pub fn local_live_out(HotLiveness, Int32, Int32) -> Bool
 
-pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
+pub fn local_read_nodes(HotUseDef, Int32) -> Array[Int32]
 
-pub fn local_read_nodes_borrowed(HotUseDef, Int) -> Array[Int]
+pub fn local_read_nodes_borrowed(HotUseDef, Int32) -> Array[Int32]
 
-pub fn local_read_source_count_for_get(HotLocalReadSources, Int) -> Int
+pub fn local_read_source_count_for_get(HotLocalReadSources, Int32) -> Int32
 
-pub fn local_read_source_value_for_get(HotLocalReadSources, Int, Int) -> HotLocalGraphSourceValue
+pub fn local_read_source_value_for_get(HotLocalReadSources, Int32, Int32) -> HotLocalGraphSourceValue
 
-pub fn local_write_block_ids(HotUseDef, Int) -> Array[Int]
+pub fn local_write_block_ids(HotUseDef, Int32) -> Array[Int32]
 
-pub fn local_write_nodes(HotUseDef, Int) -> Array[Int]
+pub fn local_write_nodes(HotUseDef, Int32) -> Array[Int32]
 
-pub fn local_write_nodes_borrowed(HotUseDef, Int) -> Array[Int]
+pub fn local_write_nodes_borrowed(HotUseDef, Int32) -> Array[Int32]
 
-pub fn loop_blocks(HotLoopInfo, Int) -> Array[Int]
+pub fn loop_blocks(HotLoopInfo, Int32) -> Array[Int32]
 
-pub fn loop_depth(HotLoopInfo, Int) -> Int
+pub fn loop_depth(HotLoopInfo, Int32) -> Int32
 
-pub fn loop_exits(HotLoopInfo, Int) -> Array[HotLoopExit]
+pub fn loop_exits(HotLoopInfo, Int32) -> Array[HotLoopExit]
 
-pub fn loop_for_block(HotLoopInfo, Int) -> Int?
+pub fn loop_for_block(HotLoopInfo, Int32) -> Int32?
 
-pub fn loop_header(HotLoopInfo, Int) -> Int
+pub fn loop_header(HotLoopInfo, Int32) -> Int32
 
 pub fn loop_info_build(HotCfg, HotDominators) -> HotLoopInfo
 
 pub fn loop_info_debug_dump(HotLoopInfo) -> String
 
-pub fn loop_latches(HotLoopInfo, Int) -> Array[Int]
+pub fn loop_latches(HotLoopInfo, Int32) -> Array[Int32]
 
-pub fn node_use_count(HotUseDef, Int) -> Int
+pub fn node_use_count(HotUseDef, Int32) -> Int32
 
-pub fn node_use_sites(HotUseDef, Int) -> Array[HotUseSite]
+pub fn node_use_sites(HotUseDef, Int32) -> Array[HotUseSite]
 
-pub fn node_use_sites_borrowed(HotUseDef, Int) -> Array[HotUseSite]
+pub fn node_use_sites_borrowed(HotUseDef, Int32) -> Array[HotUseSite]
 
 pub fn postdom_build(HotCfg) -> HotPostDominators
 
-pub fn postdom_children(HotPostDominators, Int) -> Array[Int]
+pub fn postdom_children(HotPostDominators, Int32) -> Array[Int32]
 
 pub fn postdom_debug_dump(HotPostDominators) -> String
 
-pub fn postdom_frontier(HotPostDominators, Int) -> Array[Int]
+pub fn postdom_frontier(HotPostDominators, Int32) -> Array[Int32]
 
-pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
+pub fn postdom_ipdom(HotPostDominators, Int32) -> Int32?
 
-pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
+pub fn postdom_postdominates(HotPostDominators, Int32, Int32) -> Bool
 
 pub fn ssa_assign_concrete_locals(HotFunc, HotLocalSsa, preserve_write_nodes? : @bitset.BitSet) -> HotSsaConcreteLocals
 
 pub fn ssa_build_local(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef) -> HotLocalSsa
 
-pub fn ssa_def_for_local_set(HotLocalSsa, Int) -> Int
+pub fn ssa_def_for_local_set(HotLocalSsa, Int32) -> Int32
 
-pub fn ssa_default_init_def(Int) -> HotSsaValueOrigin
+pub fn ssa_default_init_def(Int32) -> HotSsaValueOrigin
 
 pub fn ssa_destroy_into_hot(HotFunc, HotCfg, HotLocalSsa, policy? : HotSsaDestroyPolicy, preserve_write_nodes? : @bitset.BitSet) -> HotSsaConcreteLocals
 
 pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy
 
-pub fn ssa_insert_predecessor_copies(HotFunc, HotRegionRef, HotBlockInfo, Array[HotSsaCopy]) -> Array[Int]
+pub fn ssa_insert_predecessor_copies(HotFunc, HotRegionRef, HotBlockInfo, Array[HotSsaCopy]) -> Array[Int32]
 
-pub fn ssa_local_set_def(Int) -> HotSsaValueOrigin
+pub fn ssa_local_set_def(Int32) -> HotSsaValueOrigin
 
-pub fn ssa_local_tee_def(Int) -> HotSsaValueOrigin
+pub fn ssa_local_tee_def(Int32) -> HotSsaValueOrigin
 
-pub fn ssa_maybe_def_for_local_set(HotLocalSsa, Int) -> Int?
+pub fn ssa_maybe_def_for_local_set(HotLocalSsa, Int32) -> Int32?
 
-pub fn ssa_param_entry_def(Int) -> HotSsaValueOrigin
+pub fn ssa_param_entry_def(Int32) -> HotSsaValueOrigin
 
-pub fn ssa_phi_block(HotLocalSsa, Int) -> Int
+pub fn ssa_phi_block(HotLocalSsa, Int32) -> Int32
 
-pub fn ssa_phi_def(Int) -> HotSsaValueOrigin
+pub fn ssa_phi_def(Int32) -> HotSsaValueOrigin
 
-pub fn ssa_phi_inputs(HotLocalSsa, Int) -> Array[HotSsaPhiInput]
+pub fn ssa_phi_inputs(HotLocalSsa, Int32) -> Array[HotSsaPhiInput]
 
-pub fn ssa_phi_local(HotLocalSsa, Int) -> Int
+pub fn ssa_phi_local(HotLocalSsa, Int32) -> Int32
 
 pub fn ssa_phi_nodes_are_overlay_only() -> Bool
 
-pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Array[Int], Int) -> Array[Int]
+pub fn ssa_phi_placement_blocks(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef, Array[Int32], Int32) -> Array[Int32]
 
-pub fn ssa_phis_for_block(HotLocalSsa, Int) -> Array[Int]
+pub fn ssa_phis_for_block(HotLocalSsa, Int32) -> Array[Int32]
 
-pub fn ssa_remove_dead_local_defs(HotFunc, Array[Int]) -> Unit
+pub fn ssa_remove_dead_local_defs(HotFunc, Array[Int32]) -> Unit
 
 pub fn ssa_rename_policy() -> HotSsaRenamePolicy
 
-pub fn ssa_rewrite_local_use(HotFunc, Int, Int) -> Unit
+pub fn ssa_rewrite_local_use(HotFunc, Int32, Int32) -> Unit
 
-pub fn ssa_simple_condition_value_block_allowed(HotFunc, Int) -> Bool
+pub fn ssa_simple_condition_value_block_allowed(HotFunc, Int32) -> Bool
 
-pub fn ssa_simple_drop_result_if_allowed(HotFunc, Int, Int, Int) -> Bool
+pub fn ssa_simple_drop_result_if_allowed(HotFunc, Int32, Int32, Int32) -> Bool
 
-pub fn ssa_simple_drop_value_block_allowed(HotFunc, Int, Int, Int) -> Bool
+pub fn ssa_simple_drop_value_block_allowed(HotFunc, Int32, Int32, Int32) -> Bool
 
-pub fn ssa_simple_result_if_arm_value_block_allowed(HotFunc, @lib.ValType, Int) -> Bool
+pub fn ssa_simple_result_if_arm_value_block_allowed(HotFunc, @lib.ValType, Int32) -> Bool
 
-pub fn ssa_simple_value_block_operand_allowed(HotFunc, Int) -> Bool
+pub fn ssa_simple_value_block_operand_allowed(HotFunc, Int32) -> Bool
 
-pub fn ssa_uses_of_value(HotLocalSsa, Int) -> Array[HotSsaUseOrigin]
+pub fn ssa_uses_of_value(HotLocalSsa, Int32) -> Array[HotSsaUseOrigin]
 
 pub fn ssa_v1_exclusions() -> Array[HotSsaExcludedFeature]
 
-pub fn ssa_value_for_local_get(HotLocalSsa, Int) -> Int
+pub fn ssa_value_for_local_get(HotLocalSsa, Int32) -> Int32
 
-pub fn ssa_value_origin(HotLocalSsa, Int) -> HotSsaValueOrigin
+pub fn ssa_value_origin(HotLocalSsa, Int32) -> HotSsaValueOrigin
 
-pub fn ssa_value_type(HotLocalSsa, Int) -> @lib.ValType
+pub fn ssa_value_type(HotLocalSsa, Int32) -> @lib.ValType
 
 pub fn use_def_build(HotFunc, cfg? : HotCfg?) -> HotUseDef
 
@@ -996,7 +996,7 @@ pub fn use_def_build_node_uses(HotFunc) -> HotUseDef
 
 // Types and methods
 pub struct Bitset {
-  size : Int
+  size : Int32
   words : Array[UInt64]
 } derive(Eq, @debug.Debug)
 
@@ -1023,7 +1023,7 @@ pub impl Show for CfgControlSuccessorPolicy
 
 pub struct CfgEdge {
   kind : CfgEdgeKind
-  block : Int
+  block : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for CfgEdge
 
@@ -1046,9 +1046,9 @@ pub enum CfgExceptionTargetPolicy {
 pub impl Show for CfgExceptionTargetPolicy
 
 pub struct CfgRegionRootBlock {
-  region_holder : Int
-  slot : Int
-  block : Int
+  region_holder : Int32
+  slot : Int32
+  block : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for CfgRegionRootBlock
 
@@ -1071,7 +1071,7 @@ pub fn HotAnalysis::use_def() -> Self
 pub impl Show for HotAnalysis
 
 pub struct HotAnalysisCache {
-  mut owner_roots : Array[Int]?
+  mut owner_roots : Array[Int32]?
   mut cfg : HotCacheEntry[HotCfg]?
   mut orders : HotCacheEntry[HotCfgOrders]?
   mut dom : HotCacheEntry[HotDominators]?
@@ -1085,26 +1085,26 @@ pub struct HotAnalysisCache {
 pub fn HotAnalysisCache::new() -> Self
 
 pub struct HotBlockInfo {
-  id : Int
-  nodes : Array[Int]
+  id : Int32
+  nodes : Array[Int32]
   preds : Array[CfgEdge]
   succs : Array[CfgEdge]
   is_synthetic : Bool
-  region_holder : Int
-  start_slot : Int
-  end_slot : Int
+  region_holder : Int32
+  start_slot : Int32
+  end_slot : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for HotBlockInfo
 
 pub struct HotBranchTable {
-  targets : Array[Int]
-  default_target : Int
+  targets : Array[Int32]
+  default_target : Int32
 } derive(Eq, @debug.Debug)
-pub fn HotBranchTable::new(Array[Int], Int) -> Self
+pub fn HotBranchTable::new(Array[Int32], Int32) -> Self
 pub impl Show for HotBranchTable
 
 pub struct HotCacheEntry[T] {
-  built_at_revision : Int
+  built_at_revision : Int32
   value : T
 } derive(Eq, @debug.Debug)
 pub impl[T] Show for HotCacheEntry[T]
@@ -1117,15 +1117,15 @@ pub fn HotCallSig::new(@lib.TypeIdx, table_idx? : @lib.TableIdx?) -> Self
 pub impl Show for HotCallSig
 
 pub enum HotCatchArm {
-  CatchArm(@lib.TagIdx, Int)
-  CatchRefArm(@lib.TagIdx, Int)
-  CatchAllArm(Int)
-  CatchAllRefArm(Int)
+  CatchArm(@lib.TagIdx, Int32)
+  CatchRefArm(@lib.TagIdx, Int32)
+  CatchAllArm(Int32)
+  CatchAllRefArm(Int32)
 } derive(Eq, @debug.Debug)
-pub fn HotCatchArm::all(Int) -> Self
-pub fn HotCatchArm::all_ref(Int) -> Self
-pub fn HotCatchArm::catch_(@lib.TagIdx, Int) -> Self
-pub fn HotCatchArm::catch_ref(@lib.TagIdx, Int) -> Self
+pub fn HotCatchArm::all(Int32) -> Self
+pub fn HotCatchArm::all_ref(Int32) -> Self
+pub fn HotCatchArm::catch_(@lib.TagIdx, Int32) -> Self
+pub fn HotCatchArm::catch_ref(@lib.TagIdx, Int32) -> Self
 pub impl Show for HotCatchArm
 
 pub struct HotCatchInfo {
@@ -1137,30 +1137,30 @@ pub impl Show for HotCatchInfo
 pub struct HotCfg {
   operands_expanded : Bool
   blocks : Array[HotBlockInfo]
-  node_to_block : Array[Int]
+  node_to_block : Array[Int32]
   region_roots : Array[CfgRegionRootBlock]
-  mut entry_block : Int
-  mut exit_block : Int
-  mut exceptional_exit_block : Int?
+  mut entry_block : Int32
+  mut exit_block : Int32
+  mut exceptional_exit_block : Int32?
 } derive(Eq, @debug.Debug)
 pub impl Show for HotCfg
 
 pub struct HotCfgOrders {
-  preorder : Array[Int]
-  postorder : Array[Int]
-  reverse_postorder : Array[Int]
-  reverse_postorder_with_exceptions : Array[Int]
-  reverse_exit_postorder : Array[Int]
-  reverse_exit_postorder_with_exceptions : Array[Int]
-  worklist_seed : Array[Int]
+  preorder : Array[Int32]
+  postorder : Array[Int32]
+  reverse_postorder : Array[Int32]
+  reverse_postorder_with_exceptions : Array[Int32]
+  reverse_exit_postorder : Array[Int32]
+  reverse_exit_postorder_with_exceptions : Array[Int32]
+  worklist_seed : Array[Int32]
 } derive(Eq, @debug.Debug)
 pub impl Show for HotCfgOrders
 
 pub struct HotChildSpanRewrite {
-  node_id : Int
-  new_children : Array[Int]
+  node_id : Int32
+  new_children : Array[Int32]
 } derive(Eq, @debug.Debug)
-pub fn HotChildSpanRewrite::new(Int, Array[Int]) -> Self
+pub fn HotChildSpanRewrite::new(Int32, Array[Int32]) -> Self
 
 pub enum HotConstPayload {
   I32Const(@lib.I32)
@@ -1187,40 +1187,40 @@ pub enum HotControlRegionRole {
 } derive(Eq, @debug.Debug)
 
 pub struct HotControlRegionSlotInfo {
-  slot : Int
+  slot : Int32
   role : HotControlRegionRole
   required : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct HotDominators {
-  entry_block : Int
+  entry_block : Int32
   reachable : Bitset
-  idoms : Array[Int]
-  children : Array[Array[Int]]
-  frontiers : Array[Array[Int]]
-  dom_preorder : Array[Int]
-  dom_postorder : Array[Int]
+  idoms : Array[Int32]
+  children : Array[Array[Int32]]
+  frontiers : Array[Array[Int32]]
+  dom_preorder : Array[Int32]
+  dom_postorder : Array[Int32]
 } derive(Eq, @debug.Debug)
 pub impl Show for HotDominators
 
 pub struct HotEffectsSummary {
-  node_masks : Array[UInt]
-  block_masks : Array[UInt]
-  root_region_mask : UInt
+  node_masks : Array[UInt32]
+  block_masks : Array[UInt32]
+  root_region_mask : UInt32
 } derive(Eq, @debug.Debug)
 pub impl Show for HotEffectsSummary
 
 pub struct HotFunc {
   nodes : Array[HotNode]
-  children : Array[Int]
-  roots : Array[Int]
+  children : Array[Int32]
+  roots : Array[Int32]
   locals : HotLocals
   types : Array[HotTypeInfo]
-  type_ids : @hashmap.HashMap[String, Int]
+  type_ids : @hashmap.HashMap[String, Int32]
   value_types : Array[@lib.ValType]
-  value_type_ids : Array[Int]
+  value_type_ids : Array[Int32]
   block_types : Array[@lib.BlockType]
-  block_type_ids : Array[Int]
+  block_type_ids : Array[Int32]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
   memargs : Array[HotMemArg]
@@ -1228,15 +1228,15 @@ pub struct HotFunc {
   catches : Array[HotCatchInfo]
   call_sigs : Array[HotCallSig]
   instr_payloads : Array[HotInstrPayload]
-  mut body_result_type : Int
+  mut body_result_type : Int32
   mut func_type_idx : @lib.TypeIdx?
-  free_nodes : Array[Int]
+  free_nodes : Array[Int32]
   deleted_nodes : Array[Bool]
-  mut revision : Int
+  mut revision : Int32
   mut validation_env : @validate.Env?
   mut lifted_local_accesses : HotLiftLocalAccesses?
 }
-pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
+pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int32) -> Self
 
 pub struct HotInstrPayload {
   instr : @lib.Instruction
@@ -1246,9 +1246,9 @@ pub impl Show for HotInstrPayload
 
 pub struct HotLabelInfo {
   kind : HotLabelKind
-  result_type : Int
-  owner : Int
-  branch_arity : Int
+  result_type : Int32
+  owner : Int32
+  branch_arity : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for HotLabelInfo
 
@@ -1263,7 +1263,7 @@ pub enum HotLabelKind {
 pub impl Show for HotLabelKind
 
 pub enum HotLiftError {
-  InvalidLabelDepth(Int)
+  InvalidLabelDepth(Int32)
   InvalidFunctionIndex(@lib.FuncIdx)
   MissingFunctionBody(@lib.FuncIdx)
   MissingFunctionType(@lib.FuncIdx)
@@ -1274,11 +1274,11 @@ pub enum HotLiftError {
 pub impl Show for HotLiftError
 
 pub struct HotLiftLocalAccesses {
-  local_count : Int
-  gets : Array[(Int, Int)]
-  writes : Array[(Int, Int)]
-  capture_sources : Array[(Int, Int)]?
-  revision : Int
+  local_count : Int32
+  gets : Array[(Int32, Int32)]
+  writes : Array[(Int32, Int32)]
+  capture_sources : Array[(Int32, Int32)]?
+  revision : Int32
 }
 
 pub struct HotLiveness {
@@ -1289,24 +1289,24 @@ pub struct HotLiveness {
 pub impl Show for HotLiveness
 
 pub struct HotLocalGraph {
-  local_count : Int
-  param_count : Int
-  get_source_ids : Array[Array[Int]]
-  set_influence_gets : Array[Array[Int]]
-  write_local_ids : Array[Int]
+  local_count : Int32
+  param_count : Int32
+  get_source_ids : Array[Array[Int32]]
+  set_influence_gets : Array[Array[Int32]]
+  write_local_ids : Array[Int32]
   write_is_tees : Array[Bool]
   local_is_already_ssa : Array[Bool]
   local_has_legal_default : Array[Bool]
 } derive(Eq, @debug.Debug)
 
 pub enum HotLocalGraphSource {
-  EntrySource(Int)
-  SetSource(Int)
+  EntrySource(Int32)
+  SetSource(Int32)
 } derive(Eq, @debug.Debug)
 
 pub struct HotLocalGraphSourceValue {
   is_entry : Bool
-  index : Int
+  index : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct HotLocalReadSources {
@@ -1314,49 +1314,49 @@ pub struct HotLocalReadSources {
 } derive(@debug.Debug)
 
 pub struct HotLocalSsa {
-  revision : Int
+  revision : Int32
   value_types : Array[@lib.ValType]
   value_origins : Array[HotSsaValueOrigin]
   phis : Array[HotSsaPhi]
-  entry_defs : Array[Int]
-  phi_value_ids : Array[Int]
-  block_phis : Array[Array[Int]]
+  entry_defs : Array[Int32]
+  phi_value_ids : Array[Int32]
+  block_phis : Array[Array[Int32]]
   phi_inputs : Array[Array[HotSsaPhiInput]]
-  local_get_values : Array[Int]
-  local_write_defs : Array[Int]
+  local_get_values : Array[Int32]
+  local_write_defs : Array[Int32]
   value_uses : Array[Array[HotSsaUseOrigin]]
 } derive(Eq, @debug.Debug)
-pub fn HotLocalSsa::new(revision? : Int, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi], entry_defs? : Array[Int], phi_value_ids? : Array[Int], block_phis? : Array[Array[Int]], phi_inputs? : Array[Array[HotSsaPhiInput]], local_get_values? : Array[Int], local_write_defs? : Array[Int], value_uses? : Array[Array[HotSsaUseOrigin]]) -> Self
+pub fn HotLocalSsa::new(revision? : Int32, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi], entry_defs? : Array[Int32], phi_value_ids? : Array[Int32], block_phis? : Array[Array[Int32]], phi_inputs? : Array[Array[HotSsaPhiInput]], local_get_values? : Array[Int32], local_write_defs? : Array[Int32], value_uses? : Array[Array[HotSsaUseOrigin]]) -> Self
 pub impl Show for HotLocalSsa
 
 pub struct HotLocals {
-  param_count : Int
+  param_count : Int32
   params : Array[@lib.ValType]
   locals : Array[@lib.ValType]
 } derive(Eq, @debug.Debug)
-pub fn HotLocals::new(param_count? : Int, params? : Array[@lib.ValType], locals? : Array[@lib.ValType]) -> Self
+pub fn HotLocals::new(param_count? : Int32, params? : Array[@lib.ValType], locals? : Array[@lib.ValType]) -> Self
 pub impl Show for HotLocals
 
 pub struct HotLoopExit {
-  from : Int
+  from : Int32
   edge : CfgEdge
 } derive(Eq, @debug.Debug)
 pub impl Show for HotLoopExit
 
 pub struct HotLoopInfo {
   loops : Array[HotLoopSummary]
-  block_to_loop : Array[Int]
-  block_depth : Array[Int]
+  block_to_loop : Array[Int32]
+  block_depth : Array[Int32]
 } derive(Eq, @debug.Debug)
 pub impl Show for HotLoopInfo
 
 pub struct HotLoopSummary {
-  header : Int
-  blocks : Array[Int]
-  latches : Array[Int]
+  header : Int32
+  blocks : Array[Int32]
+  latches : Array[Int32]
   exits : Array[HotLoopExit]
-  parent : Int
-  depth : Int
+  parent : Int32
+  depth : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for HotLoopSummary
 
@@ -1394,24 +1394,24 @@ pub struct HotModuleContext {
   elems : Array[@lib.Elem]
   datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
-  imported_tag_count : Int
+  imported_tag_count : Int32
   uses_custom_descriptors : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct HotNode {
   op : HotOp
-  ty : Int
-  flags : UInt
-  order : Int
-  imm0 : Int
-  imm1 : Int
-  child_base : Int
-  child_count : Int
+  ty : Int32
+  flags : UInt32
+  order : Int32
+  imm0 : Int32
+  imm1 : Int32
+  child_base : Int32
+  child_count : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for HotNode
 
 pub struct HotNodeUseCounts {
-  counts : Array[Int]
+  counts : Array[Int32]
 } derive(Eq, @debug.Debug)
 
 pub enum HotOp {
@@ -1506,24 +1506,24 @@ pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidate
 pub impl Show for HotPassDescriptor
 
 pub struct HotPostDominators {
-  roots : Array[Int]
+  roots : Array[Int32]
   reachable : Bitset
   postdom_sets : Array[Bitset]
-  ipdoms : Array[Int]
-  children : Array[Array[Int]]
-  frontiers : Array[Array[Int]]
+  ipdoms : Array[Int32]
+  children : Array[Array[Int32]]
+  frontiers : Array[Array[Int32]]
 } derive(Eq, @debug.Debug)
 pub impl Show for HotPostDominators
 
 pub struct HotRegionRef {
-  holder : Int
+  holder : Int32
 } derive(Eq, @debug.Debug)
 pub fn HotRegionRef::root() -> Self
 pub impl Show for HotRegionRef
 
 pub enum HotRewriteCtl[S, E] {
   Same(S)
-  Replace(S, Int)
+  Replace(S, Int32)
   Remove(S)
   Error(E)
 }
@@ -1540,21 +1540,21 @@ pub impl Show for HotSideTableKind
 
 pub enum HotSimpleValueKey {
   ConstValue(HotConstPayload)
-  LocalGetValue(Int)
+  LocalGetValue(Int32)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotSimpleValueKey
 
 pub struct HotSsaConcreteLocals {
-  value_locals : Array[Int]
+  value_locals : Array[Int32]
   extra_local_types : Array[@lib.ValType]
 } derive(Eq, @debug.Debug)
-pub fn HotSsaConcreteLocals::new(value_locals? : Array[Int], extra_local_types? : Array[@lib.ValType]) -> Self
+pub fn HotSsaConcreteLocals::new(value_locals? : Array[Int32], extra_local_types? : Array[@lib.ValType]) -> Self
 
 pub struct HotSsaCopy {
-  source_local : Int
-  target_local : Int
+  source_local : Int32
+  target_local : Int32
 } derive(Eq, @debug.Debug)
-pub fn HotSsaCopy::new(Int, Int) -> Self
+pub fn HotSsaCopy::new(Int32, Int32) -> Self
 
 pub enum HotSsaDestroyPolicy {
   ReusePhiLocals
@@ -1576,17 +1576,17 @@ pub impl Show for HotSsaExcludedFeature
 type HotSsaPendingInsert derive(Eq, @debug.Debug)
 
 pub struct HotSsaPhi {
-  block : Int
-  local_id : Int
+  block : Int32
+  local_id : Int32
 } derive(Eq, @debug.Debug)
-pub fn HotSsaPhi::new(Int, Int) -> Self
+pub fn HotSsaPhi::new(Int32, Int32) -> Self
 pub impl Show for HotSsaPhi
 
 pub struct HotSsaPhiInput {
-  predecessor : Int
-  value_id : Int
+  predecessor : Int32
+  value_id : Int32
 } derive(Eq, @debug.Debug)
-pub fn HotSsaPhiInput::new(Int, Int) -> Self
+pub fn HotSsaPhiInput::new(Int32, Int32) -> Self
 pub impl Show for HotSsaPhiInput
 
 type HotSsaRegionInsertGroup derive(Eq, @debug.Debug)
@@ -1597,17 +1597,17 @@ pub enum HotSsaRenamePolicy {
 pub impl Show for HotSsaRenamePolicy
 
 pub enum HotSsaUseOrigin {
-  LocalGetUse(Int)
-  PhiInputUse(Int, Int)
+  LocalGetUse(Int32)
+  PhiInputUse(Int32, Int32)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotSsaUseOrigin
 
 pub enum HotSsaValueOrigin {
-  EntryParamDef(Int)
-  EntryDefaultInitDef(Int)
-  LocalSetDef(Int)
-  LocalTeeDef(Int)
-  PhiDef(Int)
+  EntryParamDef(Int32)
+  EntryDefaultInitDef(Int32)
+  LocalSetDef(Int32)
+  LocalTeeDef(Int32)
+  PhiDef(Int32)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotSsaValueOrigin
 
@@ -1630,14 +1630,14 @@ pub struct HotUseDef {
   node_uses : Array[Array[HotUseSite]]
   block_defs : Array[Bitset]
   block_uses : Array[Bitset]
-  local_reads : Array[Array[Int]]
-  local_writes : Array[Array[Int]]
-  local_write_blocks : Array[Array[Int]]
+  local_reads : Array[Array[Int32]]
+  local_writes : Array[Array[Int32]]
+  local_write_blocks : Array[Array[Int32]]
 } derive(Eq, @debug.Debug)
 
 pub struct HotUseSite {
-  user : Int
-  slot : Int
+  user : Int32
+  slot : Int32
   kind : HotUseSlotKind
 } derive(Eq, @debug.Debug)
 pub impl Show for HotUseSite
@@ -1649,53 +1649,53 @@ pub enum HotUseSlotKind {
 pub impl Show for HotUseSlotKind
 
 pub enum HotVerifyError {
-  InvalidBodyResultType(Int)
-  MissingTypeKey(Int, String)
-  MismatchedTypeKey(Int, String, Int)
-  InvalidRoot(Int, Int)
-  InvalidNodeType(Int, Int)
-  InvalidNodeFlags(Int, UInt, UInt)
-  InvalidChildSpan(Int, Int, Int)
-  InvalidChildRef(Int, Int, Int)
-  InvalidLabelResultType(Int, Int)
-  InvalidLabelOwner(Int, Int)
-  InvalidLabelOwnerKind(Int, HotLabelKind, HotOp)
-  InvalidControlLabel(Int, Int)
-  InvalidSideTableRef(Int, HotSideTableKind, Int)
-  InvalidControlChildCount(Int, Int, Int)
-  InvalidControlChild(Int, Int, Int)
-  InvalidCatchPayload(Int, String)
-  InvalidBranchTarget(Int, Int)
-  InvalidBranchArity(Int, Int, Int, Int)
-  InvalidCfgEntry(Int)
-  InvalidCfgExit(Int)
-  InvalidCfgBlockId(Int, Int)
-  InvalidCfgEdge(Int, CfgEdge)
-  InvalidCfgEdgeSymmetry(Int, CfgEdge)
-  InvalidCfgNodeMapping(Int, Int)
-  InvalidCfgBlockNode(Int, Int)
-  InvalidCfgRegionRoot(Int, Int, Int)
-  InvalidCfgShape(String, Int, Int)
-  InvalidDomEntry(Int, Int)
-  InvalidDomShape(String, Int, Int)
-  InvalidDomReachable(Int)
-  InvalidDomIdom(Int, Int)
-  InvalidDomChild(Int, Int)
-  InvalidDomFrontier(Int, Int)
-  InvalidSsaRevision(Int, Int)
-  InvalidSsaShape(String, Int, Int)
-  InvalidSsaValue(Int)
-  InvalidSsaPhi(Int)
-  InvalidSsaLocal(Int)
-  InvalidSsaNode(Int)
-  InvalidSsaValueOrigin(Int, HotSsaValueOrigin)
-  InvalidSsaPhiInput(Int, Int, Int)
-  InvalidSsaPhiAlignment(Int, Int, Int, Int)
-  InvalidSsaType(Int, @lib.ValType, @lib.ValType)
-  InvalidSsaUse(Int, HotSsaUseOrigin)
-  InvalidSsaDominance(Int, Int, Int)
+  InvalidBodyResultType(Int32)
+  MissingTypeKey(Int32, String)
+  MismatchedTypeKey(Int32, String, Int32)
+  InvalidRoot(Int32, Int32)
+  InvalidNodeType(Int32, Int32)
+  InvalidNodeFlags(Int32, UInt32, UInt32)
+  InvalidChildSpan(Int32, Int32, Int32)
+  InvalidChildRef(Int32, Int32, Int32)
+  InvalidLabelResultType(Int32, Int32)
+  InvalidLabelOwner(Int32, Int32)
+  InvalidLabelOwnerKind(Int32, HotLabelKind, HotOp)
+  InvalidControlLabel(Int32, Int32)
+  InvalidSideTableRef(Int32, HotSideTableKind, Int32)
+  InvalidControlChildCount(Int32, Int32, Int32)
+  InvalidControlChild(Int32, Int32, Int32)
+  InvalidCatchPayload(Int32, String)
+  InvalidBranchTarget(Int32, Int32)
+  InvalidBranchArity(Int32, Int32, Int32, Int32)
+  InvalidCfgEntry(Int32)
+  InvalidCfgExit(Int32)
+  InvalidCfgBlockId(Int32, Int32)
+  InvalidCfgEdge(Int32, CfgEdge)
+  InvalidCfgEdgeSymmetry(Int32, CfgEdge)
+  InvalidCfgNodeMapping(Int32, Int32)
+  InvalidCfgBlockNode(Int32, Int32)
+  InvalidCfgRegionRoot(Int32, Int32, Int32)
+  InvalidCfgShape(String, Int32, Int32)
+  InvalidDomEntry(Int32, Int32)
+  InvalidDomShape(String, Int32, Int32)
+  InvalidDomReachable(Int32)
+  InvalidDomIdom(Int32, Int32)
+  InvalidDomChild(Int32, Int32)
+  InvalidDomFrontier(Int32, Int32)
+  InvalidSsaRevision(Int32, Int32)
+  InvalidSsaShape(String, Int32, Int32)
+  InvalidSsaValue(Int32)
+  InvalidSsaPhi(Int32)
+  InvalidSsaLocal(Int32)
+  InvalidSsaNode(Int32)
+  InvalidSsaValueOrigin(Int32, HotSsaValueOrigin)
+  InvalidSsaPhiInput(Int32, Int32, Int32)
+  InvalidSsaPhiAlignment(Int32, Int32, Int32, Int32)
+  InvalidSsaType(Int32, @lib.ValType, @lib.ValType)
+  InvalidSsaUse(Int32, HotSsaUseOrigin)
+  InvalidSsaDominance(Int32, Int32, Int32)
   InvalidAnalysisOwner
-  InvalidAnalysisRevision(HotAnalysis, Int, Int)
+  InvalidAnalysisRevision(HotAnalysis, Int32, Int32)
   InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotVerifyError
@@ -1709,29 +1709,29 @@ pub enum HotVisitCtl[S, E] {
 
 pub struct IrTestHotFixture {
   mod_ : @lib.Module
-  code_idx : Int
+  code_idx : Int32
   hot_func : HotFunc
 }
 
 // Type aliases
-pub type BlockId = Int
+pub type BlockId = Int32
 
-pub type EffectMask = UInt
+pub type EffectMask = UInt32
 
-pub type LabelId = Int
+pub type LabelId = Int32
 
-pub type LocalId = Int
+pub type LocalId = Int32
 
-pub type NodeId = Int
+pub type NodeId = Int32
 
-pub type PhiId = Int
+pub type PhiId = Int32
 
-pub type RootId = Int
+pub type RootId = Int32
 
-pub type SideTableId = Int
+pub type SideTableId = Int32
 
-pub type SsaValueId = Int
+pub type SsaValueId = Int32
 
-pub type TypeId = Int
+pub type TypeId = Int32
 
 // Traits

@@ -1,3 +1,5 @@
+import { collectFfiInterfaces } from "./ffi-task";
+import selectedExports from "./ffi-selected-exports.fixture.json";
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -198,4 +200,15 @@ pub impl @quickcheck.Arbitrary for Item
     expect(generated.linkExports).toContain("ffi_example_Module_new:example::Module::new");
     expect(generated.linkExports).toContain("ffi_other_Module_new:other::Module::new");
   });
+});
+
+test("modern integer interface names retain every Dewdrop selected export", () => {
+  const inputs = collectFfiInterfaces(process.cwd()).map(input => ({
+    ...input,
+    interfaceText: input.interfaceText.replace(/\bInt\b/g, "Int32").replace(/\bUInt\b/g, "UInt32"),
+  }));
+  const generated = generateFfiPackage([...inputs, ...standardTraitInterfaces()]);
+  const names = new Set(Object.values(generated.exportNames));
+  const missing = selectedExports.exports.filter(name => !names.has(name));
+  expect(missing).toEqual([]);
 });

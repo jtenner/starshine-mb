@@ -13,7 +13,7 @@ pub fn apply_pretty_context(String, PrettyPrintContext) -> String
 
 pub fn array_comp_type(FieldType) -> CompType
 
-pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt, Int, @splitmix.RandomState) -> Array[T]
+pub fn[T : @quickcheck.Arbitrary] array_of_arbitrary(UInt32, Int32, @splitmix.RandomState) -> Array[T]
 
 pub fn comp_type_sub_type(CompType, metadata? : TypeMetadata) -> SubType
 
@@ -25,7 +25,7 @@ pub fn func_extern_idx(FuncIdx) -> ExternIdx
 
 pub fn func_extern_type(TypeIdx) -> ExternType
 
-pub fn func_idx(UInt) -> FuncIdx
+pub fn func_idx(UInt32) -> FuncIdx
 
 pub fn get_struct_field(Array[FieldType], U32) -> Result[FieldType, String]
 
@@ -33,7 +33,7 @@ pub fn global_extern_idx(GlobalIdx) -> ExternIdx
 
 pub fn global_extern_type(GlobalType) -> ExternType
 
-pub fn global_idx(UInt) -> GlobalIdx
+pub fn global_idx(UInt32) -> GlobalIdx
 
 pub fn global_type(ValType, Bool) -> GlobalType
 
@@ -59,7 +59,7 @@ pub fn min_addr_valtype(Limits, Limits) -> ValType
 
 pub fn module_uses_custom_descriptors(Module) -> Bool
 
-pub fn rec_idx(UInt) -> TypeIdx
+pub fn rec_idx(UInt32) -> TypeIdx
 
 pub fn result_type(Array[ValType]) -> Array[ValType]
 
@@ -73,7 +73,7 @@ pub fn table_extern_idx(TableIdx) -> ExternIdx
 
 pub fn table_extern_type(TableType) -> ExternType
 
-pub fn table_idx(UInt) -> TableIdx
+pub fn table_idx(UInt32) -> TableIdx
 
 pub fn tag_extern_idx(TagIdx) -> ExternIdx
 
@@ -742,8 +742,8 @@ pub fn DataCntSec::new(U32) -> Self
 pub impl PrettyPrint for DataCntSec
 pub impl Show for DataCntSec
 
-pub struct DataIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn DataIdx::new(UInt) -> Self
+pub struct DataIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn DataIdx::new(UInt32) -> Self
 pub impl PrettyPrint for DataIdx
 pub impl Show for DataIdx
 
@@ -762,8 +762,8 @@ pub impl PrettyPrint for DataSec
 pub impl Show for DataSec
 pub impl @quickcheck.Arbitrary for DataSec
 
-pub struct DefType(RecType, UInt) derive(Eq, Hash, @debug.Debug)
-pub fn DefType::new(RecType, UInt) -> Self
+pub struct DefType(RecType, UInt32) derive(Eq, Hash, @debug.Debug)
+pub fn DefType::new(RecType, UInt32) -> Self
 pub fn DefType::project(Self) -> SubType?
 pub impl PrettyPrint for DefType
 pub impl Show for DefType
@@ -776,8 +776,8 @@ pub impl PrettyPrint for Elem
 pub impl Show for Elem
 pub impl @quickcheck.Arbitrary for Elem
 
-pub struct ElemIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn ElemIdx::new(UInt) -> Self
+pub struct ElemIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn ElemIdx::new(UInt32) -> Self
 pub impl PrettyPrint for ElemIdx
 pub impl Show for ElemIdx
 
@@ -909,16 +909,16 @@ pub struct FuncAnnotation {
 pub fn FuncAnnotation::new(String, args? : Array[String]) -> Self
 pub impl Show for FuncAnnotation
 
-pub struct FuncAnnotationAssoc(UInt, Array[FuncAnnotation]) derive(Eq, Hash, @debug.Debug)
-pub fn FuncAnnotationAssoc::new(UInt, Array[FuncAnnotation]) -> Self
+pub struct FuncAnnotationAssoc(UInt32, Array[FuncAnnotation]) derive(Eq, Hash, @debug.Debug)
+pub fn FuncAnnotationAssoc::new(UInt32, Array[FuncAnnotation]) -> Self
 pub impl Show for FuncAnnotationAssoc
 
 pub struct FuncAnnotationSec(Array[FuncAnnotationAssoc]) derive(Eq, Hash, @debug.Debug)
 pub fn FuncAnnotationSec::new(Array[FuncAnnotationAssoc]) -> Self
 pub impl Show for FuncAnnotationSec
 
-pub struct FuncIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn FuncIdx::new(UInt) -> Self
+pub struct FuncIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn FuncIdx::new(UInt32) -> Self
 pub impl PrettyPrint for FuncIdx
 pub impl Show for FuncIdx
 
@@ -944,7 +944,7 @@ pub fn FunctionLocals::from_typed_func(Array[ValType], Array[ValType], Locals) -
 pub fn FunctionLocals::from_typed_func_for_pass(Array[ValType], Array[ValType], Locals) -> Result[Self, String]
 pub fn FunctionLocals::local_type(Self, LocalIdx) -> ValType?
 pub fn FunctionLocals::new(Array[ValType], Locals) -> Self
-pub fn FunctionLocals::param_count(Self) -> Int
+pub fn FunctionLocals::param_count(Self) -> Int32
 pub fn FunctionLocals::params(Self) -> Array[ValType]
 
 pub struct Global(GlobalType, Expr) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
@@ -952,8 +952,8 @@ pub fn Global::new(GlobalType, Expr) -> Self
 pub impl PrettyPrint for Global
 pub impl Show for Global
 
-pub struct GlobalIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn GlobalIdx::new(UInt) -> Self
+pub struct GlobalIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn GlobalIdx::new(UInt32) -> Self
 pub impl PrettyPrint for GlobalIdx
 pub impl Show for GlobalIdx
 
@@ -986,8 +986,8 @@ pub impl PrettyPrint for HeapType
 pub impl Show for HeapType
 pub impl @quickcheck.Arbitrary for HeapType
 
-pub(all) struct I32(Int) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn I32::new(Int) -> Self
+pub(all) struct I32(Int32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn I32::new(Int32) -> Self
 pub impl PrettyPrint for I32
 pub impl Show for I32
 
@@ -1006,8 +1006,8 @@ pub fn ImportSec::new(Array[Import]) -> Self
 pub impl PrettyPrint for ImportSec
 pub impl Show for ImportSec
 
-pub struct IndirectNameAssoc(UInt, NameMap) derive(Eq, Hash, @debug.Debug)
-pub fn IndirectNameAssoc::new(UInt, NameMap) -> Self
+pub struct IndirectNameAssoc(UInt32, NameMap) derive(Eq, Hash, @debug.Debug)
+pub fn IndirectNameAssoc::new(UInt32, NameMap) -> Self
 pub impl PrettyPrint for IndirectNameAssoc
 pub impl Show for IndirectNameAssoc
 
@@ -2156,8 +2156,8 @@ pub impl PrettyPrint for Instruction
 pub impl Show for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 
-pub struct LabelIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn LabelIdx::new(UInt) -> Self
+pub struct LabelIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn LabelIdx::new(UInt32) -> Self
 pub impl PrettyPrint for LabelIdx
 pub impl Show for LabelIdx
 
@@ -2176,13 +2176,13 @@ pub fn LegacyCatch::tagged(TagIdx, Expr) -> Self
 pub impl Show for LegacyCatch
 
 pub enum Limits {
-  I32Limits(UInt, UInt?)
+  I32Limits(UInt32, UInt32?)
   I64Limits(UInt64, UInt64?)
 } derive(Eq, Hash, @debug.Debug)
 pub fn Limits::addr_valtype(Self) -> ValType
-pub fn Limits::i32(UInt, UInt?) -> Self
+pub fn Limits::i32(UInt32, UInt32?) -> Self
 pub fn Limits::i64(UInt64, UInt64?) -> Self
-pub fn Limits::mem_addr_bits(Self) -> Int
+pub fn Limits::mem_addr_bits(Self) -> Int32
 pub impl PrettyPrint for Limits
 pub impl Show for Limits
 pub impl @quickcheck.Arbitrary for Limits
@@ -2260,52 +2260,52 @@ pub fn LoadOp::v128_load8x8u() -> Self
 pub impl PrettyPrint for LoadOp
 pub impl Show for LoadOp
 
-pub struct LocalIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn LocalIdx::new(UInt) -> Self
+pub struct LocalIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn LocalIdx::new(UInt32) -> Self
 pub impl PrettyPrint for LocalIdx
 pub impl Show for LocalIdx
 
 pub struct LocalRun {
-  count : UInt
+  count : UInt32
   vt : ValType
 } derive(Eq, Hash, @debug.Debug)
-pub fn LocalRun::count(Self) -> UInt
-pub fn LocalRun::new(UInt, ValType) -> Self
+pub fn LocalRun::count(Self) -> UInt32
+pub fn LocalRun::new(UInt32, ValType) -> Self
 pub fn LocalRun::val_type(Self) -> ValType
 pub impl Show for LocalRun
 pub impl @quickcheck.Arbitrary for LocalRun
 
 pub struct Locals {
   mut runs : Array[LocalRun]
-  mut indices : Array[Int]?
+  mut indices : Array[Int32]?
 } derive(@debug.Debug)
 pub fn Locals::append(Self, Self) -> Unit
 pub fn Locals::append_types(Self, Array[ValType]) -> Unit
-pub fn Locals::at(Self, Int) -> ValType?
+pub fn Locals::at(Self, Int32) -> ValType?
 pub fn Locals::copy(Self) -> Self
 pub fn Locals::empty() -> Self
-pub fn Locals::ensure_index(Self) -> Array[Int]
+pub fn Locals::ensure_index(Self) -> Array[Int32]
 pub fn Locals::from_decl_runs_preserving_groups(Array[LocalRun]) -> Self
 pub fn Locals::from_types(Array[ValType]) -> Self
 #alias("_[_]")
-pub fn Locals::get(Self, Int) -> ValType
-pub fn Locals::insert_run(Self, Int, LocalRun) -> Unit
+pub fn Locals::get(Self, Int32) -> ValType
+pub fn Locals::insert_run(Self, Int32, LocalRun) -> Unit
 pub fn Locals::invalidate_indices(Self) -> Unit
 pub fn Locals::is_empty(Self) -> Bool
 pub fn Locals::iter(Self) -> Iter[ValType]
-pub fn Locals::length(Self) -> Int
+pub fn Locals::length(Self) -> Int32
 pub fn Locals::merge_adjacent_runs(Self) -> Unit
 pub fn Locals::new(Array[LocalRun]) -> Self
 pub fn Locals::push(Self, ValType) -> Unit
 pub fn Locals::push_run(Self, LocalRun) -> Unit
-pub fn Locals::remove_run(Self, Int) -> LocalRun?
-pub fn Locals::run_count(Self) -> Int
+pub fn Locals::remove_run(Self, Int32) -> LocalRun?
+pub fn Locals::run_count(Self) -> Int32
 pub fn Locals::runs(Self) -> Array[LocalRun]
-pub fn Locals::set(Self, Int, ValType) -> Bool
-pub fn Locals::set_run_count(Self, Int, UInt) -> Bool
-pub fn Locals::single(UInt, ValType) -> Self
-pub fn Locals::unsafe_get(Self, Int) -> ValType
-pub fn Locals::without_prefix(Self, Int) -> Self
+pub fn Locals::set(Self, Int32, ValType) -> Bool
+pub fn Locals::set_run_count(Self, Int32, UInt32) -> Bool
+pub fn Locals::single(UInt32, ValType) -> Self
+pub fn Locals::unsafe_get(Self, Int32) -> ValType
+pub fn Locals::without_prefix(Self, Int32) -> Self
 pub impl PrettyPrint for Locals
 pub impl Eq for Locals
 pub impl Hash for Locals
@@ -2319,8 +2319,8 @@ pub impl Eq for MemArg
 pub impl Show for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 
-pub struct MemIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn MemIdx::new(UInt) -> Self
+pub struct MemIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn MemIdx::new(UInt32) -> Self
 pub impl PrettyPrint for MemIdx
 pub impl Show for MemIdx
 
@@ -2356,7 +2356,7 @@ pub struct Module {
   data_sec : DataSec?
 } derive(Hash, @debug.Debug)
 pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_annotation_sec? : FuncAnnotationSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, stringrefs_sec? : StringRefsSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?, name_sec? : NameSec?, raw_name_sec_payload? : Bytes?, compiler_fact_custom_section? : @representation.CompilerFactCustomSection?) -> Self
-pub fn Module::pretty_print_defined_func(Self, UInt) -> String
+pub fn Module::pretty_print_defined_func(Self, UInt32) -> String
 pub fn Module::pretty_print_func(Self, FuncIdx) -> String
 pub fn Module::with_code_sec(Self, CodeSec) -> Self
 pub fn Module::with_compiler_fact_custom_section(Self, @representation.CompilerFactCustomSection) -> Self
@@ -2400,8 +2400,8 @@ pub impl PrettyPrint for Name
 pub impl Show for Name
 pub impl @quickcheck.Arbitrary for Name
 
-pub struct NameAssoc(UInt, Name) derive(Eq, Hash, @debug.Debug)
-pub fn NameAssoc::new(UInt, Name) -> Self
+pub struct NameAssoc(UInt32, Name) derive(Eq, Hash, @debug.Debug)
+pub fn NameAssoc::new(UInt32, Name) -> Self
 pub impl PrettyPrint for NameAssoc
 pub impl Show for NameAssoc
 
@@ -2451,21 +2451,21 @@ pub impl PrettyPrint for PackType
 pub impl Show for PackType
 
 pub struct PrettyPrintContext {
-  max_line_width : UInt
+  max_line_width : UInt32
   tabs_or_spaces : TabsOrSpaces
-  tab_width : UInt
-  continuation_indent : UInt
-  source_indent_width : UInt
+  tab_width : UInt32
+  continuation_indent : UInt32
+  source_indent_width : UInt32
 } derive(Eq, @debug.Debug)
-pub fn PrettyPrintContext::indent(Self, UInt) -> String
+pub fn PrettyPrintContext::indent(Self, UInt32) -> String
 pub fn PrettyPrintContext::indent_unit(Self) -> String
-pub fn PrettyPrintContext::new(max_line_width? : UInt, tabs_or_spaces? : TabsOrSpaces, tab_width? : UInt, continuation_indent? : UInt, source_indent_width? : UInt) -> Self
+pub fn PrettyPrintContext::new(max_line_width? : UInt32, tabs_or_spaces? : TabsOrSpaces, tab_width? : UInt32, continuation_indent? : UInt32, source_indent_width? : UInt32) -> Self
 
 pub enum RecType {
   SingleRecType(SubType)
   GroupRecType(Array[SubType])
 } derive(Hash, @debug.Debug)
-pub fn RecType::get_subtype(Self, UInt) -> SubType?
+pub fn RecType::get_subtype(Self, UInt32) -> SubType?
 pub fn RecType::group(Array[SubType]) -> Self
 pub fn RecType::new(SubType) -> Self
 pub impl PrettyPrint for RecType
@@ -2515,8 +2515,8 @@ pub fn ResumeHandler::on_label(TagIdx, LabelIdx) -> Self
 pub fn ResumeHandler::on_switch(TagIdx) -> Self
 pub impl Show for ResumeHandler
 
-pub(all) struct S33(UInt) derive(Eq, Hash, @debug.Debug)
-pub fn S33::new(UInt) -> Self
+pub(all) struct S33(UInt32) derive(Eq, Hash, @debug.Debug)
+pub fn S33::new(UInt32) -> Self
 pub impl PrettyPrint for S33
 pub impl Show for S33
 
@@ -2599,8 +2599,8 @@ pub fn Table::new(TableType, Expr?) -> Self
 pub impl PrettyPrint for Table
 pub impl Show for Table
 
-pub struct TableIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn TableIdx::new(UInt) -> Self
+pub struct TableIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn TableIdx::new(UInt32) -> Self
 pub impl PrettyPrint for TableIdx
 pub impl Show for TableIdx
 
@@ -2621,8 +2621,8 @@ pub enum TabsOrSpaces {
 pub fn TabsOrSpaces::spaces() -> Self
 pub fn TabsOrSpaces::tabs() -> Self
 
-pub struct TagIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn TagIdx::new(UInt) -> Self
+pub struct TagIdx(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn TagIdx::new(UInt32) -> Self
 pub impl PrettyPrint for TagIdx
 pub impl Show for TagIdx
 
@@ -2637,11 +2637,11 @@ pub impl PrettyPrint for TagType
 pub impl Show for TagType
 
 pub enum TypeIdx {
-  TypeIdx(UInt)
-  RecIdx(UInt)
+  TypeIdx(UInt32)
+  RecIdx(UInt32)
 } derive(Eq, Hash, @debug.Debug)
-pub fn TypeIdx::new(UInt) -> Self
-pub fn TypeIdx::rec(UInt) -> Self
+pub fn TypeIdx::new(UInt32) -> Self
+pub fn TypeIdx::rec(UInt32) -> Self
 pub impl PrettyPrint for TypeIdx
 pub impl Show for TypeIdx
 pub impl @quickcheck.Arbitrary for TypeIdx
@@ -2660,8 +2660,8 @@ pub fn TypeSec::new(Array[RecType]) -> Self
 pub impl PrettyPrint for TypeSec
 pub impl Show for TypeSec
 
-pub(all) struct U32(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn U32::new(UInt) -> Self
+pub(all) struct U32(UInt32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn U32::new(UInt32) -> Self
 pub impl PrettyPrint for U32
 pub impl Show for U32
 

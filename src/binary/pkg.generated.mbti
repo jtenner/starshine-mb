@@ -10,27 +10,27 @@ import {
 }
 
 // Values
-pub fn compiler_fact_module_opcode_offsets(@lib.Module) -> Result[Array[Array[UInt]], BinaryEncodeError]
+pub fn compiler_fact_module_opcode_offsets(@lib.Module) -> Result[Array[Array[UInt32]], BinaryEncodeError]
 
-pub fn compiler_fact_module_opcode_sites(@lib.Module) -> Result[Array[Array[(UInt, @lib.Instruction)]], BinaryEncodeError]
+pub fn compiler_fact_module_opcode_sites(@lib.Module) -> Result[Array[Array[(UInt32, @lib.Instruction)]], BinaryEncodeError]
 
-pub fn compiler_fact_opcode_offsets(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[UInt], BinaryEncodeError]
+pub fn compiler_fact_opcode_offsets(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[UInt32], BinaryEncodeError]
 
-pub fn compiler_fact_opcode_sites(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[(UInt, @lib.Instruction)], BinaryEncodeError]
+pub fn compiler_fact_opcode_sites(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[(UInt32, @lib.Instruction)], BinaryEncodeError]
 
 pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
 
-pub fn decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), ModuleDecodeErrorDetail]
+pub fn decode_module_with_detail(Bytes, Int32) -> Result[(@lib.Module, Int32), ModuleDecodeErrorDetail]
 
 pub fn encode_module(@lib.Module, compact_imports? : Bool) -> Result[Bytes, EncodeError]
 
-pub fn encoded_module_sizes(@lib.Module, @lib.Module) -> Result[(Int, Int), EncodeError]
+pub fn encoded_module_sizes(@lib.Module, @lib.Module) -> Result[(Int32, Int32), EncodeError]
 
 pub fn encoded_type_compaction_is_strictly_smaller(@lib.Module, @lib.Module) -> Bool
 
-pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
+pub fn size_signed(Int64, Int32) -> Result[Int32, BinaryEncodeError]
 
-pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]
+pub fn size_unsigned(UInt64, Int32) -> Result[Int32, BinaryEncodeError]
 
 // Errors
 pub suberror BinaryDecodeError {
@@ -124,8 +124,8 @@ pub impl Show for BinaryEncodeError
 
 pub suberror DecodeError {
   Decode(BinaryDecodeError)
-  DecodeAt(BinaryDecodeError, Int, Int)
-  TrailingBytes(Int, Int)
+  DecodeAt(BinaryDecodeError, Int32, Int32)
+  TrailingBytes(Int32, Int32)
 } derive(Eq, @debug.Debug)
 pub impl Show for DecodeError
 
@@ -137,17 +137,17 @@ pub impl Show for EncodeError
 // Types and methods
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
-  section_id : Int?
-  section_offset : Int?
-  section_len : Int?
-  trailing_offset : Int?
+  section_id : Int32?
+  section_offset : Int32?
+  section_len : Int32?
+  trailing_offset : Int32?
 } derive(Eq, @debug.Debug)
 
 // Type aliases
 
 // Traits
 pub trait Decode {
-  fn decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
+  fn decode(Bytes, Int32) -> Result[(Self, Int32), BinaryDecodeError]
 }
 pub impl Decode for Bool
 pub impl[T : Decode] Decode for T?

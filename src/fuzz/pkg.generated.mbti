@@ -11,11 +11,11 @@ import {
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
 
-pub fn build_fuz1026_binary_text_multifault_stress_report(UInt64, Int) -> InvalidFuzzFailureReport
+pub fn build_fuz1026_binary_text_multifault_stress_report(UInt64, Int32) -> InvalidFuzzFailureReport
 
-pub fn build_fuz1026_two_fault_ast_stress_report(UInt64, Int) -> InvalidFuzzFailureReport
+pub fn build_fuz1026_two_fault_ast_stress_report(UInt64, Int32) -> InvalidFuzzFailureReport
 
-pub fn build_fuz1055b4_unlinkable_failure_report(UInt64, Int) -> InvalidFuzzFailureReport
+pub fn build_fuz1055b4_unlinkable_failure_report(UInt64, Int32) -> InvalidFuzzFailureReport
 
 pub fn build_fuzz_corpus_case_index(Array[FuzzCorpusPromotionMetadata]) -> FuzzCorpusCaseIndex
 
@@ -27,17 +27,17 @@ pub fn build_fuzz_resume_shard_queue(FuzzRecipe, String?, Array[String]) -> Resu
 
 pub fn build_fuzz_shard_queue(FuzzRecipe, String?) -> Result[Array[FuzzShardWorkItem], String]
 
-pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : @validate.GenInvalidAstParams?) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int32, profile? : String, params? : @validate.GenInvalidAstParams?) -> Result[InvalidFuzzFailureReport, String]
 
-pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int32, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
 
-pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(String, UInt64, Int32, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
-pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(String, String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(String, String, UInt64, Int32, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
-pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(String, UInt64, Int32, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
-pub fn build_invalid_fuzz_text_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+pub fn build_invalid_fuzz_text_failure_report_by_stable_id(String, UInt64, Int32, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn build_validate_invalid_binary_minimal_repro(ValidateInvalidBinaryStrategyId) -> Result[Bytes, String]
 
@@ -47,13 +47,13 @@ pub fn classify_fuzz_corpus_dedup_dry_run(FuzzCorpusCaseIndex) -> FuzzCorpusDedu
 
 pub fn classify_multi_module_wast_case(ValidMultiModuleWastCase) -> MultiModuleWastClassification
 
-pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
+pub fn emit_gen_valid_batch_artifacts(Int32, UInt64) -> Result[Array[(String, Bytes)], String]
 
-pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
+pub fn emit_gen_valid_batch_artifacts_until_features(Int32, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int32, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
 
-pub fn emit_gen_valid_batch_artifacts_until_profile_features(Int, UInt64, @validate.GenValidProfile, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
+pub fn emit_gen_valid_batch_artifacts_until_profile_features(Int32, UInt64, @validate.GenValidProfile, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int32, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
 
-pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenValidBatchArtifacts, String]
+pub fn emit_gen_valid_batch_artifacts_with_manifest(Int32, UInt64) -> Result[GenValidBatchArtifacts, String]
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
@@ -67,7 +67,7 @@ pub fn format_fuzz_corpus_replay_command_metadata_json(FuzzCorpusReplayCommandMe
 
 pub fn format_fuzz_golden_seed_smoke_report(FuzzGoldenSeedSmokeReport) -> String
 
-pub fn format_fuzz_run_report_json(String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult]) -> String
+pub fn format_fuzz_run_report_json(String, String, Int64, Int32, Int32, Int32, Array[FuzzSuiteResult]) -> String
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
@@ -135,11 +135,11 @@ pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryPar
 
 pub fn gen_unlinkable_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
 
-pub fn gen_unlinkable_multi_module_wast_cases(UInt64, Int) -> Array[ValidMultiModuleWastCase]
+pub fn gen_unlinkable_multi_module_wast_cases(UInt64, Int32) -> Array[ValidMultiModuleWastCase]
 
 pub fn gen_valid_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
 
-pub fn gen_valid_multi_module_wast_cases(UInt64, Int) -> Array[ValidMultiModuleWastCase]
+pub fn gen_valid_multi_module_wast_cases(UInt64, Int32) -> Array[ValidMultiModuleWastCase]
 
 pub fn golden_seed_catalog_schema_json() -> String
 
@@ -189,7 +189,7 @@ pub fn parse_invalid_fuzz_failure_report(String, (String) -> Result[Bytes, Strin
 
 pub fn persist_fuzz_cmd_harness_failure(FuzzCmdHarnessFailureReport, String, FuzzRunOutputIO) -> Result[Unit, String]
 
-pub fn persist_fuzz_run_output(String, String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult], FuzzRunOutputIO) -> Result[Unit, String]
+pub fn persist_fuzz_run_output(String, String, String, Int64, Int32, Int32, Int32, Array[FuzzSuiteResult], FuzzRunOutputIO) -> Result[Unit, String]
 
 pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
 
@@ -203,7 +203,7 @@ pub fn run_fuzz_replay_manifest(String) -> Result[Array[FuzzSuiteResult], String
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
 
-pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int, cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])?) -> Result[Array[FuzzSuiteResult], String]
+pub fn run_fuzz_suite_sweep(String, String, Int64, Int32, Int32, Int32, cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])?) -> Result[Array[FuzzSuiteResult], String]
 
 pub fn run_gen_valid_wat_validate_roundtrip_fuzz(String, UInt64) -> Result[GenValidWatValidateRoundtripFuzzStats, String]
 
@@ -259,9 +259,9 @@ pub fn validate_invalid_spec_seed_scan_paths(Array[String]) -> Result[Array[Vali
 
 pub fn validate_invalid_spec_seed_scan_source(String, String) -> Result[Array[ValidateInvalidDynamicSpecSeed], String]
 
-pub fn validate_invalid_spec_seed_select(Array[ValidateInvalidDynamicSpecSeed], path_filter? : String, assertion_kind_filter? : ValidateInvalidTextAssertionKind?, occurrence_filter? : Int?, feature_family_filter? : String) -> Array[ValidateInvalidDynamicSpecSeed]
+pub fn validate_invalid_spec_seed_select(Array[ValidateInvalidDynamicSpecSeed], path_filter? : String, assertion_kind_filter? : ValidateInvalidTextAssertionKind?, occurrence_filter? : Int32?, feature_family_filter? : String) -> Array[ValidateInvalidDynamicSpecSeed]
 
-pub fn validate_invalid_text_dynamic_attempt_seed(UInt64, String, Int) -> UInt64
+pub fn validate_invalid_text_dynamic_attempt_seed(UInt64, String, Int32) -> UInt64
 
 pub fn validate_invalid_text_dynamic_case(UInt64, String) -> Result[ValidateInvalidTextDynamicCase, String]
 
@@ -281,27 +281,27 @@ pub fn validate_invalid_text_strategy_by_stable_id(String) -> ValidateInvalidTex
 
 // Types and methods
 pub struct EmitGenValidBatchArgs {
-  count : Int
+  count : Int32
   seed : UInt64
   out_dir : String
   profile : String
   required_features : Array[@validate.ValidateValidFeatureFloor]
   excluded_features : Array[@validate.ValidateValidFeatureKey]
-  max_attempts : Int
+  max_attempts : Int32
   manifest_path : String?
   metamorphic_transform_ids : Array[String]
 } derive(Eq, @debug.Debug)
-pub fn EmitGenValidBatchArgs::new(Int, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int, manifest_path? : String?, metamorphic_transform_ids? : Array[String]) -> Self
+pub fn EmitGenValidBatchArgs::new(Int32, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int32, manifest_path? : String?, metamorphic_transform_ids? : Array[String]) -> Self
 
 pub struct EmitInvalidReproArgs {
   suite : String
   strategy_id : String
   seed : UInt64
-  attempt : Int
+  attempt : Int32
   profile : String
   out_dir : String
 } derive(Eq, @debug.Debug)
-pub fn EmitInvalidReproArgs::new(String, String, UInt64, Int, String, profile? : String) -> Self
+pub fn EmitInvalidReproArgs::new(String, String, UInt64, Int32, String, profile? : String) -> Self
 
 pub struct FuzzCliArgs {
   suite : String
@@ -309,9 +309,9 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   report_json_path : String?
   out_dir : String?
 } derive(Eq, @debug.Debug)
@@ -331,8 +331,8 @@ pub enum FuzzCliCommand {
 
 pub struct FuzzCmdHarnessFailureReport {
   seed : UInt64
-  attempt : Int
-  generated_valid : Int
+  attempt : Int32
+  generated_valid : Int32
   stage : String
   message : String
   generator_profile : String
@@ -343,7 +343,7 @@ pub struct FuzzCmdHarnessFailureReport {
   first_output : Bytes
   second_output : Bytes
 } derive(Eq, @debug.Debug)
-pub fn FuzzCmdHarnessFailureReport::new(UInt64, Int, Int, String, String, String, String, Array[String], Bytes, Bytes, Bytes, minimized_passes? : Array[String]) -> Self
+pub fn FuzzCmdHarnessFailureReport::new(UInt64, Int32, Int32, String, String, String, String, Array[String], Bytes, Bytes, Bytes, minimized_passes? : Array[String]) -> Self
 
 pub struct FuzzCorpusCaseIndex {
   entries : Array[FuzzCorpusCaseIndexEntry]
@@ -371,12 +371,12 @@ pub struct FuzzCorpusDedupDryRunDecision {
 pub fn FuzzCorpusDedupDryRunDecision::new(String, String, String, Array[String], Array[String], String) -> Self
 
 pub struct FuzzCorpusDedupDryRunPlan {
-  duplicate_count : Int
-  compress_count : Int
-  keep_count : Int
+  duplicate_count : Int32
+  compress_count : Int32
+  keep_count : Int32
   decisions : Array[FuzzCorpusDedupDryRunDecision]
 } derive(Eq, @debug.Debug)
-pub fn FuzzCorpusDedupDryRunPlan::new(Int, Int, Int, Array[FuzzCorpusDedupDryRunDecision]) -> Self
+pub fn FuzzCorpusDedupDryRunPlan::new(Int32, Int32, Int32, Array[FuzzCorpusDedupDryRunDecision]) -> Self
 
 pub struct FuzzCorpusHashMetadata {
   raw_artifact_hash : String
@@ -411,9 +411,9 @@ pub struct FuzzCorpusPromotionMetadata {
 pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String, raw_artifact_hash? : String, reduced_artifact_hash? : String, normalized_shape_hash? : String, predicate_hash? : String, feature_fact_hash? : String, interestingness_label? : String) -> Self
 
 pub struct FuzzCorpusReplayAllPlan {
-  planned_count : Int
-  skipped_count : Int
-  malformed_count : Int
+  planned_count : Int32
+  skipped_count : Int32
+  malformed_count : Int32
   commands : Array[FuzzCorpusReplayCommandMetadata]
 } derive(Eq, @debug.Debug)
 
@@ -422,27 +422,27 @@ pub struct FuzzCorpusReplayCommandMetadata {
   suite : String
   profile : String
   seed : UInt64
-  seed_index : Int
+  seed_index : Int32
   strategy_or_artifact : String
   expected_outcome : String
   classification : String
   command : String
 } derive(Eq, @debug.Debug)
-pub fn FuzzCorpusReplayCommandMetadata::new(String, String, String, UInt64, Int, String, String, String, String) -> Self
+pub fn FuzzCorpusReplayCommandMetadata::new(String, String, String, UInt64, Int32, String, String, String, String) -> Self
 
 pub struct FuzzGoldenSeedSmokeCase {
   suite : String
   profile : String
   seed : Int64
-  seed_index : Int
-  attempts : Int
+  seed_index : Int32
+  attempts : Int32
   details_required : Bool
   details_json : String?
   catalog_entry_id : String?
-  expected_counter_count : Int
+  expected_counter_count : Int32
 } derive(Eq, @debug.Debug)
 pub fn FuzzGoldenSeedSmokeCase::details_json_contains(Self, String) -> Bool
-pub fn FuzzGoldenSeedSmokeCase::new(String, String, Int64, Int, Int, Bool, details_json? : String?, catalog_entry_id? : String?, expected_counter_count? : Int) -> Self
+pub fn FuzzGoldenSeedSmokeCase::new(String, String, Int64, Int32, Int32, Bool, details_json? : String?, catalog_entry_id? : String?, expected_counter_count? : Int32) -> Self
 
 pub struct FuzzGoldenSeedSmokeReport {
   schema_id : String
@@ -484,10 +484,10 @@ pub struct FuzzRecipe {
   profile : String
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_count : Int32
 } derive(Eq, @debug.Debug)
-pub fn FuzzRecipe::new(String, String, String, Int64, output_mode? : FuzzOutputMode, seed_count? : Int, shard_count? : Int) -> Self
+pub fn FuzzRecipe::new(String, String, String, Int64, output_mode? : FuzzOutputMode, seed_count? : Int32, shard_count? : Int32) -> Self
 
 pub enum FuzzReductionFailureKind {
   ValidationFailure
@@ -518,7 +518,7 @@ pub struct FuzzReplayCommand {
   suite : String
   profile : String
   seed : Int64
-  seed_index : Int
+  seed_index : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct FuzzRunOutputIO {
@@ -533,9 +533,9 @@ pub struct FuzzShardWorkItem {
   profile : String
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   out_dir : String?
 } derive(Eq, @debug.Debug)
 
@@ -543,12 +543,12 @@ pub struct FuzzSuiteResult {
   suite : String
   profile : String
   seed : Int64
-  attempts : Int
+  attempts : Int32
   elapsed_ms : UInt64
-  seed_index : Int
-  seed_count : Int
-  shard_index : Int
-  shard_count : Int
+  seed_index : Int32
+  seed_count : Int32
+  shard_index : Int32
+  shard_count : Int32
   total_run_budget_ms : UInt64?
   total_run_budget_exceeded : Bool
   run_budget_classification : String
@@ -590,14 +590,14 @@ pub struct GenValidBatchManifestEntry {
   file_name : String
   seed : UInt64
   case_seed : UInt64
-  index : Int
+  index : Int32
   wasm_hash : String
-  static_instruction_count : Int
+  static_instruction_count : Int32
   config_label : String
   selected_profile : String
   profile_case_label : String?
   rule_recipe : @validate.GenValidRuleRecipeMetadata?
-  attempts : Int
+  attempts : Int32
   validated : Bool
   validation_error_message : String?
   facts : @validate.GenValidFeatureFacts
@@ -611,9 +611,9 @@ pub struct GenValidCoverageSelection {
   manifest : Array[GenValidBatchManifestEntry]
   feature_stats : @validate.GenValidFeatureStats
   floor_failures : Array[@validate.ValidateValidFeatureFloorFailure]
-  selected : Int
-  attempts : Int
-  skipped_candidates : Int
+  selected : Int32
+  attempts : Int32
+  skipped_candidates : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidStreamDerivation {
@@ -624,16 +624,16 @@ pub struct GenValidStreamDerivation {
 pub struct GenValidWatValidateRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  generated : Int
-  printed : Int
-  print_failures : Int
-  parsed : Int
-  parse_failures : Int
-  lowered : Int
-  lower_failures : Int
-  validated : Int
-  validation_failures : Int
+  attempts : Int32
+  generated : Int32
+  printed : Int32
+  print_failures : Int32
+  parsed : Int32
+  parse_failures : Int32
+  lowered : Int32
+  lower_failures : Int32
+  validated : Int32
+  validation_failures : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct GoldenSeedCatalogEntry {
@@ -656,10 +656,10 @@ pub enum GoldenSeedCounterKind {
 pub struct GoldenSeedExpectedCounter {
   name : String
   kind : GoldenSeedCounterKind
-  value : Int
+  value : Int32
 } derive(Eq, @debug.Debug)
-pub fn GoldenSeedExpectedCounter::exact(String, Int) -> Self
-pub fn GoldenSeedExpectedCounter::minimum(String, Int) -> Self
+pub fn GoldenSeedExpectedCounter::exact(String, Int32) -> Self
+pub fn GoldenSeedExpectedCounter::minimum(String, Int32) -> Self
 
 pub struct InvalidFuzzArtifact {
   label : String
@@ -672,7 +672,7 @@ pub struct InvalidFuzzFailureReport {
   suite : String
   profile : String
   seed : UInt64
-  attempt : Int
+  attempt : Int32
   strategy_id : String
   source_kind : InvalidFuzzSourceKind
   expected_stage : String
@@ -680,7 +680,7 @@ pub struct InvalidFuzzFailureReport {
   actual_stage : String
   actual_diagnostic_family : String?
   actual_diagnostic_location : String?
-  timeout_budget_ms : Int?
+  timeout_budget_ms : Int32?
   seed_profile : String?
   seed_mode : String?
   seed_require_strategy_prereqs : Bool?
@@ -701,12 +701,12 @@ pub struct InvalidFuzzFailureReport {
   multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
-  reduction_original_size : Int?
-  reduction_final_size : Int?
-  reduction_predicate_evaluations : Int?
+  reduction_original_size : Int32?
+  reduction_final_size : Int32?
+  reduction_predicate_evaluations : Int32?
   reduction_steps : Array[InvalidFuzzReductionStep]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, unlinkable_reason? : String?, registered_module_name? : String?, import_module_name? : String?, import_name? : String?, expected_import_type? : String?, provider_export_type? : String?, pre_link_validation_status? : String?, source_feature_facts? : Array[String], multi_fault_mutation_ids? : Array[String], multi_fault_broad_outcomes? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact], reduction_original_size? : Int?, reduction_final_size? : Int?, reduction_predicate_evaluations? : Int?, reduction_steps? : Array[InvalidFuzzReductionStep]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int32, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int32?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, unlinkable_reason? : String?, registered_module_name? : String?, import_module_name? : String?, import_name? : String?, expected_import_type? : String?, provider_export_type? : String?, pre_link_validation_status? : String?, source_feature_facts? : Array[String], multi_fault_mutation_ids? : Array[String], multi_fault_broad_outcomes? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact], reduction_original_size? : Int32?, reduction_final_size? : Int32?, reduction_predicate_evaluations? : Int32?, reduction_steps? : Array[InvalidFuzzReductionStep]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]
@@ -716,12 +716,12 @@ pub fn InvalidFuzzPersistIO::new(ensure_dir? : (String) -> Result[Unit, String],
 
 pub struct InvalidFuzzReductionStep {
   kind : String
-  start : Int
-  len : Int
-  before_size : Int
-  after_size : Int
+  start : Int32
+  len : Int32
+  before_size : Int32
+  after_size : Int32
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzReductionStep::new(String, Int, Int, Int, Int) -> Self
+pub fn InvalidFuzzReductionStep::new(String, Int32, Int32, Int32, Int32) -> Self
 
 pub struct InvalidFuzzReplayResult {
   stage : String
@@ -1265,29 +1265,29 @@ pub enum MultiModuleWastClassification {
 pub struct TextDifferentialFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  local_parse_ok : Int
-  local_print_ok : Int
-  local_reparse_lower_ok : Int
-  local_lower_mismatch : Int
-  adapter_unavailable : Int
-  adapter_unavailable_classifications : Int
-  accepted_classifications : Int
+  attempts : Int32
+  local_parse_ok : Int32
+  local_print_ok : Int32
+  local_reparse_lower_ok : Int32
+  local_lower_mismatch : Int32
+  adapter_unavailable : Int32
+  adapter_unavailable_classifications : Int32
+  accepted_classifications : Int32
   external_adapters : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidMultiModuleLinkingFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  generated : Int
-  parsed_scripts : Int
-  parse_failures : Int
-  single_module_validated : Int
-  single_module_validation_failures : Int
-  link_passed : Int
-  link_failed : Int
-  link_skipped : Int
+  attempts : Int32
+  generated : Int32
+  parsed_scripts : Int32
+  parse_failures : Int32
+  single_module_validated : Int32
+  single_module_validation_failures : Int32
+  link_passed : Int32
+  link_failed : Int32
+  link_skipped : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct ValidMultiModuleWastCase {
@@ -1304,11 +1304,11 @@ pub enum ValidateInvalidBinaryExpectedResult {
 pub struct ValidateInvalidBinaryFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   generator_config : @validate.GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
   seed_profiles : Array[String]
-  seed_profile_attempts : Array[Int]
+  seed_profile_attempts : Array[Int32]
   strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
 } derive(Eq, @debug.Debug)
 
@@ -1321,7 +1321,7 @@ pub struct ValidateInvalidBinaryMutation {
 
 pub struct ValidateInvalidBinaryRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : @validate.GenValidConfig
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
   seed_profiles : Array[String]
@@ -1862,18 +1862,18 @@ pub struct ValidateInvalidBinaryStrategyStats {
   variant_id : String
   expected_result : ValidateInvalidBinaryExpectedResult
   expected_issue_kind : String?
-  attempted : Int
-  applicable : Int
-  mutated : Int
-  decode_rejected : Int
-  validate_rejected : Int
-  rejected_expected : Int
-  accepted : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_mutated : Int
-  variant_rejected : Int
-  rejected_exact_issue : Int
+  attempted : Int32
+  applicable : Int32
+  mutated : Int32
+  decode_rejected : Int32
+  validate_rejected : Int32
+  rejected_expected : Int32
+  accepted : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_mutated : Int32
+  variant_rejected : Int32
+  rejected_exact_issue : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidDynamicSpecSeed {
@@ -1881,7 +1881,7 @@ pub struct ValidateInvalidDynamicSpecSeed {
   path : String
   feature_family : String
   assertion_kind : ValidateInvalidTextAssertionKind
-  assertion_occurrence : Int
+  assertion_occurrence : Int32
   expected_stage : ValidateInvalidTextStage
   assertion_source : String
 } derive(Eq, @debug.Debug)
@@ -1889,15 +1889,15 @@ pub struct ValidateInvalidDynamicSpecSeed {
 pub struct ValidateInvalidSpecSeedFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   required_seeds : Array[ValidateInvalidSpecSeedId]
   seed_stats : Array[ValidateInvalidSpecSeedStats]
-  dynamic_scanned : Int
-  dynamic_attempted : Int
-  dynamic_matched_expected : Int
-  dynamic_malformed_matched : Int
-  dynamic_invalid_matched : Int
-  dynamic_unlinkable_matched : Int
+  dynamic_scanned : Int32
+  dynamic_attempted : Int32
+  dynamic_matched_expected : Int32
+  dynamic_malformed_matched : Int32
+  dynamic_invalid_matched : Int32
+  dynamic_unlinkable_matched : Int32
   dynamic_feature_families_matched : Array[String]
 } derive(Eq, @debug.Debug)
 
@@ -1945,7 +1945,7 @@ pub enum ValidateInvalidSpecSeedId {
 
 pub struct ValidateInvalidSpecSeedRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   required_seeds : Array[ValidateInvalidSpecSeedId]
 } derive(Eq, @debug.Debug)
 
@@ -1957,7 +1957,7 @@ pub struct ValidateInvalidSpecSeedSpec {
   layer : String
   path : String
   assertion_kind : ValidateInvalidTextAssertionKind
-  assertion_occurrence : Int
+  assertion_occurrence : Int32
   expected_stage : ValidateInvalidTextStage
   required_in_smoke : Bool
 } derive(Eq, @debug.Debug)
@@ -1968,15 +1968,15 @@ pub struct ValidateInvalidSpecSeedStats {
   variant_id : String
   path : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  applicable : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_matched_expected : Int
+  attempted : Int32
+  applicable : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_matched_expected : Int32
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidTextAssertionKind {
@@ -2000,13 +2000,13 @@ pub struct ValidateInvalidTextDynamicFuzzStats {
   seed : UInt64
   stream_label : String
   stream_seed : UInt64
-  attempts : Int
-  generated : Int
-  mutated : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
+  attempts : Int32
+  generated : Int32
+  mutated : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
   strategy_stats : Array[ValidateInvalidTextDynamicStrategyStats]
 } derive(Eq, @debug.Debug)
 
@@ -2014,27 +2014,27 @@ pub struct ValidateInvalidTextDynamicStrategyStats {
   stable_id : String
   variant_id : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  generated : Int
-  mutated : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
+  attempted : Int32
+  generated : Int32
+  mutated : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
   source_feature_facts : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   required_strategies : Array[ValidateInvalidTextStrategyId]
   strategy_stats : Array[ValidateInvalidTextStrategyStats]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   required_strategies : Array[ValidateInvalidTextStrategyId]
 } derive(Eq, @debug.Debug)
 
@@ -2102,38 +2102,38 @@ pub struct ValidateInvalidTextStrategyStats {
   stable_id : String
   variant_id : String
   expected_stage : ValidateInvalidTextStage
-  attempted : Int
-  applicable : Int
-  parse_or_lower_rejected : Int
-  validate_rejected : Int
-  valid_before_link : Int
-  matched_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_matched_expected : Int
+  attempted : Int32
+  applicable : Int32
+  parse_or_lower_rejected : Int32
+  validate_rejected : Int32
+  valid_before_link : Int32
+  matched_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_matched_expected : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateValidMetamorphicFuzzStats {
   profile : String
-  attempts : Int
-  generated : Int
-  transformed : Int
-  validated : Int
+  attempts : Int32
+  generated : Int32
+  transformed : Int32
+  validated : Int32
   transform_ids : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct WastValidateRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  printed : Int
-  print_failures : Int
-  parsed : Int
-  parse_failures : Int
-  lowered : Int
-  lower_failures : Int
-  validated : Int
-  validation_failures : Int
+  attempts : Int32
+  printed : Int32
+  print_failures : Int32
+  parsed : Int32
+  parse_failures : Int32
+  lowered : Int32
+  lower_failures : Int32
+  validated : Int32
+  validation_failures : Int32
 } derive(Eq, @debug.Debug)
 
 // Type aliases

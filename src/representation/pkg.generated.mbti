@@ -12,9 +12,9 @@ import {
 // Types and methods
 pub struct AccessFacts {
   in_bounds : Bool
-  alignment_log2 : UInt?
+  alignment_log2 : UInt32?
 } derive(Eq, Hash, @debug.Debug)
-pub fn AccessFacts::new(in_bounds? : Bool, alignment_log2? : UInt?) -> Self
+pub fn AccessFacts::new(in_bounds? : Bool, alignment_log2? : UInt32?) -> Self
 
 pub struct AccessSiteFacts {
   site : CodeSite
@@ -24,12 +24,12 @@ pub struct AccessSiteFacts {
 pub fn AccessSiteFacts::new(CodeSite, AccessFacts, provenance? : SourceProvenance?) -> Self
 
 pub enum AliasSource {
-  ParameterAlias(UInt)
-  GlobalAlias(UInt)
+  ParameterAlias(UInt32)
+  GlobalAlias(UInt32)
   SiteAlias(ValueSite)
 } derive(Eq, Hash, @debug.Debug)
-pub fn AliasSource::global(UInt) -> Self
-pub fn AliasSource::parameter(UInt) -> Self
+pub fn AliasSource::global(UInt32) -> Self
+pub fn AliasSource::parameter(UInt32) -> Self
 pub fn AliasSource::site(ValueSite) -> Self
 
 pub struct AllocationFacts {
@@ -43,24 +43,24 @@ pub struct AllocationFacts {
 pub fn AllocationFacts::new(AllocationKind, escape_sinks? : EscapeSinkMask?, identity_unobserved? : Bool, thread_confined? : Bool, length? : IntegerFacts?, fields? : Array[AllocationFieldFacts]) -> Self
 
 pub struct AllocationFieldFacts {
-  field : UInt
+  field : UInt32
   no_post_init_writes : Bool
   stored_value : ValueFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn AllocationFieldFacts::new(UInt, no_post_init_writes? : Bool, stored_value? : ValueFacts?) -> Self
+pub fn AllocationFieldFacts::new(UInt32, no_post_init_writes? : Bool, stored_value? : ValueFacts?) -> Self
 
 pub enum AllocationKind {
-  StructAllocation(UInt)
-  ArrayAllocation(UInt)
-  ClosureAllocation(UInt)
-  BoxAllocation(UInt)
-  OtherGcAllocation(UInt)
+  StructAllocation(UInt32)
+  ArrayAllocation(UInt32)
+  ClosureAllocation(UInt32)
+  BoxAllocation(UInt32)
+  OtherGcAllocation(UInt32)
 } derive(Eq, Hash, @debug.Debug)
-pub fn AllocationKind::array(UInt) -> Self
-pub fn AllocationKind::box(UInt) -> Self
-pub fn AllocationKind::closure(UInt) -> Self
-pub fn AllocationKind::other_gc(UInt) -> Self
-pub fn AllocationKind::struct_(UInt) -> Self
+pub fn AllocationKind::array(UInt32) -> Self
+pub fn AllocationKind::box(UInt32) -> Self
+pub fn AllocationKind::closure(UInt32) -> Self
+pub fn AllocationKind::other_gc(UInt32) -> Self
+pub fn AllocationKind::struct_(UInt32) -> Self
 
 pub struct AllocationSiteFacts {
   site : ValueSite
@@ -98,49 +98,49 @@ pub fn CallProfile::new(count? : UInt64?, temperature? : TemperatureHint?) -> Se
 
 pub struct CallSiteFacts {
   site : CodeSite
-  direct_target : UInt?
+  direct_target : UInt32?
   profile : CallProfile?
   inline_policy : InlinePolicy?
   provenance : SourceProvenance?
 } derive(Eq, Hash, @debug.Debug)
-pub fn CallSiteFacts::new(CodeSite, direct_target? : UInt?, profile? : CallProfile?, inline_policy? : InlinePolicy?, provenance? : SourceProvenance?) -> Self
+pub fn CallSiteFacts::new(CodeSite, direct_target? : UInt32?, profile? : CallProfile?, inline_policy? : InlinePolicy?, provenance? : SourceProvenance?) -> Self
 
 pub struct ClosedAliasSet(Array[AliasSource]) derive(Eq, Hash, @debug.Debug)
 pub fn ClosedAliasSet::new(Array[AliasSource]) -> Self
 
-pub struct ClosedFunctionSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
-pub fn ClosedFunctionSet::new(Array[UInt]) -> Self
+pub struct ClosedFunctionSet(Array[UInt32]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedFunctionSet::new(Array[UInt32]) -> Self
 
-pub struct ClosedGlobalSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
-pub fn ClosedGlobalSet::new(Array[UInt]) -> Self
+pub struct ClosedGlobalSet(Array[UInt32]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedGlobalSet::new(Array[UInt32]) -> Self
 
 pub struct ClosedHeapTypeSet(Array[FactHeapType]) derive(Eq, Hash, @debug.Debug)
 pub fn ClosedHeapTypeSet::new(Array[FactHeapType]) -> Self
 
-pub struct ClosedMemorySet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
-pub fn ClosedMemorySet::new(Array[UInt]) -> Self
+pub struct ClosedMemorySet(Array[UInt32]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedMemorySet::new(Array[UInt32]) -> Self
 
-pub struct ClosedTableSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
-pub fn ClosedTableSet::new(Array[UInt]) -> Self
+pub struct ClosedTableSet(Array[UInt32]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedTableSet::new(Array[UInt32]) -> Self
 
-pub struct ClosedTypeViewSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
-pub fn ClosedTypeViewSet::new(Array[UInt]) -> Self
+pub struct ClosedTypeViewSet(Array[UInt32]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedTypeViewSet::new(Array[UInt32]) -> Self
 
 pub struct ClosedValueSet(Array[FactValue]) derive(Eq, Hash, @debug.Debug)
 pub fn ClosedValueSet::new(Array[FactValue]) -> Self
 
 pub struct CodeSite {
-  function : UInt
-  offset : UInt
+  function : UInt32
+  offset : UInt32
 } derive(Eq, Hash, @debug.Debug)
-pub fn CodeSite::new(UInt, UInt) -> Self
+pub fn CodeSite::new(UInt32, UInt32) -> Self
 
 pub struct CompilerFactCustomSection {
-  version : UInt
+  version : UInt32
   module_fingerprint : Bytes?
   facts : OptimizationFactsSec
 } derive(Eq, Hash, @debug.Debug)
-pub fn CompilerFactCustomSection::new(OptimizationFactsSec, version? : UInt, module_fingerprint? : Bytes?) -> Self
+pub fn CompilerFactCustomSection::new(OptimizationFactsSec, version? : UInt32, module_fingerprint? : Bytes?) -> Self
 
 pub struct EffectFacts {
   may : EffectMask
@@ -222,7 +222,7 @@ pub struct ExpressionFact {
 pub fn ExpressionFact::new(ValueSite, ValueFacts, provenance? : SourceProvenance?) -> Self
 
 pub enum FactHeapType {
-  TypeIndex(UInt)
+  TypeIndex(UInt32)
   Any
   Eq
   Struct
@@ -254,7 +254,7 @@ pub fn FactHeapType::no_func() -> Self
 pub fn FactHeapType::none() -> Self
 pub fn FactHeapType::string() -> Self
 pub fn FactHeapType::struct_() -> Self
-pub fn FactHeapType::type_index(UInt) -> Self
+pub fn FactHeapType::type_index(UInt32) -> Self
 
 pub enum FactOperand {
   ValueOperand(ValueRef)
@@ -265,29 +265,29 @@ pub fn FactOperand::value(ValueRef) -> Self
 
 pub enum FactValue {
   IntegerValue(IntConstant)
-  F32Bits(UInt)
+  F32Bits(UInt32)
   F64Bits(UInt64)
   V128Value(V128Bits)
   RefNullValue(FactHeapType)
-  RefFuncValue(UInt)
-  ImmutableGlobalValue(UInt)
+  RefFuncValue(UInt32)
+  ImmutableGlobalValue(UInt32)
 } derive(Eq, Hash, @debug.Debug)
-pub fn FactValue::f32_bits(UInt) -> Self
+pub fn FactValue::f32_bits(UInt32) -> Self
 pub fn FactValue::f64_bits(UInt64) -> Self
-pub fn FactValue::immutable_global(UInt) -> Self
+pub fn FactValue::immutable_global(UInt32) -> Self
 pub fn FactValue::integer(IntConstant) -> Self
-pub fn FactValue::ref_func(UInt) -> Self
+pub fn FactValue::ref_func(UInt32) -> Self
 pub fn FactValue::ref_null(FactHeapType) -> Self
 pub fn FactValue::v128(V128Bits) -> Self
 
 pub struct FieldFacts {
   view : TypeView
-  field : UInt
+  field : UInt32
   stored_contents : ValueFacts?
   writes : WriteFacts?
   usage : FieldUsageFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn FieldFacts::new(TypeView, UInt, stored_contents? : ValueFacts?, writes? : WriteFacts?, usage? : FieldUsageFacts?) -> Self
+pub fn FieldFacts::new(TypeView, UInt32, stored_contents? : ValueFacts?, writes? : WriteFacts?, usage? : FieldUsageFacts?) -> Self
 
 pub struct FieldUsageFacts {
   never_read : Bool
@@ -295,12 +295,12 @@ pub struct FieldUsageFacts {
 } derive(Eq, Hash, @debug.Debug)
 pub fn FieldUsageFacts::new(never_read? : Bool, never_written_after_initialization? : Bool) -> Self
 
-pub struct FloatClassMask(UInt) derive(Eq, Hash, @debug.Debug)
+pub struct FloatClassMask(UInt32) derive(Eq, Hash, @debug.Debug)
 pub fn FloatClassMask::all() -> Self
-pub fn FloatClassMask::bits(Self) -> UInt
+pub fn FloatClassMask::bits(Self) -> UInt32
 pub fn FloatClassMask::contains(Self, Self) -> Bool
 pub fn FloatClassMask::empty() -> Self
-pub fn FloatClassMask::from_bits(UInt) -> Self
+pub fn FloatClassMask::from_bits(UInt32) -> Self
 pub fn FloatClassMask::nan() -> Self
 pub fn FloatClassMask::negative_infinity() -> Self
 pub fn FloatClassMask::negative_normal() -> Self
@@ -326,7 +326,7 @@ pub fn FloatWidth::f32() -> Self
 pub fn FloatWidth::f64() -> Self
 
 pub struct FunctionBodyFacts {
-  function : UInt
+  function : UInt32
   sites : Array[ExpressionFact]
   relations : Array[ScopedRelationFacts]
   calls : Array[CallSiteFacts]
@@ -336,7 +336,7 @@ pub struct FunctionBodyFacts {
   accesses : Array[AccessSiteFacts]
   numeric_operations : Array[NumericOperationSiteFacts]
 } derive(Eq, Hash, @debug.Debug)
-pub fn FunctionBodyFacts::new(UInt, sites? : Array[ExpressionFact], relations? : Array[ScopedRelationFacts], calls? : Array[CallSiteFacts], branches? : Array[BranchFacts], loops? : Array[LoopFacts], allocations? : Array[AllocationSiteFacts], accesses? : Array[AccessSiteFacts], numeric_operations? : Array[NumericOperationSiteFacts]) -> Self
+pub fn FunctionBodyFacts::new(UInt32, sites? : Array[ExpressionFact], relations? : Array[ScopedRelationFacts], calls? : Array[CallSiteFacts], branches? : Array[BranchFacts], loops? : Array[LoopFacts], allocations? : Array[AllocationSiteFacts], accesses? : Array[AccessSiteFacts], numeric_operations? : Array[NumericOperationSiteFacts]) -> Self
 
 pub struct FunctionBoundaryFacts {
   all_call_sites_known : Bool
@@ -346,7 +346,7 @@ pub struct FunctionBoundaryFacts {
 pub fn FunctionBoundaryFacts::new(Bool, Bool, Bool) -> Self
 
 pub struct FunctionFacts {
-  function : UInt
+  function : UInt32
   effects : EffectFacts?
   parameters : Array[ParameterFacts]
   results : Array[ResultFacts]
@@ -354,7 +354,7 @@ pub struct FunctionFacts {
   profile : FunctionProfile?
   inline_policy : InlinePolicy?
 } derive(Eq, Hash, @debug.Debug)
-pub fn FunctionFacts::new(UInt, effects? : EffectFacts?, parameters? : Array[ParameterFacts], results? : Array[ResultFacts], boundary? : FunctionBoundaryFacts?, profile? : FunctionProfile?, inline_policy? : InlinePolicy?) -> Self
+pub fn FunctionFacts::new(UInt32, effects? : EffectFacts?, parameters? : Array[ParameterFacts], results? : Array[ResultFacts], boundary? : FunctionBoundaryFacts?, profile? : FunctionProfile?, inline_policy? : InlinePolicy?) -> Self
 
 pub struct FunctionProfile {
   entry_count : UInt64?
@@ -363,18 +363,18 @@ pub struct FunctionProfile {
 pub fn FunctionProfile::new(entry_count? : UInt64?, temperature? : TemperatureHint?) -> Self
 
 pub struct FunctionResultRef {
-  function : UInt
-  result : UInt
+  function : UInt32
+  result : UInt32
 } derive(Eq, Hash, @debug.Debug)
-pub fn FunctionResultRef::new(UInt, UInt) -> Self
+pub fn FunctionResultRef::new(UInt32, UInt32) -> Self
 
 pub struct GlobalFacts {
-  global : UInt
+  global : UInt32
   initial_value : ValueFacts?
   steady_state_value : ValueFacts?
   mutation : MutationFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn GlobalFacts::new(UInt, initial_value? : ValueFacts?, steady_state_value? : ValueFacts?, mutation? : MutationFacts?) -> Self
+pub fn GlobalFacts::new(UInt32, initial_value? : ValueFacts?, steady_state_value? : ValueFacts?, mutation? : MutationFacts?) -> Self
 
 pub enum HeapDomain {
   ExactRuntimeType(FactHeapType)
@@ -386,17 +386,17 @@ pub fn HeapDomain::exact_runtime_type(FactHeapType) -> Self
 pub fn HeapDomain::subtypes_of(FactHeapType) -> Self
 
 pub enum HintTarget {
-  FunctionHintTarget(UInt)
+  FunctionHintTarget(UInt32)
   SiteHintTarget(CodeSite)
 } derive(Eq, Hash, @debug.Debug)
-pub fn HintTarget::function(UInt) -> Self
+pub fn HintTarget::function(UInt32) -> Self
 pub fn HintTarget::site(CodeSite) -> Self
 
 pub struct IndexedValueFacts {
-  index : UInt
+  index : UInt32
   value : ValueFacts
 } derive(Eq, Hash, @debug.Debug)
-pub fn IndexedValueFacts::new(UInt, ValueFacts) -> Self
+pub fn IndexedValueFacts::new(UInt32, ValueFacts) -> Self
 
 pub enum InlinePolicy {
   DefaultInlinePolicy
@@ -421,7 +421,7 @@ pub enum IntWidth {
   Int32
   Int64
 } derive(Eq, Hash, @debug.Debug)
-pub fn IntWidth::bit_count(Self) -> UInt
+pub fn IntWidth::bit_count(Self) -> UInt32
 pub fn IntWidth::i16() -> Self
 pub fn IntWidth::i32() -> Self
 pub fn IntWidth::i64() -> Self
@@ -547,32 +547,32 @@ pub enum OptimizationHint {
   HotnessHint(HintTarget, TemperatureHint)
   InlineHint(HintTarget, InlinePolicy)
   GoalHint(HintTarget, OptimizationGoal)
-  BranchProbabilityHint(CodeSite, UInt)
+  BranchProbabilityHint(CodeSite, UInt32)
   EstimatedLoopTripsHint(CodeSite, UInt64)
-  LikelyCallTargetHint(CodeSite, UInt, UInt)
-  LikelyHeapTypeHint(ValueSite, FactHeapType, UInt)
+  LikelyCallTargetHint(CodeSite, UInt32, UInt32)
+  LikelyHeapTypeHint(ValueSite, FactHeapType, UInt32)
 } derive(Eq, Hash, @debug.Debug)
-pub fn OptimizationHint::branch_probability(CodeSite, UInt) -> Self
+pub fn OptimizationHint::branch_probability(CodeSite, UInt32) -> Self
 pub fn OptimizationHint::estimated_loop_trips(CodeSite, UInt64) -> Self
 pub fn OptimizationHint::goal(HintTarget, OptimizationGoal) -> Self
 pub fn OptimizationHint::hotness(HintTarget, TemperatureHint) -> Self
 pub fn OptimizationHint::inline_(HintTarget, InlinePolicy) -> Self
-pub fn OptimizationHint::likely_call_target(CodeSite, UInt, UInt) -> Self
-pub fn OptimizationHint::likely_heap_type(ValueSite, FactHeapType, UInt) -> Self
+pub fn OptimizationHint::likely_call_target(CodeSite, UInt32, UInt32) -> Self
+pub fn OptimizationHint::likely_heap_type(ValueSite, FactHeapType, UInt32) -> Self
 
 pub struct ParameterFacts {
-  parameter : UInt
+  parameter : UInt32
   value : ValueFacts?
   uses : ParameterUseMask?
   escape_sinks : EscapeSinkMask?
 } derive(Eq, Hash, @debug.Debug)
-pub fn ParameterFacts::new(UInt, value? : ValueFacts?, uses? : ParameterUseMask?, escape_sinks? : EscapeSinkMask?) -> Self
+pub fn ParameterFacts::new(UInt32, value? : ValueFacts?, uses? : ParameterUseMask?, escape_sinks? : EscapeSinkMask?) -> Self
 
 pub struct ParameterRef {
-  function : UInt
-  parameter : UInt
+  function : UInt32
+  parameter : UInt32
 } derive(Eq, Hash, @debug.Debug)
-pub fn ParameterRef::new(UInt, UInt) -> Self
+pub fn ParameterRef::new(UInt32, UInt32) -> Self
 
 pub struct ParameterUseMask(UInt64) derive(Eq, Hash, @debug.Debug)
 pub fn ParameterUseMask::address_index() -> Self
@@ -623,11 +623,11 @@ pub fn RelationKind::unsigned_less_or_equal() -> Self
 pub fn RelationKind::unsigned_less_than() -> Self
 
 pub struct ResultFacts {
-  result : UInt
+  result : UInt32
   value : ValueFacts?
   identity : ResultIdentityFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn ResultFacts::new(UInt, value? : ValueFacts?, identity? : ResultIdentityFacts?) -> Self
+pub fn ResultFacts::new(UInt32, value? : ValueFacts?, identity? : ResultIdentityFacts?) -> Self
 
 pub enum ResultIdentityFacts {
   FreshReference
@@ -635,8 +635,8 @@ pub enum ResultIdentityFacts {
 } derive(Eq, Hash, @debug.Debug)
 pub fn ResultIdentityFacts::closed_aliases(ClosedAliasSet) -> Self
 pub fn ResultIdentityFacts::fresh() -> Self
-pub fn ResultIdentityFacts::same_as_global(UInt) -> Self
-pub fn ResultIdentityFacts::same_as_parameter(UInt) -> Self
+pub fn ResultIdentityFacts::same_as_global(UInt32) -> Self
+pub fn ResultIdentityFacts::same_as_parameter(UInt32) -> Self
 
 pub struct ScopedRelationFacts {
   at : CodeSite
@@ -647,12 +647,12 @@ pub struct ScopedRelationFacts {
 pub fn ScopedRelationFacts::new(CodeSite, FactOperand, RelationKind, FactOperand) -> Self
 
 pub struct SignatureFacts {
-  signature : UInt
+  signature : UInt32
   parameters : Array[IndexedValueFacts]
   results : Array[IndexedValueFacts]
   call_sites_complete : Bool
 } derive(Eq, Hash, @debug.Debug)
-pub fn SignatureFacts::new(UInt, parameters? : Array[IndexedValueFacts], results? : Array[IndexedValueFacts], call_sites_complete? : Bool) -> Self
+pub fn SignatureFacts::new(UInt32, parameters? : Array[IndexedValueFacts], results? : Array[IndexedValueFacts], call_sites_complete? : Bool) -> Self
 
 pub struct SignedRange {
   min : Int64
@@ -677,14 +677,14 @@ pub struct TableEntryFacts {
 pub fn TableEntryFacts::new(UInt64, ReferenceFacts) -> Self
 
 pub struct TableFacts {
-  table : UInt
+  table : UInt32
   mutation : MutationFacts?
   may_grow : Bool?
   default_value : ReferenceFacts?
   entries : Array[TableEntryFacts]
   contents_complete : Bool
 } derive(Eq, Hash, @debug.Debug)
-pub fn TableFacts::new(UInt, mutation? : MutationFacts?, may_grow? : Bool?, default_value? : ReferenceFacts?, entries? : Array[TableEntryFacts], contents_complete? : Bool) -> Self
+pub fn TableFacts::new(UInt32, mutation? : MutationFacts?, may_grow? : Bool?, default_value? : ReferenceFacts?, entries? : Array[TableEntryFacts], contents_complete? : Bool) -> Self
 
 pub enum TemperatureHint {
   Cold
@@ -696,12 +696,12 @@ pub fn TemperatureHint::hot() -> Self
 pub fn TemperatureHint::normal() -> Self
 
 pub struct TypeFacts {
-  type_ : UInt
+  type_ : UInt32
   population : TypePopulation?
   fields : Array[FieldFacts]
   array_element : ArrayElementFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn TypeFacts::new(UInt, population? : TypePopulation?, fields? : Array[FieldFacts], array_element? : ArrayElementFacts?) -> Self
+pub fn TypeFacts::new(UInt32, population? : TypePopulation?, fields? : Array[FieldFacts], array_element? : ArrayElementFacts?) -> Self
 
 pub enum TypePopulation {
   EmptyTypePopulation
@@ -711,11 +711,11 @@ pub fn TypePopulation::closed(ClosedHeapTypeSet) -> Self
 pub fn TypePopulation::empty() -> Self
 
 pub enum TypeView {
-  ExactTypeView(UInt)
-  SubtypeClosureView(UInt)
+  ExactTypeView(UInt32)
+  SubtypeClosureView(UInt32)
 } derive(Eq, Hash, @debug.Debug)
-pub fn TypeView::exact(UInt) -> Self
-pub fn TypeView::subtype_closure(UInt) -> Self
+pub fn TypeView::exact(UInt32) -> Self
+pub fn TypeView::subtype_closure(UInt32) -> Self
 
 pub struct UnsignedRange {
   min : UInt64
@@ -736,7 +736,7 @@ pub struct ValueFacts {
   vector : VectorFacts?
   reference : ReferenceFacts?
 } derive(Eq, Hash, @debug.Debug)
-pub fn ValueFacts::exact_ref_func(UInt) -> Self
+pub fn ValueFacts::exact_ref_func(UInt32) -> Self
 pub fn ValueFacts::exact_value(FactValue) -> Self
 pub fn ValueFacts::impossible() -> Self
 pub fn ValueFacts::new(possible_values? : ClosedValueSet?, integer? : IntegerFacts?, float_? : FloatFacts?, vector? : VectorFacts?, reference? : ReferenceFacts?) -> Self
@@ -750,18 +750,18 @@ pub enum ValueRef {
   SiteValue(ValueSite)
   ParameterValue(ParameterRef)
   FunctionResultValue(FunctionResultRef)
-  GlobalValue(UInt)
+  GlobalValue(UInt32)
 } derive(Eq, Hash, @debug.Debug)
 pub fn ValueRef::function_result(FunctionResultRef) -> Self
-pub fn ValueRef::global(UInt) -> Self
+pub fn ValueRef::global(UInt32) -> Self
 pub fn ValueRef::parameter(ParameterRef) -> Self
 pub fn ValueRef::site(ValueSite) -> Self
 
 pub struct ValueSite {
   site : CodeSite
-  result : UInt
+  result : UInt32
 } derive(Eq, Hash, @debug.Debug)
-pub fn ValueSite::new(CodeSite, result? : UInt) -> Self
+pub fn ValueSite::new(CodeSite, result? : UInt32) -> Self
 
 pub struct VectorFacts {
   known_bits : KnownV128Bits?

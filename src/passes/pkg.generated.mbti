@@ -41,9 +41,9 @@ pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
 
-pub fn default_function_optimization_passes(Int, Int) -> Array[String]
+pub fn default_function_optimization_passes(Int32, Int32) -> Array[String]
 
-pub fn default_function_optimization_passes_for_module(@lib.Module, Int, Int) -> Array[String]
+pub fn default_function_optimization_passes_for_module(@lib.Module, Int32, Int32) -> Array[String]
 
 pub fn dfe_run_module_pass(@lib.Module) -> @lib.Module
 
@@ -91,11 +91,11 @@ pub fn inline_main_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn inline_main_summary() -> String
 
-pub fn inlining_nested_function_pipeline_passes(Int, Int) -> Array[String]
+pub fn inlining_nested_function_pipeline_passes(Int32, Int32) -> Array[String]
 
 pub fn inlining_optimizing_summary() -> String
 
-pub fn inlining_run_module_pass(@lib.Module, optimize? : Bool, trace? : ((String) -> Unit)?, pass_name? : String, optimize_level? : Int, shrink_level? : Int, always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> @lib.Module
+pub fn inlining_run_module_pass(@lib.Module, optimize? : Bool, trace? : ((String) -> Unit)?, pass_name? : String, optimize_level? : Int32, shrink_level? : Int32, always_inline_max_size? : Int32, one_caller_inline_max_size? : Int32, flexible_inline_max_size? : Int32, max_combined_binary_size? : Int32, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int32) -> @lib.Module
 
 pub fn inlining_summary() -> String
 
@@ -129,7 +129,7 @@ pub fn merge_similar_functions_summary() -> String
 
 pub fn no_full_inline_summary() -> String
 
-pub fn no_inline_copy_policy_annotations(@lib.Module, UInt, UInt) -> @lib.Module
+pub fn no_inline_copy_policy_annotations(@lib.Module, UInt32, UInt32) -> @lib.Module
 
 pub fn no_inline_pass_pattern(String) -> (String, String)?
 
@@ -191,15 +191,15 @@ pub fn optimize_preset_passes(HotPipelineOptions) -> Array[String]
 
 pub fn pass_compute_label_used(@ir.HotFunc) -> @bitset.BitSet
 
-pub fn pass_delete_detached_nodes(HotPassContext, @ir.HotFunc, Array[Int]) -> Unit
+pub fn pass_delete_detached_nodes(HotPassContext, @ir.HotFunc, Array[Int32]) -> Unit
 
-pub fn pass_label_is_used(Int, @bitset.BitSet) -> Bool
+pub fn pass_label_is_used(Int32, @bitset.BitSet) -> Bool
 
 pub fn pass_mark_mutated(HotPassContext, @ir.HotFunc) -> Unit
 
-pub fn pass_node_is_unused(HotPassContext, @ir.HotFunc, Int) -> Bool
+pub fn pass_node_is_unused(HotPassContext, @ir.HotFunc, Int32) -> Bool
 
-pub fn pass_node_use_count(HotPassContext, @ir.HotFunc, Int) -> Int
+pub fn pass_node_use_count(HotPassContext, @ir.HotFunc, Int32) -> Int32
 
 pub fn pass_prepare_requirements(HotPassContext, @ir.HotFunc) -> Unit
 
@@ -231,7 +231,7 @@ pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
 
 pub fn pass_registry_random_executable_sequence(String, UInt64) -> Array[String]
 
-pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode, preserve_value_order? : Bool) -> Unit
+pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int32, @ir.HotNode, preserve_value_order? : Bool) -> Unit
 
 pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
 
@@ -253,7 +253,7 @@ pub fn pass_require_use_def(HotPassContext, @ir.HotFunc) -> @ir.HotUseDef
 
 pub fn pass_rewrite_structured_instr(@lib.Instruction, (Array[@lib.Instruction]) -> (Array[@lib.Instruction], Bool)) -> (@lib.Instruction, Bool)
 
-pub fn pass_splice_region(HotPassContext, @ir.HotFunc, @ir.HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
+pub fn pass_splice_region(HotPassContext, @ir.HotFunc, @ir.HotRegionRef, Int32, Int32, Array[Int32]) -> Array[Int32]
 
 pub fn pass_test_capture_trace(String, Array[String]) -> Result[Array[String], String]
 
@@ -265,21 +265,21 @@ pub fn pass_test_run_pipeline(String, Array[String], options? : HotPipelineOptio
 
 pub fn pass_verify_before_after(HotPassContext, @ir.HotFunc) -> Result[Unit, String]
 
-pub fn perf_count_cfg_build(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_cfg_build(HotPerfSession, count? : Int32) -> Unit
 
-pub fn perf_count_child_span_alloc(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_child_span_alloc(HotPerfSession, count? : Int32) -> Unit
 
-pub fn perf_count_dataflow_build(HotPerfSession, String, count? : Int) -> Unit
+pub fn perf_count_dataflow_build(HotPerfSession, String, count? : Int32) -> Unit
 
 pub fn perf_count_hot_alloc_delta(HotPerfSession, HotPerfHotSnapshot, HotPerfHotSnapshot) -> Unit
 
-pub fn perf_count_node_alloc(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_node_alloc(HotPerfSession, count? : Int32) -> Unit
 
-pub fn perf_count_region_splice(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_region_splice(HotPerfSession, count? : Int32) -> Unit
 
-pub fn perf_count_side_table_alloc(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_side_table_alloc(HotPerfSession, count? : Int32) -> Unit
 
-pub fn perf_count_traversal_visit(HotPerfSession, count? : Int) -> Unit
+pub fn perf_count_traversal_visit(HotPerfSession, count? : Int32) -> Unit
 
 pub fn perf_counters(HotPerfSession) -> HotPerfCounters
 
@@ -427,19 +427,19 @@ pub struct ApplyCompilerFactsResult {
 
 pub struct CompilerFactIndex {
   facts : @representation.OptimizationFactsSec
-  functions : @hashmap.HashMap[UInt, @representation.FunctionFacts]
-  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts]
+  functions : @hashmap.HashMap[UInt32, @representation.FunctionFacts]
+  bodies : @hashmap.HashMap[UInt32, @representation.FunctionBodyFacts]
   values : @hashmap.HashMap[@representation.ValueSite, @representation.ValueFacts]
   calls : @hashmap.HashMap[@representation.CodeSite, @representation.CallSiteFacts]
-  signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts]
-  types : @hashmap.HashMap[UInt, @representation.TypeFacts]
-  globals : @hashmap.HashMap[UInt, @representation.GlobalFacts]
-  tables : @hashmap.HashMap[UInt, @representation.TableFacts]
+  signatures : @hashmap.HashMap[UInt32, @representation.SignatureFacts]
+  types : @hashmap.HashMap[UInt32, @representation.TypeFacts]
+  globals : @hashmap.HashMap[UInt32, @representation.GlobalFacts]
+  tables : @hashmap.HashMap[UInt32, @representation.TableFacts]
 } derive(@debug.Debug)
 pub fn CompilerFactIndex::allocation_facts(Self, @representation.ValueSite) -> @representation.AllocationFacts?
 pub fn CompilerFactIndex::body_facts(Self, @lib.FuncIdx) -> @representation.FunctionBodyFacts?
 pub fn CompilerFactIndex::call_facts(Self, @representation.CodeSite) -> @representation.CallSiteFacts?
-pub fn CompilerFactIndex::compiler_fact_exact_call_target(Self, @representation.CodeSite, target_value_site? : @representation.ValueSite?) -> UInt?
+pub fn CompilerFactIndex::compiler_fact_exact_call_target(Self, @representation.CodeSite, target_value_site? : @representation.ValueSite?) -> UInt32?
 pub fn CompilerFactIndex::function_facts(Self, @lib.FuncIdx) -> @representation.FunctionFacts?
 pub fn CompilerFactIndex::global_facts(Self, @lib.GlobalIdx) -> @representation.GlobalFacts?
 pub fn CompilerFactIndex::hints_for_function(Self, @lib.FuncIdx) -> Array[@representation.OptimizationHint]
@@ -451,41 +451,41 @@ pub fn CompilerFactIndex::type_facts(Self, @lib.TypeIdx) -> @representation.Type
 pub fn CompilerFactIndex::value_facts(Self, @representation.ValueSite) -> @representation.ValueFacts?
 
 pub struct CompilerFactMaterializationStats {
-  mut fact_sections_seen : Int
-  mut function_bodies_with_facts : Int
-  mut function_facts_seen : Int
-  mut signature_facts_seen : Int
-  mut type_facts_seen : Int
-  mut global_facts_seen : Int
-  mut table_facts_seen : Int
-  mut value_facts_seen : Int
-  mut relation_facts_seen : Int
-  mut call_facts_seen : Int
-  mut branch_facts_seen : Int
-  mut loop_facts_seen : Int
-  mut allocation_facts_seen : Int
-  mut access_facts_seen : Int
-  mut numeric_operation_facts_seen : Int
-  mut hint_facts_seen : Int
-  mut trusted_assertion_facts : Int
-  mut hint_only_facts : Int
-  mut candidate_rewrites : Int
-  mut exact_call_target_facts_seen : Int
-  mut exact_call_target_facts_accepted : Int
-  mut call_ref_converted : Int
-  mut return_call_ref_converted : Int
-  mut integer_comparisons_folded : Int
-  mut integer_zero_checks_folded : Int
-  mut reference_null_checks_folded : Int
-  mut structurally_incompatible_rejected : Int
-  mut stale_or_unresolved_sites : Int
-  mut type_mismatches : Int
-  mut invalid_referenced_indices : Int
-  mut unsupported_versions : Int
-  mut malformed_or_impossible_facts : Int
-  mut facts_blocked_by_trust : Int
-  mut valid_facts_without_rewrite : Int
-  mut ignored_untrusted_assertions : Int
+  mut fact_sections_seen : Int32
+  mut function_bodies_with_facts : Int32
+  mut function_facts_seen : Int32
+  mut signature_facts_seen : Int32
+  mut type_facts_seen : Int32
+  mut global_facts_seen : Int32
+  mut table_facts_seen : Int32
+  mut value_facts_seen : Int32
+  mut relation_facts_seen : Int32
+  mut call_facts_seen : Int32
+  mut branch_facts_seen : Int32
+  mut loop_facts_seen : Int32
+  mut allocation_facts_seen : Int32
+  mut access_facts_seen : Int32
+  mut numeric_operation_facts_seen : Int32
+  mut hint_facts_seen : Int32
+  mut trusted_assertion_facts : Int32
+  mut hint_only_facts : Int32
+  mut candidate_rewrites : Int32
+  mut exact_call_target_facts_seen : Int32
+  mut exact_call_target_facts_accepted : Int32
+  mut call_ref_converted : Int32
+  mut return_call_ref_converted : Int32
+  mut integer_comparisons_folded : Int32
+  mut integer_zero_checks_folded : Int32
+  mut reference_null_checks_folded : Int32
+  mut structurally_incompatible_rejected : Int32
+  mut stale_or_unresolved_sites : Int32
+  mut type_mismatches : Int32
+  mut invalid_referenced_indices : Int32
+  mut unsupported_versions : Int32
+  mut malformed_or_impossible_facts : Int32
+  mut facts_blocked_by_trust : Int32
+  mut valid_facts_without_rewrite : Int32
+  mut ignored_untrusted_assertions : Int32
 } derive(Eq, @debug.Debug)
 pub fn CompilerFactMaterializationStats::new() -> Self
 
@@ -499,12 +499,12 @@ pub fn CompilerFactUsePolicy::ignore() -> Self
 pub fn CompilerFactUsePolicy::trust_assertions() -> Self
 
 pub(all) struct FlattenFlatnessReport {
-  mut rich_operand_count : Int
-  mut value_control_count : Int
-  mut local_tee_count : Int
-  mut control_local_set_count : Int
-  mut body_value_flow_count : Int
-  mut unsupported_count : Int
+  mut rich_operand_count : Int32
+  mut value_control_count : Int32
+  mut local_tee_count : Int32
+  mut control_local_set_count : Int32
+  mut body_value_flow_count : Int32
+  mut unsupported_count : Int32
 } derive(Eq, @debug.Debug)
 pub fn FlattenFlatnessReport::empty() -> Self
 pub fn FlattenFlatnessReport::is_flat(Self) -> Bool
@@ -519,14 +519,14 @@ pub struct HotPassContext {
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
   fast_math : Bool
-  optimize_level : Int
-  shrink_level : Int
+  optimize_level : Int32
+  shrink_level : Int32
   trace : (String) -> Unit
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
   // private fields
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, fast_math? : Bool, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int, shrink_level? : Int) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, fast_math? : Bool, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int32, shrink_level? : Int32) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass
@@ -558,15 +558,15 @@ pub fn HotPassResult::changed() -> Self
 pub fn HotPassResult::unchanged() -> Self
 
 pub struct HotPerfCounters {
-  node_allocs : Int
-  child_span_allocs : Int
-  side_table_allocs : Int
-  region_splices : Int
-  cfg_builds : Int
-  dataflow_builds : Int
-  traversal_visits : Int
+  node_allocs : Int32
+  child_span_allocs : Int32
+  side_table_allocs : Int32
+  region_splices : Int32
+  cfg_builds : Int32
+  dataflow_builds : Int32
+  traversal_visits : Int32
 } derive(Eq, @debug.Debug)
-pub fn HotPerfCounters::new(node_allocs? : Int, child_span_allocs? : Int, side_table_allocs? : Int, region_splices? : Int, cfg_builds? : Int, dataflow_builds? : Int, traversal_visits? : Int) -> Self
+pub fn HotPerfCounters::new(node_allocs? : Int32, child_span_allocs? : Int32, side_table_allocs? : Int32, region_splices? : Int32, cfg_builds? : Int32, dataflow_builds? : Int32, traversal_visits? : Int32) -> Self
 
 pub struct HotPerfDumpOptions {
   hot_func : Bool
@@ -575,9 +575,9 @@ pub struct HotPerfDumpOptions {
 pub fn HotPerfDumpOptions::new(hot_func? : Bool, cfg? : Bool) -> Self
 
 pub struct HotPerfHotSnapshot {
-  node_count : Int
-  child_span_count : Int
-  side_table_count : Int
+  node_count : Int32
+  child_span_count : Int32
+  side_table_count : Int32
 } derive(Eq, @debug.Debug)
 pub fn HotPerfHotSnapshot::empty() -> Self
 
@@ -590,7 +590,7 @@ pub struct HotPerfSession {
   dump_options : HotPerfDumpOptions
   mut counters : HotPerfCounters
   timer_totals : Array[(String, UInt64)]
-  timer_indices : @hashmap.HashMap[String, Int]
+  timer_indices : @hashmap.HashMap[String, Int32]
 }
 pub fn HotPerfSession::new(enabled? : Bool, trace? : (String) -> Unit, trace_timings? : Bool, trace_checkpoints? : Bool, trace_counters? : Bool, dump_options? : HotPerfDumpOptions) -> Self
 
@@ -603,21 +603,21 @@ pub struct HotPipelineOptions {
   zero_filled_memory : Bool
   fast_math : Bool
   compiler_fact_policy : CompilerFactUsePolicy
-  optimize_level : Int
-  shrink_level : Int
-  inlining_always_inline_max_size : Int
-  inlining_one_caller_inline_max_size : Int
-  inlining_flexible_inline_max_size : Int
-  inlining_max_combined_binary_size : Int
+  optimize_level : Int32
+  shrink_level : Int32
+  inlining_always_inline_max_size : Int32
+  inlining_one_caller_inline_max_size : Int32
+  inlining_flexible_inline_max_size : Int32
+  inlining_max_combined_binary_size : Int32
   inlining_allow_functions_with_loops : Bool
-  inlining_partial_inlining_ifs : Int
+  inlining_partial_inlining_ifs : Int32
   stack_function_passes : Bool
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
   // private fields
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, zero_filled_memory? : Bool, fast_math? : Bool, compiler_fact_policy? : CompilerFactUsePolicy, optimize_level? : Int, shrink_level? : Int, inlining_always_inline_max_size? : Int, inlining_one_caller_inline_max_size? : Int, inlining_flexible_inline_max_size? : Int, inlining_max_combined_binary_size? : Int, inlining_allow_functions_with_loops? : Bool, inlining_partial_inlining_ifs? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, zero_filled_memory? : Bool, fast_math? : Bool, compiler_fact_policy? : CompilerFactUsePolicy, optimize_level? : Int32, shrink_level? : Int32, inlining_always_inline_max_size? : Int32, inlining_one_caller_inline_max_size? : Int32, inlining_flexible_inline_max_size? : Int32, inlining_max_combined_binary_size? : Int32, inlining_allow_functions_with_loops? : Bool, inlining_partial_inlining_ifs? : Int32, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly
@@ -650,29 +650,29 @@ type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
 type HotTupleOptimizationSeedCollection derive(Eq, @debug.Debug)
 
 pub(all) enum SsaFullGetDecision {
-  Retarget(Int)
+  Retarget(Int32)
   MaterializeDefault
-  Merge(Int)
+  Merge(Int32)
   KeepCanonical
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullGetRewrite {
-  get_id : Int
-  original_local : Int
+  get_id : Int32
+  original_local : Int32
   decision : SsaFullGetDecision
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullMergeGetRewrite {
-  get_id : Int
-  original_local : Int
-  merge_local : Int
+  get_id : Int32
+  original_local : Int32
+  merge_local : Int32
   inputs : Array[SsaFullMergeInput]
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SsaFullMergeInput {
-  ExplicitWrite(Int)
-  ParamEntry(Int)
-  DefaultEntry(Int)
+  ExplicitWrite(Int32)
+  ParamEntry(Int32)
+  DefaultEntry(Int32)
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullRewritePlan {
@@ -682,25 +682,25 @@ pub(all) struct SsaFullRewritePlan {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SsaFullWriteDecision {
-  Freshen(Int)
+  Freshen(Int32)
   KeepCanonical
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullWriteRewrite {
-  write_id : Int
-  original_local : Int
+  write_id : Int32
+  original_local : Int32
   decision : SsaFullWriteDecision
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SsaNoMergeGetDecision {
-  Retarget(Int)
+  Retarget(Int32)
   MaterializeDefault
   KeepCanonical
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaNoMergeGetRewrite {
-  get_id : Int
-  original_local : Int
+  get_id : Int32
+  original_local : Int32
   decision : SsaNoMergeGetDecision
 } derive(Eq, @debug.Debug)
 
@@ -710,14 +710,14 @@ pub(all) struct SsaNoMergeRewritePlan {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SsaNoMergeWriteDecision {
-  Freshen(Int)
+  Freshen(Int32)
   KeepCanonical
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaNoMergeWriteRewrite {
-  write_id : Int
-  original_local : Int
-  influenced_gets : Array[Int]
+  write_id : Int32
+  original_local : Int32
+  influenced_gets : Array[Int32]
   decision : SsaNoMergeWriteDecision
 } derive(Eq, @debug.Debug)
 

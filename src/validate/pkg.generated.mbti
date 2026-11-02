@@ -51,7 +51,7 @@ pub fn gen_invalid_seed_mode_name(GenInvalidSeedMode) -> String
 
 pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
-pub fn gen_valid_case_seed(UInt64, Int) -> UInt64
+pub fn gen_valid_case_seed(UInt64, Int32) -> UInt64
 
 pub fn gen_valid_code_folding_profile_case_label(GenValidProfile, UInt64) -> String?
 
@@ -91,7 +91,7 @@ pub fn gen_valid_engine_state_outcome(GenValidProfile) -> String
 
 pub fn gen_valid_engine_state_profile() -> GenValidProfile
 
-pub fn gen_valid_engine_state_static_instruction_count(@lib.Module) -> Int
+pub fn gen_valid_engine_state_static_instruction_count(@lib.Module) -> Int32
 
 pub fn gen_valid_engine_state_trap_commit_family(UInt64) -> String
 
@@ -129,7 +129,7 @@ pub fn gen_valid_msf_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
-pub fn gen_valid_oi_trigger_profile_case_for_seed(UInt64) -> Int
+pub fn gen_valid_oi_trigger_profile_case_for_seed(UInt64) -> Int32
 
 pub fn gen_valid_oi_trigger_profile_case_label(GenValidProfile, UInt64) -> String?
 
@@ -137,7 +137,7 @@ pub fn gen_valid_profile_by_name(String) -> Result[GenValidProfile, String]
 
 pub fn gen_valid_profile_is_composite(GenValidProfile) -> Bool
 
-pub fn gen_valid_profile_leaf_for_case(GenValidProfile, UInt64, Int) -> GenValidProfile
+pub fn gen_valid_profile_leaf_for_case(GenValidProfile, UInt64, Int32) -> GenValidProfile
 
 pub fn gen_valid_profile_members(GenValidProfile) -> Array[GenValidProfileMember]
 
@@ -165,7 +165,7 @@ pub fn gen_valid_rule_recipe_metadata(GenValidProfile, UInt64) -> GenValidRuleRe
 
 pub fn gen_valid_rume_profile_case_label(GenValidProfile, UInt64) -> String?
 
-pub fn gen_valid_scan_func_ssa_facts(Int, @lib.Locals, @lib.Expr) -> GenValidSsaFuncFacts
+pub fn gen_valid_scan_func_ssa_facts(Int32, @lib.Locals, @lib.Expr) -> GenValidSsaFuncFacts
 
 pub fn gen_valid_ssa_full_profile_case_label(GenValidProfile) -> String?
 
@@ -283,13 +283,13 @@ pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 
 pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
-pub fn validate_valid_feature_actual_count(GenValidFeatureStats, ValidateValidFeatureKey) -> Int
+pub fn validate_valid_feature_actual_count(GenValidFeatureStats, ValidateValidFeatureKey) -> Int32
 
-pub fn validate_valid_feature_actual_count_by_label(GenValidFeatureStats, String) -> Result[Int, String]
+pub fn validate_valid_feature_actual_count_by_label(GenValidFeatureStats, String) -> Result[Int32, String]
 
-pub fn validate_valid_feature_floor(ValidateValidFeatureKey, Int) -> ValidateValidFeatureFloor
+pub fn validate_valid_feature_floor(ValidateValidFeatureKey, Int32) -> ValidateValidFeatureFloor
 
-pub fn validate_valid_feature_floor_by_label(String, Int) -> Result[ValidateValidFeatureFloor, String]
+pub fn validate_valid_feature_floor_by_label(String, Int32) -> Result[ValidateValidFeatureFloor, String]
 
 pub fn validate_valid_feature_ledger(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureLedgerEntry]
 
@@ -326,7 +326,7 @@ pub(all) struct Env {
   locals : @lib.Locals
   labels : LabelStack
   return_type : Array[@lib.ValType]?
-  legacy_catch_depth : Int
+  legacy_catch_depth : Int32
   infer_exact_references : Bool
 } derive(Hash, @debug.Debug)
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
@@ -345,7 +345,7 @@ pub fn Env::get_table_type(Self, @lib.TableIdx) -> @lib.TableType?
 pub fn Env::get_tag(Self, @lib.TagIdx) -> @lib.TagType?
 pub fn Env::has_data(Self, @lib.DataIdx) -> Bool
 pub fn Env::has_func(Self, @lib.FuncIdx) -> Bool
-pub fn Env::legacy_rethrow_catch_ordinal(Self, UInt) -> Int?
+pub fn Env::legacy_rethrow_catch_ordinal(Self, UInt32) -> Int32?
 pub fn Env::new() -> Self
 pub fn Env::push_data(Self, @lib.Data) -> Self
 pub fn Env::push_elem(Self, @lib.Elem) -> Self
@@ -375,7 +375,7 @@ pub fn Env::with_funcs_and_type_idxs(Self, Array[@lib.FuncType], Array[@lib.Type
 pub fn Env::with_globals(Self, Array[@lib.GlobalType]) -> Self
 pub fn Env::with_label(Self, Array[@lib.ValType]) -> Self
 pub fn Env::with_labels(Self, Array[Array[@lib.ValType]]) -> Self
-pub fn Env::with_legacy_catch_depth(Self, Int) -> Self
+pub fn Env::with_legacy_catch_depth(Self, Int32) -> Self
 pub fn Env::with_locals(Self, @lib.Locals) -> Self
 pub fn Env::with_mems(Self, Array[@lib.MemType]) -> Self
 pub fn Env::with_module(Self, @lib.Module) -> Self
@@ -433,27 +433,27 @@ pub enum GenValidBudgetStop {
 
 pub struct GenValidConfig {
   mode : GenValidMode
-  max_type_defs : Int
-  max_imports : Int
-  max_defined_funcs : Int
-  max_tables : Int
-  max_mems : Int
-  max_globals : Int
-  max_tags : Int
-  max_elems : Int
-  max_datas : Int
-  max_params : Int
-  max_results : Int
-  max_locals : Int
-  max_body_statements : Int
-  max_body_depth : Int
-  max_instruction_count_budget : Int?
-  max_expression_depth_budget : Int?
-  max_module_byte_size_budget : Int?
-  max_rec_group_size_budget : Int?
-  max_section_count_budget : Int?
-  max_name_length : Int
-  max_segment_payload_size : Int
+  max_type_defs : Int32
+  max_imports : Int32
+  max_defined_funcs : Int32
+  max_tables : Int32
+  max_mems : Int32
+  max_globals : Int32
+  max_tags : Int32
+  max_elems : Int32
+  max_datas : Int32
+  max_params : Int32
+  max_results : Int32
+  max_locals : Int32
+  max_body_statements : Int32
+  max_body_depth : Int32
+  max_instruction_count_budget : Int32?
+  max_expression_depth_budget : Int32?
+  max_module_byte_size_budget : Int32?
+  max_rec_group_size_budget : Int32?
+  max_section_count_budget : Int32?
+  max_name_length : Int32
+  max_segment_payload_size : Int32
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, @debug.Debug)
@@ -496,409 +496,409 @@ pub enum GenValidConstExprUse {
 type GenValidContext
 
 pub struct GenValidExactOpcodeCounts {
-  i32_const : Int
-  i64_const : Int
-  f32_const : Int
-  f64_const : Int
-  i32_eqz : Int
-  i64_eqz : Int
-  i32_eq : Int
-  i32_ne : Int
-  i32_lt_s : Int
-  i32_lt_u : Int
-  i32_gt_s : Int
-  i32_gt_u : Int
-  i32_le_s : Int
-  i32_le_u : Int
-  i32_ge_s : Int
-  i32_ge_u : Int
-  i64_eq : Int
-  i64_ne : Int
-  i64_lt_s : Int
-  i64_lt_u : Int
-  i64_gt_s : Int
-  i64_gt_u : Int
-  i64_le_s : Int
-  i64_le_u : Int
-  i64_ge_s : Int
-  i64_ge_u : Int
-  f32_eq : Int
-  f32_ne : Int
-  f32_lt : Int
-  f32_gt : Int
-  f32_le : Int
-  f32_ge : Int
-  f64_eq : Int
-  f64_ne : Int
-  f64_lt : Int
-  f64_gt : Int
-  f64_le : Int
-  f64_ge : Int
-  i32_clz : Int
-  i32_ctz : Int
-  i32_popcnt : Int
-  i32_add : Int
-  i32_sub : Int
-  i32_mul : Int
-  i32_div_s : Int
-  i32_div_u : Int
-  i32_rem_s : Int
-  i32_rem_u : Int
-  i32_and : Int
-  i32_or : Int
-  i32_xor : Int
-  i32_shl : Int
-  i32_shr_s : Int
-  i32_shr_u : Int
-  i32_rotl : Int
-  i32_rotr : Int
-  i64_clz : Int
-  i64_ctz : Int
-  i64_popcnt : Int
-  i64_add : Int
-  i64_sub : Int
-  i64_mul : Int
-  i64_div_s : Int
-  i64_div_u : Int
-  i64_rem_s : Int
-  i64_rem_u : Int
-  i64_and : Int
-  i64_or : Int
-  i64_xor : Int
-  i64_shl : Int
-  i64_shr_s : Int
-  i64_shr_u : Int
-  i64_rotl : Int
-  i64_rotr : Int
-  f32_abs : Int
-  f32_neg : Int
-  f32_ceil : Int
-  f32_floor : Int
-  f32_trunc : Int
-  f32_nearest : Int
-  f32_sqrt : Int
-  f32_add : Int
-  f32_sub : Int
-  f32_mul : Int
-  f32_div : Int
-  f32_min : Int
-  f32_max : Int
-  f32_copysign : Int
-  f64_abs : Int
-  f64_neg : Int
-  f64_ceil : Int
-  f64_floor : Int
-  f64_trunc : Int
-  f64_nearest : Int
-  f64_sqrt : Int
-  f64_add : Int
-  f64_sub : Int
-  f64_mul : Int
-  f64_div : Int
-  f64_min : Int
-  f64_max : Int
-  f64_copysign : Int
-  i32_wrap_i64 : Int
-  i32_trunc_f32s : Int
-  i32_trunc_f32u : Int
-  i32_trunc_f64s : Int
-  i32_trunc_f64u : Int
-  i64_extend_i32s : Int
-  i64_extend_i32u : Int
-  i64_trunc_f32s : Int
-  i64_trunc_f32u : Int
-  i64_trunc_f64s : Int
-  i64_trunc_f64u : Int
-  f32_convert_i32s : Int
-  f32_convert_i32u : Int
-  f32_convert_i64s : Int
-  f32_convert_i64u : Int
-  f32_demote_f64 : Int
-  f64_convert_i32s : Int
-  f64_convert_i32u : Int
-  f64_convert_i64s : Int
-  f64_convert_i64u : Int
-  f64_promote_f32 : Int
-  i32_extend8s : Int
-  i32_extend16s : Int
-  i64_extend8s : Int
-  i64_extend16s : Int
-  i64_extend32s : Int
-  i32_trunc_sat_f32s : Int
-  i32_trunc_sat_f32u : Int
-  i32_trunc_sat_f64s : Int
-  i32_trunc_sat_f64u : Int
-  i64_trunc_sat_f32s : Int
-  i64_trunc_sat_f32u : Int
-  i64_trunc_sat_f64s : Int
-  i64_trunc_sat_f64u : Int
-  i32_reinterpret_f32 : Int
-  i64_reinterpret_f64 : Int
-  f32_reinterpret_i32 : Int
-  f64_reinterpret_i64 : Int
-  br_table : Int
-  unreachable_opcode : Int
-  local_tee : Int
-  typed_select : Int
-  return_call : Int
-  return_call_indirect : Int
-  return_call_ref : Int
-  v128_const : Int
-  i8x16_splat : Int
-  i16x8_splat : Int
-  i32x4_splat : Int
-  i64x2_splat : Int
-  f32x4_splat : Int
-  f64x2_splat : Int
-  i8x16_extract_lane_s : Int
-  i8x16_extract_lane_u : Int
-  i8x16_replace_lane : Int
-  i16x8_extract_lane_s : Int
-  i16x8_extract_lane_u : Int
-  i16x8_replace_lane : Int
-  i32x4_extract_lane : Int
-  i32x4_replace_lane : Int
-  i64x2_extract_lane : Int
-  i64x2_replace_lane : Int
-  f32x4_extract_lane : Int
-  f32x4_replace_lane : Int
-  f64x2_extract_lane : Int
-  f64x2_replace_lane : Int
-  v128_not : Int
-  v128_and : Int
-  v128_andnot : Int
-  v128_or : Int
-  v128_xor : Int
-  v128_bitselect : Int
-  v128_any_true : Int
-  i8x16_eq : Int
-  i8x16_ne : Int
-  i8x16_lt_s : Int
-  i8x16_lt_u : Int
-  i8x16_gt_s : Int
-  i8x16_gt_u : Int
-  i8x16_le_s : Int
-  i8x16_le_u : Int
-  i8x16_ge_s : Int
-  i8x16_ge_u : Int
-  i16x8_eq : Int
-  i16x8_ne : Int
-  i16x8_lt_s : Int
-  i16x8_lt_u : Int
-  i16x8_gt_s : Int
-  i16x8_gt_u : Int
-  i16x8_le_s : Int
-  i16x8_le_u : Int
-  i16x8_ge_s : Int
-  i16x8_ge_u : Int
-  i32x4_eq : Int
-  i32x4_ne : Int
-  i32x4_lt_s : Int
-  i32x4_lt_u : Int
-  i32x4_gt_s : Int
-  i32x4_gt_u : Int
-  i32x4_le_s : Int
-  i32x4_le_u : Int
-  i32x4_ge_s : Int
-  i32x4_ge_u : Int
-  i64x2_eq : Int
-  i64x2_ne : Int
-  i64x2_lt_s : Int
-  i64x2_gt_s : Int
-  i64x2_le_s : Int
-  f32x4_eq : Int
-  f32x4_ne : Int
-  f32x4_lt : Int
-  f32x4_gt : Int
-  f32x4_le : Int
-  f32x4_ge : Int
-  f64x2_eq : Int
-  f64x2_ne : Int
-  f64x2_lt : Int
-  f64x2_gt : Int
-  f64x2_le : Int
-  f64x2_ge : Int
-  i8x16_abs : Int
-  i8x16_neg : Int
-  i8x16_popcnt : Int
-  i8x16_all_true : Int
-  i8x16_bitmask : Int
-  i16x8_abs : Int
-  i16x8_neg : Int
-  i16x8_q15mulr_sat_s : Int
-  i16x8_all_true : Int
-  i16x8_bitmask : Int
-  i32x4_abs : Int
-  i32x4_neg : Int
-  i32x4_bitmask : Int
-  i64x2_abs : Int
-  i64x2_neg : Int
-  i64x2_all_true : Int
-  i8x16_add : Int
-  i8x16_add_sat_s : Int
-  i8x16_add_sat_u : Int
-  i8x16_sub : Int
-  i8x16_sub_sat_s : Int
-  i16x8_mul : Int
-  i8x16_shl : Int
-  i8x16_shr_s : Int
-  i8x16_shr_u : Int
-  i16x8_shl : Int
-  i16x8_shr_s : Int
-  i16x8_shr_u : Int
-  i32x4_shl : Int
-  i32x4_shr_s : Int
-  i32x4_shr_u : Int
-  i64x2_shl : Int
-  i64x2_shr_s : Int
-  i64x2_shr_u : Int
-  i64x2_ge_s : Int
-  i32x4_all_true : Int
-  i64x2_bitmask : Int
-  i8x16_sub_sat_u : Int
-  i8x16_min_s : Int
-  i8x16_min_u : Int
-  i8x16_max_s : Int
-  i8x16_max_u : Int
-  i8x16_avgr_u : Int
-  i16x8_add : Int
-  i16x8_add_sat_s : Int
-  i16x8_add_sat_u : Int
-  i16x8_sub : Int
-  i16x8_sub_sat_s : Int
-  i16x8_sub_sat_u : Int
-  i16x8_min_s : Int
-  i16x8_min_u : Int
-  i16x8_max_s : Int
-  i16x8_max_u : Int
-  i16x8_avgr_u : Int
-  i32x4_add : Int
-  i32x4_sub : Int
-  i32x4_mul : Int
-  i32x4_min_s : Int
-  i32x4_min_u : Int
-  i32x4_max_s : Int
-  i32x4_max_u : Int
-  i64x2_add : Int
-  i64x2_sub : Int
-  i64x2_mul : Int
-  f32x4_add : Int
-  f32x4_abs : Int
-  f32x4_neg : Int
-  f32x4_sqrt : Int
-  f32x4_sub : Int
-  f32x4_mul : Int
-  f32x4_div : Int
-  f32x4_min : Int
-  f32x4_max : Int
-  f32x4_pmin : Int
-  f32x4_pmax : Int
-  f64x2_add : Int
-  f64x2_abs : Int
-  f64x2_neg : Int
-  f64x2_sqrt : Int
-  f64x2_sub : Int
-  f64x2_mul : Int
-  f64x2_div : Int
-  f64x2_min : Int
-  f64x2_max : Int
-  f64x2_pmin : Int
-  f64x2_pmax : Int
-  f32x4_ceil : Int
-  f32x4_floor : Int
-  f32x4_trunc : Int
-  f32x4_nearest : Int
-  f64x2_ceil : Int
-  f64x2_floor : Int
-  f64x2_trunc : Int
-  f64x2_nearest : Int
-  v128_load8x8_s : Int
-  v128_load8x8_u : Int
-  v128_load16x4_s : Int
-  v128_load16x4_u : Int
-  v128_load32x2_s : Int
-  v128_load32x2_u : Int
-  v128_load8_splat : Int
-  v128_load16_splat : Int
-  v128_load32_splat : Int
-  v128_load64_splat : Int
-  v128_load8_lane : Int
-  v128_load16_lane : Int
-  v128_load32_lane : Int
-  v128_load64_lane : Int
-  v128_store8_lane : Int
-  v128_store16_lane : Int
-  v128_store32_lane : Int
-  v128_store64_lane : Int
-  v128_load32_zero : Int
-  v128_load64_zero : Int
-  i8x16_narrow_i16x8_u : Int
-  i16x8_narrow_i32x4_s : Int
-  i16x8_narrow_i32x4_u : Int
-  i16x8_extadd_pairwise_i8x16_s : Int
-  i16x8_extadd_pairwise_i8x16_u : Int
-  i32x4_extadd_pairwise_i16x8_s : Int
-  i32x4_extadd_pairwise_i16x8_u : Int
-  i16x8_extend_low_i8x16_s : Int
-  i16x8_extend_high_i8x16_s : Int
-  i16x8_extend_low_i8x16_u : Int
-  i16x8_extend_high_i8x16_u : Int
-  i32x4_extend_low_i16x8_s : Int
-  i32x4_extend_high_i16x8_s : Int
-  i32x4_extend_low_i16x8_u : Int
-  i32x4_extend_high_i16x8_u : Int
-  i64x2_extend_low_i32x4_s : Int
-  i64x2_extend_high_i32x4_s : Int
-  i64x2_extend_low_i32x4_u : Int
-  i64x2_extend_high_i32x4_u : Int
-  i16x8_extmul_low_i8x16_s : Int
-  i16x8_extmul_high_i8x16_s : Int
-  i16x8_extmul_low_i8x16_u : Int
-  i16x8_extmul_high_i8x16_u : Int
-  i32x4_extmul_low_i16x8_s : Int
-  i32x4_extmul_high_i16x8_s : Int
-  i32x4_extmul_low_i16x8_u : Int
-  i32x4_extmul_high_i16x8_u : Int
-  i64x2_extmul_low_i32x4_s : Int
-  i64x2_extmul_high_i32x4_s : Int
-  i64x2_extmul_low_i32x4_u : Int
-  i64x2_extmul_high_i32x4_u : Int
-  f64x2_promote_low_f32x4 : Int
-  v128_load : Int
-  v128_store : Int
-  i8x16_shuffle : Int
-  i8x16_swizzle : Int
-  i8x16_narrow_i16x8_s : Int
-  i32x4_dot_i16x8_s : Int
-  f32x4_demote_f64x2_zero : Int
-  i32x4_trunc_sat_f32x4_s : Int
-  i32x4_trunc_sat_f32x4_u : Int
-  f32x4_convert_i32x4_s : Int
-  f32x4_convert_i32x4_u : Int
-  i32x4_trunc_sat_f64x2_s_zero : Int
-  i32x4_trunc_sat_f64x2_u_zero : Int
-  f64x2_convert_low_i32x4_s : Int
-  f64x2_convert_low_i32x4_u : Int
-  i8x16_relaxed_swizzle : Int
-  i32x4_relaxed_trunc_f32x4_s : Int
-  i32x4_relaxed_trunc_f32x4_u : Int
-  i32x4_relaxed_trunc_zero_f64x2_s : Int
-  i32x4_relaxed_trunc_zero_f64x2_u : Int
-  f32x4_relaxed_madd : Int
-  f32x4_relaxed_nmadd : Int
-  f64x2_relaxed_madd : Int
-  f64x2_relaxed_nmadd : Int
-  i8x16_relaxed_laneselect : Int
-  i16x8_relaxed_laneselect : Int
-  i32x4_relaxed_laneselect : Int
-  i64x2_relaxed_laneselect : Int
-  f32x4_relaxed_min : Int
-  f32x4_relaxed_max : Int
-  f64x2_relaxed_min : Int
-  f64x2_relaxed_max : Int
-  i16x8_relaxed_q15mulr_s : Int
-  i16x8_relaxed_dot_i8x16_i7x16_s : Int
-  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int
+  i32_const : Int32
+  i64_const : Int32
+  f32_const : Int32
+  f64_const : Int32
+  i32_eqz : Int32
+  i64_eqz : Int32
+  i32_eq : Int32
+  i32_ne : Int32
+  i32_lt_s : Int32
+  i32_lt_u : Int32
+  i32_gt_s : Int32
+  i32_gt_u : Int32
+  i32_le_s : Int32
+  i32_le_u : Int32
+  i32_ge_s : Int32
+  i32_ge_u : Int32
+  i64_eq : Int32
+  i64_ne : Int32
+  i64_lt_s : Int32
+  i64_lt_u : Int32
+  i64_gt_s : Int32
+  i64_gt_u : Int32
+  i64_le_s : Int32
+  i64_le_u : Int32
+  i64_ge_s : Int32
+  i64_ge_u : Int32
+  f32_eq : Int32
+  f32_ne : Int32
+  f32_lt : Int32
+  f32_gt : Int32
+  f32_le : Int32
+  f32_ge : Int32
+  f64_eq : Int32
+  f64_ne : Int32
+  f64_lt : Int32
+  f64_gt : Int32
+  f64_le : Int32
+  f64_ge : Int32
+  i32_clz : Int32
+  i32_ctz : Int32
+  i32_popcnt : Int32
+  i32_add : Int32
+  i32_sub : Int32
+  i32_mul : Int32
+  i32_div_s : Int32
+  i32_div_u : Int32
+  i32_rem_s : Int32
+  i32_rem_u : Int32
+  i32_and : Int32
+  i32_or : Int32
+  i32_xor : Int32
+  i32_shl : Int32
+  i32_shr_s : Int32
+  i32_shr_u : Int32
+  i32_rotl : Int32
+  i32_rotr : Int32
+  i64_clz : Int32
+  i64_ctz : Int32
+  i64_popcnt : Int32
+  i64_add : Int32
+  i64_sub : Int32
+  i64_mul : Int32
+  i64_div_s : Int32
+  i64_div_u : Int32
+  i64_rem_s : Int32
+  i64_rem_u : Int32
+  i64_and : Int32
+  i64_or : Int32
+  i64_xor : Int32
+  i64_shl : Int32
+  i64_shr_s : Int32
+  i64_shr_u : Int32
+  i64_rotl : Int32
+  i64_rotr : Int32
+  f32_abs : Int32
+  f32_neg : Int32
+  f32_ceil : Int32
+  f32_floor : Int32
+  f32_trunc : Int32
+  f32_nearest : Int32
+  f32_sqrt : Int32
+  f32_add : Int32
+  f32_sub : Int32
+  f32_mul : Int32
+  f32_div : Int32
+  f32_min : Int32
+  f32_max : Int32
+  f32_copysign : Int32
+  f64_abs : Int32
+  f64_neg : Int32
+  f64_ceil : Int32
+  f64_floor : Int32
+  f64_trunc : Int32
+  f64_nearest : Int32
+  f64_sqrt : Int32
+  f64_add : Int32
+  f64_sub : Int32
+  f64_mul : Int32
+  f64_div : Int32
+  f64_min : Int32
+  f64_max : Int32
+  f64_copysign : Int32
+  i32_wrap_i64 : Int32
+  i32_trunc_f32s : Int32
+  i32_trunc_f32u : Int32
+  i32_trunc_f64s : Int32
+  i32_trunc_f64u : Int32
+  i64_extend_i32s : Int32
+  i64_extend_i32u : Int32
+  i64_trunc_f32s : Int32
+  i64_trunc_f32u : Int32
+  i64_trunc_f64s : Int32
+  i64_trunc_f64u : Int32
+  f32_convert_i32s : Int32
+  f32_convert_i32u : Int32
+  f32_convert_i64s : Int32
+  f32_convert_i64u : Int32
+  f32_demote_f64 : Int32
+  f64_convert_i32s : Int32
+  f64_convert_i32u : Int32
+  f64_convert_i64s : Int32
+  f64_convert_i64u : Int32
+  f64_promote_f32 : Int32
+  i32_extend8s : Int32
+  i32_extend16s : Int32
+  i64_extend8s : Int32
+  i64_extend16s : Int32
+  i64_extend32s : Int32
+  i32_trunc_sat_f32s : Int32
+  i32_trunc_sat_f32u : Int32
+  i32_trunc_sat_f64s : Int32
+  i32_trunc_sat_f64u : Int32
+  i64_trunc_sat_f32s : Int32
+  i64_trunc_sat_f32u : Int32
+  i64_trunc_sat_f64s : Int32
+  i64_trunc_sat_f64u : Int32
+  i32_reinterpret_f32 : Int32
+  i64_reinterpret_f64 : Int32
+  f32_reinterpret_i32 : Int32
+  f64_reinterpret_i64 : Int32
+  br_table : Int32
+  unreachable_opcode : Int32
+  local_tee : Int32
+  typed_select : Int32
+  return_call : Int32
+  return_call_indirect : Int32
+  return_call_ref : Int32
+  v128_const : Int32
+  i8x16_splat : Int32
+  i16x8_splat : Int32
+  i32x4_splat : Int32
+  i64x2_splat : Int32
+  f32x4_splat : Int32
+  f64x2_splat : Int32
+  i8x16_extract_lane_s : Int32
+  i8x16_extract_lane_u : Int32
+  i8x16_replace_lane : Int32
+  i16x8_extract_lane_s : Int32
+  i16x8_extract_lane_u : Int32
+  i16x8_replace_lane : Int32
+  i32x4_extract_lane : Int32
+  i32x4_replace_lane : Int32
+  i64x2_extract_lane : Int32
+  i64x2_replace_lane : Int32
+  f32x4_extract_lane : Int32
+  f32x4_replace_lane : Int32
+  f64x2_extract_lane : Int32
+  f64x2_replace_lane : Int32
+  v128_not : Int32
+  v128_and : Int32
+  v128_andnot : Int32
+  v128_or : Int32
+  v128_xor : Int32
+  v128_bitselect : Int32
+  v128_any_true : Int32
+  i8x16_eq : Int32
+  i8x16_ne : Int32
+  i8x16_lt_s : Int32
+  i8x16_lt_u : Int32
+  i8x16_gt_s : Int32
+  i8x16_gt_u : Int32
+  i8x16_le_s : Int32
+  i8x16_le_u : Int32
+  i8x16_ge_s : Int32
+  i8x16_ge_u : Int32
+  i16x8_eq : Int32
+  i16x8_ne : Int32
+  i16x8_lt_s : Int32
+  i16x8_lt_u : Int32
+  i16x8_gt_s : Int32
+  i16x8_gt_u : Int32
+  i16x8_le_s : Int32
+  i16x8_le_u : Int32
+  i16x8_ge_s : Int32
+  i16x8_ge_u : Int32
+  i32x4_eq : Int32
+  i32x4_ne : Int32
+  i32x4_lt_s : Int32
+  i32x4_lt_u : Int32
+  i32x4_gt_s : Int32
+  i32x4_gt_u : Int32
+  i32x4_le_s : Int32
+  i32x4_le_u : Int32
+  i32x4_ge_s : Int32
+  i32x4_ge_u : Int32
+  i64x2_eq : Int32
+  i64x2_ne : Int32
+  i64x2_lt_s : Int32
+  i64x2_gt_s : Int32
+  i64x2_le_s : Int32
+  f32x4_eq : Int32
+  f32x4_ne : Int32
+  f32x4_lt : Int32
+  f32x4_gt : Int32
+  f32x4_le : Int32
+  f32x4_ge : Int32
+  f64x2_eq : Int32
+  f64x2_ne : Int32
+  f64x2_lt : Int32
+  f64x2_gt : Int32
+  f64x2_le : Int32
+  f64x2_ge : Int32
+  i8x16_abs : Int32
+  i8x16_neg : Int32
+  i8x16_popcnt : Int32
+  i8x16_all_true : Int32
+  i8x16_bitmask : Int32
+  i16x8_abs : Int32
+  i16x8_neg : Int32
+  i16x8_q15mulr_sat_s : Int32
+  i16x8_all_true : Int32
+  i16x8_bitmask : Int32
+  i32x4_abs : Int32
+  i32x4_neg : Int32
+  i32x4_bitmask : Int32
+  i64x2_abs : Int32
+  i64x2_neg : Int32
+  i64x2_all_true : Int32
+  i8x16_add : Int32
+  i8x16_add_sat_s : Int32
+  i8x16_add_sat_u : Int32
+  i8x16_sub : Int32
+  i8x16_sub_sat_s : Int32
+  i16x8_mul : Int32
+  i8x16_shl : Int32
+  i8x16_shr_s : Int32
+  i8x16_shr_u : Int32
+  i16x8_shl : Int32
+  i16x8_shr_s : Int32
+  i16x8_shr_u : Int32
+  i32x4_shl : Int32
+  i32x4_shr_s : Int32
+  i32x4_shr_u : Int32
+  i64x2_shl : Int32
+  i64x2_shr_s : Int32
+  i64x2_shr_u : Int32
+  i64x2_ge_s : Int32
+  i32x4_all_true : Int32
+  i64x2_bitmask : Int32
+  i8x16_sub_sat_u : Int32
+  i8x16_min_s : Int32
+  i8x16_min_u : Int32
+  i8x16_max_s : Int32
+  i8x16_max_u : Int32
+  i8x16_avgr_u : Int32
+  i16x8_add : Int32
+  i16x8_add_sat_s : Int32
+  i16x8_add_sat_u : Int32
+  i16x8_sub : Int32
+  i16x8_sub_sat_s : Int32
+  i16x8_sub_sat_u : Int32
+  i16x8_min_s : Int32
+  i16x8_min_u : Int32
+  i16x8_max_s : Int32
+  i16x8_max_u : Int32
+  i16x8_avgr_u : Int32
+  i32x4_add : Int32
+  i32x4_sub : Int32
+  i32x4_mul : Int32
+  i32x4_min_s : Int32
+  i32x4_min_u : Int32
+  i32x4_max_s : Int32
+  i32x4_max_u : Int32
+  i64x2_add : Int32
+  i64x2_sub : Int32
+  i64x2_mul : Int32
+  f32x4_add : Int32
+  f32x4_abs : Int32
+  f32x4_neg : Int32
+  f32x4_sqrt : Int32
+  f32x4_sub : Int32
+  f32x4_mul : Int32
+  f32x4_div : Int32
+  f32x4_min : Int32
+  f32x4_max : Int32
+  f32x4_pmin : Int32
+  f32x4_pmax : Int32
+  f64x2_add : Int32
+  f64x2_abs : Int32
+  f64x2_neg : Int32
+  f64x2_sqrt : Int32
+  f64x2_sub : Int32
+  f64x2_mul : Int32
+  f64x2_div : Int32
+  f64x2_min : Int32
+  f64x2_max : Int32
+  f64x2_pmin : Int32
+  f64x2_pmax : Int32
+  f32x4_ceil : Int32
+  f32x4_floor : Int32
+  f32x4_trunc : Int32
+  f32x4_nearest : Int32
+  f64x2_ceil : Int32
+  f64x2_floor : Int32
+  f64x2_trunc : Int32
+  f64x2_nearest : Int32
+  v128_load8x8_s : Int32
+  v128_load8x8_u : Int32
+  v128_load16x4_s : Int32
+  v128_load16x4_u : Int32
+  v128_load32x2_s : Int32
+  v128_load32x2_u : Int32
+  v128_load8_splat : Int32
+  v128_load16_splat : Int32
+  v128_load32_splat : Int32
+  v128_load64_splat : Int32
+  v128_load8_lane : Int32
+  v128_load16_lane : Int32
+  v128_load32_lane : Int32
+  v128_load64_lane : Int32
+  v128_store8_lane : Int32
+  v128_store16_lane : Int32
+  v128_store32_lane : Int32
+  v128_store64_lane : Int32
+  v128_load32_zero : Int32
+  v128_load64_zero : Int32
+  i8x16_narrow_i16x8_u : Int32
+  i16x8_narrow_i32x4_s : Int32
+  i16x8_narrow_i32x4_u : Int32
+  i16x8_extadd_pairwise_i8x16_s : Int32
+  i16x8_extadd_pairwise_i8x16_u : Int32
+  i32x4_extadd_pairwise_i16x8_s : Int32
+  i32x4_extadd_pairwise_i16x8_u : Int32
+  i16x8_extend_low_i8x16_s : Int32
+  i16x8_extend_high_i8x16_s : Int32
+  i16x8_extend_low_i8x16_u : Int32
+  i16x8_extend_high_i8x16_u : Int32
+  i32x4_extend_low_i16x8_s : Int32
+  i32x4_extend_high_i16x8_s : Int32
+  i32x4_extend_low_i16x8_u : Int32
+  i32x4_extend_high_i16x8_u : Int32
+  i64x2_extend_low_i32x4_s : Int32
+  i64x2_extend_high_i32x4_s : Int32
+  i64x2_extend_low_i32x4_u : Int32
+  i64x2_extend_high_i32x4_u : Int32
+  i16x8_extmul_low_i8x16_s : Int32
+  i16x8_extmul_high_i8x16_s : Int32
+  i16x8_extmul_low_i8x16_u : Int32
+  i16x8_extmul_high_i8x16_u : Int32
+  i32x4_extmul_low_i16x8_s : Int32
+  i32x4_extmul_high_i16x8_s : Int32
+  i32x4_extmul_low_i16x8_u : Int32
+  i32x4_extmul_high_i16x8_u : Int32
+  i64x2_extmul_low_i32x4_s : Int32
+  i64x2_extmul_high_i32x4_s : Int32
+  i64x2_extmul_low_i32x4_u : Int32
+  i64x2_extmul_high_i32x4_u : Int32
+  f64x2_promote_low_f32x4 : Int32
+  v128_load : Int32
+  v128_store : Int32
+  i8x16_shuffle : Int32
+  i8x16_swizzle : Int32
+  i8x16_narrow_i16x8_s : Int32
+  i32x4_dot_i16x8_s : Int32
+  f32x4_demote_f64x2_zero : Int32
+  i32x4_trunc_sat_f32x4_s : Int32
+  i32x4_trunc_sat_f32x4_u : Int32
+  f32x4_convert_i32x4_s : Int32
+  f32x4_convert_i32x4_u : Int32
+  i32x4_trunc_sat_f64x2_s_zero : Int32
+  i32x4_trunc_sat_f64x2_u_zero : Int32
+  f64x2_convert_low_i32x4_s : Int32
+  f64x2_convert_low_i32x4_u : Int32
+  i8x16_relaxed_swizzle : Int32
+  i32x4_relaxed_trunc_f32x4_s : Int32
+  i32x4_relaxed_trunc_f32x4_u : Int32
+  i32x4_relaxed_trunc_zero_f64x2_s : Int32
+  i32x4_relaxed_trunc_zero_f64x2_u : Int32
+  f32x4_relaxed_madd : Int32
+  f32x4_relaxed_nmadd : Int32
+  f64x2_relaxed_madd : Int32
+  f64x2_relaxed_nmadd : Int32
+  i8x16_relaxed_laneselect : Int32
+  i16x8_relaxed_laneselect : Int32
+  i32x4_relaxed_laneselect : Int32
+  i64x2_relaxed_laneselect : Int32
+  f32x4_relaxed_min : Int32
+  f32x4_relaxed_max : Int32
+  f64x2_relaxed_min : Int32
+  f64x2_relaxed_max : Int32
+  i16x8_relaxed_q15mulr_s : Int32
+  i16x8_relaxed_dot_i8x16_i7x16_s : Int32
+  i32x4_relaxed_dot_i8x16_i7x16_add_s : Int32
 } derive(Eq, @debug.Debug)
 pub fn GenValidExactOpcodeCounts::add(Self, Self) -> Self
 pub fn GenValidExactOpcodeCounts::empty() -> Self
@@ -908,7 +908,7 @@ pub struct GenValidFailure {
   last_candidate : @lib.Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
   validation_error_message : String
   budget_stop : GenValidBudgetStop?
 } derive(Eq, @debug.Debug)
@@ -1044,129 +1044,129 @@ pub struct GenValidFeatureFacts {
 
 pub struct GenValidFeatureStats {
   mode : GenValidMode
-  modules : Int
-  imports : Int
-  func_exports : Int
-  table_exports : Int
-  mem_exports : Int
-  global_exports : Int
-  tag_exports : Int
-  starts : Int
-  lacks_start : Int
-  tables : Int
-  mems : Int
-  globals : Int
-  tags : Int
-  elems : Int
-  datas : Int
-  data_count : Int
-  ref_types : Int
-  v128 : Int
-  calls : Int
-  call_indirect : Int
-  branch_heavy_control : Int
-  payload_control_flow : Int
-  multivalue_control_flow : Int
-  numeric_full_ops : Int
-  br_table : Int
-  standalone_unreachable : Int
-  local_tee : Int
-  typed_select : Int
-  tail_calls : Int
-  high_local_indices : Int
-  unused_locals : Int
-  write_only_locals : Int
-  zero_local_funcs : Int
-  multi_param_result_arities : Int
-  empty_body_funcs : Int
-  unreachable_result_bodies : Int
-  local_name_entries : Int
-  scalar_memory_widths : Int
-  nonzero_memarg : Int
-  memory_limit_variants : Int
-  table_limit_variants : Int
-  const_expr_variants : Int
-  basic_ref_instructions : Int
-  i31_extern_conversions : Int
-  simd_phase1 : Int
-  simd_phase2 : Int
-  simd_phase3 : Int
-  descriptors : Int
-  continuations : Int
-  waitqueues : Int
-  atomics : Int
-  array_memory : Int
-  gc_constructors : Int
-  gc_accessors : Int
-  string_ops : Int
-  exception_try_table_matrix : Int
-  subtyping_topology : Int
-  rich_gc_field_plans : Int
-  import_export_topology : Int
-  element_segment_range : Int
-  data_segment_range : Int
-  name_custom_sections : Int
-  gc_exception_combo : Int
-  gc_tail_call_combo : Int
-  shared_memory_atomics : Int
-  imports_start_exports : Int
-  semantic_effects : Int
-  import_event_channel : Int
-  trap_frontier : Int
-  resource_observation : Int
-  poisoned_dead_code : Int
-  ssa_straight_line_local_chain : Int
-  ssa_already_ssa_local : Int
-  ssa_multi_def_same_local : Int
-  ssa_param_entry_read : Int
-  ssa_local_tee_def_use : Int
-  ssa_tee_freshen_candidate : Int
-  ssa_tee_merge_feeding_candidate : Int
-  ssa_tee_child_expression : Int
-  ssa_param_write : Int
-  ssa_dead_local_set : Int
-  ssa_dead_local_tee : Int
-  ssa_if_join_phi_candidate : Int
-  ssa_loop_backedge_phi_candidate : Int
-  ssa_br_table_phi_candidate : Int
-  ssa_parallel_copy_candidate : Int
-  ssa_parallel_copy_cycle_candidate : Int
-  ssa_default_local_merge : Int
-  ssa_one_arm_default_merge : Int
-  ssa_one_arm_param_merge : Int
-  ssa_both_arm_local_merge : Int
-  ssa_loop_carried_local_merge : Int
-  ssa_mixed_fresh_canonical_writes : Int
-  ssa_unreachable_local_carrier : Int
-  ssa_dropped_increment_guard_shape : Int
-  ssa_dropped_increment_reversed_boundary : Int
-  ssa_exceptional_fail_closed_shape : Int
-  ssa_typed_loop_param_fail_closed_shape : Int
-  ssa_nested_cfg_fail_closed_shape : Int
-  ssa_nested_result_if_supported_shape : Int
-  ssa_nested_result_if_condition_write : Int
-  ssa_nested_result_if_condition_value_block : Int
-  ssa_nested_result_if_arm_value_block : Int
-  ssa_nested_result_if_mixed_arm_value_block : Int
-  ssa_nested_result_if_scalar_result : Int
-  ssa_structured_early_return_local : Int
-  ssa_block_branch_merge_copy : Int
-  ssa_block_br_if_merge_copy : Int
-  ssa_structured_param_merge : Int
-  ssa_branch_local_not_read_later : Int
-  ssa_default_local_read_after_branchy_control : Int
-  ssa_dropped_unreachable_debris_before_hard_unreachable : Int
-  ssa_canonical_body_local_next_read : Int
-  ssa_immediate_block_exit_canonical_set_br : Int
-  ssa_enclosing_label_copy_before_exit : Int
-  ssa_branch_block_alias_copy : Int
-  ssa_nested_enclosing_label_copy : Int
-  ssa_parallel_branch_carrier_copy : Int
-  ssa_tee_branch_carrier_copy : Int
-  ssa_void_br_table_canonical_copies : Int
-  ssa_branch_operand_local_boundary : Int
-  ssa_nested_loop_target_boundary : Int
-  ssa_large_structured_local_mix : Int
+  modules : Int32
+  imports : Int32
+  func_exports : Int32
+  table_exports : Int32
+  mem_exports : Int32
+  global_exports : Int32
+  tag_exports : Int32
+  starts : Int32
+  lacks_start : Int32
+  tables : Int32
+  mems : Int32
+  globals : Int32
+  tags : Int32
+  elems : Int32
+  datas : Int32
+  data_count : Int32
+  ref_types : Int32
+  v128 : Int32
+  calls : Int32
+  call_indirect : Int32
+  branch_heavy_control : Int32
+  payload_control_flow : Int32
+  multivalue_control_flow : Int32
+  numeric_full_ops : Int32
+  br_table : Int32
+  standalone_unreachable : Int32
+  local_tee : Int32
+  typed_select : Int32
+  tail_calls : Int32
+  high_local_indices : Int32
+  unused_locals : Int32
+  write_only_locals : Int32
+  zero_local_funcs : Int32
+  multi_param_result_arities : Int32
+  empty_body_funcs : Int32
+  unreachable_result_bodies : Int32
+  local_name_entries : Int32
+  scalar_memory_widths : Int32
+  nonzero_memarg : Int32
+  memory_limit_variants : Int32
+  table_limit_variants : Int32
+  const_expr_variants : Int32
+  basic_ref_instructions : Int32
+  i31_extern_conversions : Int32
+  simd_phase1 : Int32
+  simd_phase2 : Int32
+  simd_phase3 : Int32
+  descriptors : Int32
+  continuations : Int32
+  waitqueues : Int32
+  atomics : Int32
+  array_memory : Int32
+  gc_constructors : Int32
+  gc_accessors : Int32
+  string_ops : Int32
+  exception_try_table_matrix : Int32
+  subtyping_topology : Int32
+  rich_gc_field_plans : Int32
+  import_export_topology : Int32
+  element_segment_range : Int32
+  data_segment_range : Int32
+  name_custom_sections : Int32
+  gc_exception_combo : Int32
+  gc_tail_call_combo : Int32
+  shared_memory_atomics : Int32
+  imports_start_exports : Int32
+  semantic_effects : Int32
+  import_event_channel : Int32
+  trap_frontier : Int32
+  resource_observation : Int32
+  poisoned_dead_code : Int32
+  ssa_straight_line_local_chain : Int32
+  ssa_already_ssa_local : Int32
+  ssa_multi_def_same_local : Int32
+  ssa_param_entry_read : Int32
+  ssa_local_tee_def_use : Int32
+  ssa_tee_freshen_candidate : Int32
+  ssa_tee_merge_feeding_candidate : Int32
+  ssa_tee_child_expression : Int32
+  ssa_param_write : Int32
+  ssa_dead_local_set : Int32
+  ssa_dead_local_tee : Int32
+  ssa_if_join_phi_candidate : Int32
+  ssa_loop_backedge_phi_candidate : Int32
+  ssa_br_table_phi_candidate : Int32
+  ssa_parallel_copy_candidate : Int32
+  ssa_parallel_copy_cycle_candidate : Int32
+  ssa_default_local_merge : Int32
+  ssa_one_arm_default_merge : Int32
+  ssa_one_arm_param_merge : Int32
+  ssa_both_arm_local_merge : Int32
+  ssa_loop_carried_local_merge : Int32
+  ssa_mixed_fresh_canonical_writes : Int32
+  ssa_unreachable_local_carrier : Int32
+  ssa_dropped_increment_guard_shape : Int32
+  ssa_dropped_increment_reversed_boundary : Int32
+  ssa_exceptional_fail_closed_shape : Int32
+  ssa_typed_loop_param_fail_closed_shape : Int32
+  ssa_nested_cfg_fail_closed_shape : Int32
+  ssa_nested_result_if_supported_shape : Int32
+  ssa_nested_result_if_condition_write : Int32
+  ssa_nested_result_if_condition_value_block : Int32
+  ssa_nested_result_if_arm_value_block : Int32
+  ssa_nested_result_if_mixed_arm_value_block : Int32
+  ssa_nested_result_if_scalar_result : Int32
+  ssa_structured_early_return_local : Int32
+  ssa_block_branch_merge_copy : Int32
+  ssa_block_br_if_merge_copy : Int32
+  ssa_structured_param_merge : Int32
+  ssa_branch_local_not_read_later : Int32
+  ssa_default_local_read_after_branchy_control : Int32
+  ssa_dropped_unreachable_debris_before_hard_unreachable : Int32
+  ssa_canonical_body_local_next_read : Int32
+  ssa_immediate_block_exit_canonical_set_br : Int32
+  ssa_enclosing_label_copy_before_exit : Int32
+  ssa_branch_block_alias_copy : Int32
+  ssa_nested_enclosing_label_copy : Int32
+  ssa_parallel_branch_carrier_copy : Int32
+  ssa_tee_branch_carrier_copy : Int32
+  ssa_void_br_table_canonical_copies : Int32
+  ssa_branch_operand_local_boundary : Int32
+  ssa_nested_loop_target_boundary : Int32
+  ssa_large_structured_local_mix : Int32
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1210,7 +1210,7 @@ pub struct GenValidGenerated {
   wasm_module : @lib.Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
   facts : GenValidFeatureFacts
 } derive(Eq, @debug.Debug)
 
@@ -1224,7 +1224,7 @@ pub struct GenValidModuleGenerated {
   wasm_module : @lib.Module
   config : GenValidConfig
   config_label : String
-  attempts : Int
+  attempts : Int32
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidProfile {
@@ -1722,9 +1722,9 @@ pub enum GenValidProfile {
 
 pub struct GenValidProfileMember {
   profile : GenValidProfile
-  weight : Int
+  weight : Int32
 } derive(Eq, @debug.Debug)
-pub fn GenValidProfileMember::new(GenValidProfile, Int) -> Self
+pub fn GenValidProfileMember::new(GenValidProfile, Int32) -> Self
 
 pub enum GenValidProposalFeature {
   GcFeature
@@ -1780,14 +1780,14 @@ pub struct GenValidRuleRecipeMetadata {
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidSectionBias {
-  imports_percent : Int
-  tables_percent : Int
-  mems_percent : Int
-  globals_percent : Int
-  tags_percent : Int
-  start_percent : Int
-  elems_percent : Int
-  datas_percent : Int
+  imports_percent : Int32
+  tables_percent : Int32
+  mems_percent : Int32
+  globals_percent : Int32
+  tags_percent : Int32
+  start_percent : Int32
+  elems_percent : Int32
+  datas_percent : Int32
 } derive(Eq, @debug.Debug)
 pub fn GenValidSectionBias::coverage_forced_default() -> Self
 pub fn GenValidSectionBias::natural_default() -> Self
@@ -1851,21 +1851,21 @@ pub fn GenValidSsaFuncFacts::empty() -> Self
 
 pub(all) struct LabelStack {
   values : Array[Array[@lib.ValType]]
-  parents : Array[Int]
-  mut head : Int
-  mut len : Int
+  parents : Array[Int32]
+  mut head : Int32
+  mut len : Int32
   mut legacy_catches : LegacyCatchScope?
 } derive(Hash, @debug.Debug)
 pub fn LabelStack::copy(Self) -> Self
 pub fn LabelStack::from_labels(Array[Array[@lib.ValType]]) -> Self
-pub fn LabelStack::get(Self, Int) -> Array[@lib.ValType]?
-pub fn LabelStack::length(Self) -> Int
+pub fn LabelStack::get(Self, Int32) -> Array[@lib.ValType]?
+pub fn LabelStack::length(Self) -> Int32
 pub fn LabelStack::new() -> Self
 pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
 pub impl Show for LabelStack
 
 pub enum LegacyCatchScope {
-  CatchLabel(Int, LegacyCatchScope?)
+  CatchLabel(Int32, LegacyCatchScope?)
 } derive(Hash, @debug.Debug)
 
 pub enum ProposalFeature {
@@ -1879,7 +1879,7 @@ pub enum ProposalFeature {
 
 pub enum TcEscape {
   NoTcEscape
-  BranchTcEscape(Int)
+  BranchTcEscape(Int32)
   TerminalTcEscape
 } derive(Eq, @debug.Debug)
 pub impl Show for TcEscape
@@ -1890,7 +1890,7 @@ pub struct TcState {
   reachable : Bool
   polymorphic : Bool
   escape : TcEscape
-  reachable_escape_depths : Array[Int]
+  reachable_escape_depths : Array[Int32]
   initialized_locals : Array[Bool]
 }
 pub impl Show for TcState
@@ -1898,11 +1898,11 @@ pub impl Show for TcState
 pub struct ValidateInvalidAstFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
   seed_profiles : Array[GenInvalidNamedSeedProfile]
-  seed_profile_attempts : Array[Int]
+  seed_profile_attempts : Array[Int32]
   strategy_stats : Array[ValidateInvalidAstStrategyStats]
 } derive(Eq, @debug.Debug)
 
@@ -1915,7 +1915,7 @@ pub struct ValidateInvalidAstMutation {
 
 pub struct ValidateInvalidAstRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   required_strategies : Array[ValidateInvalidAstStrategyId]
   seed_profiles : Array[GenInvalidNamedSeedProfile]
@@ -2212,28 +2212,28 @@ pub struct ValidateInvalidAstStrategyStats {
   variant_id : String
   expected_family : ValidationIssueFamily
   expected_issue_kind : ValidationIssueFamily
-  attempted : Int
-  applicable : Int
-  mutated : Int
-  rejected : Int
-  rejected_expected : Int
-  variant_attempted : Int
-  variant_applicable : Int
-  variant_mutated : Int
-  variant_rejected : Int
-  rejected_exact_issue : Int
+  attempted : Int32
+  applicable : Int32
+  mutated : Int32
+  rejected : Int32
+  rejected_expected : Int32
+  variant_attempted : Int32
+  variant_applicable : Int32
+  variant_mutated : Int32
+  variant_rejected : Int32
+  rejected_exact_issue : Int32
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateValidFeatureFloor {
   key : ValidateValidFeatureKey
-  min_count : Int
+  min_count : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureFloor
 
 pub struct ValidateValidFeatureFloorFailure {
   key : ValidateValidFeatureKey
-  min_count : Int
-  actual_count : Int
+  min_count : Int32
+  actual_count : Int32
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureFloorFailure
 
@@ -2361,8 +2361,8 @@ pub impl Show for ValidateValidFeatureKey
 pub struct ValidateValidFeatureLedgerEntry {
   key : ValidateValidFeatureKey
   label : String
-  actual_count : Int
-  required_min : Int
+  actual_count : Int32
+  required_min : Int32
   status : ValidateValidFeatureLedgerStatus
 } derive(Eq, @debug.Debug)
 
@@ -2376,8 +2376,8 @@ pub impl Show for ValidateValidFeatureLedgerStatus
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  validated : Int
+  attempts : Int32
+  validated : Int32
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
   feature_floors : Array[ValidateValidFeatureFloor]
@@ -2386,7 +2386,7 @@ pub impl Show for ValidateValidFuzzStats
 
 pub struct ValidateValidRunConfig {
   profile : String
-  attempts : Int
+  attempts : Int32
   generator_config : GenValidConfig
   feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, @debug.Debug)

@@ -1828,6 +1828,13 @@ pub fn ffi_ffi_bridge_funcs_push(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_function_export_builder_new")
+pub fn ffi_ffi_bridge_function_export_builder_new() -> @ffi_bridge.FunctionExportBuilder {
+  @ffi_bridge.function_export_builder_new()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_function_reference_builder_new")
 pub fn ffi_ffi_bridge_function_reference_builder_new() -> @ffi_bridge.FunctionReferenceBuilder {
   @ffi_bridge.function_reference_builder_new()
@@ -1946,6 +1953,16 @@ pub fn ffi_ffi_bridge_memory_argument(
 #export_name("ffi_ffi_bridge_module_new")
 pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
   @ffi_bridge.module_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_additional_function_exports")
+pub fn ffi_ffi_bridge_module_with_additional_function_exports(
+  value0 : @lib.Module,
+  value1 : @ffi_bridge.FunctionExportBuilder,
+) -> @lib.Module {
+  @ffi_bridge.module_with_additional_function_exports(value0, value1)
 }
 
 ///|
@@ -2388,6 +2405,26 @@ pub fn ffi_ffi_bridge_EncodedModule_is_ok(
   receiver : @ffi_bridge.EncodedModule,
 ) -> Bool {
   @ffi_bridge.EncodedModule::is_ok(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_FunctionExportBuilder_push")
+pub fn ffi_ffi_bridge_FunctionExportBuilder_push(
+  receiver : @ffi_bridge.FunctionExportBuilder,
+  value1 : Int32,
+) -> Unit {
+  @ffi_bridge.FunctionExportBuilder::push(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_FunctionExportBuilder_push_name_byte")
+pub fn ffi_ffi_bridge_FunctionExportBuilder_push_name_byte(
+  receiver : @ffi_bridge.FunctionExportBuilder,
+  value1 : Byte,
+) -> Unit {
+  @ffi_bridge.FunctionExportBuilder::push_name_byte(receiver, value1)
 }
 
 ///|
@@ -3707,6 +3744,20 @@ pub fn ffi_ir_hot_build_resolved_block(
   value4 : Array[Int32],
 ) -> Int32 {
   @ir.hot_build_resolved_block(value0, value1, value2, value3, value4)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_build_resolved_loop")
+pub fn ffi_ir_hot_build_resolved_loop(
+  value0 : @ir.HotFunc,
+  value1 : @lib.BlockType,
+  value2 : Array[@lib.ValType],
+  value3 : Array[@lib.ValType],
+  value4 : Array[Int32],
+  value5 : Array[Int32],
+) -> Int32 {
+  @ir.hot_build_resolved_loop(value0, value1, value2, value3, value4, value5)
 }
 
 ///|
@@ -22762,6 +22813,16 @@ pub fn ffi_validate_gen_valid_reorder_globals_profile_case_label(
   value1 : UInt64,
 ) -> String? {
   @validate.gen_valid_reorder_globals_profile_case_label(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_rule_recipe_metadata")
+pub fn ffi_validate_gen_valid_rule_recipe_metadata(
+  value0 : @validate.GenValidProfile,
+  value1 : UInt64,
+) -> @validate.GenValidRuleRecipeMetadata? {
+  @validate.gen_valid_rule_recipe_metadata(value0, value1)
 }
 
 ///|

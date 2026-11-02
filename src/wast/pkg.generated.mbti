@@ -182,9 +182,9 @@ pub impl Show for GlobalType
 pub impl @quickcheck.Arbitrary for GlobalType
 
 pub enum HeapTypeRef {
-  TypeNum(UInt)
+  TypeNum(UInt32)
   TypeId(String)
-  ExactTypeNum(UInt)
+  ExactTypeNum(UInt32)
   ExactTypeId(String)
   Any
   String
@@ -226,7 +226,7 @@ pub impl Show for ImportDesc
 pub impl @quickcheck.Arbitrary for ImportDesc
 
 pub enum Index {
-  Num(UInt)
+  Num(UInt32)
   Id(String)
 } derive(Eq, @debug.Debug)
 pub impl @lib.PrettyPrint for Index
@@ -320,23 +320,23 @@ pub enum Instruction {
   StructNewDefault(Index)
   ArrayNew(Index)
   ArrayNewDefault(Index)
-  ArrayNewFixed(Index, UInt)
+  ArrayNewFixed(Index, UInt32)
   ArrayNewData(Index, Index)
   ArrayNewElem(Index, Index)
-  StructGet(Index, UInt)
-  StructGetS(Index, UInt)
-  StructGetU(Index, UInt)
+  StructGet(Index, UInt32)
+  StructGetS(Index, UInt32)
+  StructGetU(Index, UInt32)
   WaitqueueNew
   WaitqueueNotify
-  StructWait(Index, UInt)
+  StructWait(Index, UInt32)
   Publish
-  StructAtomicSet(AtomicOrder, Index, UInt)
+  StructAtomicSet(AtomicOrder, Index, UInt32)
   ArrayAtomicSet(AtomicOrder, Index)
-  StructAtomicGet(AtomicOrder, Index, UInt)
-  StructAtomicGetS(AtomicOrder, Index, UInt)
-  StructAtomicGetU(AtomicOrder, Index, UInt)
-  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt)
-  StructAtomicCmpxchg(AtomicOrder, Index, UInt)
+  StructAtomicGet(AtomicOrder, Index, UInt32)
+  StructAtomicGetS(AtomicOrder, Index, UInt32)
+  StructAtomicGetU(AtomicOrder, Index, UInt32)
+  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt32)
+  StructAtomicCmpxchg(AtomicOrder, Index, UInt32)
   ArrayAtomicGet(AtomicOrder, Index)
   ArrayAtomicGetS(AtomicOrder, Index)
   ArrayAtomicGetU(AtomicOrder, Index)
@@ -362,14 +362,14 @@ pub enum Instruction {
   V128Load32Zero(MemArg)
   V128Load64Zero(MemArg)
   V128Store(MemArg)
-  V128Load8Lane(MemArg, UInt)
-  V128Load16Lane(MemArg, UInt)
-  V128Load32Lane(MemArg, UInt)
-  V128Load64Lane(MemArg, UInt)
-  V128Store8Lane(MemArg, UInt)
-  V128Store16Lane(MemArg, UInt)
-  V128Store32Lane(MemArg, UInt)
-  V128Store64Lane(MemArg, UInt)
+  V128Load8Lane(MemArg, UInt32)
+  V128Load16Lane(MemArg, UInt32)
+  V128Load32Lane(MemArg, UInt32)
+  V128Load64Lane(MemArg, UInt32)
+  V128Store8Lane(MemArg, UInt32)
+  V128Store16Lane(MemArg, UInt32)
+  V128Store32Lane(MemArg, UInt32)
+  V128Store64Lane(MemArg, UInt32)
   I8x16Shuffle(ShuffleLanes)
   I8x16Swizzle
   I8x16Splat
@@ -378,20 +378,20 @@ pub enum Instruction {
   I64x2Splat
   F32x4Splat
   F64x2Splat
-  I8x16ExtractLaneS(UInt)
-  I8x16ExtractLaneU(UInt)
-  I8x16ReplaceLane(UInt)
-  I16x8ExtractLaneS(UInt)
-  I16x8ExtractLaneU(UInt)
-  I16x8ReplaceLane(UInt)
-  I32x4ExtractLane(UInt)
-  I32x4ReplaceLane(UInt)
-  I64x2ExtractLane(UInt)
-  I64x2ReplaceLane(UInt)
-  F32x4ExtractLane(UInt)
-  F32x4ReplaceLane(UInt)
-  F64x2ExtractLane(UInt)
-  F64x2ReplaceLane(UInt)
+  I8x16ExtractLaneS(UInt32)
+  I8x16ExtractLaneU(UInt32)
+  I8x16ReplaceLane(UInt32)
+  I16x8ExtractLaneS(UInt32)
+  I16x8ExtractLaneU(UInt32)
+  I16x8ReplaceLane(UInt32)
+  I32x4ExtractLane(UInt32)
+  I32x4ReplaceLane(UInt32)
+  I64x2ExtractLane(UInt32)
+  I64x2ReplaceLane(UInt32)
+  F32x4ExtractLane(UInt32)
+  F32x4ReplaceLane(UInt32)
+  F64x2ExtractLane(UInt32)
+  F64x2ReplaceLane(UInt32)
   SimdUnary(Opcode)
   SimdBinary(Opcode)
   SimdTernary(Opcode)
@@ -425,14 +425,14 @@ pub impl @lib.PrettyPrint for LexerError
 pub impl Show for LexerError
 
 pub struct LexerState {
-  cursor : Int
-  line : Int
-  line_start : Int
+  cursor : Int32
+  line : Int32
+  line_start : Int32
 }
 
 pub struct Limits {
-  min : UInt
-  max : UInt?
+  min : UInt32
+  max : UInt32?
 } derive(Eq, @debug.Debug)
 pub impl @lib.PrettyPrint for Limits
 pub impl Show for Limits
@@ -465,9 +465,9 @@ pub impl @quickcheck.Arbitrary for Local
 
 pub struct Location {
   filename : String
-  line : Int
-  first_column : Int
-  last_column : Int
+  line : Int32
+  first_column : Int32
+  last_column : Int32
 } derive(Eq, @debug.Debug)
 pub impl @lib.PrettyPrint for Location
 pub impl Show for Location
@@ -1137,7 +1137,7 @@ pub impl @lib.PrettyPrint for ParseError
 pub impl Show for ParseError
 
 pub struct ShuffleLanes {
-  lanes : FixedArray[UInt]
+  lanes : FixedArray[UInt32]
 } derive(Eq, @debug.Debug)
 pub impl @lib.PrettyPrint for ShuffleLanes
 pub impl Show for ShuffleLanes
@@ -1364,22 +1364,22 @@ pub impl Show for WastActionType
 pub impl @quickcheck.Arbitrary for WastActionType
 
 pub struct WastArbitraryFeatureStats {
-  gc_type_fields : Int
-  exported_tags : Int
-  descriptor_ref_ops : Int
-  bulk_memory_ops : Int
-  bulk_table_ops : Int
-  tail_call_ops : Int
-  exception_ops : Int
-  simd_const_ops : Int
-  control_ops : Int
-  parametric_ops : Int
-  variable_ops : Int
-  table_ops : Int
-  memory_ops : Int
-  numeric_ops : Int
-  reference_ops : Int
-  simd_ops : Int
+  gc_type_fields : Int32
+  exported_tags : Int32
+  descriptor_ref_ops : Int32
+  bulk_memory_ops : Int32
+  bulk_table_ops : Int32
+  tail_call_ops : Int32
+  exception_ops : Int32
+  simd_const_ops : Int32
+  control_ops : Int32
+  parametric_ops : Int32
+  variable_ops : Int32
+  table_ops : Int32
+  memory_ops : Int32
+  numeric_ops : Int32
+  reference_ops : Int32
+  simd_ops : Int32
 } derive(Eq, @debug.Debug)
 
 pub enum WastCommand {
@@ -1403,10 +1403,10 @@ pub impl @quickcheck.Arbitrary for WastCommand
 pub struct WastLexer {
   buffer : Bytes
   filename : String
-  mut line : Int
-  mut cursor : Int
-  mut line_start : Int
-  mut token_start : Int
+  mut line : Int32
+  mut cursor : Int32
+  mut line_start : Int32
+  mut token_start : Int32
   errors : Array[LexerError]
 }
 pub fn WastLexer::get_errors(Self) -> Array[LexerError]
@@ -1450,15 +1450,15 @@ pub impl @quickcheck.Arbitrary for WastResult
 pub struct WastRoundtripFuzzStats {
   profile : String
   seed : UInt64
-  attempts : Int
-  successes : Int
-  stable : Int
-  script_iterations : Int
-  module_commands : Int
-  rendered_scripts : Int
+  attempts : Int32
+  successes : Int32
+  stable : Int32
+  script_iterations : Int32
+  module_commands : Int32
+  rendered_scripts : Int32
   generation_mode : String
-  valid_lowered_modules : Int
-  static_assertions : Int
+  valid_lowered_modules : Int32
+  static_assertions : Int32
   feature_stats : WastArbitraryFeatureStats
 } derive(Eq, @debug.Debug)
 
@@ -1470,7 +1470,7 @@ pub impl Show for WastScript
 pub impl @quickcheck.Arbitrary for WastScript
 
 pub struct WastSpecCommandReport {
-  command_index : Int
+  command_index : Int32
   status : WastSpecCommandStatus
 } derive(Eq, @debug.Debug)
 
@@ -1485,10 +1485,10 @@ pub struct WastSpecFileReport {
   path : String
   status : WastSpecFileStatus
   command_reports : Array[WastSpecCommandReport]
-  total_commands : Int
-  checked_commands : Int
-  skipped_commands : Int
-  blocked_commands : Int
+  total_commands : Int32
+  checked_commands : Int32
+  skipped_commands : Int32
+  blocked_commands : Int32
 } derive(Eq, @debug.Debug)
 
 pub enum WastSpecFileStatus {
@@ -1499,10 +1499,10 @@ pub enum WastSpecFileStatus {
 
 pub struct WastSpecRunSummary {
   files : Array[WastSpecFileReport]
-  total_files : Int
-  passed_files : Int
-  skipped_files : Int
-  failed_files : Int
+  total_files : Int32
+  passed_files : Int32
+  skipped_files : Int32
+  failed_files : Int32
 } derive(Eq, @debug.Debug)
 
 pub enum WastStaticAssertionKind {
