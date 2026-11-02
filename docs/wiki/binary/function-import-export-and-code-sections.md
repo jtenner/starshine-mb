@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-10-20
 sources:
   - ../validate/ref-func-declarations.md
   - ../wasm-compact-import-section-boundary.md
   - ../binaryen/passes/remove-exports/index.md
   - ../binaryen/passes/remove-imports/index.md
   - https://webassembly.github.io/spec/core/binary/modules.html
+  - ../../../src/ffi_bridge/global_bridge.mbt
+  - ../../../src/ffi_bridge/compiler_bridge_test.mbt
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -251,3 +253,22 @@ Uncontended native controls measure shared 128-function pairs at **4.07 →
 2.16 ms**, entirely changed pairs at **4.11 → 4.11 ms**, and the small control
 at **2.01 → 2.07 µs**. These are size-comparison helper timings, not full-pass
 timings. Local evidence: `.tmp/pass-perf-reuse-20260927/accepted-bench-encoded_size_pair_perf_wbtest-1.log`.
+
+## Compiler bridge function exports
+
+The raw WasmGC bridge can append named function exports to an existing module.
+`function_export_builder_new()` creates an empty `FunctionExportBuilder`.
+`push_name_byte` collects raw UTF-8 name bytes; `push(function_index)` adds that
+function export and clears the pending name. The integer index has the same
+unsigned bit interpretation as the existing compiler bridge index functions.
+`module_with_additional_function_exports(module, builder)` keeps existing exports
+and appends the collected entries in order. An empty builder returns the original
+module. Neither the original export array nor the builder entries are aliased by
+the new export section. The builder checks UTF-8. Ordinary module validation checks duplicate names
+and function indices.
+
+This supports extra compiler entry points without a function-name or module-path
+special case. The bridge test checks exact export IR, preserves the original
+module, and validates an encode/decode round trip. Export construction adds one
+array copy and one append per module, rather than rebuilding the export section
+for each function. No runtime speed or heap reduction is claimed.

@@ -82,3 +82,57 @@ pub fn module_with_compiler_exports(
     ]),
   )
 }
+
+///|
+pub(all) struct FunctionExportBuilder {
+  exports : Array[@lib.Export]
+  name : @buffer.Buffer
+}
+
+///|
+pub fn function_export_builder_new() -> FunctionExportBuilder {
+  { exports: [], name: @buffer.Buffer(), }
+}
+
+///|
+pub fn FunctionExportBuilder::push(
+  self : FunctionExportBuilder,
+  function_index : Int32,
+) -> Unit {
+  let name = @utf8.decode(self.name.to_bytes()[:], ignore_bom=false) catch {
+    _ => abort("function export name must be valid UTF-8")
+  }
+  self.exports.push(
+    @lib.Export::new(
+      @lib.Name::from_string(name),
+      @lib.ExternIdx::func(
+        @lib.FuncIdx::new(function_index.reinterpret_as_uint()),
+      ),
+    ),
+  )
+  self.name.reset()
+}
+
+///|
+pub fn FunctionExportBuilder::push_name_byte(
+  self : FunctionExportBuilder,
+  byte : Byte,
+) -> Unit {
+  self.name.write_byte(byte)
+}
+
+///|
+pub fn module_with_additional_function_exports(
+  module_ : @lib.Module,
+  builder : FunctionExportBuilder,
+) -> @lib.Module {
+  if builder.exports.is_empty() {
+    return module_
+  }
+  let exports = match module_.export_sec {
+    Some(@lib.ExportSec(values)) => values.copy()
+    None => []
+  }
+  exports.append(builder.exports)
+  module_.with_export_sec(@lib.ExportSec::new(exports))
+}

@@ -403,3 +403,48 @@ test "WASI compiler bridge validates fd schemas and rejects unsafe scratch and t
     Ok(()),
   )
 }
+
+///|
+test "compiler bridge adds ordered function exports without replacing existing exports" {
+  let input = @ffi_bridge.module_with_compiler_exports(
+    @ffi_bridge.module_with_default_memory(compiler_bridge_void_module()),
+    0,
+  )
+  let extra = @ffi_bridge.function_export_builder_new()
+  assert_eq(
+    @ffi_bridge.module_with_additional_function_exports(input, extra),
+    input,
+  )
+  for byte in b"worker" {
+    extra.push_name_byte(byte)
+  }
+  extra.push(0)
+  for byte in b"another" {
+    extra.push_name_byte(byte)
+  }
+  extra.push(0)
+  let output = @ffi_bridge.module_with_additional_function_exports(input, extra)
+  let expected = Some(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("memory"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("worker"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("another"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  assert_eq(output.export_sec, expected)
+  assert_eq(compiler_bridge_roundtrip(output).export_sec, expected)
+  assert_eq(input.export_sec.unwrap().0.length(), 2)
+}

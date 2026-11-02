@@ -5,4 +5,5 @@ import {
   "jtenner/starshine/representation",
   "jtenner/starshine/validate",
   "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/utf8",
 }
