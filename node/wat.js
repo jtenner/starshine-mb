@@ -7,7 +7,7 @@ export function libModuleToWat(arg0) {
 }
 
 export function lookupKeyword(arg0) {
-  return liftValue({ kind: "option", helper: {"none":"__js_option_100_none","some":"__js_option_100_some","isSome":"__js_option_100_is_some","unwrap":"__js_option_100_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wat__lookup_keyword"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "option", helper: {"none":"__js_option_101_none","some":"__js_option_101_some","isSome":"__js_option_101_is_some","unwrap":"__js_option_101_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wat__lookup_keyword"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWat(arg0) {

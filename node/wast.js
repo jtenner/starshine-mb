@@ -7,7 +7,7 @@ export function evaluateWastStaticAssertion(arg0, arg1) {
 }
 
 export function lookupKeyword(arg0) {
-  return liftValue({ kind: "option", helper: {"none":"__js_option_100_none","some":"__js_option_100_some","isSome":"__js_option_100_is_some","unwrap":"__js_option_100_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "option", helper: {"none":"__js_option_101_none","some":"__js_option_101_some","isSome":"__js_option_101_is_some","unwrap":"__js_option_101_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__lookup_keyword"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm)), wasm);
 }
 
 export function moduleToWast(arg0) {
@@ -187,7 +187,7 @@ export const Instruction = Object.freeze({
 
 export const KeywordTable = Object.freeze({
   lookup(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_100_none","some":"__js_option_100_some","isSome":"__js_option_100_is_some","unwrap":"__js_option_100_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string", moonType: "String" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_101_none","some":"__js_option_101_some","isSome":"__js_option_101_is_some","unwrap":"__js_option_101_unwrap"}, item: { kind: "named", brand: "wast.TokenType", showExport: "__js_show_wast_TokenType" } }, wasm["wast__KeywordTable__lookup"](lowerValue({ kind: "named", brand: "wast.KeywordTable", showExport: null }, arg0, wasm), lowerValue({ kind: "string", moonType: "String" }, arg1, wasm)), wasm);
   },
 });
 

@@ -26,6 +26,7 @@ export type GenValidProfileMember = OpaqueHandle<"validate.GenValidProfileMember
 export type GenValidProposalFeature = OpaqueHandle<"validate.GenValidProposalFeature">;
 export type GenValidProposalFeatureGateRow = OpaqueHandle<"validate.GenValidProposalFeatureGateRow">;
 export type GenValidRandomStreamLabel = OpaqueHandle<"validate.GenValidRandomStreamLabel">;
+export type GenValidRuleRecipeMetadata = OpaqueHandle<"validate.GenValidRuleRecipeMetadata">;
 export type GenValidSectionBias = OpaqueHandle<"validate.GenValidSectionBias">;
 export type GenValidSsaFuncFacts = OpaqueHandle<"validate.GenValidSsaFuncFacts">;
 export type LabelStack = OpaqueHandle<"validate.LabelStack">;
@@ -129,6 +130,7 @@ export function genValidProposalFeatures(): Array<GenValidProposalFeature>;
 export function genValidRandomStreamLabelName(arg0: GenValidRandomStreamLabel): string;
 export function genValidRandomStreamLabels(): Array<GenValidRandomStreamLabel>;
 export function genValidReorderGlobalsProfileCaseLabel(arg0: GenValidProfile, arg1: bigint): (string) | null;
+export function genValidRuleRecipeMetadata(arg0: GenValidProfile, arg1: bigint): (GenValidRuleRecipeMetadata) | null;
 export function genValidRumeProfileCaseLabel(arg0: GenValidProfile, arg1: bigint): (string) | null;
 export function genValidScanFuncSsaFacts(arg0: number, arg1: lib_Locals, arg2: lib_Expr): GenValidSsaFuncFacts;
 export function genValidSsaFullProfileCaseLabel(arg0: GenValidProfile): (string) | null;
@@ -357,6 +359,9 @@ export const GenValidProposalFeatureGateRow: {
 };
 
 export const GenValidRandomStreamLabel: {
+};
+
+export const GenValidRuleRecipeMetadata: {
 };
 
 export const GenValidSectionBias: {

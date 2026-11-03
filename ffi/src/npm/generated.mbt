@@ -10814,6 +10814,15 @@ pub fn ffi_validate_gen_valid_reorder_globals_profile_case_label(
 
 ///|
 #doc(hidden)
+pub fn ffi_validate_gen_valid_rule_recipe_metadata(
+  value0 : @validate.GenValidProfile,
+  value1 : UInt64,
+) -> @validate.GenValidRuleRecipeMetadata? {
+  @validate.gen_valid_rule_recipe_metadata(value0, value1)
+}
+
+///|
+#doc(hidden)
 pub fn ffi_validate_gen_valid_rume_profile_case_label(
   value0 : @validate.GenValidProfile,
   value1 : UInt64,
@@ -16489,19 +16498,21 @@ pub fn __js_option_84_unwrap(value : @lib.TypeIdx??) -> @lib.TypeIdx? {
 }
 
 ///|
-pub fn __js_option_85_none() -> @validate.ProposalFeature? {
+pub fn __js_option_85_none() -> @validate.GenValidRuleRecipeMetadata? {
   None
 }
 
 ///|
 pub fn __js_option_85_some(
-  value : @validate.ProposalFeature,
-) -> @validate.ProposalFeature? {
+  value : @validate.GenValidRuleRecipeMetadata,
+) -> @validate.GenValidRuleRecipeMetadata? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_85_is_some(value : @validate.ProposalFeature?) -> Bool {
+pub fn __js_option_85_is_some(
+  value : @validate.GenValidRuleRecipeMetadata?,
+) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16510,6 +16521,36 @@ pub fn __js_option_85_is_some(value : @validate.ProposalFeature?) -> Bool {
 
 ///|
 pub fn __js_option_85_unwrap(
+  value : @validate.GenValidRuleRecipeMetadata?,
+) -> @validate.GenValidRuleRecipeMetadata {
+  match value {
+    Some(inner) => inner
+    None => abort("Attempted to unwrap None inside the Node adapter.")
+  }
+}
+
+///|
+pub fn __js_option_86_none() -> @validate.ProposalFeature? {
+  None
+}
+
+///|
+pub fn __js_option_86_some(
+  value : @validate.ProposalFeature,
+) -> @validate.ProposalFeature? {
+  Some(value)
+}
+
+///|
+pub fn __js_option_86_is_some(value : @validate.ProposalFeature?) -> Bool {
+  match value {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+pub fn __js_option_86_unwrap(
   value : @validate.ProposalFeature?,
 ) -> @validate.ProposalFeature {
   match value {
@@ -16519,52 +16560,20 @@ pub fn __js_option_85_unwrap(
 }
 
 ///|
-pub fn __js_option_86_none() -> @validate.ValidateInvalidAstStrategySpec? {
+pub fn __js_option_87_none() -> @validate.ValidateInvalidAstStrategySpec? {
   None
 }
 
 ///|
-pub fn __js_option_86_some(
+pub fn __js_option_87_some(
   value : @validate.ValidateInvalidAstStrategySpec,
 ) -> @validate.ValidateInvalidAstStrategySpec? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_86_is_some(
-  value : @validate.ValidateInvalidAstStrategySpec?,
-) -> Bool {
-  match value {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
-pub fn __js_option_86_unwrap(
-  value : @validate.ValidateInvalidAstStrategySpec?,
-) -> @validate.ValidateInvalidAstStrategySpec {
-  match value {
-    Some(inner) => inner
-    None => abort("Attempted to unwrap None inside the Node adapter.")
-  }
-}
-
-///|
-pub fn __js_option_87_none() -> Array[@validate.ProposalFeature]? {
-  None
-}
-
-///|
-pub fn __js_option_87_some(
-  value : Array[@validate.ProposalFeature],
-) -> Array[@validate.ProposalFeature]? {
-  Some(value)
-}
-
-///|
 pub fn __js_option_87_is_some(
-  value : Array[@validate.ProposalFeature]?,
+  value : @validate.ValidateInvalidAstStrategySpec?,
 ) -> Bool {
   match value {
     Some(_) => true
@@ -16574,6 +16583,38 @@ pub fn __js_option_87_is_some(
 
 ///|
 pub fn __js_option_87_unwrap(
+  value : @validate.ValidateInvalidAstStrategySpec?,
+) -> @validate.ValidateInvalidAstStrategySpec {
+  match value {
+    Some(inner) => inner
+    None => abort("Attempted to unwrap None inside the Node adapter.")
+  }
+}
+
+///|
+pub fn __js_option_88_none() -> Array[@validate.ProposalFeature]? {
+  None
+}
+
+///|
+pub fn __js_option_88_some(
+  value : Array[@validate.ProposalFeature],
+) -> Array[@validate.ProposalFeature]? {
+  Some(value)
+}
+
+///|
+pub fn __js_option_88_is_some(
+  value : Array[@validate.ProposalFeature]?,
+) -> Bool {
+  match value {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+pub fn __js_option_88_unwrap(
   value : Array[@validate.ProposalFeature]?,
 ) -> Array[@validate.ProposalFeature] {
   match value {
@@ -16583,17 +16624,17 @@ pub fn __js_option_87_unwrap(
 }
 
 ///|
-pub fn __js_option_88_none() -> @lib.FuncIdx? {
+pub fn __js_option_89_none() -> @lib.FuncIdx? {
   None
 }
 
 ///|
-pub fn __js_option_88_some(value : @lib.FuncIdx) -> @lib.FuncIdx? {
+pub fn __js_option_89_some(value : @lib.FuncIdx) -> @lib.FuncIdx? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_88_is_some(value : @lib.FuncIdx?) -> Bool {
+pub fn __js_option_89_is_some(value : @lib.FuncIdx?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16601,7 +16642,7 @@ pub fn __js_option_88_is_some(value : @lib.FuncIdx?) -> Bool {
 }
 
 ///|
-pub fn __js_option_88_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
+pub fn __js_option_89_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16609,17 +16650,17 @@ pub fn __js_option_88_unwrap(value : @lib.FuncIdx?) -> @lib.FuncIdx {
 }
 
 ///|
-pub fn __js_option_89_none() -> @lib.RefType? {
+pub fn __js_option_90_none() -> @lib.RefType? {
   None
 }
 
 ///|
-pub fn __js_option_89_some(value : @lib.RefType) -> @lib.RefType? {
+pub fn __js_option_90_some(value : @lib.RefType) -> @lib.RefType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_89_is_some(value : @lib.RefType?) -> Bool {
+pub fn __js_option_90_is_some(value : @lib.RefType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16627,7 +16668,7 @@ pub fn __js_option_89_is_some(value : @lib.RefType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_89_unwrap(value : @lib.RefType?) -> @lib.RefType {
+pub fn __js_option_90_unwrap(value : @lib.RefType?) -> @lib.RefType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16635,17 +16676,17 @@ pub fn __js_option_89_unwrap(value : @lib.RefType?) -> @lib.RefType {
 }
 
 ///|
-pub fn __js_option_90_none() -> @lib.Elem? {
+pub fn __js_option_91_none() -> @lib.Elem? {
   None
 }
 
 ///|
-pub fn __js_option_90_some(value : @lib.Elem) -> @lib.Elem? {
+pub fn __js_option_91_some(value : @lib.Elem) -> @lib.Elem? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_90_is_some(value : @lib.Elem?) -> Bool {
+pub fn __js_option_91_is_some(value : @lib.Elem?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16653,7 +16694,7 @@ pub fn __js_option_90_is_some(value : @lib.Elem?) -> Bool {
 }
 
 ///|
-pub fn __js_option_90_unwrap(value : @lib.Elem?) -> @lib.Elem {
+pub fn __js_option_91_unwrap(value : @lib.Elem?) -> @lib.Elem {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16661,17 +16702,17 @@ pub fn __js_option_90_unwrap(value : @lib.Elem?) -> @lib.Elem {
 }
 
 ///|
-pub fn __js_option_91_none() -> @lib.FuncType? {
+pub fn __js_option_92_none() -> @lib.FuncType? {
   None
 }
 
 ///|
-pub fn __js_option_91_some(value : @lib.FuncType) -> @lib.FuncType? {
+pub fn __js_option_92_some(value : @lib.FuncType) -> @lib.FuncType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_91_is_some(value : @lib.FuncType?) -> Bool {
+pub fn __js_option_92_is_some(value : @lib.FuncType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16679,7 +16720,7 @@ pub fn __js_option_91_is_some(value : @lib.FuncType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_91_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
+pub fn __js_option_92_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16687,17 +16728,17 @@ pub fn __js_option_91_unwrap(value : @lib.FuncType?) -> @lib.FuncType {
 }
 
 ///|
-pub fn __js_option_92_none() -> @lib.GlobalType? {
+pub fn __js_option_93_none() -> @lib.GlobalType? {
   None
 }
 
 ///|
-pub fn __js_option_92_some(value : @lib.GlobalType) -> @lib.GlobalType? {
+pub fn __js_option_93_some(value : @lib.GlobalType) -> @lib.GlobalType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_92_is_some(value : @lib.GlobalType?) -> Bool {
+pub fn __js_option_93_is_some(value : @lib.GlobalType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16705,7 +16746,7 @@ pub fn __js_option_92_is_some(value : @lib.GlobalType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_92_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
+pub fn __js_option_93_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16713,17 +16754,17 @@ pub fn __js_option_92_unwrap(value : @lib.GlobalType?) -> @lib.GlobalType {
 }
 
 ///|
-pub fn __js_option_93_none() -> @lib.MemType? {
+pub fn __js_option_94_none() -> @lib.MemType? {
   None
 }
 
 ///|
-pub fn __js_option_93_some(value : @lib.MemType) -> @lib.MemType? {
+pub fn __js_option_94_some(value : @lib.MemType) -> @lib.MemType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_93_is_some(value : @lib.MemType?) -> Bool {
+pub fn __js_option_94_is_some(value : @lib.MemType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16731,7 +16772,7 @@ pub fn __js_option_93_is_some(value : @lib.MemType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_93_unwrap(value : @lib.MemType?) -> @lib.MemType {
+pub fn __js_option_94_unwrap(value : @lib.MemType?) -> @lib.MemType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16739,17 +16780,17 @@ pub fn __js_option_93_unwrap(value : @lib.MemType?) -> @lib.MemType {
 }
 
 ///|
-pub fn __js_option_94_none() -> @lib.TableType? {
+pub fn __js_option_95_none() -> @lib.TableType? {
   None
 }
 
 ///|
-pub fn __js_option_94_some(value : @lib.TableType) -> @lib.TableType? {
+pub fn __js_option_95_some(value : @lib.TableType) -> @lib.TableType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_94_is_some(value : @lib.TableType?) -> Bool {
+pub fn __js_option_95_is_some(value : @lib.TableType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16757,7 +16798,7 @@ pub fn __js_option_94_is_some(value : @lib.TableType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_94_unwrap(value : @lib.TableType?) -> @lib.TableType {
+pub fn __js_option_95_unwrap(value : @lib.TableType?) -> @lib.TableType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16765,17 +16806,17 @@ pub fn __js_option_94_unwrap(value : @lib.TableType?) -> @lib.TableType {
 }
 
 ///|
-pub fn __js_option_95_none() -> @lib.TagType? {
+pub fn __js_option_96_none() -> @lib.TagType? {
   None
 }
 
 ///|
-pub fn __js_option_95_some(value : @lib.TagType) -> @lib.TagType? {
+pub fn __js_option_96_some(value : @lib.TagType) -> @lib.TagType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_95_is_some(value : @lib.TagType?) -> Bool {
+pub fn __js_option_96_is_some(value : @lib.TagType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16783,7 +16824,7 @@ pub fn __js_option_95_is_some(value : @lib.TagType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_95_unwrap(value : @lib.TagType?) -> @lib.TagType {
+pub fn __js_option_96_unwrap(value : @lib.TagType?) -> @lib.TagType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16791,17 +16832,17 @@ pub fn __js_option_95_unwrap(value : @lib.TagType?) -> @lib.TagType {
 }
 
 ///|
-pub fn __js_option_96_none() -> @lib.CompType? {
+pub fn __js_option_97_none() -> @lib.CompType? {
   None
 }
 
 ///|
-pub fn __js_option_96_some(value : @lib.CompType) -> @lib.CompType? {
+pub fn __js_option_97_some(value : @lib.CompType) -> @lib.CompType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_96_is_some(value : @lib.CompType?) -> Bool {
+pub fn __js_option_97_is_some(value : @lib.CompType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16809,7 +16850,7 @@ pub fn __js_option_96_is_some(value : @lib.CompType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_96_unwrap(value : @lib.CompType?) -> @lib.CompType {
+pub fn __js_option_97_unwrap(value : @lib.CompType?) -> @lib.CompType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16817,19 +16858,19 @@ pub fn __js_option_96_unwrap(value : @lib.CompType?) -> @lib.CompType {
 }
 
 ///|
-pub fn __js_option_97_none() -> @validate.GenValidConfig? {
+pub fn __js_option_98_none() -> @validate.GenValidConfig? {
   None
 }
 
 ///|
-pub fn __js_option_97_some(
+pub fn __js_option_98_some(
   value : @validate.GenValidConfig,
 ) -> @validate.GenValidConfig? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_97_is_some(value : @validate.GenValidConfig?) -> Bool {
+pub fn __js_option_98_is_some(value : @validate.GenValidConfig?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16837,7 +16878,7 @@ pub fn __js_option_97_is_some(value : @validate.GenValidConfig?) -> Bool {
 }
 
 ///|
-pub fn __js_option_97_unwrap(
+pub fn __js_option_98_unwrap(
   value : @validate.GenValidConfig?,
 ) -> @validate.GenValidConfig {
   match value {
@@ -16847,19 +16888,19 @@ pub fn __js_option_97_unwrap(
 }
 
 ///|
-pub fn __js_option_98_none() -> @validate.GenInvalidSeedMode? {
+pub fn __js_option_99_none() -> @validate.GenInvalidSeedMode? {
   None
 }
 
 ///|
-pub fn __js_option_98_some(
+pub fn __js_option_99_some(
   value : @validate.GenInvalidSeedMode,
 ) -> @validate.GenInvalidSeedMode? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_98_is_some(value : @validate.GenInvalidSeedMode?) -> Bool {
+pub fn __js_option_99_is_some(value : @validate.GenInvalidSeedMode?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16867,7 +16908,7 @@ pub fn __js_option_98_is_some(value : @validate.GenInvalidSeedMode?) -> Bool {
 }
 
 ///|
-pub fn __js_option_98_unwrap(
+pub fn __js_option_99_unwrap(
   value : @validate.GenInvalidSeedMode?,
 ) -> @validate.GenInvalidSeedMode {
   match value {
@@ -16877,17 +16918,17 @@ pub fn __js_option_98_unwrap(
 }
 
 ///|
-pub fn __js_option_99_none() -> @lib.FuncIdx?? {
+pub fn __js_option_100_none() -> @lib.FuncIdx?? {
   None
 }
 
 ///|
-pub fn __js_option_99_some(value : @lib.FuncIdx?) -> @lib.FuncIdx?? {
+pub fn __js_option_100_some(value : @lib.FuncIdx?) -> @lib.FuncIdx?? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_99_is_some(value : @lib.FuncIdx??) -> Bool {
+pub fn __js_option_100_is_some(value : @lib.FuncIdx??) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16895,7 +16936,7 @@ pub fn __js_option_99_is_some(value : @lib.FuncIdx??) -> Bool {
 }
 
 ///|
-pub fn __js_option_99_unwrap(value : @lib.FuncIdx??) -> @lib.FuncIdx? {
+pub fn __js_option_100_unwrap(value : @lib.FuncIdx??) -> @lib.FuncIdx? {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -16903,17 +16944,17 @@ pub fn __js_option_99_unwrap(value : @lib.FuncIdx??) -> @lib.FuncIdx? {
 }
 
 ///|
-pub fn __js_option_100_none() -> @wast.TokenType? {
+pub fn __js_option_101_none() -> @wast.TokenType? {
   None
 }
 
 ///|
-pub fn __js_option_100_some(value : @wast.TokenType) -> @wast.TokenType? {
+pub fn __js_option_101_some(value : @wast.TokenType) -> @wast.TokenType? {
   Some(value)
 }
 
 ///|
-pub fn __js_option_100_is_some(value : @wast.TokenType?) -> Bool {
+pub fn __js_option_101_is_some(value : @wast.TokenType?) -> Bool {
   match value {
     Some(_) => true
     None => false
@@ -16921,7 +16962,7 @@ pub fn __js_option_100_is_some(value : @wast.TokenType?) -> Bool {
 }
 
 ///|
-pub fn __js_option_100_unwrap(value : @wast.TokenType?) -> @wast.TokenType {
+pub fn __js_option_101_unwrap(value : @wast.TokenType?) -> @wast.TokenType {
   match value {
     Some(inner) => inner
     None => abort("Attempted to unwrap None inside the Node adapter.")
@@ -28618,6 +28659,14 @@ pub fn validate__gen_valid_reorder_globals_profile_case_label(
   arg1 : UInt64,
 ) -> String? {
   ffi_validate_gen_valid_reorder_globals_profile_case_label(arg0, arg1)
+}
+
+///|
+pub fn validate__gen_valid_rule_recipe_metadata(
+  arg0 : @validate.GenValidProfile,
+  arg1 : UInt64,
+) -> @validate.GenValidRuleRecipeMetadata? {
+  ffi_validate_gen_valid_rule_recipe_metadata(arg0, arg1)
 }
 
 ///|
